@@ -131,6 +131,19 @@ def test_launchpad_workflow_has_go_job():
     (wiring_go,) = [step for step in wiring["steps"]
                     if step.get("uses", "").startswith("actions/setup-go@")]
     assert wiring_go["with"]["go-version"] == "1.27.3"
+    web = workflow["jobs"]["launchpad-test"]
+    (web_go,) = [step for step in web["steps"]
+                 if step.get("uses", "").startswith("actions/setup-go@")]
+    assert web_go["with"] == {"go-version": "1.27.3", "cache": "false"}
+    assert web_go["with"]["go-version"] == setup["with"]["go-version"]
+    assert web_go["with"]["go-version"] == wiring_go["with"]["go-version"]
+    assert web["env"]["GOTOOLCHAIN"] == job["env"]["GOTOOLCHAIN"]
+    assert web["env"]["GOTOOLCHAIN"] == "go" + web_go["with"]["go-version"]
+    version = tuple(map(int, web_go["with"]["go-version"].split(".")))
+    for module in launchpad_go_modules():
+        (required,) = re.findall(r"^go (\S+)$", (ROOT / module / "go.mod").read_text(), re.M)
+        required_version = tuple(map(int, required.split(".")))
+        assert required_version <= version, (module, required)
     (run,) = [step for step in wiring["steps"] if step.get("run", "").startswith(
         "python3 -m pytest "
     )]
@@ -153,8 +166,14 @@ def test_launchpad_go_job_provides_api_services_and_contracts():
     steps = job["steps"]
     (install_nats,) = [step for step in steps if
                        "go install github.com/nats-io/nats-server/v2@v2.11.6" in step.get("run", "")]
-    assert "sudo apt-get install --no-install-recommends --yes redis-server" in install_nats["run"]
-    assert "sudo apt-get install --no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon" in install_nats["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes redis-server'
+    ) in install_nats["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon'
+    ) in install_nats["run"]
     assert job["env"]["L13_PHASE3_REDIS_SERVER"] == "/usr/bin/redis-server"
     (start_nats,) = [step for step in steps if step["name"] == "Start API NATS fixture"]
     assert 'nats-server --addr 127.0.0.1 --port 24222 --jetstream ' in start_nats["run"]
@@ -197,6 +216,34 @@ def test_launchpad_go_matrix_lists_every_module():
         assert any((ROOT / module).rglob("*_test.go")), module
 
 
+def test_launchpad_ci_matrix_matches_makefile_modules():
+    jobs = launchpad_go_workflow()["jobs"]
+    job = jobs["launchpad-go-ci"]
+    matrix = job["strategy"]["matrix"]
+    assert set(matrix) == {"module"}, "Run every module without exclusions or overrides"
+    entries = matrix["module"]
+    assert entries == jobs["launchpad-go-test"]["strategy"]["matrix"]["module"]
+    assert len(entries) == len(set(entries)), "Run each module exactly once"
+    text = (ROOT / "services/launchpad/Makefile").read_text()
+    (assignment,) = re.findall(
+        r"^MODULES := (.*?)(?=\n\s*\n)", text, re.M | re.S
+    )
+    make_modules = assignment.replace("\\\n", " ").split()
+    expected = {
+        (ROOT / "services/launchpad" / module)
+        .resolve().relative_to(ROOT).as_posix(): module
+        for module in make_modules
+    }
+    assert len(expected) == len(make_modules)
+    assert set(entries) == set(expected)
+    for module in entries:
+        result = subprocess.run(
+            ["realpath", "--relative-to=services/launchpad", module],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        )
+        assert result.stdout.strip() == expected[module], module
+
+
 def test_launchpad_makefile_ci_target_exists():
     text = (ROOT / "services/launchpad/Makefile").read_text()
     assert re.search(r"^export GOWORK := off$", text, re.M)
@@ -223,6 +270,14 @@ def test_launchpad_makefile_ci_target_exists():
     assert 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)"' in recipe
     assert '|| exit 1' in recipe
     assert "$(GO) list ./...) ||" in text, "Discovery errors must fail the gate"
+
+
+def test_launchpad_ci_target_order():
+    text = (ROOT / "services/launchpad/Makefile").read_text()
+    (ci,) = re.findall(r"^ci:\s*([^\n#]+)", text, re.M)
+    assert ci.split() == [
+        "build", "vet", "fmt-check", "lint", "test", "race", "cover-check"
+    ], "CI must run static stages before tests, race detection and coverage"
 
 
 def test_launchpad_lint_release_and_module_selection():
@@ -816,7 +871,10 @@ def test_launchpad_go_job_provides_remaining_module_fixtures():
     assert job["env"]["L13_PHASE3_REDIS_SERVER"] == "/usr/bin/redis-server"
     (install,) = [step for step in job["steps"]
                   if step["name"] == "Install fixture binaries"]
-    assert "sudo apt-get install --no-install-recommends --yes redis-server" in install["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes redis-server'
+    ) in install["run"]
 
 
 def test_launchpad_remaining_package_inventory_matches_module_sources():
@@ -826,7 +884,9 @@ def test_launchpad_remaining_package_inventory_matches_module_sources():
         "metadata", "social", "user", "discovery", "notifications", "security",
         "security/control",
     }
-    for module, packages in runner.SERVICE_PACKAGES.items():
+    for module, packages in {
+        **runner.SERVICE_PACKAGES, "pnl-tracker": runner.PNL_PACKAGES,
+    }.items():
         root = ROOT / "services/launchpad" / module
         prefix = re.search(r"^module (.+)$", (root / "go.mod").read_text(), re.M)[1]
         expected = set()
@@ -838,11 +898,7 @@ def test_launchpad_remaining_package_inventory_matches_module_sources():
                    for i in range(1, len(relative.parts) + 1)):
                 continue
             expected.add(prefix + ("" if relative == Path(".") else "/" + relative.as_posix()))
-        added = {
-            "trading-charts": {prefix + "/internal/cleanup", prefix + "/internal/safefile"},
-            "gateway": {prefix + "/internal/cleanup"},
-        }.get(module, set())
-        assert packages | added == expected, module
+        assert packages == expected, module
 
 
 def test_launchpad_baseline_records_indexer_refusal_classes():
@@ -897,6 +953,7 @@ def test_launchpad_go_job_creates_real_export_bucket_before_tests():
     (storage,) = [step for step in steps if step["name"] == "Start object storage fixture"]
     assert "go install github.com/minio/minio@RELEASE.2025-04-22T22-12-26Z" in storage["run"]
     assert 'GOBIN="$RUNNER_TEMP/launchpad-fixture-bin" GOFLAGS=' in storage["run"]
+    assert 'echo "$RUNNER_TEMP/launchpad-fixture-bin" >> "$GITHUB_PATH"' in storage["run"]
     assert '--address :9000' in storage["run"]
     assert 'curl --fail --aws-sigv4 "aws:amz:us-east-1:s3"' in storage["run"]
     assert '--user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY"' in storage["run"]
@@ -1164,7 +1221,9 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
     workflow = launchpad_go_workflow()
     test_job = workflow["jobs"]["launchpad-go-test"]
     job = workflow["jobs"]["launchpad-go-ci"]
-    assert job["timeout-minutes"] == "360"
+    assert job["name"] == "Go CI"
+    assert job["timeout-minutes"] == "180"
+    assert job["strategy"]["fail-fast"] == "false"
     assert job["runs-on"] == test_job["runs-on"]
     assert job["env"] == test_job["env"]
     assert job["env"]["GOFLAGS"] == "-timeout=15m"
@@ -1180,11 +1239,16 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
                    if step.get("uses", "").startswith("actions/setup-go@")]
     assert setup_go["with"]["go-version"] == "1.27.3"
     assert job["env"]["GOTOOLCHAIN"] == "go" + setup_go["with"]["go-version"]
-    (run,) = [step for step in steps if step.get("run") == "make -C services/launchpad ci"]
+    command = (
+        'make -C services/launchpad ci '
+        'MODULES="$(realpath --relative-to=services/launchpad "${{ matrix.module }}")"'
+    )
+    (run,) = [step for step in steps if step.get("run") == command]
     assert "working-directory" not in run
     assert steps[-1] == run
     for name in (
-        "Create the pool test database", "Start the owned authorization chain",
+        "Create the pool test database", "Enable database commit timestamps",
+        "Start the owned authorization chain",
         "Install fixture binaries", "Start API NATS fixture",
         "Start object storage fixture", "Start malware scanner fixture",
         "Build native library for protocol producer proofs",
@@ -1194,13 +1258,17 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
         (fixture,) = [step for step in steps if step.get("name") == name]
         assert fixture in test_job["steps"]
         assert steps.index(fixture) < steps.index(run)
-    assert job["strategy"]["matrix"]["module"] == ["sdk/launchpad/protocol"]
+    assert set(job["strategy"]["matrix"]["module"]) == launchpad_go_modules()
     (timestamps,) = [step for step in steps
                      if step.get("name") == "Enable database commit timestamps"]
     assert "ALTER SYSTEM SET track_commit_timestamp = on" in timestamps["run"]
     assert 'docker restart "${{ job.services.postgres.id }}"' in timestamps["run"]
     assert "SHOW track_commit_timestamp" in timestamps["run"]
     assert steps.index(timestamps) < steps.index(run)
+    for go_steps in (steps, test_job["steps"]):
+        (database,) = [step for step in go_steps
+                       if step.get("name") == "Create the pool test database"]
+        assert go_steps[go_steps.index(database) + 1] is timestamps
 
 
 def test_launchpad_go_jobs_install_the_reward_schema_fixture():

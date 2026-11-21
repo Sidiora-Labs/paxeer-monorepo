@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import type { MouseEvent, ReactNode } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
@@ -16,6 +17,7 @@ export interface CoinCardStat {
 
 export interface CoinCardProps {
   image: string | null;
+  tokenAddress?: string | null;
   name: string;
   symbol: string;
   /** Raw market cap in the quote asset scale; null when stats are unavailable. */
@@ -41,8 +43,9 @@ export interface CoinCardProps {
 
 export function CoinCard({
   image,
-  name,
-  symbol,
+  tokenAddress,
+  name: rawName,
+  symbol: rawSymbol,
   mcapRaw,
   mcapDecimals = 6,
   percentChange,
@@ -59,6 +62,8 @@ export function CoinCard({
   loading = false,
   className,
 }: CoinCardProps) {
+  const name = displayCoinText(rawName, tokenAddress);
+  const symbol = displayCoinText(rawSymbol, tokenAddress);
   const cardBg = surface === 'canvas' ? 'bg-surface-1' : 'bg-surface-2';
   const top3 = rank !== undefined && rank >= 1 && rank <= 3;
   const mcap =
@@ -151,16 +156,16 @@ export function CoinCard({
             href={href}
             className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
           >
-            <span className="truncate" title={name}>
+            <span className="block truncate" title={name}>
               {name}
             </span>
             {hiddenSummary}
           </Link>
           <div className="flex items-center gap-2 text-xs text-text-faint">
-            <span className="truncate font-bold uppercase" title={symbol}>
+            <span className="truncate font-bold" title={symbol}>
               ${symbol}
             </span>
-            <AgeChip iso={createdAt} />
+            <AgeChip iso={createdAt} className="shrink-0 whitespace-nowrap" />
           </div>
           {footerStats && footerStats.length > 0 ? (
             <dl className="mt-1 flex flex-wrap gap-x-3 text-2xs text-text-faint">
@@ -217,14 +222,14 @@ export function CoinCard({
             className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
             title={name}
           >
-            {name}
+            <span className="block truncate">{name}</span>
             {hiddenSummary}
           </Link>
           <div className="flex items-center gap-2 text-xs text-text-faint">
-            <span className="truncate font-bold uppercase" title={symbol}>
+            <span className="truncate font-bold" title={symbol}>
               ${symbol}
             </span>
-            <AgeChip iso={createdAt} />
+            <AgeChip iso={createdAt} className="shrink-0 whitespace-nowrap" />
           </div>
         </div>
         {rank !== undefined ? <RankBadge rank={rank} /> : null}

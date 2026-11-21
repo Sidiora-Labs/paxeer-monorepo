@@ -12,7 +12,7 @@ const require = createRequire(new URL('../../../../apps/launchpad/web/package.js
 const { WebSocketServer } = require('ws');
 const directory = new URL('./answers/', import.meta.url);
 const answerNames = [
-  'pool', 'pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
+  'pool', 'coin-pool', 'pools', 'terminal-pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
   'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
   'profile-empty', 'follow-stats', 'follow-stats-empty', 'portfolio', 'portfolio-empty', 'bounties', 'bounty', 'bounties-stats', 'unavailable',
   'rpc-unavailable', 'chart-config', 'chart-symbol', 'chart-time', 'chart-history-empty', 'not-found', 'explorer-empty', 'snapshot', 'stream-control', 'search', 'search-token', 'authority', 'public-share', 'cup-current-empty', 'comments-empty',
@@ -26,6 +26,19 @@ const answerNames = [
 const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
+const loading = await readFile(new URL('loading.js', directory));
+const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community'].map(async part => {
+  return JSON.parse(await readFile(new URL(`./parts/${part}.json`, import.meta.url), 'utf8'));
+}));
+const loadingPaths = new Set(loadingSurfaces.flatMap(surface => surface.views).filter(view => {
+  const url = new URL(view.path, origin);
+  return url.searchParams.get('render') === 'loading';
+}).map(view => view.path));
+
+function documentScripts(path) {
+  return '<head><script src="/__surface/returning.js"></script>'
+    + (loadingPaths.has(path) ? '<script src="/__surface/loading.js"></script>' : '');
+}
 const scriptDecoder = await readFile(new URL('./assets/fflate.min.js', import.meta.url), 'utf8');
 const standaloneDirectory = resolve('apps/launchpad/web/.next/standalone/web');
 await cp('apps/launchpad/web/public', resolve(standaloneDirectory, 'public'), { recursive: true });
@@ -39,7 +52,7 @@ function scenario(incoming) {
   return ['empty', 'loading', 'error'].includes(value) ? value : 'filled';
 }
 
-function answerFor(url, state) {
+function answerFor(url, state, pagePath) {
   const path = url.pathname;
   const empty = state === 'empty';
   if (/^\/v1\/pools\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: 'holders-empty' };
@@ -48,6 +61,7 @@ function answerFor(url, state) {
   if (path === '/v3/portfolio/shares/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b') return { name: 'public-share' };
   if (path === '/v3/portfolio/shares/11111111-1111-4111-8111-111111111111') return { name: 'unavailable', status: 410 };
   if (path === '/v3/portfolio/shares/22222222-2222-4222-8222-222222222222') return { name: 'not-found', status: 404 };
+  if (path === '/v3/portfolio/shares/33333333-3333-4333-8333-333333333333') return { name: 'unavailable', status: 503 };
   if (path.startsWith('/v2/control/'))
     return { name: 'unavailable', status: 503 };
   if (/^\/users\/0x[0-9a-f]{40}\/comments$/.test(path)) return { name: 'comments-empty' };
@@ -64,7 +78,7 @@ function answerFor(url, state) {
   if (path === '/v2/platform/metrics') return { name: 'platform' };
   if (path === '/v2/pools/stats:batch') return { name: empty ? 'items-empty' : 'stats' };
   if (path === '/v2/pools') return { name: empty ? 'items-empty' : 'pools' };
-  if (path === '/v2/pools/0x1111111111111111111111111111111111111111') return { name: 'pool' };
+  if (path === '/v2/pools/0x1111111111111111111111111111111111111111') return { name: /^\/(coin|token)\/0x[0-9a-f]{40}$/i.test(pagePath) ? 'coin-pool' : 'pool' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/stats$/.test(path)) return { name: 'pool-stats' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/candles$/.test(path)) return { name: 'candles-empty' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: 'holders-empty' };
@@ -97,6 +111,7 @@ const chartAssets = await realpath('apps/launchpad/web/public/charting_library')
 const nextAssets = await realpath('apps/launchpad/web/.next/static');
 const fontAssets = await realpath('apps/launchpad/web/public/fonts');
 const compressedAssets = new Map();
+let pagesReady = false;
 const assetTypes = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff': 'font/woff', '.woff2': 'font/woff2', '.otf': 'font/otf', '.ttf': 'font/ttf', '.png': 'image/png', '.html': 'text/html' };
 
 function cacheAsset(file) {
@@ -129,8 +144,13 @@ for (const root of [nextAssets, chartAssets, fontAssets]) {
   await Promise.all(entries.filter(entry => entry.isFile()).map(entry => cacheAsset(resolve(entry.parentPath, entry.name))));
 }
 
-const server = createServer({ cert: await readFile(certificate), key: await readFile(privateKey) }, async (incoming, outgoing) => {
+const server = createServer({ cert: await readFile(certificate), key: await readFile(privateKey), keepAliveTimeout: 60_000, headersTimeout: 65_000 }, async (incoming, outgoing) => {
   const url = new URL(incoming.url, origin);
+  if (url.pathname === '/' && incoming.method === 'GET' && !pagesReady) {
+    outgoing.writeHead(503, { 'retry-after': '1' });
+    outgoing.end();
+    return;
+  }
   const assets = [
     ['/_next/static/', nextAssets],
     ['/charting_library/', chartAssets],
@@ -174,20 +194,34 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     outgoing.end(returning);
     return;
   }
+  if (url.pathname === '/__surface/loading.js') {
+    outgoing.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
+    outgoing.end(loading);
+    return;
+  }
   if (/^\/(v[123]\/|users\/|stats\/|metadata\/|explorer\/api\/)/.test(url.pathname)) {
     const state = scenario(incoming);
     const pagePath = new URL(incoming.headers.referer ?? '/', origin).pathname;
     const homeLoading = state === 'loading' && pagePath === '/';
+    const coinLoading = state === 'loading' && /^\/coin\/0x[0-9a-f]{40}$/.test(pagePath);
     const rewardsLoading = state === 'loading' && ['/holder-rewards', '/leaderboard'].includes(pagePath);
+    const liveLoading = state === 'loading' && (['/live', '/live/all'].includes(pagePath) || /^\/profile\/0x[0-9a-f]{40}$/i.test(pagePath));
+    const bountyLoading = state === 'loading' && pagePath === '/bounties';
+    const bountyProbe = url.pathname === '/v2/bounties' && url.searchParams.get('limit') === '1';
     if (homeLoading && url.pathname === '/v2/discovery/feed') {
       await new Promise(resolve => setTimeout(resolve, 7500));
-    } else if (rewardsLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
+    } else if (coinLoading && /^\/v2\/pools\/0x[0-9a-f]{40}$/.test(url.pathname)) {
+      await new Promise(resolve => setTimeout(resolve, 750));
+    } else if ((rewardsLoading || liveLoading) && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => setTimeout(resolve, 350));
-    } else if (state === 'loading' && !homeLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
+    } else if (bountyLoading && bountyProbe) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } else if (state === 'loading' && !homeLoading && !coinLoading && !bountyLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => outgoing.once('close', resolve));
       return;
     }
-    const answer = answerFor(url, state);
+    const answer = answerFor(url, state, pagePath);
+    if (pagePath === '/swap' && answer.name === 'pools') answer.name = 'terminal-pools';
     let body = answers.get(answer.name);
     if (answer.name === 'snapshot') {
       const snapshot = JSON.parse(body);
@@ -228,6 +262,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     hostname: '127.0.0.1', port: 4174, method: incoming.method, path: incoming.url,
     headers: {
       ...incoming.headers,
+      connection: 'close',
       host: new URL(origin).host,
       'x-forwarded-host': new URL(origin).host,
       'x-forwarded-port': new URL(origin).port,
@@ -246,7 +281,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     const chunks = [];
     response.on('data', chunk => chunks.push(chunk));
     response.on('end', () => {
-      const body = Buffer.concat(chunks).toString().replace('<head>', '<head><script src="/__surface/returning.js"></script>');
+      const body = Buffer.concat(chunks).toString().replace('<head>', documentScripts(incoming.url));
       delete headers['content-length'];
       delete headers['transfer-encoding'];
       outgoing.writeHead(response.statusCode, headers);
@@ -259,6 +294,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
   });
   incoming.pipe(upstream);
 });
+server.keepAliveTimeout = 30_000;
 const sockets = new WebSocketServer({ noServer: true, handleProtocols: protocols => protocols.has('sidiora.v2') ? 'sidiora.v2' : false });
 const control = JSON.parse(answers.get('stream-control'));
 server.on('upgrade', (incoming, socket, head) => {
@@ -286,7 +322,14 @@ async function warmPage(path) {
           'x-forwarded-proto': 'https',
         } }, response => {
           response.resume();
-          response.on('end', () => response.statusCode === 200 ? resolve() : reject(new Error(`Page returned ${response.statusCode}`)));
+          response.on('end', () => {
+            if (response.statusCode === 200) resolve();
+            else if ([307, 308].includes(response.statusCode) && response.headers.location) {
+              const destination = new URL(response.headers.location.replace('https://localhost:4174', origin), origin);
+              if (destination.origin === origin) warmPage(destination.pathname + destination.search).then(resolve, reject);
+              else reject(new Error('Page redirected outside the surface'));
+            } else reject(new Error(`Page returned ${response.statusCode}`));
+          });
           response.on('error', reject);
         });
         warming.setTimeout(15000, () => warming.destroy(new Error('Page did not answer')));
@@ -301,19 +344,32 @@ async function warmPage(path) {
   }
 }
 
-await warmPage('/holder-rewards');
-await warmPage('/leaderboard');
-await warmPage('/meta-ag/orders');
-await warmPage('/meta-ag/swap');
-await warmPage('/swap');
-await warmPage('/terminal');
-await warmPage('/terminal/0x1111111111111111111111111111111111111111');
-await warmPage('/terminal/portfolio');
-await warmPage('/terminal/rewards');
-await warmPage('/terminal/track');
-await warmPage('/terminal/trenches');
-await warmPage('/terminal/trending');
+server.keepAliveTimeoutBuffer = 5000;
+
 server.listen(4173, '203.0.113.1');
+const warmPaths = [
+  '/holder-rewards',
+  '/leaderboard',
+  '/meta-ag/orders',
+  '/meta-ag/swap',
+  '/swap',
+  '/terminal',
+  '/terminal/0x1111111111111111111111111111111111111111',
+  '/terminal/portfolio',
+  '/terminal/rewards',
+  '/terminal/track',
+  '/terminal/trenches',
+  '/terminal/trending',
+];
+const warmDirectory = new URL('./warm/', import.meta.url);
+for (const file of (await readdir(warmDirectory)).sort()) {
+  warmPaths.push(...JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8')));
+}
+const pendingWarmPaths = [...new Set(warmPaths)];
+await Promise.all(Array.from({ length: 4 }, async () => {
+  while (pendingWarmPaths.length > 0) await warmPage(pendingWarmPaths.shift());
+}));
+pagesReady = true;
 function close() {
   for (const socket of sockets.clients) socket.terminate();
   sockets.close(); server.close(); app.kill('SIGTERM');

@@ -66,8 +66,8 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
     const explorer = explorerIdentity.get(event.tokenAddress);
     const pool = meta?.pool_address && /^0x[0-9a-fA-F]{40}$/.test(meta.pool_address) ? meta.pool_address : null;
     return {
-      name: meta?.name?.trim() || explorer?.name || null,
-      symbol: meta?.symbol?.trim() || explorer?.symbol || null,
+      name: meta?.name ?? explorer?.name ?? null,
+      symbol: meta?.symbol ?? explorer?.symbol ?? null,
       logo: meta?.images?.logo ?? explorer?.logo ?? null,
       decimals: typeof meta?.decimals === 'number' ? meta.decimals : explorer?.decimals ?? event.decimals,
       poolAddress: event.poolAddress ?? pool,
@@ -154,7 +154,12 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
     <section aria-label="Activity" className="flex flex-col gap-3">
       {toolbar}
       <NoticeBar tone="neutral" wrap>{tradesUnavailableNotice}</NoticeBar>
-      <div className="rounded-lg bg-surface-1 p-1">{body}</div>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] rounded-lg bg-surface-1 p-1">
+        <div aria-hidden="true" className="invisible col-start-1 row-start-1 pointer-events-none">
+          <Skeleton variant="rows" rows={5} />
+        </div>
+        <div className="col-start-1 row-start-1 min-w-0">{body}</div>
+      </div>
     </section>
   );
 }

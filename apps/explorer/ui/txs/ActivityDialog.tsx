@@ -49,7 +49,7 @@ const ActivityDialog = ({ title, trigger, children }: Props) => {
           overscrollBehavior="contain"
           css={{
             '&[open]': { display: 'flex', flexDirection: 'column' },
-            '& button': { minW: 'touchTarget', minH: 'touchTarget' },
+            '& button': { },
           }}
         >
           <Flex gap={ 2 } alignItems="center" flexWrap="wrap" mb={ 4 }>

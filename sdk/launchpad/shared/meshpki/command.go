@@ -17,7 +17,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return errors.New("action required: authority, issue, assertion, describe")
 	}
 	action := args[0]
-	if action != "authority" && action != "issue" && action != "assertion" && action != "describe" {
+	if action != actionAuthority && action != actionIssue && action != "assertion" && action != "describe" {
 		return errors.New("unknown action")
 	}
 	flags := flag.NewFlagSet(action, flag.ContinueOnError)
@@ -26,13 +26,13 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	dir := flags.String("dir", "", "operator-owned output directory outside Git working copies")
 	var service, names *string
 	var lifetime *time.Duration
-	if action != "authority" {
+	if action != actionAuthority {
 		service = flags.String("service", "", "service token")
 	}
-	if action == "issue" {
+	if action == actionIssue {
 		names = flags.String("names", "", "comma-separated DNS and IP names")
 	}
-	if action == "authority" || action == "issue" {
+	if action == actionAuthority || action == actionIssue {
 		lifetime = flags.Duration("lifetime", 0, "explicit certificate lifetime, e.g. 8760h")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
@@ -51,9 +51,9 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	}
 	var err error
 	switch action {
-	case "authority":
+	case actionAuthority:
 		err = CreateAuthority(*dir, *lifetime)
-	case "issue":
+	case actionIssue:
 		err = IssueService(*dir, *service, strings.Split(*names, ","), *lifetime)
 	case "assertion":
 		err = CreateAssertionKey(*dir, *service)

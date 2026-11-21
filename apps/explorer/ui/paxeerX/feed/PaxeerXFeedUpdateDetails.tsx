@@ -25,8 +25,8 @@ const PaxeerXFeedUpdateDetails = ({ data, isLoading }: Props) => {
 
   return (
     <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-price-update={ data.hash } css={{
-      '& a': { display: 'inline-flex', alignItems: 'center', minWidth: 'touchTarget', minHeight: 'touchTarget' },
-      '& button': { minWidth: 'touchTarget', minHeight: 'touchTarget' },
+      '& a': { display: 'inline-flex', alignItems: 'center' },
+      '& button': { },
       '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
     }}>
       <Box
@@ -41,7 +41,7 @@ const PaxeerXFeedUpdateDetails = ({ data, isLoading }: Props) => {
       >
         <DetailedInfo.Container>
           <ScanKeyValue label="Update hash" hint="The hash of the price submission transaction" isLoading={ isLoading }>
-            <Box overflow="hidden" textOverflow="ellipsis" data-field="hash">{ data.hash }</Box>
+            <Box minW={ 0 } overflowWrap="anywhere" data-field="hash">{ data.hash }</Box>
             <CopyToClipboard text={ data.hash } isLoading={ isLoading }/>
           </ScanKeyValue>
 
@@ -60,7 +60,9 @@ const PaxeerXFeedUpdateDetails = ({ data, isLoading }: Props) => {
           <ScanKeyValue label="Feeder" hint="The account that submitted the prices" isLoading={ isLoading } withDivider>
             <Flex flexDir="column" rowGap={ 1 } minW={ 0 }>
               <AddressEntity address={{ hash: data.from.hash }} isLoading={ isLoading } truncation="constant" noIcon/>
-              <Box color="text.secondary" overflow="hidden" textOverflow="ellipsis" data-field="feeder_bech32">{ summary.feeder_bech32 }</Box>
+              <Box color="text.secondary" minW={ 0 } overflowWrap="anywhere" data-field="feeder_bech32">
+                { summary.feeder_bech32 }
+              </Box>
             </Flex>
           </ScanKeyValue>
 

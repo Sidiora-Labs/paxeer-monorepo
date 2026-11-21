@@ -22,6 +22,8 @@ const AdditionalInfoButton = (props: Props, ref: React.ForwardedRef<HTMLButtonEl
       }}
       borderRadius="base"
       aria-label="Transaction info"
+      data-touch-inline
+      css={{ '--touch-line-size': 'var(--chakra-sizes-6)' }}
       boxSize={ 6 }
       loadingSkeleton={ loading }
       { ...rest }

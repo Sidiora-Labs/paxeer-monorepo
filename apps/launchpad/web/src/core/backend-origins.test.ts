@@ -149,7 +149,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
 
   for (const { values, variables } of cases) {
     configure({ ...valid, ...values });
-    const { default: RootLayout } = await import('@/app/layout');
+    const { default: RootLayout } = await import('@/app/root-layout');
     const origins = await import('@/core/backend-origins');
     const rpc = await import('@/core/rpc');
     const { middleware } = await import('@/middleware');
@@ -169,7 +169,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     }
     expect(origins.browserConnectOrigins()).toEqual([]);
 
-    const response = middleware(new NextRequest('https://launchpad.example.test/explore'));
+    const response = await middleware(new NextRequest('https://launchpad.example.test/explore'));
     baselineHeaders(response);
     const policy = response.headers.get('Content-Security-Policy') ?? '';
     expect(directive(policy, 'connect-src')).toEqual(["'self'"]);
@@ -196,7 +196,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     expect(markup).toContain(plainCopy.configuration);
     expect(markup).not.toMatch(/configured-app|NEXT_PUBLIC_|data-detail/);
 
-    const chart = middleware(new NextRequest('https://launchpad.example.test/charting_library/charting_library.js'));
+    const chart = await middleware(new NextRequest('https://launchpad.example.test/charting_library/charting_library.js'));
     baselineHeaders(chart);
     expect(chart.headers.get('Content-Security-Policy')).toBe("default-src 'self' 'unsafe-eval' 'unsafe-inline' blob: data:; worker-src 'self' blob:; child-src 'self' blob:");
   }

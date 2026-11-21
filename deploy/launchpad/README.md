@@ -103,6 +103,55 @@ variable names. `railway-values.json` supplies the shared `RPC_URL`,
 `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_PAXEER_RPC_URL` and
 `NEXT_PUBLIC_RPC_URL_FALLBACK` select node root URLs.
 
+### Livestream deployment forms
+
+The provider form uses `railway/variables.json` and `railway-values.json`:
+`RUNTIME_PROFILE=container`, `LIVEPEER_PROVIDER_MODE=available` and
+`LIVESTREAM_CONNECTED_ENABLED=true`. It needs the Livepeer API and webhook
+credentials, connected budget policy, identity mTLS and signing credentials,
+vault transit, ingest, playback, viewer-token and audit settings listed in
+`required`. The web build reads `NEXT_PUBLIC_LIVESTREAM_API_URL` as
+`https://live.sidiora.fun`; its gateway URL stays `https://gateway.sidiora.fun`.
+The private listener settings are empty in this form.
+
+The form without a broadcast provider uses
+[`railway/variables.platform.json`](railway/variables.platform.json) and
+[`railway-values.platform.json`](railway-values.platform.json). This manifest
+contains the livestream and web entries; other services use their regular
+entries. It uses the same `fixed`, `required`, `secrets`, `optional`, `forms`
+and `documentSources` fields as the regular manifest. Empty fixed settings
+clear inputs absent from that form. Select it with the variable apply tool's
+`--manifest` option and its matching `--values` file.
+
+That form fixes `RUNTIME_PROFILE=platform`,
+`LIVEPEER_PROVIDER_MODE=unavailable` and `LIVESTREAM_CONNECTED_ENABLED=false`.
+It needs PostgreSQL, Redis, the shared startup documents,
+`LIVESTREAM_VIEWER_TOKEN_KEY` of at least 32 bytes, web CORS origins and the
+gateway client certificate's lowercase SHA-256 digest in
+`GATEWAY_PEER_CERT_SHA256`. The contract selects PEM certificate, private key
+and client CA settings (`LIVESTREAM_TLS_CERT_PEM`, `LIVESTREAM_TLS_KEY_PEM`,
+`LIVESTREAM_TLS_CLIENT_CA_PEM`), with their `*_FILE` alternatives empty.
+The runtime requires exactly one source per certificate, key and CA. It serves
+the stream API on `LIVESTREAM_PRIVATE_LISTEN_ADDRESS=[::]:8443`, using mTLS and
+the pinned gateway certificate; port `8080` serves health and metrics. The
+gateway runtime's livestream upstream uses HTTPS on that private port.
+The web build reads equal `NEXT_PUBLIC_LIVESTREAM_API_URL` and
+`NEXT_PUBLIC_GATEWAY_URL` values, both `https://gateway.sidiora.fun`. Public
+stream reads, viewer sessions and heartbeats use the lifecycle store;
+provider-bound actions return `BROADCAST_NOT_PROVISIONED`.
+
+For the document composer, use `documents/values/livestream.example.json` for
+the provider form or copy `documents/values/livestream.platform.example.json`
+to the values directory as `livestream.json` for the form without a provider.
+For that form also copy `documents/values/gateway.platform.example.json` as
+`gateway.json`; it selects the private livestream upstream.
+The `environment.RUNTIME_PROFILE` selects the contract; `web` supplies the two
+web build inputs. Compose `--service livestream --service gateway --service web`
+to obtain all three outputs. The composer refuses a platform stream URL that
+differs from its gateway URL, a provider form without connected configuration,
+or a platform gateway upstream using another port. Supply deployment-issued
+certificates, certificate digests and credentials in place of example material.
+
 ### Object-store account rights
 
 [object-store/accounts.json](object-store/accounts.json) records the object
@@ -179,14 +228,16 @@ manifest, reviewed runtime, revision digest and both address maps before use.
 
 The web build arguments are:
 
-- Backend origins: `NEXT_PUBLIC_DATA_API_URL`, `NEXT_PUBLIC_GATEWAY_URL`, `NEXT_PUBLIC_METADATA_API_URL`, `NEXT_PUBLIC_PNL_API_URL`, `NEXT_PUBLIC_STATS_API_URL`, `NEXT_PUBLIC_LIVESTREAM_API_URL`, `NEXT_PUBLIC_SOCIAL_API_URL`, `NEXT_PUBLIC_USER_API_URL`.
+- Backend origins: `NEXT_PUBLIC_DATA_API_URL`, `NEXT_PUBLIC_GATEWAY_URL`, `NEXT_PUBLIC_METADATA_API_URL`, `NEXT_PUBLIC_PNL_API_URL`, `NEXT_PUBLIC_STATS_API_URL`, `NEXT_PUBLIC_LIVESTREAM_API_URL`.
 - RPC and wallet inputs: `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_RPC_URL_FALLBACK`, `NEXT_PUBLIC_PAXEER_RPC_URL`, `NEXT_PUBLIC_EXPLORER_API`, `NEXT_PUBLIC_PAXEER_WALLET_API`, `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`, `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 - Application and stream inputs: `NEXT_PUBLIC_ACTION_ENVIRONMENT`, `NEXT_PUBLIC_AUTH_REDIRECT_URL`, `NEXT_PUBLIC_CANONICAL_ORIGIN`, `NEXT_PUBLIC_STREAM_ORIGIN`, `NEXT_PUBLIC_PRIVATE_API_ORIGIN`, `NEXT_PUBLIC_PRIVATE_STREAM_ORIGIN`, `NEXT_PUBLIC_SOCIAL_WRITE_PREFIX`, `NEXT_PUBLIC_SOCIAL_WS_PATH`, `NEXT_PUBLIC_MARKET_SOCIAL_ORIGINS`, `NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE`.
 - Telemetry inputs: `NEXT_PUBLIC_ANALYTICS_KEY`, `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_ENV`, `NEXT_PUBLIC_SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_REPLAY_ERROR_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
 - Server upstream origins: `WEB_API_UPSTREAM`, `WEB_CHARTS_UPSTREAM`, `WEB_GATEWAY_UPSTREAM`, `WEB_SOCKETS_UPSTREAM`.
 
-`web-build-env.sh` sets `NODE_OPTIONS` and unsets empty `NEXT_PUBLIC_*` and `WEB_*`
-variables. The web runtime sets `NODE_ENV`, `NEXT_TELEMETRY_DISABLED`, `HOSTNAME`
+`web-build-env.sh` unsets empty `NEXT_PUBLIC_*` and `WEB_*` variables so application
+defaults apply. The build stage of `Dockerfile.web` sets `NODE_OPTIONS` to
+`--max-old-space-size=4096`, a heap bound of 4096 megabytes.
+The web runtime sets `NODE_ENV`, `NEXT_TELEMETRY_DISABLED`, `HOSTNAME`
 and `PORT`.
 
 `docker-compose.strangler.yml` reads these service-specific image, environment

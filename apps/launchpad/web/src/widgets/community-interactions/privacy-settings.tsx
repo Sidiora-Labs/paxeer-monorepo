@@ -9,9 +9,10 @@ const selectClass = 'h-control-height-md w-full rounded-sm bg-surface-2 px-3 tex
 
 export function PrivacySettings({ client }: { client: InteractionClient }) {
   const [privacy, setPrivacy] = useState<Privacy | null>(null); const [inbox, setInbox] = useState<Inbox>('nobody'); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [wallet, setWallet] = useState(''); const id = useId(); const walletID = useId();
-  useEffect(() => { const controller = new AbortController(); setPrivacy(null); void client.privacy(controller.signal).then(value => { if (!controller.signal.aborted) { setPrivacy(value.data); setInbox(value.data.inbox); } }).catch(error => { if (!controller.signal.aborted) { console.error('[privacy] load failed', error); setError("Can't load your settings right now"); } }); return () => controller.abort(); }, [client]);
-  async function save(event: FormEvent) { event.preventDefault(); if (!privacy || busy) return; setBusy(true); setError(''); try { await client.setPrivacy(inbox, privacy.revision); const fresh = await client.privacy(); setPrivacy(fresh.data); setInbox(fresh.data.inbox); } catch (error) { console.error('[privacy] save failed', error); setError("Couldn't save, try again"); } finally { setBusy(false); } }
-  async function block(remove: boolean) { if (busy || !walletPattern.test(wallet)) return; setBusy(true); setError(''); try { await client.block(wallet, remove); setWallet(''); } catch (error) { console.error('[privacy] block failed', error); setError("Couldn't update your block list, try again"); } finally { setBusy(false); } }
+  const [attempt, setAttempt] = useState(0); const [result, setResult] = useState('');
+  useEffect(() => { const controller = new AbortController(); setPrivacy(null); setError(''); void client.privacy(controller.signal).then(value => { if (!controller.signal.aborted) { setPrivacy(value.data); setInbox(value.data.inbox); } }).catch(error => { if (!controller.signal.aborted) { console.error('[privacy] load failed', error); setError("Can't load your settings right now"); } }); return () => controller.abort(); }, [client, attempt]);
+  async function save(event: FormEvent) { event.preventDefault(); if (!privacy || busy) return; setBusy(true); setError(''); setResult(''); try { await client.setPrivacy(inbox, privacy.revision); const fresh = await client.privacy(); setPrivacy(fresh.data); setInbox(fresh.data.inbox); setResult('Privacy settings saved'); } catch (error) { console.error('[privacy] save failed', error); setError("Couldn't save, try again"); } finally { setBusy(false); } }
+  async function block(remove: boolean) { if (busy || !walletPattern.test(wallet)) return; setBusy(true); setError(''); setResult(''); try { await client.block(wallet, remove); setWallet(''); setResult(remove ? 'Wallet unblocked' : 'Wallet blocked'); } catch (error) { console.error('[privacy] block failed', error); setError("Couldn't update your block list, try again"); } finally { setBusy(false); } }
   const validWallet = walletPattern.test(wallet);
   return <section aria-label="Privacy" className="flex flex-col gap-4 rounded-md bg-surface-1 p-4">
     <form onSubmit={event => { void save(event); }} aria-busy={busy || undefined} className="flex flex-col gap-3">
@@ -29,6 +30,8 @@ export function PrivacySettings({ client }: { client: InteractionClient }) {
       </div>
       <p className="text-xs text-text-faint">Unblocking won't bring back follows or messages</p>
     </div>
+    {result && <p role="status" className="text-xs text-text-muted">{result}</p>}
+    {!privacy && error && <Button type="button" variant="secondary" size="sm" onClick={() => setAttempt(value => value + 1)}>Try again</Button>}
     {error && <p role="alert" className="text-xs text-danger">{error}</p>}
   </section>;
 }

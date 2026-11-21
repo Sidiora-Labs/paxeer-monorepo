@@ -102,7 +102,9 @@ func (standbyHead) Close() error                        { return nil }
 func TestLeaseStandbyWaitsThenCommitsFromDurableWatermark(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	st := &standbyStore{held: true, watermark: 90, firstAcquire: make(chan struct{}), committed: make(chan struct{}), cancel: cancel}
+	firstAcquire := make(chan struct{})
+	committed := make(chan struct{})
+	st := &standbyStore{held: true, watermark: 90, firstAcquire: firstAcquire, committed: committed, cancel: cancel}
 	p := New(Deps{
 		Store: st, QualifiedBatchSource: standbyBatchSource{}, CanonicalStreamID: "live", CanonicalOwner: "standby",
 		ChainID: 125, BatchSize: 1, PollInterval: 5 * time.Millisecond, Head: standbyHead{},
@@ -112,7 +114,7 @@ func TestLeaseStandbyWaitsThenCommitsFromDurableWatermark(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- p.Run(ctx) }()
 	select {
-	case <-st.firstAcquire:
+	case <-firstAcquire:
 	case <-time.After(time.Second):
 		t.Fatal("standby did not attempt lease acquisition")
 	}
@@ -127,7 +129,7 @@ func TestLeaseStandbyWaitsThenCommitsFromDurableWatermark(t *testing.T) {
 	st.held = false
 	st.mu.Unlock()
 	select {
-	case <-st.committed:
+	case <-committed:
 	case <-time.After(2 * time.Second):
 		t.Fatal("standby did not commit after lease takeover")
 	}

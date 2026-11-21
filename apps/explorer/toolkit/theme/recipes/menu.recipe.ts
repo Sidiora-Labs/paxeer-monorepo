@@ -34,7 +34,6 @@ export const recipe = defineSlotRecipe({
       alignItems: 'center',
       textAlign: 'start',
       position: 'relative',
-      minH: 'touchTarget',
       flex: '0 0 auto',
       outline: 0,
       _disabled: {

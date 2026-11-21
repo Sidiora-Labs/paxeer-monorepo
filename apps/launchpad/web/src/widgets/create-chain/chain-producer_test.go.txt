@@ -1,0 +1,188 @@
+package launchpad_test
+
+import (
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxchains"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
+)
+
+type chainWebTransaction struct {
+	From  common.Address `json:"from"`
+	To    common.Address `json:"to"`
+	Data  hexutil.Bytes  `json:"data"`
+	Value *hexutil.Big   `json:"value"`
+}
+
+type chainWebRPC struct {
+	mu           sync.Mutex
+	h            *harness
+	receipts     map[common.Hash]map[string]any
+	transactions map[common.Hash]*ethtypes.Transaction
+}
+
+func (a *chainWebRPC) ChainId() *hexutil.Big {
+	return (*hexutil.Big)(a.h.evm.ChainConfig().ChainID)
+}
+
+func (a *chainWebRPC) Accounts() []common.Address        { return []common.Address{a.h.caller} }
+func (a *chainWebRPC) RequestAccounts() []common.Address { return a.Accounts() }
+func (a *chainWebRPC) BlockNumber() hexutil.Uint64       { return hexutil.Uint64(a.h.ctx().BlockHeight()) }
+func (a *chainWebRPC) GasPrice() *hexutil.Big {
+	return (*hexutil.Big)(testkeeper.EVMTestApp.EvmKeeper.GetMinimumFeePerGas(a.h.ctx()).TruncateInt().BigInt())
+}
+
+type chainWebRevert struct {
+	data []byte
+	err  error
+}
+
+func (e chainWebRevert) Error() string          { return e.err.Error() }
+func (e chainWebRevert) ErrorCode() int         { return 3 }
+func (e chainWebRevert) ErrorData() interface{} { return hexutil.Encode(e.data) }
+
+func (a *chainWebRPC) Call(tx chainWebTransaction, block string) (hexutil.Bytes, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if block != "latest" && block != hexutil.EncodeUint64(uint64(a.h.ctx().BlockHeight())) {
+		return nil, fmt.Errorf("block unavailable")
+	}
+	from := tx.From
+	if from == (common.Address{}) {
+		from = a.h.caller
+	}
+	ret, _, err := a.h.evm.StaticCall(from, tx.To, tx.Data, callGas)
+	if err != nil {
+		return nil, chainWebRevert{ret, err}
+	}
+	return ret, nil
+}
+
+func (a *chainWebRPC) execute(tx chainWebTransaction) ([]byte, uint64, error) {
+	value := new(big.Int)
+	if tx.Value != nil {
+		value.Set((*big.Int)(tx.Value))
+	}
+	return a.h.evm.Call(tx.From, tx.To, tx.Data, callGas, uint256.MustFromBig(value))
+}
+
+func (a *chainWebRPC) EstimateGas(tx chainWebTransaction) (hexutil.Uint64, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	snapshot := a.h.stateDB.Snapshot()
+	ret, left, err := a.execute(tx)
+	a.h.stateDB.RevertToSnapshot(snapshot)
+	if err != nil {
+		return 0, chainWebRevert{ret, err}
+	}
+	return hexutil.Uint64(callGas - left), nil
+}
+
+func (a *chainWebRPC) SendTransaction(tx chainWebTransaction) (common.Hash, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	value := new(big.Int)
+	if tx.Value != nil {
+		value.Set((*big.Int)(tx.Value))
+	}
+	transaction := ethtypes.NewTransaction(uint64(len(a.transactions)), tx.To, value, callGas,
+		(*big.Int)(a.GasPrice()), tx.Data)
+	before := a.h.logCount()
+	_, left, err := a.execute(tx)
+	status := uint64(ethtypes.ReceiptStatusSuccessful)
+	if err != nil {
+		status = ethtypes.ReceiptStatusFailed
+	}
+	logs := a.h.stateDB.GetAllLogs()[before:]
+	blockHash := (&ethtypes.Header{Number: big.NewInt(a.h.ctx().BlockHeight()), Time: uint64(a.h.ctx().BlockTime().Unix())}).Hash()
+	for _, log := range logs {
+		log.BlockNumber = uint64(a.h.ctx().BlockHeight())
+		log.BlockHash = blockHash
+		log.TxHash = transaction.Hash()
+		log.TxIndex = uint(len(a.transactions))
+	}
+	receipt := &ethtypes.Receipt{
+		Type: transaction.Type(), Status: status, TxHash: transaction.Hash(),
+		GasUsed: callGas - left, CumulativeGasUsed: callGas - left, Logs: logs,
+		BlockNumber: big.NewInt(a.h.ctx().BlockHeight()), BlockHash: blockHash,
+		TransactionIndex: uint(len(a.transactions)), EffectiveGasPrice: transaction.GasPrice(),
+	}
+	body, marshalErr := receipt.MarshalJSON()
+	if marshalErr != nil {
+		return common.Hash{}, marshalErr
+	}
+	var document map[string]any
+	if err := json.Unmarshal(body, &document); err != nil {
+		return common.Hash{}, err
+	}
+	document["from"], document["to"] = tx.From, tx.To
+	a.receipts[transaction.Hash()] = document
+	a.transactions[transaction.Hash()] = transaction
+	return transaction.Hash(), nil
+}
+
+func (a *chainWebRPC) GetTransactionReceipt(hash common.Hash) map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.receipts[hash]
+}
+
+func TestChainLaunchWebProducer(t *testing.T) {
+	h, _ := chainHarness(t)
+	require.Equal(t, int64(125), h.evm.ChainConfig().ChainID.Int64())
+	h.approve(h.usdl, h.caller, new(big.Int))
+	chains, err := layerxchains.NewServedPrecompile(testkeeper.EVMTestApp.LayerXChainsKeeper, &testkeeper.EVMTestApp.EvmKeeper)
+	require.NoError(t, err)
+	contracts := vm.PrecompiledContracts{}
+	for addr, contract := range testkeeper.EVMTestApp.EvmKeeper.CustomPrecompiles(h.ctx()) {
+		contracts[addr] = contract
+	}
+	contracts[precompile] = h.precompile
+	contracts[common.HexToAddress(layerxchains.ChainsAddress)] = chains
+	h.evm.SetPrecompiles(contracts)
+	params := testkeeper.EVMTestApp.LayerXChainsKeeper.GetParams(h.ctx())
+	funds := sdk.NewCoins(sdk.NewCoin(testkeeper.EVMTestApp.EvmKeeper.GetBaseDenom(h.ctx()), params.MinBond.Add(params.CreationFee)))
+	require.NoError(t, testkeeper.EVMTestApp.BankKeeper.MintCoins(h.ctx(), evmtypes.ModuleName, funds))
+	require.NoError(t, testkeeper.EVMTestApp.BankKeeper.SendCoinsFromModuleToAccount(h.ctx(), evmtypes.ModuleName,
+		testkeeper.EVMTestApp.EvmKeeper.GetPaxAddressOrDefault(h.ctx(), h.caller), funds))
+	require.Positive(t, new(big.Int).Mul(params.MinBond.BigInt(), state.UhpxToSweiMultiplier).Sign())
+	api := &chainWebRPC{h: h, receipts: map[common.Hash]map[string]any{}, transactions: map[common.Hash]*ethtypes.Transaction{}}
+	server := rpc.NewServer()
+	require.NoError(t, server.RegisterName("eth", api))
+	defer server.Stop()
+	stop := make(chan struct{}, 1)
+	httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/stop" {
+			w.WriteHeader(http.StatusNoContent)
+			stop <- struct{}{}
+			return
+		}
+		server.ServeHTTP(w, r)
+	}))
+	defer httpServer.Close()
+	info, err := json.Marshal(map[string]any{"origin": httpServer.URL, "creator": h.caller, "token": h.usdl})
+	require.NoError(t, err)
+	fmt.Printf("CHAIN_PRODUCER %s\n", info)
+	select {
+	case <-stop:
+	case <-time.After(5 * time.Minute):
+		t.Fatal("chain launch client did not finish")
+	}
+}

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setImmediate } from 'node:timers/promises';
 import { ethers } from 'ethers';
-import { afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { createSwapEvm } from './evm-22-33-121.fixture';
 import { NATIVE_PAX } from './constants';
 import { executeSwap, SwapRevertedError } from './executor';
@@ -17,6 +17,23 @@ let signer: ethers.JsonRpcSigner;
 let output: ethers.Contract;
 let quote: SwapQuote;
 let params: SwapParams;
+let submissions: string[];
+let onSubmission: (() => void) | undefined;
+
+async function withClock<T>(result: Promise<T>): Promise<T> {
+  let outcome: { value: T } | { error: unknown } | undefined;
+  void result.then(
+    (value) => {
+      outcome = { value };
+    },
+    (error: unknown) => {
+      outcome = { error };
+    }
+  );
+  while (!outcome) await vi.advanceTimersByTimeAsync(10);
+  if ('error' in outcome) throw outcome.error;
+  return outcome.value;
+}
 
 interface CompiledContract {
   abi: ethers.InterfaceAbi;
@@ -88,6 +105,7 @@ function artifact(path: string) {
 
 async function controlledEvm() {
   const evm = await createSwapEvm();
+  evm.provider.destroy();
   let automine = true;
   const pending = new Map<
     string,
@@ -170,6 +188,9 @@ async function controlledEvm() {
         s: ethers.toQuantity(tx.s!),
       };
       pending.set(hash, { input, transaction });
+      submissions.push(hash);
+      onSubmission?.();
+      onSubmission = undefined;
       return hash;
     }
     if (method === 'evm_mine') {
@@ -206,7 +227,7 @@ async function installProxy(
   return new ethers.Contract(address, contract.abi, signer);
 }
 
-beforeEach(async () => {
+async function prepareExecutor() {
   provider = await controlledEvm();
   provider.pollingInterval = 10;
   signer = await provider.getSigner();
@@ -270,22 +291,43 @@ beforeEach(async () => {
     recipient: owner,
   };
   await provider.send('evm_setAutomine', [false]);
+}
+
+beforeEach(async () => {
+  vi.useFakeTimers({
+    toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+  submissions = [];
+  onSubmission = undefined;
+  await withClock(prepareExecutor());
 }, 15000);
 
 afterEach(async () => {
   provider?.destroy();
   provider = undefined;
+  submissions = [];
+  onSubmission = undefined;
+  vi.clearAllTimers();
+  vi.useRealTimers();
 });
 
 async function pendingSwap(): Promise<string> {
-  let pending: { hash: string }[] = [];
-  await expect
-    .poll(async () => {
-      pending = await signer.provider.send('eth_pendingTransactions', []);
-      return pending.length;
-    })
-    .toBe(1);
+  if (!submissions.length)
+    await new Promise<void>((resolve) => {
+      onSubmission = resolve;
+    });
+  const pending: { hash: string }[] = await signer.provider.send('eth_pendingTransactions', []);
+  expect(pending).toHaveLength(1);
+  expect(pending[0].hash).toBe(submissions.shift());
+  while ((await signer.provider.listenerCount(pending[0].hash)) === 0) await setImmediate();
+  signer.provider.pause(true);
   return pending[0].hash;
+}
+
+async function mineSwap() {
+  await signer.provider.send('evm_mine', []);
+  signer.provider.resume();
 }
 
 async function execute_swap_returns_after_the_receipt() {
@@ -303,7 +345,7 @@ async function execute_swap_returns_after_the_receipt() {
   expect(await signer.provider.getTransactionReceipt(hash)).toBeNull();
   await setImmediate();
   expect(settled).toBe(false);
-  await signer.provider.send('evm_mine', []);
+  await mineSwap();
   const result = await swap;
   expect(result.hash).toBe(hash);
   expect(result.receipt).toBeInstanceOf(ethers.TransactionReceipt);
@@ -318,7 +360,7 @@ async function execute_swap_refuses_a_reverted_swap() {
   const rejection = expect(swap).rejects.toBeInstanceOf(SwapRevertedError);
   const hash = await pendingSwap();
   await signer.provider.send('evm_setNextBlockTimestamp', [Math.floor(Date.now() / 1000) + 301]);
-  await signer.provider.send('evm_mine', []);
+  await mineSwap();
   await rejection;
   await expect(swap).rejects.toMatchObject({
     name: 'SwapRevertedError',
@@ -468,7 +510,7 @@ async function sidiora_swap_min_out_uses_confirmed_quote() {
     expect(call?.args[0]).toBe(market.pool);
     expect(call?.args[1]).toBe(amountIn);
     expect(call?.args[2]).toBe(expectedMinOut);
-    await signer.provider.send('evm_mine', []);
+    await mineSwap();
     expect((await swap).receipt.status).toBe(1);
     await signer.provider.send('evm_setAutomine', [true]);
   }
@@ -548,15 +590,23 @@ async function sidiora_multihop_min_out_uses_confirmed_quote() {
   expect(await outputToken.balanceOf(params.recipient)).toBe(protectedOut);
 }
 
-test(execute_swap_returns_after_the_receipt.name, execute_swap_returns_after_the_receipt, 15000);
-test(execute_swap_refuses_a_reverted_swap.name, execute_swap_refuses_a_reverted_swap, 15000);
+test(
+  execute_swap_returns_after_the_receipt.name,
+  () => withClock(execute_swap_returns_after_the_receipt()),
+  15000
+);
+test(
+  execute_swap_refuses_a_reverted_swap.name,
+  () => withClock(execute_swap_refuses_a_reverted_swap()),
+  15000
+);
 test(
   sidiora_swap_min_out_uses_confirmed_quote.name,
-  sidiora_swap_min_out_uses_confirmed_quote,
+  () => withClock(sidiora_swap_min_out_uses_confirmed_quote()),
   15000
 );
 test(
   sidiora_multihop_min_out_uses_confirmed_quote.name,
-  sidiora_multihop_min_out_uses_confirmed_quote,
+  () => withClock(sidiora_multihop_min_out_uses_confirmed_quote()),
   15000
 );

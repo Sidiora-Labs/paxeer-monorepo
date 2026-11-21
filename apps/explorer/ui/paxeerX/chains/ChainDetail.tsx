@@ -206,7 +206,7 @@ export function ChainDetail({ id }: { id: number }) {
 
   return (
     <>
-      <Link href="/chains" minH="touchTarget" minW="touchTarget" display="inline-flex" alignItems="center">All chains</Link>
+      <Link href="/chains" display="inline-flex" alignItems="center">All chains</Link>
       <PageTitle title={ record.data?.name || `Chain ${ id }` }/>
       { record.isPending && <Text role="status">Loading chain…</Text> }
       { record.isError && (record.error.status === 404 ? <Text role="alert">Unknown virtual chain.</Text> : <DataFetchAlert/>) }

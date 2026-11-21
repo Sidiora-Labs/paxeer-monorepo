@@ -1,4 +1,4 @@
-import { Box, createListCollection, Flex, Grid, GridItem, chakra } from '@chakra-ui/react';
+import { Box, createListCollection, Flex, chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import type * as stats from '@blockscout/stats-types';
@@ -63,17 +63,12 @@ const StatsFilters = ({
   }, [ onIntervalChange ]);
 
   return (
-    <Grid
+    <Flex
       data-stats-filters
-      css={{ '& button, & input': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}
+      css={{ '& button, & input': { _motionReduce: { transitionProperty: 'none' } } }}
       gap={{ base: 2, lg: 3 }}
-      templateAreas={{
-        base: `"input"
-                "section"
-                "interval"`,
-        lg: `"input section interval"`,
-      }}
-      gridTemplateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) auto auto' }}
+      flexDirection="row"
+      flexWrap="wrap"
       alignItems="end"
       bg="bg.surface"
       borderWidth="1"
@@ -84,10 +79,11 @@ const StatsFilters = ({
       px={{ base: 3, lg: 4 }}
       py={{ base: 3, lg: 3 }}
     >
-      <GridItem
-        minW={ 0 }
-        w="100%"
-        area="input"
+      <Box
+        minW={{ base: 0, lg: 'min(100%, 20ch)' }}
+        w={{ base: '100%', lg: 'auto' }}
+        flex={{ lg: '1 1 20ch' }}
+        order={{ base: 3, lg: 0 }}
         data-stats-filter-input
       >
         <chakra.label htmlFor={ inputId } display="block" textStyle="label" mb={ 2 }>Find chart, metric</chakra.label>
@@ -102,12 +98,12 @@ const StatsFilters = ({
           minW={ 0 }
           inputProps={{ id: inputId, type: 'search', autoCapitalize: 'none', spellCheck: false, enterKeyHint: 'search' }}
         />
-      </GridItem>
+      </Box>
 
-      <GridItem
-        minW={ 0 }
-        w={{ base: '100%', lg: 'auto' }}
-        area="section"
+      <Box
+        minW="min(100%, 14ch)"
+        w={{ base: 'calc((100% - var(--chakra-spacing-2)) / 2)', lg: 'auto' }}
+        flexGrow={{ base: 1, lg: 0 }}
         data-stats-filter-section
       >
         <chakra.label htmlFor={ sectionId } display="block" textStyle="label" mb={ 2 }>Section</chakra.label>
@@ -130,18 +126,20 @@ const StatsFilters = ({
             _motionReduce: { animation: 'none' },
           }}
         />
-      </GridItem>
+      </Box>
 
-      <GridItem
-        minW={ 0 }
-        w={{ base: '100%', lg: 'auto' }}
+      <Box
+        minW="min(100%, 14ch)"
+        maxW="100%"
+        w={{ base: 'calc((100% - var(--chakra-spacing-2)) / 2)', lg: 'auto' }}
+        flexGrow={{ base: 1, lg: 0 }}
         as="fieldset"
-        area="interval"
         data-stats-filter-interval
       >
         <chakra.legend textStyle="label" mb={ 2 }>Interval</chakra.legend>
         <Box data-chart-interval-select={ interval }>
-          <Flex hideBelow="lg" gap={ 1 } flexWrap="wrap" role="group" aria-label="Interval">
+          <Flex hideBelow="lg" gap={ 1 } p={ 1 } borderWidth="1" borderColor="transparent"
+            flexWrap="wrap" role="group" aria-label="Interval">
             { intervalIds.map((id) => (
               <Button
                 key={ id }
@@ -151,13 +149,14 @@ const StatsFilters = ({
                 aria-label={ STATS_INTERVALS[id].title }
                 aria-pressed={ interval === id }
                 variant="outline"
+                size="xs"
+                h="calc(var(--chakra-spacing-6) + var(--chakra-spacing-0\.5))"
+                px={ 1.5 }
                 color="text.primary"
                 bg={ interval === id ? 'selectedOption' : 'canvas' }
                 borderColor={ interval === id ? 'accent' : 'border.strong' }
                 onClick={ handleIntervalClick }
                 disabled={ isLoading }
-                minH="touchTarget"
-                minW="touchTarget"
               >
                 { STATS_INTERVALS[id].shortTitle }
               </Button>
@@ -181,8 +180,8 @@ const StatsFilters = ({
             </SelectContent>
           </SelectRoot>
         </Box>
-      </GridItem>
-    </Grid>
+      </Box>
+    </Flex>
   );
 };
 

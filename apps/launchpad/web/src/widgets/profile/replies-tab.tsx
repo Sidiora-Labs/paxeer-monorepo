@@ -67,7 +67,7 @@ async function readProfileComments(wallet: string, signal?: AbortSignal): Promis
 }
 
 /** The wallet's comments across coin threads, from media/social; its real 404 renders the unavailable state. */
-export function RepliesTab({ wallet, isOwner = false }: RepliesTabProps) {
+function RepliesContent({ wallet, isOwner = false }: RepliesTabProps) {
   const address = wallet.toLowerCase();
   const query = useQuery({
     queryKey: queryKeys.profileReplies(address),
@@ -111,5 +111,16 @@ export function RepliesTab({ wallet, isOwner = false }: RepliesTabProps) {
       </ul>
       {hasMore ? <p className="px-3 py-2 text-xs text-text-faint">Showing the latest {REPLIES_LIMIT} replies.</p> : null}
     </section>
+  );
+}
+
+export function RepliesTab(props: RepliesTabProps) {
+  return (
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
+      <div aria-hidden="true" className="invisible col-start-1 row-start-1 pointer-events-none">
+        <Skeleton variant="rows" rows={4} />
+      </div>
+      <div className="col-start-1 row-start-1 min-w-0"><RepliesContent {...props} /></div>
+    </div>
   );
 }

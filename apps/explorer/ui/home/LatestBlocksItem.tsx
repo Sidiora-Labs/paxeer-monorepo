@@ -55,9 +55,6 @@ const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props
               text={ block.hash }
               isLoading={ isLoading }
               boxSize={ 4 }
-              opacity={ 0 }
-              _groupHover={{ opacity: 1 }}
-              _focusVisible={{ opacity: 1 }}
             />
           </Flex>
           <Skeleton loading={ isLoading } textStyle="number" color="text.secondary">
@@ -130,7 +127,7 @@ const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props
         flexBasis={{ base: '100%', md: 'auto' }}
         order={{ base: 1, md: 0 }}
       >
-        <Flex alignItems="center" columnGap={ 1 } minW={ 0 } overflow="hidden">
+        <Flex alignItems="center" columnGap={ 1 } minW={ 0 } textStyle="number" overflowX="clip" overflowY="visible">
           <Skeleton loading={ isLoading } textStyle="number" fontWeight="medium" flexShrink={ 0 }>Hash</Skeleton>
           <BlockEntityLink hash={ block.hash } isLoading={ isLoading }>
             <HashStringShortenDynamic hash={ block.hash } fontWeight="medium" textStyle="number"/>

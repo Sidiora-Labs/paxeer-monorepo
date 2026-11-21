@@ -113,7 +113,7 @@ async function advanced_transcript_estimates_only_recorded_actions() {
   expect(peer.writes).toHaveLength(3);
   expect(peer.control.sendRequests).toBe(3);
 }
-test(advanced_transcript_estimates_only_recorded_actions);
+test(advanced_transcript_estimates_only_recorded_actions.name, advanced_transcript_estimates_only_recorded_actions);
 
 async function advanced_broadcast_recovery_placement() {
   const { peer, provider, reopen } = await setup();

@@ -285,7 +285,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			}
 			transports = append(transports, transport)
 			current := transport
-			jobs = append(jobs, statsRuntimeJob{name: "market accounting", run: func(ctx context.Context) error { return accountingConsumer.Run(ctx, current) }})
+			jobs = append(jobs, statsRuntimeJob{name: "market accounting", run: consumerJobRunAgain("market accounting", runtimeHealth, func(ctx context.Context) error { return accountingConsumer.Run(ctx, current) }, waitConsumerJob, systemConsumerJobClock{})})
 		}
 		publisher, e := natsdriver.NewPublisher(nc, d.Phase2.OutputStream)
 		if e != nil {
@@ -309,6 +309,11 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			return projector.RunExpiry(ctx, time.Duration(d.Phase2.AnalyticsExpirySeconds)*time.Second, d.Phase2.AnalyticsBatch)
 		}})
 		searchProjection := &canonicalsearch.Projection{Delivery: durable, ConsumerID: d.Phase2.SearchConsumerID, InboxGeneration: d.Phase2.SearchGeneration, Sources: d.Phase2.SearchSources, InvalidationSubject: d.Phase2.SearchInvalidationSubject, InvalidationEventType: d.Phase2.SearchInvalidationEventType}
+		backfilled, e := (canonicalsearch.Store{Pool: pool}).BackfillAuthority(ctx)
+		if e != nil {
+			return nil, fmt.Errorf("search authority initialization: %w", e)
+		}
+		logger.Info("initialized search authority", slog.Int64("rows", backfilled))
 		for _, subscription := range d.Phase2.SearchConsumers {
 			sub := subscription
 			transport, e := natsdriver.NewConsumer(ctx, nc, sub.Consumer)
@@ -317,7 +322,8 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			}
 			transports = append(transports, transport)
 			current := transport
-			jobs = append(jobs, statsRuntimeJob{name: "search " + sub.Kind + " " + sub.Consumer.Durable, run: func(ctx context.Context) error {
+			name := "search " + sub.Kind + " " + sub.Consumer.Durable
+			jobs = append(jobs, statsRuntimeJob{name: name, run: consumerJobRunAgain(name, runtimeHealth, func(ctx context.Context) error {
 				return current.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
 					broker, err := message.BrokerPosition()
 					if err != nil {
@@ -330,18 +336,12 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 					if envelope.EventType != sub.EventType || broker.EventID != envelope.EventID || broker.WireSHA256 != delivery.Hash(message.Wire) {
 						return delivery.ErrIntegrity
 					}
-					switch sub.Kind {
-					case "creation":
-						return searchProjection.ConsumeCanonicalCreation(ctx, message.Subject, message.Wire, message)
-					case "invalidation":
+					if sub.Kind == "invalidation" {
 						return searchService.ConsumeInvalidation(ctx, message.Subject, message.Wire, message, d.Policy)
-					case "account_profile":
-						return searchProjection.ConsumeAccountProfile(ctx, message.Subject, message.Wire, message)
-					default:
-						return searchProjection.Consume(ctx, message.Subject, message.Wire, message)
 					}
+					return statsSearchProjectionConsumer(sub.Kind, searchProjection)(ctx, message.Subject, message.Wire, message)
 				})
-			}})
+			}, waitConsumerJob, systemConsumerJobClock{})})
 		}
 		if err = cfg.ValidateProductionWorkers(); err != nil {
 			return nil, err
@@ -424,13 +424,16 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 		secretChecks["projections"] = runtimeHealth.check
 		secretChecks["search"] = canonicalsearch.Store{Pool: pool}.Ready
 	}
+	for name, check := range secretChecks {
+		secretChecks[name] = loggedStatsCheck(logger, name, check)
+	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins: cfg.CORSAllowedOrigins,
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
-			DB:     func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) },
-			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
+			DB:     loggedStatsCheck(logger, "database", func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) }),
+			Redis:  loggedStatsCheck(logger, "redis", func(c context.Context) error { return rdb.Ping(c).Err() }),
 		},
 	})
 
@@ -570,6 +573,7 @@ func Run(parent context.Context) error {
 		return err
 	}
 	logger := sharedlog.New("stats", cfg.LogLevel)
+	slog.SetDefault(logger)
 	logger.Info("starting stats service")
 
 	ctx, cancel := context.WithCancel(parent)
@@ -796,6 +800,9 @@ func retryStatsJob(ctx context.Context, interval time.Duration, health *statsRun
 		err := run(bounded)
 		cancel()
 		health.set(name, err)
+		if err != nil && ctx.Err() == nil {
+			slog.ErrorContext(ctx, "statistics projection refresh failed", "projection", name, "error", err)
+		}
 		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
@@ -881,6 +888,10 @@ func (d statsPhase2Document) validate(policy delivery.Policy) error {
 			if !ok || !schema.MatchString(source.Schema) || !schema.MatchString(source.View) || !strings.HasSuffix(source.View, "_v2") {
 				return errors.New("stats: authorized search source relation required")
 			}
+		case "social_policy":
+			if sub.EventType != "social.policy.changed.v2" {
+				return errors.New("stats: authorized social policy event required")
+			}
 		case "account_profile":
 			if sub.EventType != "profile.updated" && sub.EventType != "account.deletion.requested" && sub.EventType != "account.backfill.completed" {
 				return errors.New("stats: authorized account search event required")
@@ -894,6 +905,19 @@ func (d statsPhase2Document) validate(policy delivery.Policy) error {
 	}
 	return nil
 }
+func statsSearchProjectionConsumer(kind string, projection *canonicalsearch.Projection) func(context.Context, string, []byte, delivery.Delivery) error {
+	switch kind {
+	case "creation":
+		return projection.ConsumeCanonicalCreation
+	case "account_profile":
+		return projection.ConsumeAccountProfile
+	case "social_policy":
+		return projection.ConsumeSocialPolicy
+	default:
+		return projection.Consume
+	}
+}
+
 func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *holdings.Repository, stream string, tokenLimit, transferLimit int, after *string, coverageChanged ...func(context.Context, string) error) error {
 	if ctx == nil || pool == nil || repository == nil || stream == "" || after == nil || tokenLimit < 1 || tokenLimit > 100 || transferLimit < 1 || transferLimit > 1000 {
 		return holdings.ErrIntegrity
@@ -928,7 +952,10 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 		*after = ""
 	}
 	for _, token := range tokens {
-		if err = repository.DiscoverCanonical(ctx, token, stream); err != nil {
+		if err = repository.DiscoverCanonical(ctx, token, stream); errors.Is(err, holdings.ErrUnknownToken) {
+			*after = token
+			continue
+		} else if err != nil {
 			return err
 		}
 		result, catchErr := repository.CatchUpCanonicalAt(ctx, token, stream, strconv.FormatInt(typed, 10), transferLimit)
@@ -978,4 +1005,14 @@ func RefreshLegacyWindows(ctx context.Context, st *store.Store, now int64, curso
 		*cursor = next
 	}
 	return more, err
+}
+
+func loggedStatsCheck(logger *slog.Logger, name string, check sharedhttp.Check) sharedhttp.Check {
+	return func(ctx context.Context) error {
+		err := check(ctx)
+		if err != nil {
+			logger.ErrorContext(ctx, "statistics readiness check failed", "check", name, "error", err)
+		}
+		return err
+	}
 }

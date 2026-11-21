@@ -17,6 +17,7 @@ type Statement struct {
 	Call     int
 	Kind     string
 	Role     string
+	SQL      string
 	Objects  []Object
 	Bindings map[string]string
 }
@@ -137,7 +138,7 @@ var RuntimeStatements = []Statement{
 			object("relation", "metadata.v2_documents", "asset_id document pool revision updated_at", "SELECT"),
 		},
 	},
-	{ID: "ReadPoolBlocked", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/v2.go", Function: "get", Call: 0, Kind: "SELECT", Role: runtimeRole,
+	{ID: "ReadPoolBlocked", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/v2.go", Function: "readCanonicalDocument", Call: 0, Kind: "SELECT", Role: runtimeRole,
 		Objects: []Object{
 			object("relation", "metadata.documents", "blocked pool", "SELECT"),
 		},
@@ -155,7 +156,12 @@ var RuntimeStatements = []Statement{
 			object("relation", "metadata.pools", "creator pool token", "SELECT"),
 		},
 	},
-	{ID: "ReadApprovedAsset", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "media", Call: 0, Kind: "SELECT", Role: runtimeRole,
+	{ID: "ReadMediaPool", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "media", Call: 0, Kind: "SELECT", Role: runtimeRole,
+		Objects: []Object{
+			object("relation", "metadata.pools", "pool", "SELECT"),
+		},
+	},
+	{ID: "ReadApprovedAsset", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "media", Call: 1, Kind: "SELECT", Role: runtimeRole,
 		Objects: []Object{
 			object("relation", "metadata.asset_details_v2", "asset_id height mime variants width", "SELECT"),
 			object("relation", "metadata.assets", "hash id pool state", "SELECT"),
@@ -293,6 +299,7 @@ var RuntimeStatements = []Statement{
 		},
 	},
 	{ID: "CommittedBlock", Package: "shared/auth", File: "sdk/launchpad/shared/auth/contract.go", Function: "CommittedBlock", Call: 0, Kind: "SELECT", Role: runtimeRole,
+		SQL: "SELECT height::text,block_hash,integrity FROM auth_committed_blocks AS heads WHERE chain_id=125 ORDER BY heads.height DESC LIMIT 1",
 		Objects: []Object{
 			object("relation", "metadata.auth_committed_blocks", "block_hash chain_id height integrity", "SELECT"),
 		},

@@ -46,6 +46,11 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 		listeners = append(listeners, listener)
 		ports = append(ports, listener.Addr().(*net.TCPAddr).Port)
 	}
+	document := example(t)
+	fileStoreBytes := document.Streams[0].Limits.MaxBytes * int64(document.Streams[0].Limits.Replicas)
+	for _, stream := range document.Streams {
+		fileStoreBytes += stream.Limits.MaxBytes * int64(stream.Limits.Replicas)
+	}
 	t.Cleanup(func() {
 		for _, listener := range listeners {
 			_ = listener.Close()
@@ -59,7 +64,7 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 				routes = append(routes, fmt.Sprintf("nats-route://127.0.0.1:%d", ports[j*2+1]))
 			}
 		}
-		config := fmt.Sprintf("server_name: provision_%d\nhost: 127.0.0.1\nport: %d\nmax_payload: 2097152\njetstream { store_dir: %q }\nauthorization { token: %q }\ncluster { name: provision\nlisten: 127.0.0.1:%d\nroutes: [%s] }\n", i, ports[i*2], filepath.Join(directory, "store"), secret, ports[i*2+1], strings.Join(routes, ","))
+		config := fmt.Sprintf("server_name: provision_%d\nhost: 127.0.0.1\nport: %d\nmax_payload: 2097152\njetstream { store_dir: %q\nmax_file_store: %d }\nauthorization { token: %q }\ncluster { name: provision\nlisten: 127.0.0.1:%d\nroutes: [%s] }\n", i, ports[i*2], filepath.Join(directory, "store"), fileStoreBytes, secret, ports[i*2+1], strings.Join(routes, ","))
 		path := filepath.Join(directory, "server.conf")
 		if err := os.WriteFile(path, []byte(config), 0600); err != nil {
 			t.Fatal(err)
@@ -103,7 +108,7 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 	address := fmt.Sprintf("nats://127.0.0.1:%d", ports[0])
 	var nc *nats.Conn
 	var err error
-	until := time.Now().Add(20 * time.Second)
+	until := time.Now().Add(2 * time.Minute)
 	for time.Now().Before(until) {
 		nc, err = nats.Connect(address, nats.Token(secret), nats.NoReconnect(), nats.Timeout(100*time.Millisecond))
 		if err == nil {
@@ -123,9 +128,9 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 	defer cancel()
 	// An R3 stream admits requests only after the broker cluster elects its leader.
 	for {
-		request, stop := context.WithTimeout(ctx, 500*time.Millisecond)
-		_, err = js.CreateStream(request, jetstream.StreamConfig{Name: "PROVISION_READY", Subjects: []string{"provision.ready"}, Storage: jetstream.FileStorage, Replicas: 3})
-		stop()
+		_, err = brokerFixtureRequest(ctx, func(request context.Context) (jetstream.Stream, error) {
+			return js.CreateStream(request, jetstream.StreamConfig{Name: "PROVISION_READY", Subjects: []string{"provision.ready"}, Storage: jetstream.FileStorage, Replicas: 3})
+		})
 		if err == nil {
 			break
 		}
@@ -134,10 +139,63 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if err = js.DeleteStream(ctx, "PROVISION_READY"); err != nil {
+	for {
+		stream, inspectErr := brokerFixtureRequest(ctx, func(request context.Context) (jetstream.Stream, error) {
+			return js.Stream(request, "PROVISION_READY")
+		})
+		if inspectErr != nil {
+			t.Fatal("inspect broker readiness", inspectErr)
+		}
+		info, inspectErr := brokerFixtureRequest(ctx, func(request context.Context) (*jetstream.StreamInfo, error) {
+			return stream.Info(request)
+		})
+		if inspectErr != nil {
+			t.Fatal("inspect broker replicas", inspectErr)
+		}
+		ready := info.Cluster != nil && info.Cluster.Leader != "" && len(info.Cluster.Replicas) == 2
+		if ready {
+			for _, replica := range info.Cluster.Replicas {
+				ready = ready && replica.Current && !replica.Offline
+			}
+		}
+		if ready {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("broker replicas are not current", ctx.Err())
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	if _, err = brokerFixtureRequest(ctx, func(request context.Context) (struct{}, error) {
+		return struct{}{}, js.DeleteStream(request, "PROVISION_READY")
+	}); err != nil {
 		t.Fatal(err)
 	}
+	waitStreamAbsent(t, ctx, js, "PROVISION_READY")
 	return nc, js, secret
+}
+
+func waitStreamAbsent(t *testing.T, ctx context.Context, js jetstream.JetStream, name string) {
+	t.Helper()
+	bounded, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	for {
+		_, err := brokerFixtureRequest(bounded, func(request context.Context) (jetstream.Stream, error) {
+			return js.Stream(request, name)
+		})
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			return
+		}
+		if err != nil {
+			t.Fatal("inspect removed stream", name, err)
+		}
+		select {
+		case <-bounded.Done():
+			t.Fatal("stream remains after removal", name, bounded.Err())
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
 }
 
 func writeDocument(t *testing.T, d Document) string {
@@ -151,7 +209,7 @@ func writeDocument(t *testing.T, d Document) string {
 
 func TestProvisionExampleDurablesPreservesDeliveryAndUnlistedResources(t *testing.T) {
 	nc, js, _ := realBroker(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	d := example(t)
 	changes, err := Provision(ctx, js, d, Updates{})
@@ -283,13 +341,13 @@ func TestProvisionExampleDurablesPreservesDeliveryAndUnlistedResources(t *testin
 
 func TestCommandCheckReportsDriftAndProvisionRequiresNamedUpdates(t *testing.T) {
 	nc, js, secret := realBroker(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	d := example(t)
 	path := writeDocument(t, d)
 	t.Setenv("PROVISION_BROKER", nc.ConnectedUrl())
 	t.Setenv("PROVISION_TOKEN", secret)
-	args := []string{"--document", path, "--broker-env", "PROVISION_BROKER", "--token-env", "PROVISION_TOKEN"}
+	args := []string{"--document", path, "--broker-env", "PROVISION_BROKER", "--token-env", "PROVISION_TOKEN", "--timeout", "2m"}
 	var out, errOut bytes.Buffer
 	run := func(action string, extra ...string) int {
 		out.Reset()
@@ -319,6 +377,7 @@ func TestCommandCheckReportsDriftAndProvisionRequiresNamedUpdates(t *testing.T) 
 	if err = js.DeleteStream(ctx, "CHART_OUTBOX"); err != nil {
 		t.Fatal(err)
 	}
+	waitStreamAbsent(t, ctx, js, "CHART_OUTBOX")
 	if status := run("check"); status != 1 {
 		t.Fatalf("check status=%d out=%s err=%s", status, &out, &errOut)
 	}
@@ -360,6 +419,10 @@ func TestCommandCheckReportsDriftAndProvisionRequiresNamedUpdates(t *testing.T) 
 	if status := run("provision", "--update-durable", c.Stream+"/"+c.Durable, "--update-stream", s.Name); status != 0 {
 		t.Fatalf("named updates status=%d err=%s", status, &errOut)
 	}
+	expected = "stream CHART_OUTBOX absent\nstream " + s.Name + " differs\ndurable " + c.Stream + "/" + c.Durable + " differs\n"
+	if out.String() != expected || errOut.Len() != 0 {
+		t.Fatalf("provision report=%q err=%q", out.String(), errOut.String())
+	}
 	if status := run("check"); status != 0 || out.Len() != 0 || errOut.Len() != 0 {
 		t.Fatalf("reconciled check status=%d out=%s err=%s", status, &out, &errOut)
 	}
@@ -373,7 +436,7 @@ func TestCommandCheckReportsDriftAndProvisionRequiresNamedUpdates(t *testing.T) 
 	}
 	out.Reset()
 	errOut.Reset()
-	if status := Run(ctx, []string{"check", "--document", path, "--broker-file", addressPath, "--token-file", tokenPath}, &out, &errOut); status != 0 || out.Len() != 0 || errOut.Len() != 0 {
+	if status := Run(ctx, []string{"check", "--document", path, "--broker-file", addressPath, "--token-file", tokenPath, "--timeout", "2m"}, &out, &errOut); status != 0 || out.Len() != 0 || errOut.Len() != 0 {
 		t.Fatalf("file sources status=%d out=%s err=%s", status, &out, &errOut)
 	}
 	t.Setenv("PROVISION_TOKEN", "wrong-"+secret)

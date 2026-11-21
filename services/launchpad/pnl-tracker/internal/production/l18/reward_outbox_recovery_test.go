@@ -168,6 +168,10 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err = f.db.permit("pnl.l18_outbox", "UPDATE", "published_at"); err != nil {
+		t.Fatalf("registered outbox marker grant: %v", err)
+	}
+	delete(f.db.grants["pnl.l18_outbox"], "UPDATE:published_at")
 	if _, err = NewOutboxBridge(ctx, l, store, 32); !errors.Is(err, delivery.ErrAuthorization) {
 		t.Fatalf("missing runtime update right admitted: %v", err)
 	}
@@ -217,6 +221,20 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	}
 	if err = nc.Flush(); err != nil {
 		t.Fatal(err)
+	}
+	for _, subjects := range []map[string]bool{
+		{"fee.claimed": false},
+		{"fee.claimed": false, "community.updated": true},
+	} {
+		excludedPolicy := delivery.Policy{Subjects: subjects, EventTypes: policy.EventTypes}
+		excludedStore, err := delivery.NewStoreWithEpochGuard(l.pool, l.schema, excludedPolicy, l.epochGuard)
+		if err != nil {
+			t.Fatal(err)
+		}
+		leases, err := excludedStore.Claim(ctx, "excluded-worker", 1, time.Second)
+		if err != nil || len(leases) != 0 {
+			t.Fatalf("excluded subject claimed=%v: %v", leases, err)
+		}
 	}
 	leases, err := store.Claim(ctx, "before-crash", 1, time.Second)
 	if err != nil || len(leases) != 1 {

@@ -16,7 +16,7 @@ const Container = chakra(({ animation, children, className }: ContainerProps) =>
       animation={ animation }
       rowGap={ 2 }
       columnGap={ 2 }
-      gridTemplateColumns={{ base: 'minmax(0, 1fr)', md: 'var(--chakra-spacing-20) minmax(0, 1fr)' }}
+      gridTemplateColumns={ 'calc(var(--chakra-spacing-20) + var(--chakra-spacing-1\\.5)) minmax(0, 1fr)' }
       alignItems="start"
       paddingY={ 4 }
       borderColor="border.divider"

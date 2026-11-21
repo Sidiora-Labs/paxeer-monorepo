@@ -22,7 +22,7 @@ const ValidatorDetails = ({ data, isLoading }: Props) => {
   return (
     <DetailedInfo.Container css={{
       '& a': { display: 'inline-flex', alignItems: 'center' },
-      '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+      '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
       '& [data-detailed-info-label], & [data-detailed-info-label] > div > div': { minWidth: 0, overflowWrap: 'anywhere' },
     }}>
       <DetailedInfo.ItemLabel

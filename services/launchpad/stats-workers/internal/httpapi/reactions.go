@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"regexp"
@@ -144,7 +146,7 @@ func (a *ReactionAdmission) Admit(ctx context.Context, wallet, ip string) error 
 	defer cancel()
 	result, err := a.Redis.Eval(ctx, `local w=tonumber(redis.call('GET',KEYS[1]) or '0');local p=tonumber(redis.call('GET',KEYS[2]) or '0');if w>=tonumber(ARGV[1]) or p>=tonumber(ARGV[2]) then return 0 end;local wn=redis.call('INCR',KEYS[1]);if wn==1 then redis.call('PEXPIRE',KEYS[1],60000) end;local pn=redis.call('INCR',KEYS[2]);if pn==1 then redis.call('PEXPIRE',KEYS[2],60000) end;return 1`, []string{a.Namespace + ":{reaction-admission}:wallet:" + wallet, a.Namespace + ":{reaction-admission}:ip:" + ip}, a.WalletPerMinute, a.IPPerMinute).Int()
 	if err != nil {
-		return analytics.ErrDependencyUnavailable
+		return fmt.Errorf("%w: reaction admission: %w", analytics.ErrDependencyUnavailable, err)
 	}
 	if result != 1 {
 		return analytics.ErrCooldown
@@ -174,6 +176,9 @@ func durableReactionError(w http.ResponseWriter, err error) {
 		status, message = 422, "Invalid analytics field"
 	case errors.Is(err, pgx.ErrNoRows):
 		status, message = 404, "Analytics snapshot not found"
+	}
+	if status >= 500 {
+		slog.Error("authoritative analytics request failed", "error", err)
 	}
 	sharedhttp.WriteError(w, status, http.StatusText(status), message)
 }

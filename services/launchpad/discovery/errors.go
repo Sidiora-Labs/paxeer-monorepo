@@ -27,6 +27,8 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string)
 
 func errorStatus(e error) (int, string) {
 	switch {
+	case errors.Is(e, ErrUnavailable):
+		return http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
 	case errors.Is(e, ErrInvalid):
 		return http.StatusBadRequest, "INVALID_REQUEST"
 	case errors.Is(e, ErrForbidden):

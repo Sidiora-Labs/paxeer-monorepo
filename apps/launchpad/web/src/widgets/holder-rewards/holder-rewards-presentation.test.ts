@@ -36,8 +36,8 @@ describe('holder rewards rows', () => {
   it('joins contract rows with live market cap and identity, falling back honestly', () => {
     expect(rows.map(row => row.poolAddress)).toEqual([poolA, poolB, poolC]);
     expect(rows[0]).toMatchObject({ name: 'Pill', symbol: 'PILL', image: 'https://ipfs.io/ipfs/abc', mcapRaw: '1970000000000' });
-    expect(rows[1]).toMatchObject({ name: 'BATON', symbol: 'BATON', image: null, mcapRaw: '16400000000000' });
-    expect(rows[2]).toMatchObject({ name: '0xf6f6...f6f6', symbol: '', image: null, mcapRaw: null, stats: null });
+    expect(rows[1]).toMatchObject({ name: '0xe5e5...e5e5', symbol: 'BATON', image: null, mcapRaw: '16400000000000' });
+    expect(rows[2]).toMatchObject({ name: '0xf6f6...f6f6', symbol: '0xf6f6...f6f6', image: null, mcapRaw: null, stats: null });
   });
 
   it('orders by every key in both directions with unknown market caps last', () => {

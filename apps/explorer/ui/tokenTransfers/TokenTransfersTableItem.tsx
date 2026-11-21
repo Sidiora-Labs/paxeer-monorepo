@@ -86,7 +86,7 @@ const TokenTransferTableItem = ({ item, isLoading, chainData }: Props) => {
       </TableCell>
       <TableCell>
         <AddressFromTo
-          maxW={{ lg: 'var(--chakra-spacing-56)', xl: 'var(--chakra-spacing-80)' }}
+          maxW={{ lg: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-15))', xl: 'var(--chakra-spacing-80)' }}
           from={ item.from }
           to={ item.to }
           isLoading={ isLoading }
@@ -100,7 +100,7 @@ const TokenTransferTableItem = ({ item, isLoading, chainData }: Props) => {
             id={ item.total.token_id }
             instance={ item.total.token_instance }
             isLoading={ isLoading }
-            maxW="var(--chakra-spacing-36)"
+            maxW="calc(var(--chakra-spacing-40) - var(--chakra-spacing-5))"
           />
         ) : <Skeleton loading={ isLoading }>-</Skeleton> }
       </TableCell>

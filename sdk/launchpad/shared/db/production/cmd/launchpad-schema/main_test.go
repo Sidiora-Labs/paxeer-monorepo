@@ -474,27 +474,40 @@ func TestRepositoryRegistryRequiresApprovalOnlineIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 	ids := map[int64]bool{80002: true, 130000: true, 150005: true, 150006: true, 150007: true}
+	directory := filepath.Join(t.TempDir(), "migrations")
 	order := []int64{}
 	registrations := []production.MigrationManifest{}
 	for _, id := range b.registry.ApplicationOrder {
 		if ids[id] {
 			order = append(order, id)
-			registrations = append(registrations, b.catalog[id])
+			m := b.catalog[id]
+			m.LegacyPredecessors = append([]production.LegacyMigrationAlias(nil), m.LegacyPredecessors...)
+			for i := range m.LegacyPredecessors {
+				m.LegacyPredecessors[i].StructuralFingerprint = ""
+			}
+			registrations = append(registrations, m)
+			writeTestFile(t, filepath.Join(filepath.Dir(directory), m.Path), b.sql[id])
 		}
 	}
 	if len(order) != len(ids) {
 		t.Fatal("registered holder index predecessors are incomplete")
 	}
 	b.registry.ApplicationOrder, b.registry.Registrations = order, registrations
-	b.owners = map[string]string{"stats": "stats_owner"}
 	b.roles = []production.RoleManifest{{Service: "core/stats-workers", Schema: "stats", OwnerRole: "stats_owner", RuntimeRole: testTag(t) + "_stats", Grants: []production.Grant{{Schema: "stats", Object: "pool_holders", Privileges: []string{"SELECT", "INSERT"}}}}}
 	var histories []legacyHistory
 	for _, h := range b.legacy {
 		if h.Service == "core/stats-workers" {
+			for i := range h.Sources {
+				h.Sources[i].StructuralFingerprint = ""
+				writeTestFile(t, filepath.Join(filepath.Dir(directory), h.Sources[i].Path), b.sources[h.Sources[i].Path])
+			}
 			histories = append(histories, h)
 		}
 	}
 	b.legacy = histories
+	if len(histories) != 1 || len(histories[0].Sources) == 0 {
+		t.Fatal("stats legacy history is not registered")
+	}
 	grants, err := json.Marshal(struct {
 		SchemaVersion int                       `json:"schema_version"`
 		Roles         []production.RoleManifest `json:"roles"`
@@ -502,12 +515,31 @@ func TestRepositoryRegistryRequiresApprovalOnlineIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.interfaceDigest = production.Checksum(grants)
-	_, conn := emptyDatabase(t, testTag(t), b.roles)
-	ctx := context.Background()
-	if err = b.applyInternal(ctx, conn, true); err != nil {
-		t.Fatalf("registered online index approval and application: %v", err)
+	writeTestFile(t, filepath.Join(directory, "grants.json"), grants)
+	registry, err := json.Marshal(b.registry)
+	if err != nil {
+		t.Fatal(err)
 	}
+	writeTestFile(t, filepath.Join(directory, "registry.json"), registry)
+	aliases, err := json.Marshal(struct {
+		SchemaVersion int             `json:"schema_version"`
+		Histories     []legacyHistory `json:"histories"`
+	}{2, histories})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(directory, "legacy-history-aliases.json"), aliases)
+	approvalDSN, _ := emptyDatabase(t, testTag(t), b.roles)
+	t.Setenv("LAUNCHPAD_ADMIN_DATABASE_URL", approvalDSN)
+	command(t, "approve", "--migrations", directory)
+	b, err = loadBundle(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dsn, conn := emptyDatabase(t, testTag(t), b.roles)
+	t.Setenv("LAUNCHPAD_ADMIN_DATABASE_URL", dsn)
+	command(t, "apply", "--migrations", directory)
+	ctx := context.Background()
 	plan := b.catalog[150007].OnlineIndex
 	if plan == nil {
 		t.Fatal("registered holder index plan is absent")

@@ -894,6 +894,8 @@ pub struct PaxeerIngester {
     comet: Option<Endpoint>,
     registry: AbiRegistry,
     policy: FollowPolicy,
+    batch_blocks: usize,
+    readers: usize,
     start_block: u64,
     expected_chain_id: Option<u64>,
     encoding: AttributeEncoding,
@@ -916,11 +918,21 @@ impl PaxeerIngester {
             comet,
             registry,
             policy,
+            batch_blocks: crate::config::DEFAULT_BACKFILL_BATCH_BLOCKS as usize,
+            readers: crate::config::DEFAULT_BACKFILL_READERS as usize,
             start_block,
             expected_chain_id,
             encoding,
             tx_index_off_reported: AtomicBool::new(false),
         }
+    }
+
+    /// Sets the batch size and concurrent readers used by live steps.
+    #[must_use]
+    pub const fn with_read_limits(mut self, batch_blocks: usize, readers: usize) -> Self {
+        self.batch_blocks = batch_blocks;
+        self.readers = readers;
+        self
     }
 
     /// The first block this ingester indexes on an empty store.
@@ -988,8 +1000,7 @@ impl PaxeerIngester {
     /// number of concurrent readers. The returned entries follow `heights`.
     ///
     /// A missing or error response member is retried with the corresponding
-    /// single request. A transport or framing failure of a batch is returned
-    /// to the caller unchanged.
+    /// single request. A source failure splits the batch into smaller reads.
     ///
     /// # Errors
     /// Returns source, decode and integrity failures from the node reads.
@@ -1151,6 +1162,18 @@ impl PaxeerIngester {
         Ok(receipt)
     }
 
+    fn read_rpc_batch(&self, calls: &[(&str, Value)]) -> Result<Vec<RpcBatchAnswer>, IndexError> {
+        match self.evm.rpc_batch(calls) {
+            Err(IndexError::Source(_)) if calls.len() > 1 => {
+                let (left, right) = calls.split_at(calls.len() / 2);
+                let mut answers = self.read_rpc_batch(left)?;
+                answers.extend(self.read_rpc_batch(right)?);
+                Ok(answers)
+            }
+            result => result,
+        }
+    }
+
     fn read_block_batch(
         &self,
         heights: &[u64],
@@ -1160,7 +1183,7 @@ impl PaxeerIngester {
             .iter()
             .map(|height| ("eth_getBlockByNumber", json!([to_quantity(*height), true])))
             .collect();
-        let answers = self.evm.rpc_batch(&calls)?;
+        let answers = self.read_rpc_batch(&calls)?;
         let mut blocks = Vec::with_capacity(heights.len());
         for (height, answer) in heights.iter().copied().zip(answers) {
             let block = match answer {
@@ -1194,7 +1217,7 @@ impl PaxeerIngester {
                 .iter()
                 .map(|(_, hash)| ("eth_getTransactionReceipt", json!([hash])))
                 .collect();
-            let answers = self.evm.rpc_batch(&calls)?;
+            let answers = self.read_rpc_batch(&calls)?;
             for ((height, hash), answer) in chunk.iter().zip(answers) {
                 let receipt = match answer {
                     RpcBatchAnswer::Result(value) if !value.is_null() => value,
@@ -1315,12 +1338,13 @@ impl PaxeerIngester {
                 .and_then(Value::as_str)
             {
                 Some("off") => {
-                    store.record_source_failure("comet", "tx_index_disabled")?;
+                    let indexed = store.cursor(CHAIN)?.map(|cursor| cursor.position);
+                    store.record_comet_success(head, indexed, true)?;
                     Ok(CometObservation::IndexDisabled)
                 }
                 Some("on") => {
                     let indexed = store.cursor(CHAIN)?.map(|cursor| cursor.position);
-                    store.record_source_success("comet", Some(head), indexed)?;
+                    store.record_comet_success(head, indexed, false)?;
                     Ok(CometObservation::Ready)
                 }
                 _ => Err(IndexError::Source(
@@ -1357,15 +1381,84 @@ impl PaxeerIngester {
     ) -> Result<u64, IndexError> {
         let hash = hex0x(&row.hash);
         let tx = self.evm.rpc("eth_getTransactionByHash", &json!([hash]))?;
-        if hash_text(&tx, "hash")? != hash
-            || quantity_u64(field_str(&tx, "blockNumber")?)? != row.block_number
-            || quantity_u64(field_str(&tx, "transactionIndex")?)? != row.index
+        Self::transaction_domain_from_answer(row, &tx)
+    }
+
+    /// Resolves transaction domains in row order with bounded batches and readers.
+    ///
+    /// # Errors
+    /// As [`Self::transaction_domain`].
+    pub fn transaction_domains(
+        &self,
+        rows: &[crate::blockscout::TransactionRow],
+        batch_size: usize,
+        readers: usize,
+    ) -> Result<Vec<u64>, IndexError> {
+        let batches: Vec<_> = rows.chunks(batch_size.max(1)).collect();
+        let next = AtomicUsize::new(0);
+        let (sender, receiver) = mpsc::channel();
+        let mut ordered = BTreeMap::new();
+        std::thread::scope(|scope| {
+            for _ in 0..readers.max(1).min(batches.len()) {
+                let sender = sender.clone();
+                let next = &next;
+                let batches = &batches;
+                scope.spawn(move || loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(batch) = batches.get(index) else {
+                        break;
+                    };
+                    let result = self.read_domain_batch(batch);
+                    if sender.send((index, result)).is_err() {
+                        break;
+                    }
+                });
+            }
+            drop(sender);
+            for (index, result) in receiver {
+                ordered.insert(index, result);
+            }
+        });
+        let mut domains = Vec::with_capacity(rows.len());
+        for index in 0..batches.len() {
+            domains.extend(ordered.remove(&index).ok_or_else(|| {
+                IndexError::Source("a domain reader stopped before answering".to_owned())
+            })??);
+        }
+        Ok(domains)
+    }
+
+    fn read_domain_batch(
+        &self,
+        rows: &[crate::blockscout::TransactionRow],
+    ) -> Result<Vec<u64>, IndexError> {
+        let calls: Vec<_> = rows
+            .iter()
+            .map(|row| ("eth_getTransactionByHash", json!([hex0x(&row.hash)])))
+            .collect();
+        rows.iter()
+            .zip(self.read_rpc_batch(&calls)?)
+            .map(|(row, answer)| match answer {
+                RpcBatchAnswer::Result(tx) => Self::transaction_domain_from_answer(row, &tx),
+                RpcBatchAnswer::Error(_) | RpcBatchAnswer::Missing => self.transaction_domain(row),
+            })
+            .collect()
+    }
+
+    fn transaction_domain_from_answer(
+        row: &crate::blockscout::TransactionRow,
+        tx: &Value,
+    ) -> Result<u64, IndexError> {
+        let hash = hex0x(&row.hash);
+        if hash_text(tx, "hash")? != hash
+            || quantity_u64(field_str(tx, "blockNumber")?)? != row.block_number
+            || quantity_u64(field_str(tx, "transactionIndex")?)? != row.index
         {
             return Err(IndexError::Integrity(
                 "transaction domain response has another position".to_owned(),
             ));
         }
-        quantity_u64(field_str(&tx, "chainId")?)
+        quantity_u64(field_str(tx, "chainId")?)
     }
 
     /// Runs one bounded step: confirms the durable head block is still
@@ -1391,13 +1484,35 @@ impl PaxeerIngester {
         }
         let last = head.min(next.saturating_add(self.policy.max_units_per_step.max(1) - 1));
         let cosmos = self.tx_search(next, last)?;
+        let mut batched = if next < last {
+            let heights: Vec<_> = (next..=last).collect();
+            match self.blocks_with_receipts(&heights, self.batch_blocks, self.readers) {
+                Ok(blocks) => Some(blocks.into_iter()),
+                Err(IndexError::Source(_) | IndexError::Decode(_)) => None,
+                Err(error) => return Err(error),
+            }
+        } else {
+            None
+        };
         let is_pointer = |address: &str| store.is_pointer(address);
         let mut units = 0;
         for height in next..=last {
-            let block = self
-                .block(height)?
+            let block = match &mut batched {
+                Some(blocks) => {
+                    let (position, block) = blocks.next().ok_or_else(|| {
+                        IndexError::Integrity("batch omitted a requested height".to_owned())
+                    })?;
+                    if position != height {
+                        return Err(IndexError::Integrity(format!(
+                            "batch answered height {position} for {height}"
+                        )));
+                    }
+                    block
+                }
+                None => self.block_with_receipts(height)?,
+            };
+            let (block, receipts) = block
                 .ok_or_else(|| IndexError::Source(format!("block {height} is not available")))?;
-            let receipts = self.receipts(&block)?;
             let inputs = BlockInputs {
                 registry: &self.registry,
                 receipts: &receipts,

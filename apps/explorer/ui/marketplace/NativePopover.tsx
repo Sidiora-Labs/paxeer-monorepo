@@ -22,16 +22,18 @@ export function useNativePopover(open: boolean, setOpen: (open: boolean) => void
   }, []);
 
   React.useEffect(() => {
-    if (!nativePopover || !positioner) {
+    if (!nativePopover || !content || !positioner) {
       return;
     }
     positioner.setAttribute('popover', mode);
     if (open && !positioner.matches(':popover-open')) {
-      positioner.showPopover();
+      const triggerId = content.id.replace(/:content$/, ':trigger');
+      const source = document.getElementById(triggerId);
+      Reflect.apply(positioner.showPopover, positioner, source ? [ { source } ] : []);
     } else if (!open && positioner.matches(':popover-open')) {
       positioner.hidePopover();
     }
-  }, [ mode, nativePopover, open, positioner ]);
+  }, [ content, mode, nativePopover, open, positioner ]);
 
   React.useEffect(() => {
     if (!nativePopover || !positioner) {
@@ -45,6 +47,18 @@ export function useNativePopover(open: boolean, setOpen: (open: boolean) => void
     positioner.addEventListener('toggle', handleToggle);
     return () => positioner.removeEventListener('toggle', handleToggle);
   }, [ nativePopover, open, positioner, setOpen ]);
+
+  React.useEffect(() => {
+    if (!nativePopover || !open || !content || !positioner) return;
+    const source = document.getElementById(content.id.replace(/:content$/, ':trigger'));
+    const dismissOutsideFocus = (event: FocusEvent) => {
+      if (!(event.target instanceof Node) || positioner.contains(event.target) || source?.contains(event.target)) return;
+      if (positioner.matches(':popover-open')) positioner.hidePopover();
+      setOpen(false);
+    };
+    document.addEventListener('focusin', dismissOutsideFocus, true);
+    return () => document.removeEventListener('focusin', dismissOutsideFocus, true);
+  }, [ content, nativePopover, open, positioner, setOpen ]);
 
   return { nativePopover, content, attachContent };
 }

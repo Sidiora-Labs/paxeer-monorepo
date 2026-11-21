@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Operations, V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
@@ -112,7 +112,7 @@ export async function collectLivePages(signal?: AbortSignal, start: string | nul
   }
 }
 
-async function resolveTokens(operations: Operations, pools: readonly string[], signal?: AbortSignal): Promise<{ tokens: Map<string, string>; state: SourceState }> {
+export async function resolveTokens(operations: Operations, pools: readonly string[], signal?: AbortSignal): Promise<{ tokens: Map<string, string>; state: SourceState }> {
   const missing = pools.filter(pool => !tokenByPool.has(pool));
   let state: SourceState = missing.length === 0 && pools.length === 0 ? { state: 'skipped' } : { state: 'ready' };
   if (missing.length > 0) {
@@ -124,7 +124,7 @@ async function resolveTokens(operations: Operations, pools: readonly string[], s
       if (result.status === 'fulfilled') tokenByPool.set(result.value.poolAddress, result.value.tokenAddress);
       else firstError ??= result.reason;
     });
-    if (firstError !== null && settled.every(result => result.status === 'rejected')) state = failure('IF_POOL_DETAIL', firstError);
+    if (firstError !== null) state = failure('IF_POOL_DETAIL', firstError);
   }
   const tokens = new Map<string, string>();
   for (const pool of pools) {
@@ -193,6 +193,17 @@ export function assembleDirectory(
 
 const byId = (a: LiveDirectoryEntry, b: LiveDirectoryEntry) => a.stream.id.localeCompare(b.stream.id);
 
+export function mergeLiveEntries(...pages: readonly (readonly LiveDirectoryEntry[])[]): LiveDirectoryEntry[] {
+  const entries = new Map<string, LiveDirectoryEntry>();
+  for (const page of pages) {
+    for (const entry of page) {
+      const held = entries.get(entry.stream.id);
+      if (!held || BigInt(entry.stream.revision) > BigInt(held.stream.revision)) entries.set(entry.stream.id, entry);
+    }
+  }
+  return [...entries.values()];
+}
+
 /** Most viewers first; streams without an estimate last; stable by stream id. */
 export function rankByViewers(entries: readonly LiveDirectoryEntry[]): LiveDirectoryEntry[] {
   return [...entries].sort((a, b) => compareDescending(a.viewerCount, b.viewerCount) || byId(a, b));
@@ -254,14 +265,22 @@ export function useLiveDirectory(options: UseLiveDirectoryOptions = {}): LiveDir
   const byViewers = useMemo(() => rankByViewers(entries), [entries]);
   const byMcap = useMemo(() => rankByMarketCap(entries), [entries]);
   const featured = useMemo(() => byViewers.slice(0, featuredCount), [byViewers]);
+  const state = loadable(query, 'IF_STREAM_LIST');
+  const previousFailure = useRef<Extract<Loadable<LiveDirectoryData>, { state: 'error' | 'unsupported' }> | null>(null);
+  useEffect(() => {
+    if (state.state === 'error' || state.state === 'unsupported') previousFailure.current = state;
+    else if (state.state === 'ready') previousFailure.current = null;
+  }, [state]);
+  // Keep the reported failure and its focused controls in place while refreshing.
+  const presentedState = state.state === 'loading' && previousFailure.current ? previousFailure.current : state;
   return {
-    state: loadable(query, 'IF_STREAM_LIST'),
+    state: presentedState,
     entries,
     byViewers,
     byMcap,
     featured,
     creatorLabel: wallet => shortId(wallet, identities[wallet.toLowerCase()]?.displayName),
-    isRefreshing: query.isFetching && query.status === 'success',
+    isRefreshing: query.isFetching && presentedState.state !== 'loading',
     updatedAt: query.dataUpdatedAt || null,
     refresh: () => { void query.refetch(); },
   };
@@ -280,25 +299,30 @@ export interface LiveDirectoryContinuation {
  * server cursor `start` (LiveDirectoryData.nextCursor), one enriched page per
  * `loadMore`. Nothing is requested while `start` is null.
  */
-export function useLiveDirectoryContinuation(start: string | null): LiveDirectoryContinuation {
+export function useLiveDirectoryContinuation(start: string | null, boundary: string | null = start): LiveDirectoryContinuation {
   const operations = useOperations();
+  const cursor = start === null ? null : boundary;
   const query = useInfiniteQuery({
-    queryKey: queryKeys.liveDirectoryContinuation(start ?? ''),
-    initialPageParam: start,
+    queryKey: queryKeys.liveDirectoryContinuation(cursor ?? ''),
+    initialPageParam: cursor,
     queryFn: ({ pageParam, signal }) => loadLiveDirectory(operations, signal, pageParam, 1),
     getNextPageParam: last => last.nextCursor,
-    enabled: start !== null,
+    enabled: cursor !== null,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 60_000,
     ...retryTransientOnly,
   });
   const pages = query.data?.pages;
-  const entries = useMemo(() => pages?.flatMap(page => page.entries) ?? empty, [pages]);
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
-  const loadMore = useCallback(() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  const entries = useMemo(() => pages ? mergeLiveEntries(...pages.map(page => page.entries)) : empty, [pages]);
+  const { hasNextPage, isFetching, fetchNextPage, refetch, isError } = query;
+  const loadMore = useCallback(() => {
+    if (isFetching) return;
+    if (isError) void refetch();
+    else if (hasNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetching, fetchNextPage, refetch, isError]);
   return {
     entries,
-    hasMore: start !== null && (query.status !== 'success' || hasNextPage),
+    hasMore: cursor !== null && (query.status !== 'success' || hasNextPage),
     loading: query.isFetching,
     error: query.error ? (query.error instanceof Error ? query.error.message : String(query.error)) : null,
     loadMore,

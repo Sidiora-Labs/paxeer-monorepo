@@ -143,21 +143,23 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
     <Button
       aria-label="Search"
       variant="header"
+      textStyle={ isHeroBanner ? 'body' : 'md' }
       flexShrink={ 0 }
-      p={ isHeroBanner ? 3 : 0 }
+      p={ 0 }
       w={ isHeroBanner ? '100%' : 'auto' }
-      minW="touchTarget"
-      minH={ isHeroBanner ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 'touchTarget' }
+      minW={ 10 }
+      minH={ isHeroBanner ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 0 }
       justifyContent={ isHeroBanner ? 'flex-start' : 'center' }
       bg={ isHeroBanner ? 'raised' : 'transparent' }
       borderColor="border.strong"
-      borderRadius={ isHeroBanner ? 'control' : 'pill' }
+      borderRadius="control"
       textAlign="start"
-      whiteSpace="normal"
-      height="auto"
+      whiteSpace="nowrap"
+      overflow="visible"
+      h={ isHeroBanner ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 10 }
     >
-      <IconSvg aria-hidden={ true } name="search" boxSize={ 6 } flexShrink={ 0 }/>
-      { isHeroBanner && <Box as="span" textStyle="small" color="text.muted">Search or ask: a transaction, address, block or token</Box> }
+      <IconSvg aria-hidden={ true } name="search" boxSize={ isHeroBanner ? 5 : 6 } ml={ isHeroBanner ? 2 : 0 } flexShrink={ 0 }/>
+      { isHeroBanner && <Box as="span" textStyle="body" color="text.muted">Search or ask…</Box> }
     </Button>
   );
 
@@ -177,7 +179,7 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
         <DrawerContent h="75dvh" maxH="100dvh" overflowY="hidden" bg="raised" color="text.primary" borderColor="hairline">
           <DrawerHeader mb={ 0 }>
             <DrawerTitle>Search</DrawerTitle>
-            <DrawerCloseTrigger minH="touchTarget" minW="touchTarget" top={ 4 } insetEnd={ 3 }/>
+            <DrawerCloseTrigger top={ 4 } insetEnd={ 3 }/>
           </DrawerHeader>
           <DrawerBody minH={ 0 } overflow="auto" display="flex" flexDirection="column">
             <SearchBarInput
@@ -213,8 +215,6 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
             >
               <Button
                 variant="link"
-                minH="touchTarget"
-                minW="touchTarget"
                 onClick={ handleViewAllResultsClick }
                 textStyle="sm"
               >

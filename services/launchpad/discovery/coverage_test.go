@@ -10,6 +10,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -105,9 +108,25 @@ func (a coverageAuthority) CurrentAttribution(ctx context.Context, account, wall
 	return err == nil, profile, err
 }
 
-func coverageSetup(t *testing.T) (Store, coverageAuthority) {
+func coverageSetup(t *testing.T, registered ...bool) (Store, coverageAuthority) {
 	t.Helper()
-	s, _, _ := proofDiscoveryStore(t)
+	s, dsn, _ := proofDiscoveryStore(t)
+	admin := s.DB
+	if len(registered) != 0 && registered[0] {
+		catalog := proofDiscoveryCatalog(t, dsn)
+		var err error
+		admin, err = sql.Open("pgx", catalog.AdminDSN)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { admin.Close() })
+		db, err := sql.Open("pgx", catalog.Runtimes["api_rest_runtime"].DSN)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
+		s = Store{DB: db}
+	}
 	statements := []string{
 		`CREATE TABLE coverage_pools(address text primary key)`,
 		`CREATE TABLE coverage_accounts(id text primary key)`,
@@ -120,17 +139,39 @@ func coverageSetup(t *testing.T) (Store, coverageAuthority) {
 		`CREATE TABLE coverage_attribution(wallet text primary key,account text,profile text,verified boolean,opted_in boolean)`,
 	}
 	for _, statement := range statements {
-		if _, err := s.DB.Exec(statement); err != nil {
+		if _, err := admin.Exec(statement); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return s, coverageAuthority{db: s.DB, store: s}
+	return s, coverageAuthority{db: admin, store: s}
 }
 
 func coverageExec(t *testing.T, db *sql.DB, query string, args ...any) {
 	t.Helper()
 	if _, err := db.Exec(query, args...); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func coverageWalletRangeViews(t *testing.T, db *sql.DB) {
+	t.Helper()
+	migration, err := os.ReadFile("../../../migrations/160004.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	views := 0
+	for _, statement := range strings.Split(string(migration), ";") {
+		statement = strings.TrimSpace(statement)
+		if strings.HasPrefix(statement, `CREATE VIEW "pnl".`) {
+			var present bool
+			if err := db.QueryRow(`SELECT to_regclass($1) IS NOT NULL`, strings.Fields(statement)[2]).Scan(&present); err != nil || !present {
+				t.Fatalf("registered wallet range view: %s %v", statement, err)
+			}
+			views++
+		}
+	}
+	if views != 2 {
+		t.Fatalf("wallet range migration defines %d read views, want 2", views)
 	}
 }
 
@@ -159,6 +200,9 @@ func TestDiscoveryFeedUsesPersistedAuthorityAndCursor(t *testing.T) {
 	first, err := feed.Page(ctx, account, "relevance", "", 2, now.Add(time.Second))
 	if err != nil || !first.Personalized || len(first.Entries) != 2 || first.Cursor == "" || first.Entries[0].State != "available" || first.Entries[0].Body == "" || first.Entries[0].PositionDisclosureKind != "user_declared" {
 		t.Fatalf("first page: %+v %v", first, err)
+	}
+	if _, err := (Feed{Store: s}).Detail(ctx, account, first.Entries[0].Source.ID, now.Add(time.Second)); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("feed authority unavailable: %v", err)
 	}
 	second, err := feed.Page(ctx, account, "relevance", first.Cursor, 2, now.Add(time.Second))
 	if err != nil || len(second.Entries) != 1 || second.Cursor != "" || second.Snapshot != first.Snapshot {
@@ -212,27 +256,25 @@ func TestDiscoveryFeedUsesPersistedAuthorityAndCursor(t *testing.T) {
 }
 
 func TestDiscoveryRankIntervalsFromPersistedBuckets(t *testing.T) {
-	s, a := coverageSetup(t)
+	s, a := coverageSetup(t, true)
+	coverageWalletRangeViews(t, a.db)
 	ctx := context.Background()
 	start := time.Now().UTC().Truncate(time.Hour).Add(-2 * time.Hour)
 	end := start.Add(2 * time.Hour)
-	coverageExec(t, s.DB, `CREATE SCHEMA pnl`)
-	coverageExec(t, s.DB, `CREATE TABLE pnl.inventory_l16_wallet_ranges_v3(snapshot_id text,wallet text,input_digest text,watermark text,start_at timestamptz,end_at timestamptz,generation bigint)`)
-	coverageExec(t, s.DB, `CREATE TABLE pnl.inventory_l16_wallet_intervals_v3(snapshot_id text,interval text,bucket timestamptz,payload jsonb)`)
 	accounts := make([]string, 0, 2)
 	snapshots := make([]string, 0, 2)
 	for i, wallet := range []string{pool, "0x2222222222222222222222222222222222222222"} {
 		account, profile, snapshot := uuid.NewString(), uuid.NewString(), uuid.NewString()
 		accounts = append(accounts, account)
 		snapshots = append(snapshots, snapshot)
-		coverageExec(t, s.DB, `INSERT INTO coverage_attribution VALUES($1,$2,$3,true,true)`, wallet, account, profile)
-		coverageExec(t, s.DB, `INSERT INTO pnl.inventory_l16_wallet_ranges_v3 VALUES($1,$2,'valuation-v1','watermark-v1',$3,$4,1)`, snapshot, wallet, start, end)
+		coverageExec(t, a.db, `INSERT INTO coverage_attribution VALUES($1,$2,$3,true,true)`, wallet, account, profile)
+		coverageExec(t, a.db, `INSERT INTO pnl.inventory_l16_wallet_ranges_v3(snapshot_id,wallet,generation,start_at,end_at,release_digest,input_digest,watermark) VALUES($1,$2,'1',$3,$4,'release-v1','valuation-v1','"watermark-v1"'::jsonb)`, snapshot, wallet, start, end)
 		net := "2500000"
 		if i == 1 {
 			net = "-1000000"
 		}
-		bucket := map[string]any{"Start": start, "End": start.Add(time.Hour), "grossProceedsUsdlRaw": "4000000", "knownAllocatedBasisUsdlRaw": "10000000", "realizedPnlUsdlRaw": net, "tradeCount": 2, "accountingComplete": true, "fees": []any{map[string]any{"asset": map[string]any{"kind": "erc20", "chainId": 125, "address": squadAlertUSDL, "decimals": 6}, "amountRaw": "500000"}}}
-		coverageExec(t, s.DB, `INSERT INTO pnl.inventory_l16_wallet_intervals_v3 VALUES($1,'1h',$2,$3)`, snapshot, start, encode(bucket))
+		bucket := map[string]any{"Start": start, "End": start.Add(time.Hour), "grossProceedsUsdlRaw": "4000000", "knownAllocatedBasisUsdlRaw": "10000000", "realizedPnlUsdlRaw": net, "tradeCount": 2, "accountingComplete": true, "fees": []any{map[string]any{"asset": map[string]any{"kind": "erc20", "chainId": "125", "address": squadAlertUSDL, "decimals": 6}, "amountRaw": "500000"}}}
+		coverageExec(t, a.db, `INSERT INTO pnl.inventory_l16_wallet_intervals_v3 VALUES($1,'1h',$2,$3)`, snapshot, start, encode(bucket))
 	}
 	intervals := SQLIntervalAuthority{DB: s.DB, Attribution: a, QuoteTokenAddress: squadAlertUSDL}
 	rows, err := intervals.Intervals(ctx, start, end)
@@ -293,7 +335,16 @@ func TestDiscoveryRankIntervalsFromPersistedBuckets(t *testing.T) {
 	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &served) != nil || len(served.Entries) != 2 || served.Entries[0].Wallet != pool {
 		t.Fatalf("leaderboard response: %d %s", response.Code, response.Body.String())
 	}
-	coverageExec(t, s.DB, `UPDATE pnl.inventory_l16_wallet_intervals_v3 SET payload=jsonb_set(payload,'{realizedPnlUsdlRaw}','null'::jsonb) WHERE snapshot_id=$1`, snapshots[1])
+	generation := 1
+	appendSnapshot := func(path, value string) {
+		t.Helper()
+		generation++
+		id := uuid.NewString()
+		coverageExec(t, a.db, `INSERT INTO pnl.inventory_l16_wallet_ranges_v3 SELECT $1,wallet,$2,start_at,end_at,release_digest,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 WHERE snapshot_id=$3`, id, strconv.Itoa(generation), snapshots[1])
+		coverageExec(t, a.db, `INSERT INTO pnl.inventory_l16_wallet_intervals_v3 SELECT $1,interval,bucket,jsonb_set(payload,$2::text[],$3::jsonb) FROM pnl.inventory_l16_wallet_intervals_v3 WHERE snapshot_id=$4`, id, path, value, snapshots[1])
+		snapshots[1] = id
+	}
+	appendSnapshot("{realizedPnlUsdlRaw}", "null")
 	unknown, err := intervals.Intervals(ctx, start, end)
 	if err != nil || len(unknown) != 2 || unknown[1].KnownBasis || unknown[1].NetPnL != "" {
 		t.Fatalf("unknown basis: %+v %v", unknown, err)
@@ -302,12 +353,12 @@ func TestDiscoveryRankIntervalsFromPersistedBuckets(t *testing.T) {
 	if err != nil || len(filtered.Entries) != 1 || filtered.ExcludedUnknownBasis != 1 {
 		t.Fatalf("ranked known basis: %+v %v", filtered, err)
 	}
-	coverageExec(t, s.DB, `UPDATE pnl.inventory_l16_wallet_intervals_v3 SET payload=jsonb_set(payload,'{realizedPnlUsdlRaw}','"invalid"'::jsonb) WHERE snapshot_id=$1`, snapshots[1])
+	appendSnapshot("{realizedPnlUsdlRaw}", `"invalid"`)
 	if _, err := intervals.Intervals(ctx, start, end); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("invalid raw net: %v", err)
 	}
-	coverageExec(t, s.DB, `UPDATE pnl.inventory_l16_wallet_intervals_v3 SET payload=jsonb_set(payload,'{realizedPnlUsdlRaw}','"-1000000"'::jsonb) WHERE snapshot_id=$1`, snapshots[1])
-	coverageExec(t, s.DB, `UPDATE pnl.inventory_l16_wallet_intervals_v3 SET payload=jsonb_set(payload,'{fees,0,asset,address}','"0x4444444444444444444444444444444444444444"'::jsonb) WHERE snapshot_id=$1`, snapshots[1])
+	appendSnapshot("{realizedPnlUsdlRaw}", `"-1000000"`)
+	appendSnapshot("{fees,0,asset,address}", `"0x4444444444444444444444444444444444444444"`)
 	unvalued, err := intervals.Intervals(ctx, start, end)
 	if err != nil || unvalued[1].Reconciled || unvalued[1].Fees != "" || len(unvalued[1].QualityFlags) != 1 {
 		t.Fatalf("unvalued fee: %+v %v", unvalued, err)
@@ -315,6 +366,16 @@ func TestDiscoveryRankIntervalsFromPersistedBuckets(t *testing.T) {
 	filtered, err = RankIntervals(ctx, intervals, start, end)
 	if err != nil || len(filtered.Entries) != 1 || filtered.ExcludedUnqualified != 1 {
 		t.Fatalf("ranked qualified: %+v %v", filtered, err)
+	}
+	appendSnapshot("{fees,0,asset,address}", `"`+squadAlertUSDL+`"`)
+	appendSnapshot("{fees,0,asset,kind}", `"native"`)
+	foreignKind, err := intervals.Intervals(ctx, start, end)
+	if err != nil || foreignKind[1].Reconciled || foreignKind[1].Fees != "" || !reflect.DeepEqual(foreignKind[1].QualityFlags, []string{"fee_assets_unvalued"}) {
+		t.Fatalf("fee asset identity: %+v %v", foreignKind, err)
+	}
+	appendSnapshot("{fees,0,asset,chainId}", "125")
+	if _, err := intervals.Intervals(ctx, start, end); err == nil {
+		t.Fatal("numeric fee chain identity admitted")
 	}
 	if _, _, err := (SQLIntervalAuthority{}).CurrentAttribution(ctx, accounts[0], pool); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("missing attribution authority: %v", err)
@@ -869,6 +930,8 @@ func TestDiscoveryHTTPReportsUnavailableStorage(t *testing.T) {
 		method, path string
 		body         any
 	}{
+		{http.MethodGet, "/v2/discovery/feed", nil},
+		{http.MethodGet, "/v2/discovery/feed/" + id, nil},
 		{http.MethodPost, "/v2/discovery/callouts", map[string]any{"ID": id, "PoolAddress": pool, "Body": "analysis", "Direction": "neutral", "Disclosure": "organic"}},
 		{http.MethodPatch, "/v2/discovery/callouts/" + id, map[string]any{"Body": "edit", "Expected": 1}},
 		{http.MethodPut, "/v2/discovery/alerts/" + id, map[string]any{"Rule": rule, "Expected": 0}},
@@ -896,6 +959,21 @@ func TestDiscoveryHTTPReportsUnavailableStorage(t *testing.T) {
 				t.Fatalf("status=%d body=%s", res.Code, res.Body.String())
 			}
 		})
+	}
+	ctx := context.Background()
+	for name, err := range map[string]error{
+		"callout":   func() error { _, err := (CalloutService{}).Read(ctx, id); return err }(),
+		"sources":   func() error { _, err := (Store{}).Sources(ctx, time.Now().UTC()); return err }(),
+		"source":    func() error { _, err := (Store{}).Source(ctx, id); return err }(),
+		"snapshots": (Store{}).ExpireSnapshots(ctx, time.Now().UTC()),
+		"performance": func() error {
+			_, err := (Store{}).SquadPerformance(ctx, SQLIntervalAuthority{}, id, time.Now().UTC(), time.Now().UTC().Add(time.Hour))
+			return err
+		}(),
+	} {
+		if !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("%s without storage: %v", name, err)
+		}
 	}
 }
 

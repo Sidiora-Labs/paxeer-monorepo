@@ -127,6 +127,7 @@ CREATE TABLE indexer.indexer_ingest_watermarks_v1(chain_id integer,stream_id tex
 	if err := replay.RunBlockWithBudget(ctx, budget); err != nil {
 		t.Fatalf("apply committed archive block: %v", err)
 	}
+	assertReplayVerificationCatalog(t, ctx, replay, manifest, digest)
 	if err := replay.RunBlockWithBudget(ctx, budget); err != nil {
 		t.Fatalf("verify committed archive projection: %v", err)
 	}

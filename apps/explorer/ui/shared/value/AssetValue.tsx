@@ -143,6 +143,8 @@ const AssetValue = ({
       display="inline-flex"
       flexDirection={ layout === 'vertical' ? 'column' : 'row' }
       alignItems={ layout === 'vertical' ? 'flex-end' : 'center' }
+      flexWrap="wrap"
+      minW={ 0 }
       maxW="100%"
       columnGap={ 1 }
       rowGap={ 1 }

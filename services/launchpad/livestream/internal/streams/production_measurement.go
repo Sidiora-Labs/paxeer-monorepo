@@ -631,7 +631,7 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (summary
 	if cost.Cmp(limit) > 0 {
 		summary.Blockers = append(summary.Blockers, "actual monthly vendor spend exceeded approved units")
 	}
-	thresholds, e := BudgetThresholds(cost.RatString(), budget.MonthlyUnits)
+	thresholds, e := measurementBudgetThresholds(cost, budget.MonthlyUnits)
 	if e != nil {
 		return summary, e
 	}
@@ -655,4 +655,13 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (summary
 		return summary, errors.New("measured media envelope failed")
 	}
 	return summary, nil
+}
+
+func measurementBudgetThresholds(cost *big.Rat, monthlyUnits string) ([]int, error) {
+	units := cost.FloatString(usageFractionDigits)
+	exact, err := parseUsageDecimal(units)
+	if err != nil || exact.Cmp(cost) != 0 {
+		return nil, ErrInvalid
+	}
+	return BudgetThresholds(units, monthlyUnits)
 }

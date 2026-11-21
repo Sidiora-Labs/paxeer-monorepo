@@ -140,7 +140,7 @@ describe.each([ 'light', 'dark' ] as const)('ScanSectionTabs in %s appearance', 
     expect(declarations).toMatch(/padding-(?:block|top):var\(--chakra-spacing-1\)/);
     expect(declarations).toMatch(/padding-(?:block|bottom):var\(--chakra-spacing-1\)/);
     expect(declarations).toContain('border-width:var(--chakra-border-widths-1)');
-    expect(declarations).toContain('min-height:var(--chakra-sizes-touch-target)');
+    expect(declarations).toContain('min-height:var(--tabs-height)');
     expect(declarations).toContain('white-space:nowrap');
     expect(declarations).not.toMatch(/(?:^|;)height:[123]?\dpx/);
   });

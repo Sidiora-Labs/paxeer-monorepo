@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useRef, useState } from 'react';
 import { address, exactUnits, type OrderKind } from './domain';
 import type { AdvancedProvider, PreparedOrder } from './advanced-provider';
@@ -62,7 +63,7 @@ function ConnectedOrderForm({ provider, onPlaced }: OrderFormProps & { provider:
     <h2 id="meta-order-title" className="text-base font-bold">Limit and stop orders</h2>
     <p className="text-2xs text-text">Prices are in {provider.manifest.priceDenomination}. Hitting your trigger doesn't guarantee that exact price</p>
     <label htmlFor="meta-order-kind" className="block">Order type<select id="meta-order-kind" name="orderType" className="block w-full rounded-xl bg-surface-2 p-3" value={kind} onChange={event => setKind(event.target.value as OrderKind)}>{provider.manifest.supportedKinds.map(value => <option key={value} value={value}>{value.replaceAll('-', ' ')}</option>)}</select></label>
-    <label htmlFor="meta-order-token" className="block">Coin<select id="meta-order-token" name="token" className="block w-full rounded-xl bg-surface-2 p-3" value={token} onChange={event => setToken(event.target.value)}><option value="">Select coin</option>{tokens.map(value => <option key={value.tokenAddress} value={value.tokenAddress}>{value.symbol} · {value.tokenAddress}</option>)}</select></label>
+    <label htmlFor="meta-order-token" className="block">Coin<select id="meta-order-token" name="token" className="block w-full rounded-xl bg-surface-2 p-3" value={token} onChange={event => setToken(event.target.value)}><option value="">Select coin</option>{tokens.map(value => <option key={value.tokenAddress} value={value.tokenAddress} title={displayCoinText(value.symbol, value.tokenAddress)}>{displayCoinText(value.symbol, value.tokenAddress)} · {value.tokenAddress}</option>)}</select></label>
     <label htmlFor="meta-order-amount" className="block">Amount<input id="meta-order-amount" name="amount" className="block w-full rounded-xl bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} /></label>
     {kind.startsWith('stop') && <label htmlFor="meta-order-trigger" className="block">Trigger price<input id="meta-order-trigger" name="triggerPrice" className="block w-full rounded-xl bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={trigger} onChange={event => setTrigger(event.target.value)} /></label>}
     {kind !== 'stop-loss' && <label htmlFor="meta-order-limit" className="block">Limit price<input id="meta-order-limit" name="limitPrice" className="block w-full rounded-xl bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={limit} onChange={event => setLimit(event.target.value)} /></label>}

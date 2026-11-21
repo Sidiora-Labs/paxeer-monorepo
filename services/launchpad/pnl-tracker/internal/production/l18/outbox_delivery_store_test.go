@@ -3,11 +3,13 @@ package l18
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // Committed in-memory peer records cross connection restarts. Transactions
@@ -124,12 +126,16 @@ func (s *outboxDeliveryStore) query(sql string, args []string) (rewardHistoryRes
 		}
 		return rewardHistoryRows([]uint32{25, 17}, []string{r.Subject, r.Wire}), true, nil
 	case strings.HasPrefix(sql, "WITH picked AS (SELECT event_id FROM delivery_outbox"):
-		if err := rewardHistoryRequire(sql, "FOR UPDATE SKIP LOCKED LIMIT $1", "o.fence+1", "o.attempts+1"); err != nil {
+		if err := rewardHistoryRequire(sql, "subject=ANY($4::text[])", "FOR UPDATE SKIP LOCKED LIMIT $1", "o.fence+1", "o.attempts+1"); err != nil {
+			return errResult(err)
+		}
+		var subjects []string
+		if err := pgtype.NewMap().Scan(pgtype.TextArrayOID, pgtype.TextFormatCode, []byte(args[3]), &subjects); err != nil {
 			return errResult(err)
 		}
 		result := rewardHistoryRows([]uint32{25, 25, 17, 20, 23})
 		for id, row := range s.state.Delivery {
-			if row.State != "pending" || row.Until.After(time.Now()) {
+			if row.State != "pending" || !slices.Contains(subjects, row.Subject) || row.Until.After(time.Now()) {
 				continue
 			}
 			row.Owner, row.Fence, row.Attempts = args[1], row.Fence+1, row.Attempts+1
@@ -231,7 +237,7 @@ func outboxDeliverySignature(sql string) ([]uint32, []uint32, bool) {
 	case strings.HasPrefix(sql, "SELECT subject,envelope FROM delivery_outbox"):
 		return []uint32{25}, []uint32{25, 17}, true
 	case strings.HasPrefix(sql, "WITH picked AS (SELECT event_id FROM delivery_outbox"):
-		return []uint32{23, 25, 20}, []uint32{25, 25, 17, 20, 23}, true
+		return []uint32{23, 25, 20, 1009}, []uint32{25, 25, 17, 20, 23}, true
 	case strings.HasPrefix(sql, "UPDATE delivery_outbox SET state=CASE WHEN attempts>"):
 		return []uint32{25, 25, 20, 23}, []uint32{16}, true
 	case strings.HasPrefix(sql, "UPDATE delivery_outbox SET acknowledgement_latency_ms="):

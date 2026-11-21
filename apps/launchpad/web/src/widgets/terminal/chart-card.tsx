@@ -76,7 +76,7 @@ export default function TerminalChartCard({ poolAddress }: { poolAddress: string
           </Suspense>
         </PremiumErrorBoundary>
       </div>
-      <div className="flex min-h-control-height-sm shrink-0 flex-wrap items-center gap-1 bg-surface-1 px-2 py-1 text-xs">
+      <div className="flex min-h-8 shrink-0 flex-wrap items-center gap-1 bg-surface-1 px-2 text-xs">
         <div role="group" aria-label="Quick candle interval" className="flex items-center gap-0.5">
           {QUICK_INTERVALS.map(option => {
             const active = settings.interval === option.value;

@@ -62,8 +62,7 @@ const FooterLinkItem = ({ icon, iconSize, iconUrl, text, url, isLoading }: Props
       href={ url }
       display="flex"
       alignItems="center"
-      minH="touchTarget"
-      minW="touchTarget"
+      minH={ 7 }
       variant="subtle"
       external
       noIcon

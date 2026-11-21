@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { Archive, Wallet } from 'lucide-react';
@@ -26,10 +27,10 @@ export interface PositionsOpenClosedProps {
 export interface TokenIdentity { name: string; symbol: string | null; logo: string | null; known: boolean; decimals: number | null }
 
 export function tokenIdentity(address: string, metadata: TokenMetadata | null | undefined): TokenIdentity {
-  if (!metadata) return { name: 'Unknown', symbol: null, logo: null, known: false, decimals: null };
+  if (!metadata) return { name: displayCoinText(null, address), symbol: null, logo: null, known: false, decimals: null };
   return {
-    name: metadata.name?.trim() || 'Unknown',
-    symbol: metadata.symbol?.trim() || null,
+    name: displayCoinText(metadata.name, address),
+    symbol: displayCoinText(metadata.symbol, address),
     logo: metadata.images?.logo ?? null,
     known: !!metadata.name?.trim(),
     decimals: typeof metadata.decimals === 'number' ? metadata.decimals : null,
@@ -49,10 +50,10 @@ function Amount({ raw, signed = false, className }: { raw: bigint | string | nul
 
 function TokenCell({ address, identity, href }: { address: string; identity: TokenIdentity; href: string }) {
   return (
-    <Link prefetch={false} href={href} className="flex min-h-touch-target-min min-w-0 items-center gap-3 rounded-sm">
+    <Link prefetch={false} href={href} className="flex min-h-10 min-w-0 items-center gap-3 rounded-sm">
       <Avatar src={identity.logo} name={identity.symbol ?? identity.name} size="lg" shape="square" decorative />
       <span className="min-w-0">
-        <span className="flex min-w-0 items-baseline gap-1 text-sm font-bold text-text"><span className="min-w-0 truncate">{identity.name}</span>{identity.symbol ? <span className="min-w-0 truncate font-semibold text-text-muted">{identity.symbol}</span> : null}</span>
+        <span className="flex min-w-0 items-baseline gap-1 text-sm font-bold text-text"><span className="min-w-0 truncate" title={identity.name}>{identity.name}</span>{identity.symbol ? <span className="min-w-0 truncate font-semibold text-text-muted" title={identity.symbol}>{identity.symbol}</span> : null}</span>
         <span className="block truncate font-mono-sl text-xs text-text-faint">{shortAddress(address, 6, 4)}</span>
       </span>
     </Link>
@@ -79,9 +80,9 @@ function PositionRow({ position, identity, poolAddress, mode, owner }: { positio
         <>
           <div className="min-w-0 text-right">
             <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Quantity</span>
-            <MaskedAmount className="block truncate text-xs text-text-faint tabular-nums">{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount>
+            <MaskedAmount className="block truncate text-xs text-text-faint tabular-nums [contain:inline-size]">{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount>
           </div>
-          <div className="min-w-0 sm:text-right">
+          <div className="min-w-0 text-right">
             <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Value</span>
             <Amount raw={valueRaw} className={cn(dust && 'text-text-faint')} />
             {valueRaw === null ? <span className="block text-2xs text-text-faint">no price yet</span> : null}
@@ -98,7 +99,7 @@ function PositionRow({ position, identity, poolAddress, mode, owner }: { positio
             <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Realized</span>
             <Amount raw={realized} signed />
           </div>
-          <div className="min-w-0 sm:text-right">
+          <div className="min-w-0 text-right">
             <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Known realized</span>
             <Amount raw={knownRealized} signed />
           </div>

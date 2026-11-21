@@ -23,7 +23,7 @@ export interface TooltipProps extends RecipeRootProps {
   disableOnMobile?: boolean;
 }
 
-export const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
+const TooltipContent = React.forwardRef<HTMLDivElement, TooltipProps>(
   function Tooltip(props, ref) {
     const {
       showArrow: showArrowProp,
@@ -161,5 +161,12 @@ export const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
         </Portal>
       </RecipeRoot>
     );
+  },
+);
+
+export const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
+  function Tooltip(props, ref) {
+    if (props.disabled) return props.children;
+    return <TooltipContent { ...props } ref={ ref }/>;
   },
 );

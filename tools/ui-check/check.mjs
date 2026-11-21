@@ -129,11 +129,27 @@ async function readAnswers(value, label, base, required = false) {
   return answers;
 }
 
+function readSteps(steps, label, nonempty = false) {
+  array(steps, label, nonempty);
+  for (const step of steps) {
+    const keys = {
+      click: ["action", "selector"], fill: ["action", "selector", "value"],
+      press: ["action", "selector", "key"], wait: ["action", "text"],
+    }[step?.action];
+    if (!keys) throw new Error("State action must be click, fill, press or wait");
+    object(step, keys, "step");
+    for (const key of keys.filter((key) => key !== "action")) {
+      if (key === "value" && step[key] === "") continue;
+      text(step[key], `step.${key}`);
+    }
+  }
+}
+
 export async function readSurface(filename) {
   const file = await realpath(resolve(filename));
   const base = dirname(file);
   const value = JSON.parse(await readFile(file, "utf8"));
-  object(value, ["name", "directory", "build", "buildMs", "outputs", "start", "address", "readyPath", "views", "answers", "typeScale", "geometry", "reportedKinds", "embeddedMessages"], "surface");
+  object(value, ["name", "directory", "build", "buildMs", "outputs", "start", "address", "readyPath", "readyMs", "views", "answers", "typeScale", "geometry", "reportedKinds", "embeddedMessages"], "surface");
   const embeddedMessages = readEmbeddedMessages(value.embeddedMessages);
   text(value.name, "surface.name");
   if (value.reportedKinds !== undefined) {
@@ -166,6 +182,9 @@ export async function readSurface(filename) {
   if (value.buildMs !== undefined && (!Number.isInteger(value.buildMs) || value.buildMs < 1000 || value.buildMs > 1800000)) {
     throw new Error(`Surface ${value.name} buildMs must be a whole number from 1000 to 1800000`);
   }
+  if (value.readyMs !== undefined && (!Number.isInteger(value.readyMs) || value.readyMs < 1000 || value.readyMs > 120000)) {
+    throw new Error(`Surface ${value.name} readyMs must be a whole number from 1000 to 120000`);
+  }
   if (value.outputs !== undefined) {
     const label = `Surface ${value.name} outputs`;
     if (!value.build) throw new Error(`${label} requires a build command`);
@@ -185,8 +204,9 @@ export async function readSurface(filename) {
   localPath(value.readyPath, "surface.readyPath");
   array(value.views, "surface.views", true);
   for (const view of value.views) {
-    object(view, ["name", "path", "states", "expects", "answers", "modes", "parts"], "view");
+    object(view, ["name", "path", "ready", "states", "expects", "answers", "modes", "parts"], "view");
     text(view.name, "view.name");
+    if (view.ready !== undefined) readSteps(view.ready, "view.ready");
     if (view.parts !== undefined) {
       array(view.parts, `View ${view.name} parts`);
       for (const part of view.parts) {
@@ -209,19 +229,7 @@ export async function readSurface(filename) {
         if (state.name === "default") throw new Error("State name default is reserved");
         state.expects = expectations(state.expects, "state.expects");
         state.answers = await readAnswers(state.answers, `View ${view.name} state ${state.name} answers`, base);
-        array(state.steps, "state.steps", true);
-        for (const step of state.steps) {
-          const keys = {
-            click: ["action", "selector"], fill: ["action", "selector", "value"],
-            press: ["action", "selector", "key"], wait: ["action", "text"],
-          }[step?.action];
-          if (!keys) throw new Error("State action must be click, fill, press or wait");
-          object(step, keys, "step");
-          for (const key of keys.filter((key) => key !== "action")) {
-            if (key === "value" && step[key] === "") continue;
-            text(step[key], `step.${key}`);
-          }
-        }
+        readSteps(state.steps, "state.steps", true);
       }
       uniqueNames(view.states, "State");
     }
@@ -269,9 +277,11 @@ export async function captureFullPage(page, render, out, { navigationMs = LIMITS
     await page.screenshot({ path: join(out, render.screenshot), fullPage: true, timeout: milliseconds, animations: "allow" });
   } catch (error) {
     if (!isActive()) return;
-    render.findings.push({ kind: "load", selector: "document", values: { source: "screenshot", height, milliseconds, message: error.message } });
+    const finding = { kind: "load", selector: "document", values: { source: "screenshot", height, milliseconds, message: error.message } };
+    render.findings.push(finding);
     render.screenshot = null;
     render.rendered = false;
+    return { finding, retryCause: error.name === "TimeoutError" ? "screenshot-timeout" : null };
   }
 }
 
@@ -420,7 +430,7 @@ async function openBrowser(worker) {
   worker.browser = await chromium.connect(worker.server.wsEndpoint());
 }
 
-async function renderView(worker, surface, view, state, configuration, out, index, renderMs, geometry) {
+async function renderView(worker, surface, view, state, configuration, out, index, renderMs, geometry, navigationMs) {
   const { width, height, scheme, mode } = configuration;
   let context;
   let active = true;
@@ -562,12 +572,15 @@ async function renderView(worker, surface, view, state, configuration, out, inde
         failedResponses.push({ address: response.url(), status: response.status(), expected: matches.length > 0 });
       });
       navigationPending = true;
-      const response = await page.goto(new URL(view.path, surface.address).href, { waitUntil: "load" });
+      const response = await page.goto(new URL(view.path, surface.address).href, { waitUntil: "load", timeout: navigationMs });
       navigationPending = false;
       if (!response || (!response.ok() && !expectedResponses.has(response))) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
       if (new URL(page.url()).origin !== surface.address) throw new Error("View navigated outside the surface");
-      if (state.steps.length) {
-        await withIntentionalShifts(page, () => applySteps(page, state.steps));
+      if (view.ready?.length || state.steps.length) {
+        await withIntentionalShifts(page, async () => {
+          await applySteps(page, view.ready ?? []);
+          await applySteps(page, state.steps);
+        });
       }
       if (mode === "double-text") {
         await withIntentionalShifts(page, () => page.evaluate(doubleText));
@@ -585,7 +598,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
         findings.push(...geometryFindings(render.geometry, geometry.stored, geometry.writing));
       }
       startStep("screenshot");
-      const viewportHasContent = screenshotHasContent(await page.screenshot({ fullPage: false, timeout: LIMITS.navigationMs, animations: "allow" }));
+      const viewportHasContent = screenshotHasContent(await page.screenshot({ fullPage: false, timeout: navigationMs, animations: "allow" }));
       if (!active) return;
       if (!viewportHasContent) addLoad({ source: "single-colour-viewport", message: "Viewport screenshot contains a single colour" });
       render.hasContent = viewportHasContent && !measurements.some((finding) => finding.kind === "load" && finding.values.source === "empty-document");
@@ -607,14 +620,18 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       render.rendered = true;
     } catch (error) {
       if (!active) return;
-      const cause = navigationPending && !navigationAnswered
-        ? (error.name === "TimeoutError" ? "navigation-timeout" : navigationFailure) : null;
+      const cause = navigationPending
+        ? (error.name === "TimeoutError"
+          ? (navigationAnswered ? "navigation-load-timeout" : "navigation-timeout")
+          : (navigationAnswered ? null : navigationFailure))
+        : (step === "screenshot" && error.name === "TimeoutError" ? "screenshot-timeout" : null);
       addLoad({ source: "render", message: error.message }, cause);
       render.rendered = false;
     }
     if (page && active && out) {
       startStep("screenshot");
-      await captureFullPage(page, render, out, undefined, () => active);
+      const capture = await captureFullPage(page, render, out, { navigationMs }, () => active);
+      if (capture?.retryCause) retryCauses.set(capture.finding, capture.retryCause);
     }
   };
   try {
@@ -666,9 +683,10 @@ function jobCount(value = Math.min(availableParallelism(), 4)) {
   return Number(value);
 }
 
-export async function checkSurface({ surface: filename, out: destination, view: selected, jobs, renderMs = LIMITS.renderMs, writeGeometry: writing = false }, print = console.log) {
+export async function checkSurface({ surface: filename, out: destination, view: selected, jobs, renderMs = LIMITS.renderMs, navigationMs = LIMITS.navigationMs, writeGeometry: writing = false }, print = console.log) {
   const count = jobCount(jobs);
   if (!Number.isSafeInteger(renderMs) || renderMs <= 0 || renderMs > LIMITS.renderMs) throw new Error("renderMs must be a positive whole number within the render limit");
+  if (!Number.isSafeInteger(navigationMs) || navigationMs <= 0 || navigationMs > LIMITS.navigationMs) throw new Error("navigationMs must be a positive whole number within the navigation limit");
   const surface = await readSurface(filename);
   if (writing && !surface.geometry) throw new Error("--write-geometry requires surface.geometry");
   const geometry = surface.geometry ? await readGeometry(surface.geometry.file, writing) : null;
@@ -684,7 +702,7 @@ export async function checkSurface({ surface: filename, out: destination, view: 
     states: (view.states ?? []).map((state) => ({ name: state.name, modes: state.modes, answers: state.answers.length })),
   }));
   const reducedModeCount = summaries.reduce((total, view) => total + Number(view.modes.length < MODES.length) + view.states.filter((state) => state.modes.length < MODES.length).length, 0);
-  const result = { surface: surface.name, buildMs: surface.buildMs ?? LIMITS.buildMs, outputs: [], devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, retriedCount: 0, renders: [], findings: [], passed: false };
+  const result = { surface: surface.name, buildMs: surface.buildMs ?? LIMITS.buildMs, readyMs: surface.readyMs ?? LIMITS.readyMs, outputs: [], devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, retriedCount: 0, renders: [], findings: [], passed: false };
   const tasks = views.flatMap((view) => {
     const initial = { name: "default", steps: [], expects: view.expects, modes: view.modes };
     const entries = geometry?.entries.filter((entry) => entry.view === view.name) ?? [];
@@ -724,13 +742,13 @@ export async function checkSurface({ surface: filename, out: destination, view: 
           const index = next++;
           const { view, state, configuration, geometry: plan } = tasks[index];
           await openBrowser(worker);
-          const first = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
+          const first = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan, navigationMs);
           let render = first.render;
           const deadline = render.findings.find((finding) => finding.values.source === "deadline");
           if (deadline || first.loadRetryCause) {
             await closeBrowser(worker, true);
             await openBrowser(worker);
-            ({ render } = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan));
+            ({ render } = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan, navigationMs));
             render.retried = true;
             render.firstDeadlineStep = deadline?.values.step ?? null;
             render.firstLoadFailure = first.loadRetryCause;

@@ -14,7 +14,7 @@ interface Props {
 
 const SettingsSample = ({ label, value, bg, onClick, isActive }: Props) => (
   <Tooltip content={ label }>
-    <IconButton minH="touchTarget" minW="touchTarget"
+    <IconButton
       type="button"
       variant="plain"
       aria-label={ label }

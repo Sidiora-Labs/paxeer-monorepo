@@ -7,17 +7,21 @@ import {
   ErrorNotice,
   ListPage,
   ResourceStatus,
+  PageControls,
+  usePagination,
   showAction,
   useResource,
   useSurface,
   type Runtime,
 } from '../navigation.tsx';
+import { pageResourceKey } from '../runtime/flow-state.ts';
 export function Watchlists({ runtime }: { runtime: Runtime }) {
   const { ui } = useSurface();
+  const page = usePagination('watchlist');
   const state = useResource(
     runtime,
-    'watchlist',
-    (s) => runtime.services.watchlist(s),
+    pageResourceKey('watchlist', page.cursor),
+    (s) => runtime.services.watchlist(s, page.cursor),
     true,
   );
   const [error, setError] = useState<string>();
@@ -31,8 +35,16 @@ export function Watchlists({ runtime }: { runtime: Runtime }) {
       header={
         <>
           <ResourceStatus {...state} />
+          <PageControls
+            page={page}
+            nextCursor={state.data?.nextCursor}
+            loading={state.loading}
+            offline={state.offline}
+          />
           {error && <ErrorNotice message={error} />}
-          <Text style={ui.subtle}>Up to 500 watched pools per account.</Text>
+          <Text style={ui.subtle}>
+            Up to 500 watched pools per account.
+          </Text>
         </>
       }
       row={(item) => (
@@ -41,11 +53,15 @@ export function Watchlists({ runtime }: { runtime: Runtime }) {
           <Button
             label="Open token"
             onPress={() =>
-              runtime.navigate({ name: 'token', address: item.poolAddress })
+              runtime.navigate({
+                name: 'token',
+                address: item.poolAddress,
+              })
             }
           />
           <Button
             label="Remove from watchlist"
+            disabled={state.offline}
             onPress={() =>
               showAction(
                 () =>
@@ -54,7 +70,10 @@ export function Watchlists({ runtime }: { runtime: Runtime }) {
                     runtime.session.signal,
                   ),
                 setError,
-                state.reload,
+                () => {
+                  page.reset();
+                  state.reload();
+                },
               )
             }
           />

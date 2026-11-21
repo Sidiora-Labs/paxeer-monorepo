@@ -1,5 +1,7 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
+import { shortAddress } from '@/utils/format';
 import Link from 'next/link';
 import { ArrowDown, ArrowUp, ArrowUpDown, HandCoins, ListFilter } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,6 +30,7 @@ export interface HolderRewardsTableProps {
   loadMoreFailed?: boolean;
   onLoadMore(): void;
   pricesUnavailable?: Unsupported | null;
+  pricesPending?: boolean;
   hoveredPool?: string | null;
   onHoverPool?(pool: string | null): void;
   airdrop?: AirdropHover | null;
@@ -44,7 +47,7 @@ const columns: ReadonlyArray<{ key: HolderRewardsSortKey; label: string; width: 
 function ColumnHead({ label, sr, sort, onSort, className }: { label: string; sr?: string; sort: 'asc' | 'desc' | null; onSort(): void; className?: string }) {
   const Icon = sort === 'asc' ? ArrowUp : sort === 'desc' ? ArrowDown : ArrowUpDown;
   return (
-    <th scope="col" aria-sort={sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : undefined} className={cn('h-touch-target-min px-2 text-xs font-medium md:px-3', sort ? 'text-text' : 'text-text-faint', className)}>
+    <th scope="col" aria-sort={sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : undefined} className={cn('h-10 px-2 text-xs font-medium md:px-3', sort ? 'text-text' : 'text-text-faint', className)}>
       <button type="button" onClick={onSort} className="relative ml-auto flex h-full items-center justify-end gap-1 rounded-xs transition-colors hover:text-text focus-visible:bg-surface-3 focus-visible:underline">
         <span>{label}{sr ? <span className="sr-only"> {sr}</span> : null}</span>
         <Icon aria-hidden="true" className={cn('size-3', sort ? 'text-text' : 'opacity-0 group-hover/head:opacity-60')} />
@@ -98,6 +101,7 @@ export default function HolderRewardsTable({
   loadMoreFailed = false,
   onLoadMore,
   pricesUnavailable = null,
+  pricesPending = false,
   hoveredPool = null,
   onHoverPool,
   airdrop = null,
@@ -105,7 +109,7 @@ export default function HolderRewardsTable({
 }: HolderRewardsTableProps) {
   const empty = !loading && rows.length === 0 && !filtered;
   return (
-    <div aria-busy={loading || loadingMore || undefined} className={cn('flex min-h-80 flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
+    <div aria-busy={loading || loadingMore || undefined} className={cn('flex flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
       <div className="overflow-x-auto">
       <table className="w-full min-w-[var(--sl-rewards-table-min-width)] table-fixed">
         <caption className="sr-only">Holder rewards coins ranked by {order.key === 'age' ? 'creation time' : order.key === 'mcap' ? 'market cap' : order.key === 'holders' ? 'holders paid' : 'rewards distributed'}, {order.direction === 'desc' ? 'highest first' : 'lowest first'}</caption>
@@ -146,7 +150,8 @@ export default function HolderRewardsTable({
               body="Clear a filter or load more coins"
             />
           ) : null}
-          {rows.map((row, index) => {
+          {rows.map((rawRow, index) => {
+            const row = { ...rawRow, name: displayCoinText(rawRow.name, rawRow.tokenAddress), symbol: displayCoinText(rawRow.symbol, rawRow.tokenAddress) };
             const hovered = hoveredPool === row.poolAddress;
             const href = coinHref(row.poolAddress);
             const mcap = row.mcapRaw === null ? null : mcapText(row.mcapRaw);
@@ -163,7 +168,7 @@ export default function HolderRewardsTable({
                     <Avatar src={row.image} name={row.name} size="lg" shape="square" decorative className="md:size-avatar-xl" />
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center gap-1">
-                        <Link prefetch={false} href={href} className="flex min-h-touch-target-min min-w-touch-target-min items-center text-base font-semibold text-text after:absolute after:inset-0 after:content-['']" title={row.name}>
+                        <Link prefetch={false} href={href} className="flex min-w-0 items-center text-base font-semibold text-text after:absolute after:inset-0 after:content-['']" title={row.name}>
                           <span className="min-w-0 truncate">{row.name}</span>
                           <span className="sr-only">
                             , {rewardsText(row.pool.distributedRaw)} distributed to holders
@@ -174,7 +179,7 @@ export default function HolderRewardsTable({
                         <CopyAddress address={row.tokenAddress} variant="icon" className="relative z-10 shrink-0" />
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-faint">
-                        {row.symbol ? <span className="truncate font-bold uppercase" title={row.symbol}>${row.symbol}</span> : null}
+                        {row.symbol ? <span className="truncate font-bold" title={row.symbol}>{row.symbol === shortAddress(row.tokenAddress) ? row.symbol : `$${row.symbol}`}</span> : null}
                         <AgeChip iso={row.pool.createdAt} className="font-bold text-warning" />
                         <UsdlBadge />
                         <TokenLinkIcons links={row.links} tokenAddress={row.tokenAddress} />
@@ -201,7 +206,7 @@ export default function HolderRewardsTable({
                       <span className="text-text-faint" aria-label="Market cap not available yet">{'—'}</span>
                     </Tooltip>
                   ) : (
-                    <span className="text-text-faint" aria-label="Loading market cap">{'—'}</span>
+                    <span className="text-text-faint" aria-label={pricesPending ? 'Loading market cap' : 'Market cap not available yet'}>{'—'}</span>
                   )}
                 </td>
                 <td className="hidden px-3 text-right align-middle md:table-cell">
@@ -213,9 +218,9 @@ export default function HolderRewardsTable({
         </tbody>
       </table>
       </div>
-      {rows.length > 0 ? (
+      {rows.length > 0 || hasMore ? (
         <>
-          {hasMore ? <p className="px-3 text-xs text-text-faint">Ranked across the {rows.length} coins shown</p> : null}
+          {hasMore && rows.length > 0 ? <p className="px-3 text-xs text-text-faint">Ranked across the {rows.length} coins shown</p> : null}
           <LoadMore hasMore={hasMore} loading={loadingMore} error={loadMoreFailed} onLoadMore={onLoadMore} auto={false} />
         </>
       ) : null}

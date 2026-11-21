@@ -32,6 +32,7 @@ import {
   releaseConfiguration,
   publicSnapshotStorage,
   nativePush,
+  consumeNotificationLink,
 } from './platform/protected-storage.ts';
 import {
   LocalPrivacyController,
@@ -73,9 +74,14 @@ export default function App({
   const { ui } = useSurface();
   const [config, setConfig] = useState<PublicConfiguration>(),
     [error, setError] = useState<string>();
+  const [configurationRevision, retryConfiguration] = useReducer(
+    (n) => n + 1,
+    0,
+  );
   useEffect(() => {
     let active = true;
-    void Promise.resolve(configuration ?? releaseConfiguration())
+    void Promise.resolve()
+      .then(() => configuration ?? releaseConfiguration())
       .then((value) => {
         if (active) setConfig(readConfiguration(value));
       })
@@ -88,7 +94,7 @@ export default function App({
     return () => {
       active = false;
     };
-  }, [configuration]);
+  }, [configuration, configurationRevision]);
   return config ? (
     <ConnectedApp
       config={config}
@@ -101,9 +107,20 @@ export default function App({
     <SurfaceFrame>
       <Page title="Sidiora">
         {error ? (
-          <ErrorNotice message={error} />
+          <>
+            <ErrorNotice message={error} />
+            <Button
+              label="Retry configuration"
+              onPress={() => {
+                setError(undefined);
+                retryConfiguration();
+              }}
+            />
+          </>
         ) : (
-          <Text style={ui.text}>Opening secure service configuration…</Text>
+          <Text style={ui.text}>
+            Opening secure service configuration…
+          </Text>
         )}
       </Page>
     </SurfaceFrame>
@@ -136,7 +153,10 @@ function ConnectedApp({
       ),
       session = new SessionController(protectedStorage, cache),
       services = new MobileServices(config, () => session.token),
-      pending = new PendingOperations(protectedStorage, config.canonicalOrigin),
+      pending = new PendingOperations(
+        protectedStorage,
+        config.canonicalOrigin,
+      ),
       lifecycle = new ForegroundLifecycle(
         services,
         session,
@@ -164,11 +184,21 @@ function ConnectedApp({
                   try {
                     await current.session.logout(services);
                   } finally {
-                    await current.pending.clearForAccountSwitch();
-                    await current.approval?.purgeForAccountSwitch();
+                    const cleanup = await Promise.allSettled([
+                      current.pending.clearForAccountSwitch(),
+                      current.approval?.purgeForAccountSwitch(),
+                    ]);
                     current.routeState.clear();
                     current.marketData.clear();
                     render();
+                    if (
+                      cleanup.some(
+                        (result) => result.status === 'rejected',
+                      )
+                    )
+                      throw new Error(
+                        'Protected account cleanup unavailable',
+                      );
                   }
                 })().catch(() =>
                   setError(
@@ -217,7 +247,8 @@ function ConnectedApp({
         render,
         () => !privacy.enabled || privacy.unlocked,
       );
-      lifecycle.additionalExecutionAllowed = () => !value.approval?.blocking;
+      lifecycle.additionalExecutionAllowed = () =>
+        !value.approval?.blocking;
       lifecycle.reconcileFinancial = async (signal) =>
         value.approval?.hasOutstanding
           ? value.approval.reconcile(signal)
@@ -307,7 +338,9 @@ function ConnectedApp({
         void runtime.lifecycle
           .foreground()
           .catch(() =>
-            setError('Foreground refresh failed. Execution remains disabled.'),
+            setError(
+              'Foreground refresh failed. Execution remains disabled.',
+            ),
           );
       else {
         runtime.privacy.lock();
@@ -347,14 +380,23 @@ function ConnectedApp({
           await runtime.lifecycle.foreground();
           setRoute({ name: 'portfolio' });
         } else setRoute(runtime.pending.route(url));
-      })().catch(() => setError('Invalid or unrelated application link.'));
+      })().catch(() =>
+        setError('Invalid or unrelated application link.'),
+      );
     };
     const links = Linking.addEventListener('url', (event) =>
       receive(event.url),
     );
-    void Linking.getInitialURL().then((url) => {
-      if (active && url) receive(url);
-    });
+    void Promise.all([Linking.getInitialURL(), consumeNotificationLink()])
+      .then(([url, notification]) => {
+        if (active && (url || notification))
+          receive(url || notification!);
+      })
+      .catch(() =>
+        setError(
+          'Application link unavailable. Open notifications from navigation.',
+        ),
+      );
     return () => {
       active = false;
       state.remove();
@@ -388,9 +430,13 @@ function ConnectedApp({
   }, [runtime, route.name, route.name === 'token' ? route.address : '']);
   useEffect(() => {
     void setPrivatePreview(
-      ['portfolio', 'watchlists', 'chat', 'profile', 'notifications'].includes(
-        route.name,
-      ),
+      [
+        'portfolio',
+        'watchlists',
+        'chat',
+        'profile',
+        'notifications',
+      ].includes(route.name),
     ).catch(() =>
       setError(
         'Native preview privacy unavailable. Private screen release qualification is blocked.',
@@ -408,7 +454,10 @@ function ConnectedApp({
         setError(
           'Network unavailable. Financial actions are disabled; reconnect and refresh before signing.',
         );
-      } else if (reachable === false && AppState.currentState === 'active') {
+      } else if (
+        reachable === false &&
+        AppState.currentState === 'active'
+      ) {
         void runtime.lifecycle
           .foreground()
           .then(() => {
@@ -461,14 +510,18 @@ function ConnectedApp({
   }, [runtime, config]);
   const login = async () => {
     if (!runtime.wallet)
-      throw new Error('A supported native external wallet adapter is required');
+      throw new Error(
+        'A supported native external wallet adapter is required',
+      );
     const signal = runtime.session.signal,
       connected = await runtime.wallet.connect(signal),
-      challenge = (await runtime.services.challenge(connected.address, signal))
-        .data.challenge;
+      challenge = (
+        await runtime.services.challenge(connected.address, signal)
+      ).data.challenge;
     if (
       challenge.purpose !== 'login' ||
-      challenge.wallet.toLowerCase() !== connected.address.toLowerCase() ||
+      challenge.wallet.toLowerCase() !==
+        connected.address.toLowerCase() ||
       challenge.uri !== config.identityURI ||
       challenge.chainId !== '125' ||
       challenge.domain !== new URL(config.identityURI).host ||
@@ -519,10 +572,12 @@ function ConnectedApp({
             <View style={ui.navigation}>
               {names
                 .filter(
-                  (name) => name !== 'chat' || config.optionalFeatures.chat,
+                  (name) =>
+                    name !== 'chat' || config.optionalFeatures.chat,
                 )
                 .filter(
-                  (name) => name !== 'live' || config.optionalFeatures.live,
+                  (name) =>
+                    name !== 'live' || config.optionalFeatures.live,
                 )
                 .map((name) => (
                   <Button
@@ -540,6 +595,23 @@ function ConnectedApp({
             {error && (
               <View style={ui.stack}>
                 <ErrorNotice message={error} />
+                <Button
+                  label="Refresh services and authorization"
+                  onPress={() =>
+                    showAction(
+                      async () => {
+                        if (!runtime.session.current)
+                          await runtime.session.restore(runtime.services);
+                        await runtime.lifecycle.foreground();
+                      },
+                      setError,
+                      () => {
+                        setError(undefined);
+                        render();
+                      },
+                    )
+                  }
+                />
               </View>
             )}
           </>
@@ -592,13 +664,23 @@ function ConnectedApp({
                         try {
                           await runtime.session.logout(runtime.services);
                         } finally {
-                          await runtime.wallet?.disconnect?.();
-                          await runtime.pending.clearForAccountSwitch();
-                          await runtime.approval?.purgeForAccountSwitch();
+                          const results = await Promise.allSettled([
+                            runtime.wallet?.disconnect?.(),
+                            runtime.pending.clearForAccountSwitch(),
+                            runtime.approval?.purgeForAccountSwitch(),
+                          ]);
                           runtime.routeState.clear();
                           runtime.privacy.reset();
                           setRoute({ name: 'discovery' });
                           render();
+                          if (
+                            results.some(
+                              (result) => result.status === 'rejected',
+                            )
+                          )
+                            throw new Error(
+                              'Sign out completed. Reopen the app to retry protected storage cleanup.',
+                            );
                         }
                       },
                       setError,
@@ -622,7 +704,8 @@ function ConnectedApp({
               }
               onPress={() =>
                 showAction(
-                  () => runtime.privacy.setEnabled(!runtime.privacy.enabled),
+                  () =>
+                    runtime.privacy.setEnabled(!runtime.privacy.enabled),
                   setError,
                 )
               }
@@ -657,7 +740,9 @@ function ConnectedApp({
           </Page>
         ) : (
           <>
-            {route.name === 'discovery' && <Discovery runtime={runtime} />}
+            {route.name === 'discovery' && (
+              <Discovery runtime={runtime} />
+            )}
             {route.name === 'token' && (
               <Token
                 key={route.address}
@@ -665,16 +750,37 @@ function ConnectedApp({
                 address={route.address}
               />
             )}
-            {route.name === 'portfolio' && <Portfolio runtime={runtime} />}
-            {route.name === 'watchlists' && <Watchlists runtime={runtime} />}
+            {route.name === 'portfolio' && (
+              <Portfolio runtime={runtime} />
+            )}
+            {route.name === 'watchlists' && (
+              <Watchlists runtime={runtime} />
+            )}
             {route.name === 'profile' && (
-              <Profile runtime={runtime} address={route.address} />
+              <Profile
+                key={route.address}
+                runtime={runtime}
+                address={route.address}
+              />
             )}
             {route.name === 'notifications' && (
               <Notifications runtime={runtime} />
             )}
             {route.name === 'chat' && config.optionalFeatures.chat && (
               <Chat runtime={runtime} />
+            )}
+            {((route.name === 'chat' && !config.optionalFeatures.chat) ||
+              (route.name === 'live' &&
+                !config.optionalFeatures.live)) && (
+              <Page title="Unavailable">
+                <Text style={ui.text}>
+                  This feature is unavailable in this deployment.
+                </Text>
+                <Button
+                  label="Back to discovery"
+                  onPress={() => setRoute({ name: 'discovery' })}
+                />
+              </Page>
             )}
             {route.name === 'live' && config.optionalFeatures.live && (
               <Live runtime={runtime} />

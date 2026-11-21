@@ -1,0 +1,223 @@
+[manifest]
+task = "22.44.111"
+surface = "Sidiora Launchpad leaderboard and rewards"
+views = 15
+named_states = 3
+states = 18
+routes = ["/holder-rewards", "/leaderboard", "/rewards", "/r/science"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+configurations = 612
+
+[presentation]
+layout = "Reward totals, coin cards, tables and trader rows use compact dimensions at desktop widths. Controls reserve at least 44px through 834px."
+readiness = "Coin names and totals accompany the loaded view. Loading states show their pending content."
+scrollbar = "The document reserves a stable scrollbar track."
+
+[rendering]
+renders = 612
+rendered = 612
+nonblank = 612
+missing = 0
+blank = 0
+result = "All configurations show content."
+
+[finding_counts]
+order = ["first", "last"]
+load = [0, 0]
+sideways = [0, 0]
+cut = [0, 0]
+contrast = [0, 0]
+touch = [0, 0]
+focus = [1, 0]
+shift = [121, 71]
+motion = [0, 0]
+scale = [661, 0]
+geometry = [0, 0]
+
+[page_layout]
+footer = "The holder rewards and leaderboard content share a vertical layout with their footer. The footer rests at the viewport bottom on short pages and follows the content on long pages."
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+first_differing_parts = [39, 33, 33, 33, 33]
+differing_parts = [38, 30, 32, 32, 31]
+total_differing_parts = 163
+renders = 102
+rendered = 102
+nonblank = 102
+other_findings = 0
+scrollbar = "The stable scrollbar track reserves 15px of inline space. Centred content moves 7.5px; fluid content and the five-column coin grid share the narrower width."
+touch = "Controls reserve at least 44px in each dimension through 834px. Legal links, coin controls and trader actions retain this space."
+fonts = "Manrope retains its optional font loading and fallback face."
+
+[view.holder-rewards]
+differing_parts = [17, 15, 15, 15, 15]
+
+[part.holder-rewards.all-holder-rewards-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Desktop table rows retain 64px height and the toolbar retains 28px height. Touch-sized coin and sort controls wrap at 390px. At 1280px, the table follows the coin-card badge that wraps within the narrower grid; the scrollbar track sets the remaining widths and positions."
+
+[part.holder-rewards.article-1-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Coin controls reserve 44px touch targets through 834px. At 1280px, each of the five columns loses 3px to the scrollbar track and the USDL badge wraps below the holders-paid figure, adding 24px. Wider cards keep their earlier height."
+
+[part.holder-rewards.first-heading]
+widths = [390, 1440, 1920, 2560]
+cause = "The hero retains its 28/34px and 40/46px heading dimensions within the inline space after the stable scrollbar track."
+
+[part.holder-rewards.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer shares the width after the stable scrollbar track, reserves 44px legal links through 834px and follows the height of the page content."
+
+[part.holder-rewards.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The six activity figures retain Manrope with its fallback face and wrap within the footer after the scrollbar track. Their position follows the page content and touch-sized legal links."
+
+[part.holder-rewards.footer-navigation-first-link]
+widths = [390, 1280]
+cause = "Legal links reserve 44px touch targets through 834px and retain Manrope with its fallback face. Their vertical position follows the page content, including wrapped coin-card badges at 1280px."
+
+[part.holder-rewards.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.holder-rewards.holder-rewards-stats-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The totals retain 94px narrow tiles and 126px wider tiles. The stable scrollbar track changes their width and centred position."
+
+[part.holder-rewards.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region retains the stable scrollbar track. Its height follows touch-sized coin controls at 390px and the wrapped coin-card badge at 1280px."
+
+[part.holder-rewards.navigation]
+widths = [390]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.holder-rewards.navigation-first-row]
+widths = [390]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.holder-rewards.ol-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Coin controls reserve 44px touch targets through 834px. At 1280px, each of the five columns loses 3px to the scrollbar track and the USDL badge wraps below the holders-paid figure, adding 24px. Wider cards keep their earlier height."
+
+[part.holder-rewards.ol-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Coin controls reserve 44px touch targets through 834px. At 1280px, each of the five columns loses 3px to the scrollbar track and the USDL badge wraps below the holders-paid figure, adding 24px. Wider cards keep their earlier height."
+
+[part.holder-rewards.primary-control]
+widths = [1280, 1440, 1920, 2560]
+cause = "The 44px launch control follows the hero alignment within the inline space after the stable scrollbar track."
+
+[part.holder-rewards.stats-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The totals retain 94px narrow tiles and 126px wider tiles. The stable scrollbar track changes their width and centred position."
+
+[part.holder-rewards.table-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Desktop table rows retain 64px height and the toolbar retains 28px height. Touch-sized coin and sort controls wrap at 390px. At 1280px, the table follows the coin-card badge that wraps within the narrower grid; the scrollbar track sets the remaining widths and positions."
+
+[part.holder-rewards.table-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Desktop table rows retain 64px height and the toolbar retains 28px height. Touch-sized coin and sort controls wrap at 390px. At 1280px, the table follows the coin-card badge that wraps within the narrower grid; the scrollbar track sets the remaining widths and positions."
+
+[part.holder-rewards.top-paying-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Coin controls reserve 44px touch targets through 834px. At 1280px, each of the five columns loses 3px to the scrollbar track and the USDL badge wraps below the holders-paid figure, adding 24px. Wider cards keep their earlier height."
+
+[view.leaderboard]
+differing_parts = [13, 9, 11, 11, 10]
+
+[part.leaderboard.competition-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The competition card retains its aspect ratios; the 15px scrollbar track reduces its width and corresponding height."
+
+[part.leaderboard.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The heading retains its typography and follows the centred content width after the stable scrollbar track."
+
+[part.leaderboard.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer shares the width after the stable scrollbar track, reserves 44px legal links through 834px and follows the height of the page content."
+
+[part.leaderboard.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The six activity figures retain Manrope with its fallback face and wrap within the footer after the scrollbar track. Their position follows the page content and touch-sized legal links."
+
+[part.leaderboard.footer-navigation-first-link]
+widths = [390, 1440, 1920]
+cause = "Legal links reserve 44px touch targets through 834px and retain Manrope with its fallback face. Their vertical position follows the page content, including wrapped coin-card badges at 1280px."
+
+[part.leaderboard.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.leaderboard.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region retains the stable scrollbar track. Narrow content combines the competition aspect ratio with touch-sized trader and legal controls."
+
+[part.leaderboard.navigation]
+widths = [390]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.leaderboard.navigation-first-row]
+widths = [390]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.leaderboard.primary-control]
+widths = [390, 1440, 1920, 2560]
+cause = "The tab retains its typography and 44px narrow touch target within the space after the scrollbar track. Manrope retains its optional fallback face."
+
+[part.leaderboard.top-traders-last-24-hours-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Desktop trader rows retain 48px height. Narrow rows reserve 44px controls and place the metric below the identity. The competition aspect ratio and scrollbar track set their position."
+
+[part.leaderboard.top-traders-last-24-hours-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Desktop trader rows retain 48px height. Narrow rows reserve 44px controls and place the metric below the identity. The competition aspect ratio and scrollbar track set their position."
+
+[part.leaderboard.traders-board-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Desktop trader rows retain 48px height. Narrow rows reserve 44px controls and place the metric below the identity. The competition aspect ratio and scrollbar track set their position."
+
+[view.rewards]
+differing_parts = [8, 6, 6, 6, 6]
+
+[part.rewards.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The wallet prompt remains centred within the width after the scrollbar track. Its control reserves 44px through 834px, placing the heading 4px higher at 390px."
+
+[part.rewards.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer shares the width after the stable scrollbar track, reserves 44px legal links through 834px and follows the height of the page content."
+
+[part.rewards.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+cause = "The six activity figures retain Manrope with its fallback face and wrap within the footer after the scrollbar track. Their position follows the page content and touch-sized legal links."
+
+[part.rewards.footer-navigation-first-link]
+widths = [390]
+cause = "Legal links reserve 44px touch targets through 834px and retain Manrope with its fallback face. Their vertical position follows the page content, including wrapped coin-card badges at 1280px."
+
+[part.rewards.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.rewards.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region retains its viewport-height minimum and the 15px stable scrollbar track."
+
+[part.rewards.navigation]
+widths = [390]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.rewards.navigation-first-row]
+widths = [390]
+cause = "The stable scrollbar track narrows the shell by 15px; mobile navigation shares that width among its destinations."
+
+[part.rewards.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The wallet prompt remains centred within the width after the scrollbar track. Its control reserves 44px through 834px, placing the heading 4px higher at 390px."

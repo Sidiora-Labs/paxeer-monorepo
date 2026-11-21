@@ -70,15 +70,22 @@ func authorizeCaptured(v Verifier, j Journal, audience, scope, version string, n
 			if len(requestID) > 128 {
 				requestID = ""
 			}
-			if j.Record(r.Context(), Decision{Scope: scope, RequestID: requestID, Version: version, Allowed: false}) != nil {
+			if journalErr := j.Record(r.Context(), Decision{Scope: scope, RequestID: requestID, Version: version, Allowed: false}); journalErr != nil {
+				logDependencyFailure(r.Context(), "authorization journal", journalErr)
 				if capture != nil {
 					_ = capture.Record(r, "authorization", started, false, true)
 				}
 				http.Error(w, "unavailable", http.StatusServiceUnavailable)
 				return
 			}
-			if capture != nil && capture.Record(r, "authorization", started, false, false) != nil {
+			backendUnavailable := !errors.Is(err, ErrDenied)
+			if capture != nil && capture.Record(r, "authorization", started, false, backendUnavailable) != nil {
 				http.Error(w, "capture_unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			if backendUnavailable {
+				logDependencyFailure(r.Context(), "authorization identity", err)
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
 				return
 			}
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -90,7 +97,8 @@ func authorizeCaptured(v Verifier, j Journal, audience, scope, version string, n
 		if len(d.RequestID) > 128 {
 			d.RequestID = ""
 		}
-		if j.Record(r.Context(), d) != nil {
+		if err := j.Record(r.Context(), d); err != nil {
+			logDependencyFailure(r.Context(), "authorization journal", err)
 			if capture != nil {
 				_ = capture.Record(r, "authorization", started, false, true)
 			}

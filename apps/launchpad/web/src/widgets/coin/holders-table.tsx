@@ -133,8 +133,9 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
       chain.push(page);
       key = page.nextCursor;
     }
+    if (chain.length === 0 && firstPage) chain.push(firstPage);
     return chain;
-  }, [pages]);
+  }, [pages, firstPage]);
   const token = snapshot.data?.token ?? null;
   // The live quote first; else PoolStats.spotPriceWad (null before the first trade: positions stay unavailable).
   const spot = statsSpotPrice(snapshot.data?.stats ?? null).value;
@@ -197,18 +198,23 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
           {visible.map(row => {
             const identity = identities.identities[row.wallet];
             const name = identity?.displayName ?? shortAddress(row.wallet);
+            const isPool = row.wallet.toLowerCase() === pool.toLowerCase();
+            const walletContent = <>
+              <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className={identity?.displayName ? 'truncate font-bold text-text' : 'font-mono text-xs text-text-muted'}>{name}</span>
+                  {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Creator</span> : null}
+                  {isPool ? <span data-pool-badge title="Coins held by the bonding curve" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Bonding curve</span> : null}
+                </span>
+                {identity?.displayName ? <span className="font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
+              </span>
+            </>;
             return <tr key={row.wallet} className="h-table-row bg-surface-1 transition-colors hover:bg-surface-hover [&>td]:px-3">
               <td className="min-w-0">
-                <Link prefetch={false} href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">
-                  <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
-                  <span className="flex min-w-0 flex-col leading-tight">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className={identity?.displayName ? 'truncate font-bold text-text' : 'font-mono text-xs text-text-muted'}>{name}</span>
-                      {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Creator</span> : null}
-                    </span>
-                    {identity?.displayName ? <span className="font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
-                  </span>
-                </Link>
+                {isPool
+                  ? <span className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</span>
+                  : <Link prefetch={false} href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</Link>}
               </td>
               <td data-numeric className="text-right font-bold tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.balanceRaw, decimals)}</td>
               <td data-numeric className="text-right tabular-nums text-text-muted">{row.supplyPercent === null ? <span className="text-text-faint">—</span> : formatPercent(row.supplyPercent, { sign: 'negative' })}</td>

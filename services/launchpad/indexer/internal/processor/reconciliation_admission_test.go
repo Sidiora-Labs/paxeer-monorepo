@@ -45,6 +45,13 @@ func TestPendingCanonicalCommitResolvesBeforeSelectingAnotherRange(t *testing.T)
 	if committed, err := h.Store.ReconcileCanonicalCommit(ctx, b); err != nil || !committed {
 		t.Fatalf("restored canonical commit visibility %v: %v", committed, err)
 	}
+	fence, err := h.Store.AcquireLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, canonicalLeaseTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.canonicalFence = fence
+	p.readyFence.Store(fence)
+	p.canonicalRenewed = time.Now()
 	h.head.height.Store(33963716)
 	bounded, cancel = context.WithTimeout(ctx, 30*time.Millisecond)
 	err = p.Run(bounded)

@@ -10,7 +10,7 @@ import test, { after, before } from "node:test";
 import { PNG } from "pngjs";
 import { chromium } from "playwright";
 import { checkSurface, FRAME_TAB_PRESSES, FRAME_TRAVERSAL_MS, keyboardFindings, readSurface } from "../check.mjs";
-import { DEVICES, LIMITS, MODES, REPOSITORY, renderMatrix } from "../config.mjs";
+import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface as readConfiguredSurface, renderMatrix } from "../config.mjs";
 import { observePage } from "../browser.mjs";
 import { serveFiles, startSurface } from "../server.mjs";
 
@@ -408,6 +408,84 @@ async function unavailableSurfaceReturnsNonzero() {
   assert.match(report.findings[0].values.message, /before readiness/);
 }
 test(unavailableSurfaceReturnsNonzero);
+
+async function delayedContentSurface() {
+  const directory = await mkdtemp(join(root, "ready-steps-"));
+  await writeFile(join(directory, "index.html"), `<!doctype html><html lang="en">
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Content readiness</title><link rel="icon" href="data:,">
+    <style>
+      html { font: 16px/1.5 sans-serif; background: white; color: black; }
+      body { margin: 16px; } p { font-size: 16px; }
+      button { font: inherit; min-width: 64px; min-height: 48px; color: black; background: white; }
+      :focus-visible { outline: 3px solid blue; outline-offset: 2px; }
+    </style>
+    <body><p>Content arrives after loading.</p><div id="content"></div>
+    <button id="show" onclick="document.querySelector('#status').textContent = document.querySelector('#late') ? 'State follows content' : 'Content is pending'">Show state</button>
+    <p id="status"></p>
+    <script>
+      addEventListener('load', () => setTimeout(() => {
+        const text = document.createElement('p');
+        text.id = 'late'; text.textContent = 'Content is ready';
+        document.querySelector('#content').append(text);
+      }, 250));
+    </script></body></html>`);
+  const serving = await serveFiles(directory, "http://localhost:0");
+  return { directory, address: serving.address, readyPath: "/index.html", close: serving.close };
+}
+
+async function readyStepsWaitBeforeTextEnlargement() {
+  const serving = await delayedContentSurface();
+  try {
+    for (const ready of [undefined, [{ action: "wait", text: "Content is ready" }]]) {
+      const { result } = await execute("ready", {
+        directory: serving.directory, address: serving.address, readyPath: serving.readyPath,
+        views: [{ name: "ready", path: "/index.html", modes: ["default", "double-text"], ...(ready ? { ready } : {}) }],
+      });
+      assert.ok(result.renders.every((render) => render.rendered && render.hasContent), JSON.stringify(result.findings));
+      const enlarged = result.renders.filter((render) => render.mode === "double-text");
+      assert.equal(enlarged.length, 4);
+      if (ready) {
+        assert.equal(result.passed, true, JSON.stringify(result.findings));
+        assert.deepEqual(result.findings, []);
+      } else {
+        assert.equal(result.passed, false);
+        for (const render of enlarged) {
+          assert.ok(render.findings.some((finding) => finding.kind === "scale" && finding.selector === "#late"), JSON.stringify(render.findings));
+        }
+      }
+    }
+  } finally { await serving.close(); }
+}
+test(readyStepsWaitBeforeTextEnlargement);
+
+async function readyStepsPrecedeNamedStateSteps() {
+  const serving = await delayedContentSurface();
+  try {
+    const { result } = await execute("ready", {
+      directory: serving.directory, address: serving.address, readyPath: serving.readyPath,
+      views: [{ name: "ready", path: "/index.html", ready: [{ action: "wait", text: "Content is ready" }], states: [{
+        name: "shown", steps: [{ action: "click", selector: "#show" }, { action: "wait", text: "State follows content" }],
+      }] }],
+    });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.deepEqual(result.findings, []);
+    for (const state of ["default", "shown"]) assertMatrix({ renders: result.renders.filter((render) => render.state === state) });
+  } finally { await serving.close(); }
+}
+test(readyStepsPrecedeNamedStateSteps);
+
+async function readyStepsUseStateStepValidation() {
+  for (const ready of [null, {}, [{ action: "pause" }], [{ action: "wait", text: "" }], [{ action: "wait", text: "Content", timeout: 1 }]]) {
+    const surface = await surfaceFor("clean", { views: [{ name: "clean", path: "/clean.html", ready }] });
+    await assert.rejects(readSurface(surface), /must be an array|State action|nonempty string|unknown field/);
+  }
+  const unknown = await surfaceFor("clean", { views: [{ name: "clean", path: "/clean.html", ready: [], other: [] }] });
+  await assert.rejects(readSurface(unknown), /view: unknown field other/);
+  const empty = await surfaceFor("clean", { views: [{ name: "clean", path: "/clean.html", ready: [] }] });
+  assert.deepEqual((await readSurface(empty)).views[0].ready, []);
+}
+test(readyStepsUseStateStepValidation);
 
 async function stateStepsAndViewSelectionRender() {
   const surface = await surfaceFor("states", { views: [
@@ -862,6 +940,96 @@ async function buildBoundsRequireWholeMilliseconds(context) {
 }
 test(buildBoundsRequireWholeMilliseconds);
 
+async function readinessBoundsRequireWholeMilliseconds(context) {
+  for (const readyMs of [null, false, true, "1000", {}, [], -1, 0, 999, 1000.5, 120000.5, 120001]) {
+    const { filename } = await temporaryBuildSurface({ readyMs });
+    for (const read of [readSurface, readConfiguredSurface]) {
+      await assert.rejects(read(filename), (error) => {
+        assert.equal(error.message, "Surface Test surface readyMs must be a whole number from 1000 to 120000");
+        context.diagnostic(error.message);
+        return true;
+      });
+    }
+  }
+  for (const readyMs of [1000, 120000]) {
+    const { filename } = await temporaryBuildSurface({ readyMs });
+    for (const read of [readSurface, readConfiguredSurface]) {
+      assert.equal((await read(filename)).readyMs, readyMs);
+    }
+  }
+}
+test(readinessBoundsRequireWholeMilliseconds);
+
+async function delayedReadySurface(options = {}) {
+  const reservation = createServer();
+  await new Promise((resolve) => reservation.listen(0, "localhost", resolve));
+  const port = reservation.address().port;
+  await new Promise((resolve) => reservation.close(resolve));
+  return surfaceFor("clean", {
+    start: `${JSON.stringify(process.execPath)} ${JSON.stringify(join(fixtures, "delayed-ready.mjs"))} ${port}`,
+    address: `http://localhost:${port}`, readyPath: "/ready",
+    views: [{ name: "clean", path: "/clean.html", modes: ["default"] }],
+    ...options,
+  });
+}
+
+async function smallerReadinessBoundReportsLoadWithoutRendering() {
+  const filename = await delayedReadySurface({ readyMs: 1000 });
+  const out = join(root, `readiness-timeout-${sequence}`);
+  const started = Date.now();
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 1, command.stderr + command.stdout);
+  assert.ok(Date.now() - started >= 1000);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, false);
+  assert.equal(result.readyMs, 1000);
+  assert.equal(result.buildMs, LIMITS.buildMs);
+  assert.deepEqual(result.renders, []);
+  assert.equal(result.findings.length, 1);
+  assert.equal(result.findings[0].kind, "load");
+  assert.equal(result.findings[0].values.source, "surface");
+  assert.equal(result.findings[0].values.message, "Surface did not become ready at /ready");
+}
+test(smallerReadinessBoundReportsLoadWithoutRendering);
+
+async function largerReadinessBoundRendersAfterDelayedStart() {
+  const filename = await delayedReadySurface({ readyMs: 5000 });
+  const out = join(root, `delayed-readiness-${sequence}`);
+  const started = Date.now();
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 0, command.stderr + command.stdout);
+  assert.ok(Date.now() - started >= 2000);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.readyMs, 5000);
+  assert.equal(result.buildMs, LIMITS.buildMs);
+  assert.equal(result.limits.readyMs, 15000);
+  assert.equal(result.renders.length, 22);
+  assert.ok(result.renders.every((render) => render.rendered && render.hasContent));
+  assert.deepEqual(result.findings, []);
+}
+test(largerReadinessBoundRendersAfterDelayedStart);
+
+async function surfacesWithoutReadinessBoundUseTheCommonWait() {
+  const filename = await delayedReadySurface();
+  for (const read of [readSurface, readConfiguredSurface]) {
+    assert.equal((await read(filename)).readyMs, undefined);
+  }
+  assert.equal(LIMITS.readyMs, 15000);
+  const out = join(root, `default-readiness-${sequence}`);
+  const started = Date.now();
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 0, command.stderr + command.stdout);
+  assert.ok(Date.now() - started >= 2000);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.readyMs, LIMITS.readyMs);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.ok(result.renders.every((render) => render.rendered && render.hasContent));
+  assert.deepEqual(result.findings, []);
+}
+test(surfacesWithoutReadinessBoundUseTheCommonWait);
+
 async function outputsRequireBuildAndOneToSixteenPaths(context) {
   for (const outputs of [null, false, "dist", {}, [], Array.from({ length: 17 }, (_, index) => `dist-${index}`), [null], [1], [""], [" "]]) {
     const { filename } = await temporaryBuildSurface({ outputs });
@@ -1090,6 +1258,56 @@ async function tallFocusKeepsItsStartingEdgeVisible() {
   }
 }
 test(tallFocusKeepsItsStartingEdgeVisible);
+
+async function transparentControlRevealsItsKeyboardFocus() {
+  const { result } = await execute("transparent-focus");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.deepEqual(render.findings, []);
+  }
+}
+test(transparentControlRevealsItsKeyboardFocus);
+
+async function transparentControlWithoutVisibleFocusKeepsOneFinding() {
+  const { result } = await execute("transparent-focus", {
+    views: [{ name: "unmarked", path: "/transparent-focus.html?unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#control");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+  }
+}
+test(transparentControlWithoutVisibleFocusKeepsOneFinding);
+
+async function visibleControlWithoutFocusMarkKeepsOneFinding() {
+  const { result } = await execute("transparent-focus", {
+    views: [{ name: "visible", path: "/transparent-focus.html?visible&unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#control");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+  }
+}
+test(visibleControlWithoutFocusMarkKeepsOneFinding);
 
 async function clippedInputUsesItsVisibleControlFocusMark() {
   const { result } = await execute("clipped-focus");
@@ -1516,6 +1734,143 @@ async function navigationTimeoutUsesTheSecondRender() {
   } finally { await surface.close(); }
 }
 test(navigationTimeoutUsesTheSecondRender);
+
+async function loadEventSurface({ holds = 1, blockedStep = 0 } = {}) {
+  const body = await readFile(join(fixtures, "load-event.html"), "utf8");
+  const requests = { document: 0, resource: 0, held: 0 };
+  const instance = createServer((request, response) => {
+    const url = new URL(request.url, "http://localhost");
+    if (url.pathname === "/ready") { response.end("Ready"); return; }
+    if (url.pathname === "/load-resource.js") {
+      requests.resource++;
+      response.writeHead(200, { "content-type": "text/javascript" });
+      if (Number(url.searchParams.get("visit")) <= holds) {
+        requests.held++;
+        response.flushHeaders();
+      } else response.end();
+      return;
+    }
+    if (url.pathname !== "/index.html") { response.writeHead(404); response.end(); return; }
+    const visit = ++requests.document;
+    let document = body.replace("__VISIT__", String(visit));
+    if (visit === blockedStep) document = document.replace("data-step-control", "data-step-control disabled");
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end(document);
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  return {
+    requests,
+    options: {
+      address: `http://localhost:${instance.address().port}`, readyPath: "/ready",
+      views: [{ name: "load-event", path: "/index.html", modes: ["default"] }],
+    },
+    async close() {
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function answeredNavigationUsesTheSecondRenderWhenLoadIsPending() {
+  const navigationMs = 2000;
+  const surface = await loadEventSurface();
+  try {
+    const { result, out, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 1);
+    assert.deepEqual(surface.requests, { document: 23, resource: 23, held: 1 });
+    const [render, ...following] = result.renders;
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "navigation-load-timeout");
+    assert.equal(render.firstLoadFailure.source, "render");
+    assert.match(render.firstLoadFailure.message, new RegExp(`page.goto: Timeout ${navigationMs}ms exceeded`));
+    assert.ok(result.renders.every((entry) => entry.rendered && entry.hasContent && entry.cancelled === 0));
+    assert.ok(following.every((entry) => !entry.retried && entry.firstLoadFailure === null));
+    assert.equal(render.screenshot, "00001.png");
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 22);
+    assert.match(lines[0], /, 0 findings, 1 retried$/);
+    assert.match(lines.at(-1), /, pass, 1 views and states with fewer than all modes, 1 retried$/);
+    assert.equal(result.limits.navigationMs, LIMITS.navigationMs);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationUsesTheSecondRenderWhenLoadIsPending);
+
+async function answeredNavigationKeepsTheSecondLoadTimeoutFinding() {
+  const navigationMs = 2000;
+  const surface = await loadEventSurface({ holds: 2 });
+  try {
+    const { result, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 1);
+    assert.deepEqual(surface.requests, { document: 23, resource: 23, held: 2 });
+    const [render, ...following] = result.renders;
+    assert.equal(render.rendered, false);
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "navigation-load-timeout");
+    assert.equal(render.firstLoadFailure.source, "render");
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "render");
+    assert.match(render.findings[0].values.message, new RegExp(`page.goto: Timeout ${navigationMs}ms exceeded`));
+    assert.deepEqual(result.findings, render.findings);
+    assert.ok(following.every((entry) => entry.rendered && !entry.retried && entry.firstLoadFailure === null));
+    assert.match(lines[0], /22 renders, 1 did not render, 1 showed nothing, 1 findings, 1 retried$/);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 1 retried$/);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationKeepsTheSecondLoadTimeoutFinding);
+
+async function answeredNavigationThatLoadsInTimeDoesNotRetry() {
+  const surface = await loadEventSurface({ holds: 0 });
+  try {
+    const { result, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs: 2000 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 0);
+    assert.deepEqual(surface.requests, { document: 22, resource: 22, held: 0 });
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.retried, false);
+      assert.equal(render.firstDeadlineStep, null);
+      assert.equal(render.firstLoadFailure, null);
+    }
+    assert.match(lines.at(-1), /, 0 retried$/);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationThatLoadsInTimeDoesNotRetry);
+
+async function stateStepTimeoutAfterNavigationDoesNotRetry() {
+  const surface = await loadEventSurface({ holds: 0, blockedStep: 23 });
+  try {
+    const views = [{ ...surface.options.views[0], states: [{ name: "continue", steps: [{ action: "click", selector: "[data-step-control]" }] }] }];
+    const { result, lines } = await execute("load-event", { ...surface.options, views }, { jobs: 1, navigationMs: 2000 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 44);
+    assert.equal(result.retriedCount, 0);
+    assert.deepEqual(surface.requests, { document: 44, resource: 44, held: 0 });
+    const render = result.renders[22];
+    assert.equal(render.state, "continue");
+    assert.equal(render.rendered, false);
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "render");
+    assert.match(render.findings[0].values.message, new RegExp(`(?:locator|page).click: Timeout ${LIMITS.navigationMs}ms exceeded`));
+    assert.deepEqual(result.findings, render.findings);
+    for (const entry of result.renders) {
+      assert.equal(entry.retried, false);
+      assert.equal(entry.firstDeadlineStep, null);
+      assert.equal(entry.firstLoadFailure, null);
+    }
+    assert.ok(result.renders.filter((entry) => entry !== render).every((entry) => entry.rendered));
+    assert.match(lines.at(-1), /, 0 retried$/);
+  } finally { await surface.close(); }
+}
+test(stateStepTimeoutAfterNavigationDoesNotRetry);
 
 async function applicationErrorStatusDoesNotRetry() {
   for (const options of [{ status: 500 }, { documentStatus: 500 }]) {

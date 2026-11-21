@@ -58,7 +58,7 @@ def documents(service: str, values: str | Path) -> dict[str, object]:
     if not isinstance(supplied, dict):
         raise _invalid("ranking.json")
 
-    keys = set(PATTERNS) | set(DIGESTS) | set(FILES) | set(DNS_NAMES) | set(LIMITS) | {"visibilityEndpoint"}
+    keys = set(PATTERNS) | set(DIGESTS) | set(FILES) | set(DNS_NAMES) | set(LIMITS) | {"visibilityEndpoint", "evidenceEndpoint"}
     for key in sorted(set(supplied) - keys - {"_example"}):
         raise _invalid(key)
     for key in sorted(keys):
@@ -107,6 +107,27 @@ def documents(service: str, values: str | Path) -> dict[str, object]:
             or "#" in value
             or re.search(r"[\s\x00-\x1f\x7f]", value)
             or (":" in endpoint.netloc and (endpoint.port is None or endpoint.port < 1))
+        ):
+            raise _invalid(key)
+    except ValueError as exc:
+        raise _invalid(key) from exc
+
+    key = "evidenceEndpoint"
+    value = supplied[key]
+    try:
+        endpoint = urlsplit(value) if isinstance(value, str) else None
+        if (
+            endpoint is None
+            or endpoint.scheme not in {"http", "https"}
+            or not endpoint.hostname
+            or endpoint.username is not None
+            or endpoint.password is not None
+            or endpoint.path != "/internal/ranking-evidence"
+            or "?" in value
+            or "#" in value
+            or re.search(r"[\s\x00-\x1f\x7f]", value)
+            or (endpoint.port is not None and not 1 <= endpoint.port <= 65535)
+            or endpoint.netloc.endswith(":")
         ):
             raise _invalid(key)
     except ValueError as exc:

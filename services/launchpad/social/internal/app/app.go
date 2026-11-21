@@ -68,6 +68,8 @@ const (
 	rateLimitWindow = 60 * time.Second
 )
 
+const calloutResource = "callout"
+
 // App is a fully-wired, ready-to-serve social service.
 type App struct {
 	platform *platformIdentity
@@ -571,7 +573,7 @@ func Run(parent context.Context) error {
 
 func healthOnlyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" {
+		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" && r.URL.Path != metricsPath {
 			http.NotFound(w, r)
 			return
 		}
@@ -617,6 +619,9 @@ type socialConnectedRuntime struct {
 	stop                                          context.CancelFunc
 	wg                                            sync.WaitGroup
 	failure                                       atomic.Pointer[error]
+	jobs                                          [runtimeJobCount]atomic.Pointer[error]
+	jobWait                                       func(context.Context, time.Duration)
+	jobClock                                      func() time.Time
 	durableFailure                                atomic.Pointer[error]
 	pool                                          *pgxpool.Pool
 	identity                                      sharedauth.RequestIdentityAuthority
@@ -1044,6 +1049,11 @@ func (r *socialConnectedRuntime) runtimeReady(context.Context) error {
 	if failure := r.failure.Load(); failure != nil {
 		return *failure
 	}
+	for i := range r.jobs {
+		if failure := r.jobs[i].Load(); failure != nil {
+			return *failure
+		}
+	}
 	return nil
 }
 
@@ -1219,31 +1229,19 @@ func (r *socialConnectedRuntime) newVoice(ctx context.Context, b config.VoiceRun
 	}
 	return voice.NewProductionControl(r.pool, r.safety, socialPools{DB: r.pool, Guard: poolGuard}, provider, voice.Gates{ProviderQualified: true, EjectionQualified: true, ACLQualified: true, RetentionQualified: true}, b.PolicyVersion, policy, recordingStorage, b.RecordingBucket)
 }
-func (r *socialConnectedRuntime) worker(run func(context.Context) error) {
-	r.wg.Add(1)
-	go func() {
-		defer r.wg.Done()
-		if e := run(r.ctx); e != nil && r.ctx.Err() == nil {
-			r.fail(e)
-			if r.logger != nil {
-				r.logger.Error("social worker stopped", slog.String("error", e.Error()))
-			}
-		}
-	}()
-}
 func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
-	r.worker(func(ctx context.Context) error { return hub.RunConnected(ctx, r.chatConsumer, r.broker) })
-	r.worker(r.notificationCredentials.Run)
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobChat, func(ctx context.Context) error { return hub.RunConnected(ctx, r.chatConsumer, r.broker) })
+	r.worker(runtimeJobNotificationCredentials, r.notificationCredentials.Run)
+	r.worker(runtimeJobErasure, func(ctx context.Context) error {
 		return r.erasureConsumer.Run(ctx, func(ctx context.Context, m *natsdriver.Message) error {
 			return r.store.ConsumeErasure(ctx, r.delivery, r.binding.ConsumerGeneration, r.binding.ErasureSubject, m.Wire, m)
 		})
 	})
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobPolicy, func(ctx context.Context) error {
 		return r.policyConsumer.Run(ctx, func(ctx context.Context, m *natsdriver.Message) error { return r.consumePolicy(ctx, m) })
 	})
 	if r.voice != nil && r.voice.Provider != nil {
-		r.worker(func(ctx context.Context) error {
+		r.worker(runtimeJobVoice, func(ctx context.Context) error {
 			return r.voice.RunReconciler(ctx, func(result voice.ReconcileResult, e error) {
 				if e != nil || result.Orphans > 0 {
 					if r.logger != nil {
@@ -1253,7 +1251,7 @@ func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
 			})
 		})
 	}
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobDurable, func(ctx context.Context) error {
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 		relay := delivery.Relay{Store: r.delivery, Publisher: r.publisher, Owner: "social_" + r.binding.ConsumerGeneration, Batch: 32, LeaseDuration: 30 * time.Second, PublishTimeout: 4 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
@@ -1494,7 +1492,7 @@ func (r *socialConnectedRuntime) authorityRoutes(w http.ResponseWriter, req *htt
 		decoder := json.NewDecoder(http.MaxBytesReader(w, req.Body, 4096))
 		decoder.DisallowUnknownFields()
 		e = decoder.Decode(&input)
-		if e == nil && input.TargetKind == "callout" && input.Revision > 0 && !input.CreatedAt.IsZero() {
+		if e == nil && input.TargetKind == calloutResource && input.Revision > 0 && !input.CreatedAt.IsZero() {
 			var wallet string
 			e = r.pool.QueryRow(req.Context(), `SELECT chat.social_wallet_for_account($1::uuid)`, input.Actor).Scan(&wallet)
 			if e == nil {
@@ -1522,6 +1520,7 @@ func (r *socialConnectedRuntime) authorityRoutes(w http.ResponseWriter, req *htt
 		return
 	}
 	if e != nil {
+		slog.ErrorContext(req.Context(), "social authority request failed", "method", req.Method, "path", req.URL.Path, "error", e)
 		sharedhttp.WriteJSON(w, 503, map[string]string{codeField: "SOCIAL_AUTHORITY_UNAVAILABLE"})
 		return
 	}
@@ -1530,7 +1529,7 @@ func (r *socialConnectedRuntime) authorityRoutes(w http.ResponseWriter, req *htt
 
 func (r *socialConnectedRuntime) publicResource(ctx context.Context, kind, id string) (discovery.PublicResource, error) {
 	var result discovery.PublicResource
-	if r.pool == nil || kind != "callout" || id == "" {
+	if r.pool == nil || kind != calloutResource || id == "" {
 		return result, safety.ErrInvalid
 	}
 	var (
@@ -1643,7 +1642,7 @@ func (r *socialConnectedRuntime) visibilityAuthority(ctx context.Context, kind, 
 	var removed bool
 	var revision int64
 	switch kind {
-	case "callout":
+	case calloutResource:
 		e = tx.QueryRow(ctx, `SELECT actor,removed,revision FROM interaction_callout_authority WHERE id=$1 ORDER BY revision DESC LIMIT 1`, id).Scan(&actor, &removed, &revision)
 	case commentAction:
 		e = tx.QueryRow(ctx, `SELECT author,removed,revision FROM interaction_comments WHERE id=$1`, id).Scan(&actor, &removed, &revision)
@@ -1762,7 +1761,7 @@ func (r *socialConnectedRuntime) reviewCallout(ctx context.Context, account, poo
 	var revision int64
 	var observed time.Time
 	var denied bool
-	e = tx.QueryRow(ctx, `SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility WHERE target_type IN ('pool','token') AND target_id=$2 AND status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1`, wallet, pool).Scan(&revision, &observed, &denied)
+	e = tx.QueryRow(ctx, `SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility v JOIN chat.social_canonical_pools() p ON p.pool=$2 WHERE ((v.target_type='pool' AND v.target_id=p.pool) OR (v.target_type='token' AND v.target_id=p.token)) AND v.status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1`, wallet, pool).Scan(&revision, &observed, &denied)
 	if e != nil {
 		return nil, e
 	}

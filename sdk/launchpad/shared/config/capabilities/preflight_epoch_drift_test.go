@@ -61,7 +61,7 @@ func TestPreflightEpochCurrentNativeCreation(t *testing.T) {
 			request := child.request(Creation, c.peer.blocks[1])
 			request.CreationPath = path
 			produced, err := c.engine.Preflight(c.ctx, request)
-			if err != nil || !produced.Supported || produced.CreationCost == nil {
+			if err != nil || !produced.Supported || !produced.ExecutionPermitted || produced.ReasonCode != "" || produced.CreationCost == nil {
 				t.Fatalf("native %s creation producer refused: %+v %v", path, produced, err)
 			}
 			cost := produced.CreationCost
@@ -69,7 +69,7 @@ func TestPreflightEpochCurrentNativeCreation(t *testing.T) {
 				t.Fatalf("native creation did not use the real surface and dispatcher payment authority: %+v", cost)
 			}
 			consumed := child.connected(request)
-			if !consumed.Supported || !consumed.CreationCost.Present || consumed.CreationCost.Value == nil || consumed.CreationCost.Value.Spender != cost.Spender || consumed.CreationCost.Value.ProtocolFeeRaw != cost.ProtocolFeeRaw || consumed.CreationCost.Value.EstimatedGasRaw != cost.EstimatedGasRaw {
+			if !consumed.Supported || !consumed.ExecutionPermitted || consumed.ReasonCode.Present || !consumed.CreationCost.Present || consumed.CreationCost.Value == nil || consumed.CreationCost.Value.Spender != cost.Spender || consumed.CreationCost.Value.ProtocolFeeRaw != cost.ProtocolFeeRaw || consumed.CreationCost.Value.EstimatedGasRaw != cost.EstimatedGasRaw {
 				t.Fatalf("native payment disclosure was lost at the HTTP consumer: %+v", consumed)
 			}
 		})

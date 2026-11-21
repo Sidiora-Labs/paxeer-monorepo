@@ -1,0 +1,157 @@
+[layout]
+strip = "Above width 834 the ticker holds one 32-pixel row, a 132-by-28 mode group with 2-pixel inner padding, and a centered feed with a 16-pixel open link. Long feed content shortens inside its own block."
+touch = "Through width 834 the ticker retains its layout and its 44-pixel controls; below width 768 it remains hidden."
+cookie = "The decline edge sits inside the button's 28-pixel desktop box. Both cookie actions retain 44-pixel touch targets, and the notice uses an 18-pixel line height."
+select = "The native select centers label and value and draws the surface chevron in the text color. The compact value-only form retains its hidden marker."
+edges = "Outlined chips, filled tabs and buttons include their edge inside their padding. Fixed-size icon buttons, segmented controls, toggles and fields retain their size tokens."
+
+[measurements]
+units = "CSS pixels at device scale 1"
+method = "Real browser bounding rectangles and computed line heights"
+
+[home.1440]
+viewport_width = 1440
+viewport_height = 900
+before_strip_width = 1369
+before_strip_height = 32
+after_strip_width = 1369
+after_strip_height = 32
+before_mode_group_width = 128
+before_mode_group_height = 24
+after_mode_group_width = 132
+after_mode_group_height = 28
+before_cookie_text_width = 638
+before_cookie_text_height = 20
+after_cookie_text_width = 638
+after_cookie_text_height = 18
+before_group_padding = "0px"
+after_group_padding = "2px"
+before_notice_line_height = "20px"
+before_decline_width = 78
+before_decline_height = 30
+before_accept_width = 75
+before_accept_height = 28
+before_feed_link_height = 24
+before_feed_middle_offset = -4
+after_notice_line_height = "18px"
+after_decline_width = 76
+after_decline_height = 28
+after_accept_width = 75
+after_accept_height = 28
+after_feed_link_height = 16
+after_feed_middle_offset = 0
+before_period_width = 65.078125
+before_period_height = 28
+after_period_width = 69
+after_period_height = 28
+before_period_mark = "Filled native triangle"
+after_period_mark = "Single chevron in the text color"
+
+[empty_feed.1440]
+before_line_height = 24
+after_line_height = 32
+before_link_height = 24
+after_link_height = 16
+before_middle_offset = -4
+after_middle_offset = 0
+
+[home.834]
+viewport_width = 834
+viewport_height = 900
+before_strip_width = 763
+before_strip_height = 44
+after_strip_width = 763
+after_strip_height = 44
+before_mode_group_width = 228
+before_mode_group_height = 44
+after_mode_group_width = 228
+after_mode_group_height = 44
+before_cookie_text_width = 588
+before_cookie_text_height = 40
+after_cookie_text_width = 590
+after_cookie_text_height = 36
+before_group_padding = "0px"
+after_group_padding = "0px"
+before_notice_line_height = "20px"
+before_decline_width = 78
+before_decline_height = 44
+before_accept_width = 75
+before_accept_height = 44
+before_feed_link_height = 44
+before_feed_middle_offset = 0
+after_notice_line_height = "18px"
+after_decline_width = 76
+after_decline_height = 44
+after_accept_width = 75
+after_accept_height = 44
+after_feed_link_height = 44
+after_feed_middle_offset = 0
+period = "The home callouts feed replaces the board and its period control at this width."
+
+[home.390]
+viewport_width = 390
+viewport_height = 844
+before_strip_width = 0
+before_strip_height = 0
+after_strip_width = 0
+after_strip_height = 0
+before_mode_group_width = 0
+before_mode_group_height = 0
+after_mode_group_width = 0
+after_mode_group_height = 0
+before_cookie_text_width = 317
+before_cookie_text_height = 60
+after_cookie_text_width = 317
+after_cookie_text_height = 54
+before_group_padding = "0px"
+after_group_padding = "0px"
+before_notice_line_height = "20px"
+before_decline_width = 78
+before_decline_height = 44
+before_accept_width = 75
+before_accept_height = 44
+after_notice_line_height = "18px"
+after_decline_width = 76
+after_decline_height = 44
+after_accept_width = 75
+after_accept_height = 44
+period = "The home callouts feed replaces the board and its period control at this width."
+
+[select_views]
+home = "At width 1440 the period pill measures 69 by 28. At width 1024 the compact change-window pill measures 42 by 28 and the period pill measures 69 by 28. At width 390 the callouts feed replaces the board and its selects."
+rewards = "At widths 1440 and 390 the labelled sort pill measures 206 pixels wide, with respective heights of 28 and 46 pixels and select heights of 24 and 44 pixels. Label and value middles differ by less than 0.01 pixel."
+profile = "At width 1440 the metric and period pills measure 83 by 28 and 61 by 28. The activity filter measures 114 by 38 at width 1440 and 114 by 46 at width 390, with respective select heights of 36 and 44 pixels."
+marker = "Each visible picker shows one text-colored chevron. The compact value-only picker keeps its marker hidden. Native menus, labels and control states retain their behavior."
+
+[feed.1440]
+before_block_width = 1201
+before_block_height = 32
+before_block_middle = 64
+after_block_width = 1197
+after_block_height = 32
+after_block_middle = 64
+
+[feed.834]
+before_block_width = 495
+before_block_height = 44
+before_block_middle = 70
+after_block_width = 495
+after_block_height = 44
+after_block_middle = 70
+
+[feed.390]
+before_block_width = 0
+before_block_height = 0
+before_block_middle = 0
+after_block_width = 0
+after_block_height = 0
+after_block_middle = 0
+
+[ticker_unavailable]
+content = "An unavailable top-earner feed leaves the feed block empty while the ticker row and all five mode controls remain present."
+
+[home_part]
+views = 8
+views_and_states = 14
+renders = 476
+result = "The normal home, first-visit consent, empty, loading, callback, new-listing and not-found views render without findings."

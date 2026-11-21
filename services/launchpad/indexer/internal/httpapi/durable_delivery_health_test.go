@@ -17,7 +17,10 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -368,7 +371,26 @@ func TestDeliveryHealthRealDatabaseOutage(t *testing.T) {
 }
 
 func TestDeliveryHealthDeadLetterAuthorizationAndRetention(t *testing.T) {
-	db := deliveryHealthNewDB()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	_, db := canonicaltest.New(t)
+	_, file, _, _ := runtime.Caller(0)
+	for _, id := range []string{"450000", "450001"} {
+		ddl, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../migrations", id+".sql"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = db.Exec(ctx, string(ddl)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ddl, err := delivery.SchemaDDL("indexer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(ctx, ddl); err != nil {
+		t.Fatal(err)
+	}
 	operatorSession, ordinarySession, accountID, requestID := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
 	policy := delivery.Policy{Subjects: map[string]bool{"events.swap": true}, EventTypes: map[string]bool{"Swap": true}}
 	payload := json.RawMessage(`{"token":"private-payload-canary","target":"https://private-target.invalid"}`)
@@ -381,7 +403,9 @@ func TestDeliveryHealthDeadLetterAuthorizationAndRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	hash := delivery.Hash(wire)
-	db.letters = []deadLetterMetadata{{Consumer: "stats", Generation: "g1", EnvelopeHash: hash, FailureClass: "private-error-canary", Created: time.Now().UTC()}}
+	if _, err = db.Exec(ctx, `INSERT INTO indexer.delivery_quarantine(consumer_id,projection_generation,envelope_hash,subject,envelope,failure_class) VALUES('stats','g1',$1,'events.swap',$2,'private-error-canary')`, hash, wire); err != nil {
+		t.Fatal(err)
+	}
 	public, key, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -415,16 +439,23 @@ func TestDeliveryHealthDeadLetterAuthorizationAndRetention(t *testing.T) {
 	defer server.Close()
 	clientTransport := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots, Certificates: []tls.Certificate{pair}}}
 	defer clientTransport.CloseIdleConnections()
-	client := &http.Client{Transport: clientTransport, Timeout: 5 * time.Second}
+	client := &http.Client{Transport: clientTransport}
 	wallet, err := auth.NormalizeWallet("0x52908400098527886e0f7030069857d2e4169ee7")
 	if err != nil {
 		t.Fatal(err)
 	}
 	issuer := auth.ServiceAssertionIssuer{Issuer: "gateway", Audience: "indexer", Key: key, Transport: transport}
-	db.sessions[operatorSession] = deliveryHealthSession{actor: "operator-a", audience: "indexer", wallet: wallet, issued: now.Add(-time.Second), expires: now.Add(time.Minute), mfa: now.Add(time.Minute), scopes: []string{"inspect"}}
+	session := deliveryHealthSession{actor: "operator-a", audience: "indexer", wallet: wallet, issued: now.Add(-time.Second), expires: now.Add(time.Minute), mfa: now.Add(time.Minute), scopes: []string{"inspect"}}
+	saveSession := func() {
+		t.Helper()
+		if _, err := db.Exec(ctx, `INSERT INTO security.operator_sessions(session_id,wallet,actor,audience,issued_at,expires_at,mfa_expires_at,scopes,revoked) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(session_id) DO UPDATE SET audience=EXCLUDED.audience,mfa_expires_at=EXCLUDED.mfa_expires_at,scopes=EXCLUDED.scopes,revoked=EXCLUDED.revoked`, operatorSession, session.wallet, session.actor, session.audience, session.issued, session.expires, session.mfa, session.scopes, session.revoked); err != nil {
+			t.Fatal(err)
+		}
+	}
+	saveSession()
 	send := func(method, path, session string, want int, alter func(*http.Request)) string {
 		t.Helper()
-		req, err := http.NewRequest(method, server.URL+path, nil)
+		req, err := http.NewRequestWithContext(ctx, method, server.URL+path, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -458,11 +489,19 @@ func TestDeliveryHealthDeadLetterAuthorizationAndRetention(t *testing.T) {
 		}
 		return string(body)
 	}
+	locked, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer locked.Rollback(ctx)
+	if _, err = locked.Exec(ctx, `LOCK TABLE indexer.delivery_quarantine IN ACCESS EXCLUSIVE MODE`); err != nil {
+		t.Fatal(err)
+	}
 	send("GET", "/status/dead-letter", "", 401, nil)
 	send("POST", "/status/dead-letter/drain", "", 401, nil)
 	send("GET", "/status/dead-letter", ordinarySession, 403, nil)
-	if db.reads != 0 {
-		t.Fatal("unauthorized inspection reached durable data", db.reads)
+	if err = locked.Rollback(ctx); err != nil {
+		t.Fatal(err)
 	}
 	body := send("GET", "/status/dead-letter?limit=1", operatorSession, 200, nil)
 	var page struct {
@@ -484,46 +523,64 @@ func TestDeliveryHealthDeadLetterAuthorizationAndRetention(t *testing.T) {
 	}
 	send("GET", "/status/dead-letter", operatorSession, 401, func(r *http.Request) { r.Header.Set("X-Request-ID", uuid.NewString()) })
 	send("POST", "/status/dead-letter/drain", operatorSession, 403, nil)
-	session := db.sessions[operatorSession]
 	session.scopes = []string{"inspect", "retention-delete"}
-	db.sessions[operatorSession] = session
+	saveSession()
 	send("POST", "/status/dead-letter/drain", operatorSession, 403, nil)
-	decision := db.decisions[len(db.decisions)-1]
-	if decision[1] != "retention-delete" || decision[4] != true {
-		t.Fatal("retention authority was not audited before requiring separate approval", decision)
+	var scope string
+	var allowed bool
+	if err = db.QueryRow(ctx, `SELECT scope,allowed FROM security.authorization_decisions ORDER BY seq DESC LIMIT 1`).Scan(&scope, &allowed); err != nil || scope != "retention-delete" || !allowed {
+		t.Fatalf("retention authority was not audited before requiring separate approval: %s/%v: %v", scope, allowed, err)
 	}
-	if len(db.letters) != 1 || db.letters[0].EnvelopeHash != hash {
-		t.Fatal("drain deleted quarantine", db.letters)
+	var retained int
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM indexer.delivery_quarantine WHERE envelope_hash=$1`, hash).Scan(&retained); err != nil || retained != 1 {
+		t.Fatalf("drain deleted quarantine: %d: %v", retained, err)
 	}
 	session.mfa = now.Add(-time.Second)
-	db.sessions[operatorSession] = session
+	saveSession()
 	send("GET", "/status/dead-letter", operatorSession, 403, nil)
 	session.mfa = now.Add(time.Minute)
 	session.audience = "other"
-	db.sessions[operatorSession] = session
+	saveSession()
 	send("GET", "/status/dead-letter", operatorSession, 403, nil)
 	session.audience = "indexer"
 	session.revoked = true
-	db.sessions[operatorSession] = session
+	saveSession()
 	send("GET", "/status/dead-letter", operatorSession, 403, nil)
 	session.revoked = false
-	db.sessions[operatorSession] = session
-	db.failures[`"authorization_decisions"`] = true
-	reads := db.reads
-	send("GET", "/status/dead-letter", operatorSession, 503, nil)
-	if db.reads != reads {
-		t.Fatal("inspection proceeded without durable audit")
-	}
-	db.failures[`"authorization_decisions"`] = false
-	db.failures["quarantine"] = true
-	send("GET", "/status/dead-letter", operatorSession, 503, nil)
-	if len(db.decisions) < 10 {
-		t.Fatal("missing durable allow/deny decisions", db.decisions)
-	}
-	for _, decision := range db.decisions {
-		if decision[3] != "repair996" {
-			t.Fatal("missing policy revision", decision)
+	saveSession()
+	t.Run("audit unavailable", func(t *testing.T) {
+		if _, err := db.Exec(ctx, `ALTER TABLE security.authorization_decisions RENAME TO unavailable_authorization_decisions`); err != nil {
+			t.Fatal(err)
 		}
+		locked, err := db.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer locked.Rollback(ctx)
+		if _, err = locked.Exec(ctx, `LOCK TABLE indexer.delivery_quarantine IN ACCESS EXCLUSIVE MODE`); err != nil {
+			t.Fatal(err)
+		}
+		body := send("GET", "/status/dead-letter", operatorSession, 503, nil)
+		if strings.TrimSpace(body) != "audit unavailable" {
+			t.Fatal("inspection proceeded without durable audit", body)
+		}
+		if err = locked.Rollback(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = db.Exec(ctx, `ALTER TABLE security.unavailable_authorization_decisions RENAME TO authorization_decisions`); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if _, err = db.Exec(ctx, `ALTER TABLE indexer.delivery_quarantine RENAME TO unavailable_quarantine`); err != nil {
+		t.Fatal(err)
+	}
+	send("GET", "/status/dead-letter", operatorSession, 503, nil)
+	if _, err = db.Exec(ctx, `ALTER TABLE indexer.unavailable_quarantine RENAME TO delivery_quarantine`); err != nil {
+		t.Fatal(err)
+	}
+	var decisions, wrongPolicy int
+	if err = db.QueryRow(ctx, `SELECT count(*),count(*) FILTER(WHERE policy_version<>'repair996') FROM security.authorization_decisions`).Scan(&decisions, &wrongPolicy); err != nil || decisions < 10 || wrongPolicy != 0 {
+		t.Fatalf("durable allow/deny decisions and policy revision: %d/%d: %v", decisions, wrongPolicy, err)
 	}
 }
 

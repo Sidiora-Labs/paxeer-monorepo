@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/internaltest/chainfixture"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -125,7 +126,10 @@ func TestBlockParsingBindsReportedIdentityAndSignedTransactionCoordinates(t *tes
 		{"zero hash", func(m map[string]json.RawMessage) { m["hash"], _ = json.Marshal(common.Hash{}) }},
 		{"number", func(m map[string]json.RawMessage) { m["number"] = json.RawMessage(`"-1"`) }},
 		{"transaction encoding", func(m map[string]json.RawMessage) { m["transactions"] = json.RawMessage(`[{}]`) }},
-		{"transaction count", func(m map[string]json.RawMessage) { m["transactions"], _ = json.Marshal(make([]any, 4097)) }},
+		{"transaction count", func(m map[string]json.RawMessage) {
+			b := chainfixture.NewContentBlock(t, 4097, 0, nil)
+			m["transactions"], _ = json.Marshal(b.Transactions)
+		}},
 		{"transaction hash", func(m map[string]json.RawMessage) {
 			var txs []map[string]json.RawMessage
 			_ = json.Unmarshal(m["transactions"], &txs)
@@ -155,7 +159,12 @@ func TestBlockParsingBindsReportedIdentityAndSignedTransactionCoordinates(t *tes
 			if e != nil {
 				t.Fatal(e)
 			}
-			if _, e = a.parseBlock(changed); !errors.Is(e, ErrQualification) {
+			parsed, e := a.parseBlock(changed)
+			if tc.name == "transaction count" {
+				if e != nil || len(parsed.Transactions) != 4097 {
+					t.Fatalf("transaction content: %d: %v", len(parsed.Transactions), e)
+				}
+			} else if !errors.Is(e, ErrQualification) {
 				t.Fatalf("changed block parsed: %v", e)
 			}
 		})

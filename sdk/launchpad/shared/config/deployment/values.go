@@ -10,6 +10,7 @@ const (
 	valueBeacon                      = "beacon"
 	valueBeaconProxy                 = "beacon_proxy"
 	valueBlockIdentityUnverified     = "block_identity_unverified"
+	valueCodeReadFailed              = "code_read_failed"
 	valueCreationPolicyMismatch      = "creation_policy_mismatch"
 	valueDirect                      = "direct"
 	valueErc1967                     = "erc1967"

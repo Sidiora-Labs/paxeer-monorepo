@@ -57,6 +57,24 @@ describe('Tokens', () => {
     fetchMock.mockResponse(JSON.stringify({ items, next_page_params: null }), responseInit);
   });
 
+  it('bases change visibility on the rows of the current page', async function tokensUseVisibleChanges() {
+    const changedItems = [ items[0], { ...items[1], price_change_percentage_24h: 0 } ];
+    fetchMock.resetMocks();
+    fetchMock.mockResponse(JSON.stringify({ items: changedItems, next_page_params: null }), responseInit);
+    const { container, rerender } = await renderList({ rowsCount: 1 });
+
+    await waitFor(() => expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
+      .toBe('A total of 2 token contracts found'));
+    expect(container.querySelector('[data-market-field="change"]')).toBeNull();
+    expect(container.querySelector('[data-token-field="Change 24h"]')).toBeNull();
+
+    rerender(<Harness rowsCount={ 2 }/>);
+    expect(Array.from(container.querySelectorAll('[data-market-field="change"]')).map((cell) => cell.textContent))
+      .toEqual([ '—', '0.00%' ]);
+    expect(Array.from(container.querySelectorAll('[data-token-field="Change 24h"]')).map((row) => row.textContent))
+      .toEqual([ 'Change 24h—', 'Change 24h0.00%' ]);
+  });
+
   it('counts the token contracts found in the card header', async() => {
     const { container } = await renderList();
 

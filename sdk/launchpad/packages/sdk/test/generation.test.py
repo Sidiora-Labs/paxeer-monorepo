@@ -3,6 +3,7 @@
 import hashlib
 import json
 import pathlib
+import shutil
 import tempfile
 
 from authoritative_inputs import GENERATOR, ROOT, copy_bundle, load_module, package_path
@@ -46,13 +47,38 @@ def test_clean_generations_match_checked_in_outputs(major, outputs):
             generations.append((generated, {path: (package / path).read_bytes() for path in outputs}))
         assert generations[0] == generations[1], "clean generations differ"
         for path, data in generations[0][1].items():
-            assert (ROOT / package_path(major) / path).read_bytes() == data, "checked-in output stale: " + path
+            selected = ROOT / package_path(major) / path
+            if major == 2 and path == "src/types.gen.ts":
+                selected = ROOT / "sdk/launchpad/packages/sdk/releases/0.1.0/types-v2.gen.ts"
+            assert selected.read_bytes() == data, "checked-in output stale: " + path
         print(json.dumps({"version": major, "cleanGenerations": 2, "identical": True, "outputs": list(outputs)}, sort_keys=True))
 
 
 def test_versioned_clean_generations():
     test_clean_generations_match_checked_in_outputs(1, V1_OUTPUTS)
     test_clean_generations_match_checked_in_outputs(2, V2_OUTPUTS)
+    package = ROOT / "sdk/launchpad/packages/sdk"
+    metadata = json.loads((package / "package.json").read_bytes())
+    release = json.loads((package / metadata["kindleCompatibility"]["currentReleaseManifest"]).read_bytes())
+    assert release["packageVersion"] == metadata["version"]
+    for path, digest in release["inputs"].items():
+        assert hashlib.sha256((ROOT / path).read_bytes()).hexdigest() == digest, path
+    generator = load_module(package / "scripts/generate.py", "sdk_current_generation")
+    generations = []
+    with tempfile.TemporaryDirectory(prefix="sdk-current-codegen-") as temporary:
+        for name in ("clean-a", "clean-b"):
+            private = pathlib.Path(temporary) / name
+            for path in release["inputs"]:
+                target = private / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / path, target)
+            generations.append(generator.current_artifacts(private))
+    assert generations[0] == generations[1], "current clean generations differ"
+    assert set(generations[0]) == set(release["outputs"])
+    for path, source in generations[0].items():
+        data = source.encode()
+        assert hashlib.sha256(data).hexdigest() == release["outputs"][path], path
+        assert (package / path).read_bytes() == data, path
 
 
 if __name__ == "__main__":

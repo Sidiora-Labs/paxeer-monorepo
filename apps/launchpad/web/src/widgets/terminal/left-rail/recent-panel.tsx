@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Trash2 } from 'lucide-react';
@@ -18,14 +19,15 @@ export function pageCount(total: number, size = recentPageSize): number {
 }
 
 function RecentPairRow({ row, active, loadingPrice }: { row: RecentRow; active: boolean; loadingPrice: boolean }) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   return (
-    <li data-pool={row.poolAddress} className={cn('relative grid min-h-control-height-sm grid-cols-[var(--sl-recent-columns)] items-center gap-1 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}>
-      <div className="col-span-2 flex min-w-0 items-center gap-1.5">
+    <li data-pool={row.poolAddress} className={cn('relative grid min-h-9 grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-control-height-sm)] [@media(max-width:834px)]:grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-touch-target-min)] items-center gap-1 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}>
+      <div className="flex min-w-0 items-center gap-1.5">
         <Avatar src={row.image} name={row.name} size="xs" decorative />
         <Link prefetch={false}
           href={row.href}
           aria-current={active ? 'page' : undefined}
-          title={row.name}
+          title={row.symbol}
           className="min-w-0 flex-1 truncate text-xs font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
         >
           {row.symbol}
@@ -33,18 +35,18 @@ function RecentPairRow({ row, active, loadingPrice }: { row: RecentRow; active: 
         </Link>
       </div>
       {row.price === null && loadingPrice
-        ? <span className="col-start-1 row-start-2 flex justify-end"><Skeleton label="price" className="w-8" /></span>
+        ? <span className="flex justify-end"><Skeleton label="price" className="w-8" /></span>
         : row.price === null
-        ? <span className="col-start-1 row-start-2 truncate text-right"><StatDash reason={row.priceReason ?? 'The price is not available for this coin yet.'} subject="Price" /></span>
+        ? <span className="truncate text-right"><StatDash reason={row.priceReason ?? 'The price is not available for this coin yet.'} subject="Price" /></span>
         : (
-          <span data-numeric className="col-start-1 row-start-2 truncate text-right text-xs tabular-nums text-text">
+          <span data-numeric className="truncate text-right text-xs tabular-nums text-text">
             <span className="sr-only">Price </span>{formatRailPrice(row.price)}
           </span>
         )}
-      <span data-numeric className={cn('col-start-2 row-start-2 truncate text-right text-xs tabular-nums', row.mcap === null ? 'text-text-faint' : 'text-text')}>
+      <span data-numeric className={cn('truncate text-right text-xs tabular-nums', row.mcap === null ? 'text-text-faint' : 'text-text')}>
         <span className="sr-only">Market cap </span>{formatCompactUsd(row.mcap)}
       </span>
-      <IconButton label={`Remove ${row.symbol} from recently viewed`} icon={<Trash2 />} size="sm" className="relative z-10 col-start-3 row-start-1" onClick={() => removeRecentPool(row.poolAddress)} />
+      <IconButton label={`Remove ${row.symbol} from recently viewed`} icon={<Trash2 />} size="sm" className="relative z-10" onClick={() => removeRecentPool(row.poolAddress)} />
     </li>
   );
 }
@@ -98,7 +100,7 @@ export function RecentPanel({ activePool, className }: RecentPanelProps) {
         ? <EmptyState variant="inline" title="Nothing viewed yet" body="Coins you open show up here." className="px-2 pb-2 text-xs" />
         : (
           <>
-            <div aria-hidden="true" className="sr-only">
+            <div aria-hidden="true" className="grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-control-height-sm)] items-center gap-1 px-2 text-2xs uppercase text-text-faint [@media(max-width:834px)]:grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-touch-target-min)]">
               <span>Coin</span>
               <span className="text-right">Price</span>
               <span className="text-right">MCap</span>

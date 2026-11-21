@@ -131,7 +131,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 
 	rdb, err := sharedredis.NewClient(cfg.RedisURL)
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		return nil, err
 	}
 	// A dedicated client for the broker's long-lived pub/sub subscription, kept
@@ -139,7 +139,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	subRdb, err := sharedredis.NewClient(cfg.RedisURL)
 	if err != nil {
 		_ = rdb.Close()
-		pool.Close()
+		shareddb.ClosePool(pool)
 		return nil, err
 	}
 
@@ -156,7 +156,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 			}
 			_ = subRdb.Close()
 			_ = rdb.Close()
-			pool.Close()
+			shareddb.ClosePool(pool)
 		}
 	}()
 	st := store.New(pool, rdb)
@@ -220,11 +220,8 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 				return nil, err
 			}
 			ownedNATS = nc
-			secretChecks["jetstream"] = func(context.Context) error {
-				if !nc.IsConnected() {
-					return broker.ErrStreamUnavailable
-				}
-				return nil
+			secretChecks["jetstream"] = func(ctx context.Context) error {
+				return readyStreamConsumers(ctx, nc, streamConsumers)
 			}
 		} else {
 			authority, err = newNetworkAuthority(ctx, pool, cfg)
@@ -413,7 +410,7 @@ func (a *App) registerREST(ctx context.Context, router chi.Router, st *store.Sto
 			return
 		}
 		// Production snapshots include launched chains, their revenue and pool home chains.
-		if registrationErr = rest.RegisterProductionReads(gr, rest.ProductionReadOptions{Model: model, Stream: a.privateStream, Store: st, StatsOrigin: a.cfg.StatsURL, RegisterSnapshots: true, Admission: a.admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); registrationErr != nil {
+		if registrationErr = rest.RegisterProductionReads(gr, rest.ProductionReadOptions{Model: model, Stream: a.privateStream, Store: st, PoolFeePolicy: a.authority.poolFeePolicy, StatsOrigin: a.cfg.StatsURL, RegisterSnapshots: true, Admission: a.admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); registrationErr != nil {
 			return
 		}
 		a.authority.Register(gr, a.admission)
@@ -465,7 +462,7 @@ func (a *App) Close() {
 		_ = a.sqlDB.Close()
 	}
 	if a.pool != nil {
-		a.pool.Close()
+		shareddb.ClosePool(a.pool)
 	}
 	if a.redis != nil {
 		_ = a.redis.Close()

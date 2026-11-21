@@ -260,7 +260,26 @@ func exerciseProductionOptions(t *testing.T, ctx context.Context, cfg config.Con
 			}
 		}
 	})
-	for _, mode := range []string{"live", "backfill only", "backfill live", "backfill admission", "occupied listener"} {
+	t.Run("broker readiness", func(t *testing.T) {
+		a, err := New(ctx, cfg, logger)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer a.Close()
+		a.nats.Close()
+		rr := httptest.NewRecorder()
+		a.Router.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/health/ready", nil))
+		var body struct {
+			Checks map[string]string `json:"checks"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if rr.Code != http.StatusServiceUnavailable || body.Checks["broker"] != "failed" {
+			t.Fatalf("disconnected broker readiness: %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+	for _, mode := range []string{"live", "backfill only", "backfill live", "backfill admission", "occupied listener", "relay unavailable"} {
 		t.Run("production service "+mode, func(t *testing.T) {
 			c := cfg
 			var request store.ReplayRequest
@@ -361,6 +380,15 @@ func exerciseProductionOptions(t *testing.T, ctx context.Context, cfg config.Con
 				case <-time.After(15 * time.Second):
 					t.Fatal("service did not finish bounded startup")
 				}
+				if mode != "occupied listener" {
+					reopened, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", c.Port))
+					if err != nil {
+						t.Fatalf("service retained HTTP listener: %v", err)
+					}
+					if err := reopened.Close(); err != nil {
+						t.Fatal(err)
+					}
+				}
 				return
 			}
 			client := &http.Client{Timeout: time.Second}
@@ -383,6 +411,32 @@ func exerciseProductionOptions(t *testing.T, ctx context.Context, cfg config.Con
 					t.Fatal("production service did not listen")
 				case <-time.After(10 * time.Millisecond):
 				}
+			}
+			if mode == "relay unavailable" {
+				if _, err := admin.Exec(ctx, `ALTER TABLE indexer.delivery_outbox RENAME TO delivery_outbox_unavailable`); err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if _, err := admin.Exec(ctx, `ALTER TABLE indexer.delivery_outbox_unavailable RENAME TO delivery_outbox`); err != nil {
+						t.Error(err)
+					}
+				}()
+				select {
+				case err := <-done:
+					if err == nil || !strings.Contains(err.Error(), "durable relay") {
+						t.Fatalf("relay failure exit: %v", err)
+					}
+				case <-time.After(10 * time.Second):
+					t.Fatal("service did not stop after relay failure")
+				}
+				reopened, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", c.Port))
+				if err != nil {
+					t.Fatalf("failed relay retained HTTP listener: %v", err)
+				}
+				if err := reopened.Close(); err != nil {
+					t.Fatal(err)
+				}
+				return
 			}
 			if mode == "backfill live" {
 				for {

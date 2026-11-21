@@ -354,7 +354,98 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
     end
   end
 
+  describe "cached day count" do
+    setup context do
+      config = Application.fetch_env!(:explorer, PriceFeed)
+
+      on_exit(fn ->
+        Application.put_env(:explorer, PriceFeed, config)
+        PriceFeed.clear_update_count_24h_cache()
+      end)
+
+      Application.put_env(
+        :explorer,
+        PriceFeed,
+        Keyword.put(config, :update_count_24h_cache_period, Map.get(context, :cache_period, 60_000))
+      )
+
+      PriceFeed.clear_update_count_24h_cache()
+      :ok
+    end
+
+    test "calls within the period reuse the count across processes", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      assert PriceFeed.update_count_24h() == 0
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      assert PriceFeed.update_count_24h() == 0
+      assert Task.async(fn -> PriceFeed.update_count_24h() end) |> Task.await() == 0
+    end
+
+    test "clearing the count includes newly stored submissions", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      assert PriceFeed.update_count_24h() == 0
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      assert :ok = PriceFeed.clear_update_count_24h_cache()
+      assert PriceFeed.update_count_24h() == 1
+    end
+
+    test "concurrent calls refresh the count once", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      reference = make_ref()
+
+      :ok =
+        :telemetry.attach(
+          reference,
+          [:explorer, :repo, :query],
+          &__MODULE__.observe_day_count_query/4,
+          {self(), reference}
+        )
+
+      try do
+        results = 1..8 |> Task.async_stream(fn _ -> PriceFeed.update_count_24h() end) |> Enum.to_list()
+        assert results == List.duplicate({:ok, 1}, 8)
+        assert_receive {:day_count_query, ^reference}
+        refute_received {:day_count_query, ^reference}
+      after
+        :telemetry.detach(reference)
+      end
+    end
+
+    @tag cache_period: 20
+    test "an expired count is replaced with the current count", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      assert PriceFeed.update_count_24h() == 0
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      Process.sleep(30)
+      assert PriceFeed.update_count_24h() == 1
+
+      Application.put_env(:explorer, PriceFeed, update_count_24h_cache_period: 60_000)
+      assert {:ok, 0} = PriceFeed.replace_block_updates(block, [])
+      assert PriceFeed.update_count_24h() == 1
+    end
+
+    @tag cache_period: 0
+    test "a zero period counts every call even with a previously kept count", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      Application.put_env(:explorer, PriceFeed, update_count_24h_cache_period: 60_000)
+      assert PriceFeed.update_count_24h() == 0
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+
+      Application.put_env(:explorer, PriceFeed, update_count_24h_cache_period: 0)
+      assert PriceFeed.update_count_24h() == 1
+      assert {:ok, 0} = PriceFeed.replace_block_updates(block, [])
+      assert PriceFeed.update_count_24h() == 0
+    end
+  end
+
   defp random_hash, do: "0x" <> Base.encode16(:crypto.strong_rand_bytes(32), case: :lower)
+
+  def observe_day_count_query(_event, _measurements, metadata, {owner, reference}) do
+    if String.contains?(metadata.query, "paxeer_x_price_updates") and Regex.match?(~r/\bcount\s*\(/i, metadata.query) do
+      send(owner, {:day_count_query, reference})
+    end
+  end
 
   def observe_store_query(_event, _measurements, metadata, {owner, reference}) do
     if self() == owner, do: send(owner, {:store_query, reference, metadata.query})

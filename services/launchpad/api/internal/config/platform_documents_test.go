@@ -134,10 +134,14 @@ func platformDocumentsEnvironment(t *testing.T, root, service string, documents 
 		"IDENTITY_ASSERTION_ISSUER": "test-api", "IDENTITY_CA_FILE": pki.CAFile,
 		"IDENTITY_CLIENT_CERT_FILE": client.CertFile, "IDENTITY_CLIENT_KEY_FILE": client.KeyFile,
 		"IDENTITY_PEER_CERT_SHA256": peer.SHA256, "IDENTITY_SERVICE_URL": "https://identity.example.invalid",
-		"IDENTITY_SIGNING_KEY": testpki.Ed25519(t).StdBase64,
-		"STATS_SERVICE_URL":    "https://stats.example.invalid",
-		"STREAM_SIGNING_KEY":   "test-stream-signing-key-for-platform-documents",
-		"NATS_URL":             "nats://localhost:4222", "NATS_CREDENTIALS": credsPath,
+		"IDENTITY_SIGNING_KEY":     testpki.Ed25519(t).StdBase64,
+		"ACCOUNT_SERVICE_TOKEN":    "test-account-service-token-for-platform-documents",
+		"SOCIAL_SERVICE_TOKEN":     "test-social-service-token-for-platform-documents",
+		"DISCOVERY_CURSOR_KEY":     "test-discovery-cursor-key-for-platform-documents",
+		"DISCOVERY_INTERNAL_TOKEN": "test-discovery-internal-token-for-platform-documents",
+		"STATS_SERVICE_URL":        "https://stats.example.invalid",
+		"STREAM_SIGNING_KEY":       "test-stream-signing-key-for-platform-documents",
+		"NATS_URL":                 "nats://localhost:4222", "NATS_CREDENTIALS": credsPath,
 		"NETWORK_RPC_URL": "https://api5.mainnet-beta.paxeer.network",
 	}
 	for key, value := range entry.Fixed {

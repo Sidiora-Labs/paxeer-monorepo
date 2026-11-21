@@ -85,7 +85,7 @@ def _nonnegative(data: dict[str, Any], key: str, maximum: int) -> int:
 
 def _roles(values: dict[str, Any]) -> dict[str, dict[str, str]]:
     addresses = _field(values, "addresses", dict)
-    roles: dict[str, dict[str, str]] = {}
+    roles = _manifest(values)["roles"]
     for role, key in (
         ("EventEmitter", "event_emitter"),
         ("PoolRegistry", "pool_registry"),
@@ -99,8 +99,50 @@ def _roles(values: dict[str, Any]) -> dict[str, dict[str, str]]:
         ("PoolBeacon", "pool_beacon"),
     ):
         address = _address(addresses, key)
-        roles[role] = {"address": address, "kind": "surface" if role not in {"EventEmitter"} else "erc1967"}
+        if address.lower() != roles[role]["address"].lower():
+            raise DocumentError(f"indexer: addresses.{key} differs from the deployment manifest")
     return roles
+
+
+def _reviewed(relative: str) -> dict[str, Any]:
+    source = Path(__file__).resolve().parents[3] / relative
+    try:
+        return json.loads(source.read_bytes())
+    except (OSError, ValueError) as exc:
+        raise DocumentError(f"indexer: reviewed source unavailable: {relative}") from exc
+
+
+def _manifest(values: dict[str, Any]) -> dict[str, Any]:
+    manifest = _reviewed("sdk/launchpad/shared/config/deployment/current.json")
+    if manifest["sourceManifestSha256"] != _digest(values, "manifest_digest") or manifest["deploymentVersion"] != _token(values, "deployment_id"):
+        raise DocumentError("indexer: values require the matching deployment manifest")
+    return manifest
+
+
+def _manifest_hash(manifest: dict[str, Any]) -> str:
+    """Match deployment.Manifest.Hash's struct order and sorted role map."""
+
+    fields = (
+        "schemaVersion", "deploymentVersion", "sourceManifestSha256", "chainId",
+        "activationHeight", "status", "roles", "native", "settlement",
+        "creationFeeRaw", "governance", "marketModel", "graduation", "coreOracleRequired",
+    )
+    role_fields = (
+        "address", "kind", "runtimeHash", "stagedRuntimeHash", "stagedUpgrade",
+        "implementationAddress", "implementationHash", "beaconAddress",
+    )
+    ordered = {key: manifest[key] for key in fields}
+    ordered["roles"] = {
+        name: {key: role.get(key, "") for key in role_fields if key in role or key == "runtimeHash"}
+        for name, role in sorted(manifest["roles"].items())
+    }
+    for key in ("native", "settlement"):
+        ordered[key] = {field: manifest[key][field] for field in ("symbol", "decimals")}
+    ordered["governance"] = {
+        key: manifest["governance"][key]
+        for key in ("mode", "expectedBeaconOwner", "timelockDelaySeconds")
+    }
+    return hashlib.sha256(json.dumps(ordered, separators=(",", ":")).encode()).hexdigest()
 
 
 def _receipt(values: dict[str, Any], addresses: dict[str, dict[str, str]]) -> dict[str, Any]:
@@ -111,48 +153,70 @@ def _receipt(values: dict[str, Any], addresses: dict[str, dict[str, str]]) -> di
     anchor_hash = _field(values, "anchor_hash", str).lower()
     if not re.fullmatch(r"0x[0-9a-f]{64}", anchor_hash):
         raise DocumentError("indexer: anchor_hash")
-    deployment = _token(values, "deployment_id")
-    manifest_digest = _digest(values, "manifest_digest")
     timeout_ms = _positive(values, "rpc_timeout_ms", 15000)
-    catalog = _field(values, "catalog", dict)
-    catalog_bytes = json.dumps(catalog, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    manifest = _manifest(values)
+    if anchor_height < manifest["activationHeight"]:
+        raise DocumentError(
+            f"indexer: anchor_height {anchor_height} below manifest activationHeight {manifest['activationHeight']}"
+        )
+    erc20_hash = _field(values, "erc20_masked_runtime_hash", str)
+    if not re.fullmatch(r"0x[0-9a-f]{64}", erc20_hash):
+        raise DocumentError("indexer: erc20_masked_runtime_hash")
+    reviewed = _reviewed("sdk/launchpad/protocol/catalog/reviewed.json")
+    catalog_names = {"USDL": "SidioraERC20", "LaunchpadPrecompile": "EventEmitter"}
+    wanted = {catalog_names.get(role, role) for role in addresses} | {"SidioraPool"}
+    fields = ("name", "abiSha256", "sourceSha256", "buildInfoSha256", "compilerVersion", "abi")
+    contracts = [
+        {key: contract[key] for key in fields}
+        for contract in sorted(reviewed["contracts"], key=lambda contract: contract["name"])
+        if contract["name"] in wanted
+    ]
+    catalog = {
+        "schemaVersion": reviewed["schemaVersion"], "chainId": reviewed["chainId"],
+        "manifestSha256": reviewed["manifestSha256"], "contracts": contracts,
+    }
+    # ABI member order is part of the reviewed ABI digest.
+    catalog_bytes = json.dumps(catalog, separators=(",", ":")).encode("utf-8")
+    revisions = {contract["name"]: contract["abiSha256"] for contract in contracts}
+    factory = manifest["roles"]["SidioraFactory"]
+    pool = {
+        "Role": "SidioraPool", "Kind": factory["kind"],
+        "ABIRevision": revisions["SidioraPool"], "RuntimeHash": factory["runtimeHash"],
+    }
+    for member, source in (("StagedRuntimeHash", "stagedRuntimeHash"), ("StagedUpgrade", "stagedUpgrade")):
+        if factory.get(source):
+            pool[member] = factory[source]
+    token = next(contract for contract in reviewed["contracts"] if contract["name"] == "SidioraERC20")
+    ranges = sorted(
+        ({"Start": span["start"], "Length": span["length"]}
+         for spans in token["immutableReferences"].values() for span in spans),
+        key=lambda span: span["Start"],
+    )
     epochs = []
     for role, identity in sorted(addresses.items()):
+        name = catalog_names.get(role, role)
+        if name not in revisions:
+            continue
         epochs.append(
             {
                 "Deployment": {
                     "Address": identity["address"],
-                    "Role": role,
-                    "ABIRevision": _token(values, "abi_revision"),
-                    "From": {"Block": anchor_height + 1},
+                    "Role": "SidioraERC20" if role == "USDL" else role,
+                    "ABIRevision": revisions[name],
+                    "From": {"Block": manifest["activationHeight"]},
                 },
                 "Identity": identity,
             }
         )
-    manifest = {
-        "schemaVersion": 1,
-        "deploymentVersion": deployment,
-        "sourceManifestSha256": manifest_digest,
-        "chainId": 125,
-        "activationHeight": anchor_height + 1,
-        "status": "active",
-        "roles": addresses,
-    }
-    if "history_from_height" in values:
-        source = Path(__file__).resolve().parents[3] / "sdk/launchpad/shared/config/deployment/current.json"
-        try:
-            manifest = json.loads(source.read_bytes())
-        except (OSError, ValueError) as exc:
-            raise DocumentError("indexer: deployment manifest unavailable") from exc
-        if manifest["sourceManifestSha256"] != manifest_digest or manifest["deploymentVersion"] != deployment:
-            raise DocumentError("indexer: history requires the matching rendered receipt manifest")
-        for epoch in epochs:
-            epoch["Deployment"]["From"]["Block"] = manifest["activationHeight"]
     production = {
         "Manifest": manifest,
         "CatalogJSON": base64.b64encode(catalog_bytes).decode("ascii"),
         "Epochs": epochs,
-        "Discovery": [],
+        "Discovery": [
+            pool,
+            {"Role": "SidioraERC20", "ABIRevision": revisions["SidioraERC20"],
+             "RuntimeHash": erc20_hash, "Immutables": ranges},
+        ],
         "Anchor": {"Height": anchor_height, "Hash": anchor_hash},
         "BlockIdentity": "reported",
         "Timeout": timeout_ms * 1_000_000,
@@ -197,7 +261,7 @@ def _delivery(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _lifecycle(values: dict[str, Any]) -> dict[str, Any]:
+def _lifecycle(values: dict[str, Any], receipt: dict[str, Any]) -> dict[str, Any]:
     version = _positive(values, "lifecycle_version", 2)
     if version != 2:
         raise DocumentError("indexer: lifecycle_version")
@@ -211,7 +275,18 @@ def _lifecycle(values: dict[str, Any]) -> dict[str, Any]:
     checkpoint_hash = _field(values, "anchor_hash", str).lower()
     if not re.fullmatch(r"0x[0-9a-f]{64}", checkpoint_hash):
         raise DocumentError("indexer: anchor_hash")
-    manifest_digest = _digest(values, "manifest_digest")
+    production = receipt.get("Production", receipt.get("production", {}))
+    manifest = production.get("Manifest", production.get("manifest", {}))
+    manifest_digest = _manifest_hash(manifest)
+    epochs = []
+    for epoch in production.get("Epochs", production.get("epochs", [])):
+        deployment = epoch.get("Deployment", epoch.get("deployment", {}))
+        order = deployment["From"]
+        epochs.append({
+            "Address": deployment["Address"].lower(), "Role": deployment["Role"],
+            "ABIRevision": deployment["ABIRevision"], "ManifestDigest": manifest_digest,
+            "ActivationHeight": order.get("Block", order.get("block")),
+        })
     return {
         "Version": version,
         "Committed": {
@@ -219,7 +294,7 @@ def _lifecycle(values: dict[str, Any]) -> dict[str, Any]:
             "Anchor": {"Height": checkpoint_height, "Hash": checkpoint_hash},
             "BlockIdentity": "reported",
             "ManifestDigest": manifest_digest,
-            "Epochs": [],
+            "Epochs": epochs,
             "LiveDeadline": _positive(values, "live_deadline_ms", 2000) * 1_000_000,
             "BulkDeadline": _positive(values, "bulk_deadline_ms", 15000) * 1_000_000,
             "MaxResponseBytes": _positive(values, "max_response_bytes", 32 * 1024 * 1024),
@@ -274,22 +349,14 @@ def documents(service: str, values: str | Path) -> dict[str, Any]:
     else:
         result["INDEXER_RECEIPT_CONFIG_FILE"] = receipt
     if lifecycle is None:
-        result["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"] = _lifecycle(data)
+        receipt_doc = json.loads(receipt.data) if receipt else result["INDEXER_RECEIPT_CONFIG_DOCUMENT"]
+        result["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"] = _lifecycle(data, receipt_doc)
     else:
         result["INDEXER_LIFECYCLE_CONFIG_FILE"] = lifecycle
     if "history_from_height" in data:
         requests, _ = _history(data, result)
         if lifecycle is None:
             result["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"]["BackfillRequests"] = requests
-            receipt_file = result.get("INDEXER_RECEIPT_CONFIG_FILE")
-            receipt_doc = json.loads(receipt_file.data) if receipt_file else result["INDEXER_RECEIPT_CONFIG_DOCUMENT"]
-            production = receipt_doc.get("Production", receipt_doc.get("production", {}))
-            epochs = []
-            for epoch in production.get("Epochs", production.get("epochs", [])):
-                deployment = epoch.get("deployment", epoch.get("Deployment", {}))
-                order = deployment["From"]
-                epochs.append({"Address": deployment["Address"].lower(), "Role": deployment["Role"], "ABIRevision": deployment["ABIRevision"], "ManifestDigest": data["manifest_digest"], "ActivationHeight": order.get("Block", order.get("block"))})
-            result["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"]["Committed"]["Epochs"] = epochs
         else:
             doc = json.loads(lifecycle.data)
             if doc.get("backfillRequest", doc.get("BackfillRequest")) or doc.get("backfillRequests", doc.get("BackfillRequests")):

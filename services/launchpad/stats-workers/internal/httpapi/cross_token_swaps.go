@@ -33,6 +33,7 @@ func crossSwapsByWallet(st *store.Store) http.HandlerFunc {
 
 		swaps, err := st.CrossTokenSwapPage(r.Context(), strings.ToLower(wallet), false, limit+1, offset, page.After)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "cross-token swaps lookup failed")
 			return
 		}
@@ -66,6 +67,7 @@ func crossSwapsByToken(st *store.Store) http.HandlerFunc {
 
 		swaps, err := st.CrossTokenSwapPage(r.Context(), strings.ToLower(tokenAddress), true, limit+1, offset, page.After)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "cross-token swaps lookup failed")
 			return
 		}

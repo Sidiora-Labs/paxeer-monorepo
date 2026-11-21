@@ -32,11 +32,12 @@ export interface ProfileBlocks {
   centerExtra?: ReactNode;
   /** Tab panels; owner-only panels are added by the view itself. */
   panels?: Partial<Record<ProfileTabKey, ReactNode>>;
+  placesIssueNotice?: boolean;
 }
 
 export interface ProfileViewProps {
   walletAddress: string;
-  blocks?: (context: { wallet: string; isOwner: boolean }) => ProfileBlocks;
+  blocks?: (context: { wallet: string; isOwner: boolean; issueNotice: ReactNode }) => ProfileBlocks;
 }
 
 /** Hands the published-profile read failure to the page notice (renders nothing). */
@@ -58,7 +59,7 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
   if (!data.isValidWallet) {
     return (
       <div className="mx-auto max-w-content-narrow-max-width p-4 sm:p-6">
-        <EmptyState icon={UserX} title="This profile does not exist" body="Check the link and try again" action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} className="rounded-lg bg-surface-1" />
+        <EmptyState headingLevel={1} icon={UserX} title="This profile does not exist" body="Check the link and try again" action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} className="rounded-lg bg-surface-1" />
       </div>
     );
   }
@@ -70,9 +71,10 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
     try { await auth.signOut(); } catch (error) { setSignOutError(humanError(error, "Couldn't sign out, try again")); } finally { setSigningOut(false); }
   }
 
-  const { left, centerExtra, rightExtra, panels } = blocks?.({ wallet, isOwner: owner }) ?? {};
+  const issueNotice = <ProfileIssuesNotice reserve />;
+  const { left, centerExtra, rightExtra, panels, placesIssueNotice } = blocks?.({ wallet, isOwner: owner, issueNotice }) ?? {};
   const ownerPanels: Partial<Record<ProfileTabKey, ReactNode>> = owner ? {
-    rewards: <RewardsView />,
+    rewards: <RewardsView headingLevel={2} titleClassName="text-xl" />,
     referrals: <ReferralsTab walletAddress={walletAddress} />,
     watchlist: <WatchlistWidget standalone />,
     accounting: <PositionsTab walletAddress={walletAddress} canShare defaultOpen />,
@@ -106,7 +108,7 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
     <>
       {header}
       <ProfileReadIssue error={data.profileError} retry={data.refreshProfile} />
-      <ProfileIssuesNotice />
+      {placesIssueNotice ? null : issueNotice}
       {connectedHere ? (
         <NoticeBar tone="info" variant="card" className="mx-4 mt-3 md:mx-5" title="This is your wallet" action={<Button variant="primary" size="sm" loading={auth.authenticating} disabled={auth.authenticating} onClick={() => { void auth.authenticate(); }}>Sign in to manage</Button>}>
           Sign in to edit your profile and see your private positions and settings.

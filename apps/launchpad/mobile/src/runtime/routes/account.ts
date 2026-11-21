@@ -7,9 +7,17 @@ import {
 export const IF_PORTFOLIO = 'IF_PORTFOLIO';
 export type PortfolioResponse = OperationResponse<typeof IF_PORTFOLIO>;
 
-export async function portfolio(sdk: SdkClient, signal: AbortSignal) {
+export async function portfolio(
+  sdk: SdkClient,
+  signal: AbortSignal,
+  cursor?: string,
+) {
   signal.throwIfAborted();
-  return new Operations(sdk).call(IF_PORTFOLIO, {}, { signal });
+  return new Operations(sdk).call(
+    IF_PORTFOLIO,
+    cursor ? { query: { cursor } } : {},
+    { signal },
+  );
 }
 
 export const accountRoutes = { portfolio };

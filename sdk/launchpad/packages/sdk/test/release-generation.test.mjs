@@ -28,14 +28,19 @@ generation['test_versioned_clean_generations']()
     assert.equal(release.apiMajor, major);
     assert.equal(release.streamMajor, major);
     for (const [name, digest] of Object.entries(release.outputs)) {
-      assert.equal(sha(readFileSync(new URL(`src/${name}`, packageRoot))), digest, name);
+      const selected = major === 2 && name === 'types.gen.ts'
+        ? new URL('../releases/0.1.0/types-v2.gen.ts', import.meta.url)
+        : new URL(`src/${name}`, packageRoot);
+      assert.equal(sha(readFileSync(selected)), digest, name);
     }
   }
-  for (const [name, digest] of Object.entries({
-    'src/operations.gen.ts': 'b7763579cac0429a3bf507370fcf055b0839b642c9c9d33c8488791fe3fcd42b',
-    'examples/pagination.mjs': '1337efb63a0bca9106c17f8ec1d5d603241653e012a41dca9238d0996712ca9b',
-    'examples/snapshot-resume.mjs': 'fa170082780b19a7bf906ab921fa32bc763895330f5fb13b083adbd65f9facda',
-  })) {
+  const metadata = json(new URL('../package.json', import.meta.url));
+  const release = json(new URL(`../${metadata.kindleCompatibility.currentReleaseManifest}`, import.meta.url));
+  assert.equal(release.packageVersion, metadata.version);
+  for (const [name, digest] of Object.entries(release.inputs)) {
+    assert.equal(sha(readFileSync(new URL(name, root))), digest, name);
+  }
+  for (const [name, digest] of Object.entries(release.outputs)) {
     assert.equal(sha(readFileSync(new URL(`../${name}`, import.meta.url))), digest, name);
   }
 }

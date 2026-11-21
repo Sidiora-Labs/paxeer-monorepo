@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
@@ -52,6 +53,7 @@ interface CoinCellProps {
 
 /** Rank, avatar, name and ticker. Fixed width below xl so long names truncate and the table scrolls instead. */
 function CoinCell({ row }: CoinCellProps) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   return (
     <div className="relative flex w-36 min-w-0 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
       <span data-numeric className="w-5 shrink-0 text-right text-num-sm tabular-nums text-text-faint">
@@ -62,7 +64,7 @@ function CoinCell({ row }: CoinCellProps) {
         <Link prefetch={false}
           href={row.href}
           title={row.name}
-          className="block min-h-touch-target-min min-w-touch-target-min content-center truncate text-sm font-semibold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
+          className="block content-center truncate text-sm font-semibold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
         >
           {row.name}
           <span className="sr-only">{row.mcap === null ? ', no market cap yet' : `, market cap ${formatCompactUsd(row.mcap)}`}</span>
@@ -109,7 +111,7 @@ export function ExploreRow({ row, columns, density, starred, onToggleStar, tone 
     change1h: <StatChange change={row.changes['1h']} arrow />,
     change6h: <StatChange change={row.changes['6h']} arrow />,
     change24h: <StatChange change={row.changes['24h']} arrow />,
-    star: <StarButton name={row.name} starred={starred} onToggle={() => onToggleStar(row.poolAddress)} />,
+    star: <StarButton name={displayCoinText(row.name, row.tokenAddress ?? row.poolAddress)} starred={starred} onToggle={() => onToggleStar(row.poolAddress)} />,
   };
 
   return (

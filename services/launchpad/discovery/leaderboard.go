@@ -162,7 +162,7 @@ func AggregateSquad(entries []PnLInterval) (SquadPerformance, error) {
 }
 
 func (s Store) SquadPerformance(ctx context.Context, a IntervalAuthority, squadID string, start, end time.Time) (SquadPerformance, error) {
-	if a == nil {
+	if s.DB == nil || a == nil {
 		return SquadPerformance{}, ErrUnavailable
 	}
 	rows, e := s.DB.QueryContext(ctx, `SELECT document FROM narrative_discovery.members WHERE squad_id=$1`, squadID)
@@ -278,7 +278,7 @@ func (a SQLIntervalAuthority) Intervals(ctx context.Context, start, end time.Tim
 			Fees       []struct {
 				Asset struct {
 					Kind     string `json:"kind"`
-					ChainID  uint64 `json:"chainId"`
+					ChainID  string `json:"chainId"`
 					Address  string `json:"address"`
 					Decimals int    `json:"decimals"`
 				} `json:"asset"`
@@ -328,7 +328,7 @@ func (a SQLIntervalAuthority) Intervals(ctx context.Context, start, end time.Tim
 				if n.Sign() == 0 {
 					continue
 				}
-				if fee.Asset.ChainID != 125 || !strings.EqualFold(fee.Asset.Address, a.QuoteTokenAddress) || fee.Asset.Decimals != 6 {
+				if fee.Asset.Kind != "erc20" || fee.Asset.ChainID != "125" || !strings.EqualFold(fee.Asset.Address, a.QuoteTokenAddress) || fee.Asset.Decimals != 6 {
 					v.Reconciled = false
 					v.QualityFlags = append(v.QualityFlags, "fee_assets_unvalued")
 					continue

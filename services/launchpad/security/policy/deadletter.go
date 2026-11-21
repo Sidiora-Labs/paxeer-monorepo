@@ -33,20 +33,12 @@ type DeadLetters struct {
 }
 
 func (d DeadLetters) Inspect(ctx context.Context, after string, limit int) ([]DeadLetterMetadata, error) {
-	if d.Pool == nil || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(d.DeliverySchema) || limit < 1 || limit > 100 || len(after) > 2048 {
+	if d.Pool == nil || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(d.DeliverySchema) {
 		return nil, ErrDenied
 	}
-	cursor := DeadLetterMetadata{}
-	if after != "" {
-		wire, err := base64.RawURLEncoding.DecodeString(after)
-		if err != nil {
-			return nil, ErrDenied
-		}
-		decoder := json.NewDecoder(bytes.NewReader(wire))
-		decoder.DisallowUnknownFields()
-		if decoder.Decode(&cursor) != nil || decoder.Decode(new(any)) != io.EOF || !digestPattern.MatchString(cursor.EnvelopeHash) || len(cursor.Consumer) > 128 || len(cursor.Generation) > 128 {
-			return nil, ErrDenied
-		}
+	cursor, err := deadLetterCursor(after, limit)
+	if err != nil {
+		return nil, err
 	}
 	rows, err := d.Pool.Query(ctx, "SELECT consumer_id,projection_generation,envelope_hash,failure_class,created_at FROM "+pgx.Identifier{d.DeliverySchema, "delivery_quarantine"}.Sanitize()+" WHERE (envelope_hash,consumer_id,projection_generation)>($1,$2,$3) ORDER BY envelope_hash,consumer_id,projection_generation LIMIT $4", cursor.EnvelopeHash, cursor.Consumer, cursor.Generation, limit)
 	if err != nil {
@@ -71,6 +63,25 @@ func (d DeadLetters) Inspect(ctx context.Context, after string, limit int) ([]De
 	}
 	return out, rows.Err()
 }
+func deadLetterCursor(after string, limit int) (DeadLetterMetadata, error) {
+	cursor := DeadLetterMetadata{}
+	if limit < 1 || limit > 100 || len(after) > 2048 {
+		return cursor, ErrDenied
+	}
+	if after != "" {
+		wire, err := base64.RawURLEncoding.DecodeString(after)
+		if err != nil {
+			return cursor, ErrDenied
+		}
+		decoder := json.NewDecoder(bytes.NewReader(wire))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&cursor) != nil || decoder.Decode(new(any)) != io.EOF || !digestPattern.MatchString(cursor.EnvelopeHash) || len(cursor.Consumer) > 128 || len(cursor.Generation) > 128 {
+			return cursor, ErrDenied
+		}
+	}
+	return cursor, nil
+}
+
 func (d DeadLetters) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status/dead-letter", func(w http.ResponseWriter, r *http.Request) {
@@ -83,8 +94,14 @@ func (d DeadLetters) Handler() http.Handler {
 			}
 			limit = n
 		}
-		rows, err := d.Inspect(r.Context(), r.URL.Query().Get("after"), limit)
+		after := r.URL.Query().Get("after")
+		if _, err := deadLetterCursor(after, limit); err != nil {
+			http.Error(w, "invalid pagination", http.StatusBadRequest)
+			return
+		}
+		rows, err := d.Inspect(r.Context(), after, limit)
 		if err != nil {
+			logDependencyFailure(r.Context(), "dead-letter inspection", err)
 			http.Error(w, "inspection unavailable", http.StatusServiceUnavailable)
 			return
 		}

@@ -5,11 +5,126 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
 	"strings"
 	"testing"
 	"time"
 )
+
+func poolSessionOptions(t *testing.T, dsn string, transport Transport) PoolOptions {
+	t.Helper()
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return PoolOptions{
+		Transport: transport, PoolID: "session", BudgetIdentity: "session_budget",
+		DatabaseAlias: cfg.ConnConfig.Database, DatabaseUser: cfg.ConnConfig.User,
+		DatabaseHost: cfg.ConnConfig.Host, DatabasePort: cfg.ConnConfig.Port,
+		MaxConns: 2, QueryClass: Interactive, Service: "session", Instance: "one",
+	}
+}
+
+func TestPoolSessionDirectJITOff(t *testing.T) {
+	const dsn = "postgres://u:p@host:5432/mydb?sslmode=disable"
+	for _, transport := range []Transport{"", TransportDirect} {
+		t.Run(string(transport), func(t *testing.T) {
+			options := poolSessionOptions(t, dsn, transport)
+			pool, err := NewPool(context.Background(), dsn, options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer ClosePool(pool)
+			params := pool.Config().ConnConfig.RuntimeParams
+			if params["jit"] != "off" || params["statement_timeout"] != "350" || params["lock_timeout"] != "100" || params["application_name"] != PoolApplicationName(options) {
+				t.Fatalf("direct session settings = %v", params)
+			}
+		})
+	}
+}
+
+func TestPoolSessionCallerJITPreserved(t *testing.T) {
+	for _, dsn := range []string{
+		"postgres://u:p@host:5432/mydb?sslmode=disable&jit=on",
+		"postgres://u:p@host:5432/mydb?sslmode=disable&jit=off",
+		"postgres://u:p@host:5432/mydb?sslmode=disable&jit=true",
+		"host=host port=5432 user=u password=p dbname=mydb sslmode=disable jit=false",
+	} {
+		for _, transport := range []Transport{"", TransportDirect} {
+			options := poolSessionOptions(t, dsn, transport)
+			parsed, err := pgxpool.ParseConfig(dsn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pool, err := NewPool(context.Background(), dsn, options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := pool.Config().ConnConfig.RuntimeParams["jit"]
+			ClosePool(pool)
+			if want := parsed.ConnConfig.RuntimeParams["jit"]; got != want {
+				t.Fatalf("caller jit = %q, want %q", got, want)
+			}
+		}
+	}
+}
+
+func TestPoolSessionTransactionPoolerJITAbsent(t *testing.T) {
+	const dsn = "postgres://u:p@host:5432/mydb?sslmode=disable"
+	options := poolSessionOptions(t, dsn, TransportTransactionPooler)
+	pool, err := NewPool(context.Background(), dsn, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ClosePool(pool)
+	cfg := pool.Config().ConnConfig
+	for _, key := range []string{"jit", "statement_timeout", "lock_timeout"} {
+		if value, present := cfg.RuntimeParams[key]; present {
+			t.Errorf("transaction pooler startup setting %s = %q", key, value)
+		}
+	}
+	if cfg.DefaultQueryExecMode != pgx.QueryExecModeSimpleProtocol || cfg.StatementCacheCapacity != 0 || cfg.DescriptionCacheCapacity != 0 {
+		t.Fatal("transaction pooler requires uncached simple protocol")
+	}
+	for _, value := range []string{"on", "off"} {
+		if other, err := NewPool(context.Background(), dsn+"&jit="+value, options); err == nil || other != nil {
+			ClosePool(other)
+			t.Fatalf("transaction pooler accepted jit=%s", value)
+		} else if !strings.Contains(err.Error(), "unsupported transaction-pooler startup parameter") {
+			t.Fatalf("transaction pooler startup refusal = %v", err)
+		}
+	}
+}
+
+func TestPoolSessionDirectJITDatabase(t *testing.T) {
+	dsn := os.Getenv("DELIVERY_TEST_DSN")
+	if dsn == "" {
+		t.Fatal("DELIVERY_TEST_DSN is required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	options := poolSessionOptions(t, dsn, TransportDirect)
+	pool, err := NewPool(ctx, dsn, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ClosePool(pool)
+	for i := int32(0); i < options.MaxConns; i++ {
+		conn, err := pool.Acquire(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Release()
+		var jit string
+		if err := conn.QueryRow(ctx, "SHOW jit").Scan(&jit); err != nil {
+			t.Fatal(err)
+		}
+		if jit != "off" {
+			t.Fatalf("direct session %d jit = %q, want off", i, jit)
+		}
+	}
+}
 
 func TestPoolTag(t *testing.T) {
 	t.Parallel()
@@ -37,7 +152,7 @@ func TestNewPoolIntegration(t *testing.T) {
 	ctx := context.Background()
 	dsn := os.Getenv("L07_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("L07_POSTGRES_DSN is not set: point it at a running PostgreSQL database named kindle_test; tests never start containers")
+		t.Skip("L07_POSTGRES_DSN is not set: configure the PostgreSQL fixture")
 	}
 
 	pool, err := NewPool(ctx, dsn, PoolOptions{MaxConns: 5, MinConns: 1, StatementTimeout: 3 * time.Second})
@@ -56,8 +171,8 @@ func TestNewPoolIntegration(t *testing.T) {
 	}
 
 	m := PoolMetrics()
-	if _, ok := m["kindle_test"]; !ok {
-		t.Errorf("PoolMetrics missing tag kindle_test, got %v", m)
+	if _, ok := m[poolTag(dsn)]; !ok {
+		t.Errorf("PoolMetrics missing supplied database tag, got %v", m)
 	}
 }
 

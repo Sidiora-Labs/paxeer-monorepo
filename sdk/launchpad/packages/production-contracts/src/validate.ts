@@ -4,7 +4,11 @@ import addFormatsModule from 'ajv-formats';
 import schemaDocument from './schemas.gen.json' with { type: 'json' };
 
 // Unknown is the untrusted-input boundary, never a generated DTO fallback.
-const ajv = new Ajv2020({ strict: true, allErrors: true, validateFormats: true, allowUnionTypes: true });
+function contractRegExp(pattern: string, flags: string): RegExp {
+  return new RegExp(pattern.endsWith('$') ? `${pattern}(?![\\s\\S])` : pattern, flags);
+}
+contractRegExp.code = contractRegExp.toString();
+const ajv = new Ajv2020({ strict: true, allErrors: true, validateFormats: true, allowUnionTypes: true, code: { regExp: contractRegExp } });
 const addFormats = addFormatsModule as unknown as (instance: Ajv2020) => void;
 addFormats(ajv);
 ajv.addSchema(schemaDocument, 'kindle-v1');

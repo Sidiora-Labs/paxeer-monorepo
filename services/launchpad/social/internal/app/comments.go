@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -118,6 +119,9 @@ func commentReadError(w http.ResponseWriter, req *http.Request, frozen bool, err
 		status, code = 404, notFoundCode
 	case errors.Is(err, interactions.ErrDenied):
 		status, code = 403, scopeDeniedCode
+	}
+	if status == http.StatusServiceUnavailable {
+		slog.ErrorContext(req.Context(), "social comment read failed", "method", req.Method, "path", req.URL.Path, "error", err)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "private, no-store")

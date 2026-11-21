@@ -25,6 +25,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/capabilities"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/ethereum/go-ethereum/common"
@@ -147,7 +148,7 @@ func TestDevelopmentPreflightOrigin(t *testing.T) {
 		{"cross-origin api host without proxy", request("203.0.113.9:4000", "api-production-e4bd.up.railway.app", webOrigin, nil), false},
 	}
 	for _, c := range cases {
-		if got := developmentPreflightOrigin(c.r, origins, proxies); got != c.want {
+		if got := preflightOrigin(c.r, origins, proxies); got != c.want {
 			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
 		}
 	}
@@ -239,8 +240,6 @@ func networkRPC(t *testing.T) string {
 	return endpoint
 }
 
-// forkChain starts anvil forked from the live chain 125 RPC. Blocks it mines
-// carry standard Ethereum header hashes over the real contract state.
 func forkChain(t *testing.T, endpoint string) (string, *rpc.Client) {
 	t.Helper()
 	if _, err := exec.LookPath("anvil"); err != nil {
@@ -252,7 +251,7 @@ func forkChain(t *testing.T, endpoint string) (string, *rpc.Client) {
 	}
 	port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
 	_ = listener.Close()
-	command := exec.Command("anvil", "--fork-url", endpoint, "--hardfork", "shanghai", "--host", "127.0.0.1", "--port", port, "--silent")
+	command := exec.Command("anvil", "--fork-url", endpoint, "--hardfork", "cancun", "--host", "127.0.0.1", "--port", port, "--silent")
 	command.Stdout, command.Stderr = io.Discard, io.Discard
 	if err := command.Start(); err != nil {
 		t.Fatal(err)
@@ -281,13 +280,9 @@ func forkChain(t *testing.T, endpoint string) (string, *rpc.Client) {
 	}
 }
 
-// End to end over a fork of the live chain: the document is assembled with the
-// production builders over the final governance state (PoolBeacon owned by the
-// timelock, no pending owner), so the attestation is eligible, the route serves
-// a contract-valid document and preflight answers over it.
 func TestDevelopmentAuthorityForkedChain(t *testing.T) {
-	endpoint := networkRPC(t)
-	httpURL, client := forkChain(t, endpoint)
+	source, manifest := authorityEVMSource(t)
+	httpURL, client := forkChain(t, source)
 	ctx := context.Background()
 	if err := client.CallContext(ctx, nil, "evm_mine"); err != nil {
 		t.Fatal(err)
@@ -295,9 +290,13 @@ func TestDevelopmentAuthorityForkedChain(t *testing.T) {
 	var head struct {
 		Number hexutil.Uint64 `json:"number"`
 		Hash   common.Hash    `json:"hash"`
+		Time   hexutil.Uint64 `json:"timestamp"`
 	}
 	if err := client.CallContext(ctx, &head, "eth_getBlockByNumber", "latest", false); err != nil {
 		t.Fatal(err)
+	}
+	if wait := time.Until(time.Unix(int64(head.Time), 0)); wait > 0 {
+		time.Sleep(wait)
 	}
 	pool := internaltest.NewPostgres(t)
 	indexerCursors(t, pool, uint64(head.Number))
@@ -313,26 +312,28 @@ func TestDevelopmentAuthorityForkedChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	authority.manifest, authority.addresses = manifest, manifest.Addresses()
+	authority.engine, err = capabilities.NewPreflightEngine(authority.reader, manifest, developmentPoolRuntime, developmentSerialInterface, time.Minute, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 	committed, err := authority.head(ctx)
 	if err != nil || committed.Number != strconv.FormatUint(uint64(head.Number), 10) || committed.Hash != head.Hash.Hex() {
 		t.Fatalf("head = %+v, %v; want %d %s", committed, err, head.Number, head.Hash.Hex())
 	}
-	manifest := deployment.Current()
 	attestation, err := deployment.Attest(ctx, authority.reader, manifest, head.Hash, deployment.Policy{Now: time.Now().UTC(), MaxAge: time.Minute, Timeout: 20 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !attestation.Eligible || common.HexToAddress(attestation.PendingOwner) != (common.Address{}) || common.HexToAddress(attestation.ActualOwner) != common.HexToAddress(manifest.Governance.ExpectedBeaconOwner) {
-		t.Fatalf("governance state = owner %s pending %s eligible %v", attestation.ActualOwner, attestation.PendingOwner, attestation.Eligible)
+		t.Fatalf("governance state = owner %s pending %s eligible %v issues %+v", attestation.ActualOwner, attestation.PendingOwner, attestation.Eligible, attestation.Issues)
 	}
 	for role, id := range attestation.Identities {
 		if !id.Verified {
 			t.Errorf("%s identity unverified on the fork: %+v", role, id.Issues)
 		}
 	}
-	// The fork is a plain-http local node; the export only advertises https
-	// endpoints, so the document names the public RPC the fork was taken from.
-	authority.endpoints = deployment.PublicEndpoints{RPC: endpoint, Explorer: developmentExplorer, AllowedRPCs: []string{endpoint}, AllowedExplorers: []string{developmentExplorer}}
+	authority.endpoints = deployment.PublicEndpoints{RPC: liveRPC, Explorer: developmentExplorer, AllowedRPCs: []string{liveRPC}, AllowedExplorers: []string{developmentExplorer}}
 	document, err := authority.document(ctx)
 	if err != nil {
 		t.Fatalf("document: %v", err)

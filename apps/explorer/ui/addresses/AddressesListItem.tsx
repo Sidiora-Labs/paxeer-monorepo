@@ -9,6 +9,7 @@ import { Skeleton } from 'toolkit/chakra/skeleton';
 import { ZERO } from 'toolkit/utils/consts';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import ListItemMobile from 'ui/shared/ListItemMobile/ListItemMobile';
+import SimpleValue from 'ui/shared/value/SimpleValue';
 
 import { AddressNameTag, getAddressBalance } from './AddressesTableItem';
 
@@ -50,13 +51,19 @@ const AddressesListItem = ({
       </Flex>
       { renderRow('Name tag', <AddressNameTag item={ item } isLoading={ isLoading }/>) }
       { renderRow(`Balance ${ currencyUnits.ether }`, (
-        <Skeleton loading={ isLoading } textStyle="number" color="text.secondary" minW="0" whiteSpace="pre-wrap" textAlign="right">
-          <span>{ addressBalance.dp(8).toFormat() }</span>
-        </Skeleton>
+        <SimpleValue
+          value={ addressBalance.dp(8) }
+          accuracy={ 0 }
+          loading={ isLoading }
+          textStyle="number"
+          color="text.secondary"
+          minW="0"
+          textAlign="right"
+        />
       )) }
-      { !totalSupply.eq(ZERO) && renderRow('Percentage', (
-        <Skeleton loading={ isLoading } textStyle="number" color="text.secondary">
-          <span>{ addressBalance.div(totalSupply).multipliedBy(100).dp(8).toFormat() + '%' }</span>
+      { (isLoading || !totalSupply.eq(ZERO)) && renderRow('Percentage', (
+        <Skeleton loading={ isLoading } textStyle="number" color="text.secondary" minW={ 0 } overflowWrap="anywhere" textAlign="right">
+          <span>{ totalSupply.eq(ZERO) ? '–' : addressBalance.div(totalSupply).multipliedBy(100).dp(8).toFormat() + '%' }</span>
         </Skeleton>
       )) }
       { renderRow('Txn count', (

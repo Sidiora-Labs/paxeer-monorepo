@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties, type ReactNode, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { type ReactNode, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePathname } from 'next/navigation';
 import { clearPrivateFoundationCache } from '@/core/app-foundation/private-cache';
@@ -29,7 +29,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const { expanded: railExpanded } = useRailState();
   const shellRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
-  const [topHeight, setTopHeight] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     const element = topRef.current;
@@ -37,7 +36,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
     const update = () => {
       const height = element.offsetHeight;
       shellRef.current?.style.setProperty('--shell-top', `${height}px`);
-      setTopHeight(height);
     };
     update();
     const observer = new ResizeObserver(update);
@@ -110,34 +108,56 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const route = routeForPath(pathname);
   // --shell-top is the fixed header stack height: measured once mounted, and
   // before that the CSS default (top bar, plus the ticker from md up).
-  const shellTop =
-    topHeight === null ? undefined : ({ '--shell-top': `${topHeight}px` } as CSSProperties);
 
   return (
     <div
       ref={shellRef}
       onFocusCapture={(event) => {
         const control = event.target;
-        if (!(control instanceof HTMLElement) || !control.closest('[data-shell-main]') || !control.matches(':focus-visible')) return;
+        if (
+          !(control instanceof HTMLElement) ||
+          !control.closest('[data-shell-main]') ||
+          !control.matches(':focus-visible')
+        )
+          return;
         if (typeof control.scrollIntoView !== 'function') return;
         requestAnimationFrame(() => {
           control.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
           const headerBottom = topRef.current?.getBoundingClientRect().bottom ?? 0;
           const rect = control.getBoundingClientRect();
           const navigation = document.querySelector('nav[aria-label="Mobile navigation"]');
-          const navigationTop = navigation instanceof HTMLElement && navigation.getClientRects().length > 0
-            ? navigation.getBoundingClientRect().top : window.innerHeight;
-          if (rect.top < headerBottom || rect.height > navigationTop - headerBottom) {
+          const navigationTop =
+            navigation instanceof HTMLElement && navigation.getClientRects().length > 0
+              ? navigation.getBoundingClientRect().top
+              : window.innerHeight;
+          const cookieBanner = document.querySelector('[data-cookie-banner]');
+          let visibleBottom = Math.min(
+            navigationTop,
+            cookieBanner instanceof HTMLElement
+              ? cookieBanner.getBoundingClientRect().top
+              : window.innerHeight
+          );
+          const floatingAction = document.querySelector('[data-floating-action]');
+          if (
+            floatingAction instanceof HTMLElement &&
+            floatingAction.getClientRects().length > 0 &&
+            !floatingAction.contains(control)
+          ) {
+            const actionRect = floatingAction.getBoundingClientRect();
+            if (rect.right > actionRect.left && rect.left < actionRect.right) {
+              visibleBottom = Math.min(visibleBottom, actionRect.top);
+            }
+          }
+          if (rect.top < headerBottom || rect.height > visibleBottom - headerBottom) {
             window.scrollBy({ top: rect.top - headerBottom, behavior: 'instant' });
-          } else if (rect.bottom > navigationTop) {
-            window.scrollBy({ top: rect.bottom - navigationTop, behavior: 'instant' });
+          } else if (rect.bottom > visibleBottom) {
+            window.scrollBy({ top: rect.bottom - visibleBottom, behavior: 'instant' });
           }
         });
       }}
       data-shell-ready={ready ? '' : undefined}
       data-shell-pathname={pathname}
       data-shell-route-id={route?.id || 'unknown'}
-      style={shellTop}
       className={cn('foundation-shell min-w-0 max-w-full bg-canvas text-text', SHELL_TOP_VARS)}
     >
       <a
@@ -156,7 +176,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       >
         <div
           ref={topRef}
-          className="sticky top-0 z-[var(--sl-z-header)] flex flex-col bg-canvas"
+          className={cn(
+            'fixed left-0 right-0 top-0 z-[var(--sl-z-header)] flex flex-col bg-canvas md:left-rail-width',
+            railExpanded && 'xl:left-rail-expanded-width'
+          )}
         >
           <TopBar />
           <TickerStrip />
@@ -166,7 +189,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
           id="main-content"
           tabIndex={-1}
           data-shell-main=""
-          className="flex min-h-[calc(100dvh-var(--shell-top))] min-w-0 flex-1 flex-col pb-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem))] md:pb-0"
+          className={cn(
+            'flex min-h-dvh min-w-0 flex-1 flex-col pt-[var(--shell-top)] pb-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem)+var(--sl-cookie-banner-height,0px))] md:pb-[var(--sl-cookie-banner-height,0px)]',
+            route?.id === 'discovery' && 'h-dvh flex-none'
+          )}
         >
           {linkBlocked ? (
             <p
@@ -180,7 +206,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </p>
           ) : null}
           {route ? (
-            <div key={privateEpoch} data-shell-content="" className="flex min-h-[calc(100dvh-var(--shell-top))] min-w-0 flex-1 flex-col">
+            <div
+              key={privateEpoch}
+              data-shell-content=""
+              className={cn(
+                'flex min-w-0 flex-1 flex-col',
+                route.id === 'discovery' && 'min-h-0',
+                route.id === 'chat' && pathname.startsWith('/chat/') &&
+                  'min-h-[calc(100vh-var(--sl-space)*15)]',
+                (route.id === 'coin' || route.id === 'create' || (route.id === 'token' && pathname !== '/token')) &&
+                  'min-h-[calc(100dvh-var(--shell-top))]',
+                (route.id === 'swap' || route.id === 'legacy-swap' || route.id === 'orders') &&
+                  'min-h-[calc(100dvh-var(--sl-space-8)*2)]'
+              )}
+            >
               {children}
             </div>
           ) : (
@@ -192,7 +231,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </Button>
             </section>
           )}
-          {route?.id === 'terminal' ? null : <ShellFooter />}
+          {route?.id === 'terminal' || route?.id === 'holder-rewards' || route?.id === 'leaderboard' ? null : <ShellFooter />}
         </main>
       </div>
       <MobileBottomNav />

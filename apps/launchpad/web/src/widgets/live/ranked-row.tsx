@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { SectionHeader } from '@/ui/primitives';
 import type { LiveDirectoryEntry } from './use-live-directory';
-import { StreamCard, StreamCardPlaceholder, StreamCardSkeleton } from './stream-card';
+import { StreamCard, StreamCardPlaceholder } from './stream-card';
 
 export type LiveSort = 'viewers' | 'mcap';
 
@@ -54,7 +54,7 @@ export function RankedRow({ sort, entries, creatorLabel, loading = false, placeh
         level={2}
         loading={loading}
         action={
-          <Link prefetch={false} href={showAllHref(sort)} className="inline-flex min-h-touch-target-min items-center gap-1 rounded-sm px-2 text-sm font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text">
+          <Link prefetch={false} href={showAllHref(sort)} className="inline-flex min-h-8 items-center gap-1 rounded-sm px-2 text-sm font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text">
             Show all
             <span className="sr-only"> {liveSortLabels[sort].toLowerCase()} streams</span>
             <ChevronRight aria-hidden="true" className="size-4" />
@@ -65,7 +65,7 @@ export function RankedRow({ sort, entries, creatorLabel, loading = false, placeh
         <ol className={streamGridClass} aria-label={placeholder ? `${liveSortLabels[sort]}: no streams to show` : undefined}>
           {frames
             ? Array.from({ length: rankedRowSize }, (_, index) => (
-              <li key={index} aria-hidden="true" className={cn('min-w-0', rankedCardVisibility(index))}>{loading ? <StreamCardSkeleton /> : <StreamCardPlaceholder />}</li>
+              <li key={index} aria-hidden="true" className={cn('min-w-0', rankedCardVisibility(index))}><StreamCardPlaceholder loading={loading} /></li>
             ))
             : visible.map((entry, index) => (
               <li key={entry.stream.id} className={cn('min-w-0', rankedCardVisibility(index))}>

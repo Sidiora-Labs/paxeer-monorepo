@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/jackc/pgx/v5"
@@ -232,10 +234,10 @@ func validateBatch(b CanonicalBatch) error {
 	if conversionErr != nil {
 		return conversionErr
 	}
-	if b.ChainID <= 0 || b.Fence <= 0 || b.PreviousHeight < 0 || b.PreviousHeight > math.MaxInt64-bBlocksInt64 || len(b.StreamID) == 0 || len(b.StreamID) > 128 || len(b.Owner) == 0 || len(b.Owner) > 128 || len(b.BatchID) == 0 || len(b.BatchID) > 128 || len(b.Blocks) == 0 || len(b.Blocks) > 1000 || len(b.Records) > 100000 || len(b.Outbox) > 100000 {
+	if b.ChainID <= 0 || b.Fence <= 0 || b.PreviousHeight < 0 || b.PreviousHeight > math.MaxInt64-bBlocksInt64 || len(b.StreamID) == 0 || len(b.StreamID) > 128 || len(b.Owner) == 0 || len(b.Owner) > 128 || len(b.BatchID) == 0 || len(b.BatchID) > 128 || len(b.Blocks) == 0 || len(b.Blocks) > 1000 || len(b.Blocks) > 1 && (len(b.Records) > 100000 || len(b.Outbox) > 100000) {
 		return errors.New("invalid canonical batch bounds")
 	}
-	totalBytes := 0
+	totalBytes, logBytes := 0, 0
 	blocks := map[int64]string{}
 	for _, bl := range b.Blocks {
 		blocks[bl.Height] = bl.Hash
@@ -244,10 +246,11 @@ func validateBatch(b CanonicalBatch) error {
 	identities := map[string]bool{}
 	for _, r := range b.Records {
 		totalBytes += len(r.Data) + len(r.Topics)*66 + 200
-		if totalBytes > 32*1024*1024 {
+		logBytes += 256 + len(r.Data) + 32*len(r.Topics)
+		if logBytes > decode.MaxBlockLogBytes || len(b.Blocks) > 1 && totalBytes > 32*1024*1024 {
 			return errors.New("canonical batch exceeds byte bound")
 		}
-		if !hashPattern.MatchString(r.TransactionHash) || !hashPattern.MatchString(r.BlockHash) || !addressPattern.MatchString(r.Emitter) || len(r.Topics) > 4 || len(r.Data) > 1048576 {
+		if !hashPattern.MatchString(r.TransactionHash) || !hashPattern.MatchString(r.BlockHash) || !addressPattern.MatchString(r.Emitter) || len(r.Topics) > 4 {
 			return errors.New("invalid raw record")
 		}
 		for _, t := range r.Topics {
@@ -273,6 +276,9 @@ func validateBatch(b CanonicalBatch) error {
 		if bl.Height != b.PreviousHeight+iInt64+1 || !hashPattern.MatchString(bl.Hash) || !bl.FetchComplete || !bl.RequiredDecodeComplete || bl.RawCount != counts[bl.Height] {
 			return errors.New("incomplete or noncontiguous blocks")
 		}
+	}
+	if len(b.Blocks) == 1 {
+		totalBytes = 0
 	}
 	for _, o := range b.Outbox {
 		totalBytes += len(o.Payload)

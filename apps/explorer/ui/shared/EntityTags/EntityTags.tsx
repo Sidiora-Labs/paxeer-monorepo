@@ -62,8 +62,6 @@ const EntityTags = ({ tags, addressHash, className, isLoading, noColors }: Props
                 loading={ isLoading }
                 cursor="pointer"
                 as="button"
-                minW="touchTarget"
-                minH="touchTarget"
                 _hover={{ color: 'hover' }}
               >
                 +{ tags.length - visibleNum }

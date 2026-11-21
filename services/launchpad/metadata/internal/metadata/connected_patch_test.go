@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"hash/crc32"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -297,7 +298,17 @@ func TestConnectedCanonicalPatchAndSearch(t *testing.T) {
 		change func(*ConnectedMedia)
 	}{
 		{"worker unavailable", func(c *ConnectedMedia) { c.Worker = raster.ProcessWorker{} }},
-		{"scanner unavailable", func(c *ConnectedMedia) { c.Scanner.Host = "" }},
+		{"scanner unavailable", func(c *ConnectedMedia) {
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			port := listener.Addr().(*net.TCPAddr).Port
+			if err := listener.Close(); err != nil {
+				t.Fatal(err)
+			}
+			c.Scanner = sharedhttp.ScanOptions{Host: "127.0.0.1", Port: port, Timeout: time.Second}
+		}},
 		{"objects unavailable", func(c *ConnectedMedia) { c.Objects.PublicOrigin = "http://metadata.sidiora.test" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

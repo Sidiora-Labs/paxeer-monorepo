@@ -28,6 +28,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/user"
@@ -39,8 +40,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // proofDiscoveryDecode is the consumer boundary: schema validation precedes
@@ -138,9 +143,53 @@ func proofDiscoveryStore(t *testing.T) (Store, string, func()) {
 	}
 }
 
+func proofDiscoveryCatalog(t *testing.T, dsn string) coordinatortest.Database {
+	t.Helper()
+	serverConfig, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminURL := &url.URL{Scheme: "postgres", User: url.User(serverConfig.User), Path: "/" + serverConfig.Database}
+	adminURL.RawQuery = url.Values{"host": {serverConfig.Host}, "port": {strconv.Itoa(int(serverConfig.Port))}, "sslmode": {"disable"}}.Encode()
+	return coordinatortest.Bootstrap(t, adminURL.String(), "api_rest_runtime")
+}
+
 func TestProofLaunchpadDiscovery(t *testing.T) {
-	s, dsn, restartDatabase := proofDiscoveryStore(t)
+	serverStore, serverDSN, restartDatabase := proofDiscoveryStore(t)
+	if err := serverStore.DB.Close(); err != nil {
+		t.Fatal(err)
+	}
+	catalog := proofDiscoveryCatalog(t, serverDSN)
+	runtime := catalog.Runtimes["api_rest_runtime"]
+	dsn := runtime.DSN
+	admin, err := sql.Open("pgx", catalog.AdminDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { admin.Close() })
 	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	wantSchema, err := production.LoadExpectedSchema(runtime.ExpectedSchema, runtime.ExpectedSchemaSHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := production.CheckReadiness(ctx, pool, wantSchema); err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewStore(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.DB.Close() })
+	var role string
+	var privileged bool
+	if err := s.DB.QueryRow(`SELECT current_user,rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls FROM pg_roles WHERE rolname=current_user`).Scan(&role, &privileged); err != nil || role != runtime.Role || privileged {
+		t.Fatalf("runtime identity: %s privileged=%t: %v", role, privileged, err)
+	}
 	owner, applicant, outsider := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	requestID := uuid.NewString()
 	const wallet = "0x1234567890abcdef1234567890abcdef12345678"
@@ -263,17 +312,19 @@ func TestProofLaunchpadDiscovery(t *testing.T) {
 				t.Fatal(resp.Header)
 			}
 			consume(schema, raw, dst)
-			var envelope struct {
-				RequestID string `json:"requestId"`
-			}
-			if err := json.Unmarshal(raw, &envelope); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := uuid.Parse(envelope.RequestID); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := uuid.Parse(requestID); err == nil && envelope.RequestID != requestID {
-				t.Fatalf("request correlation lost: %s", raw)
+			if !strings.HasPrefix(schema, "Connected") {
+				var envelope struct {
+					RequestID string `json:"requestId"`
+				}
+				if err := json.Unmarshal(raw, &envelope); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := uuid.Parse(envelope.RequestID); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := uuid.Parse(requestID); err == nil && envelope.RequestID != requestID {
+					t.Fatalf("request correlation lost: %s", raw)
+				}
 			}
 		}
 		return raw
@@ -294,15 +345,15 @@ func TestProofLaunchpadDiscovery(t *testing.T) {
 	t.Cleanup(func() {
 		defer s.DB.Close()
 		for _, table := range []string{"transfers", "invitations", "members"} {
-			if _, err := s.DB.Exec(`DELETE FROM narrative_discovery.`+table+` WHERE squad_id=$1`, id); err != nil {
+			if _, err := admin.Exec(`DELETE FROM narrative_discovery.`+table+` WHERE squad_id=$1`, id); err != nil {
 				t.Error(err)
 			}
 		}
-		if _, err := s.DB.Exec(`DELETE FROM narrative_discovery.squads WHERE id=$1`, id); err != nil {
+		if _, err := admin.Exec(`DELETE FROM narrative_discovery.squads WHERE id=$1`, id); err != nil {
 			t.Error(err)
 		}
 		for _, id := range alertIDs {
-			if _, err := s.DB.Exec(`DELETE FROM narrative_discovery.rules WHERE id=$1`, id); err != nil {
+			if _, err := admin.Exec(`DELETE FROM narrative_discovery.rules WHERE id=$1`, id); err != nil {
 				t.Error(err)
 			}
 		}
@@ -324,6 +375,16 @@ func TestProofLaunchpadDiscovery(t *testing.T) {
 		return last
 	}
 	rawRead := read(created.Data.Squad)
+	for actor, actions := range map[string][]string{
+		owner:     {"invite", "approve", "remove", "ban", "promote", "demote"},
+		applicant: {"request"},
+	} {
+		var observed v2.SquadReadResponse
+		request(actor, "GET", "/v2/squads/"+id, nil, 200, "SquadReadResponse", &observed)
+		if !reflect.DeepEqual(observed.Data.AllowedActions, actions) {
+			t.Fatalf("squad actions: %+v want %+v", observed.Data.AllowedActions, actions)
+		}
+	}
 	for _, malformed := range [][]byte{rawRead[:len(rawRead)/2], bytes.Replace(rawRead, []byte(`"visibility":"public"`), []byte(`"visibility":"unrecognized"`), 1)} {
 		var observed v2.SquadReadResponse
 		if err := proofDiscoveryDecode("SquadReadResponse", malformed, &observed); err == nil {
@@ -384,6 +445,11 @@ func TestProofLaunchpadDiscovery(t *testing.T) {
 	refusal(applicant, "PUT", memberPath, []byte(`{"action":"approve","expectedRevision":"1"}`), 403, "SCOPE_DENIED")
 	membership(owner, "approve", "1", "active", "member", "2")
 	membership(owner, "promote", "2", "active", "moderator", "3")
+	var moderatorRead v2.SquadReadResponse
+	request(applicant, "GET", "/v2/squads/"+id, nil, 200, "SquadReadResponse", &moderatorRead)
+	if !reflect.DeepEqual(moderatorRead.Data.AllowedActions, []string{"invite", "approve"}) {
+		t.Fatalf("moderator actions: %+v", moderatorRead.Data.AllowedActions)
+	}
 	refusal(owner, "PUT", memberPath, []byte(`{"action":"demote","expectedRevision":"2"}`), 409, "CONFLICT")
 	if err := s.SetMemberRole(ctx, outsider, id, applicant, "member", 3); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("non-owner role change: %v", err)
@@ -515,6 +581,109 @@ func TestProofLaunchpadDiscovery(t *testing.T) {
 	}
 	if _, err := db.Exec(`UPDATE narrative_discovery.squads SET document=$1 WHERE id=$2`, marshal(q), id); err != nil {
 		t.Fatal(err)
+	}
+	connectedRule := AlertRule{ID: uuid.NewString(), OwnerAccountID: owner, PoolAddress: wallet, Metric: metricPrice, Threshold: "10", Direction: "crosses_above", Channels: []string{"inapp"}, Revision: 1}
+	var connectedResponse AlertRule
+	request(owner, "PUT", "/v2/discovery/alerts/"+connectedRule.ID, marshal(struct {
+		Rule     AlertRule
+		Expected uint64
+	}{connectedRule, 0}), 200, "ConnectedDiscoveryAlertRule", &connectedResponse)
+	if connectedResponse.Cooldown != 300*time.Second || connectedResponse.Hysteresis != "0" {
+		t.Fatalf("connected alert defaults: %+v", connectedResponse)
+	}
+	var savedRule []byte
+	if err := s.DB.QueryRow(`SELECT document FROM narrative_discovery.rules WHERE id=$1`, connectedRule.ID).Scan(&savedRule); err != nil {
+		t.Fatal(err)
+	}
+	var persistedRule AlertRule
+	if err := json.Unmarshal(savedRule, &persistedRule); err != nil || !reflect.DeepEqual(connectedResponse, persistedRule) {
+		t.Fatalf("connected alert differs from storage: %+v %+v %v", connectedResponse, persistedRule, err)
+	}
+	if n, err := (Runtime{Store: s}).EvaluateBatch(ctx, 100, time.Now().UTC()); err != nil || n != 1 {
+		t.Fatalf("runtime scheduler: %d %v", n, err)
+	}
+	var reason string
+	if err := s.DB.QueryRow(`SELECT last_reason FROM narrative_discovery.rules WHERE id=$1`, connectedRule.ID).Scan(&reason); err != nil || reason != "price_context_missing" {
+		t.Fatalf("unqualified price rule: %s %v", reason, err)
+	}
+	if _, err := s.CanonicalPrice(ctx, wallet); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("absent canonical price: %v", err)
+	}
+	if refs, err := s.Sources(ctx, time.Now().UTC()); err != nil || len(refs) != 0 {
+		t.Fatalf("source inventory: %+v %v", refs, err)
+	}
+	if err := s.ExpireSnapshots(ctx, time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	qualifiedBody := connectedRule
+	qualifiedBody.Price = &input.Threshold
+	refusal(owner, "PUT", "/v2/discovery/alerts/"+connectedRule.ID, marshal(struct {
+		Rule     AlertRule
+		Expected uint64
+	}{qualifiedBody, 0}), 400, "INVALID_REQUEST")
+
+	var privateSquad v2.SquadCreateResponse
+	request(owner, "POST", "/v2/squads", marshal(v2.SquadCreateBody{Name: "Invitations", Visibility: "private", JoinPolicy: "open"}), 201, "SquadCreateResponse", &privateSquad)
+	privateID := privateSquad.Data.Squad.SquadId
+	token := uuid.NewString() + uuid.NewString()
+	if err := s.Invite(ctx, owner, privateID, outsider, token, 0, time.Now().UTC().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Invite(ctx, owner, privateID, outsider, uuid.NewString()+uuid.NewString(), 0, time.Now().UTC().Add(time.Hour)); !errors.Is(err, ErrConflict) {
+		t.Fatalf("invitation revision: %v", err)
+	}
+	token = uuid.NewString() + uuid.NewString()
+	if err := s.Invite(ctx, owner, privateID, outsider, token, 1, time.Now().UTC().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	server.Close()
+	if err := s.DB.Close(); err != nil {
+		t.Fatal(err)
+	}
+	restartDatabase()
+	db, err = sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = Store{DB: db}
+	start()
+	inbox, err := s.InvitationInbox(ctx, outsider, "", time.Now().UTC())
+	if err != nil || len(inbox.Items) != 1 || inbox.Items[0].SquadID != privateID || inbox.Items[0].Token != token || inbox.Items[0].Revision != 2 {
+		t.Fatalf("invitation recovery: %+v %v", inbox, err)
+	}
+	if _, err := s.InvitationDelivery(ctx, applicant, privateID, time.Now().UTC()); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("invitation recipient: %v", err)
+	}
+	delivery, err := s.InvitationDelivery(ctx, outsider, privateID, time.Now().UTC())
+	if err != nil || delivery.Token != token || delivery.Revision != 2 {
+		t.Fatalf("private invitation: %+v %v", delivery, err)
+	}
+	refusal(outsider, "GET", "/v2/squads/"+privateID, nil, 404, "NOT_FOUND")
+	redeemed, err := s.RedeemInvitation(ctx, outsider, privateID, token, 2, time.Now().UTC())
+	if err != nil || redeemed.Membership.Revision != 3 || !redeemed.Membership.CanPublish() {
+		t.Fatalf("redeemed invitation: %+v %v", redeemed, err)
+	}
+	if _, err := s.RedeemInvitation(ctx, outsider, privateID, token, 3, time.Now().UTC()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("invitation replay: %v", err)
+	}
+	if err := s.SetMemberStatus(ctx, owner, privateID, outsider, stateRemoved, 3); err != nil {
+		t.Fatal(err)
+	}
+	joined, err := s.RequestJoin(ctx, outsider, privateID, 4)
+	if err != nil || joined.Revision != 5 || !joined.CanPublish() {
+		t.Fatalf("open membership: %+v %v", joined, err)
+	}
+	for range 2 {
+		if err := s.ProposeTransfer(ctx, owner, privateID, outsider, 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.ConfirmTransfer(ctx, outsider, privateID); err != nil {
+		t.Fatal(err)
+	}
+	transferred, err := s.Squad(ctx, privateID)
+	if err != nil || transferred.OwnerAccountID != outsider || transferred.Revision != 2 {
+		t.Fatalf("owner transfer: %+v %v", transferred, err)
 	}
 	requestID = "malformed-request-id"
 	refusal(owner, "POST", "/v2/squads", []byte(`{"name":`), 400, "INVALID_REQUEST")

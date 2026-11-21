@@ -23,16 +23,19 @@ interface FeedChannel extends Channel {
 
 export default function useFeedSocket({ topic, isDisabled, onJoin }: Params) {
   const [ joinedChannel, setJoinedChannel ] = React.useState<Channel>();
+  const [ hasSocketIssue, setHasSocketIssue ] = React.useState(false);
 
   const handleJoin = React.useCallback((joined: Channel) => {
     if (!isDisabled && (joined as FeedChannel).topic === topic && joined.state === 'joined') {
       setJoinedChannel(joined);
+      setHasSocketIssue(false);
       onJoin?.();
     }
   }, [ isDisabled, onJoin, topic ]);
 
   const handleSocketIssue = React.useCallback(() => {
     setJoinedChannel(undefined);
+    setHasSocketIssue(true);
   }, []);
 
   const channel = useSocketChannel({
@@ -45,6 +48,7 @@ export default function useFeedSocket({ topic, isDisabled, onJoin }: Params) {
 
   React.useEffect(() => {
     setJoinedChannel(undefined);
+    setHasSocketIssue(false);
     if (!channel || isDisabled || channel.topic !== topic) {
       return;
     }
@@ -53,11 +57,13 @@ export default function useFeedSocket({ topic, isDisabled, onJoin }: Params) {
     const handleCurrentJoin = () => {
       if (isActive && channel.state === 'joined') {
         setJoinedChannel(channel);
+        setHasSocketIssue(false);
       }
     };
     const handleCurrentIssue = () => {
       if (isActive) {
         setJoinedChannel((joined) => joined === channel ? undefined : joined);
+        setHasSocketIssue(true);
       }
     };
     const errorRef = channel.on('phx_error', handleCurrentIssue);
@@ -79,5 +85,5 @@ export default function useFeedSocket({ topic, isDisabled, onJoin }: Params) {
   const isJoined = channel !== undefined && channel === joinedChannel && channel.topic === topic && channel.state === 'joined';
   const refetchInterval: number | false = isDisabled || isJoined ? false : FEED_FALLBACK_REFETCH_INTERVAL;
 
-  return { channel, refetchInterval, isSocketDown: !isDisabled && !isJoined };
+  return { channel, refetchInterval, isSocketDown: !isDisabled && hasSocketIssue };
 }

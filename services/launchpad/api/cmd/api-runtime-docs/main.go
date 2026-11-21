@@ -33,6 +33,7 @@ func registryPath(repo string) string {
 }
 
 func serialInterfaceDigest(repo string) (string, error) {
+	//nolint:gosec // The repository root is selected by the command's -repo option.
 	raw, err := os.ReadFile(registryPath(repo))
 	if err != nil {
 		return "", fmt.Errorf("-repo serial interface registry: %w", err)
@@ -51,6 +52,7 @@ func serialInterfaceDigest(repo string) (string, error) {
 }
 
 func readEndpoints(path string) (deployment.PublicEndpoints, error) {
+	//nolint:gosec // The endpoints document is selected by the command's -endpoints option.
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return deployment.PublicEndpoints{}, fmt.Errorf("-endpoints: %w", err)
@@ -133,6 +135,7 @@ func run(args []string, stdout io.Writer) error {
 	if err := os.MkdirAll(*out, 0o750); err != nil {
 		return fmt.Errorf("-out: %w", err)
 	}
+	//nolint:gosec // The output directory is selected by the command's -out option and the document name is fixed.
 	if err := os.WriteFile(filepath.Join(*out, documentName), raw, 0o600); err != nil {
 		return fmt.Errorf("-out: %w", err)
 	}

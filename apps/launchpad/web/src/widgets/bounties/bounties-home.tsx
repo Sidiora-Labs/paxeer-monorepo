@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useMemo } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { BadgeCheck, ClipboardCheck, Target, Wallet } from 'lucide-react';
 import { Button, EmptyState, ErrorState, LoadMore, UnavailableState } from '@/ui/primitives';
@@ -37,15 +37,6 @@ function SkeletonGrid({ count = 1 }: { count?: number }) {
   );
 }
 
-/** Route-level fallback while the search params boundary resolves. */
-export function BountiesHomeSkeleton() {
-  return (
-    <div className="mx-auto flex w-full max-w-content-narrow-max-width flex-col gap-6 px-4 py-6">
-      <SkeletonGrid />
-    </div>
-  );
-}
-
 function BountyGrid({ items, now }: { items: Bounty[]; now?: number }) {
   const pools = useMemo(() => [...new Set(items.flatMap(item => (item.poolAddress ? [item.poolAddress.toLowerCase()] : [])))].slice(0, marketLimits.rankingPage), [items]);
   const batch = useStatsBatch(pools);
@@ -69,12 +60,10 @@ function BountyGrid({ items, now }: { items: Bounty[]; now?: number }) {
   );
 }
 
-export default function BountiesHome() {
+export default function BountiesHome({ requestedTab }: { requestedTab: string | null }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const requested = searchParams.get('tab');
-  const tab: BountyTab = isBountyTab(requested) ? requested : 'open';
+  const tab: BountyTab = isBountyTab(requestedTab) ? requestedTab : 'open';
   const { address } = useAccount();
   const { openModal } = useAuthModal();
 
@@ -150,9 +139,9 @@ export default function BountiesHome() {
         the list comes first and the highlight cards stack full width below it.
         From xl: the highlights sit in the right rail beside the tabs and list.
       */}
-      <div className="grid grid-cols-1 gap-4 @max-[18em]/bounties:[--sl-bounty-list-min-height:var(--sl-bounty-list-expanded-min-height)] @max-[18em]/bounties:[--sl-bounty-highlight-min-height:var(--sl-bounty-highlight-expanded-min-height)] xl:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width)] xl:gap-x-6">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width)] xl:gap-x-6">
         <BountiesTabs active={tab} onChange={selectTab} counts={counts} mineLocked={!address} className="min-w-0 xl:col-start-1 xl:row-start-1" />
-        <div role="tabpanel" id={panelIds.panel} aria-labelledby={panelIds.tab} tabIndex={0} data-region="bounty-list" className="order-2 flex min-h-[var(--sl-bounty-list-min-height)] min-w-0 flex-col gap-4 md:order-none xl:col-start-1 xl:row-start-2">
+        <div role="tabpanel" id={panelIds.panel} aria-labelledby={panelIds.tab} tabIndex={0} data-region="bounty-list" className="order-2 flex min-w-0 flex-col gap-4 md:order-none xl:col-start-1 xl:row-start-2">
           {content}
         </div>
         <aside aria-label="Bounty highlights" data-region="bounty-highlights" className="order-1 min-w-0 md:order-none xl:sticky xl:top-4 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:self-start">

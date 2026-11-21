@@ -20,7 +20,7 @@ import (
 func TestGatewayPurgeProviderModes(t *testing.T) {
 	dsn := os.Getenv("L41_POSTGRES_URL")
 	if dsn == "" {
-		dsn = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
+		t.Fatal("L41_POSTGRES_URL is required")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

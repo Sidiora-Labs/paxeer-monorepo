@@ -40,7 +40,7 @@ const InternalTxsListItem = ({
   return (
     <ListItemMobile rowGap={ 3 }>
       <Flex columnGap={ 2 }>
-        { typeTitle && <Badge colorPalette="cyan" loading={ isLoading }>{ typeTitle }</Badge> }
+        { typeTitle && <Badge colorPalette="cyan" _light={{ color: 'cyan.800' }} loading={ isLoading }>{ typeTitle }</Badge> }
         { !success && <TxStatus status="error" errorText={ error } isLoading={ isLoading }/> }
       </Flex>
       <Flex justifyContent="space-between" width="100%">
@@ -76,6 +76,7 @@ const InternalTxsListItem = ({
         current={ currentAddress }
         isLoading={ isLoading }
         w="100%"
+        css={{ '& [data-entity]': { minW: 0, maxW: 'full' } }}
       />
       <HStack gap={ 3 }>
         <Skeleton loading={ isLoading } fontSize="sm" fontWeight="medium">Value { currencyUnits.ether }</Skeleton>

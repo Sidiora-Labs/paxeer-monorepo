@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatUnits } from 'viem';
 import TradeToast from './trade-toast';
@@ -10,7 +11,7 @@ import { statsSpotPrice } from '@/core/market/pool-stats-display';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { Button, NoticeBar } from '@/ui/primitives';
 import { shortAddress } from '@/utils/format';
-import { quoteFingerprint } from './transaction-controls/domain';
+import { quoteFingerprint, type QuoteEnvelope } from './transaction-controls/domain';
 import { TransactionStatus } from './transaction-controls/transaction-status';
 import { TradeSettingsPopover } from './trade-settings-popover';
 import { useTradePanel } from './use-trade-panel';
@@ -25,6 +26,8 @@ import {
   TradePreview,
   ApprovalCheckbox,
   ActionButton,
+  TradeQuoteNotices,
+  quoteActionState,
   FeeFooter,
   SharePnlButton,
   convertByPrice,
@@ -46,13 +49,20 @@ export function useAlternateTradeAmount(toNative: (text: string) => string | nul
   return { altText, setAltText, invalid, change };
 }
 
+export function tradePreviewState({ validAmount, tradeReady, quote, staleQuote, approvalError, signedIn, deploymentUnavailable }: {
+  validAmount: boolean; tradeReady: boolean; quote: QuoteEnvelope | undefined; staleQuote: QuoteEnvelope | undefined;
+  approvalError: string | null | undefined; signedIn: boolean; deploymentUnavailable: boolean;
+}) {
+  return { loading: validAmount && !quote && !staleQuote && !approvalError && tradeReady, showError: !!approvalError && (signedIn || !deploymentUnavailable) };
+}
+
 export default function TradePanel({ poolAddress }: TradePanelProps) {
   const t = useTradePanel({ poolAddress });
   const snapshot = usePoolSnapshot(poolAddress);
   const pnlSnapshotId = t.pnlSnapshotId;
   const side: TradeSide = t.isBuy ? 'buy' : 'sell';
 
-  const tokenSymbol = snapshot.data?.token?.symbol?.trim() || t.tokenName;
+  const tokenSymbol = displayCoinText(snapshot.data?.token?.symbol, snapshot.data?.pool.tokenAddress ?? t.tokenAddress);
   const spendSymbol = t.isBuy ? 'USDL' : tokenSymbol;
   const nativeUnit = t.isBuy ? 'USDL' : tokenSymbol;
   const altUnit = t.isBuy ? tokenSymbol : 'USDL';
@@ -132,20 +142,20 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
                   ? { kind: 'confirming' }
                   : t.needsApproval
                     ? { kind: 'approve', assetSymbol: spendSymbol }
-                    : t.quoteUnavailable
-                      ? { kind: 'quote-pending' }
-                      : { kind: 'ready', side, tokenSymbol };
+                    : quoteActionState({ ...t, side, tokenSymbol });
 
   const onAction = () => {
     if (action.kind === 'connect' || action.kind === 'sign-in') { openAuthModal('trade'); return; }
     if (action.kind === 'switch-network') { void t.switchToPaxeer(); return; }
+    if (action.kind === 'quote-refresh') { t.retryQuote(); return; }
     if (!alternateInvalid) void t.handleTrade();
   };
 
   const tradeReady = t.isConnected && t.signedIn;
   const showSteps = tradeReady && validAmount;
   const minOutRaw = t.minOut ? BigInt(t.minOut) : null;
-  const quoteLoading = validAmount && !t.quote && !t.staleQuote && tradeReady;
+  const preview = tradePreviewState({ ...t, validAmount, tradeReady });
+  const quoteLoading = preview.loading;
 
   return (
     <>
@@ -158,7 +168,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
         <TradeTabs
           side={side}
           onSwitch={next => t.switchMode(next === 'buy')}
-          trailing={<TradeSettingsPopover slippageBps={t.slippageBps} onSlippageChange={t.setSlippageBps} deadlineSeconds={EXECUTION_DEADLINE_SECONDS} spender={t.deployment?.router ?? null} size="md" />}
+          trailing={<TradeSettingsPopover slippageBps={t.slippageBps} onSlippageChange={t.setSlippageBps} deadlineSeconds={EXECUTION_DEADLINE_SECONDS} spender={t.deployment?.spender ?? null} size="md" />}
         />
 
         <fieldset className="m-0 min-w-0 space-y-3 p-0 border-0">
@@ -221,24 +231,9 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
               Your balance can&apos;t load right now.{t.balanceTimestamp !== undefined ? ` Showing your balance from ${new Date(t.balanceTimestamp).toLocaleTimeString()}.` : ''}
             </NoticeBar>
           ) : null}
-          {t.staleQuote && !t.quote ? (
-            <NoticeBar tone="warning" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote}>Refresh</Button>}>
-              The price moved. Refresh to see the new price.
-            </NoticeBar>
-          ) : null}
           {/* A missing trading deployment is already the action button's state once the viewer can trade; before that it is noise in the rail. */}
-          {t.approvalError && (tradeReady || !t.deploymentUnavailable) ? (
-            <NoticeBar tone="danger" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote} aria-label="Refresh">Refresh</Button>}>
-              {plainTradeError(t.approvalError)}
-            </NoticeBar>
-          ) : null}
+          <TradeQuoteNotices priceMoved={t.priceMoved} error={preview.showError ? t.approvalError : undefined} onRefresh={t.retryQuote} />
         </div>
-
-        {tradeReady && validAmount && !t.quote && !t.isPending && !t.staleQuote ? (
-          <div className="flex justify-end">
-            <Button size="sm" variant="link" onClick={t.retryQuote}>Refresh price</Button>
-          </div>
-        ) : null}
 
         <ActionButton state={action} side={side} onClick={onAction} />
 
@@ -256,7 +251,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
               ) : (
                 <p>No price yet</p>
               )}
-              <p>Trade expires {EXECUTION_DEADLINE_SECONDS} seconds after you confirm. Approved contract {t.deployment?.router ? shortAddress(t.deployment.router) : '—'}.</p>
+              <p>Trade expires {EXECUTION_DEADLINE_SECONDS} seconds after you confirm. Approved contract {t.deployment?.spender ? shortAddress(t.deployment.spender) : '—'}.</p>
               <ul aria-label="Trading limits" className="list-none space-y-0.5 p-0">
                 {t.restrictions.map(restriction => <li key={restriction}>{restriction}</li>)}
               </ul>

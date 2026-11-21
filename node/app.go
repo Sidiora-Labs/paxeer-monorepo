@@ -19,6 +19,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/admin"
@@ -645,6 +646,7 @@ type App struct {
 	commitListener        func(height int64, appHash []byte) error
 	lastBlockIDMutex      sync.RWMutex
 	committedBlockID      tmproto.BlockID
+	committedLeaders      atomic.Pointer[committedLeaderSchedule]
 	committingBlockID     tmproto.BlockID
 	committingBlockHeight int64
 }
@@ -1419,6 +1421,9 @@ func New(
 		// Host construction precedes LoadLatestVersion, so select from the store
 		// only now; BeginBlock observes it again through applyNamedUpgrade.
 		ctx := app.NewUncachedContext(true, tmproto.Header{})
+		if app.LastBlockHeight() > 0 {
+			app.publishLeaderSchedule()
+		}
 		app.refreshHostedKernelProgramsABI(ctx)
 		if bz := ctx.KVStore(app.GetKey(upgradetypes.StoreKey)).Get(committedBlockIdentityKey); len(bz) != 0 {
 			if err := app.committedBlockID.Unmarshal(bz); err != nil {
@@ -3652,6 +3657,7 @@ func (app *App) LastBlockID() tmproto.BlockID {
 
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block
 // is open, so reads see every receipted transaction; otherwise it is the check context.
+// Send admission checks for an open block before comparing nonces.
 func (app *App) LatestCtx() sdk.Context {
 	if app.openBlock != nil {
 		if ctx, err := app.openBlock.Snapshot(); err == nil {

@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { Globe, MessageCircle, Star, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,7 @@ export interface SocialLink {
 }
 
 export interface TrendingRowData {
+  tokenAddress?: string | null;
   poolAddress: string;
   href: string;
   rank: number;
@@ -75,6 +77,7 @@ export function changeWash(change: number | null): string {
  * is a flat alpha tint.
  */
 export function TrendingRow({ row, density = 'comfortable', starred = false, onToggleStar, flash = null, className }: TrendingRowProps) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   const compact = density === 'compact';
   return (
     <li
@@ -89,10 +92,10 @@ export function TrendingRow({ row, density = 'comfortable', starred = false, onT
       <Avatar src={row.image} name={row.name} size={compact ? 'sm' : 'lg'} shape="square" decorative badge={row.stage && !compact ? <StageBadge stage={row.stage} size={14} surface={1} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <Link prefetch={false} href={row.href} className="truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-['']">
+          <Link prefetch={false} href={row.href} title={row.name} className="truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-['']">
             {row.name}
           </Link>
-          <span className="truncate text-xs text-text-muted">{row.symbol}</span>
+          <span className="truncate text-xs text-text-muted" title={row.symbol}>{row.symbol}</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-text-muted">
           {row.price === null

@@ -10,6 +10,10 @@ export const recipe = defineSlotRecipe({
       alignItems: 'center',
       position: 'relative',
       verticalAlign: 'middle',
+      '&:has(input:focus-visible) [data-part=control]': {
+        outline: 'var(--chakra-border-widths-2) solid var(--chakra-colors-focus-ring)',
+        outlineOffset: 'var(--chakra-spacing-0\\.5)',
+      },
       '--switch-diff': 'calc(var(--switch-width) - var(--switch-height))',
       '--switch-x': {
         base: 'var(--switch-diff)',

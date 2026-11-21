@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -16,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgx/v5"
 )
+
+var errCoinMetadataUnavailable = fmt.Errorf("coin metadata unavailable: %w", ErrUnrepresentable)
 
 type PostgresCanonicalSource struct {
 	Schema            string
@@ -164,18 +167,23 @@ func (s PostgresCanonicalSource) ResolveTokenInTx(ctx context.Context, tx pgx.Tx
 		return zero, ErrUnrepresentable
 	}
 	m := c.Metadata
-	if m == nil || !canonicalProvenance(m.Provenance) || m.Provenance.DeploymentID != proof.DeploymentID || m.Provenance.ReceiptSHA256 != proof.ReceiptSHA256 || m.Provenance.HeaderSHA256 != proof.HeaderSHA256 || m.Position.ChainID != "125" || m.Position.Height != height || m.Position.BlockHash != blockHash || m.Position.TransactionHash != transactionHash || m.Position.TransactionIndex != transactionIndex {
+	if m == nil {
+		return zero, errCoinMetadataUnavailable
+	}
+	if !canonicalProvenance(m.Provenance) || m.Provenance.DeploymentID != proof.DeploymentID || m.Provenance.ReceiptSHA256 != proof.ReceiptSHA256 || m.Provenance.HeaderSHA256 != proof.HeaderSHA256 || m.Position.ChainID != "125" || m.Position.Height != height || m.Position.BlockHash != blockHash || m.Position.TransactionHash != transactionHash || m.Position.TransactionIndex != transactionIndex {
 		return zero, ErrUnrepresentable
 	}
 	mirror, err := s.rawEvent(ctx, tx, m.Position, m.Emitter, "TokenDeployed")
 	if err != nil {
 		return zero, err
 	}
+	name, okName := mirror[metadataNameKey].(string)
+	symbol, okSymbol := mirror[metadataSymbolKey].(string)
 	decimals, ok := mirror["decimals"].(uint8)
-	if !ok || decimals != m.Decimals || m.Decimals != 6 || mirror[metadataNameKey] != m.Name || mirror[metadataSymbolKey] != m.Symbol || !canonicalAddress(mirror[metadataTokenTarget], c.Token) || !canonicalAddress(mirror["pool"], c.Pool) || !canonicalAddress(mirror["creator"], c.Creator) || !canonicalUint(mirror["totalSupply"], m.TotalSupply) || !canonicalUint(mirror["timestamp"], timestamp) || !canonicalUint(mirror["blockNumber"], height) {
+	if !okName || !okSymbol || !ok || decimals != m.Decimals || m.Decimals != 6 || chainCoinText(name) != m.Name || chainCoinText(symbol) != m.Symbol || !canonicalAddress(mirror[metadataTokenTarget], c.Token) || !canonicalAddress(mirror["pool"], c.Pool) || !canonicalAddress(mirror["creator"], c.Creator) || !canonicalUint(mirror["totalSupply"], m.TotalSupply) || !canonicalUint(mirror["timestamp"], timestamp) || !canonicalUint(mirror["blockNumber"], height) {
 		return zero, ErrUnrepresentable
 	}
-	raw, err := json.Marshal(map[string]any{"address": c.Token, metadataNameKey: m.Name, metadataSymbolKey: m.Symbol, "decimals": m.Decimals, "decimalsQuality": metadataVerifiedQuality, "totalSupplyRaw": m.TotalSupply, "supplyQuality": metadataVerifiedQuality, "metadataRevision": "0", metadataLogoAssetIDKey: nil, "sourcePosition": m.Position})
+	raw, err := json.Marshal(map[string]any{"address": c.Token, metadataNameKey: carriedCoinText(m.Name, 100), metadataSymbolKey: carriedCoinText(m.Symbol, 16), "decimals": m.Decimals, "decimalsQuality": metadataVerifiedQuality, "totalSupplyRaw": m.TotalSupply, "supplyQuality": metadataVerifiedQuality, "metadataRevision": "0", metadataLogoAssetIDKey: nil, "sourcePosition": m.Position})
 	if err != nil {
 		return zero, err
 	}

@@ -8,29 +8,20 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgproto3"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// This fixture is a persistent in-memory SQL peer on a loopback pgwire socket.
-// Production pgx transactions, repository methods, projectors, stream writers
-// and consumer codecs run unchanged. Unknown SQL fails closed. COMMIT and
-// savepoint rollback change the stored state, rather than returning canned
-// query results; reopening the peer reloads its committed JSON snapshot.
 type publicStatsSyncRaw struct {
 	Pool, Emitter string
 	Record        syncRecord
@@ -47,33 +38,65 @@ type publicStatsSyncState struct {
 	Checkpoints  map[string]publicStatsSyncCheckpoint
 	ResetQueries int
 }
-type publicStatsSyncDB struct {
-	mu       sync.Mutex
-	state    publicStatsSyncState
-	path     string
-	listener net.Listener
-	wg       sync.WaitGroup
-	pool     *pgxpool.Pool
+
+func publicStatsSyncInt64(t *testing.T, raw string) int64 {
+	t.Helper()
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
-func publicStatsSyncClone(s publicStatsSyncState) publicStatsSyncState {
-	wire, err := json.Marshal(s)
-	if err != nil {
-		panic(err)
-	}
-	var out publicStatsSyncState
-	if err = json.Unmarshal(wire, &out); err != nil {
-		panic(err)
-	}
-	return out
+type publicStatsSyncDB struct {
+	t            *testing.T
+	path         string
+	pool         *pgxpool.Pool
+	resetQueries atomic.Int64
 }
+
+func (d *publicStatsSyncDB) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	if strings.HasPrefix(data.SQL, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM ") {
+		d.resetQueries.Add(1)
+	}
+	return ctx
+}
+
+func (d *publicStatsSyncDB) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
 
 func publicStatsSyncOpen(t *testing.T, path string, initial *publicStatsSyncState) *publicStatsSyncDB {
 	t.Helper()
-	d := &publicStatsSyncDB{path: path}
+	d := &publicStatsSyncDB{t: t, path: path}
+	var cfg *pgxpool.Config
 	if initial != nil {
-		d.state = publicStatsSyncClone(*initial)
-		wire, err := json.Marshal(d.state)
+		f := newPublicFixture(t)
+		cfg = f.pg.Config()
+		for _, raw := range initial.Raw {
+			r := raw.Record
+			f.exec(`INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES(125,$1,$2,$3,$4,$5,$6,$7,$8)`, "0x"+fmt.Sprintf("%064x", publicStatsSyncInt64(t, r.Height)), r.LogIndex, r.Height, r.TransactionIndex, f.real.Transactions[1].BlockHash, raw.Emitter, string(r.Topics), r.Data)
+		}
+		pub, _ := publicStatsSyncReceipt(t)
+		fill := pub.Fill
+		// The recorded Swap keeps its receipt identity.
+		f.exec(`UPDATE indexer.indexer_raw_logs SET transaction_hash=$1,block_hash=$2 WHERE height=$3 AND log_index=$4`, fill.Position.TransactionHash, fill.Position.BlockHash, fill.Position.Height, fill.Position.LogIndex)
+		payload, err := json.Marshal(fill)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.exec(`INSERT INTO indexer.indexer_accounting_fills(source_fill_id,source_fact_digest,chain_id,transaction_hash,log_index,pool_address,payload) VALUES($1,$2,125,$3,$4,$5,$6)`, fill.SourceFillID, string(pub.SourceFactDigest), fill.Position.TransactionHash, fill.Position.LogIndex, fill.PoolAddress, string(payload))
+		for i, pool := range initial.Pools {
+			f.real.Pool = pool
+			creation := f.real.Transactions[0]
+			if i > 0 {
+				f.real.Token = fmt.Sprintf("0x%040x", i)
+				creation.Hash = fmt.Sprintf("0x%064x", i)
+			}
+			f.creation(creation, 14)
+		}
+		f.advance(publicStatsSyncInt64(t, fill.Position.Height), fill.Position.BlockHash)
+		wire, err := json.Marshal(struct {
+			DSN string
+		}{cfg.ConnString()})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,34 +108,21 @@ func publicStatsSyncOpen(t *testing.T, path string, initial *publicStatsSyncStat
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = json.Unmarshal(wire, &d.state); err != nil {
+		var saved struct {
+			DSN          string
+			ResetQueries int64
+		}
+		if err = json.Unmarshal(wire, &saved); err != nil {
 			t.Fatal(err)
 		}
-	}
-	var err error
-	d.listener, err = net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
-		for {
-			c, err := d.listener.Accept()
-			if err != nil {
-				return
-			}
-			d.wg.Add(1)
-			go func() { defer d.wg.Done(); defer c.Close(); d.serve(c) }()
+		cfg, err = pgxpool.ParseConfig(saved.DSN)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}()
-	cfg, err := pgxpool.ParseConfig("postgres://fixture@" + d.listener.Addr().String() + "/fixture?sslmode=disable")
-	if err != nil {
-		t.Fatal(err)
+		d.resetQueries.Store(saved.ResetQueries)
 	}
-	cfg.MaxConns = 1
-	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
-	cfg.ConnConfig.ConnectTimeout = 3 * time.Second
+	cfg.ConnConfig.Tracer = d
+	var err error
 	d.pool, err = pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -120,490 +130,61 @@ func publicStatsSyncOpen(t *testing.T, path string, initial *publicStatsSyncStat
 	t.Cleanup(d.close)
 	return d
 }
+
 func (d *publicStatsSyncDB) close() {
-	if d.pool != nil {
-		d.pool.Close()
+	if d.pool == nil {
+		return
 	}
-	if d.listener != nil {
-		_ = d.listener.Close()
+	wire, err := json.Marshal(struct {
+		DSN          string
+		ResetQueries int64
+	}{d.pool.Config().ConnString(), d.resetQueries.Load()})
+	if err != nil {
+		d.t.Error(err)
+	} else if err = os.WriteFile(d.path, wire, 0600); err != nil {
+		d.t.Error(err)
 	}
-	d.wg.Wait()
+	d.pool.Close()
+	d.pool = nil
 }
+
 func (d *publicStatsSyncDB) snapshot() publicStatsSyncState {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return publicStatsSyncClone(d.state)
-}
-
-type publicStatsSyncCell struct {
-	oid  uint32
-	text []byte
-}
-
-func publicStatsSyncText(s string) publicStatsSyncCell {
-	return publicStatsSyncCell{pgtype.TextOID, []byte(s)}
-}
-func publicStatsSyncBytes(b []byte) publicStatsSyncCell {
-	if b == nil {
-		return publicStatsSyncCell{pgtype.ByteaOID, nil}
+	d.t.Helper()
+	out := publicStatsSyncState{Frames: map[string]json.RawMessage{}, Checkpoints: map[string]publicStatsSyncCheckpoint{}, ResetQueries: int(d.resetQueries.Load())}
+	ctx := context.Background()
+	rows, err := d.pool.Query(ctx, "SELECT topic,frame FROM api_stream.stream_projection WHERE frame IS NOT NULL")
+	if err != nil {
+		d.t.Fatal(err)
 	}
-	return publicStatsSyncCell{pgtype.ByteaOID, []byte("\\x" + hex.EncodeToString(b))}
-}
-func publicStatsSyncBool(b bool) publicStatsSyncCell {
-	return publicStatsSyncCell{pgtype.BoolOID, []byte(strconv.FormatBool(b))}
-}
-func publicStatsSyncInt(n int64) publicStatsSyncCell {
-	return publicStatsSyncCell{pgtype.Int8OID, []byte(strconv.FormatInt(n, 10))}
-}
-func publicStatsSyncJSON(v any) publicStatsSyncCell {
-	b, e := json.Marshal(v)
-	if e != nil {
-		panic(e)
+	for rows.Next() {
+		var topic string
+		var frame []byte
+		if err = rows.Scan(&topic, &frame); err != nil {
+			d.t.Fatal(err)
+		}
+		out.Frames[topic] = frame
 	}
-	return publicStatsSyncCell{pgtype.JSONBOID, b}
-}
-func publicStatsSyncByteArg(s string) ([]byte, error) {
-	return hex.DecodeString(strings.TrimPrefix(s, "\\x"))
-}
-
-func (d *publicStatsSyncDB) serve(c net.Conn) {
-	b := pgproto3.NewBackend(c, c)
-	if _, err := b.ReceiveStartupMessage(); err != nil {
-		return
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		d.t.Fatal(err)
 	}
-	b.Send(&pgproto3.AuthenticationOk{})
-	b.Send(&pgproto3.ParameterStatus{Name: "server_version", Value: "16.0"})
-	b.Send(&pgproto3.ParameterStatus{Name: "client_encoding", Value: "UTF8"})
-	b.Send(&pgproto3.ReadyForQuery{TxStatus: 'I'})
-	if b.Flush() != nil {
-		return
+	rows, err = d.pool.Query(ctx, "SELECT pool,checkpoint_key,events FROM stats.public_stats_sync_baselines")
+	if err != nil {
+		d.t.Fatal(err)
 	}
-	var query string
-	var args []string
-	var tx *publicStatsSyncState
-	var savepoints []publicStatsSyncState
-	respond := func(q string, a []string) {
-		var rows [][]publicStatsSyncCell
-		var err error
-		command := strings.ToLower(q)
-		switch {
-		case strings.HasPrefix(command, "begin"):
-			s := d.snapshot()
-			tx = &s
-			savepoints = nil
-		case command == "commit":
-			if tx == nil {
-				err = errors.New("commit without transaction")
-				break
-			}
-			wire, e := json.Marshal(tx)
-			if e == nil {
-				e = os.WriteFile(d.path, wire, 0600)
-			}
-			if e != nil {
-				err = e
-				break
-			}
-			d.mu.Lock()
-			d.state = publicStatsSyncClone(*tx)
-			d.mu.Unlock()
-			tx = nil
-		case command == "rollback":
-			tx = nil
-		case strings.HasPrefix(command, "savepoint "):
-			if tx == nil {
-				err = errors.New("savepoint without transaction")
-				break
-			}
-			savepoints = append(savepoints, publicStatsSyncClone(*tx))
-		case strings.HasPrefix(command, "rollback to savepoint "):
-			if len(savepoints) == 0 {
-				err = errors.New("missing savepoint")
-				break
-			}
-			s := savepoints[len(savepoints)-1]
-			*tx = publicStatsSyncClone(s)
-			savepoints = savepoints[:len(savepoints)-1]
-		case strings.HasPrefix(command, "release savepoint "):
-			if len(savepoints) == 0 {
-				err = errors.New("missing savepoint")
-				break
-			}
-			savepoints = savepoints[:len(savepoints)-1]
-		default:
-			if tx == nil {
-				err = errors.New("query outside transaction")
-			} else {
-				rows, err = publicStatsSyncQuery(tx, q, a)
-			}
+	defer rows.Close()
+	for rows.Next() {
+		var pool string
+		var c publicStatsSyncCheckpoint
+		if err = rows.Scan(&pool, &c.Key, &c.Events); err != nil {
+			d.t.Fatal(err)
 		}
-		if err != nil {
-			b.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "XX000", Message: err.Error()})
-			return
-		}
-		if len(rows) > 0 {
-			fields := make([]pgproto3.FieldDescription, len(rows[0]))
-			for i, v := range rows[0] {
-				fields[i] = pgproto3.FieldDescription{Name: []byte(fmt.Sprintf("c%d", i)), DataTypeOID: v.oid, DataTypeSize: -1, TypeModifier: -1}
-			}
-			b.Send(&pgproto3.RowDescription{Fields: fields})
-			for _, row := range rows {
-				values := make([][]byte, len(row))
-				for i, v := range row {
-					values[i] = v.text
-				}
-				b.Send(&pgproto3.DataRow{Values: values})
-			}
-		}
-		tag := "SELECT 0"
-		if strings.HasPrefix(command, "insert") {
-			tag = "INSERT 0 1"
-		}
-		if command == "commit" {
-			tag = "COMMIT"
-		}
-		if command == "rollback" {
-			tag = "ROLLBACK"
-		}
-		b.Send(&pgproto3.CommandComplete{CommandTag: []byte(tag)})
+		out.Checkpoints[pool] = c
 	}
-	for {
-		msg, err := b.Receive()
-		if err != nil {
-			return
-		}
-		switch m := msg.(type) {
-		case *pgproto3.Parse:
-			query = m.Query
-			b.Send(&pgproto3.ParseComplete{})
-		case *pgproto3.Bind:
-			args = make([]string, len(m.Parameters))
-			for i, v := range m.Parameters {
-				args[i] = string(v)
-			}
-			b.Send(&pgproto3.BindComplete{})
-		case *pgproto3.Describe:
-			// Exec mode describes the bound portal immediately before Execute.
-			// RowDescription is sent with the computed result in Execute.
-
-		case *pgproto3.Execute:
-			respond(query, args)
-		case *pgproto3.Query:
-			respond(m.String, nil)
-			status := byte('I')
-			if tx != nil {
-				status = 'T'
-			}
-			b.Send(&pgproto3.ReadyForQuery{TxStatus: status})
-		case *pgproto3.Sync:
-			status := byte('I')
-			if tx != nil {
-				status = 'T'
-			}
-			b.Send(&pgproto3.ReadyForQuery{TxStatus: status})
-		case *pgproto3.Terminate:
-			return
-		case *pgproto3.Close:
-			b.Send(&pgproto3.CloseComplete{})
-		default:
-			return
-		}
-		if b.Flush() != nil {
-			return
-		}
+	if err = rows.Err(); err != nil {
+		d.t.Fatal(err)
 	}
-}
-
-func publicStatsSyncPositionCompare(h, t, l string, p accounting.SourcePosition) int {
-	for i, s := range []string{h, t, l} {
-		a, _ := new(big.Int).SetString(s, 10)
-		b, _ := new(big.Int).SetString([]string{p.Height, p.TransactionIndex, p.LogIndex}[i], 10)
-		if c := a.Cmp(b); c != 0 {
-			return c
-		}
-	}
-	return 0
-}
-func publicStatsSyncAnchor(s *publicStatsSyncState) accounting.FillV1 {
-	var last accounting.FillV1
-	for _, p := range s.Commits {
-		if last.SourceFillID == "" || publicStatsSyncPositionCompare(p.Fill.Position.Height, p.Fill.Position.TransactionIndex, p.Fill.Position.LogIndex, last.Position) > 0 {
-			last = *p.Fill
-		}
-	}
-	return last
-}
-
-func publicStatsSyncQuery(s *publicStatsSyncState, q string, a []string) ([][]publicStatsSyncCell, error) {
-	one := func(c ...publicStatsSyncCell) ([][]publicStatsSyncCell, error) {
-		return [][]publicStatsSyncCell{c}, nil
-	}
-	switch {
-	case strings.HasPrefix(q, "SELECT pg_advisory_xact_lock"):
-		return nil, nil
-	case q == "SELECT clock_timestamp()":
-		return one(publicStatsSyncCell{pgtype.TimestamptzOID, []byte("2026-01-01 00:00:00+00")})
-	case strings.HasPrefix(q, "INSERT INTO") && strings.Contains(q, ".accounting_market_commits("):
-		var f accounting.FillV1
-		raw, e := publicStatsSyncByteArg(a[7])
-		if e != nil {
-			return nil, e
-		}
-		if e = json.Unmarshal(raw, &f); e != nil {
-			return nil, e
-		}
-		var pos accounting.PartitionPosition
-		raw, e = publicStatsSyncByteArg(a[6])
-		if e != nil {
-			return nil, e
-		}
-		if e = json.Unmarshal(raw, &pos); e != nil {
-			return nil, e
-		}
-		p := accounting.PublicationV1{Version: accounting.PublicationVersion, PublicationID: a[0], SourceFillID: a[1], SourceFactDigest: accounting.Digest(a[2]), Facet: "market", Fill: &f, Positions: []accounting.PartitionPosition{pos}}
-		if e = accounting.ValidatePublicationV1(p); e != nil {
-			return nil, e
-		}
-		s.Commits = append(s.Commits, p)
-		return nil, nil
-	case strings.HasPrefix(q, "SELECT checkpoint_key,events FROM "):
-		c, ok := s.Checkpoints[a[1]]
-		if !ok {
-			return nil, nil
-		}
-		return one(publicStatsSyncText(c.Key), publicStatsSyncCell{pgtype.JSONBOID, c.Events})
-	case strings.HasPrefix(q, "INSERT INTO") && strings.Contains(q, ".public_stats_sync_baselines("):
-		raw, e := publicStatsSyncByteArg(a[3])
-		if e != nil {
-			return nil, e
-		}
-		s.Checkpoints[a[1]] = publicStatsSyncCheckpoint{a[2], raw}
-		return nil, nil
-	case strings.HasPrefix(q, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM "):
-		// Apply the production lookup's emitter, pool, anchor and ABI-word
-		// timestamp predicates over the persisted raw-log fixture.
-		var emitters []string
-		if e := pgtype.NewMap().Scan(pgtype.TextArrayOID, pgtype.TextFormatCode, []byte(a[0]), &emitters); e != nil {
-			return nil, e
-		}
-		cutoff, e := publicStatsSyncByteArg(a[6])
-		if e != nil {
-			return nil, e
-		}
-		candidates := []publicStatsSyncRaw{}
-		for _, r := range s.Raw {
-			allowed := false
-			for _, emitter := range emitters {
-				allowed = allowed || r.Emitter == emitter
-			}
-			var topics []string
-			_ = json.Unmarshal(r.Record.Topics, &topics)
-			if !allowed || len(topics) < 2 || topics[0] != a[1] || topics[1] != a[2] {
-				continue
-			}
-			if publicStatsSyncPositionCompare(a[3], a[4], a[5], accounting.SourcePosition{Height: r.Record.Height, TransactionIndex: r.Record.TransactionIndex, LogIndex: r.Record.LogIndex}) < 0 {
-				continue
-			}
-			stamp := []byte{}
-			if len(r.Record.Data) >= 160 {
-				stamp = r.Record.Data[128:160]
-			}
-			if len(cutoff) > 0 && bytes.Compare(stamp, cutoff) >= 0 {
-				continue
-			}
-			candidates = append(candidates, r)
-		}
-		sort.Slice(candidates, func(i, j int) bool {
-			return publicStatsSyncPositionCompare(candidates[i].Record.Height, candidates[i].Record.TransactionIndex, candidates[i].Record.LogIndex, accounting.SourcePosition{Height: candidates[j].Record.Height, TransactionIndex: candidates[j].Record.TransactionIndex, LogIndex: candidates[j].Record.LogIndex}) > 0
-		})
-		s.ResetQueries++
-		if !strings.Contains(q, "ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1") {
-			return nil, errors.New("unbounded or oldest-first reset query")
-		}
-		if len(candidates) == 0 {
-			return nil, nil
-		}
-		r := candidates[0].Record
-		return one(publicStatsSyncText(r.Height), publicStatsSyncText(r.TransactionIndex), publicStatsSyncText(r.LogIndex), publicStatsSyncBytes(r.Topics), publicStatsSyncBytes(r.Data))
-	case strings.HasPrefix(q, "SELECT COALESCE(SUM(CASE WHEN fill"):
-		delta := new(big.Int)
-		any := false
-		for _, p := range s.Commits {
-			f := p.Fill
-			if f.PoolAddress != a[1] || publicStatsSyncPositionCompare(a[2], a[3], a[4], f.Position) >= 0 || publicStatsSyncPositionCompare(a[5], a[6], a[7], f.Position) < 0 {
-				continue
-			}
-			any = true
-			paid, _ := new(big.Int).SetString(f.PaidInputRaw, 10)
-			fee, _ := new(big.Int).SetString(f.FeeRaw, 10)
-			usdl, _ := new(big.Int).SetString(f.USDLAmountRaw, 10)
-			if f.Side == "buy" {
-				delta.Add(delta, new(big.Int).Sub(paid, fee))
-			} else {
-				delta.Sub(delta, usdl)
-			}
-		}
-		sides := publicStatsSyncCell{pgtype.BoolOID, nil}
-		if any {
-			sides = publicStatsSyncBool(true)
-		}
-		return one(publicStatsSyncText(delta.String()), sides)
-	case strings.HasPrefix(q, "SELECT c.fill,t.block_timestamp,c.sequence,c.source_fact_digest"):
-		before, _ := strconv.ParseInt(a[5], 10, 64)
-		var last *accounting.PublicationV1
-		for i := range s.Commits {
-			p := &s.Commits[i]
-			ts, _ := strconv.ParseInt(p.Fill.BlockTimestampSeconds, 10, 64)
-			if p.Fill.PoolAddress != a[1] || publicStatsSyncPositionCompare(a[2], a[3], a[4], p.Fill.Position) < 0 || (before >= 0 && ts >= before) {
-				continue
-			}
-			if last == nil || publicStatsSyncPositionCompare(p.Fill.Position.Height, p.Fill.Position.TransactionIndex, p.Fill.Position.LogIndex, last.Fill.Position) > 0 {
-				last = p
-			}
-		}
-		if last == nil {
-			return nil, nil
-		}
-		ts, _ := strconv.ParseInt(last.Fill.BlockTimestampSeconds, 10, 64)
-		seq, _ := strconv.ParseInt(last.Positions[0].Sequence, 10, 64)
-		return one(publicStatsSyncJSON(last.Fill), publicStatsSyncInt(ts), publicStatsSyncInt(seq), publicStatsSyncText(string(last.SourceFactDigest)))
-	case strings.HasPrefix(q, "SELECT emitter,block_hash,topics,data FROM "):
-		for _, p := range s.Commits {
-			f := p.Fill
-			if f.Position.TransactionHash != a[0] || f.Position.LogIndex != a[1] || f.Position.Height != a[2] || f.Position.TransactionIndex != a[3] {
-				continue
-			}
-			for _, r := range s.Raw {
-				if r.Record.Height == a[2] && r.Record.TransactionIndex == a[3] && r.Record.LogIndex == a[1] {
-					return one(publicStatsSyncText(r.Emitter), publicStatsSyncText(f.Position.BlockHash), publicStatsSyncBytes(r.Record.Topics), publicStatsSyncBytes(r.Record.Data))
-				}
-			}
-		}
-		return nil, nil
-	case strings.HasPrefix(q, "SELECT COALESCE(SUM(t.volume)"):
-		sum := new(big.Int)
-		buys, sells := int64(0), int64(0)
-		actors := map[string]bool{}
-		start, _ := strconv.ParseInt(a[5], 10, 64)
-		end, _ := strconv.ParseInt(a[6], 10, 64)
-		for _, p := range s.Commits {
-			f := p.Fill
-			ts, _ := strconv.ParseInt(f.BlockTimestampSeconds, 10, 64)
-			if f.PoolAddress != a[1] || ts < start || ts >= end || publicStatsSyncPositionCompare(a[2], a[3], a[4], f.Position) < 0 {
-				continue
-			}
-			n, _ := new(big.Int).SetString(f.USDLAmountRaw, 10)
-			sum.Add(sum, n)
-			actors[f.Attribution.TransactionSender] = true
-			if f.Side == "buy" {
-				buys++
-			} else {
-				sells++
-			}
-		}
-		return one(publicStatsSyncText(sum.String()), publicStatsSyncText(strconv.FormatInt(buys, 10)), publicStatsSyncText(strconv.FormatInt(sells, 10)), publicStatsSyncText(strconv.Itoa(len(actors))), publicStatsSyncText(strconv.FormatInt(buys+sells, 10)))
-	case strings.HasPrefix(q, "SELECT coverage,last_event,supply::text,decimals FROM "):
-		return nil, nil
-	case strings.Contains(q, `"market_projection_head"($1)`):
-		return one(publicStatsSyncBytes(s.Frames[a[0]]))
-	case strings.Contains(q, `"append_market_`):
-		if !strings.HasPrefix(q, `SELECT "api_stream".`) {
-			return nil, fmt.Errorf("wrong stream sink: %s", q)
-		}
-		raw, e := publicStatsSyncByteArg(a[0])
-		if e != nil {
-			return nil, e
-		}
-		proofRaw, e := publicStatsSyncByteArg(a[1])
-		if e != nil {
-			return nil, e
-		}
-		var u delivery.StreamUpdate
-		var proof delivery.StreamSourceProof
-		if e = json.Unmarshal(raw, &u); e != nil {
-			return nil, e
-		}
-		if e = json.Unmarshal(proofRaw, &proof); e != nil {
-			return nil, e
-		}
-		found := false
-		for _, p := range s.Commits {
-			if p.Fill.PoolAddress == proof.Pool && p.Positions[0].ProjectionVersion == proof.ProjectionVersion {
-				if proof.Kind == "stats_commit" || p.SourceFillID == proof.SourceFillID && string(p.SourceFactDigest) == proof.SourceFactDigest && p.Positions[0].Sequence == proof.Sequence {
-					found = true
-				}
-			}
-		}
-		if !found {
-			return nil, errors.New("stream proof has no committed source")
-		}
-		var frame map[string]any
-		if e = json.Unmarshal(raw, &frame); e != nil {
-			return nil, e
-		}
-		frame["sequence"] = "1"
-		frame["coalesced"] = false
-		frame["sourceSequenceFirst"] = nil
-		frame["sourceSequenceLast"] = nil
-		if prior := s.Frames[u.Topic]; len(prior) > 0 {
-			var old struct{ Sequence string }
-			if e = json.Unmarshal(prior, &old); e != nil {
-				return nil, e
-			}
-			n, e := strconv.Atoi(old.Sequence)
-			if e != nil {
-				return nil, e
-			}
-			frame["sequence"] = strconv.Itoa(n + 1)
-		}
-		wire, e := json.Marshal(frame)
-		if e != nil {
-			return nil, e
-		}
-		if _, e = delivery.ParseCommittedStreamFrame(wire); e != nil {
-			return nil, e
-		}
-		s.Frames[u.Topic] = wire
-		return nil, nil
-	case strings.HasPrefix(q, "SELECT w.raw_complete_height,w.typed_complete_height"):
-		f := publicStatsSyncAnchor(s)
-		h, _ := strconv.ParseInt(f.Position.Height, 10, 64)
-		return one(publicStatsSyncInt(h), publicStatsSyncInt(h), publicStatsSyncBool(h > 0))
-	case strings.HasPrefix(q, "SELECT block_hash,fetch_complete AND required_decode_complete"):
-		return one(publicStatsSyncText(publicStatsSyncAnchor(s).Position.BlockHash), publicStatsSyncBool(true))
-	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM ") && strings.Contains(q, ".accounting_pool_fences"):
-		return one(publicStatsSyncBool(false))
-	case strings.HasPrefix(q, "SELECT NOT EXISTS(SELECT 1 FROM "):
-		return one(publicStatsSyncBool(len(s.Commits) > 0))
-	case strings.HasPrefix(q, "SELECT height::text,transaction_index::text,log_index::text,transaction_hash,block_hash,block_timestamp FROM ("):
-		f := publicStatsSyncAnchor(s)
-		ts, _ := strconv.ParseInt(f.BlockTimestampSeconds, 10, 64)
-		return one(publicStatsSyncText(f.Position.Height), publicStatsSyncText(f.Position.TransactionIndex), publicStatsSyncText(f.Position.LogIndex), publicStatsSyncText(f.Position.TransactionHash), publicStatsSyncText(f.Position.BlockHash), publicStatsSyncInt(ts))
-	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM ") && strings.Contains(q, "indexer_block_completeness_v1"):
-		return one(publicStatsSyncBool(a[1] == publicStatsSyncAnchor(s).Position.Height && a[2] == publicStatsSyncAnchor(s).Position.BlockHash))
-	case strings.HasPrefix(q, "SELECT pool,token,lower(creator),block_timestamp FROM "):
-		limit, _ := strconv.Atoi(a[2])
-		rows := [][]publicStatsSyncCell{}
-		pools := append([]string(nil), s.Pools...)
-		sort.Strings(pools)
-		for _, pool := range pools {
-			if pool > a[1] && len(rows) < limit {
-				rows = append(rows, []publicStatsSyncCell{publicStatsSyncText(pool), publicStatsSyncText("0x" + strings.Repeat("a", 40)), publicStatsSyncText("0x" + strings.Repeat("b", 40)), publicStatsSyncInt(1)})
-			}
-		}
-		return rows, nil
-	case strings.HasPrefix(q, "SELECT DISTINCT fill->>'actualEmitter'"):
-		emitters := map[string]bool{}
-		for _, p := range s.Commits {
-			emitters[p.Fill.ActualEmitter] = true
-		}
-		rows := [][]publicStatsSyncCell{}
-		for e := range emitters {
-			rows = append(rows, []publicStatsSyncCell{publicStatsSyncText(e)})
-		}
-		return rows, nil
-	}
-	return nil, fmt.Errorf("unsupported fixture query: %s", q)
+	return out
 }
 
 func publicStatsSyncReceipt(t *testing.T) (accounting.PublicationV1, publicStatsSyncRaw) {
@@ -717,7 +298,15 @@ func publicStatsSyncCommit(t *testing.T, r *Repository, p accounting.Publication
 		t.Fatal(err)
 	}
 	defer tx.Rollback(ctx)
-	if err = r.RecordMarketPublicationTx(ctx, tx, p, ApplyResult{Accepted: true, Revision: 1}); err != nil {
+	in, err := qualifiedInput(*p.Fill, "checkpoint-consumer", publicTestVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := r.ApplyQualifiedTx(ctx, tx, in)
+	if err != nil || !result.Accepted {
+		t.Fatal(result, err)
+	}
+	if err = r.RecordMarketPublicationTx(ctx, tx, p, result); err != nil {
 		t.Fatal(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -839,7 +428,7 @@ func TestPublicStatsCheckpointSyncLifetimeCapRestart(t *testing.T) {
 		t.Fatal(len(state.Raw), len(records), stored.ResetQueries, publicStatsMaxSyncEvents)
 	}
 	first := append([]byte(nil), stored.Frames["market.stats."+pub.Fill.PoolAddress]...)
-	d.close() // Stop connections, projector and SQL peer, then reopen from disk.
+	d.close()
 	reopened := publicStatsSyncOpen(t, path, nil)
 	_, p = publicStatsSyncProjector(t, reopened, 2)
 	result, err = p.RefreshOnce(ctx, time.Unix(1800000060, 0))

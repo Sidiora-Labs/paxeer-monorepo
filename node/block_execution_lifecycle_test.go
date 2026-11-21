@@ -38,8 +38,8 @@ func TestBlockExecutionTenantProposalRestart(t *testing.T) {
 	TestChainStateSurvivesRestart(t)
 }
 func TestBlockExecutionLeaderCommittedBatches(t *testing.T) {
-	TestAppLeaderScheduleReadsKeeperList(t)
-	TestAppLeaderScheduleEmptyBeforeActivation(t)
+	t.Run("keeper list", TestAppLeaderScheduleReadsKeeperList)
+	t.Run("before activation", TestAppLeaderScheduleEmptyBeforeActivation)
 }
 
 // In addition to handler-originated panic fixtures, drive the SDK's own three

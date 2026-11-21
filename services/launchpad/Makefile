@@ -47,7 +47,7 @@ MONEY_MODULES := ../../sdk/launchpad/shared ../../sdk/launchpad/protocol indexer
 
 all: build vet fmt-check lint race cover-check ## Run the full local verification gate
 
-ci: test build vet fmt-check lint race cover-check ## Exactly what CI enforces on every PR
+ci: build vet fmt-check lint test race cover-check ## Exactly what CI enforces on every PR
 
 # has_pkgs <module> -> assign pkgs, or stop on package discovery failure.
 # Only successful discovery may skip an empty scaffold.

@@ -17,7 +17,6 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -33,15 +31,7 @@ import (
 func TestHTTPAuthorizationCommitsAndReplaysOneOperation(t *testing.T) {
 	pool, _ := phase2AuthDatabase(t)
 	ctx := context.Background()
-	endpoint := os.Getenv("L34_ANVIL_URL")
-	if endpoint == "" {
-		t.Fatal("owned chain provider required")
-	}
-	backend, err := ethclient.DialContext(ctx, endpoint)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer backend.Close()
+	backend := authChainClient(t)
 	committed, err := NewReportedHashBackend(backend.Client()).ReportedBlockByNumber(ctx, nil)
 	if err != nil {
 		t.Fatal(err)

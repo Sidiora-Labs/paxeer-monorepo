@@ -1,0 +1,87 @@
+[manifest]
+task = "22.44.88"
+surface = "Paxscan explorer tokens and search"
+views = 5
+named_states = 7
+combinations = 12
+device_renders = 408
+routes = ["/search-results", "/token/[hash]", "/token/[hash]/instance/[id]", "/token-transfers", "/tokens"]
+states = ["search empty", "search loading", "search error", "tokens empty", "tokens loading", "tokens error", "tokens filter-open"]
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+token_transfers_modes = ["default", "reduced-motion", "double-text", "keyboard"]
+fixture_sources = ["apps/explorer/stubs/token.ts", "apps/explorer/mocks/search/index.ts"]
+
+[initial_measurements]
+renders = 408
+load = 0
+sideways = 582
+cut = 26
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[rendering]
+renders = 408
+views_with_content = 408
+findings = 0
+cancelled = 0
+retried = 0
+reduced_mode_entries = 0
+result = "pass"
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[screenshots]
+count = 168
+widths = [360, 768, 1440, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+additional_mode = "double-text"
+additional_mode_widths = [390, 1440]
+wrapping = "Header groups wrap within the available width when text is enlarged. Mobile transfer values wrap the USD amount below the token amount when needed."
+alignment = "Numeric columns align to the right with tabular figures. Token cards, metadata dividers and transfer rows align within their containers."
+layout = "Loading placeholders repeat within the list and table structure. Filter popovers scroll within their available space."
+
+[presentation]
+loading = "Token and search routes show the shared loading indicator while their page content loads."
+numbers = "Numeric table cells use tabular figures and right alignment."
+search = "The token filter input and search result table have accessible names."
+metadata = "The metadata divider spans the single card column."
+nft = "The instance, token standard and transfer values describe the same ERC-721 item."
+categories = "Enabled token category controls use the strong border token in both schemes."
+filters = "The token filter fits its available width when text is enlarged."
+popover = "Token type and bridged-chain filters scroll within the space available around their trigger."
+attributes = "NFT attributes retain their card track size and scroll horizontally when needed."
+implementation = "The implementation label uses the base corner radius."
+token_header = "The mobile token header wraps its standard badge when the token and copy control need the available line."
+placeholders = "Loading token and search rows use text-free placeholders within the same row structure as their values."
+shimmer = "The loading shimmer moves within its background and leaves the placeholder box in place."
+transfers = "Instance transfer hashes and addresses shorten to their available width and reflow into separate lines in narrow cards."
+focus = "Scrollable token tables show an inset focus ring."
+initial_content = "Short initial requests retain the page loading indicator; sustained requests show the list skeleton."
+instance_content = "Token instance detail cards render with the page and retain their layout through hydration."
+search_footer = "The search footer appears with its page content."
+input_adornments = "Filter inputs reserve space for their search and clear icons on first display."
+ticker = "The token ticker shows prices with at most six fraction digits and shows the daily change only when returned."
+
+[guidance]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "responsive-table", "navbar", "css-layout"]

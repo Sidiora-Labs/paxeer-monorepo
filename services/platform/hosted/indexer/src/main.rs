@@ -100,18 +100,22 @@ fn backfill(args: &[String]) -> Result<(), IndexError> {
         source.chain_id,
         source.encoding,
     );
+    let readers = usize::try_from(settings.readers)
+        .map_err(|_| IndexError::Config("backfill readers exceed usize".to_owned()))?;
+    let batch_blocks = usize::try_from(settings.batch_blocks)
+        .map_err(|_| IndexError::Config("backfill batch size exceeds usize".to_owned()))?;
     let plan = Backfill::with_options(
         &node,
         settings.cutover,
         settings.range_blocks,
-        usize::try_from(settings.readers)
-            .map_err(|_| IndexError::Config("backfill readers exceed usize".to_owned()))?,
-        usize::try_from(settings.batch_blocks)
-            .map_err(|_| IndexError::Config("backfill batch size exceeds usize".to_owned()))?,
+        readers,
+        batch_blocks,
     );
     plan.next_height(&store)?;
     let mut paxscan = PaxscanDatabase::connect(&settings.paxscan_url, &settings.paxscan_tls)?;
-    let cutover = plan.run(&store, |from, to| paxscan.range_verified(from, to, &node))?;
+    let cutover = plan.run(&store, |from, to| {
+        paxscan.range_verified(from, to, &node, batch_blocks, readers)
+    })?;
     eprintln!(
         "layerx-indexer backfill reached the cutover {cutover}; live ingestion resumes at {}",
         cutover + 1
@@ -153,6 +157,10 @@ fn run() -> Result<(), IndexError> {
         api::Readiness {
             sources: Vec::new(),
             stall_after_secs,
+            max_units_per_step: config
+                .paxeer
+                .as_ref()
+                .map_or(1, |source| source.policy.max_units_per_step.max(1)),
             started_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(0, |elapsed| elapsed.as_secs()),
@@ -177,7 +185,8 @@ fn run() -> Result<(), IndexError> {
             source.start_block,
             source.chain_id,
             source.encoding,
-        );
+        )
+        .with_read_limits(source.batch_blocks, source.readers);
         readiness.sources.push("paxeer");
         store.start_source("paxeer")?;
         follow("paxeer", Arc::clone(&store), config.poll, move |store| {

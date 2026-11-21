@@ -70,7 +70,11 @@
     {
       "name": "MAINNET_BETA_125_LIVE",
       "subjects": [
-        "market.stats.0xce20da50f92d21d8bee497910c782e9aa25b6263"
+        "market.trades.*",
+        "market.candles.*.*",
+        "market.stats.*",
+        "market.price.*",
+        "private.portfolio.*"
       ],
       "limits": {
         "maxMessages": 1000000,
@@ -125,6 +129,82 @@
       "subjects": [
         "search.invalidation.v2",
         "stats.minute.v2"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "MAINNET_BETA_125_RANKINGS",
+      "subjects": [
+        "market.rankings.*"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 3,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "PNL_JOURNEYS",
+      "subjects": [
+        "airdrop.claimed",
+        "airdrop.epoch",
+        "fee.claimed",
+        "inventory.rebuild.v2",
+        "portfolio.snapshot.v2",
+        "referral.analytics",
+        "referral.bind",
+        "referral.bound",
+        "referral.click",
+        "referral.code",
+        "referral.consent",
+        "reward.claim_prepared",
+        "reward.community_authority",
+        "reward.correction_review",
+        "reward.funding",
+        "reward.liability",
+        "reward.paid",
+        "reward.payout_intent",
+        "reward.payout_state",
+        "reward.review"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "USERS",
+      "subjects": [
+        "paxeer.125.users.account.backfill.completed",
+        "paxeer.125.users.account.deletion.job",
+        "paxeer.125.users.account.deletion.requested",
+        "paxeer.125.users.account.export.requested",
+        "paxeer.125.users.consent.updated",
+        "paxeer.125.users.endpoint.bound",
+        "paxeer.125.users.endpoint.revoked",
+        "paxeer.125.users.preferences.updated",
+        "paxeer.125.users.profile.updated",
+        "paxeer.125.users.watchlist.changed"
       ],
       "limits": {
         "maxMessages": 1000000,
@@ -259,6 +339,17 @@
       "MaxWaiting": 4,
       "Stream": "STATS_V2",
       "Subject": "search.invalidation.v2"
+    },
+    {
+      "AckWait": 30000000000,
+      "Batch": 16,
+      "Durable": "stats_search_social_policy",
+      "FetchWait": 250000000,
+      "MaxAckPending": 64,
+      "MaxDeliver": 100,
+      "MaxWaiting": 4,
+      "Stream": "SOCIAL_EVENTS",
+      "Subject": "social.policy"
     }
   ]
 }

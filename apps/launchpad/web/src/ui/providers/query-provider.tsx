@@ -95,6 +95,10 @@ export function principalBarrierBlocks(published: CachePrincipal | undefined, ob
   return published.key !== observed.key;
 }
 
+const subscribeClientMount = () => () => {};
+const clientMountSnapshot = () => true;
+const serverMountSnapshot = () => false;
+
 export function PrincipalCacheBarrier({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const runtime = useWalletRuntime();
@@ -113,7 +117,8 @@ export function PrincipalCacheBarrier({ children }: { children: ReactNode }) {
   const previousWallet = useRef<Address | undefined>(undefined);
   const [published, setPublished] = useState<CachePrincipal>();
   const [failure, setFailure] = useState<string>();
-  const [inheritedPrivateCache] = useState(() => client.getQueryCache().findAll({ predicate: query => isPrivateFoundationQuery(query) || isWalletPrivateQueryV2(query) }).length > 0);
+  const clientMount = useSyncExternalStore(subscribeClientMount, clientMountSnapshot, serverMountSnapshot);
+  const [inheritedPrivateCache] = useState(() => clientMount && client.getQueryCache().findAll({ predicate: query => isPrivateFoundationQuery(query) || isWalletPrivateQueryV2(query) }).length > 0);
   useEffect(() => {
     let active = true;
     const deployment = authority?.revision.revisionSha256;

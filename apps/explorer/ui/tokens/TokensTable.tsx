@@ -9,6 +9,7 @@ import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
 import { default as getNextSortValueShared } from 'ui/shared/sort/getNextSortValue';
 import { ResponsiveTableRegion } from 'ui/token/ResponsiveTableRegion';
 
+import { hasTokenChanges } from './tokenChange';
 import TokensTableItem from './TokensTableItem';
 
 const SORT_SEQUENCE: Record<TokensSortingField, Array<TokensSortingValue>> = {
@@ -31,6 +32,7 @@ type Props = {
 const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => {
 
   const hasSorting = setSorting && sorting;
+  const showChange = !isLoading && hasTokenChanges(items);
 
   const sort = React.useCallback((field: TokensSortingField) => {
     if (!hasSorting) {
@@ -41,16 +43,16 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => 
   }, [ sorting, setSorting, hasSorting ]);
 
   return (
-    <ResponsiveTableRegion label="Token markets" minWidth="6xl">
-      <TableRoot variant="scan" css={ LIST_TABLE_STYLES } data-tokens-table>
+    <ResponsiveTableRegion label="Token markets" minWidth="100%">
+      <TableRoot variant="scan" css={ LIST_TABLE_STYLES } tableLayout="fixed" w="100%" data-tokens-table>
         <TableHeader>
           <TableRow>
             <TableColumnHeader w="14" isNumeric>#</TableColumnHeader>
-            <TableColumnHeader w="26%">Token</TableColumnHeader>
+            <TableColumnHeader w={ showChange ? '26%' : '30%' }>Token</TableColumnHeader>
             { hasSorting ? (
               <TableColumnHeaderSortable
                 isNumeric
-                w="14%"
+                w={ showChange ? '14%' : '17%' }
                 sortField="fiat_value"
                 sortValue={ sorting }
                 onSortToggle={ sort }
@@ -59,15 +61,15 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => 
                 Price
               </TableColumnHeaderSortable>
             ) : (
-              <TableColumnHeader isNumeric w="14%">
+              <TableColumnHeader isNumeric w={ showChange ? '14%' : '17%' }>
                 Price
               </TableColumnHeader>
             ) }
-            <TableColumnHeader isNumeric w="12%">Change 24h</TableColumnHeader>
+            { showChange && <TableColumnHeader isNumeric w="12%">Change 24h</TableColumnHeader> }
             { hasSorting ? (
               <TableColumnHeaderSortable
                 isNumeric
-                w="15%"
+                w={ showChange ? '15%' : '18%' }
                 sortField="circulating_market_cap"
                 sortValue={ sorting }
                 onSortToggle={ sort }
@@ -76,15 +78,14 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => 
                 Market cap
               </TableColumnHeaderSortable>
             ) : (
-              <TableColumnHeader isNumeric w="15%">
+              <TableColumnHeader isNumeric w={ showChange ? '15%' : '18%' }>
                 Market cap
               </TableColumnHeader>
             ) }
-            <TableColumnHeader isNumeric w="14%">Volume 24h</TableColumnHeader>
+            <TableColumnHeader isNumeric w={ showChange ? '14%' : '17%' }>Volume 24h</TableColumnHeader>
             { hasSorting ? (
               <TableColumnHeaderSortable
                 isNumeric
-                w="10%"
                 sortField="holders_count"
                 sortValue={ sorting }
                 onSortToggle={ sort }
@@ -93,7 +94,7 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => 
                 Holders
               </TableColumnHeaderSortable>
             ) : (
-              <TableColumnHeader isNumeric w="10%">
+              <TableColumnHeader isNumeric>
                 Holders
               </TableColumnHeader>
             ) }
@@ -110,6 +111,7 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => 
                 index={ index }
                 page={ page }
                 isLoading={ isLoading }
+                showChange={ showChange }
               />
             );
           }) }

@@ -206,19 +206,7 @@ defmodule BlockScoutWeb.API.V2.StatsController do
 
     price_history_data =
       recent_market_history
-      |> case do
-        [today | the_rest] ->
-          [
-            %{
-              today
-              | closing_price: exchange_rate.fiat_value
-            }
-            | the_rest
-          ]
-
-        data ->
-          data
-      end
+      |> MarketHistoryChartController.update_closing_price(exchange_rate)
       |> Enum.map(fn day -> Map.take(day, [:closing_price, :market_cap, :tvl, :date]) end)
 
     market_history_data =
@@ -227,7 +215,7 @@ defmodule BlockScoutWeb.API.V2.StatsController do
     json(conn, %{
       chart_data: market_history_data,
       # todo: remove when new frontend is ready to use data from chart_data property only
-      available_supply: current_total_supply
+      available_supply: current_total_supply || 0
     })
   end
 

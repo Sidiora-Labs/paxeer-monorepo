@@ -82,7 +82,7 @@ describe('buildExploreRow', () => {
     expect(row.change24h).toBeNull();
     expect(row.mcapRaw).toBeNull();
     expect(row.mcap).toBeNull();
-    expect(row.name).toBe('0xababab...abab');
+    expect(row.name).toBe('0xcdcd...cdcd');
     expect(row.symbol).toBe('0xcdcd...cdcd');
     expect(row.image).toBeNull();
   });

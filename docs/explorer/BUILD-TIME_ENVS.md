@@ -18,11 +18,19 @@ package public build values into the image. At startup,
 loads packaged `NEXT_PUBLIC_*` defaults only for names absent from the process
 environment, then writes `public/assets/envs.js`. Explicit runtime values,
 including empty strings, take precedence over packaged defaults. The image
-[entrypoint](../../apps/explorer/deploy/scripts/entrypoint.sh) first loads
-`configs/envs/.env.<ENVS_PRESET>` when that preset exists and its name is neither
-empty nor `none`. Its `NEXT_PUBLIC_*` values replace matching process values
-except `NEXT_PUBLIC_APP_PROTOCOL`, `NEXT_PUBLIC_APP_HOST`, `NEXT_PUBLIC_APP_PORT`,
-`NEXT_PUBLIC_APP_ENV` and `NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL`.
+[entrypoint](../../apps/explorer/deploy/scripts/entrypoint.sh) loads
+`configs/envs/.env.<ENVS_PRESET>` first, then `configs/envs/<ENVS_PRESET>.env`
+when the dot-form file is absent. Empty names and `none` load nothing. Other
+names may contain only letters, digits, dots, dashes and underscores. An invalid
+name or a named preset without either file stops startup with a non-zero exit
+and an error naming the preset and both paths.
+Preset `NEXT_PUBLIC_*` values replace matching process values except for
+`NEXT_PUBLIC_APP_PROTOCOL`, `NEXT_PUBLIC_APP_HOST`, `NEXT_PUBLIC_APP_PORT`,
+`NEXT_PUBLIC_APP_ENV`, `NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL`,
+`NEXT_PUBLIC_API_HOST` and `NEXT_PUBLIC_ASSISTANT_ENABLED`. These seven exact
+names keep process values, including empty strings, and take preset values
+when absent from the process. Names outside `NEXT_PUBLIC_` are never exported
+from a preset.
 The generated browser script excludes names beginning with `NEXT_PUBLIC_VERCEL`.
 
 `NEXT_OPEN_TELEMETRY_ENABLED` is a server setting read by

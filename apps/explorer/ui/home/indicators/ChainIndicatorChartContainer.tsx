@@ -30,8 +30,7 @@ const ChainIndicatorChartContainer = ({ data, isError, isPending, caption }: Pro
   }
 
   return (
-    <Box mx="calc(var(--chakra-spacing-2\.5) * -1)" my="calc(var(--chakra-spacing-1\.25) * -1)"
-      h="calc(100% + var(--chakra-spacing-2\.5))" w="calc(100% + var(--chakra-spacing-5))">
+    <Box h="full" w="full" minW={ 0 }>
       <ChainIndicatorChartContent data={ data } caption={ caption }/>
     </Box>
   );

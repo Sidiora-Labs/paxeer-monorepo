@@ -136,6 +136,9 @@ func snapshotConsistencySelect(tables snapshotConsistencyTables, sql string) ([]
 	case strings.Contains(sql, "FROM pnl.user_trades t LEFT JOIN"):
 		table = "pnl.user_trades"
 		columns = []string{"id", "pool_address", "resolved_token", "is_buy", "usdl_amount", "token_amount", "block_number", "block_timestamp"}
+	case strings.HasPrefix(sql, "SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades WHERE"):
+		table = "pnl.user_trades"
+		columns = []string{"id", "token_address", "is_buy", "usdl_amount", "token_amount", "block_number", "block_timestamp"}
 	case strings.Contains(sql, "FROM pnl.user_positions WHERE"):
 		table = "pnl.user_positions"
 		columns = []string{"token_address", "total_usdl_spent", "total_tokens_bought", "total_usdl_received", "total_tokens_sold", "avg_cost_basis", "current_holdings", "realized_pnl_usdl", "first_buy_ts", "last_trade_ts", "trade_count"}
