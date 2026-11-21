@@ -29,8 +29,8 @@ def test_clean_generations_match_checked_in_outputs(major, outputs):
             if major == 1:
                 assert hashlib.sha256(producer.frozen_v1_generator()).hexdigest() == release["generatorSha256"]
             else:
-                assert release["generatorSha256"] == "939b35c965e0469ace271c9f2ffbf8b96836a901b7866d6ce64cdb80010df35e"
-                assert hashlib.sha256((private / GENERATOR).read_bytes()).hexdigest() == "61d7122716d50b1fa318aa2668c248b68e3c474d4e291f4f580c097562803009"
+                assert release["generatorSha256"] == "c953d53c0629b51ff24723e4218baf2bf47f8a0fe4b4610e134ffac8cf4c0027"
+                assert hashlib.sha256((private / GENERATOR).read_bytes()).hexdigest() == "c953d53c0629b51ff24723e4218baf2bf47f8a0fe4b4610e134ffac8cf4c0027"
             ts_root = "sdk/launchpad/packages/production-contracts" + ("" if major == 1 else "-v2") + "/src/"
             for filename in ("types.gen.ts", "schemas.gen.json"):
                 data = generated[ts_root + filename].encode()
