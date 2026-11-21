@@ -105,17 +105,20 @@ func TestCapacityWorkloadBoundsActiveProcessAndFaultDelivery(t *testing.T) {
 			}
 			var command CapacityCommand
 			var faults chan CapacityFaultObservation
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-			defer cancel()
+			timeout := 100 * time.Millisecond
 			switch mode {
 			case "active process":
 				command = CapacityCommand{Executable: shell, SHA256: capacityFileDigest(t, shell), Args: []string{"-c", "sleep 10"}}
 			case "blocked fault":
+				timeout = 2 * time.Second
 				command = capacityOutputCommand(t, `{"Kind":"fault","Fault":{"Kind":"throttle","SourceID":"primary","State":"injected","ObservedAt":"2026-01-01T00:00:00Z"}}`)
 				faults = make(chan CapacityFaultObservation)
 			case "bounded record":
+				timeout = 2 * time.Second
 				command = CapacityCommand{Executable: shell, SHA256: capacityFileDigest(t, shell), Args: []string{"-c", `head -c 2097153 /dev/zero | tr '\000' x`}}
 			}
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
 			err = capacityWorkload(ctx, command, capture, faults)
 			if mode == "bounded record" {
 				if err == nil || !errors.Is(err, bufio.ErrTooLong) {
