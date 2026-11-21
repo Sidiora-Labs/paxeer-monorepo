@@ -303,7 +303,7 @@ Optional external reference estimates use `funding_rate` in the adapter and
 are separate from the last on-chain settlement; their period is defined by
 the reference source, not by the on-chain hourly rate. `est_funding_rate` is
 not a field of the current gateway contract. Absent predicted funding remains `null`;
-[`fundingRowFigure`](../../apps/perps/packages/paxeer-backend/src/core/perps/fundingRate.ts) then displays the venue's
+[`fundingRateDisplay`](../../apps/perps/packages/hooks/src/paxeer-network/fundingRateDisplay.ts) then displays the venue's
 last settled hourly rate. A connected symbol socket does not imply an estimate
 is available. Multiplying the settled hourly rate by 24 is a projection of the
 last settlement, not an estimate of the next funding payment.

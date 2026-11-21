@@ -68,7 +68,8 @@ export function nativeMarketRows() {
           : undefined,
       est_funding_rate: row?.est_funding_rate ?? undefined,
       last_funding_rate: row?.funding_8h ?? undefined,
-      next_funding_time: row?.next_funding_time,
+      last_funding_rate_hourly: row?.last_funding_rate_hourly ?? null,
+      next_funding_time: row?.perp_next_funding_ms ?? null,
       timestamp: row?.price_updated_at ?? undefined,
     };
   });
