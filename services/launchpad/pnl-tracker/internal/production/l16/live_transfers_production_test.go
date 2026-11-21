@@ -3,18 +3,13 @@ package l16
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"os"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func liveRequired(t *testing.T, name string) string {
@@ -28,66 +23,7 @@ func liveRequired(t *testing.T, name string) string {
 
 func liveProductionFixture(t *testing.T, prefix string) (context.Context, *LiveTransferWorker, auth.IdentityPrincipal) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	t.Cleanup(cancel)
-	pool, e := pgxpool.New(ctx, liveRequired(t, "L16_TEST_DSN"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	t.Cleanup(pool.Close)
-	rpc, e := ethclient.DialContext(ctx, liveRequired(t, "L16_BASELINE_RPC"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	t.Cleanup(rpc.Close)
-	secondURL := liveRequired(t, "L16_SECOND_RPC")
-	if secondURL == os.Getenv("L16_BASELINE_RPC") {
-		t.Fatal("independent second node endpoint required")
-	}
-	second, e := ethclient.DialContext(ctx, secondURL)
-	if e != nil {
-		t.Fatal(e)
-	}
-	t.Cleanup(second.Close)
-	epoch, e := strconv.ParseInt(liveRequired(t, "L16_RECOVERY_EPOCH"), 10, 64)
-	if e != nil {
-		t.Fatal(e)
-	}
-	guard, e := queue.NewEpochGuard("recovery", epoch, liveRequired(t, "L16_RECOVERY_REGION"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	schema := liveRequired(t, "L16_BASELINE_SCHEMA")
-	authority, e := NewBaselineAuthorityWithEpochGuard(pool, rpc, schema, liveRequired(t, "L16_BASELINE_STREAM"), "live_pnl", liveRequired(t, "L16_BASELINE_GENERATION"), liveRequired(t, "L16_BASELINE_OWNER"), "inventory-v1", guard.Assert)
-	if e != nil {
-		t.Fatal(e)
-	}
-	outbox, e := delivery.NewStoreWithEpochGuard(pool, schema, delivery.Policy{Subjects: map[string]bool{RebuildSubject: true, "portfolio.snapshot.v2": true}, EventTypes: map[string]bool{RebuildSubject: true, "portfolio.snapshot.v2": true}}, guard.Assert)
-	if e != nil {
-		t.Fatal(e)
-	}
-	service, e := NewService(authority, second, [2]string{liveRequired(t, "L16_NODE_ONE_ID"), liveRequired(t, "L16_NODE_TWO_ID")}, liveRequired(t, "L16_RELEASE_DIGEST"), outbox)
-	if e != nil {
-		t.Fatal(e)
-	}
-	identity := auth.HTTPIdentityAuthority{Endpoint: liveRequired(t, "L16_IDENTITY_URL"), ServiceToken: liveRequired(t, "L16_IDENTITY_SERVICE_TOKEN"), Client: &http.Client{Timeout: 2 * time.Second}}
-	worker, e := NewLiveTransferWorker(service, l17.Repository{Pool: pool}, identity, 1)
-	if e != nil {
-		t.Fatal(e)
-	}
-	request, e := http.NewRequestWithContext(ctx, "GET", "http://localhost/v3/me/portfolio", nil)
-	if e != nil {
-		t.Fatal(e)
-	}
-	request.Header.Set("Authorization", "Bearer "+liveRequired(t, prefix+"OWNER_ACCESS_TOKEN"))
-	principal, e := identity.AuthenticateRequest(ctx, request)
-	if e != nil {
-		t.Fatal(e)
-	}
-	if principal.Wallet != liveRequired(t, prefix+"WALLET") {
-		t.Fatal("real identity wallet does not own chain fixture")
-	}
-	return ctx, worker, principal
+	return localCanonicalWorker(t, prefix)
 }
 
 func TestLiveCanonicalExternalGiftPublishesAtomicUnknownBasis(t *testing.T) {
