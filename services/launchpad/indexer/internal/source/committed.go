@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -19,6 +18,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 

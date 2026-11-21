@@ -44,7 +44,7 @@ func qualifiedCreationFacts(ctx context.Context, receipts []*receipt.QualifiedRe
 }
 
 func tokenMirror(env *decode.DecodedEnvelope) bool {
-	if env == nil || env.Status != "decoded" || env.Event == nil || env.EventName != "TokenDeployed" {
+	if env == nil || env.Status != valueDecoded || env.Event == nil || env.EventName != "TokenDeployed" {
 		return false
 	}
 	return env.EmitterRole == "EventEmitter" || (env.EmitterRole == decode.LaunchpadPrecompileRole && strings.EqualFold(env.Raw.Emitter, deployment.LaunchpadPrecompileAddress))
@@ -54,7 +54,7 @@ func creationFacts(events []*decode.DecodedEnvelope, timestamp int64, provenance
 	facts := []store.CreationFact{}
 	var err error
 	for _, env := range events {
-		if env == nil || env.Status != "decoded" || env.Event == nil || env.EmitterRole != "SidioraFactory" || env.EventName != valueMarketCreated {
+		if env == nil || env.Status != valueDecoded || env.Event == nil || env.EmitterRole != "SidioraFactory" || env.EventName != valueMarketCreated {
 			continue
 		}
 		args := env.Event.Args
@@ -150,7 +150,7 @@ func creationFacts(events []*decode.DecodedEnvelope, timestamp int64, provenance
 func decodedSourceLogs(logs []types.Log, envelopes []*decode.DecodedEnvelope) []types.Log {
 	decoded := map[decode.RawIdentity]string{}
 	for _, env := range envelopes {
-		if env != nil && env.Status == "decoded" && env.Event != nil {
+		if env != nil && env.Status == valueDecoded && env.Event != nil {
 			decoded[env.Raw.Identity] = env.Raw.Emitter
 		}
 	}

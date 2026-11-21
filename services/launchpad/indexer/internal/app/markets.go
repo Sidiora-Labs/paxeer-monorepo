@@ -483,7 +483,7 @@ func (s *recoveringReserveReader) PoolReserves(ctx context.Context, pool common.
 	s.mu.RUnlock()
 	if active != nil {
 		for _, epoch := range active.DiscoveredEpochs() {
-			if epoch.Deployment.Address == pool && epoch.Deployment.Role == "SidioraPool" {
+			if epoch.Deployment.Address == pool && epoch.Deployment.Role == valueSidioraPool {
 				return active.PoolReserves(ctx, pool, block)
 			}
 		}

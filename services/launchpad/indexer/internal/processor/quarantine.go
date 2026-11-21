@@ -71,7 +71,7 @@ func (p *Processor) RetainSourcePoison(ctx context.Context, result source.FetchR
 			}
 			code = decoded.FailureReason
 		}
-		if decodeErr == nil && decoded != nil && decoded.Status == "decoded" {
+		if decodeErr == nil && decoded != nil && decoded.Status == valueDecoded {
 			code = ""
 		}
 		if decodeErr != nil && code == "" {

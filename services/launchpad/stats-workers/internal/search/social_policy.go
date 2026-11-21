@@ -66,7 +66,7 @@ func (p *Projection) ConsumeSocialPolicy(ctx context.Context, subject string, wi
 				rows.Close()
 				return delivery.ErrIntegrity
 			}
-			changes = append(changes, Change{Version: 2, Kind: "visibility", PoolAddress: pool, Revision: revision + 1, Public: public, Tombstone: false})
+			changes = append(changes, Change{Version: 2, Kind: valueVisibility, PoolAddress: pool, Revision: revision + 1, Public: public, Tombstone: false})
 		}
 		err = rows.Err()
 		rows.Close()

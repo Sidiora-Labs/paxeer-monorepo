@@ -38,6 +38,7 @@ type publicStatsSyncState struct {
 	Checkpoints  map[string]publicStatsSyncCheckpoint
 	ResetQueries int
 }
+
 func publicStatsSyncInt64(t *testing.T, raw string) int64 {
 	t.Helper()
 	n, err := strconv.ParseInt(raw, 10, 64)

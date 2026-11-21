@@ -10,11 +10,11 @@ import (
 
 func qualificationLabel(value string) string {
 	if value == "" || len(value) > 64 {
-		return "unknown"
+		return valueUnknown
 	}
 	for _, ch := range value {
 		if ch != '_' && (ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') {
-			return "unknown"
+			return valueUnknown
 		}
 	}
 	return value
@@ -63,5 +63,5 @@ func (a *RPCQualification) discoveryKind(role string) string {
 			return discoveryKind(role, template.Kind)
 		}
 	}
-	return "unknown"
+	return valueUnknown
 }
