@@ -211053,7 +211053,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1074]
 title = "Let the schema validator that the launchpad generator writes for a major other than 1 decode each schema node and compile each expression once for each process"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
