@@ -932,6 +932,42 @@ def test_chart_policy_admits_indexer_market_event(tmp_path: Path) -> None:
     assert docs["charts"]["policy"]["EventTypes"] == {"accounting.market.v1": True}
 
 
+@pytest.mark.parametrize(("field", "state"), [
+    (None, "enabled"),
+    ("Subjects", "missing"), ("EventTypes", "missing"),
+    ("Subjects", "disabled"), ("EventTypes", "disabled"),
+])
+def test_charts_policy_names_market_type(tmp_path: Path, field: str | None, state: str) -> None:
+    import charts
+
+    values, out = _values(tmp_path), tmp_path / "out"
+    path = values / "charts.example.json"
+    document = json.loads(path.read_bytes())
+    policy = document["delivery"]["policy"]
+    if field is not None:
+        del policy[field]["accounting.market.v1"]
+        if state == "disabled":
+            policy[field]["accounting.market.v1"] = False
+    path.write_text(json.dumps(document))
+    if field is None:
+        composed = charts.documents("charts", values)["DELIVERY_CONFIG_DOCUMENT"]
+        assert composed["policy"]["Subjects"]["accounting.market.v1"] is True
+        assert composed["policy"]["EventTypes"]["accounting.market.v1"] is True
+        result = _run(values, out, "charts")
+        assert result.returncode == 0, result.stderr
+        record = json.loads((out / "charts.json").read_bytes())
+        delivery = json.loads(base64.b64decode(record["DELIVERY_CONFIG_DOCUMENT"]))
+        assert delivery == composed
+    else:
+        message = f"policy.{field} must enable accounting.market.v1"
+        with pytest.raises(ValueError, match=re.escape(message)):
+            charts.documents("charts", values)
+        result = _run(values, out, "charts")
+        assert result.returncode == 2
+        assert message in result.stderr
+        assert not (out / "charts.json").exists()
+
+
 def test_broker_example_captures_all_api_relay_routes(tmp_path: Path) -> None:
     values, out = _values(tmp_path), tmp_path / "out"
     result = _run(values, out, "api", "api-sockets")
