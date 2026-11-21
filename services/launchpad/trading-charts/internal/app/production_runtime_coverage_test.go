@@ -184,7 +184,7 @@ func productionChartRuntime(t *testing.T) (config.Config, config.ChartRuntimeFea
 	if _, err := stream.CreateConsumer(ctx, brokerConfig); err != nil {
 		t.Fatal(err)
 	}
-	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true, "candle.updated.v2": true}, EventTypes: map[string]bool{"market": true}}
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true, "candle.updated.v2": true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 	document := chartRuntimeDocument{Schema: "candles", SourceStream: "canonical", ConsumerID: "charts_runtime", Generation: "runtime_1", Owner: "runtime_owner", ProjectionVersion: "market-v1", Epoch: 1, Region: "local", MaxReplayBlocks: 4, MaxReplayFills: 10, Policy: policy, Consumer: consumerConfig, ChartOutbox: chartOutboxConfig{Stream: "CHART_RUNTIME", Subject: "candle.updated.v2", Batch: 1, IntervalMillis: 1000}}
 	deliveryWire, err := json.Marshal(document)
 	if err != nil {
