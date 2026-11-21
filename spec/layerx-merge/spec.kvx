@@ -210783,7 +210783,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1064]
 title = "Give two parts of the case TestCapacityWorkloadBoundsActiveProcessAndFaultDelivery of the indexer source a bound that covers the start of their process"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
