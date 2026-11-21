@@ -210652,7 +210652,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1043]
 title = "Let the charts app of the launchpad run its accounting consumer again after an error that is not permanent and return an error after an internal failure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
