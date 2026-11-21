@@ -179388,7 +179388,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1077]
 title = "Take the live bar of the trading chart for every market from the candle route that serves its history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
