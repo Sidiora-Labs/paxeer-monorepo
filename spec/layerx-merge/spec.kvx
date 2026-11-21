@@ -210711,7 +210711,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1058]
 title = "Give the entries of the record of runtime statements of the stats app the SHA-256 of their files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
