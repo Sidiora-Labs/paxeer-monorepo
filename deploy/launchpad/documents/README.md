@@ -70,6 +70,16 @@ form composes the document from the indexer values and writes its standard base6
 to `INDEXER_RECEIPT_CONFIG_DOCUMENT` or `INDEXER_LIFECYCLE_CONFIG_DOCUMENT`, with
 the corresponding `*_SHA256`.
 
+The indexer value `primary_endpoint` supplies the address of `paxeer-primary`
+in the composed lifecycle document's `Committed.Endpoints` member. The value
+`rpc_secret_reference` supplies that endpoint's reference in
+`EndpointSecretReferences`: it names the secrets provider entry whose value
+the indexer app uses as that endpoint's address at startup.
+For a deployment with a reference, the address changes
+with the value of that secrets provider entry; restart the indexer to use the
+changed value. Without a reference, the app uses the document's endpoint address.
+At startup, the app logs each endpoint ID and reference name at info level.
+
 To use files rendered by `services/launchpad/indexer/cmd/indexer-runtime-docs`,
 set these pairs in `indexer.json` (or `indexer.example.json`):
 
