@@ -110,7 +110,7 @@ func RegisterChatRoutes(router chi.Router, store *DurableStore, authenticate Aut
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		rows, err := store.Pool.Query(r.Context(), `SELECT c.id,peer.wallet,extract(epoch from max(msg.created_at))::bigint,count(msg.id) FILTER(WHERE msg.sequence>own.read_sequence AND msg.deleted_at IS NULL AND msg.sender<>$1),own.read_sequence,own.muted FROM chat_conversations c JOIN chat_members own ON own.conversation_id=c.id AND own.wallet=$1 JOIN chat_members peer ON peer.conversation_id=c.id AND peer.wallet<>$1 LEFT JOIN chat_messages msg ON msg.conversation_id=c.id WHERE c.kind='dm' GROUP BY c.id,peer.wallet,own.read_sequence,own.muted ORDER BY max(msg.created_at) DESC NULLS LAST,c.id LIMIT 100`, principal.Wallet)
+		rows, err := store.Pool.Query(r.Context(), `SELECT c.id,peer.wallet,floor(extract(epoch from max(msg.created_at)))::bigint,count(msg.id) FILTER(WHERE msg.sequence>own.read_sequence AND msg.deleted_at IS NULL AND msg.sender<>$1),own.read_sequence,own.muted FROM chat_conversations c JOIN chat_members own ON own.conversation_id=c.id AND own.wallet=$1 JOIN chat_members peer ON peer.conversation_id=c.id AND peer.wallet<>$1 LEFT JOIN chat_messages msg ON msg.conversation_id=c.id WHERE c.kind='dm' GROUP BY c.id,peer.wallet,own.read_sequence,own.muted ORDER BY max(msg.created_at) DESC NULLS LAST,c.id LIMIT 100`, principal.Wallet)
 		if err != nil {
 			slog.ErrorContext(r.Context(), "chat conversations request failed", "error", err)
 			http.Error(w, "unavailable", http.StatusServiceUnavailable)
