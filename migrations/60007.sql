@@ -1,0 +1,1 @@
+CREATE INDEX CONCURRENTLY "indexer_raw_emitter_topic2_order" ON "indexer"."indexer_raw_logs" ("chain_id", "emitter", ("topics" ->> 0), ("topics" ->> 2), "height", "transaction_index", "log_index");
