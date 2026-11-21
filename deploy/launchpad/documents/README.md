@@ -119,6 +119,13 @@ The broker stream and durable example is `values/broker.example.json`. Apply it
 with the shared module's `brokerprovision` command before starting consumers.
 Its `check` action compares the broker with the reviewed document without writes.
 Consumer durations are nanoseconds, matching the composed delivery documents.
+The example includes `PNL_JOURNEYS` for the PnL journey delivery policy and
+`USERS` for the ten account subjects in `values/user.example.json`. Set
+`ACCOUNT_NATS_STREAM=USERS` for the user service. Both streams use file storage,
+limits retention, one replica, 1,000,000 messages, 1 GiB, 72 hours, 2 MiB per
+message, 128 consumers, a two-minute duplicate window and discard-new, following
+the example's bounded publisher streams. Neither has a durable entry because
+no launchpad consumer reads these outputs under a durable name.
 
 For `--service gateway`, `gateway.json` (or `gateway.example.json`) supplies
 `runtime`, `identity` and credential references. Routes use `method`, `template`
@@ -279,7 +286,8 @@ policy: `inventory.rebuild.v2`, `portfolio.snapshot.v2`, `fee.claimed`,
 `reward.payout_intent`, `reward.paid`, `reward.payout_state`,
 `reward.correction_review`, `referral.analytics`, `referral.bound`,
 `referral.code`, `referral.consent`, `referral.click` and `referral.bind`.
-Add this stream to the deployment's broker values before starting the service.
+The broker example provisions these subjects as `PNL_JOURNEYS`; keep that
+entry synchronized with the deployment's `brokerStream` before starting the service.
 The deployment's gateway values must include an `identityPeers` entry with
 issuer `pnld`, the SHA-256 pin of PnL's client certificate and the public key of
 `IDENTITY_SIGNING_KEY` in unpadded base64url form. Keep that entry synchronized

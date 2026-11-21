@@ -310,6 +310,7 @@ needed = [n for k, v in user.items() if isinstance(v, list) and k not in ("secre
           for n in v if n not in user["fixed"]]
 values = {n: f"sentinel-user-{i:02d}" for i, n in enumerate(needed)}
 values["ACCOUNT_SERVICE_SIGNING_SEED"] = "sentinel-signing-seed-6f0a"
+values["ACCOUNT_NATS_STREAM"] = "USERS"
 json.dump({"user": values}, open(f"{sys.argv[2]}/user-values.json", "w"))
 json.dump([v for n, v in values.items() if n in user["secrets"]] + ["sentinel-live-seed-1c9b"],
           open(f"{sys.argv[2]}/user-secret-values.json", "w"))
@@ -342,6 +343,7 @@ set -e
 [ "$user_apply" -eq 0 ] || fail "user apply exited $user_apply: $(cat "$tmp/user-apply.out")"
 grep -q '^  differs ACCOUNT_SERVICE_SIGNING_SEED \*\*\*\* -> \*\*\*\*$' "$tmp/user-plan.out" || fail "signing seed not masked in plan"
 grep -q '^  applied ' "$tmp/user-apply.out" || fail "user apply did not upsert"
+grep -q '^  missing ACCOUNT_NATS_STREAM = USERS$' "$tmp/user-plan.out" || fail "user plan omitted the account stream"
 python3 - "$tmp/user-secret-values.json" "$tmp/user-plan.out" "$tmp/user-apply.out" <<'PY' || fail "user plan or apply printed a secret value"
 import json, sys
 secrets = json.load(open(sys.argv[1]))
