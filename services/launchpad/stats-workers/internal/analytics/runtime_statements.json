@@ -4155,7 +4155,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4172,7 +4172,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_2",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4197,7 +4197,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_3",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4239,7 +4239,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4263,7 +4263,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_2",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4283,7 +4283,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.emittersTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4310,7 +4310,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.swapPriceTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4332,7 +4332,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4360,7 +4360,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_2",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4380,7 +4380,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_3",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4411,7 +4411,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.latestFillTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4435,7 +4435,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.realUsdlTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4458,7 +4458,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4481,7 +4481,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_2",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4507,7 +4507,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_3",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4529,7 +4529,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_4",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4550,7 +4550,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_5",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4571,7 +4571,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_6",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4606,7 +4606,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.poolStatsTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
@@ -5874,7 +5874,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.Consume_1",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5889,7 +5889,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.Consume_2",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5909,7 +5909,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.Consume_3",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5934,7 +5934,7 @@
         "stats_search.revision_v2"
       ],
       "id": "search_projection_Projection.Consume_4",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5958,7 +5958,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.authorizeTx_1",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5978,7 +5978,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.authorizeTx_2",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6000,7 +6000,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_1",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6020,7 +6020,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_2",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6041,7 +6041,7 @@
       ],
       "sequences": [],
       "id": "search_projection_applyChangeTx_3",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6062,7 +6062,7 @@
       ],
       "sequences": [],
       "id": "search_projection_applyChangeTx_4",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6081,7 +6081,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_5",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6102,7 +6102,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_6",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6122,7 +6122,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_7",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6141,7 +6141,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_8",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6160,7 +6160,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_9",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6180,7 +6180,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_10",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6215,7 +6215,7 @@
         "stats_search.revision_v2"
       ],
       "id": "search_projection_applyChangeTx_11",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6235,7 +6235,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_1",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6250,7 +6250,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_2",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6265,7 +6265,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_3",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6285,7 +6285,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_4",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6310,7 +6310,7 @@
         "stats_search.revision_v2"
       ],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_5",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6338,7 +6338,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_1",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6353,7 +6353,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_2",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6373,7 +6373,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_3",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6392,7 +6392,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_4",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6411,7 +6411,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_5",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6430,7 +6430,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_6",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6453,7 +6453,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_7",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6478,7 +6478,7 @@
         "stats_search.revision_v2"
       ],
       "id": "search_projection_Projection.ConsumeAccountProfile_8",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/store/buckets.go",
@@ -9113,7 +9113,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_12",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -9139,7 +9139,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Store.BackfillAuthority_1",
-      "source_sha256": "019db52c6eb9d42c82d37bb93cea990175a41f219a855bdb84c65394de22bc45"
+      "source_sha256": "942e7d36d95ec08b8ebc3a01566fd04bda86201f5c60356d16cbc4c5663e466d"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -9172,7 +9172,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.openingPriceTx_1",
-      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
@@ -9187,7 +9187,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_1",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb"
+      "source_sha256": "2fed5820b99f23e92160a0c2dc39fa7fd9546551d1d2aaa43d3a4ebf4e36f57e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
@@ -9202,7 +9202,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_2",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb"
+      "source_sha256": "2fed5820b99f23e92160a0c2dc39fa7fd9546551d1d2aaa43d3a4ebf4e36f57e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
@@ -9222,7 +9222,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_3",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb"
+      "source_sha256": "2fed5820b99f23e92160a0c2dc39fa7fd9546551d1d2aaa43d3a4ebf4e36f57e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
@@ -9246,7 +9246,7 @@
       ],
       "sequences": [],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_4",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
+      "source_sha256": "2fed5820b99f23e92160a0c2dc39fa7fd9546551d1d2aaa43d3a4ebf4e36f57e",
       "sources": {
         "socialPoolVisibilityView": "chat.pool_search_visibility_v2",
         "socialPoolVisibilitySQL": "SELECT pool,public,revision FROM chat.pool_search_visibility_v2 WHERE ($1='pool' AND lower(pool)=lower($2)) OR ($1='token' AND lower(token)=lower($2)) ORDER BY pool"
@@ -9275,7 +9275,7 @@
         "stats_search.revision_v2"
       ],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_5",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb"
+      "source_sha256": "2fed5820b99f23e92160a0c2dc39fa7fd9546551d1d2aaa43d3a4ebf4e36f57e"
     }
   ],
   "boundaries": [
