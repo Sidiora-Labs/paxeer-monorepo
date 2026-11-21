@@ -210687,7 +210687,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1053]
 title = "Let the charts app and the composer of its documents require the event type of the market publications in the delivery policy and let the cases of the charts module build that type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
