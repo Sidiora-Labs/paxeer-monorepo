@@ -211086,7 +211086,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1066]
 title = "Give the job Go CI of the launchpad test workflow one matrix entry for each module and a limit of 180 minutes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
