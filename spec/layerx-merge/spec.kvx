@@ -210633,7 +210633,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1052]
 title = "Let the voice case of the social module that ends its provider session after two reconcile passes hold over 200 consecutive runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
