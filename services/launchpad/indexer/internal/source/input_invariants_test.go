@@ -101,7 +101,8 @@ func TestShellReceiptRejectsAmbiguousTransactionMembership(t *testing.T) {
 			hashes := []common.Hash{block.Transactions[0].Hash()}
 			switch name {
 			case "oversized list":
-				hashes = make([]common.Hash, 4097)
+				checkContentSource(t, 4097, 1, 0)
+				return
 			case "zero listed hash":
 				hashes[0] = common.Hash{}
 			case "duplicate listed hash":

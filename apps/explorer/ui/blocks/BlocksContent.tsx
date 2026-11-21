@@ -87,7 +87,7 @@ const BlocksContent = ({ type, query, enableSocket = true, top, isInsideTableCar
 
   const actionBar = isMobile ? (
     <ActionBar mt={ -6 } width="full" mx={ 0 } px={ 0 } minW={ 0 } _motionReduce={{ transitionProperty: 'none' }}>
-      <Link href={ route({ pathname: '/block/countdown' }, multichainContext) } minW="touchTarget" minH="touchTarget" display="inline-flex" alignItems="center"
+      <Link href={ route({ pathname: '/block/countdown' }, multichainContext) } display="inline-flex" alignItems="center"
         _motionReduce={{ transitionProperty: 'none' }}>
         <IconSvg name="hourglass" boxSize={ 5 } mr={ 2 }/>
         <span>Block countdown</span>

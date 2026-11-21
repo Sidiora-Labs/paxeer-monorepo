@@ -40,7 +40,6 @@ const NavLink = ({ className, item, noIcon, onClick }: Props) => {
         { ...(isActive ? { 'data-selected': true } : {}) }
         onClick={ onClick }
         w="100%"
-        minH="touchTarget"
         minW={ 0 }
         _hover={{ bg: 'accent.soft' }}
         px={ 2 }

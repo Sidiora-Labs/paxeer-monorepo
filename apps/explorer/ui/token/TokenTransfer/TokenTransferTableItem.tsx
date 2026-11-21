@@ -64,7 +64,7 @@ const TokenTransferTableItem = ({
       </TableCell>
       <TableCell>
         { method ? (
-          <Box my="1">
+          <Box my={ 'calc(var(--chakra-spacing-1) - var(--chakra-spacing-0\\.25))' }>
             <ScanMethodChip method={ method } isLoading={ isLoading }/>
           </Box>
         ) : null }
@@ -98,7 +98,11 @@ const TokenTransferTableItem = ({
       { token && (hasTokenTransferValue(token.type)) && (
         <TableCell isNumeric verticalAlign="top">
           { isConfidentialTokenType(token.type) ? (
-            <ConfidentialValue loading={ isLoading } mt="2" wordBreak="break-all"/>
+            <ConfidentialValue
+              loading={ isLoading }
+              mt={ 'calc(var(--chakra-spacing-2) - var(--chakra-spacing-0\\.25))' }
+              wordBreak="break-all"
+            />
           ) : (
             <AssetValue
               amount={ total && 'value' in total ? total.value : null }
@@ -106,7 +110,7 @@ const TokenTransferTableItem = ({
               exchangeRate={ token?.exchange_rate }
               loading={ isLoading }
               layout="vertical"
-              mt="2"
+              mt={ 'calc(var(--chakra-spacing-2) - var(--chakra-spacing-0\\.25))' }
               rowGap="2.5"
             />
           ) }

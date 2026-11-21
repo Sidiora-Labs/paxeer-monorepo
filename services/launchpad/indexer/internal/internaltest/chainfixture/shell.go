@@ -150,12 +150,23 @@ func (b *ShellBlock) Serve(t testing.TB) string {
 			block["logsBloom"], _ = json.Marshal(b.Header.Bloom)
 			block["receiptsRoot"], _ = json.Marshal(b.Header.ReceiptHash)
 			block["transactionsRoot"], _ = json.Marshal(b.Header.TxHash)
-			var txs []json.RawMessage
-			if err := json.Unmarshal(block["transactions"], &txs); err != nil {
-				t.Fatal(err)
-			}
-			if len(b.Transactions) == 0 {
-				txs = []json.RawMessage{}
+			txs := make([]map[string]json.RawMessage, len(b.Transactions))
+			for i, tx := range b.Transactions {
+				raw, err := tx.MarshalJSON()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(raw, &txs[i]); err != nil {
+					t.Fatal(err)
+				}
+				txs[i]["blockHash"], _ = json.Marshal(b.Hash)
+				txs[i]["blockNumber"], _ = json.Marshal(hexutil.EncodeBig(b.Header.Number))
+				txs[i]["transactionIndex"], _ = json.Marshal(hexutil.Uint64(i))
+				from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				txs[i]["from"], _ = json.Marshal(from)
 			}
 			block["transactions"], _ = json.Marshal(txs)
 			entry.Result, _ = json.Marshal(block)

@@ -123,3 +123,36 @@ func TestRankingBrokerRecoversAfterHolderExits(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRankingStreamDeadline(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	for _, tc := range []struct {
+		name           string
+		binaryDeadline time.Time
+		hasDeadline    bool
+		want           time.Time
+	}{
+		{
+			name: "without binary deadline",
+			want: now.Add(3 * time.Minute),
+		},
+		{
+			name:           "distant binary deadline",
+			binaryDeadline: now.Add(4 * time.Minute),
+			hasDeadline:    true,
+			want:           now.Add(3 * time.Minute),
+		},
+		{
+			name:           "near binary deadline",
+			binaryDeadline: now.Add(2 * time.Minute),
+			hasDeadline:    true,
+			want:           now.Add(90 * time.Second),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := rankingStreamDeadline(now, tc.binaryDeadline, tc.hasDeadline); !got.Equal(tc.want) {
+				t.Fatalf("stream deadline = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}

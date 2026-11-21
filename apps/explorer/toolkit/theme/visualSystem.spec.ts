@@ -12,6 +12,7 @@ import colors from './foundations/colors';
 import semanticTokens from './foundations/semanticTokens';
 import shadows from './foundations/shadows';
 import { BODY_TYPEFACE, FALLBACK_TYPEFACES, fonts, textStyles } from './foundations/typography';
+import globalCss from './globalCss';
 import system from './theme';
 
 type Mode = '_light' | '_dark';
@@ -146,7 +147,7 @@ function typeScaleAndFamiliesMatchTheBrief() {
   expect(system.token('fontWeights.medium')).toBe('500');
   expect(system.token('fontWeights.normal')).toBe('400');
   const scale = {
-    display: [ 'clamp(2rem, 1.833333rem + 0.740741vw, 2.5rem)', '2.75rem', 'semibold' ], h1: [ 'clamp(1.5rem, 1.416667rem + 0.37037vw, 1.75rem)', '2rem', 'semibold' ], h2: [ 'clamp(1.125rem, 1.083333rem + 0.185185vw, 1.25rem)', '1.5rem', 'semibold' ],
+    display: [ '2.5rem', '2.75rem', 'semibold' ], h1: [ '1.75rem', '2rem', 'semibold' ], h2: [ '1.25rem', '1.5rem', 'semibold' ],
     body: [ '0.875rem', '1.25rem', 'normal' ], small: [ '0.8125rem', '1.125rem', 'normal' ], label: [ '0.6875rem', '1rem', 'semibold' ],
     number: [ '0.8125rem', '1.125rem', 'medium' ], statValue: [ '1.5rem', '1.75rem', 'semibold' ],
   };
@@ -276,3 +277,35 @@ test(legacyKeysInheritTheRoles, legacyKeysInheritTheRoles);
 test(typeScaleAndFamiliesMatchTheBrief, typeScaleAndFamiliesMatchTheBrief);
 test(recipesResolveToTheVisualSystem, recipesResolveToTheVisualSystem);
 test(numericCellsAndMutedCountsReachTheComponents, numericCellsAndMutedCountsReachTheComponents);
+
+function touchMinimumsUseOnlySmallViewports() {
+  const selector = Object.keys(globalCss!).find((key) => key.startsWith(':where(a[href], button,'))!;
+  expect(globalCss![selector]).toEqual({
+    '@media (max-width: 834px)': {
+      minBlockSize: 'var(--chakra-sizes-touch-target) !important',
+      minInlineSize: 'var(--chakra-sizes-touch-target) !important',
+    },
+  });
+  expect(selector).toContain('summary');
+  expect(selector).toContain('.chakra-button');
+  expect(selector).toContain('[role=button]');
+  expect(selector).toContain('[tabindex="0"]');
+  expect(selector).toContain('[data-touch-placeholder]');
+  expect(system.cva(system.getRecipe('button'))({ size: 'sm' })).toMatchObject(expectedRecipeStyles({ height: 8, minWidth: 8 }));
+  expect(system.cva(system.getRecipe('input'))({ size: 'md' })).toMatchObject(expectedRecipeStyles({ height: 'var(--input-height)' }));
+  expect(system.sva(system.getSlotRecipe('select'))({ size: 'sm' }).trigger)
+    .toMatchObject(expectedRecipeStyles({ minHeight: 'var(--select-trigger-height)' }));
+  expect(globalCss!['[data-touch-inline]']).toEqual({
+    '--touch-line-size': '1lh',
+    '@media (max-width: 834px)': {
+      marginBlock: 'calc((var(--touch-line-size) - var(--chakra-sizes-touch-target)) / 2)',
+    },
+  });
+  expect(globalCss!['[data-entity-link]']).toEqual({
+    '@media (max-width: 834px)': {
+      marginBlock: 'calc((1lh - var(--chakra-sizes-touch-target)) / 2)',
+    },
+  });
+}
+
+test(touchMinimumsUseOnlySmallViewports, touchMinimumsUseOnlySmallViewports);

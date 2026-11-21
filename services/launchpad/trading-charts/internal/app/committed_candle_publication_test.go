@@ -355,7 +355,7 @@ func committedCandleMessagesAfterReconnect(t *testing.T, url string) uint64 {
 
 func TestCandlePublicationAdmissionAndShutdown(t *testing.T) {
 	c := chartOutboxConfig{Stream: "CHART_RELAY", Subject: "candle.updated.v2", Batch: 2, IntervalMillis: 20}
-	policy := delivery.Policy{Subjects: map[string]bool{c.Subject: true}}
+	policy := delivery.Policy{Subjects: map[string]bool{c.Subject: true, accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 	if err := c.validate(policy); err != nil {
 		t.Fatal(err)
 	}

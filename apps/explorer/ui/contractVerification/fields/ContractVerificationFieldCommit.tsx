@@ -108,7 +108,7 @@ const ContractVerificationFieldCommit = ({ latestCommitHash }: Props) => {
           <span >We have found the latest commit hash for the repository: </span>
           <Code color="text.secondary">{ latestCommitHash.slice(0, 7) }</Code>
           <span>. If you want to use it, </span>
-          <Button type="button" variant="link" minH="touchTarget" onClick={ handleUseLatestCommitClick }>click here</Button>
+          <Button type="button" variant="link" onClick={ handleUseLatestCommitClick }>click here</Button>
           <span>.</span>
         </div>
       ) : null }

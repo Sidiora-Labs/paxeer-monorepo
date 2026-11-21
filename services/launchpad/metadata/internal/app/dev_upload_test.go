@@ -74,7 +74,20 @@ func TestDevelopmentCreatorUpload(t *testing.T) {
 
 	// Before any creator write the token has no metadata record.
 	response, body := f.get(t, "/v2/tokens/"+devToken+"/media")
-	assertJSONError(t, response, body, http.StatusNotFound, "not_found")
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("default media %d %s", response.StatusCode, body)
+	}
+	if err := iface.ValidateJSON("ConnectedTokenMediaResponse", body); err != nil {
+		t.Fatalf("default media contract: %v\n%s", err, body)
+	}
+	var initial iface.ConnectedTokenMediaResponse
+	if err := json.Unmarshal(body, &initial); err != nil {
+		t.Fatal(err)
+	}
+	m := initial.Data.Metadata
+	if m.ChainId != 125 || m.PoolAddress != devPool || m.TokenAddress != devToken || m.Revision != "0" || m.UpdatedAt != nil || m.Display.Name != nil || m.Display.Symbol != nil || m.Display.Description != "" || m.Display.Tags == nil || len(*m.Display.Tags) != 0 || m.Display.Socials == nil || len(*m.Display.Socials) != 0 || m.LogoAssetId != nil || m.Source != "creator" || m.ModerationStatus != "allowed" || initial.Data.Image != nil {
+		t.Fatalf("default media %+v", initial.Data)
+	}
 
 	logo := devPNG(t, 6, 6)
 	post := func(bearer string, fields map[string]string, field, contentType string, data []byte) (int, string) {

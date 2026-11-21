@@ -206,7 +206,7 @@ func (a *RPCQualification) parseBlock(raw json.RawMessage) (pinnedBlock, error) 
 	var body struct {
 		Transactions []json.RawMessage `json:"transactions"`
 	}
-	if err = json.Unmarshal(raw, &body); err != nil || len(body.Transactions) > 4096 {
+	if err = json.Unmarshal(raw, &body); err != nil {
 		return pinnedBlock{}, ErrQualification
 	}
 	txs := make(types.Transactions, len(body.Transactions))
@@ -379,13 +379,13 @@ func (a *RPCQualification) discoveryEpoch(owned RPCOptions, address common.Addre
 	for i := range owned.Discovery {
 		if owned.Discovery[i].Role == role {
 			if template != nil {
-				return RPCCodeEpoch{}, ErrQualification
+				return RPCCodeEpoch{}, qualificationRefusal(role, discoveryKind(role, owned.Discovery[i].Kind), address, "template")
 			}
 			template = &owned.Discovery[i]
 		}
 	}
 	if template == nil {
-		return RPCCodeEpoch{}, ErrQualification
+		return RPCCodeEpoch{}, qualificationRefusal(role, valueUnknown, address, "template")
 	}
 	identity := deployment.Role{Address: address.Hex(), Kind: valueDirect, RuntimeHash: template.RuntimeHash}
 	if role == valueSidioraPool {
@@ -398,8 +398,10 @@ func (a *RPCQualification) discoveryEpoch(owned RPCOptions, address common.Addre
 			identity.ImplementationHash = beacon.ImplementationHash
 		case valueSurface:
 			identity.Kind = valueSurface
+			identity.StagedRuntimeHash = template.StagedRuntimeHash
+			identity.StagedUpgrade = template.StagedUpgrade
 		default:
-			return RPCCodeEpoch{}, ErrQualification
+			return RPCCodeEpoch{}, qualificationRefusal(role, template.Kind, address, "template")
 		}
 	}
 	return RPCCodeEpoch{Deployment: decode.Deployment{Address: address, Role: role, ABIRevision: template.ABIRevision, From: from}, Identity: identity}, nil
@@ -413,7 +415,7 @@ func (a *RPCQualification) discoveryEpoch(owned RPCOptions, address common.Addre
 // pool and token.
 func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMarket) error {
 	if a == nil || len(markets) > 2048 {
-		return ErrQualification
+		return qualificationRefusal("discovery", valueUnknown, common.Address{}, "coverage")
 	}
 	if len(markets) == 0 {
 		return nil
@@ -422,10 +424,10 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	defer cancel()
 	headHeader, head, err := a.headerByNumber(read, nil)
 	if err != nil {
-		return err
+		return qualificationRefusal("discovery", valueUnknown, common.Address{}, "identity")
 	}
 	if headHeader.Number.Uint64() < a.options.Manifest.ActivationHeight {
-		return fmt.Errorf("%w: rehydrate head below activation", ErrQualification)
+		return qualificationRefusal("discovery", valueUnknown, common.Address{}, "coverage")
 	}
 	a.sourceMu.Lock()
 	defer a.sourceMu.Unlock()
@@ -435,7 +437,7 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	}
 	owned, err := clone(base.options)
 	if err != nil {
-		return fmt.Errorf("%w: rehydrate runtime options: %v", ErrQualification, err)
+		return qualificationRefusal("discovery", valueUnknown, common.Address{}, "identity")
 	}
 	known := map[common.Address]bool{}
 	for _, e := range owned.Epochs {
@@ -446,16 +448,16 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	changed := false
 	for _, market := range markets {
 		if market.Token == (common.Address{}) || market.Pool == (common.Address{}) || market.Token == market.Pool || market.Height > headHeader.Number.Uint64() {
-			return fmt.Errorf("%w: rehydrate market coordinates", ErrQualification)
+			return qualificationRefusal(valueSidioraPool, base.discoveryKind(valueSidioraPool), market.Pool, "identity")
 		}
 		generation := base
 		if market.Height < owned.Manifest.ActivationHeight {
 			generation, err = base.historicalAuthority(read, market.Height)
 			if err != nil {
-				return fmt.Errorf("%w: rehydrate historical authority: %v", ErrQualification, err)
+				return qualificationContext(err, valueSidioraPool, base.discoveryKind(valueSidioraPool), market.Pool, "coverage")
 			}
 			if err = generation.proveHistoricalMarket(read, market); err != nil {
-				return fmt.Errorf("%w: rehydrate historical creation: %v", ErrQualification, err)
+				return qualificationContext(err, valueSidioraPool, generation.discoveryKind(valueSidioraPool), market.Pool, "identity")
 			}
 			for _, epoch := range generation.options.Epochs {
 				// A role at a reused address switches at the already configured
@@ -475,7 +477,7 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 				}
 				if !duplicate {
 					if len(owned.Epochs) >= 4096 {
-						return ErrQualification
+						return epoch.refusal("coverage")
 					}
 					owned.Epochs = append(owned.Epochs, epoch)
 					changed = true
@@ -485,7 +487,7 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 		factory = common.HexToAddress(generation.options.Manifest.Roles[valueSidioraFactory].Address)
 		marketEpochs, err := base.rehydratedMarketEpochs(market, generation)
 		if err != nil {
-			return fmt.Errorf("%w: rehydrate market epochs: %v", ErrQualification, err)
+			return err
 		}
 		for _, e := range marketEpochs {
 			at := head
@@ -503,12 +505,12 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 					}
 				}
 				if !matched {
-					return fmt.Errorf("%w: rehydrate conflicting %s epoch", ErrQualification, e.Deployment.Role)
+					return e.refusal("identity")
 				}
 				continue
 			}
 			if len(owned.Epochs) >= 4096 {
-				return ErrQualification
+				return e.refusal("coverage")
 			}
 			owned.Epochs = append(owned.Epochs, e)
 			changed = true
@@ -516,15 +518,15 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 		known[market.Token], known[market.Pool] = true, true
 		source, err := base.address(read, market.Token, "deploymentFactory()", head)
 		if err != nil || source != factory {
-			return fmt.Errorf("%w: rehydrate deployment factory %s, expected %s: %v", ErrQualification, source, factory, err)
+			return qualificationRefusal(valueSidioraERC20, generation.discoveryKind(valueSidioraERC20), market.Token, "identity")
 		}
 		registered, err := base.word(read, registry, "isRegisteredPool(address)", head, market.Pool)
 		if err != nil || new(big.Int).SetBytes(registered).Cmp(big.NewInt(1)) != 0 {
-			return fmt.Errorf("%w: rehydrate pool registration: %v", ErrQualification, err)
+			return qualificationRefusal(valueSidioraPool, generation.discoveryKind(valueSidioraPool), market.Pool, "identity")
 		}
 		linked, err := base.address(read, registry, "getPoolByToken(address)", head, market.Token)
 		if err != nil || linked != market.Pool {
-			return fmt.Errorf("%w: rehydrate pool token binding: %v", ErrQualification, err)
+			return qualificationRefusal(valueSidioraPool, generation.discoveryKind(valueSidioraPool), market.Pool, "identity")
 		}
 	}
 	if !changed {
@@ -536,7 +538,7 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	}
 	registryDecoder, err := decode.NewRegistry(owned.CatalogJSON, deployments)
 	if err != nil {
-		return err
+		return qualificationRefusal("discovery", valueUnknown, common.Address{}, "coverage")
 	}
 	a.discovered = &RPCQualification{client: a.client, options: owned, registry: registryDecoder, manifestHash: a.manifestHash, privateFixture: a.privateFixture, identityVerified: a.identityVerified, reads: a.reads}
 	return nil
@@ -561,7 +563,7 @@ func (a *RPCQualification) PoolReserves(ctx context.Context, pool common.Address
 	authority := a.current()
 	header, err := authority.headerByHash(ctx, block)
 	if err != nil || header == nil {
-		return out, ErrQualification
+		return out, errors.Join(ErrQualification, err)
 	}
 	e, err := authority.epoch(pool, decode.Order{Block: header.Number.Uint64(), Transaction: ^uint(0), Log: ^uint(0)})
 	if err != nil || e.Deployment.Role != valueSidioraPool {
@@ -624,11 +626,11 @@ func migratedRoleEpoch(manifest deployment.Manifest, e RPCCodeEpoch) RPCCodeEpoc
 
 func (a *RPCQualification) rehydratedMarketEpochs(market DiscoveredMarket, generation *RPCQualification) ([]RPCCodeEpoch, error) {
 	if a == nil || generation == nil || market.Token == (common.Address{}) || market.Pool == (common.Address{}) || market.Token == market.Pool || market.Height < generation.options.Manifest.ActivationHeight {
-		return nil, ErrQualification
+		return nil, qualificationRefusal(valueSidioraPool, valueUnknown, market.Pool, "identity")
 	}
 	historical := generation.options.Manifest.ActivationHeight < a.options.Manifest.ActivationHeight
 	if historical && (market.Creation == nil || market.Height >= a.options.Manifest.ActivationHeight || market.Creation.Provenance.DeploymentID != generation.options.Manifest.DeploymentVersion) {
-		return nil, ErrQualification
+		return nil, qualificationRefusal(valueSidioraPool, valueUnknown, market.Pool, "identity")
 	}
 	var epochs []RPCCodeEpoch
 	for _, item := range []struct {
@@ -667,18 +669,18 @@ func (a *RPCQualification) sourceManifest(e RPCCodeEpoch) (deployment.Manifest, 
 		return a.epochManifest(e)
 	}
 	if e.SourceActivationHeight >= a.options.Manifest.ActivationHeight || e.Deployment.From.Block < a.options.Manifest.ActivationHeight {
-		return deployment.Manifest{}, ErrQualification
+		return deployment.Manifest{}, e.refusal("coverage")
 	}
 	manifest, approved := deployment.Approved(e.SourceActivationHeight)
 	if !approved {
-		return deployment.Manifest{}, ErrQualification
+		return deployment.Manifest{}, e.refusal("coverage")
 	}
 	for _, generation := range a.options.History {
 		if generation.ActivationHeight == manifest.ActivationHeight {
 			return manifest, nil
 		}
 	}
-	return deployment.Manifest{}, ErrQualification
+	return deployment.Manifest{}, e.refusal("coverage")
 }
 
 func approvedManifestAt(height uint64) (deployment.Manifest, error) {
@@ -702,14 +704,14 @@ func (a *RPCQualification) epochManifest(e RPCCodeEpoch) (deployment.Manifest, e
 	}
 	manifest, err := approvedManifestAt(e.Deployment.From.Block)
 	if err != nil {
-		return deployment.Manifest{}, err
+		return deployment.Manifest{}, e.refusal("coverage")
 	}
 	for _, generation := range a.options.History {
 		if generation.ActivationHeight == manifest.ActivationHeight {
 			return manifest, nil
 		}
 	}
-	return deployment.Manifest{}, ErrQualification
+	return deployment.Manifest{}, e.refusal("coverage")
 }
 
 func (a *RPCQualification) epochDiscovery(e RPCCodeEpoch) []RPCDiscovery {
@@ -789,7 +791,7 @@ func (a *RPCQualification) proveHistoricalMarket(ctx context.Context, market Dis
 			continue
 		}
 		env, err := discovered.registry.Decode(*log)
-		if err != nil || env.Event == nil || env.EventName != valueMarketCreated || env.EmitterRole != valueSidioraFactory || log.Address != common.HexToAddress(a.options.Manifest.Roles[valueSidioraFactory].Address) {
+		if err != nil || env.Status != valueDecoded || env.Event == nil || env.EventName != valueMarketCreated || env.EmitterRole != valueSidioraFactory || log.Address != common.HexToAddress(a.options.Manifest.Roles[valueSidioraFactory].Address) {
 			return ErrQualification
 		}
 		if env.Event.Args["token"] != strings.ToLower(market.Token.Hex()) || env.Event.Args["pool"] != strings.ToLower(market.Pool.Hex()) {

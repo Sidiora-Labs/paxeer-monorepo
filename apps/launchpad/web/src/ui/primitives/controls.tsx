@@ -271,7 +271,7 @@ export function TabStrip<T extends string>({
                 'relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 font-bold transition-colors duration-fast',
                 variant === 'underline'
                   ? 'min-h-11 py-2 text-base'
-                  : 'min-h-control-height-md border border-control-edge py-2 rounded-sm text-sm',
+                  : 'min-h-control-height-md border border-control-edge px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-2)-var(--sl-edge-width))] rounded-sm text-sm',
                 selected
                   ? variant === 'underline'
                     ? 'text-text'

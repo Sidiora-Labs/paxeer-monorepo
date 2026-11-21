@@ -31,7 +31,6 @@ export const recipe = defineSlotRecipe({
     trigger: {
       outline: '0',
       minW: 'var(--tabs-height)',
-      minH: 'touchTarget',
       height: 'var(--tabs-height)',
       display: 'flex',
       alignItems: 'center',
@@ -198,7 +197,7 @@ export const recipe = defineSlotRecipe({
           gap: '1',
           // the pill grows with its label instead of holding a height its text can outgrow
           height: 'auto',
-          minH: 'touchTarget',
+          minH: 'var(--tabs-height)',
           minW: 'auto',
           whiteSpace: 'nowrap',
           borderRadius: 'full',

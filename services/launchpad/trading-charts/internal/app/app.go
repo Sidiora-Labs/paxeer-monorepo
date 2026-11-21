@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	sharedchain "github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -454,10 +455,9 @@ func Run(parent context.Context) error {
 				return
 			}
 			defer release()
-			if e := app.accounting.Run(ctx, app.transport); !errors.Is(e, context.Canceled) {
-				logger.Error("accounting consumer failed", slog.Any("err", e))
-				failRuntime()
-			}
+			runAccountingConsumer(ctx, func(ctx context.Context) error {
+				return app.accounting.Run(ctx, app.transport)
+			}, failRuntime, logger, waitAccountingConsumer, accountingSystemClock())
 		}()
 	} else if err := app.Consumer.Start(ctx); err != nil {
 		return fmt.Errorf("app: start consumer: %w", err)
@@ -523,14 +523,23 @@ func Run(parent context.Context) error {
 		// An internal provider failure drains current work without a signal
 		// propagation delay, so the service can release its listener promptly.
 		shutdownCtx, stop := context.WithTimeout(context.Background(), sharedprocess.DefaultTimeout)
-		shutErr = errors.Join(srv.Shutdown(shutdownCtx), app.tracker.Drain(shutdownCtx))
+		shutErr = errors.Join(ErrInternalFailure, srv.Shutdown(shutdownCtx), app.tracker.Drain(shutdownCtx))
 		stop()
 	}
 
 	cancel()
 
 	select {
+	case <-internalFailure:
+		shutErr = errors.Join(ErrInternalFailure, shutErr)
+	default:
+	}
+
+	select {
 	case err := <-serveErr:
+		if errors.Is(shutErr, ErrInternalFailure) {
+			return errors.Join(err, shutErr)
+		}
 		return err
 	default:
 		return shutErr
@@ -595,6 +604,12 @@ type chartOutboxConfig struct {
 func (c chartOutboxConfig) validate(policy delivery.Policy) error {
 	if !policy.Subjects[c.Subject] {
 		return errors.New("charts: chart outbox subject is not admitted")
+	}
+	if !policy.Subjects[accounting.MarketSubject] {
+		return errors.New("charts: invalid store configuration: policy.Subjects must enable " + accounting.MarketSubject)
+	}
+	if !policy.EventTypes[accounting.MarketSubject] {
+		return errors.New("charts: invalid store configuration: policy.EventTypes must enable " + accounting.MarketSubject)
 	}
 	return c.validateBounds()
 }

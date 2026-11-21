@@ -410,7 +410,7 @@ func (a *App) registerREST(ctx context.Context, router chi.Router, st *store.Sto
 			return
 		}
 		// Production snapshots include launched chains, their revenue and pool home chains.
-		if registrationErr = rest.RegisterProductionReads(gr, rest.ProductionReadOptions{Model: model, Stream: a.privateStream, Store: st, StatsOrigin: a.cfg.StatsURL, RegisterSnapshots: true, Admission: a.admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); registrationErr != nil {
+		if registrationErr = rest.RegisterProductionReads(gr, rest.ProductionReadOptions{Model: model, Stream: a.privateStream, Store: st, PoolFeePolicy: a.authority.poolFeePolicy, StatsOrigin: a.cfg.StatsURL, RegisterSnapshots: true, Admission: a.admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); registrationErr != nil {
 			return
 		}
 		a.authority.Register(gr, a.admission)

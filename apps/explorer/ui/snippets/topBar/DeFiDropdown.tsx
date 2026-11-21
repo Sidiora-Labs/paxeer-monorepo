@@ -37,7 +37,7 @@ const DeFiDropdown = () => {
   return items.length > 1 ? (
     <PopoverRoot>
       <PopoverTrigger>
-        <Button minH="touchTarget" minW="touchTarget" size="2xs" gap={ 0 }>
+        <Button size="2xs" gap={ 0 }>
           <chakra.span display={{ base: 'none', lg: 'inline' }} whiteSpace="pre-wrap">
             Blockscout{ space }
           </chakra.span>
@@ -68,7 +68,7 @@ const DeFiDropdown = () => {
       target={ items[0].dappId ? '_self' : '_blank' }
       asChild
     >
-      <Button minH="touchTarget" minW="touchTarget" onClick={ items[0].onClick } size="2xs">
+      <Button onClick={ items[0].onClick } size="2xs">
         { items[0].icon && <IconSvg aria-hidden={ true } name={ items[0].icon } boxSize={ 3 } mr={{ base: 0, sm: 1 }}/> }
         <Box display={{ base: 'none', sm: 'inline' }}>
           { items[0].text }

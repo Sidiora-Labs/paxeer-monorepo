@@ -1,6 +1,7 @@
 package projectionstats
 
 const (
+	valueInsufficientHistory  = "insufficient_history"
 	valueBuy                  = "buy"
 	valueComplete             = "complete"
 	valueDistributedUsdl      = "distributed_usdl"

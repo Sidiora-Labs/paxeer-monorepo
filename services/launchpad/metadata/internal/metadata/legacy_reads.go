@@ -82,7 +82,7 @@ func (l *ProductionLegacyReads) single(w http.ResponseWriter, r *http.Request) {
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
 		return
 	}
-	out, e := l.build(r.Context(), []string{token})
+	out, e := l.buildRecords(r.Context(), []string{token}, false)
 	if e != nil {
 		LogFailure(slog.Default(), "metadata read unavailable", e)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
@@ -142,6 +142,10 @@ func (l *ProductionLegacyReads) refreshModeration(ctx context.Context, tokens []
 
 // build refreshes visibility, then assembles records in one read-only snapshot.
 func (l *ProductionLegacyReads) build(ctx context.Context, tokens []string) (map[string]types.PublicMetadata, error) {
+	return l.buildRecords(ctx, tokens, true)
+}
+
+func (l *ProductionLegacyReads) buildRecords(ctx context.Context, tokens []string, skipUnavailable bool) (map[string]types.PublicMetadata, error) {
 	store := l.Media.Metadata.Store
 	bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -161,7 +165,7 @@ func (l *ProductionLegacyReads) build(ctx context.Context, tokens []string) (map
 			continue
 		}
 		identity, e := l.identity(bounded, tx, token)
-		if errors.Is(e, ErrMissing) {
+		if errors.Is(e, ErrMissing) || (skipUnavailable && errors.Is(e, errCoinMetadataUnavailable)) {
 			out[token] = record
 			continue
 		}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
@@ -324,9 +325,16 @@ func (s *CommittedSource) archiveLogs(ctx context.Context, e *committedEndpoint,
 	}
 	wg.Wait()
 	var logs []ethtypes.Log
+	size := 0
 	for i := range candidates {
 		if errs[i] != nil {
 			return nil, errs[i]
+		}
+		for _, log := range results[i] {
+			size += 256 + len(log.Data) + 32*len(log.Topics)
+			if size > decode.MaxBlockLogBytes || from < to && size > 32<<20 {
+				return nil, sourceError(OversizeError, e.id, nil)
+			}
 		}
 		logs = append(logs, results[i]...)
 	}
@@ -340,9 +348,6 @@ func (s *CommittedSource) archiveLogs(ctx context.Context, e *committedEndpoint,
 // listed-receipt logsBloom and, with keccak identity, the listed-receipt trie
 // root. Reported identity carries a Comet block-results root instead.
 func (s *CommittedSource) receiptLogs(ctx context.Context, e *committedEndpoint, b blockWire, record BlockRecord, height uint64, wanted []common.Address, bulk bool) ([]ethtypes.Log, error) {
-	if len(b.Transactions) > 4096 {
-		return nil, sourceError(IncompleteError, e.id, nil)
-	}
 	if !validHash(b.ReceiptsRoot) {
 		return nil, sourceError(IncompleteError, e.id, nil)
 	}

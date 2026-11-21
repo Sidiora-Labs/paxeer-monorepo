@@ -17,6 +17,9 @@ make -C services/launchpad build
 make -C services/launchpad test
 ```
 
+`make -C services/launchpad ci` checks both SDK modules and the service modules
+in the order `build`, `vet`, `fmt-check`, `lint`, `test`, `race` and `cover-check`.
+
 The TypeScript packages belong to the [launchpad pnpm workspace](../../apps/launchpad/pnpm-workspace.yaml). After installing its dependencies, run the workspace's `build:packages` script from `apps/launchpad`:
 
 ```sh

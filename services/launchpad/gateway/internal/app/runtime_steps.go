@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -106,4 +107,27 @@ func (r *gatewayConnectedRuntime) startStep(step runtimeStep, immediate bool, ru
 		defer r.wg.Done()
 		r.runStep(step, runtimeStepPeriod, immediate, run, waitRuntimeStep)
 	}()
+}
+
+func (r *gatewayConnectedRuntime) consumerStep(step runtimeStep, fetch func(context.Context) ([]*natsdriver.Message, error), consume func(context.Context, *natsdriver.Message) error) func(context.Context) error {
+	return func(ctx context.Context) error {
+		for {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			messages, err := fetch(ctx)
+			if err != nil {
+				return err
+			}
+			r.recordStep(step, nil)
+			for _, message := range messages {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				if err := consume(ctx, message); err != nil {
+					return fmt.Errorf("natsdriver: transactional consume: %w", err)
+				}
+			}
+		}
+	}
 }

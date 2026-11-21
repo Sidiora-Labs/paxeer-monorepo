@@ -107,7 +107,7 @@ const TokensListItem = ({
             <Flex flex="1 1 auto" minW={ 0 } alignItems="center">
               <Skeleton loading boxSize="20px" mr="8px" flexShrink={ 0 }/>
               <Skeleton loading h="1lh" w={ 40 } minW={ 0 } maxW="100%"/>
-              <Skeleton loading boxSize="touchTarget" ml={ 1 } flexShrink={ 0 }/>
+              <Skeleton loading data-touch-placeholder boxSize={ 5 } ml={ 1 } flexShrink={ 0 }/>
             </Flex>
           </Flex>
           <Flex ml="auto" flexShrink={ 0 }>

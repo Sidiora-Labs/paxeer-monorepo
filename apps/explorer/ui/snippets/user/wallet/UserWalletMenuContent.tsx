@@ -40,7 +40,7 @@ const UserWalletMenuContent = ({ isAutoConnectDisabled, address, domain, isRecon
           fontWeight="bold"
         />
         { isReconnecting ? <Spinner size="sm" m={ 'var(--chakra-spacing-0\\.5)' } flexShrink={ 0 }/> : (
-          <IconButton minH="touchTarget" minW="touchTarget"
+          <IconButton
             aria-label="Open wallet"
             variant="icon_secondary"
             size="2xs"
@@ -51,8 +51,6 @@ const UserWalletMenuContent = ({ isAutoConnectDisabled, address, domain, isRecon
         ) }
       </Flex>
       <Button
-        minH="touchTarget"
-        minW="touchTarget"
         size="sm"
         width="full"
         variant="outline"

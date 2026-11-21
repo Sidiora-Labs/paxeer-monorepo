@@ -56,7 +56,6 @@ const NetworkMenuLink = ({ title, icon, isActive: isActiveProp, url, invertIconI
         rel="noopener noreferrer"
         px={ 2 }
         py={ 2 }
-        minH="touchTarget"
         opacity={ isActive ? 0.6 : 1 }
         alignItems="center"
         cursor="pointer"

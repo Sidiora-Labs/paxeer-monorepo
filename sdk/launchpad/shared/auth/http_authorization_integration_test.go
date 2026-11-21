@@ -28,7 +28,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -78,15 +77,7 @@ func phase2AuthDatabase(t *testing.T) (*pgxpool.Pool, string) {
 func TestPhase2RealHTTPAuthorizationAndReplay(t *testing.T) {
 	pool, _ := phase2AuthDatabase(t)
 	ctx := context.Background()
-	endpoint := os.Getenv("L34_ANVIL_URL")
-	if endpoint == "" {
-		t.Fatal("owned chain125 required")
-	}
-	backend, err := ethclient.DialContext(ctx, endpoint)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer backend.Close()
+	backend := authChainClient(t)
 	committed, err := NewReportedHashBackend(backend.Client()).ReportedBlockByNumber(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -134,7 +125,12 @@ func TestPhase2RealHTTPAuthorizationAndReplay(t *testing.T) {
 	var ownerCalls atomic.Int64
 	var observationsMu sync.Mutex
 	var observations []string
-	authorizer := OperationAuthorizer{Ledger: Ledger{Pool: pool, Environment: "test", AuditKey: bytes.Repeat([]byte("a"), 32)}, Verifier: CommittedProofVerifier{Backend: NewReportedHashBackend(backend.Client()), Blocks: PostgresCommittedBlockProvider{Pool: pool}}, Policies: policies, Routes: routes, Transport: OperationTransport{"X-Test-Operation", "X-Test-Wallet-Signature"}, Observe: func(category string) {
+	blocks, err := pgxpool.NewWithConfig(ctx, pool.Config())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocks.Close()
+	authorizer := OperationAuthorizer{Ledger: Ledger{Pool: pool, Environment: "test", AuditKey: bytes.Repeat([]byte("a"), 32)}, Verifier: CommittedProofVerifier{Backend: NewReportedHashBackend(backend.Client()), Blocks: PostgresCommittedBlockProvider{Pool: blocks}}, Policies: policies, Routes: routes, Transport: OperationTransport{"X-Test-Operation", "X-Test-Wallet-Signature"}, Observe: func(category string) {
 		observationsMu.Lock()
 		observations = append(observations, category)
 		observationsMu.Unlock()

@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation';
-import { HttpError, Operations, SdkClient } from '@kindle/sdk';
+import { Operations, SdkClient } from '@kindle/sdk';
 import { QueryClient } from '@tanstack/react-query';
-import TokenModule, { type CoinInitialSnapshot, type CoinSnapshotFailure } from '@/page-modules/token';
+import TokenModule, { type CoinInitialSnapshot } from '@/page-modules/token';
+import { snapshotFailure } from '@/page-modules/token/snapshot-failure';
 import { backendConfiguration } from '@/core/backend-origins';
 import { marketCachePolicy } from '@/core/cache-policy';
-import { PoolNotFoundError, resolvePoolSnapshot } from '@/core/market/pool-resolver';
+import { resolvePoolSnapshot } from '@/core/market/pool-resolver';
 import { queryKeys } from '@/core/query-keys';
 import { readHoldersPage } from '@/core/market/holders-reader';
 import { getPoolStreams } from '@/core/clients/livestream-api';
@@ -17,12 +18,6 @@ import type { Address } from 'viem';
 interface Props { params: Promise<{ address: string }>; searchParams: Promise<Record<string, string | string[] | undefined>>; }
 
 export const metadata = { title: 'Coin market' };
-
-function snapshotFailure(error: unknown): CoinSnapshotFailure {
-  return error instanceof PoolNotFoundError ? { kind: 'not-found' }
-    : error instanceof HttpError ? { kind: 'http', status: error.status, envelope: error.envelope, code: error.code }
-      : { kind: 'error', name: error instanceof Error ? error.name : 'Error', message: error instanceof Error ? error.message : String(error) };
-}
 
 export default async function CoinPage({ params, searchParams }: Props) {
   const { address } = await params;

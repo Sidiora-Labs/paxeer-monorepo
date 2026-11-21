@@ -135,14 +135,10 @@ defmodule Explorer.Market.Fetcher.TokenTest do
 
       Bypass.expect(bypass, "GET", "/coins/list", fn conn ->
         assert conn.query_string == "include_platform=true"
-        send(observer, :fetch_response_requested)
-        Conn.resp(conn, 200, "[]")
+        respond_and_notify(conn, 200, "[]", observer)
       end)
 
-      fetcher = start_supervised!(TokenFetcher)
-
-      assert_receive :fetch_response_requested, 5_000
-      assert %TokenFetcher{} = :sys.get_state(fetcher, 5_000)
+      assert_fetcher_after_responses("/coins/list", 2)
 
       Repo.all(Token)
       |> Enum.each(fn %{fiat_value: fiat_value} -> assert is_nil(fiat_value) end)
@@ -183,15 +179,11 @@ defmodule Explorer.Market.Fetcher.TokenTest do
           assert conn.query_string ==
                    "vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&ids=#{joined_ids}"
 
-          send(observer, :fetch_response_requested)
-          Conn.resp(conn, 200, "{}")
+          respond_and_notify(conn, 200, "{}", observer)
         end
       )
 
-      fetcher = start_supervised!(TokenFetcher)
-
-      assert_receive :fetch_response_requested, 5_000
-      assert %TokenFetcher{} = :sys.get_state(fetcher, 5_000)
+      assert_fetcher_after_responses("/simple/price", 1)
 
       Repo.all(Token)
       |> Enum.each(fn %{fiat_value: fiat_value} -> assert is_nil(fiat_value) end)
@@ -202,14 +194,10 @@ defmodule Explorer.Market.Fetcher.TokenTest do
 
       Bypass.expect(bypass, "GET", "/coins/list", fn conn ->
         assert conn.query_string == "include_platform=true"
-        send(observer, :fetch_response_requested)
-        Conn.resp(conn, 429, "Too many requests")
+        respond_and_notify(conn, 429, "Too many requests", observer)
       end)
 
-      fetcher = start_supervised!(TokenFetcher)
-
-      assert_receive :fetch_response_requested, 5_000
-      assert %TokenFetcher{} = :sys.get_state(fetcher, 5_000)
+      assert_fetcher_after_responses("/coins/list", 2)
 
       Repo.all(Token)
       |> Enum.each(fn %{fiat_value: fiat_value} -> assert is_nil(fiat_value) end)
@@ -250,19 +238,36 @@ defmodule Explorer.Market.Fetcher.TokenTest do
           assert conn.query_string ==
                    "vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&ids=#{joined_ids}"
 
-          send(observer, :fetch_response_requested)
-          Conn.resp(conn, 429, "Too many requests")
+          respond_and_notify(conn, 429, "Too many requests", observer)
         end
       )
 
-      fetcher = start_supervised!(TokenFetcher)
-
-      assert_receive :fetch_response_requested, 5_000
-      assert %TokenFetcher{} = :sys.get_state(fetcher, 5_000)
+      assert_fetcher_after_responses("/simple/price", 2)
 
       Repo.all(Token)
       |> Enum.each(fn %{fiat_value: fiat_value} -> assert is_nil(fiat_value) end)
     end
+  end
+
+  defp respond_and_notify(conn, status, body, observer) do
+    conn = Conn.send_resp(conn, status, body)
+    send(observer, {:fetch_response_sent, conn.request_path})
+    conn
+  end
+
+  defp assert_fetcher_after_responses(path, count) do
+    fetcher = start_supervised!(TokenFetcher)
+    deadline = System.monotonic_time(:millisecond) + 5_000
+
+    for _ <- 1..count do
+      timeout = max(deadline - System.monotonic_time(:millisecond), 0)
+      assert_receive {:fetch_response_sent, ^path}, timeout
+    end
+
+    assert Process.whereis(TokenFetcher) == fetcher
+    assert %TokenFetcher{source: Explorer.Market.Source.CoinGecko} = :sys.get_state(fetcher, 5_000)
+    assert Process.alive?(fetcher)
+    assert Process.whereis(TokenFetcher) == fetcher
   end
 
   defp await_fetched_tokens(tokens, deadline) do

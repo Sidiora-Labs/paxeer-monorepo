@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	stdlog "log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -50,6 +51,16 @@ func localLiveKit(t *testing.T) *LiveKit {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = log.Close() })
+	t.Cleanup(func() {
+		if t.Failed() {
+			output, err := os.ReadFile(log.Name())
+			if err != nil {
+				t.Logf("voice provider output: %v", err)
+				return
+			}
+			t.Logf("voice provider output:\n%s", output)
+		}
+	})
 	command := exec.Command(binary, "--dev", "--bind", "127.0.0.1", "--node-ip", "127.0.0.1", "--config-body", fmt.Sprintf("port: %d\n", port), "--keys", key+": "+secret)
 	command.Stdout, command.Stderr = log, log
 	if err := command.Start(); err != nil {
@@ -60,7 +71,17 @@ func localLiveKit(t *testing.T) *LiveKit {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewTLSServer(httputil.NewSingleHostReverseProxy(upstream))
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DisableKeepAlives = true
+	t.Cleanup(transport.CloseIdleConnections)
+	proxy := httputil.NewSingleHostReverseProxy(upstream)
+	proxy.Transport = transport
+	proxy.ErrorLog = stdlog.New(log, "proxy: ", stdlog.LstdFlags|stdlog.Lmicroseconds)
+	proxy.ModifyResponse = func(response *http.Response) error {
+		proxy.ErrorLog.Printf("%s status=%d length=%d", response.Request.URL.Path, response.StatusCode, response.ContentLength)
+		return nil
+	}
+	server := httptest.NewTLSServer(proxy)
 	t.Cleanup(server.Close)
 	provider := &LiveKit{Endpoint: server.URL, APIKey: key, APISecret: secret, Client: server.Client()}
 	deadline := time.Now().Add(10 * time.Second)

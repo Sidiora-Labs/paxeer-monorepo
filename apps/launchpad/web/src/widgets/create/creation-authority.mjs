@@ -1,3 +1,4 @@
+import { validCreationCoinText } from '../../utils/coin-text-policy.mjs';
 import { createServer } from 'node:https';
 import { request } from 'node:http';
 import { createHash } from 'node:crypto';
@@ -185,12 +186,7 @@ async function creationPreflight(raw) {
     input.amountIn !== '' ||
     input.isBuy !== false ||
     input.nftId !== '' ||
-    typeof input.name !== 'string' ||
-    input.name.length < 1 ||
-    input.name.length > 64 ||
-    typeof input.symbol !== 'string' ||
-    input.symbol.length < 1 ||
-    input.symbol.length > 16 ||
+    !validCreationCoinText(input.name, input.symbol) ||
     !Number.isInteger(input.feeStrategy) ||
     input.feeStrategy < 0 ||
     input.feeStrategy > 3
@@ -221,11 +217,11 @@ async function creationPreflight(raw) {
   const gas = await client.estimateContractGas(call);
   if ((await client.getBlock({ blockNumber })).hash !== input.blockHash || gas <= 0n)
     throw new Error('Creation simulation lost its canonical block');
+  const gasPrice = await client.getGasPrice();
   return {
     schemaVersion: 2,
     family: 'creation',
     revision,
-    creationStage: input.creationStage,
     requestSha256: sha(raw),
     blockHash: input.blockHash,
     blockNumber: current.blockNumber,
@@ -233,13 +229,35 @@ async function creationPreflight(raw) {
     recipient: input.recipient,
     supported: true,
     executionPermitted: true,
+    oracleRequired: false,
+    capability: {
+      capabilityId: 'core_market',
+      family: 'creation',
+      deploymentVersion: revision.deploymentVersion,
+      supported: true,
+      releaseEnabled: true,
+      dependencyIds: [
+        'Router',
+        'SidioraFactory',
+        'USDL',
+        'ProtocolConfig',
+        'PoolRegistry',
+      ],
+      eventCoverage: ['market_creation'],
+      attestationReference: input.blockHash,
+      oracleRequired: false,
+    },
     simulationMode: approval ? 'usdl_approval' : 'create_market',
     creationCost: {
       protocolFeeAsset: 'USDL',
       protocolFeeRaw: current.creationFeeRaw,
+      protocolFeeDisplay: '1.00 USDL',
       gasAsset: 'PAX',
       gasEstimateAvailable: true,
-      gasEstimatePaxRaw: String(gas * (await client.getGasPrice())),
+      estimatedGasRaw: String(gas * gasPrice),
+      estimatedGasUnits: Number(gas),
+      gasPriceRaw: String(gasPrice),
+      configRevision: revision.revisionSha256,
       blockHash: input.blockHash,
       spender: manifest.roles.Router.address,
     },

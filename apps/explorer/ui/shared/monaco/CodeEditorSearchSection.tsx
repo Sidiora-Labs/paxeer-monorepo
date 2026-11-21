@@ -34,7 +34,6 @@ const CodeEditorSearchSection = ({ data, onItemClick }: Props) => {
         px={ 2 }
         _hover={{ bgColor: themeColors['custom.list.hoverBackground'] }}
         textStyle="sm"
-        minH="touchTarget"
         transitionDuration="0"
         alignItems="center"
         noIndicator

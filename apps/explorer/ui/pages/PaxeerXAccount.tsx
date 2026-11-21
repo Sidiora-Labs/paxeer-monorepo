@@ -64,6 +64,7 @@ const DetailsCard = ({ title, children }: CardProps) => (
     px={ 4 }
     py={ 4 }
     minW={ 0 }
+    css={{ '& [data-detailed-info] > [data-detailed-info-value]': { borderTopWidth: { base: 0, lg: '1' } } }}
   >
     <chakra.h2 textStyle="sm" fontWeight="semibold" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
     <DetailedInfo.Container
@@ -182,7 +183,7 @@ const PaxeerXAccountPageContent = () => {
   const summary = data ? (
     <Grid
       data-account-details
-      templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-75)), 1fr))"
+      templateColumns={{ base: 'minmax(0, 1fr)', lg: 'repeat(3, minmax(0, 1fr))' }}
       gap={ 4 }
       mb={ 6 }
       alignItems="start"

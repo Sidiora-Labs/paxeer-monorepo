@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
 import { useOptimisticReceipt } from '@/hooks/tx/use-optimistic-receipt';
@@ -102,8 +103,8 @@ export async function loadSwapTokens(operations: Operations, signal: AbortSignal
     return {
       tokenAddress,
       poolAddress,
-      name: meta?.name || `Token ${poolAddress.slice(0, 6)}`,
-      symbol: meta?.symbol || '???',
+      name: displayCoinText(meta?.name, tokenAddress),
+      symbol: displayCoinText(meta?.symbol, tokenAddress),
       logo: meta?.images?.logo || null,
       price: stats.get(poolAddress)?.price ?? null,
       marketCap: stats.get(poolAddress)?.marketCap ?? null,
@@ -170,7 +171,7 @@ function TokenSelectorModal({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, symbol, or address"
-          className="w-full border border-control-edge bg-surface-2 rounded-xl px-3 py-2.5 text-xs text-text transition placeholder:text-text-faint"
+          className="w-full border border-control-edge bg-surface-2 rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space)*2.5-var(--sl-edge-width))] text-xs text-text transition placeholder:text-text-faint"
         />
       </div>
 
@@ -207,8 +208,8 @@ function TokenSelectorModal({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-text truncate">{token.name}</span>
-                  <span className="text-2xs text-text-faint uppercase">{token.symbol}</span>
+                  <span className="min-w-0 truncate text-sm font-bold text-text" title={token.name}>{token.name}</span>
+                  <span className="block min-w-0 truncate text-2xs text-text-faint" title={token.symbol}>{token.symbol}</span>
                 </div>
                 {token.marketCap !== null && token.marketCap > 0 && (
                   <span className="text-2xs text-text-faint">MC: {formatCurrency(token.marketCap)}</span>
@@ -298,7 +299,7 @@ export function TokenInputBox({
         <button
           type="button"
           onClick={onSelectClick}
-          className="flex items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-3 py-2 transition max-w-full flex-shrink-0"
+          className="flex min-h-8 items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))] transition max-w-full flex-shrink-0"
         >
           {token ? (
             <>
@@ -312,7 +313,7 @@ export function TokenInputBox({
                   className="object-cover"
                 />
               </div>
-              <span className="text-sm font-bold text-text">{token.symbol}</span>
+              <span className="min-w-0 truncate text-sm font-bold text-text" title={token.symbol}>{token.symbol}</span>
             </>
           ) : (
             <span className="text-xs font-bold text-text">Select coin</span>
@@ -819,7 +820,7 @@ export default function SwapPanel() {
                   {effectiveRate !== null && (
                     <div className="flex justify-between text-2xs">
                       <span className="text-text-faint">Rate</span>
-                      <span className="text-text font-bold">
+                      <span className="min-w-0 truncate text-text font-bold" title={`1 ${tokenIn?.symbol} = ${formatNumber(effectiveRate, 4)} ${tokenOut?.symbol}`}>
                         1 {tokenIn?.symbol} = {formatNumber(effectiveRate, 4)} {tokenOut?.symbol}
                       </span>
                     </div>
@@ -865,7 +866,7 @@ export default function SwapPanel() {
                   {/* Min received (with slippage) */}
                   <div className="flex justify-between text-2xs">
                     <span className="text-text-faint">Minimum received ({safeFixed(Number(slippageBps) / 100, 1)}% slippage)</span>
-                    <span className="text-text font-bold">
+                    <span className="min-w-0 truncate text-text font-bold" title={tokenOut?.symbol}>
                       {quote && tokenOutDec !== undefined ? `${formatNumber(Number(formatUnits(minAmountOut, tokenOutDec)), 4)} ${tokenOut?.symbol}` : '...'}
                     </span>
                   </div>

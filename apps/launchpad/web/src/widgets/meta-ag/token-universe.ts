@@ -1,5 +1,6 @@
 /** Token discovery for optional advanced views. USDL identity/scale comes
  * from the current core deployment; unqualified WPAX is never advertised. */
+import { displayCoinText } from '@/utils/coin-text';
 import { CORE_DEPLOYMENT } from '@/core/network/deployment';
 import { QueryClient } from '@tanstack/react-query';
 import type { Operations } from '@kindle/sdk';
@@ -94,8 +95,8 @@ export async function loadMetaAgTokens(
       tokens.push({
         tokenAddress: stats.tokenAddress as `0x${string}`,
         poolAddress: poolAddr as `0x${string}`,
-        name: meta?.name || `Token ${poolAddr.slice(0, 6)}`,
-        symbol: meta?.symbol || '???',
+        name: displayCoinText(meta?.name, stats.tokenAddress),
+        symbol: displayCoinText(meta?.symbol, stats.tokenAddress),
         logo: meta?.images?.logo || null,
         // Launchpad tokens are 6-dec by factory contract.
         decimals: 6,

@@ -225,7 +225,7 @@ describe('the pill and chip sizing', () => {
     const trigger = (tabsRecipe.variants?.variant.pill as unknown as Record<string, Declarations>).trigger;
 
     expect(trigger.height).toBe('auto');
-    expect(trigger.minH).toBe('touchTarget');
+    expect(trigger.minH).toBe('var(--tabs-height)');
     expect(trigger.minW).toBe('auto');
     expect(trigger.whiteSpace).toBe('nowrap');
     expect(trigger.borderWidth).toBe('var(--chakra-border-widths-1)');
@@ -244,11 +244,11 @@ describe('the pill and chip sizing', () => {
     expect(touchTarget).toBeGreaterThanOrEqual(pillSize(strip));
   });
 
-  it('keeps free tab sizing independent of a fixed height with a touch target minimum', () => {
+  it('keeps free tab sizing independent of a fixed desktop minimum', () => {
     const trigger = (tabsRecipe.base as unknown as Record<string, Declarations>).trigger;
 
     expect(tabsRecipe.variants?.size.free).toEqual({});
-    expect(trigger.minH).toBe('touchTarget');
+    expect(trigger.minH).toBeUndefined();
     expect(pillPixels(sizes.touchTarget.value)).toBe(44);
   });
 

@@ -34,4 +34,4 @@ const AccountsList = ({ items, totalSupply, pageStartIndex, isLoading }: Props) 
   </Box>
 );
 
-export default AccountsList;
+export default React.memo(AccountsList);

@@ -931,6 +931,9 @@ fs.mkdirSync(output, { recursive: true });
 const chain = JSON.parse(fs.readFileSync(process.env.JOINED_CHAIN_FILE, 'utf8'));
 assert.equal(chain.productionActivation, false);
 const pool = chain.pool;
+const terminal = await fetch(new URL('/terminal/trending', origin));
+assert.equal(terminal.status, 200);
+await terminal.arrayBuffer();
 const browser = await chromium.launch({ headless: true });
 async function eventually(predicate, timeout = 45000) {
  const end = Date.now() + timeout;

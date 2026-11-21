@@ -128,7 +128,7 @@ const BlobData = ({ data, isLoading, hash }: Props) => {
             flexShrink={ 0 }
             maxW="full"
             name="blob_format"
-            triggerProps={{ 'aria-label': 'Blob data format', minW: 'touchTarget', minH: 'touchTarget' }}
+            triggerProps={{ 'aria-label': 'Blob data format' }}
             collection={ collection }
             placeholder="Select type"
             value={ [ reconciledFormat ] }

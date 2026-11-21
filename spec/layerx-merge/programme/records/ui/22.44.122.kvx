@@ -1,0 +1,5632 @@
+[coverage]
+surface = "Explorer transactions and price feed"
+views = 10
+named_states = 6
+view_state_combinations = 16
+full_part_renders = 508
+default_only_views = ["/cc/tx/[hash]", "/cross-chain-tx/[id]", "/txs/kettle/[hash]"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[presentation]
+statistics = "Transaction statistics use one column below 768px, two below 1000px and one track per statistic from 1000px."
+details = "Detail labels use a 220px desktop track; values retain the 14px mobile and 16px desktop text styles."
+feed_tables = "Market and update tables retain 900px minimum tracks; observation tables retain an 800px minimum track within a keyboard-accessible scroll region."
+rows = "Transaction counterparties retain their side-by-side layout; inline controls center their touch area on the text line."
+identifiers = "Summary transaction hashes retain one line with their full text and copy control available."
+headings = "Transaction hash headings retain one line with ellipsis; shared page headings wrap within the available width and entity loading headings retain one line."
+touch = "Controls retain 44px minimum touch areas through 834px and their intrinsic dimensions above 834px."
+scrollbar = "The reserved scrollbar track remains."
+retained = "Focus marks, labels, roles, landmarks, control states, loading and empty states, reduced motion and contrast colours remain."
+
+[render_review]
+first_scope = "Full part"
+last_scope = "Full part"
+first_renders = 508
+last_renders = 508
+last_result = "pass"
+last_named_states = 6
+last_views = ["/advanced-filter", "/cc/tx/[hash]", "/cross-chain-tx/[id]", "/feed", "/feed/market/[id]", "/feed/update/[hash]", "/internal-txs", "/tx/[hash]", "/txs", "/txs/kettle/[hash]"]
+last_modes = ["default", "reduced-motion", "double-text", "keyboard"]
+last_widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+last_landscape = [844, 390]
+last_schemes = ["light", "dark"]
+
+[findings.load]
+first = 0
+last = 0
+
+[findings.sideways]
+first = 0
+last = 0
+
+[findings.cut]
+first = 40
+last = 0
+
+[findings.contrast]
+first = 0
+last = 0
+
+[findings.touch]
+first = 0
+last = 0
+
+[findings.focus]
+first = 0
+last = 0
+
+[findings.shift]
+first = 2
+last = 0
+
+[findings.motion]
+first = 0
+last = 0
+
+[findings.scale]
+first = 0
+last = 0
+
+[geometry]
+views = 10
+renders = 50
+parts = 585
+widths = [390, 1280, 1440, 1920, 2560]
+threshold_pixels = 1
+fields = ["left", "top", "width", "height", "fontSize", "lineHeight"]
+first_different_parts = 555
+last_different_parts = 550
+
+[geometry.view_1]
+view = "/txs"
+different_parts = 61
+counts_by_width = [12, 10, 13, 13, 13]
+
+[geometry.view_2]
+view = "/tx/[hash]"
+different_parts = 72
+counts_by_width = [15, 12, 15, 15, 15]
+
+[geometry.view_3]
+view = "/internal-txs"
+different_parts = 52
+counts_by_width = [10, 9, 11, 11, 11]
+
+[geometry.view_4]
+view = "/feed"
+different_parts = 55
+counts_by_width = [10, 9, 12, 12, 12]
+
+[geometry.view_5]
+view = "/feed/market/[id]"
+different_parts = 55
+counts_by_width = [10, 9, 12, 12, 12]
+
+[geometry.view_6]
+view = "/feed/update/[hash]"
+different_parts = 61
+counts_by_width = [12, 10, 13, 13, 13]
+
+[geometry.view_7]
+view = "/cc/tx/[hash]"
+different_parts = 51
+counts_by_width = [10, 8, 11, 11, 11]
+
+[geometry.view_8]
+view = "/advanced-filter"
+different_parts = 47
+counts_by_width = [9, 8, 10, 10, 10]
+
+[geometry.view_9]
+view = "/cross-chain-tx/[id]"
+different_parts = 48
+counts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_10]
+view = "/txs/kettle/[hash]"
+different_parts = 48
+counts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.part_1]
+view = "/txs"
+width = 390
+part = "first-row"
+earlier = [16, 1088, 358, 281, 13, 18]
+present = [16, 1104, 343, 281, 13, 18]
+different_fields = ["top", "width"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_2]
+view = "/txs"
+width = 390
+part = "footer"
+earlier = [0, 6740, 390, 645, 14, 20]
+present = [0, 6756, 375, 849, 14, 20]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_3]
+view = "/txs"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 6934, 40, 28, 13, 18]
+present = [16, 6994, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_4]
+view = "/txs"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 7099, 73, 28, 13, 18]
+present = [16, 7223, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_5]
+view = "/txs"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 7236, 54, 28, 13, 18]
+present = [16, 7408, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_6]
+view = "/txs"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_7]
+view = "/txs"
+width = 390
+part = "list-card"
+earlier = [16, 974, 358, 5734, 14, 20]
+present = [16, 990, 343, 5734, 14, 20]
+different_fields = ["top", "width"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_8]
+view = "/txs"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 6640, 14, 20]
+present = [16, 68, 343, 6656, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_9]
+view = "/txs"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_10]
+view = "/txs"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_11]
+view = "/txs"
+width = 390
+part = "primary-control"
+earlier = [16, 108, 41, 20, 14, 20]
+present = [16, 96, 44, 44, 14, 20]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_12]
+view = "/txs"
+width = 390
+part = "statistic-card"
+earlier = [16, 155, 358, 86, 14, 20]
+present = [16, 155, 343, 86, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_13]
+view = "/txs"
+width = 1280
+part = "first-row"
+earlier = [24, 458.5, 1232, 44, 14, 20]
+present = [24, 459, 1217, 44, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_14]
+view = "/txs"
+width = 1280
+part = "footer"
+earlier = [0, 1415, 1280, 339, 14, 20]
+present = [0, 1415.5, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_15]
+view = "/txs"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1573, 73, 28, 13, 18]
+present = [437.65625, 1573.5, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_16]
+view = "/txs"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1573, 54, 28, 13, 18]
+present = [851.328125, 1573.5, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_17]
+view = "/txs"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_18]
+view = "/txs"
+width = 1280
+part = "list-card"
+earlier = [24, 370, 1232, 1013, 14, 20]
+present = [24, 370, 1217, 1013.5, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_19]
+view = "/txs"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 1302, 14, 20]
+present = [24, 81, 1217, 1302.5, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_20]
+view = "/txs"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_21]
+view = "/txs"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_22]
+view = "/txs"
+width = 1280
+part = "statistic-card"
+earlier = [24, 137, 165.703125, 124, 14, 20]
+present = [24, 137, 163.5625, 124, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_23]
+view = "/txs"
+width = 1440
+part = "first-heading"
+earlier = [104, 81, 173.640625, 32, 28, 32]
+present = [96.5, 81, 173.640625, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_24]
+view = "/txs"
+width = 1440
+part = "first-row"
+earlier = [104, 458.5, 1232, 44, 14, 20]
+present = [96.5, 459, 1232, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_25]
+view = "/txs"
+width = 1440
+part = "footer"
+earlier = [0, 1415, 1440, 339, 14, 20]
+present = [0, 1415.5, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_26]
+view = "/txs"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1573, 40, 28, 13, 18]
+present = [96.5, 1573.5, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_27]
+view = "/txs"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1573, 73, 28, 13, 18]
+present = [515.15625, 1573.5, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_28]
+view = "/txs"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1573, 54, 28, 13, 18]
+present = [933.828125, 1573.5, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_29]
+view = "/txs"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_30]
+view = "/txs"
+width = 1440
+part = "list-card"
+earlier = [104, 370, 1232, 1013, 14, 20]
+present = [96.5, 370, 1232, 1013.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_31]
+view = "/txs"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 1302, 14, 20]
+present = [96.5, 81, 1232, 1302.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_32]
+view = "/txs"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_33]
+view = "/txs"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_34]
+view = "/txs"
+width = 1440
+part = "primary-control"
+earlier = [285.640625, 85.5, 41, 20, 14, 20]
+present = [278.140625, 85.5, 41, 20, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_35]
+view = "/txs"
+width = 1440
+part = "statistic-card"
+earlier = [104, 137, 165.703125, 124, 14, 20]
+present = [96.5, 137, 165.703125, 124, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_36]
+view = "/txs"
+width = 1920
+part = "first-heading"
+earlier = [344, 81, 173.640625, 32, 28, 32]
+present = [336.5, 81, 173.640625, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_37]
+view = "/txs"
+width = 1920
+part = "first-row"
+earlier = [344, 458.5, 1232, 44, 14, 20]
+present = [336.5, 459, 1232, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_38]
+view = "/txs"
+width = 1920
+part = "footer"
+earlier = [0, 1415, 1920, 339, 14, 20]
+present = [0, 1415.5, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_39]
+view = "/txs"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1573, 40, 28, 13, 18]
+present = [336.5, 1573.5, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_40]
+view = "/txs"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1573, 73, 28, 13, 18]
+present = [755.15625, 1573.5, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_41]
+view = "/txs"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1573, 54, 28, 13, 18]
+present = [1173.828125, 1573.5, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_42]
+view = "/txs"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_43]
+view = "/txs"
+width = 1920
+part = "list-card"
+earlier = [344, 370, 1232, 1013, 14, 20]
+present = [336.5, 370, 1232, 1013.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_44]
+view = "/txs"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 1302, 14, 20]
+present = [336.5, 81, 1232, 1302.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_45]
+view = "/txs"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_46]
+view = "/txs"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_47]
+view = "/txs"
+width = 1920
+part = "primary-control"
+earlier = [525.640625, 85.5, 41, 20, 14, 20]
+present = [518.140625, 85.5, 41, 20, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_48]
+view = "/txs"
+width = 1920
+part = "statistic-card"
+earlier = [344, 137, 165.703125, 124, 14, 20]
+present = [336.5, 137, 165.703125, 124, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_49]
+view = "/txs"
+width = 2560
+part = "first-heading"
+earlier = [664, 81, 173.640625, 32, 28, 32]
+present = [656.5, 81, 173.640625, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_50]
+view = "/txs"
+width = 2560
+part = "first-row"
+earlier = [664, 458.5, 1232, 44, 14, 20]
+present = [656.5, 459, 1232, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_51]
+view = "/txs"
+width = 2560
+part = "footer"
+earlier = [0, 1415, 2560, 339, 14, 20]
+present = [0, 1415.5, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_52]
+view = "/txs"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1573, 40, 28, 13, 18]
+present = [656.5, 1573.5, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_53]
+view = "/txs"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1573, 73, 28, 13, 18]
+present = [1075.15625, 1573.5, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_54]
+view = "/txs"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1573, 54, 28, 13, 18]
+present = [1493.828125, 1573.5, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_55]
+view = "/txs"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_56]
+view = "/txs"
+width = 2560
+part = "list-card"
+earlier = [664, 370, 1232, 1013, 14, 20]
+present = [656.5, 370, 1232, 1013.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_57]
+view = "/txs"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 1302, 14, 20]
+present = [656.5, 81, 1232, 1302.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_58]
+view = "/txs"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_59]
+view = "/txs"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_60]
+view = "/txs"
+width = 2560
+part = "primary-control"
+earlier = [845.640625, 85.5, 41, 20, 14, 20]
+present = [838.140625, 85.5, 41, 20, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_61]
+view = "/txs"
+width = 2560
+part = "statistic-card"
+earlier = [664, 137, 165.703125, 124, 14, 20]
+present = [656.5, 137, 165.703125, 124, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_62]
+view = "/tx/[hash]"
+width = 390
+part = "balance-changes-card"
+earlier = [16, 1602, 358, 178, 14, 20]
+present = [16, 1618, 343, 198, 14, 20]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_63]
+view = "/tx/[hash]"
+width = 390
+part = "details-card"
+earlier = [16, 1812, 358, 70, 14, 20]
+present = [16, 1848, 343, 70, 14, 20]
+different_fields = ["top", "width"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_64]
+view = "/tx/[hash]"
+width = 390
+part = "first-heading"
+earlier = [16, 96, 358, 32, 28, 32]
+present = [16, 96, 343, 32, 28, 32]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_65]
+view = "/tx/[hash]"
+width = 390
+part = "footer"
+earlier = [0, 1914, 390, 645, 14, 20]
+present = [0, 1950, 375, 849, 14, 20]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_66]
+view = "/tx/[hash]"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 2108, 40, 28, 13, 18]
+present = [16, 2188, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_67]
+view = "/tx/[hash]"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 2273, 73, 28, 13, 18]
+present = [16, 2417, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_68]
+view = "/tx/[hash]"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 2410, 54, 28, 13, 18]
+present = [16, 2602, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_69]
+view = "/tx/[hash]"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_70]
+view = "/tx/[hash]"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 1814, 14, 20]
+present = [16, 68, 343, 1850, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_71]
+view = "/tx/[hash]"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_72]
+view = "/tx/[hash]"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_73]
+view = "/tx/[hash]"
+width = 390
+part = "primary-control"
+earlier = [16, 136, 24, 24, 16, 24]
+present = [16, 136, 44, 44, 16, 24]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_74]
+view = "/tx/[hash]"
+width = 390
+part = "summary-card"
+earlier = [16, 380, 358, 1014, 14, 20]
+present = [16, 416, 343, 994, 14, 20]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. Hash and timestamp lines stay within their available width beside their touch controls."
+
+[geometry.part_75]
+view = "/tx/[hash]"
+width = 390
+part = "transfers-card"
+earlier = [16, 1426, 358, 144, 14, 20]
+present = [16, 1442, 343, 144, 14, 20]
+different_fields = ["top", "width"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_76]
+view = "/tx/[hash]"
+width = 390
+part = "transfers-first-row"
+earlier = [16, 1450, 358, 120, 13, 18]
+present = [16, 1466, 343, 120, 13, 18]
+different_fields = ["top", "width"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_77]
+view = "/tx/[hash]"
+width = 1280
+part = "balance-changes-card"
+earlier = [24, 1171, 1232, 142, 14, 20]
+present = [24, 1171, 1217, 142, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_78]
+view = "/tx/[hash]"
+width = 1280
+part = "details-card"
+earlier = [24, 1345, 1232, 70, 14, 20]
+present = [24, 1345, 1217, 70, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_79]
+view = "/tx/[hash]"
+width = 1280
+part = "footer"
+earlier = [0, 1447, 1280, 339, 14, 20]
+present = [0, 1447, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_80]
+view = "/tx/[hash]"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1605, 73, 28, 13, 18]
+present = [437.65625, 1605, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_81]
+view = "/tx/[hash]"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1605, 54, 28, 13, 18]
+present = [851.328125, 1605, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_82]
+view = "/tx/[hash]"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_83]
+view = "/tx/[hash]"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 1334, 14, 20]
+present = [24, 81, 1217, 1334, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_84]
+view = "/tx/[hash]"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_85]
+view = "/tx/[hash]"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_86]
+view = "/tx/[hash]"
+width = 1280
+part = "summary-card"
+earlier = [24, 353, 1232, 604, 14, 20]
+present = [24, 353, 1217, 604, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_87]
+view = "/tx/[hash]"
+width = 1280
+part = "transfers-card"
+earlier = [24, 989, 1232, 150, 14, 20]
+present = [24, 989, 1217, 150, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_88]
+view = "/tx/[hash]"
+width = 1280
+part = "transfers-first-row"
+earlier = [24, 1057.5, 1232, 81, 14, 20]
+present = [24, 1057.5, 1217, 81, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_89]
+view = "/tx/[hash]"
+width = 1440
+part = "balance-changes-card"
+earlier = [104, 1171, 1232, 142, 14, 20]
+present = [96.5, 1171, 1232, 142, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_90]
+view = "/tx/[hash]"
+width = 1440
+part = "details-card"
+earlier = [104, 1345, 1232, 70, 14, 20]
+present = [96.5, 1345, 1232, 70, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_91]
+view = "/tx/[hash]"
+width = 1440
+part = "first-heading"
+earlier = [104, 109, 1082.53125, 32, 28, 32]
+present = [96.5, 109, 1082.53125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_92]
+view = "/tx/[hash]"
+width = 1440
+part = "footer"
+earlier = [0, 1447, 1440, 339, 14, 20]
+present = [0, 1447, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_93]
+view = "/tx/[hash]"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1605, 40, 28, 13, 18]
+present = [96.5, 1605, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_94]
+view = "/tx/[hash]"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1605, 73, 28, 13, 18]
+present = [515.15625, 1605, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_95]
+view = "/tx/[hash]"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1605, 54, 28, 13, 18]
+present = [933.828125, 1605, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_96]
+view = "/tx/[hash]"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_97]
+view = "/tx/[hash]"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 1334, 14, 20]
+present = [96.5, 81, 1232, 1334, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_98]
+view = "/tx/[hash]"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_99]
+view = "/tx/[hash]"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_100]
+view = "/tx/[hash]"
+width = 1440
+part = "primary-control"
+earlier = [1206.53125, 113, 24, 24, 16, 24]
+present = [1199.03125, 113, 24, 24, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_101]
+view = "/tx/[hash]"
+width = 1440
+part = "summary-card"
+earlier = [104, 353, 1232, 604, 14, 20]
+present = [96.5, 353, 1232, 604, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_102]
+view = "/tx/[hash]"
+width = 1440
+part = "transfers-card"
+earlier = [104, 989, 1232, 150, 14, 20]
+present = [96.5, 989, 1232, 150, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_103]
+view = "/tx/[hash]"
+width = 1440
+part = "transfers-first-row"
+earlier = [104, 1057.5, 1232, 81, 14, 20]
+present = [96.5, 1057.5, 1232, 81, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_104]
+view = "/tx/[hash]"
+width = 1920
+part = "balance-changes-card"
+earlier = [344, 1171, 1232, 142, 14, 20]
+present = [336.5, 1171, 1232, 142, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_105]
+view = "/tx/[hash]"
+width = 1920
+part = "details-card"
+earlier = [344, 1345, 1232, 70, 14, 20]
+present = [336.5, 1345, 1232, 70, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_106]
+view = "/tx/[hash]"
+width = 1920
+part = "first-heading"
+earlier = [344, 109, 1082.53125, 32, 28, 32]
+present = [336.5, 109, 1082.53125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_107]
+view = "/tx/[hash]"
+width = 1920
+part = "footer"
+earlier = [0, 1447, 1920, 339, 14, 20]
+present = [0, 1447, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_108]
+view = "/tx/[hash]"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1605, 40, 28, 13, 18]
+present = [336.5, 1605, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_109]
+view = "/tx/[hash]"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1605, 73, 28, 13, 18]
+present = [755.15625, 1605, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_110]
+view = "/tx/[hash]"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1605, 54, 28, 13, 18]
+present = [1173.828125, 1605, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_111]
+view = "/tx/[hash]"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_112]
+view = "/tx/[hash]"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 1334, 14, 20]
+present = [336.5, 81, 1232, 1334, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_113]
+view = "/tx/[hash]"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_114]
+view = "/tx/[hash]"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_115]
+view = "/tx/[hash]"
+width = 1920
+part = "primary-control"
+earlier = [1446.53125, 113, 24, 24, 16, 24]
+present = [1439.03125, 113, 24, 24, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_116]
+view = "/tx/[hash]"
+width = 1920
+part = "summary-card"
+earlier = [344, 353, 1232, 604, 14, 20]
+present = [336.5, 353, 1232, 604, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_117]
+view = "/tx/[hash]"
+width = 1920
+part = "transfers-card"
+earlier = [344, 989, 1232, 150, 14, 20]
+present = [336.5, 989, 1232, 150, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_118]
+view = "/tx/[hash]"
+width = 1920
+part = "transfers-first-row"
+earlier = [344, 1057.5, 1232, 81, 14, 20]
+present = [336.5, 1057.5, 1232, 81, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_119]
+view = "/tx/[hash]"
+width = 2560
+part = "balance-changes-card"
+earlier = [664, 1171, 1232, 142, 14, 20]
+present = [656.5, 1171, 1232, 142, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_120]
+view = "/tx/[hash]"
+width = 2560
+part = "details-card"
+earlier = [664, 1345, 1232, 70, 14, 20]
+present = [656.5, 1345, 1232, 70, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_121]
+view = "/tx/[hash]"
+width = 2560
+part = "first-heading"
+earlier = [664, 109, 1082.53125, 32, 28, 32]
+present = [656.5, 109, 1082.53125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_122]
+view = "/tx/[hash]"
+width = 2560
+part = "footer"
+earlier = [0, 1447, 2560, 339, 14, 20]
+present = [0, 1447, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_123]
+view = "/tx/[hash]"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1605, 40, 28, 13, 18]
+present = [656.5, 1605, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_124]
+view = "/tx/[hash]"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1605, 73, 28, 13, 18]
+present = [1075.15625, 1605, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_125]
+view = "/tx/[hash]"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1605, 54, 28, 13, 18]
+present = [1493.828125, 1605, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_126]
+view = "/tx/[hash]"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_127]
+view = "/tx/[hash]"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 1334, 14, 20]
+present = [656.5, 81, 1232, 1334, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_128]
+view = "/tx/[hash]"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_129]
+view = "/tx/[hash]"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_130]
+view = "/tx/[hash]"
+width = 2560
+part = "primary-control"
+earlier = [1766.53125, 113, 24, 24, 16, 24]
+present = [1759.03125, 113, 24, 24, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_131]
+view = "/tx/[hash]"
+width = 2560
+part = "summary-card"
+earlier = [664, 353, 1232, 604, 14, 20]
+present = [656.5, 353, 1232, 604, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_132]
+view = "/tx/[hash]"
+width = 2560
+part = "transfers-card"
+earlier = [664, 989, 1232, 150, 14, 20]
+present = [656.5, 989, 1232, 150, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_133]
+view = "/tx/[hash]"
+width = 2560
+part = "transfers-first-row"
+earlier = [664, 1057.5, 1232, 81, 14, 20]
+present = [656.5, 1057.5, 1232, 81, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_134]
+view = "/internal-txs"
+width = 390
+part = "first-row"
+earlier = [16, 180, 358, 184, 13, 18]
+present = [16, 218, 343, 184, 13, 18]
+different_fields = ["top", "width"]
+causes = ["scrollbar track", "touch rule", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_135]
+view = "/internal-txs"
+width = 390
+part = "footer"
+earlier = [0, 900, 390, 645, 14, 20]
+present = [0, 900, 375, 849, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_136]
+view = "/internal-txs"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 1094, 40, 28, 13, 18]
+present = [16, 1138, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_137]
+view = "/internal-txs"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 1259, 73, 28, 13, 18]
+present = [16, 1367, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule", "visible filter label"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_138]
+view = "/internal-txs"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 1396, 54, 28, 13, 18]
+present = [16, 1552, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule", "visible filter label"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_139]
+view = "/internal-txs"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_140]
+view = "/internal-txs"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 800, 14, 20]
+present = [16, 68, 343, 800, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_141]
+view = "/internal-txs"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_142]
+view = "/internal-txs"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_143]
+view = "/internal-txs"
+width = 390
+part = "primary-control"
+earlier = [16, 124, 358, 32, 14, 20]
+present = [16, 150, 343, 44, 14, 20]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_144]
+view = "/internal-txs"
+width = 1280
+part = "first-row"
+earlier = [24, 225.5, 1232, 79, 14, 20]
+present = [24, 252, 1217, 78.5, 14, 20]
+different_fields = ["top", "width"]
+causes = ["scrollbar track", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_145]
+view = "/internal-txs"
+width = 1280
+part = "footer"
+earlier = [0, 901, 1280, 339, 14, 20]
+present = [0, 901, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_146]
+view = "/internal-txs"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1059, 73, 28, 13, 18]
+present = [437.65625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_147]
+view = "/internal-txs"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1059, 54, 28, 13, 18]
+present = [851.328125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_148]
+view = "/internal-txs"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_149]
+view = "/internal-txs"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 788, 14, 20]
+present = [24, 81, 1217, 788, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_150]
+view = "/internal-txs"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_151]
+view = "/internal-txs"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_152]
+view = "/internal-txs"
+width = 1280
+part = "primary-control"
+earlier = [24, 137, 350, 32, 14, 20]
+present = [24, 163, 350, 32, 14, 20]
+different_fields = ["top"]
+causes = ["visible filter label"]
+description = "The visible transaction-hash filter label remains above the input."
+
+[geometry.part_153]
+view = "/internal-txs"
+width = 1440
+part = "first-heading"
+earlier = [104, 81, 277.125, 32, 28, 32]
+present = [96.5, 81, 277.125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_154]
+view = "/internal-txs"
+width = 1440
+part = "first-row"
+earlier = [104, 225.5, 1232, 79, 14, 20]
+present = [96.5, 252, 1232, 78.5, 14, 20]
+different_fields = ["left", "top"]
+causes = ["scrollbar track", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_155]
+view = "/internal-txs"
+width = 1440
+part = "footer"
+earlier = [0, 901, 1440, 339, 14, 20]
+present = [0, 901, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_156]
+view = "/internal-txs"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1059, 40, 28, 13, 18]
+present = [96.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_157]
+view = "/internal-txs"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1059, 73, 28, 13, 18]
+present = [515.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_158]
+view = "/internal-txs"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1059, 54, 28, 13, 18]
+present = [933.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_159]
+view = "/internal-txs"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_160]
+view = "/internal-txs"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 788, 14, 20]
+present = [96.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_161]
+view = "/internal-txs"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_162]
+view = "/internal-txs"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_163]
+view = "/internal-txs"
+width = 1440
+part = "primary-control"
+earlier = [104, 137, 350, 32, 14, 20]
+present = [96.5, 163, 350, 32, 14, 20]
+different_fields = ["left", "top"]
+causes = ["scrollbar track", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_164]
+view = "/internal-txs"
+width = 1920
+part = "first-heading"
+earlier = [344, 81, 277.125, 32, 28, 32]
+present = [336.5, 81, 277.125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_165]
+view = "/internal-txs"
+width = 1920
+part = "first-row"
+earlier = [344, 225.5, 1232, 79, 14, 20]
+present = [336.5, 252, 1232, 78.5, 14, 20]
+different_fields = ["left", "top"]
+causes = ["scrollbar track", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_166]
+view = "/internal-txs"
+width = 1920
+part = "footer"
+earlier = [0, 901, 1920, 339, 14, 20]
+present = [0, 901, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_167]
+view = "/internal-txs"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1059, 40, 28, 13, 18]
+present = [336.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_168]
+view = "/internal-txs"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1059, 73, 28, 13, 18]
+present = [755.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_169]
+view = "/internal-txs"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1059, 54, 28, 13, 18]
+present = [1173.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_170]
+view = "/internal-txs"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_171]
+view = "/internal-txs"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 788, 14, 20]
+present = [336.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_172]
+view = "/internal-txs"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_173]
+view = "/internal-txs"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_174]
+view = "/internal-txs"
+width = 1920
+part = "primary-control"
+earlier = [344, 137, 350, 32, 14, 20]
+present = [336.5, 163, 350, 32, 14, 20]
+different_fields = ["left", "top"]
+causes = ["scrollbar track", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_175]
+view = "/internal-txs"
+width = 2560
+part = "first-heading"
+earlier = [664, 81, 277.125, 32, 28, 32]
+present = [656.5, 81, 277.125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_176]
+view = "/internal-txs"
+width = 2560
+part = "first-row"
+earlier = [664, 225.5, 1232, 79, 14, 20]
+present = [656.5, 252, 1232, 78.5, 14, 20]
+different_fields = ["left", "top"]
+causes = ["scrollbar track", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_177]
+view = "/internal-txs"
+width = 2560
+part = "footer"
+earlier = [0, 901, 2560, 339, 14, 20]
+present = [0, 901, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_178]
+view = "/internal-txs"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1059, 40, 28, 13, 18]
+present = [656.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_179]
+view = "/internal-txs"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1059, 73, 28, 13, 18]
+present = [1075.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_180]
+view = "/internal-txs"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1059, 54, 28, 13, 18]
+present = [1493.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_181]
+view = "/internal-txs"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_182]
+view = "/internal-txs"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 788, 14, 20]
+present = [656.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_183]
+view = "/internal-txs"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_184]
+view = "/internal-txs"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_185]
+view = "/internal-txs"
+width = 2560
+part = "primary-control"
+earlier = [664, 137, 350, 32, 14, 20]
+present = [656.5, 163, 350, 32, 14, 20]
+different_fields = ["left", "top"]
+causes = ["scrollbar track", "visible filter label"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. The visible transaction-hash filter label remains above the input."
+
+[geometry.part_186]
+view = "/feed"
+width = 390
+part = "footer"
+earlier = [0, 900, 390, 645, 14, 20]
+present = [0, 900, 375, 849, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_187]
+view = "/feed"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 1094, 40, 28, 13, 18]
+present = [16, 1138, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_188]
+view = "/feed"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 1259, 73, 28, 13, 18]
+present = [16, 1367, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_189]
+view = "/feed"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 1396, 54, 28, 13, 18]
+present = [16, 1552, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_190]
+view = "/feed"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_191]
+view = "/feed"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 800, 14, 20]
+present = [16, 68, 343, 800, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_192]
+view = "/feed"
+width = 390
+part = "markets-card"
+earlier = [16, 124, 358, 252, 14, 20]
+present = [16, 124, 343, 252, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_193]
+view = "/feed"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_194]
+view = "/feed"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_195]
+view = "/feed"
+width = 390
+part = "primary-control"
+earlier = [29, 270, 63, 18, 13, 18]
+present = [29, 257, 63, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_196]
+view = "/feed"
+width = 1280
+part = "footer"
+earlier = [0, 901, 1280, 339, 14, 20]
+present = [0, 901, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_197]
+view = "/feed"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1059, 73, 28, 13, 18]
+present = [437.65625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_198]
+view = "/feed"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1059, 54, 28, 13, 18]
+present = [851.328125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_199]
+view = "/feed"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_200]
+view = "/feed"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 788, 14, 20]
+present = [24, 81, 1217, 788, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_201]
+view = "/feed"
+width = 1280
+part = "markets-card"
+earlier = [24, 137, 1232, 224, 14, 20]
+present = [24, 137, 1217, 224, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_202]
+view = "/feed"
+width = 1280
+part = "markets-first-row"
+earlier = [25, 242.5, 1230, 59, 14, 20]
+present = [25, 242.5, 1215, 59, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_203]
+view = "/feed"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_204]
+view = "/feed"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_205]
+view = "/feed"
+width = 1440
+part = "first-heading"
+earlier = [104, 81, 133.203125, 32, 28, 32]
+present = [96.5, 81, 133.203125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_206]
+view = "/feed"
+width = 1440
+part = "footer"
+earlier = [0, 901, 1440, 339, 14, 20]
+present = [0, 901, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_207]
+view = "/feed"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1059, 40, 28, 13, 18]
+present = [96.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_208]
+view = "/feed"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1059, 73, 28, 13, 18]
+present = [515.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_209]
+view = "/feed"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1059, 54, 28, 13, 18]
+present = [933.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_210]
+view = "/feed"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_211]
+view = "/feed"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 788, 14, 20]
+present = [96.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_212]
+view = "/feed"
+width = 1440
+part = "markets-card"
+earlier = [104, 137, 1232, 224, 14, 20]
+present = [96.5, 137, 1232, 224, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_213]
+view = "/feed"
+width = 1440
+part = "markets-first-row"
+earlier = [105, 242.5, 1230, 59, 14, 20]
+present = [97.5, 242.5, 1230, 59, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_214]
+view = "/feed"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_215]
+view = "/feed"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_216]
+view = "/feed"
+width = 1440
+part = "primary-control"
+earlier = [117, 255, 63, 18, 13, 18]
+present = [109.5, 255, 63, 18, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_217]
+view = "/feed"
+width = 1920
+part = "first-heading"
+earlier = [344, 81, 133.203125, 32, 28, 32]
+present = [336.5, 81, 133.203125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_218]
+view = "/feed"
+width = 1920
+part = "footer"
+earlier = [0, 901, 1920, 339, 14, 20]
+present = [0, 901, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_219]
+view = "/feed"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1059, 40, 28, 13, 18]
+present = [336.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_220]
+view = "/feed"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1059, 73, 28, 13, 18]
+present = [755.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_221]
+view = "/feed"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1059, 54, 28, 13, 18]
+present = [1173.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_222]
+view = "/feed"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_223]
+view = "/feed"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 788, 14, 20]
+present = [336.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_224]
+view = "/feed"
+width = 1920
+part = "markets-card"
+earlier = [344, 137, 1232, 224, 14, 20]
+present = [336.5, 137, 1232, 224, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_225]
+view = "/feed"
+width = 1920
+part = "markets-first-row"
+earlier = [345, 242.5, 1230, 59, 14, 20]
+present = [337.5, 242.5, 1230, 59, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_226]
+view = "/feed"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_227]
+view = "/feed"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_228]
+view = "/feed"
+width = 1920
+part = "primary-control"
+earlier = [357, 255, 63, 18, 13, 18]
+present = [349.5, 255, 63, 18, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_229]
+view = "/feed"
+width = 2560
+part = "first-heading"
+earlier = [664, 81, 133.203125, 32, 28, 32]
+present = [656.5, 81, 133.203125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_230]
+view = "/feed"
+width = 2560
+part = "footer"
+earlier = [0, 901, 2560, 339, 14, 20]
+present = [0, 901, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_231]
+view = "/feed"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1059, 40, 28, 13, 18]
+present = [656.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_232]
+view = "/feed"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1059, 73, 28, 13, 18]
+present = [1075.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_233]
+view = "/feed"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1059, 54, 28, 13, 18]
+present = [1493.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_234]
+view = "/feed"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_235]
+view = "/feed"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 788, 14, 20]
+present = [656.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_236]
+view = "/feed"
+width = 2560
+part = "markets-card"
+earlier = [664, 137, 1232, 224, 14, 20]
+present = [656.5, 137, 1232, 224, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_237]
+view = "/feed"
+width = 2560
+part = "markets-first-row"
+earlier = [665, 242.5, 1230, 59, 14, 20]
+present = [657.5, 242.5, 1230, 59, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_238]
+view = "/feed"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_239]
+view = "/feed"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_240]
+view = "/feed"
+width = 2560
+part = "primary-control"
+earlier = [677, 255, 63, 18, 13, 18]
+present = [669.5, 255, 63, 18, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_241]
+view = "/feed/market/[id]"
+width = 390
+part = "footer"
+earlier = [0, 900, 390, 645, 14, 20]
+present = [0, 900, 375, 849, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_242]
+view = "/feed/market/[id]"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 1094, 40, 28, 13, 18]
+present = [16, 1138, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_243]
+view = "/feed/market/[id]"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 1259, 73, 28, 13, 18]
+present = [16, 1367, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_244]
+view = "/feed/market/[id]"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 1396, 54, 28, 13, 18]
+present = [16, 1552, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_245]
+view = "/feed/market/[id]"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_246]
+view = "/feed/market/[id]"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 800, 14, 20]
+present = [16, 68, 343, 800, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_247]
+view = "/feed/market/[id]"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_248]
+view = "/feed/market/[id]"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_249]
+view = "/feed/market/[id]"
+width = 390
+part = "primary-control"
+earlier = [29, 270.5, 154, 18, 13, 18]
+present = [29, 257.5, 154, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_250]
+view = "/feed/market/[id]"
+width = 390
+part = "updates-card"
+earlier = [16, 124, 358, 266.5, 14, 20]
+present = [16, 124, 343, 266.5, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_251]
+view = "/feed/market/[id]"
+width = 1280
+part = "footer"
+earlier = [0, 901, 1280, 339, 14, 20]
+present = [0, 901, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_252]
+view = "/feed/market/[id]"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1059, 73, 28, 13, 18]
+present = [437.65625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_253]
+view = "/feed/market/[id]"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1059, 54, 28, 13, 18]
+present = [851.328125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_254]
+view = "/feed/market/[id]"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_255]
+view = "/feed/market/[id]"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 788, 14, 20]
+present = [24, 81, 1217, 788, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_256]
+view = "/feed/market/[id]"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_257]
+view = "/feed/market/[id]"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_258]
+view = "/feed/market/[id]"
+width = 1280
+part = "updates-card"
+earlier = [24, 137, 1232, 238.5, 14, 20]
+present = [24, 137, 1217, 238.5, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_259]
+view = "/feed/market/[id]"
+width = 1280
+part = "updates-first-row"
+earlier = [25, 242.5, 1230, 44, 14, 20]
+present = [25, 242.5, 1215, 44, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_260]
+view = "/feed/market/[id]"
+width = 1440
+part = "first-heading"
+earlier = [104, 81, 300.125, 32, 28, 32]
+present = [96.5, 81, 300.125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_261]
+view = "/feed/market/[id]"
+width = 1440
+part = "footer"
+earlier = [0, 901, 1440, 339, 14, 20]
+present = [0, 901, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_262]
+view = "/feed/market/[id]"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1059, 40, 28, 13, 18]
+present = [96.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_263]
+view = "/feed/market/[id]"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1059, 73, 28, 13, 18]
+present = [515.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_264]
+view = "/feed/market/[id]"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1059, 54, 28, 13, 18]
+present = [933.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_265]
+view = "/feed/market/[id]"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_266]
+view = "/feed/market/[id]"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 788, 14, 20]
+present = [96.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_267]
+view = "/feed/market/[id]"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_268]
+view = "/feed/market/[id]"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_269]
+view = "/feed/market/[id]"
+width = 1440
+part = "primary-control"
+earlier = [117, 255.5, 154, 18, 13, 18]
+present = [109.5, 255.5, 154, 18, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_270]
+view = "/feed/market/[id]"
+width = 1440
+part = "updates-card"
+earlier = [104, 137, 1232, 238.5, 14, 20]
+present = [96.5, 137, 1232, 238.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_271]
+view = "/feed/market/[id]"
+width = 1440
+part = "updates-first-row"
+earlier = [105, 242.5, 1230, 44, 14, 20]
+present = [97.5, 242.5, 1230, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_272]
+view = "/feed/market/[id]"
+width = 1920
+part = "first-heading"
+earlier = [344, 81, 300.125, 32, 28, 32]
+present = [336.5, 81, 300.125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_273]
+view = "/feed/market/[id]"
+width = 1920
+part = "footer"
+earlier = [0, 901, 1920, 339, 14, 20]
+present = [0, 901, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_274]
+view = "/feed/market/[id]"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1059, 40, 28, 13, 18]
+present = [336.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_275]
+view = "/feed/market/[id]"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1059, 73, 28, 13, 18]
+present = [755.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_276]
+view = "/feed/market/[id]"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1059, 54, 28, 13, 18]
+present = [1173.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_277]
+view = "/feed/market/[id]"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_278]
+view = "/feed/market/[id]"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 788, 14, 20]
+present = [336.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_279]
+view = "/feed/market/[id]"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_280]
+view = "/feed/market/[id]"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_281]
+view = "/feed/market/[id]"
+width = 1920
+part = "primary-control"
+earlier = [357, 255.5, 154, 18, 13, 18]
+present = [349.5, 255.5, 154, 18, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_282]
+view = "/feed/market/[id]"
+width = 1920
+part = "updates-card"
+earlier = [344, 137, 1232, 238.5, 14, 20]
+present = [336.5, 137, 1232, 238.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_283]
+view = "/feed/market/[id]"
+width = 1920
+part = "updates-first-row"
+earlier = [345, 242.5, 1230, 44, 14, 20]
+present = [337.5, 242.5, 1230, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_284]
+view = "/feed/market/[id]"
+width = 2560
+part = "first-heading"
+earlier = [664, 81, 300.125, 32, 28, 32]
+present = [656.5, 81, 300.125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_285]
+view = "/feed/market/[id]"
+width = 2560
+part = "footer"
+earlier = [0, 901, 2560, 339, 14, 20]
+present = [0, 901, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_286]
+view = "/feed/market/[id]"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1059, 40, 28, 13, 18]
+present = [656.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_287]
+view = "/feed/market/[id]"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1059, 73, 28, 13, 18]
+present = [1075.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_288]
+view = "/feed/market/[id]"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1059, 54, 28, 13, 18]
+present = [1493.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_289]
+view = "/feed/market/[id]"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_290]
+view = "/feed/market/[id]"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 788, 14, 20]
+present = [656.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_291]
+view = "/feed/market/[id]"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_292]
+view = "/feed/market/[id]"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_293]
+view = "/feed/market/[id]"
+width = 2560
+part = "primary-control"
+earlier = [677, 255.5, 154, 18, 13, 18]
+present = [669.5, 255.5, 154, 18, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_294]
+view = "/feed/market/[id]"
+width = 2560
+part = "updates-card"
+earlier = [664, 137, 1232, 238.5, 14, 20]
+present = [656.5, 137, 1232, 238.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_295]
+view = "/feed/market/[id]"
+width = 2560
+part = "updates-first-row"
+earlier = [665, 242.5, 1230, 44, 14, 20]
+present = [657.5, 242.5, 1230, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_296]
+view = "/feed/update/[hash]"
+width = 390
+part = "details-card"
+earlier = [16, 216, 358, 669, 14, 20]
+present = [16, 216, 343, 669, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_297]
+view = "/feed/update/[hash]"
+width = 390
+part = "footer"
+earlier = [0, 1135.5, 390, 645, 14, 20]
+present = [0, 1151.5, 375, 849, 14, 20]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_298]
+view = "/feed/update/[hash]"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 1329.5, 40, 28, 13, 18]
+present = [16, 1389.5, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_299]
+view = "/feed/update/[hash]"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 1494.5, 73, 28, 13, 18]
+present = [16, 1618.5, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_300]
+view = "/feed/update/[hash]"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 1631.5, 54, 28, 13, 18]
+present = [16, 1803.5, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_301]
+view = "/feed/update/[hash]"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_302]
+view = "/feed/update/[hash]"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 1035.5, 14, 20]
+present = [16, 68, 343, 1051.5, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_303]
+view = "/feed/update/[hash]"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_304]
+view = "/feed/update/[hash]"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_305]
+view = "/feed/update/[hash]"
+width = 390
+part = "observations-card"
+earlier = [16, 897, 358, 206.5, 14, 20]
+present = [16, 897, 343, 222.5, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_306]
+view = "/feed/update/[hash]"
+width = 390
+part = "observations-first-row"
+earlier = [17, 1014.5, 800, 44, 14, 20]
+present = [17, 1030.5, 800, 44, 14, 20]
+different_fields = ["top"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_307]
+view = "/feed/update/[hash]"
+width = 390
+part = "primary-control"
+earlier = [354, 140, 20, 20, 16, 24]
+present = [315, 128, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_308]
+view = "/feed/update/[hash]"
+width = 1280
+part = "details-card"
+earlier = [24, 137, 1232, 407, 14, 20]
+present = [24, 137, 1217, 407, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_309]
+view = "/feed/update/[hash]"
+width = 1280
+part = "footer"
+earlier = [0, 901, 1280, 339, 14, 20]
+present = [0, 901, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_310]
+view = "/feed/update/[hash]"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1059, 73, 28, 13, 18]
+present = [437.65625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_311]
+view = "/feed/update/[hash]"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1059, 54, 28, 13, 18]
+present = [851.328125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_312]
+view = "/feed/update/[hash]"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_313]
+view = "/feed/update/[hash]"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 788, 14, 20]
+present = [24, 81, 1217, 788, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_314]
+view = "/feed/update/[hash]"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_315]
+view = "/feed/update/[hash]"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_316]
+view = "/feed/update/[hash]"
+width = 1280
+part = "observations-card"
+earlier = [24, 560, 1232, 194.5, 14, 20]
+present = [24, 560, 1217, 194.5, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_317]
+view = "/feed/update/[hash]"
+width = 1280
+part = "observations-first-row"
+earlier = [25, 665.5, 1230, 44, 14, 20]
+present = [25, 665.5, 1215, 44, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_318]
+view = "/feed/update/[hash]"
+width = 1440
+part = "details-card"
+earlier = [104, 137, 1232, 407, 14, 20]
+present = [96.5, 137, 1232, 407, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_319]
+view = "/feed/update/[hash]"
+width = 1440
+part = "first-heading"
+earlier = [104, 81, 169.640625, 32, 28, 32]
+present = [96.5, 81, 169.640625, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_320]
+view = "/feed/update/[hash]"
+width = 1440
+part = "footer"
+earlier = [0, 901, 1440, 339, 14, 20]
+present = [0, 901, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_321]
+view = "/feed/update/[hash]"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1059, 40, 28, 13, 18]
+present = [96.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_322]
+view = "/feed/update/[hash]"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1059, 73, 28, 13, 18]
+present = [515.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_323]
+view = "/feed/update/[hash]"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1059, 54, 28, 13, 18]
+present = [933.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_324]
+view = "/feed/update/[hash]"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_325]
+view = "/feed/update/[hash]"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 788, 14, 20]
+present = [96.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_326]
+view = "/feed/update/[hash]"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_327]
+view = "/feed/update/[hash]"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_328]
+view = "/feed/update/[hash]"
+width = 1440
+part = "observations-card"
+earlier = [104, 560, 1232, 194.5, 14, 20]
+present = [96.5, 560, 1232, 194.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_329]
+view = "/feed/update/[hash]"
+width = 1440
+part = "observations-first-row"
+earlier = [105, 665.5, 1230, 44, 14, 20]
+present = [97.5, 665.5, 1230, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_330]
+view = "/feed/update/[hash]"
+width = 1440
+part = "primary-control"
+earlier = [1030.640625, 87, 20, 20, 16, 24]
+present = [1023.140625, 87, 20, 20, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_331]
+view = "/feed/update/[hash]"
+width = 1920
+part = "details-card"
+earlier = [344, 137, 1232, 407, 14, 20]
+present = [336.5, 137, 1232, 407, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_332]
+view = "/feed/update/[hash]"
+width = 1920
+part = "first-heading"
+earlier = [344, 81, 169.640625, 32, 28, 32]
+present = [336.5, 81, 169.640625, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_333]
+view = "/feed/update/[hash]"
+width = 1920
+part = "footer"
+earlier = [0, 901, 1920, 339, 14, 20]
+present = [0, 901, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_334]
+view = "/feed/update/[hash]"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1059, 40, 28, 13, 18]
+present = [336.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_335]
+view = "/feed/update/[hash]"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1059, 73, 28, 13, 18]
+present = [755.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_336]
+view = "/feed/update/[hash]"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1059, 54, 28, 13, 18]
+present = [1173.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_337]
+view = "/feed/update/[hash]"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_338]
+view = "/feed/update/[hash]"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 788, 14, 20]
+present = [336.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_339]
+view = "/feed/update/[hash]"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_340]
+view = "/feed/update/[hash]"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_341]
+view = "/feed/update/[hash]"
+width = 1920
+part = "observations-card"
+earlier = [344, 560, 1232, 194.5, 14, 20]
+present = [336.5, 560, 1232, 194.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_342]
+view = "/feed/update/[hash]"
+width = 1920
+part = "observations-first-row"
+earlier = [345, 665.5, 1230, 44, 14, 20]
+present = [337.5, 665.5, 1230, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_343]
+view = "/feed/update/[hash]"
+width = 1920
+part = "primary-control"
+earlier = [1270.640625, 87, 20, 20, 16, 24]
+present = [1263.140625, 87, 20, 20, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_344]
+view = "/feed/update/[hash]"
+width = 2560
+part = "details-card"
+earlier = [664, 137, 1232, 407, 14, 20]
+present = [656.5, 137, 1232, 407, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_345]
+view = "/feed/update/[hash]"
+width = 2560
+part = "first-heading"
+earlier = [664, 81, 169.640625, 32, 28, 32]
+present = [656.5, 81, 169.640625, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_346]
+view = "/feed/update/[hash]"
+width = 2560
+part = "footer"
+earlier = [0, 901, 2560, 339, 14, 20]
+present = [0, 901, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_347]
+view = "/feed/update/[hash]"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1059, 40, 28, 13, 18]
+present = [656.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_348]
+view = "/feed/update/[hash]"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1059, 73, 28, 13, 18]
+present = [1075.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_349]
+view = "/feed/update/[hash]"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1059, 54, 28, 13, 18]
+present = [1493.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_350]
+view = "/feed/update/[hash]"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_351]
+view = "/feed/update/[hash]"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 788, 14, 20]
+present = [656.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_352]
+view = "/feed/update/[hash]"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_353]
+view = "/feed/update/[hash]"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_354]
+view = "/feed/update/[hash]"
+width = 2560
+part = "observations-card"
+earlier = [664, 560, 1232, 194.5, 14, 20]
+present = [656.5, 560, 1232, 194.5, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_355]
+view = "/feed/update/[hash]"
+width = 2560
+part = "observations-first-row"
+earlier = [665, 665.5, 1230, 44, 14, 20]
+present = [657.5, 665.5, 1230, 44, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_356]
+view = "/feed/update/[hash]"
+width = 2560
+part = "primary-control"
+earlier = [1590.640625, 87, 20, 20, 16, 24]
+present = [1583.140625, 87, 20, 20, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_357]
+view = "/cc/tx/[hash]"
+width = 390
+part = "details-card"
+earlier = [16, 176, 358, 1163, 14, 20]
+present = [16, 176, 343, 1163, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_358]
+view = "/cc/tx/[hash]"
+width = 390
+part = "footer"
+earlier = [0, 1371, 390, 645, 14, 20]
+present = [0, 1371, 375, 849, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_359]
+view = "/cc/tx/[hash]"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 1565, 40, 28, 13, 18]
+present = [16, 1609, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_360]
+view = "/cc/tx/[hash]"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 1730, 73, 28, 13, 18]
+present = [16, 1838, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_361]
+view = "/cc/tx/[hash]"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 1867, 54, 28, 13, 18]
+present = [16, 2023, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_362]
+view = "/cc/tx/[hash]"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_363]
+view = "/cc/tx/[hash]"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 1271, 14, 20]
+present = [16, 68, 343, 1271, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_364]
+view = "/cc/tx/[hash]"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_365]
+view = "/cc/tx/[hash]"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_366]
+view = "/cc/tx/[hash]"
+width = 390
+part = "primary-control"
+earlier = [353.5, 122, 20, 20, 16, 24]
+present = [308, 110, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_367]
+view = "/cc/tx/[hash]"
+width = 1280
+part = "details-card"
+earlier = [24, 189, 1232, 851, 16, 24]
+present = [24, 189, 1217, 851, 16, 24]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_368]
+view = "/cc/tx/[hash]"
+width = 1280
+part = "footer"
+earlier = [0, 1072, 1280, 339, 14, 20]
+present = [0, 1072, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_369]
+view = "/cc/tx/[hash]"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1230, 73, 28, 13, 18]
+present = [437.65625, 1230, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_370]
+view = "/cc/tx/[hash]"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1230, 54, 28, 13, 18]
+present = [851.328125, 1230, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_371]
+view = "/cc/tx/[hash]"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_372]
+view = "/cc/tx/[hash]"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 959, 14, 20]
+present = [24, 81, 1217, 959, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_373]
+view = "/cc/tx/[hash]"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_374]
+view = "/cc/tx/[hash]"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_375]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "details-card"
+earlier = [104, 189, 1232, 851, 16, 24]
+present = [96.5, 189, 1232, 851, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_376]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "first-heading"
+earlier = [104, 81, 293.84375, 32, 28, 32]
+present = [96.5, 81, 293.84375, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_377]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "footer"
+earlier = [0, 1072, 1440, 339, 14, 20]
+present = [0, 1072, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_378]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1230, 40, 28, 13, 18]
+present = [96.5, 1230, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_379]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1230, 73, 28, 13, 18]
+present = [515.15625, 1230, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_380]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1230, 54, 28, 13, 18]
+present = [933.828125, 1230, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_381]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_382]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 959, 14, 20]
+present = [96.5, 81, 1232, 959, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_383]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_384]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_385]
+view = "/cc/tx/[hash]"
+width = 1440
+part = "primary-control"
+earlier = [565, 135, 20, 20, 16, 24]
+present = [557.5, 135, 20, 20, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_386]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "details-card"
+earlier = [344, 189, 1232, 851, 16, 24]
+present = [336.5, 189, 1232, 851, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_387]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "first-heading"
+earlier = [344, 81, 293.84375, 32, 28, 32]
+present = [336.5, 81, 293.84375, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_388]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "footer"
+earlier = [0, 1072, 1920, 339, 14, 20]
+present = [0, 1072, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_389]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1230, 40, 28, 13, 18]
+present = [336.5, 1230, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_390]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1230, 73, 28, 13, 18]
+present = [755.15625, 1230, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_391]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1230, 54, 28, 13, 18]
+present = [1173.828125, 1230, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_392]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_393]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 959, 14, 20]
+present = [336.5, 81, 1232, 959, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_394]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_395]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_396]
+view = "/cc/tx/[hash]"
+width = 1920
+part = "primary-control"
+earlier = [805, 135, 20, 20, 16, 24]
+present = [797.5, 135, 20, 20, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_397]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "details-card"
+earlier = [664, 189, 1232, 851, 16, 24]
+present = [656.5, 189, 1232, 851, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_398]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "first-heading"
+earlier = [664, 81, 293.84375, 32, 28, 32]
+present = [656.5, 81, 293.84375, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_399]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "footer"
+earlier = [0, 1072, 2560, 339, 14, 20]
+present = [0, 1072, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_400]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1230, 40, 28, 13, 18]
+present = [656.5, 1230, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_401]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1230, 73, 28, 13, 18]
+present = [1075.15625, 1230, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_402]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1230, 54, 28, 13, 18]
+present = [1493.828125, 1230, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_403]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_404]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 959, 14, 20]
+present = [656.5, 81, 1232, 959, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_405]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_406]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_407]
+view = "/cc/tx/[hash]"
+width = 2560
+part = "primary-control"
+earlier = [1125, 135, 20, 20, 16, 24]
+present = [1117.5, 135, 20, 20, 16, 24]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_408]
+view = "/advanced-filter"
+width = 390
+part = "footer"
+earlier = [0, 900, 390, 645, 14, 20]
+present = [0, 900, 375, 849, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_409]
+view = "/advanced-filter"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 1094, 40, 28, 13, 18]
+present = [16, 1138, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_410]
+view = "/advanced-filter"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 1259, 73, 28, 13, 18]
+present = [16, 1367, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_411]
+view = "/advanced-filter"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 1396, 54, 28, 13, 18]
+present = [16, 1552, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_412]
+view = "/advanced-filter"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_413]
+view = "/advanced-filter"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 800, 14, 20]
+present = [16, 68, 343, 800, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_414]
+view = "/advanced-filter"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_415]
+view = "/advanced-filter"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_416]
+view = "/advanced-filter"
+width = 390
+part = "primary-control"
+earlier = [286, 7.5, 40, 40, 16, 24]
+present = [263, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_417]
+view = "/advanced-filter"
+width = 1280
+part = "footer"
+earlier = [0, 901, 1280, 339, 14, 20]
+present = [0, 901, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_418]
+view = "/advanced-filter"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1059, 73, 28, 13, 18]
+present = [437.65625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_419]
+view = "/advanced-filter"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1059, 54, 28, 13, 18]
+present = [851.328125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_420]
+view = "/advanced-filter"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_421]
+view = "/advanced-filter"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 788, 14, 20]
+present = [24, 81, 1217, 788, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_422]
+view = "/advanced-filter"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_423]
+view = "/advanced-filter"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_424]
+view = "/advanced-filter"
+width = 1280
+part = "primary-control"
+earlier = [697.5, 10, 320, 36, 14, 20]
+present = [682.5, 10, 320, 36, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_425]
+view = "/advanced-filter"
+width = 1440
+part = "first-heading"
+earlier = [104, 81, 205.8125, 32, 28, 32]
+present = [96.5, 81, 205.8125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_426]
+view = "/advanced-filter"
+width = 1440
+part = "footer"
+earlier = [0, 901, 1440, 339, 14, 20]
+present = [0, 901, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_427]
+view = "/advanced-filter"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1059, 40, 28, 13, 18]
+present = [96.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_428]
+view = "/advanced-filter"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1059, 73, 28, 13, 18]
+present = [515.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_429]
+view = "/advanced-filter"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1059, 54, 28, 13, 18]
+present = [933.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_430]
+view = "/advanced-filter"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_431]
+view = "/advanced-filter"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 788, 14, 20]
+present = [96.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_432]
+view = "/advanced-filter"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_433]
+view = "/advanced-filter"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_434]
+view = "/advanced-filter"
+width = 1440
+part = "primary-control"
+earlier = [777.5, 10, 320, 36, 14, 20]
+present = [770, 10, 320, 36, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_435]
+view = "/advanced-filter"
+width = 1920
+part = "first-heading"
+earlier = [344, 81, 205.8125, 32, 28, 32]
+present = [336.5, 81, 205.8125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_436]
+view = "/advanced-filter"
+width = 1920
+part = "footer"
+earlier = [0, 901, 1920, 339, 14, 20]
+present = [0, 901, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_437]
+view = "/advanced-filter"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1059, 40, 28, 13, 18]
+present = [336.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_438]
+view = "/advanced-filter"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1059, 73, 28, 13, 18]
+present = [755.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_439]
+view = "/advanced-filter"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1059, 54, 28, 13, 18]
+present = [1173.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_440]
+view = "/advanced-filter"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_441]
+view = "/advanced-filter"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 788, 14, 20]
+present = [336.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_442]
+view = "/advanced-filter"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_443]
+view = "/advanced-filter"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_444]
+view = "/advanced-filter"
+width = 1920
+part = "primary-control"
+earlier = [1017.5, 10, 320, 36, 14, 20]
+present = [1010, 10, 320, 36, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_445]
+view = "/advanced-filter"
+width = 2560
+part = "first-heading"
+earlier = [664, 81, 205.8125, 32, 28, 32]
+present = [656.5, 81, 205.8125, 32, 28, 32]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_446]
+view = "/advanced-filter"
+width = 2560
+part = "footer"
+earlier = [0, 901, 2560, 339, 14, 20]
+present = [0, 901, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_447]
+view = "/advanced-filter"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1059, 40, 28, 13, 18]
+present = [656.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_448]
+view = "/advanced-filter"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1059, 73, 28, 13, 18]
+present = [1075.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_449]
+view = "/advanced-filter"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1059, 54, 28, 13, 18]
+present = [1493.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_450]
+view = "/advanced-filter"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_451]
+view = "/advanced-filter"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 788, 14, 20]
+present = [656.5, 81, 1232, 788, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_452]
+view = "/advanced-filter"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_453]
+view = "/advanced-filter"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_454]
+view = "/advanced-filter"
+width = 2560
+part = "primary-control"
+earlier = [1337.5, 10, 320, 36, 14, 20]
+present = [1330, 10, 320, 36, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_455]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "first-heading"
+earlier = [16, 252, 358, 36, 32, 36]
+present = [16, 252, 343, 36, 32, 36]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_456]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "footer"
+earlier = [0, 900, 390, 645, 14, 20]
+present = [0, 900, 375, 849, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_457]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 1094, 40, 28, 13, 18]
+present = [16, 1138, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_458]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 1259, 73, 28, 13, 18]
+present = [16, 1367, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_459]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 1396, 54, 28, 13, 18]
+present = [16, 1552, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_460]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_461]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 344, 14, 20]
+present = [16, 68, 343, 348, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_462]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_463]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_464]
+view = "/cross-chain-tx/[id]"
+width = 390
+part = "primary-control"
+earlier = [16, 340, 155, 72, 14, 20]
+present = [16, 372, 155, 44, 16, 24]
+different_fields = ["top", "height", "fontSize", "lineHeight"]
+causes = ["touch rule", "native link markup"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_465]
+view = "/cross-chain-tx/[id]"
+width = 1280
+part = "footer"
+earlier = [0, 901, 1280, 339, 14, 20]
+present = [0, 901, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_466]
+view = "/cross-chain-tx/[id]"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1059, 73, 28, 13, 18]
+present = [437.65625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_467]
+view = "/cross-chain-tx/[id]"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1059, 54, 28, 13, 18]
+present = [851.328125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_468]
+view = "/cross-chain-tx/[id]"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_469]
+view = "/cross-chain-tx/[id]"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 376, 14, 20]
+present = [24, 81, 1217, 376, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_470]
+view = "/cross-chain-tx/[id]"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_471]
+view = "/cross-chain-tx/[id]"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_472]
+view = "/cross-chain-tx/[id]"
+width = 1280
+part = "primary-control"
+earlier = [24, 385, 155, 72, 14, 20]
+present = [24, 417, 155, 40, 16, 24]
+different_fields = ["top", "height", "fontSize", "lineHeight"]
+causes = ["native link markup"]
+description = "One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_473]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "first-heading"
+earlier = [104, 317, 800, 36, 32, 36]
+present = [96.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_474]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "footer"
+earlier = [0, 901, 1440, 339, 14, 20]
+present = [0, 901, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_475]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1059, 40, 28, 13, 18]
+present = [96.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_476]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1059, 73, 28, 13, 18]
+present = [515.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_477]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1059, 54, 28, 13, 18]
+present = [933.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_478]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_479]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 376, 14, 20]
+present = [96.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_480]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_481]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_482]
+view = "/cross-chain-tx/[id]"
+width = 1440
+part = "primary-control"
+earlier = [104, 385, 155, 72, 14, 20]
+present = [96.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar track", "native link markup"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_483]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "first-heading"
+earlier = [344, 317, 800, 36, 32, 36]
+present = [336.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_484]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "footer"
+earlier = [0, 901, 1920, 339, 14, 20]
+present = [0, 901, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_485]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1059, 40, 28, 13, 18]
+present = [336.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_486]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1059, 73, 28, 13, 18]
+present = [755.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_487]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1059, 54, 28, 13, 18]
+present = [1173.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_488]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_489]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 376, 14, 20]
+present = [336.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_490]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_491]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_492]
+view = "/cross-chain-tx/[id]"
+width = 1920
+part = "primary-control"
+earlier = [344, 385, 155, 72, 14, 20]
+present = [336.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar track", "native link markup"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_493]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "first-heading"
+earlier = [664, 317, 800, 36, 32, 36]
+present = [656.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_494]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "footer"
+earlier = [0, 901, 2560, 339, 14, 20]
+present = [0, 901, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_495]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1059, 40, 28, 13, 18]
+present = [656.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_496]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1059, 73, 28, 13, 18]
+present = [1075.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_497]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1059, 54, 28, 13, 18]
+present = [1493.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_498]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_499]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 376, 14, 20]
+present = [656.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_500]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_501]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_502]
+view = "/cross-chain-tx/[id]"
+width = 2560
+part = "primary-control"
+earlier = [664, 385, 155, 72, 14, 20]
+present = [656.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar track", "native link markup"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_503]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "first-heading"
+earlier = [16, 252, 358, 36, 32, 36]
+present = [16, 252, 343, 36, 32, 36]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_504]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "footer"
+earlier = [0, 900, 390, 645, 14, 20]
+present = [0, 900, 375, 849, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_505]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "footer-column-1-first-link"
+earlier = [16, 1094, 40, 28, 13, 18]
+present = [16, 1138, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_506]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "footer-column-2-first-link"
+earlier = [16, 1259, 73, 28, 13, 18]
+present = [16, 1367, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_507]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "footer-column-3-first-link"
+earlier = [16, 1396, 54, 28, 13, 18]
+present = [16, 1552, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch rule"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_508]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "header"
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_509]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "main"
+earlier = [16, 68, 358, 344, 14, 20]
+present = [16, 68, 343, 348, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. Text wraps within the width remaining beside the reserved scrollbar track."
+
+[geometry.part_510]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "navigation"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_511]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "navigation-first-item"
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. Controls retain 44px minimum touch areas and inline controls center those areas on their text lines."
+
+[geometry.part_512]
+view = "/txs/kettle/[hash]"
+width = 390
+part = "primary-control"
+earlier = [16, 340, 155, 72, 14, 20]
+present = [16, 372, 155, 44, 16, 24]
+different_fields = ["top", "height", "fontSize", "lineHeight"]
+causes = ["touch rule", "native link markup"]
+description = "Controls retain 44px minimum touch areas and inline controls center those areas on their text lines. One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_513]
+view = "/txs/kettle/[hash]"
+width = 1280
+part = "footer"
+earlier = [0, 901, 1280, 339, 14, 20]
+present = [0, 901, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_514]
+view = "/txs/kettle/[hash]"
+width = 1280
+part = "footer-column-2-first-link"
+earlier = [442.65625, 1059, 73, 28, 13, 18]
+present = [437.65625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_515]
+view = "/txs/kettle/[hash]"
+width = 1280
+part = "footer-column-3-first-link"
+earlier = [861.328125, 1059, 54, 28, 13, 18]
+present = [851.328125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_516]
+view = "/txs/kettle/[hash]"
+width = 1280
+part = "header"
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_517]
+view = "/txs/kettle/[hash]"
+width = 1280
+part = "main"
+earlier = [24, 81, 1232, 376, 14, 20]
+present = [24, 81, 1217, 376, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_518]
+view = "/txs/kettle/[hash]"
+width = 1280
+part = "navigation"
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_519]
+view = "/txs/kettle/[hash]"
+width = 1280
+part = "navigation-first-item"
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_520]
+view = "/txs/kettle/[hash]"
+width = 1280
+part = "primary-control"
+earlier = [24, 385, 155, 72, 14, 20]
+present = [24, 417, 155, 40, 16, 24]
+different_fields = ["top", "height", "fontSize", "lineHeight"]
+causes = ["native link markup"]
+description = "One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_521]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "first-heading"
+earlier = [104, 317, 800, 36, 32, 36]
+present = [96.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_522]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "footer"
+earlier = [0, 901, 1440, 339, 14, 20]
+present = [0, 901, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_523]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "footer-column-1-first-link"
+earlier = [104, 1059, 40, 28, 13, 18]
+present = [96.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_524]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "footer-column-2-first-link"
+earlier = [522.65625, 1059, 73, 28, 13, 18]
+present = [515.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_525]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "footer-column-3-first-link"
+earlier = [941.328125, 1059, 54, 28, 13, 18]
+present = [933.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_526]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "header"
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_527]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "main"
+earlier = [104, 81, 1232, 376, 14, 20]
+present = [96.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_528]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "navigation"
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_529]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "navigation-first-item"
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_530]
+view = "/txs/kettle/[hash]"
+width = 1440
+part = "primary-control"
+earlier = [104, 385, 155, 72, 14, 20]
+present = [96.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar track", "native link markup"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_531]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "first-heading"
+earlier = [344, 317, 800, 36, 32, 36]
+present = [336.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_532]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "footer"
+earlier = [0, 901, 1920, 339, 14, 20]
+present = [0, 901, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_533]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "footer-column-1-first-link"
+earlier = [344, 1059, 40, 28, 13, 18]
+present = [336.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_534]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "footer-column-2-first-link"
+earlier = [762.65625, 1059, 73, 28, 13, 18]
+present = [755.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_535]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "footer-column-3-first-link"
+earlier = [1181.328125, 1059, 54, 28, 13, 18]
+present = [1173.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_536]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "header"
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_537]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "main"
+earlier = [344, 81, 1232, 376, 14, 20]
+present = [336.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_538]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "navigation"
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_539]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "navigation-first-item"
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_540]
+view = "/txs/kettle/[hash]"
+width = 1920
+part = "primary-control"
+earlier = [344, 385, 155, 72, 14, 20]
+present = [336.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar track", "native link markup"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+
+[geometry.part_541]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "first-heading"
+earlier = [664, 317, 800, 36, 32, 36]
+present = [656.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_542]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "footer"
+earlier = [0, 901, 2560, 339, 14, 20]
+present = [0, 901, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_543]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "footer-column-1-first-link"
+earlier = [664, 1059, 40, 28, 13, 18]
+present = [656.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_544]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "footer-column-2-first-link"
+earlier = [1082.65625, 1059, 73, 28, 13, 18]
+present = [1075.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_545]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "footer-column-3-first-link"
+earlier = [1501.328125, 1059, 54, 28, 13, 18]
+present = [1493.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_546]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "header"
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_547]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "main"
+earlier = [664, 81, 1232, 376, 14, 20]
+present = [656.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_548]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "navigation"
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_549]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "navigation-first-item"
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content."
+
+[geometry.part_550]
+view = "/txs/kettle/[hash]"
+width = 2560
+part = "primary-control"
+earlier = [664, 385, 155, 72, 14, 20]
+present = [656.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar track", "native link markup"]
+description = "The reserved scrollbar track reduces the available width and shifts centered content. One native home link carries the visible control; the earlier part includes the wrapper and its 32px top margin."
+

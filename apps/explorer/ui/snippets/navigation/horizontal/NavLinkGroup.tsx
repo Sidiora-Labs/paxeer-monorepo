@@ -26,7 +26,7 @@ const NavLinkGroup = ({ item }: Props) => {
   return (
     <chakra.li listStyleType="none">
 
-      <Button minH="touchTarget" minW="touchTarget"
+      <Button
         ref={ triggerRef }
         onClick={ onToggle }
         aria-controls={ panelId }

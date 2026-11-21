@@ -10,6 +10,7 @@ import (
 	"math"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -433,10 +434,19 @@ func (h *Hub) RunConnected(ctx context.Context, consumer *natsdriver.Consumer, b
 		return ErrUnavailable
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	var workers sync.WaitGroup
+	defer func() {
+		cancel()
+		workers.Wait()
+	}()
 	results := make(chan error, 2)
-	go func() { results <- h.Run(runCtx) }()
+	workers.Add(2)
 	go func() {
+		defer workers.Done()
+		results <- h.Run(runCtx)
+	}()
+	go func() {
+		defer workers.Done()
 		results <- consumer.Run(runCtx, func(ctx context.Context, message *natsdriver.Message) error {
 			return h.durable.ConsumeSocialBroker(ctx, message, broker.Subject, broker.Stream)
 		})

@@ -91,13 +91,13 @@ func TestCommandReportsUnwritableProvisioningOutput(t *testing.T) {
 	defer full.Close()
 	for _, action := range []string{"check", "provision"} {
 		var errOut bytes.Buffer
-		status := Run(context.Background(), []string{action, "--document", path, "--broker-env", "BROKER_REPORT_ADDRESS", "--token-env", "BROKER_REPORT_TOKEN"}, full, &errOut)
+		status := Run(context.Background(), []string{action, "--document", path, "--broker-env", "BROKER_REPORT_ADDRESS", "--token-env", "BROKER_REPORT_TOKEN", "--timeout", "2m"}, full, &errOut)
 		if status != 2 || errOut.String() != "brokerprovision: cannot write report\n" {
 			t.Fatalf("report failure: status=%d err=%s", status, &errOut)
 		}
 	}
 	var errOut bytes.Buffer
-	if status := Run(context.Background(), []string{"check", "--document", path, "--broker-env", "BROKER_REPORT_ADDRESS", "--token-env", "BROKER_REPORT_TOKEN"}, io.Discard, &errOut); status != 0 || errOut.Len() != 0 {
+	if status := Run(context.Background(), []string{"check", "--document", path, "--broker-env", "BROKER_REPORT_ADDRESS", "--token-env", "BROKER_REPORT_TOKEN", "--timeout", "2m"}, io.Discard, &errOut); status != 0 || errOut.Len() != 0 {
 		t.Fatalf("provisioned broker after report failure: %d %s", status, &errOut)
 	}
 }

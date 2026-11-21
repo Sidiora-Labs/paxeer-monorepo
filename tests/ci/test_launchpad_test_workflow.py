@@ -269,7 +269,10 @@ def test_launchpad_go_jobs_share_every_ci_preparation_step():
     assert module_job["env"] == ci_job["env"]
     assert module_job["services"] == ci_job["services"]
     assert module_job["steps"][-1]["name"] == "Test Go module"
-    assert ci_job["steps"][-1]["run"] == "make -C services/launchpad ci"
+    assert ci_job["steps"][-1]["run"] == (
+        'make -C services/launchpad ci '
+        'MODULES="$(realpath --relative-to=services/launchpad "${{ matrix.module }}")"'
+    )
     preparation = module_job["steps"][:-1]
     previous = -1
     for step in ci_job["steps"][:-1]:
@@ -331,6 +334,6 @@ def test_launchpad_module_job_has_at_least_sixty_minutes():
         "launchpad-test", "launchpad-go-test", "launchpad-go-ci", "launchpad-go-wiring",
     }
     assert int(jobs["launchpad-go-test"]["timeout-minutes"]) >= 60
-    assert jobs["launchpad-test"]["timeout-minutes"] == "30"
-    assert jobs["launchpad-go-ci"]["timeout-minutes"] == "360"
+    assert int(jobs["launchpad-test"]["timeout-minutes"]) >= 60
+    assert jobs["launchpad-go-ci"]["timeout-minutes"] == "180"
     assert "timeout-minutes" not in jobs["launchpad-go-wiring"]

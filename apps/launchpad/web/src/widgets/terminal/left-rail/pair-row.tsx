@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { AtSign, Globe, MessageCircle, Send, Users, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ export interface PairRowProps {
 
 /** The symbol link covers the pair row; social links sit above it. */
 export function PairRow({ row, active, now }: PairRowProps) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   const { change } = row;
   return (
     <li
@@ -29,13 +31,13 @@ export function PairRow({ row, active, now }: PairRowProps) {
           <Link prefetch={false}
             href={row.href}
             aria-current={active ? 'page' : undefined}
-            title={row.name}
+            title={row.symbol}
             className="min-w-0 [@media(max-width:834px)]:min-w-touch-target-min truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
           >
             {row.symbol}
             <span className="sr-only">{`, ${row.name}, market cap ${row.mcap === null ? 'not available yet' : formatCompactUsd(row.mcap)}`}</span>
           </Link>
-          <span aria-hidden="true" className="min-w-0 truncate text-xs text-text-muted">{row.name}</span>
+          <span aria-hidden="true" className="min-w-0 truncate text-xs text-text-muted" title={row.name}>{row.name}</span>
         </div>
         <div className="flex min-w-0 items-center gap-1.5 text-2xs text-text-faint">
           {row.createdAtMs === null

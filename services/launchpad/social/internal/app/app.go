@@ -619,6 +619,9 @@ type socialConnectedRuntime struct {
 	stop                                          context.CancelFunc
 	wg                                            sync.WaitGroup
 	failure                                       atomic.Pointer[error]
+	jobs                                          [runtimeJobCount]atomic.Pointer[error]
+	jobWait                                       func(context.Context, time.Duration)
+	jobClock                                      func() time.Time
 	durableFailure                                atomic.Pointer[error]
 	pool                                          *pgxpool.Pool
 	identity                                      sharedauth.RequestIdentityAuthority
@@ -1046,6 +1049,11 @@ func (r *socialConnectedRuntime) runtimeReady(context.Context) error {
 	if failure := r.failure.Load(); failure != nil {
 		return *failure
 	}
+	for i := range r.jobs {
+		if failure := r.jobs[i].Load(); failure != nil {
+			return *failure
+		}
+	}
 	return nil
 }
 
@@ -1221,31 +1229,19 @@ func (r *socialConnectedRuntime) newVoice(ctx context.Context, b config.VoiceRun
 	}
 	return voice.NewProductionControl(r.pool, r.safety, socialPools{DB: r.pool, Guard: poolGuard}, provider, voice.Gates{ProviderQualified: true, EjectionQualified: true, ACLQualified: true, RetentionQualified: true}, b.PolicyVersion, policy, recordingStorage, b.RecordingBucket)
 }
-func (r *socialConnectedRuntime) worker(run func(context.Context) error) {
-	r.wg.Add(1)
-	go func() {
-		defer r.wg.Done()
-		if e := run(r.ctx); e != nil && r.ctx.Err() == nil {
-			r.fail(e)
-			if r.logger != nil {
-				r.logger.Error("social worker stopped", slog.String("error", e.Error()))
-			}
-		}
-	}()
-}
 func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
-	r.worker(func(ctx context.Context) error { return hub.RunConnected(ctx, r.chatConsumer, r.broker) })
-	r.worker(r.notificationCredentials.Run)
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobChat, func(ctx context.Context) error { return hub.RunConnected(ctx, r.chatConsumer, r.broker) })
+	r.worker(runtimeJobNotificationCredentials, r.notificationCredentials.Run)
+	r.worker(runtimeJobErasure, func(ctx context.Context) error {
 		return r.erasureConsumer.Run(ctx, func(ctx context.Context, m *natsdriver.Message) error {
 			return r.store.ConsumeErasure(ctx, r.delivery, r.binding.ConsumerGeneration, r.binding.ErasureSubject, m.Wire, m)
 		})
 	})
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobPolicy, func(ctx context.Context) error {
 		return r.policyConsumer.Run(ctx, func(ctx context.Context, m *natsdriver.Message) error { return r.consumePolicy(ctx, m) })
 	})
 	if r.voice != nil && r.voice.Provider != nil {
-		r.worker(func(ctx context.Context) error {
+		r.worker(runtimeJobVoice, func(ctx context.Context) error {
 			return r.voice.RunReconciler(ctx, func(result voice.ReconcileResult, e error) {
 				if e != nil || result.Orphans > 0 {
 					if r.logger != nil {
@@ -1255,7 +1251,7 @@ func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
 			})
 		})
 	}
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobDurable, func(ctx context.Context) error {
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 		relay := delivery.Relay{Store: r.delivery, Publisher: r.publisher, Owner: "social_" + r.binding.ConsumerGeneration, Batch: 32, LeaseDuration: 30 * time.Second, PublishTimeout: 4 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}

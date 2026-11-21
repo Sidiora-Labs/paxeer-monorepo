@@ -35,8 +35,6 @@ const TimeFormatToggle = (props: Props) => {
           variant="icon_secondary"
           onClick={ handleClick }
           boxSize={ 5 }
-          minW="touchTarget"
-          minH="touchTarget"
           selected={ timeFormat === 'absolute' }
           borderRadius="sm"
           verticalAlign="middle"

@@ -37,8 +37,6 @@ const NetworkIcon = ({ className }: Props) => {
       aria-label="Link to main page"
       display="inline-flex"
       alignItems="center"
-      minH="touchTarget"
-      minW="touchTarget"
       flexShrink={ 0 }
     >
       <Image

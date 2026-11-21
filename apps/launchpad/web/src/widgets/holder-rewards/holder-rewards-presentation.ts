@@ -1,6 +1,7 @@
+import { displayCoinText } from '@/utils/coin-text';
 import type { TokenMetadata } from '@/widgets/home/types';
 import { safeExternalDestination, poolPath } from '@/core/app-foundation/navigation';
-import { formatCount, formatUsdl, shortAddress } from '@/utils/format';
+import { formatCount, formatUsdl } from '@/utils/format';
 import type { HolderRewardPool, HolderRewardsSort, PoolStats } from './holder-rewards-contract';
 import { marketCapRaw } from '@/core/market/pool-stats-display';
 
@@ -63,8 +64,8 @@ export function buildRows(items: readonly HolderRewardPool[], stats: ReadonlyMap
     const tokenAddress = item.tokenAddress.toLowerCase();
     const meta = metadata?.[tokenAddress] ?? null;
     const poolStats = stats.get(poolAddress) ?? null;
-    const symbol = meta?.symbol?.trim() || '';
-    const name = meta?.name?.trim() || symbol || shortAddress(tokenAddress);
+    const symbol = displayCoinText(meta?.symbol, tokenAddress);
+    const name = displayCoinText(meta?.name, tokenAddress);
     return {
       pool: item,
       poolAddress,

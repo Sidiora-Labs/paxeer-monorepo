@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { surfaceSpacing } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -146,8 +147,8 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
     );
   }
 
-  const symbol = data.metadata?.displaySymbol ?? data.token?.symbol ?? 'Coin';
-  const name = data.metadata?.displayName ?? data.token?.name ?? '';
+  const symbol = displayCoinText(data.metadata?.displaySymbol ?? data.token?.symbol, data.pool.tokenAddress);
+  const name = displayCoinText(data.metadata?.displayName ?? data.token?.name, data.pool.tokenAddress);
   const pool = data.pool.poolAddress;
   const starred = watchlist.check(pool);
   const createdMs = data.createdAt ? Date.parse(data.createdAt) : NaN;
@@ -161,8 +162,8 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
         <Avatar src={image.data?.images?.logo ?? null} name={symbol} size="lg" shape="square" decorative className="size-11" badge={stage ? <StageBadge stage={stage} size={14} surface={1} /> : undefined} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <h1 className="truncate text-sm font-extrabold text-text">{symbol}</h1>
-            {name ? <span className="truncate text-xs text-text-muted">{name}</span> : null}
+            <h1 title={symbol} className="min-w-0 truncate text-sm font-extrabold text-text">{symbol}</h1>
+            {name ? <span className="min-w-0 truncate text-xs text-text-muted" title={name}>{name}</span> : null}
             <CopyAddress address={data.pool.tokenAddress} variant="icon" />
             <IconButton label={starred ? 'Remove from watchlist' : 'Add to watchlist'} pressed={starred} icon={<Star className={starred ? 'fill-current text-accent' : undefined} />} size="sm" className="size-6" onClick={() => watchlist.toggle(pool)} />
             <IconButton label="Share coin link" icon={<Share2 />} size="sm" className="size-6" onClick={() => { void shareCurrentPage(`${symbol} on Sidiora`); }} />

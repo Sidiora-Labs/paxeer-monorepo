@@ -144,7 +144,7 @@ def emit_current_release(root):
     package = root / 'sdk/launchpad/packages/sdk'
     artifacts = current_artifacts(root)
     metadata = json.loads((package / 'package.json').read_bytes())
-    inputs = [PRODUCER, PRODUCER.with_name('validator.go.txt'), RECORDED]
+    inputs = [PRODUCER, PRODUCER.with_name('validator.go.txt'), PRODUCER.with_name('validator.compiled.go.txt'), RECORDED]
     for name in ('sdk', 'sdk-v2'):
         inputs.extend(pathlib.Path('sdk/launchpad/packages') / name / path for path in ('src/types.gen.ts', 'src/schemas.gen.json', 'release-manifest.json'))
     inputs.extend(pathlib.Path('sdk/launchpad/packages/sdk/scripts') / name for name in ('generate.py', 'examples.py', 'operation-catalog.json'))
@@ -308,7 +308,8 @@ def main():
     actual_generator_sha = hashlib.sha256(legacy_source).hexdigest() if legacy_source is not None else sha(generator)
     if actual_generator_sha != manifest['generatorSha256']:
         raise ValueError('Pinned generator digest mismatch; use explicit --reproduce-v1 or supply the immutable generator')
-    if sha(generator.with_name('validator.go.txt')) != manifest['validatorTemplateSha256']:
+    template = generator.with_name('validator.go.txt' if args.major == 1 else 'validator.compiled.go.txt')
+    if sha(template) != manifest['validatorTemplateSha256']:
         raise ValueError('Pinned validator template mismatch')
     if args.major != 1 and manifest.get('schemaMajor') != args.major:
         raise ValueError('versioned codegen manifest major mismatch')

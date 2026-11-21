@@ -9,8 +9,8 @@ abstract: >-
   builds the blocks that validators check and commit; EVM chain ID 125.
 authors:
   - name: Sidiora Labs
-version: v7.0.1
-date-released: 2026-11-14
+version: v7.0.2
+date-released: 2026-11-19
 license: Apache-2.0
 repository-code: https://github.com/Sidiora-Labs/paxeer-monorepo
 url: https://paxeer.network

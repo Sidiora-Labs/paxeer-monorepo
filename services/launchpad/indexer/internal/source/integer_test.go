@@ -189,9 +189,6 @@ func TestArchiveRangeIntegerRefusals(t *testing.T) {
 	if logs, err := s.archiveLogs(context.Background(), nil, 0, 0, nil, true, nil); logs != nil || err != nil {
 		t.Fatalf("archive without monitored addresses = %v, %v", logs, err)
 	}
-	endpoint := &committedEndpoint{id: "archive"}
-	logs, err := s.receiptLogs(context.Background(), endpoint, blockWire{Transactions: make([]ethTxWire, 4097)}, BlockRecord{}, 0, nil, true)
-	if logs != nil || err == nil || err.Error() != "source archive: incomplete" {
-		t.Fatalf("oversized transaction count = %v, %v", logs, err)
-	}
+	checkContentSource(t, 4097, 1, 0)
+
 }

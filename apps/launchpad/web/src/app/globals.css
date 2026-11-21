@@ -195,6 +195,7 @@
 }
 
 .sl-notifications {
+  --sl-notice-bottom-offset: var(--sl-space-6);
   position: fixed;
   inset: 0;
   margin: 0;
@@ -208,6 +209,23 @@
   background: transparent;
   pointer-events: none;
   z-index: var(--sl-z-toast);
+}
+@media (width < 64rem) {
+  .sl-notifications {
+    --sl-notice-bottom-offset: calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0rem));
+  }
+  body:has(.foundation-shell[data-shell-route-id='coin']) .sl-notifications {
+    --sl-notice-bottom-offset: calc(
+      var(--sl-trade-cta-clearance) + env(safe-area-inset-bottom, 0rem)
+    );
+  }
+}
+@media (width < 48rem) {
+  .sl-notifications {
+    --sl-notice-bottom-offset: calc(
+      var(--sl-bottom-nav-height) + var(--sl-space-8) + env(safe-area-inset-bottom, 0rem)
+    );
+  }
 }
 .sl-notifications[data-suppressed='true'] {
   visibility: hidden;
@@ -294,6 +312,15 @@
   }
   .sl-native-select {
     align-items: center;
+    column-gap: calc(var(--sl-space-1) * 1.25);
+  }
+  .sl-native-select::picker-icon {
+    content: '';
+    inline-size: var(--sl-icon-sm);
+    block-size: var(--sl-icon-sm);
+    background: currentColor;
+    color: inherit;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
   }
   .sl-native-select::picker(select) {
     background: var(--sl-surface-3);

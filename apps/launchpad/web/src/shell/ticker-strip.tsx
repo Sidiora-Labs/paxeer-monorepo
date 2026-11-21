@@ -88,7 +88,7 @@ function ChipLink({ chip, hidden }: { chip: TickerChip; hidden: boolean }) {
       className="flex min-h-6 shrink-0 items-center gap-1.5 rounded-pill bg-surface-1 pl-0.5 pr-2 text-xs transition-colors duration-fast hover:bg-surface-hover"
     >
       <Avatar src={chip.image} name={chip.label} size="xs" shape={chip.avatarShape} decorative />
-      <span className="max-w-48 truncate font-bold text-text">{chip.label}</span>
+      <span className="max-w-48 truncate font-bold text-text" title={chip.label}>{chip.label}</span>
       {chip.value ? (
         <span data-numeric className={cn('font-bold tabular-nums', toneClass[chip.tone])}>
           {chip.value}
@@ -133,7 +133,7 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
   const scrolling = copies === 2;
 
   return (
-    <div className="flex min-h-full min-w-0 items-center gap-1">
+    <div className="flex min-h-full min-w-0 items-center gap-1 min-[835px]:h-full min-[835px]:flex-1">
       {chips.length > 1 ? (
         <button
           type="button"
@@ -163,7 +163,7 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
         <Link
           prefetch={false}
           href={mode.href}
-          className="inline-flex min-h-6 shrink-0 items-center rounded-sm px-2 text-xs text-text-muted hover:bg-surface-hover hover:text-text"
+          className="inline-flex min-h-6 min-[835px]:min-h-0 shrink-0 items-center rounded-sm px-2 text-xs text-text-muted hover:bg-surface-hover hover:text-text"
         >
           Open {mode.label.toLowerCase()}
         </Link>
@@ -194,6 +194,7 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
 }
 
 function FeedView({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) {
+  if (feed.state === 'ready' && feed.chips.length === 0 && feed.emptyText === null) return null;
   return (
     <div className="contents" data-ticker-state={feed.state}>
       <FeedContent feed={feed} mode={mode} />
@@ -263,7 +264,7 @@ function FeedContent({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig 
             <Link
               prefetch={false}
               href={mode.href}
-              className="inline-flex min-h-6 shrink-0 items-center whitespace-nowrap font-bold text-text-muted hover:text-text"
+              className="inline-flex min-h-6 min-[835px]:min-h-0 shrink-0 items-center whitespace-nowrap font-bold text-text-muted hover:text-text"
             >
               Open {mode.label.toLowerCase()}
             </Link>
@@ -327,12 +328,12 @@ export default function TickerStrip() {
     // Hidden below md, as on the reference: phones start content right under the top bar.
     <section
       aria-label="Market ticker"
-      className="hidden min-h-ticker-height flex-wrap items-center gap-2 bg-canvas px-3 sm:px-4 md:flex"
+      className="hidden min-h-ticker-height flex-wrap items-center gap-2 bg-canvas px-3 sm:px-4 md:flex min-[835px]:h-ticker-height min-[835px]:flex-nowrap"
     >
       <div
         role="radiogroup"
         aria-label="Ticker mode"
-        className="flex shrink-0 items-center gap-0.5 rounded-sm bg-surface-1"
+        className="flex shrink-0 items-center gap-0.5 rounded-sm bg-surface-1 min-[835px]:p-0.5"
       >
         {tickerModes.map((entry, index) => {
           const Icon = entry.icon;
@@ -367,7 +368,7 @@ export default function TickerStrip() {
           );
         })}
       </div>
-      <div className="relative min-h-ticker-height min-w-0 flex-1">
+      <div className="relative min-h-ticker-height min-w-0 flex-1 min-[835px]:flex min-[835px]:h-full min-[835px]:items-center">
         {wide ? <Feed mode={mode} /> : null}
       </div>
     </section>

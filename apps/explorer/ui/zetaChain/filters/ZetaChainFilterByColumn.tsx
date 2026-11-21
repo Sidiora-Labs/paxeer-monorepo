@@ -41,8 +41,6 @@ function ZetaChainFilterPopover({ columnName, isLoading, selected, children, ...
           size="sm"
           disabled={ isLoading }
           selected={ selected }
-          minW="touchTarget"
-          minH="touchTarget"
           p={ 0 }
         >
           <IconSvg name="filter" boxSize={ 5 }/>

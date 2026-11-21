@@ -92,6 +92,7 @@ const ContractVerificationFieldMethod = ({ methods }: Props) => {
       <Heading level="2" mt={{ base: 10, lg: 6 }} gridColumn={{ lg: '1 / 3' }} textWrap="balance">
         Currently, Blockscout supports { methods.length }{ nbsp }contract verification methods
         <Hint
+          inline
           label={ tooltipContent }
           tooltipProps={{ interactive: true, contentProps: { textAlign: 'left' } }}
           ml={ 1 }

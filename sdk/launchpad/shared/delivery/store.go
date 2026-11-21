@@ -89,6 +89,16 @@ func (s *Store) mutate(ctx context.Context, effect func(pgx.Tx) error) error {
 }
 func (s *Store) table(name string) string { return s.schema + "." + name }
 
+func (s *Store) enabledSubjects() []string {
+	subjects := make([]string, 0, len(s.policy.Subjects))
+	for subject, enabled := range s.policy.Subjects {
+		if enabled {
+			subjects = append(subjects, subject)
+		}
+	}
+	return subjects
+}
+
 const rollbackTimeout = time.Second
 
 // Cleanup must survive cancellation of the operation but cannot wait forever.
@@ -177,8 +187,8 @@ func (s *Store) Claim(ctx context.Context, owner string, limit int, duration tim
 	}
 	out := []Lease{}
 	err := s.mutate(ctx, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `WITH picked AS (SELECT event_id FROM `+s.table("delivery_outbox")+` WHERE state='pending' AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)
- UPDATE `+s.table("delivery_outbox")+` o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts`, limit, owner, duration.Milliseconds())
+		rows, err := tx.Query(ctx, `WITH picked AS (SELECT event_id FROM `+s.table("delivery_outbox")+` WHERE state='pending' AND subject=ANY($4::text[]) AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)
+ UPDATE `+s.table("delivery_outbox")+` o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts`, limit, owner, duration.Milliseconds(), s.enabledSubjects())
 		if err != nil {
 			return err
 		}
@@ -377,7 +387,7 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
  count(*) FILTER(WHERE state='quarantined'),
  COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,
  COALESCE(sum(lease_expiry_count),0)::bigint,
- COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM `+s.table("delivery_outbox")).Scan(&out.PendingRows, &out.PendingBytes, &out.QuarantinedRows, &out.OldestUnpublishedAgeSeconds, &out.LeaseExpiryCount, &out.MaxAcknowledgementLatencyMS)
+ COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM `+s.table("delivery_outbox")+` WHERE subject=ANY($1::text[])`, s.enabledSubjects()).Scan(&out.PendingRows, &out.PendingBytes, &out.QuarantinedRows, &out.OldestUnpublishedAgeSeconds, &out.LeaseExpiryCount, &out.MaxAcknowledgementLatencyMS)
 	return out, err
 }
 

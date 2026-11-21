@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -52,12 +53,32 @@ func rewardSchemaRoot() string {
 	return filepath.Clean(filepath.Join(filepath.Dir(source), "../../../../.."))
 }
 
+var rewardSchemaDependencies struct {
+	once sync.Once
+	err  error
+}
+
+func rewardSchemaNode(t *testing.T, ctx context.Context, script string, args ...string) *exec.Cmd {
+	t.Helper()
+	directory := filepath.Join(rewardSchemaRoot(), "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema")
+	rewardSchemaDependencies.once.Do(func() {
+		install := exec.CommandContext(ctx, "pnpm", "install", "--ignore-workspace", "--frozen-lockfile")
+		install.Dir = directory
+		if output, err := install.CombinedOutput(); err != nil {
+			rewardSchemaDependencies.err = fmt.Errorf("reward schema dependencies: %w: %s", err, output)
+		}
+	})
+	if rewardSchemaDependencies.err != nil {
+		t.Fatal(rewardSchemaDependencies.err)
+	}
+	return exec.CommandContext(ctx, "node", append([]string{filepath.Join(directory, script)}, args...)...)
+}
+
 // PGlite executes the real deployment SQL and PostgreSQL wire protocol in WASM;
 // no PostgreSQL installation, shared database or service credentials are used.
 func rewardSchemaStore(t *testing.T, ctx context.Context, directory string) (string, func()) {
 	t.Helper()
-	script := filepath.Join(rewardSchemaRoot(), "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/store.mjs")
-	cmd := exec.CommandContext(ctx, "node", script, directory)
+	cmd := rewardSchemaNode(t, ctx, "store.mjs", directory)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdout, err := cmd.StdoutPipe()
@@ -329,7 +350,7 @@ func TestRewardRequestSchemaRecovery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	root := rewardSchemaRoot()
-	compile := exec.CommandContext(ctx, "node", filepath.Join(root, "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/contracts.mjs"), root)
+	compile := rewardSchemaNode(t, ctx, "contracts.mjs", root)
 	var compileErr bytes.Buffer
 	compile.Stderr = &compileErr
 	raw, err := compile.Output()

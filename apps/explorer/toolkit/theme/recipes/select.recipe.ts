@@ -28,7 +28,7 @@ export const recipe = defineSlotRecipe({
       alignItems: 'center',
       justifyContent: 'flex-start',
       width: 'full',
-      minH: 'touchTarget',
+      minH: 'var(--select-trigger-height)',
       pr: 'var(--select-trigger-padding-right)',
       pl: 'var(--select-trigger-padding-left)',
       borderRadius: 'base',
@@ -103,7 +103,6 @@ export const recipe = defineSlotRecipe({
       flex: '1',
       textAlign: 'start',
       borderRadius: 'none',
-      minH: 'touchTarget',
       _disabled: {
         pointerEvents: 'none',
         opacity: 'control.disabled',

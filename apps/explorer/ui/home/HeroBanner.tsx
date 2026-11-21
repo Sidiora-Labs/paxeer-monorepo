@@ -26,7 +26,7 @@ const HeroBanner = () => {
         <Text mt={ 3 } textStyle="body" color="text.secondary" textWrap="pretty">
           Explore blocks, transactions, addresses and tokens on { config.chain.name }.
         </Text>
-        <Box data-label="hero-search" mt={ 6 } w="100%" maxW="var(--chakra-spacing-182)">
+        <Box data-label="hero-search" mt={ 6 } w="100%" maxW="calc(var(--chakra-spacing-80) * 2)">
           <Box display={{ base: 'block', lg: 'none' }}>
             <SearchBarMobile isHeroBanner/>
           </Box>

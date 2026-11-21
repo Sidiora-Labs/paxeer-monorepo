@@ -58,9 +58,9 @@ function createDeploymentGenerator(base) {
 
   function renderHelper(data) {
     const rendered = base.renderHelper(data);
-    const routerSpender = 'spender.toLowerCase() === CORE_DEPLOYMENT.router.toLowerCase()';
-    assert.ok(rendered.includes(routerSpender), 'Approval spender binding is required');
-    return rendered.replace(routerSpender, 'spender.toLowerCase() === CORE_DEPLOYMENT.launchpadPrecompile.toLowerCase()');
+    const precompileSpender = 'spender.toLowerCase() === CORE_DEPLOYMENT.launchpadPrecompile.toLowerCase()';
+    assert.ok(rendered.includes(precompileSpender), 'Approval spender binding is required');
+    return rendered;
   }
 
   function checkClient(clientRoot, data, helper) {

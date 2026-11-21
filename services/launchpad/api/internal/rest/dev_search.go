@@ -156,14 +156,15 @@ func truncateRunes(s string, n int) string {
 }
 
 func devSearchLabel(h store.DevelopmentSearchHit, kind string) string {
-	label := h.Name
+	name, symbol := coinText(h.Name, h.Symbol)
+	label := name
 	if kind == literalProfile {
 		label = h.Display
 		if label == "" {
 			label = h.Wallet
 		}
 	} else if label == "" {
-		label = h.Symbol
+		label = symbol
 		if label == "" {
 			label = h.Token
 			if kind == literalPool {
@@ -255,7 +256,7 @@ func devExpandedSearch(st *store.Store) http.HandlerFunc {
 			item["riskFlags"], item["confusableWarnings"], item["metricsAt"], item["quoteExecutable"] = nil, nil, nil, false
 			item[literalCreator] = h.Creator
 			if h.Symbol != "" {
-				item["ticker"] = h.Symbol
+				_, item["ticker"] = coinText(h.Name, h.Symbol)
 			}
 			if h.CreatedAt > 0 {
 				item[literalCreatedAt] = time.Unix(h.CreatedAt, 0).UTC().Format(time.RFC3339)

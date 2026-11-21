@@ -117,8 +117,6 @@ const CsvExportForm = ({ hash, resource, filterType, filterValue, fileNameTempla
         <Button
           variant="solid"
           type="submit"
-          minW="touchTarget"
-          minH="touchTarget"
           mt={ 8 }
           loading={ formState.isSubmitting }
           loadingText="Download"

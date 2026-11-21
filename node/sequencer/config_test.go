@@ -23,7 +23,7 @@ func seqConfigOptions(t *testing.T, toml string) *viper.Viper {
 
 func TestSequencerConfigDefaultsSequential(t *testing.T) {
 	def := sequencer.DefaultConfig()
-	require.Equal(t, sequencer.Config{Mode: sequencer.ModeSequential, WALRetainBlocks: 2}, def)
+	require.Equal(t, sequencer.Config{Mode: sequencer.ModeSequential, WALRetainBlocks: 2, NonceQueueLifetime: sequencer.DefaultNonceQueueLifetime}, def)
 	require.Equal(t, "sequential", def.Mode.String())
 	require.NoError(t, def.Validate())
 
@@ -59,6 +59,7 @@ replication-timeout = "250ms"
 		WALRetainBlocks:        2,
 		NonceQueueMaxPerSender: 16,
 		NonceQueueMaxTotal:     64,
+		NonceQueueLifetime:     sequencer.DefaultNonceQueueLifetime,
 		LeaseDuration:          time.Second,
 		Mode:                   sequencer.ModeSequential,
 		WALDir:                 "data/sequencer-wal",
@@ -88,6 +89,7 @@ func TestSequencerConfigRequiresWALAndKey(t *testing.T) {
 		WALRetainBlocks:        2,
 		NonceQueueMaxPerSender: 16,
 		NonceQueueMaxTotal:     64,
+		NonceQueueLifetime:     sequencer.DefaultNonceQueueLifetime,
 		LeaseDuration:          time.Second,
 		Mode:                   sequencer.ModeSequential,
 		WALDir:                 "data/sequencer-wal",
@@ -293,6 +295,7 @@ microbatch-max-count = 64
 		WALRetainBlocks:        2,
 		NonceQueueMaxPerSender: 16,
 		NonceQueueMaxTotal:     64,
+		NonceQueueLifetime:     sequencer.DefaultNonceQueueLifetime,
 		LeaseDuration:          time.Second,
 		Mode:                   sequencer.ModeMicroBatch,
 		WALDir:                 "data/sequencer-wal",
