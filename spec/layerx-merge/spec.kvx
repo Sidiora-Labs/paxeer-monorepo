@@ -210657,7 +210657,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1054]
 title = "Let the composition case of the pnl app that starts and ends its entrypoint in three rounds hold over consecutive runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
