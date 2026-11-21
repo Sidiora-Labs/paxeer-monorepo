@@ -370,6 +370,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		lifecycleSecrets := map[string]string{}
+		lifecycle.logEndpointReferences(logger)
 		for endpoint, reference := range lifecycle.EndpointSecretReferences {
 			value, e := provider.GetRequired(ctx, reference)
 			if e != nil {
