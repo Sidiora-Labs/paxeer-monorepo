@@ -666,9 +666,10 @@
       "o.lease_until",
       "o.subject",
       "picked.event_id",
-      "state"
+      "state",
+      "subject"
     ],
-    "sha256": "cc1b7d66ba65ff6f871d218bfeaedb3d940940c82674f577f043e262a5f24b07"
+    "sha256": "d95c085c28479afd5a1baf70ba08fd32cacb9c80ff9bf213abecfc4e040b9b2e"
   },
   {
     "id": "delivery/store.go:Store.MarkPublished:1",
