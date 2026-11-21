@@ -210936,7 +210936,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1071]
 title = "Let the cases that the baseline file names for the packages internal/production/l17 and internal/production/l18 of the pnl module run without the skip pattern and pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210996,7 +210996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1069]
 title = "Let the cases that the baseline file names for the packages internal/app, internal/card, internal/devreads and internal/reconcile of the pnl module run without the skip pattern and pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -211056,7 +211056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1067]
 title = "Let the cases that the baseline file names for the package internal/rest of the api module run without the skip pattern and pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -211086,7 +211086,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1066]
 title = "Give the job Go CI of the launchpad test workflow one matrix entry for each module and a limit of 180 minutes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
