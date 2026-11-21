@@ -117,7 +117,11 @@ func InspectOnlineIndex(ctx context.Context, conn *pgx.Conn, p OnlineIndexPlan) 
 		keyNames[i], numeric[i], descending[i] = k.Column, k.Numeric, k.Descending
 		positions[i] = -1
 		if k.JSONTextPosition != nil {
-			positions[i] = int32(*k.JSONTextPosition)
+			position := *k.JSONTextPosition
+			if position < 0 || position > 3 {
+				return state, fmt.Errorf("invalid json text index key")
+			}
+			positions[i] = int32(position)
 		}
 	}
 	err := conn.QueryRow(ctx, `SELECT i.indisvalid,i.indisready,i.indisunique,t.relname,tn.nspname,am.amname,ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum ORDER BY k.ord),pg_get_expr(i.indpred,i.indrelid),pg_get_expr(i.indexprs,i.indrelid),pg_get_indexdef(i.indexrelid)=format('CREATE %sINDEX %I ON %I.%I USING btree (%s)',$4::text,$2::text,$1::text,$3::text,(SELECT string_agg(CASE WHEN pos>=0 THEN '(('||quote_ident(v)||' ->> '||pos::text||'))' WHEN num THEN '(('||quote_ident(v)||')::numeric)' ELSE quote_ident(v) END || CASE WHEN desc_key THEN ' DESC' ELSE '' END,', ' ORDER BY ord) FROM unnest($5::text[],$6::boolean[],$7::boolean[],$8::integer[]) WITH ORDINALITY col(v,num,desc_key,pos,ord))) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace tn ON tn.oid=t.relnamespace JOIN pg_am am ON am.oid=c.relam WHERE n.nspname=$1 AND c.relname=$2`, p.Schema, p.Name, p.Table, indexUniquePrefix(p.Unique), keyNames, numeric, descending, positions).Scan(&state.Valid, &state.Ready, &state.Unique, &state.Table, &state.Schema, &state.Method, &state.Columns, &state.Predicate, &state.Expressions, &state.DefinitionMatches)
