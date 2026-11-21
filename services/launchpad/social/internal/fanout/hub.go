@@ -191,7 +191,25 @@ func orDefaultDur(v, def time.Duration) time.Duration {
 // Run drives the Redis subscriber loop until ctx is cancelled, then closes the
 // subscriber connection.
 func (h *Hub) Run(ctx context.Context) error {
+	h.subMu.Lock()
+	if h.ps == nil {
+		h.ps = h.sub.Subscribe(context.Background())
+		h.mu.RLock()
+		for pool := range h.poolChanRefs {
+			h.redisSubscribe(h.namespace + poolChannelPrefix + pool)
+		}
+		for wallet := range h.dmChanRefs {
+			h.redisSubscribe(h.namespace + dmChannelPrefix + wallet)
+		}
+		h.mu.RUnlock()
+	}
+	ps := h.ps
+	h.subMu.Unlock()
 	defer func() {
+		h.subMu.Lock()
+		_ = ps.Close()
+		h.ps = nil
+		h.subMu.Unlock()
 		h.mu.RLock()
 		conns := []*conn{}
 		for _, set := range h.walletConns {
@@ -204,14 +222,14 @@ func (h *Hub) Run(ctx context.Context) error {
 			c.close()
 		}
 	}()
-	ch := h.ps.Channel()
+	ch := ps.Channel()
 	for {
 		select {
 		case <-ctx.Done():
-			return h.ps.Close()
+			return ps.Close()
 		case msg, ok := <-ch:
 			if !ok {
-				return nil
+				return errors.New("social redis subscription closed")
 			}
 			h.dispatch(msg.Channel, []byte(msg.Payload))
 		}
@@ -405,6 +423,9 @@ func (h *Hub) syncChannel(channel string, live func() bool) {
 	h.mu.RLock()
 	subscribed := live()
 	h.mu.RUnlock()
+	if h.ps == nil {
+		return
+	}
 	if subscribed {
 		h.redisSubscribe(channel)
 	} else {
