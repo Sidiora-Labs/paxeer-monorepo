@@ -210933,7 +210933,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1059]
 title = "Name the reference of each endpoint of the committed source at the start of the indexer app and state the origin of its address in the README of the deploy documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
