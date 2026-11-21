@@ -462,7 +462,7 @@ func (d *chatAdmissionData) execute(q string, a []string, user string) chatAdmis
 			rows = append(rows, []any{id})
 		}
 		return chatAdmissionRows(rows...)
-	case strings.HasPrefix(q, "SELECT peer.wallet,extract(epoch from max(msg.created_at))"):
+	case strings.HasPrefix(q, "SELECT peer.wallet,floor(extract(epoch from max(msg.created_at)))"):
 		c := d.Conversations[get(0)]
 		if c == nil || !member(get(0), get(1)) {
 			return chatAdmissionRows()
@@ -508,7 +508,7 @@ func (d *chatAdmissionData) execute(q string, a []string, user string) chatAdmis
 	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM chat_messages"):
 		m, ok := d.Messages[get(0)]
 		return exists(ok && m.ConversationID == get(1))
-	case strings.HasPrefix(q, "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,extract(epoch from created_at)::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages"):
+	case strings.HasPrefix(q, "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,floor(extract(epoch from created_at))::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages"):
 		rows := [][]any{}
 		switch {
 		case strings.Contains(q, "WHERE sender=$1 AND client_id=$2"):

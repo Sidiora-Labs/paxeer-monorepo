@@ -210615,7 +210615,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1047]
 title = "Let the reward read of the pnl app of the launchpad page over the creations the wallet has a log for"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1045"]
@@ -210645,7 +210645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1046]
 title = "Let the stats app of the launchpad run its consumer jobs again after an error that is not permanent and keep the error in its runtime health while a job fails"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210675,7 +210675,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1045]
 title = "Let the pnl app of the launchpad run its inventory consumer again after an error that is not permanent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210705,7 +210705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1044]
 title = "Let the connected runtime of the launchpad social service run a background job again after an error that is not permanent and clear the stored error of the job once it runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
