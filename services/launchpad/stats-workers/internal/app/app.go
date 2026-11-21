@@ -285,7 +285,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			}
 			transports = append(transports, transport)
 			current := transport
-			jobs = append(jobs, statsRuntimeJob{name: "market accounting", run: func(ctx context.Context) error { return accountingConsumer.Run(ctx, current) }})
+			jobs = append(jobs, statsRuntimeJob{name: "market accounting", run: consumerJobRunAgain("market accounting", runtimeHealth, func(ctx context.Context) error { return accountingConsumer.Run(ctx, current) }, waitConsumerJob, systemConsumerJobClock{})})
 		}
 		publisher, e := natsdriver.NewPublisher(nc, d.Phase2.OutputStream)
 		if e != nil {
@@ -322,7 +322,8 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			}
 			transports = append(transports, transport)
 			current := transport
-			jobs = append(jobs, statsRuntimeJob{name: "search " + sub.Kind + " " + sub.Consumer.Durable, run: func(ctx context.Context) error {
+			name := "search " + sub.Kind + " " + sub.Consumer.Durable
+			jobs = append(jobs, statsRuntimeJob{name: name, run: consumerJobRunAgain(name, runtimeHealth, func(ctx context.Context) error {
 				return current.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
 					broker, err := message.BrokerPosition()
 					if err != nil {
@@ -340,7 +341,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 					}
 					return statsSearchProjectionConsumer(sub.Kind, searchProjection)(ctx, message.Subject, message.Wire, message)
 				})
-			}})
+			}, waitConsumerJob, systemConsumerJobClock{})})
 		}
 		if err = cfg.ValidateProductionWorkers(); err != nil {
 			return nil, err

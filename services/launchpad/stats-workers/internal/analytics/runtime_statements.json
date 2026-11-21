@@ -983,7 +983,7 @@
       "function": "newWithRuntimePool",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 420,
+      "line": 415,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1006,7 +1006,7 @@
       ],
       "sequences": [],
       "id": "app_app_newWithRuntimePool_1",
-      "source_sha256": "6d3990bd3dbf02febace4e325b035dc7174b3b2f6c9ad2fc762dade41a47005b"
+      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/readiness.go",
@@ -1036,7 +1036,7 @@
       "function": "catchUpStatsHolders",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 916,
+      "line": 928,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1059,14 +1059,14 @@
       ],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_1",
-      "source_sha256": "6d3990bd3dbf02febace4e325b035dc7174b3b2f6c9ad2fc762dade41a47005b"
+      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
       "function": "catchUpStatsHolders",
       "call": 2,
       "expression": "`SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`",
-      "line": 922,
+      "line": 934,
       "sql": "SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4",
       "kind": "SELECT",
       "tables": [
@@ -1088,7 +1088,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_2",
-      "source_sha256": "6d3990bd3dbf02febace4e325b035dc7174b3b2f6c9ad2fc762dade41a47005b"
+      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
