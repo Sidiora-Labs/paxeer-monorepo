@@ -498,7 +498,7 @@ func (r *PostgresReplay) Batch(ctx context.Context) ([][]byte, error) {
 		if r.Machine.State == Replaying {
 			upper = r.Machine.barrier[partition]
 		}
-		rows, err := r.source.pool.Query(ctx, "SELECT sequence::text,frame FROM "+r.source.table("stream_delivery_outbox")+" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4", partition, offset, upper, 128-len(out))
+		rows, err := r.source.pool.Query(ctx, "SELECT sequence::text,frame FROM "+r.source.table("stream_delivery_outbox")+" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4", partition, offset, upper, 128-len(out))
 		if err != nil {
 			return nil, err
 		}
