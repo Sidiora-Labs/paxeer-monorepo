@@ -47,7 +47,7 @@ func TestCommittedBlockReadsRequireAvailableUnfencedIdentity(t *testing.T) {
 }
 
 func TestRecoveryRejectsIdentityChangesWhileVerifyingAcceptedBlocks(t *testing.T) {
-	for _, mode := range []string{"endpoint generation", "accepted history"} {
+	for _, mode := range []string{"endpoint generation", "accepted history", "changed entry", "removed entry"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -80,20 +80,39 @@ func TestRecoveryRejectsIdentityChangesWhileVerifyingAcceptedBlocks(t *testing.T
 				s.mu.Lock()
 				s.disagreeLocked(endpoint, 128, committedFixtureHash(128), committedFixtureHash(129))
 				s.mu.Unlock()
-			} else {
+			} else if mode == "accepted history" {
 				if err := s.retainBlock(endpoint, BlockRecord{ChainID: 125, Height: 129, Hash: committedFixtureHash(129), ParentHash: committedFixtureHash(128), TimestampSeconds: 129, SourceID: endpoint.id}); err != nil {
 					t.Fatal(err)
 				}
+			} else {
+				s.mu.Lock()
+				if mode == "changed entry" {
+					s.accepted[128] = committedFixtureHash(129)
+				} else {
+					delete(s.accepted, 128)
+				}
+				s.mu.Unlock()
 			}
 			close(node.release)
 			released = true
 			select {
 			case err := <-finished:
-				sourceRecoveryKind(t, err, IntegrityError)
+				if mode == "accepted history" {
+					if err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					sourceRecoveryKind(t, err, IntegrityError)
+				}
 			case <-ctx.Done():
 				t.Fatal(ctx.Err())
 			}
-			if s.EndpointHealth()[0].QuarantineReason == "" {
+			health := s.EndpointHealth()[0]
+			if mode == "accepted history" {
+				if health.QuarantineReason != "" || health.RecoveryChecks != 128 {
+					t.Fatalf("accepted history recovery: %+v", health)
+				}
+			} else if health.QuarantineReason == "" {
 				t.Fatal("changing recovery snapshot admitted")
 			}
 		})

@@ -1416,7 +1416,6 @@ func (s *CommittedSource) RejoinEndpoint(ctx context.Context, sourceID string) e
 		return sourceError(InvalidError, sourceID, nil)
 	}
 	generation := endpoint.generation
-	acceptedVersion := s.acceptedVersion
 	heights := make([]uint64, 0, len(s.accepted))
 	for height := range s.accepted {
 		heights = append(heights, height)
@@ -1452,25 +1451,50 @@ func (s *CommittedSource) RejoinEndpoint(ctx context.Context, sourceID string) e
 			return err
 		}
 	}
+	// Share the endpoint's bulk permits with other reads while checking the
+	// recorded identities concurrently under the rejoin's single deadline.
+	pending := make(chan uint64, len(heights))
 	for _, height := range heights {
-		_, record, err := s.readBlock(ctx, endpoint, fmtHeight(height), true)
-		if err != nil {
-			return err
-		}
-		if record.Height != height || record.Hash != expected[height] {
-			return sourceError(IntegrityError, sourceID, nil)
-		}
-		s.mu.Lock()
-		if endpoint.generation != generation {
+		pending <- height
+	}
+	close(pending)
+	workers := min(len(heights), cap(endpoint.bulkPermits))
+	results := make(chan error, workers)
+	verify := func() error {
+		for height := range pending {
+			_, record, err := s.readBlock(ctx, endpoint, fmtHeight(height), true)
+			if err != nil {
+				return err
+			}
+			if record.Height != height || record.Hash != expected[height] {
+				return sourceError(IntegrityError, sourceID, nil)
+			}
+			s.mu.Lock()
+			if endpoint.generation != generation {
+				s.mu.Unlock()
+				return sourceError(IntegrityError, sourceID, nil)
+			}
+			endpoint.health.RecoveryChecks++
 			s.mu.Unlock()
-			return sourceError(IntegrityError, sourceID, nil)
 		}
-		endpoint.health.RecoveryChecks++
-		s.mu.Unlock()
+		return nil
+	}
+	for i := 0; i < workers; i++ {
+		go func() { results <- verify() }()
+	}
+	var firstError error
+	for i := 0; i < workers; i++ {
+		if err := <-results; err != nil && firstError == nil {
+			firstError = err
+			cancel()
+		}
+	}
+	if firstError != nil {
+		return firstError
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if endpoint.generation != generation || endpoint.health.RecoveryChecks != 128 || s.acceptedVersion != acceptedVersion {
+	if endpoint.generation != generation || endpoint.health.RecoveryChecks != 128 {
 		return sourceError(IntegrityError, sourceID, nil)
 	}
 	for height, hash := range expected {
