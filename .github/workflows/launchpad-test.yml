@@ -486,10 +486,28 @@ jobs:
   launchpad-go-ci:
     name: Go CI
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
-    timeout-minutes: 360
+    timeout-minutes: 180
     strategy:
+      fail-fast: false
       matrix:
-        module: [sdk/launchpad/protocol]
+        module:
+          - sdk/launchpad/shared
+          - sdk/launchpad/protocol
+          - services/launchpad/api
+          - services/launchpad/indexer
+          - services/launchpad/pnl-tracker
+          - services/launchpad/ranking-algo
+          - services/launchpad/stats-workers
+          - services/launchpad/trading-charts
+          - services/launchpad/gateway
+          - services/launchpad/livestream
+          - services/launchpad/metadata
+          - services/launchpad/social
+          - services/launchpad/user
+          - services/launchpad/discovery
+          - services/launchpad/notifications
+          - services/launchpad/security
+          - services/launchpad/security/control
     env: *launchpad_go_env
     services: *launchpad_go_services
     steps:
@@ -509,8 +527,8 @@ jobs:
       - *launchpad_go_contracts
       - *launchpad_go_reward_schema
       - *launchpad_go_protocol_proofs
-      - name: Run all launchpad Go checks
-        run: make -C services/launchpad ci
+      - name: Run launchpad Go checks
+        run: make -C services/launchpad ci MODULES="$(realpath --relative-to=services/launchpad "${{ matrix.module }}")"
 
   launchpad-go-wiring:
     name: Check Go test wiring
