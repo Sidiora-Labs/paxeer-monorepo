@@ -64,6 +64,7 @@ export function normalizeFeedMarkets(
         funding_8h: hourly === null ? null : hourly * 8n,
         perp_funding_rate: hourly,
         last_funding_rate_hourly: hourly,
+        perp_next_funding_ms: null,
         price_24h:
           row.price_24h != null && row.price_24h > 0 ? row.price_24h : 0,
         high_24h: row["24h_high"],
