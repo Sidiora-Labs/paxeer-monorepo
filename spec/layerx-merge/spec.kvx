@@ -210789,7 +210789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1061]
 title = "Give the entries of the claim and stats statements of the shared delivery store in the record of runtime statements of the social app the statements as the file stands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
