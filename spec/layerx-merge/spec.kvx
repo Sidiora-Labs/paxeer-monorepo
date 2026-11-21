@@ -16252,6 +16252,12 @@ value = "One. Task 22.39.1060 takes the status that the workflow names for a tas
 basis = "Gotcha 4783."
 affects = []
 
+[decision.3857]
+title = "The indexer module gains cases up to a total of 91.0 of 100 in the coverage gate, the job Go CI takes one entry for each module, and the cases that the baseline file names run without the skip pattern before the file loses its entries"
+value = "One. Task 22.39.1065 adds cases to the indexer module until the total that the script tools/launchpad/coverage-gate.sh computes for the module reads 91.0 of 100 or more. The choice of the packages and of the cases is the choice of the participant. A new case proves a behaviour that the code has, through the fixtures that its package already uses, and asserts a result. A case that calls code without an expectation is not the form. No source outside case files and their test data changes, no statement leaves a source file, no case leaves, no case gains a skip, and the script, the Makefile and the values of the gate stay as they are. Two. In task 22.39.1066 the job launchpad-go-ci takes the matrix that the job launchpad-go-test carries, one entry for each of the seventeen modules named by its path from the root of the repository, the value false for fail-fast, and a limit of 180 minutes. The steps that both jobs share read the entry as before. Its last step runs the target ci for the module of its entry and hands make the name of that module as the list MODULES of services/launchpad/Makefile names it, through the variable MODULES on the command line. The job keeps its name, its environment, its services and its other steps in their order. The cases of the three files of gotcha 4784 part two follow, and one case compares the entries of the matrix with the list MODULES of the Makefile, so a module that joins the list joins the job. No other job changes. Three. In tasks 22.39.1067 to 22.39.1072 each case that the baseline file names for the packages of the task runs without the skip pattern and passes. The participant first runs the packages of the task through the go tool without the pattern and reads the result of each named case as the main line stands. A named case that passes needs no change. Otherwise the case, its fixture, its test data or the code that it reads comes into the form in which the case passes. A name that the package no longer holds needs no change, and the final message names it. No named case is renamed or removed, since the cases of tests/ci/test_launchpad_go_tests_wired.py read the names until task 22.39.1073. Four. Where the expectation of a named case and the code that it reads differ, the tasks and decisions of the spec that name the behaviour govern: the later one stands and the other side follows. The final message names each such case with the task or decision that it follows. Test data that records the hash or the content of a file of the repository follows the file as the main line holds it. Five. A named case that proves code of the repository against a chain that it can build reads the chain that the job starts or starts its chain fixture from the anvil program on the path, with the contracts of the repository. Fonts, schema files and the registry are read from the repository. A named case whose subject is the committed history of chain 125, and a measurement whose input only an operator holds, reads the names of its endpoints and inputs from its environment and leaves through the skip call of the testing package with a sentence that names the absent variable, the form that the cases of mark_price_test.go and reported_header_test.go of the package l16 of the pnl module carry. That form is for those two kinds of cases only. The workflow file gains no variable through these tasks, and no case reads a public node unless its variable names one. The four files that the case file test_reward_delivery_contract.py of the package l18 names keep the form that it requires. Six. Tasks 22.39.1067 to 22.39.1072 change files under their paths only and leave the baseline file, the runner and the cases under tests/ci as they are. Each task changes the files of its packages, and where one of its cases needs a change in another package of its module, the final message names the file. A cause that lies outside the paths of a task stays unchanged and the final message names it with file and first message. Seven. Task 22.39.1073 follows tasks 22.39.1066 to 22.39.1072. The baseline file holds a list without an entry, the function load_baseline takes it, and the mechanism of the runner stays with its checks of an entry. The cases of tests/ci/test_launchpad_go_tests_wired.py that read entries of the file assert that it holds none, the cases that hand the function entries of their own stay, and the sentence of services/launchpad/README.md that links the file stays true. Tasks 22.39.1065 to 22.39.1073."
+basis = "Gotcha 4784."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45912,6 +45918,87 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1073]
+title = "Let the baseline file of the launchpad Go case runner hold no entry and let the cases that read it follow"
+reqs = ["22998.1"]
+touches = ["tests/ci", "services/launchpad/README.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py && test $(grep -c retiring_task tests/ci/data/launchpad_go_test_baseline.json) -eq 0 && anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./auth/...) && (cd services/launchpad/api && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 point seven. Read tests/ci/data/launchpad_go_tests.py whole, the file tests/ci/data/launchpad_go_test_baseline.json, the cases of tests/ci/test_launchpad_go_tests_wired.py that read the baseline and the sentence of services/launchpad/README.md that links the file."
+symbols = []
+
+[capability.22.39.1072]
+title = "Let the cases that the baseline file names for the package auth of the shared module run without the skip pattern and pass"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/auth"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./auth/...)"
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the package auth of the shared module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+symbols = []
+
+[capability.22.39.1071]
+title = "Let the cases that the baseline file names for the packages internal/production/l17 and internal/production/l18 of the pnl module run without the skip pattern and pass"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/production/l17/ ./internal/production/l18/)"
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the packages internal/production/l17 and internal/production/l18 of the pnl module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands. Read the case file test_reward_delivery_contract.py of the package l18 as well."
+symbols = []
+
+[capability.22.39.1070]
+title = "Let the cases that the baseline file names for the package internal/production/l16 of the pnl module run without the skip pattern and pass"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/production/l16/)"
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the package internal/production/l16 of the pnl module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+symbols = []
+
+[capability.22.39.1069]
+title = "Let the cases that the baseline file names for the packages internal/app, internal/card, internal/devreads and internal/reconcile of the pnl module run without the skip pattern and pass"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/app/ ./internal/card/ ./internal/devreads/ ./internal/reconcile/)"
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the packages internal/app, internal/card, internal/devreads and internal/reconcile of the pnl module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+symbols = []
+
+[capability.22.39.1068]
+title = "Let the cases that the baseline file names for the packages internal/app, internal/broker, internal/cache and internal/store of the api module run without the skip pattern and pass"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/app/ ./internal/broker/ ./internal/cache/ ./internal/store/)"
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the packages internal/app, internal/broker, internal/cache and internal/store of the api module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+symbols = []
+
+[capability.22.39.1067]
+title = "Let the cases that the baseline file names for the package internal/rest of the api module run without the skip pattern and pass"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/rest/)"
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the package internal/rest of the api module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+symbols = []
+
+[capability.22.39.1066]
+title = "Give the job Go CI of the launchpad test workflow one matrix entry for each module and a limit of 180 minutes"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py"
+do_1 = "do_1 Gotcha 4784 part two, decision 3857 point two. Read the jobs launchpad-go-test and launchpad-go-ci in .github/workflows/launchpad-test.yml, the list MODULES and the target ci in services/launchpad/Makefile and the cases of tests/ci/test_launchpad_go_tests_wired.py, tests/ci/test_launchpad_test_workflow.py and tests/ci/test_runner_routing_container_runtime.py that read the job launchpad-go-ci."
+symbols = []
+
+[capability.22.39.1065]
+title = "Add cases to the indexer module until the total of the coverage gate for the module reads 91.0 of 100 or more"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=indexer && MONEY_MIN=91.0 GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=indexer"
+do_1 = "do_1 Gotcha 4784 part one, decision 3857 point one. Read the targets cover and cover-check in services/launchpad/Makefile, the script tools/launchpad/coverage-gate.sh and the function run_tests in tests/ci/data/launchpad_go_tests.py. Run make -C services/launchpad cover-check MODULES=indexer by hand once before any change and note the total that the script prints for the module. The profile lies under services/launchpad/.cover, and the cover tool lists from it the functions with the share of their statements that the cases reach."
+symbols = []
 
 [capability.22.39.1064]
 title = "Give two parts of the case TestCapacityWorkloadBoundsActiveProcessAndFaultDelivery of the indexer source a bound that covers the start of their process"
@@ -210783,6 +210870,276 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1073]
+title = "Let the baseline file of the launchpad Go case runner hold no entry and let the cases that read it follow"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1066", "22.39.1067", "22.39.1068", "22.39.1069", "22.39.1070", "22.39.1071", "22.39.1072"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1073"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 point seven. Read tests/ci/data/launchpad_go_tests.py whole, the file tests/ci/data/launchpad_go_test_baseline.json, the cases of tests/ci/test_launchpad_go_tests_wired.py that read the baseline and the sentence of services/launchpad/README.md that links the file."
+do_2 = "do_2 Let the baseline file hold a list without an entry and let the cases follow under point seven. The verification runs the cases under tests/ci, the package auth of the shared module and the runner over the api module and the pnl module without a pattern."
+do_3 = "do_3 Point seven holds. The final message names the cases that changed. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/ci", "services/launchpad/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/data/launchpad_go_tests.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py && test $(grep -c retiring_task tests/ci/data/launchpad_go_test_baseline.json) -eq 0 && anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./auth/...) && (cd services/launchpad/api && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1072]
+title = "Let the cases that the baseline file names for the package auth of the shared module run without the skip pattern and pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1072"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the package auth of the shared module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+do_2 = "do_2 Bring each named case that does not pass into the form in which it passes under points three to five. The form of the code is the choice of the participant. The task changes case files and test data of the package auth only. A cause in a source file of the shared module stays unchanged and the final message names it with file and first message."
+do_3 = "do_3 Point six holds. The final message names for each named case its result before the change and what changed for it, and each case that takes the skip form of point five with its variable. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/auth"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./auth/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./auth/...)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1071]
+title = "Let the cases that the baseline file names for the packages internal/production/l17 and internal/production/l18 of the pnl module run without the skip pattern and pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1071"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the packages internal/production/l17 and internal/production/l18 of the pnl module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands. Read the case file test_reward_delivery_contract.py of the package l18 as well."
+do_2 = "do_2 Bring each named case that does not pass into the form in which it passes under points three to five. The form of the code is the choice of the participant. The four files that the case file of the package l18 names take no call that it rules out."
+do_3 = "do_3 Point six holds. The final message names for each named case its result before the change and what changed for it, and each case that takes the skip form of point five with its variable. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/production/l17/ ./internal/production/l18/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1070]
+title = "Let the cases that the baseline file names for the package internal/production/l16 of the pnl module run without the skip pattern and pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1070"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the package internal/production/l16 of the pnl module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+do_2 = "do_2 Bring each named case that does not pass into the form in which it passes under points three to five. The form of the code is the choice of the participant. For each named case of the package that reads a chain, decide under point five which of the two forms it takes and name the ground in the final message."
+do_3 = "do_3 Point six holds. The final message names for each named case its result before the change and what changed for it, and each case that takes the skip form of point five with its variable. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/production/l16/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 420
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1069]
+title = "Let the cases that the baseline file names for the packages internal/app, internal/card, internal/devreads and internal/reconcile of the pnl module run without the skip pattern and pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1069"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the packages internal/app, internal/card, internal/devreads and internal/reconcile of the pnl module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+do_2 = "do_2 Bring each named case that does not pass into the form in which it passes under points three to five. The form of the code is the choice of the participant."
+do_3 = "do_3 Point six holds. The final message names for each named case its result before the change and what changed for it, and each case that takes the skip form of point five with its variable. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/app/ ./internal/card/ ./internal/devreads/ ./internal/reconcile/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1068]
+title = "Let the cases that the baseline file names for the packages internal/app, internal/broker, internal/cache and internal/store of the api module run without the skip pattern and pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1068"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the packages internal/app, internal/broker, internal/cache and internal/store of the api module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+do_2 = "do_2 Bring each named case that does not pass into the form in which it passes under points three to five. The form of the code is the choice of the participant."
+do_3 = "do_3 Point six holds. The final message names for each named case its result before the change and what changed for it, and each case that takes the skip form of point five with its variable. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/app/ ./internal/broker/ ./internal/cache/ ./internal/store/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1067]
+title = "Let the cases that the baseline file names for the package internal/rest of the api module run without the skip pattern and pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1067"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part three, decision 3857 points three to six. Read the function run_tests in tests/ci/data/launchpad_go_tests.py and the entries of the file tests/ci/data/launchpad_go_test_baseline.json for the package internal/rest of the api module. Run those packages through the go tool without the skip pattern, as the verification does, and read the result of each named case as the main line stands."
+do_2 = "do_2 Bring each named case that does not pass into the form in which it passes under points three to five. The form of the code is the choice of the participant."
+do_3 = "do_3 Point six holds. The final message names for each named case its result before the change and what changed for it, and each case that takes the skip form of point five with its variable. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 30m ./internal/rest/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1066]
+title = "Give the job Go CI of the launchpad test workflow one matrix entry for each module and a limit of 180 minutes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1066"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part two, decision 3857 point two. Read the jobs launchpad-go-test and launchpad-go-ci in .github/workflows/launchpad-test.yml, the list MODULES and the target ci in services/launchpad/Makefile and the cases of tests/ci/test_launchpad_go_tests_wired.py, tests/ci/test_launchpad_test_workflow.py and tests/ci/test_runner_routing_container_runtime.py that read the job launchpad-go-ci."
+do_2 = "do_2 Give the job its matrix, its value for fail-fast, its limit and its last step under point two. The form in which the last step turns the entry into the name of the Makefile list is the choice of the participant. Let the cases follow and add the case that compares the entries of the matrix with the list of the Makefile."
+do_3 = "do_3 Point two holds: the job keeps its name, its environment, its services and its other steps in their order, and no other job changes. The final message names the cases that changed. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/data/launchpad_go_tests.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1065]
+title = "Add cases to the indexer module until the total of the coverage gate for the module reads 91.0 of 100 or more"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1065"]
+interfaces = []
+do_1 = "do_1 Gotcha 4784 part one, decision 3857 point one. Read the targets cover and cover-check in services/launchpad/Makefile, the script tools/launchpad/coverage-gate.sh and the function run_tests in tests/ci/data/launchpad_go_tests.py. Run make -C services/launchpad cover-check MODULES=indexer by hand once before any change and note the total that the script prints for the module. The profile lies under services/launchpad/.cover, and the cover tool lists from it the functions with the share of their statements that the cases reach."
+do_2 = "do_2 Add cases under point one until the script reads 91.0 of 100 or more for the module. The packages internal/processor, internal/receipt, internal/source, internal/app and internal/store hold the largest number of statements of the module, the helper packages under internal/internaltest count with their own cases, and the package cmd/indexerd holds no case file. Measure a single package through the go tool with a profile while you work and the whole module through the gate at the end."
+do_3 = "do_3 Point one holds. The final message names the total before and after and the packages that gained cases. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=indexer && MONEY_MIN=91.0 GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=indexer"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
