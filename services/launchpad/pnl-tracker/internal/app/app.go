@@ -541,7 +541,7 @@ func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logge
 				return
 			}
 			defer release()
-			if e := accountingRuntimeError(ctx, app.runAccounting(ctx)); e != nil {
+			if e := accountingRuntimeError(ctx, runInventoryAgain(ctx, logger, app.runAccounting, waitInventoryRun, time.Now)); e != nil {
 				runtimeErr <- e
 				logger.Error("inventory consumer failed", slog.Any("err", e))
 				app.tracker.BeginDrain()
