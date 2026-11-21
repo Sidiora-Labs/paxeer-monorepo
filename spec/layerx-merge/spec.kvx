@@ -210683,7 +210683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1042]
 title = "Bring the producer transcript of the launchpad client package candles-sdk in line with the symbol route of the charts module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210713,7 +210713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1041]
 title = "Bring the manifest of the metadata module of the launchpad in step with the imports of its packages and cases with the workspace file off"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
