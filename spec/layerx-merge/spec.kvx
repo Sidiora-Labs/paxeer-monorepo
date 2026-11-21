@@ -210801,7 +210801,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1055]
 title = "Let a rejoin of an endpoint of the committed source of the indexer compare its recorded entries and read them within the permits of the endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
