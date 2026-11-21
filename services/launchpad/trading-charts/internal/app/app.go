@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	sharedchain "github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -603,6 +604,12 @@ type chartOutboxConfig struct {
 func (c chartOutboxConfig) validate(policy delivery.Policy) error {
 	if !policy.Subjects[c.Subject] {
 		return errors.New("charts: chart outbox subject is not admitted")
+	}
+	if !policy.Subjects[accounting.MarketSubject] {
+		return errors.New("charts: invalid store configuration: policy.Subjects must enable " + accounting.MarketSubject)
+	}
+	if !policy.EventTypes[accounting.MarketSubject] {
+		return errors.New("charts: invalid store configuration: policy.EventTypes must enable " + accounting.MarketSubject)
 	}
 	return c.validateBounds()
 }
