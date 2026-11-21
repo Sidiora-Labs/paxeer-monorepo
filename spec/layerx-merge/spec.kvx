@@ -16204,6 +16204,12 @@ value = "One. Every Go file of the modules that the list MODULES of the launchpa
 basis = "Gotcha 4775."
 affects = []
 
+[decision.3849]
+title = "The delivery policy of the charts app names the event type of the market publications at startup and in the composer, the cases of the charts module build that type, and the composition case of the pnl app holds over consecutive runs"
+value = "One. The event type of a market publication is the constant MarketSubject of the shared accounting package, as the publisher of the indexer writes it. Two. In the production environment the charts app requires, at the place where it checks the chart outbox against the policy, that the policy of its delivery document holds the constant MarketSubject among Subjects and among EventTypes, and returns an error ahead of the start of its consumer for a document without one of the two. The other checks of the document stay. Three. The function _policy of the composer of the charts documents requires the same two entries and refuses a values file without one of them with a message that names the entry. The example values document stays as it is. Four. The file integration/qualify.go and the cases of the charts module build the policy and the envelope of a market publication with the constant MarketSubject as the event type. Cases whose names begin with TestMarketEventType drive the startup check with a document that holds the two entries and with documents that lack one, and a case whose name begins with test_charts_policy_names_market_type drives the composer the same way. No case of the charts module or of the composer is removed, skipped or given a wider expectation. Task 22.39.1053. Five. The case TestJourneyCompositionBindsActualRuntimeComponents passes in 20 consecutive runs of its own and in 4 consecutive runs of the cases of the pnl module as the test runner of the launchpad runs them. Six. The change sits at the site that a reading of these runs names, with the log of the entrypoint kept per round. A condition of the case is handled in the function assertComposedInventoryLifecycle. A condition of the product is handled in the code that ends the process: after the signal the entrypoint ends inside the bound of the case, after its inventory consumer is deleted it ends with the exit code 1 inside that bound, and where the reading shows that the deleted consumer reaches the function inventoryRunErrorClass in another form than the error ErrConsumerDeleted, that form is permanent as well. The run of the inventory consumer after the other errors that are not permanent stays as it is. Seven. The case keeps its three rounds and its expectations, the wait for the end of the process stays at or below its present bound, and no case of the package is removed, skipped or given a wider expectation. Task 22.39.1054."
+basis = "Gotcha 4776."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45864,6 +45870,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1054]
+title = "Let the composition case of the pnl app that starts and ends its entrypoint in three rounds hold over consecutive runs"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=20 -timeout 40m -run ^TestJourneyCompositionBindsActualRuntimeComponents ./internal/app/)"
+do_1 = "do_1 Gotcha 4776 second part, decision 3849 points five to seven. Read the function assertComposedInventoryLifecycle in services/launchpad/pnl-tracker/internal/app/deployment_lifecycle_test.go whole, the case TestJourneyCompositionBindsActualRuntimeComponents in services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go, the file services/launchpad/pnl-tracker/internal/app/inventory_retry.go whole, the function accountingRuntimeError in services/launchpad/pnl-tracker/internal/app/accounting_lifecycle.go, the part of services/launchpad/pnl-tracker/internal/app/app.go that starts and ends the inventory consumer, the entrypoint of the package cmd/pnld and the file sdk/launchpad/shared/process/lifecycle.go. Run the case alone 20 times and the cases of the pnl module with the test runner of the launchpad 4 times ahead of any change, with the log of the entrypoint kept per round. These runs are the reading of this task and belong to its implementation, they are not its verification. The final message names the count of the runs per result and, for each result other than a pass, the round, the last lines of the entrypoint log of that round, the error and the class the function inventoryRunErrorClass gave, and the time between the end request and the end of the process."
+symbols = []
+
+[capability.22.39.1053]
+title = "Let the charts app and the composer of its documents require the event type of the market publications in the delivery policy and let the cases of the charts module build that type"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts", "deploy/launchpad/documents"]
+tests = []
+verification_contract = "anvil --version > /dev/null && python3 -m pytest -q deploy/launchpad/documents/test_compose.py && python3 -m pytest -q deploy/launchpad/documents/test_compose.py -k test_charts_policy_names_market_type && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && (cd services/launchpad/trading-charts && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestMarketEventType ./internal/app/ | grep -q ^TestMarketEventType)"
+do_1 = "do_1 Gotcha 4776 first part, decision 3849 points one to four. Read the part of services/launchpad/trading-charts/internal/app/app.go that reads the delivery document, the type chartRuntimeDocument and the function validate of the type chartOutboxConfig, the function Validate in sdk/launchpad/shared/delivery/envelope.go, the function _policy in deploy/launchpad/documents/charts.py with the cases of deploy/launchpad/documents/test_compose.py on the charts documents, the example deploy/launchpad/documents/values/charts.example.json, the file services/launchpad/trading-charts/integration/qualify.go and the case files gotcha 4776 names. The final message names every site of the charts module that builds a policy or an envelope of a market publication, with its event type."
+symbols = []
 
 [capability.22.39.1052]
 title = "Let the voice case of the social module that ends its provider session after two reconcile passes hold over 200 consecutive runs"
@@ -210627,6 +210651,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1054]
+title = "Let the composition case of the pnl app that starts and ends its entrypoint in three rounds hold over consecutive runs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1054"]
+interfaces = []
+do_1 = "do_1 Gotcha 4776 second part, decision 3849 points five to seven. Read the function assertComposedInventoryLifecycle in services/launchpad/pnl-tracker/internal/app/deployment_lifecycle_test.go whole, the case TestJourneyCompositionBindsActualRuntimeComponents in services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go, the file services/launchpad/pnl-tracker/internal/app/inventory_retry.go whole, the function accountingRuntimeError in services/launchpad/pnl-tracker/internal/app/accounting_lifecycle.go, the part of services/launchpad/pnl-tracker/internal/app/app.go that starts and ends the inventory consumer, the entrypoint of the package cmd/pnld and the file sdk/launchpad/shared/process/lifecycle.go. Run the case alone 20 times and the cases of the pnl module with the test runner of the launchpad 4 times ahead of any change, with the log of the entrypoint kept per round. These runs are the reading of this task and belong to its implementation, they are not its verification. The final message names the count of the runs per result and, for each result other than a pass, the round, the last lines of the entrypoint log of that round, the error and the class the function inventoryRunErrorClass gave, and the time between the end request and the end of the process."
+do_2 = "do_2 Make the change at the site that reading names, under decision 3849 point six. Where the condition lies in the case, the function assertComposedInventoryLifecycle handles it. Where it lies in the product, the code that ends the process follows, and cases drive the changed code for the signal and for the deleted consumer in each form the reading names. Name in the final message whether the functions of the charts app and of the stats app that run their consumer again treat the same form, and leave them as they are."
+do_3 = "do_3 Run the case alone 20 times and the cases of the pnl module 4 times again and name the count of the runs per result in the final message. The case keeps its three rounds and its expectations under decision 3849 point seven. The present cases of the pnl module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=20 -timeout 40m -run ^TestJourneyCompositionBindsActualRuntimeComponents ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1053]
+title = "Let the charts app and the composer of its documents require the event type of the market publications in the delivery policy and let the cases of the charts module build that type"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1053"]
+interfaces = []
+do_1 = "do_1 Gotcha 4776 first part, decision 3849 points one to four. Read the part of services/launchpad/trading-charts/internal/app/app.go that reads the delivery document, the type chartRuntimeDocument and the function validate of the type chartOutboxConfig, the function Validate in sdk/launchpad/shared/delivery/envelope.go, the function _policy in deploy/launchpad/documents/charts.py with the cases of deploy/launchpad/documents/test_compose.py on the charts documents, the example deploy/launchpad/documents/values/charts.example.json, the file services/launchpad/trading-charts/integration/qualify.go and the case files gotcha 4776 names. The final message names every site of the charts module that builds a policy or an envelope of a market publication, with its event type."
+do_2 = "do_2 Let the charts app require the two entries under decision 3849 point two and let the function _policy of the composer require them under point three. Add cases whose names begin with TestMarketEventType to the package internal/app of the charts module and a case whose name begins with test_charts_policy_names_market_type to deploy/launchpad/documents/test_compose.py, each with a document that holds the two entries and with documents that lack one."
+do_3 = "do_3 Let the file services/launchpad/trading-charts/integration/qualify.go and the cases of the charts module build the policy and the envelope of a market publication with the constant MarketSubject under decision 3849 point four. The example values document and the other examples stay. The present cases of the charts module and of the composer stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts", "deploy/launchpad/documents"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/charts.py && (cd services/launchpad/trading-charts && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q deploy/launchpad/documents/test_compose.py && python3 -m pytest -q deploy/launchpad/documents/test_compose.py -k test_charts_policy_names_market_type && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && (cd services/launchpad/trading-charts && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestMarketEventType ./internal/app/ | grep -q ^TestMarketEventType)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
