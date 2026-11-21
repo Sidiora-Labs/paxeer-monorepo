@@ -210816,7 +210816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1056]
 title = "Let a delivery store claim and count the rows of its outbox table whose subject its policy holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
