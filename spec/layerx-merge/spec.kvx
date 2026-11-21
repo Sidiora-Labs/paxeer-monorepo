@@ -211278,7 +211278,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1068]
 title = "Let the cases that the baseline file names for the packages internal/app, internal/broker, internal/cache and internal/store of the api module run without the skip pattern and pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1074"]
