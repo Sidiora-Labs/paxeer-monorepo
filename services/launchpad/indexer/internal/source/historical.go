@@ -3,6 +3,7 @@ package source
 import (
 	"context"
 	"errors"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 
 	"math"

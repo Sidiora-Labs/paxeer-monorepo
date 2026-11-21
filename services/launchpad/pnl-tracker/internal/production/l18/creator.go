@@ -133,7 +133,7 @@ func (c *Creator) read(ctx context.Context, b Checkpoint, target string, a abi.A
 		return nil, e
 	}
 	var result hexutil.Bytes
-	e = c.rpc.CallContext(ctx, &result, "eth_call", map[string]any{"to": target, "data": hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true})
+	e = c.rpc.CallContext(ctx, &result, "eth_call", map[string]any{"to": target, fieldData: hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true})
 	if e != nil {
 		return nil, e
 	}
@@ -164,7 +164,7 @@ func (c *Creator) reads(ctx context.Context, b Checkpoint, target string, a abi.
 		if err != nil {
 			return nil, err
 		}
-		batch[i] = rpc.BatchElem{Method: "eth_call", Args: []any{map[string]any{"to": target, "data": hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}}, Result: &results[i]}
+		batch[i] = rpc.BatchElem{Method: "eth_call", Args: []any{map[string]any{"to": target, fieldData: hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}}, Result: &results[i]}
 	}
 	if err := batcher.BatchCallContext(ctx, batch); err != nil {
 		return nil, err

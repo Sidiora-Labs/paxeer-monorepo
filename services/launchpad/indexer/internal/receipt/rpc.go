@@ -563,14 +563,14 @@ func NewRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 // anchor block.
 func NewRPCQualificationWithAttestation(ctx context.Context, client *ethclient.Client, o RPCOptions, attest AnchorAttestation) (*RPCQualification, error) {
 	if err := o.Manifest.Validate(); err != nil {
-		return nil, qualificationRefusal("manifest", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("manifest", valueUnknown, common.Address{}, "identity")
 	}
 	if o.Manifest.Status != "active" && o.Manifest.Status != "eligible" {
-		return nil, qualificationRefusal("manifest", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("manifest", valueUnknown, common.Address{}, "identity")
 	}
 	approved, ok := deployment.Approved(o.Manifest.ActivationHeight)
 	if !ok || o.Manifest.SchemaVersion != approved.SchemaVersion || o.Manifest.DeploymentVersion != approved.DeploymentVersion || o.Manifest.SourceManifestSHA256 != approved.SourceManifestSHA256 || o.Manifest.ChainID != approved.ChainID || o.Manifest.ActivationHeight != approved.ActivationHeight || o.Manifest.Status != approved.Status || o.Manifest.Native != approved.Native || o.Manifest.Settlement != approved.Settlement || o.Manifest.CreationFeeRaw != approved.CreationFeeRaw || o.Manifest.Governance != approved.Governance || o.Manifest.MarketModel != approved.MarketModel || o.Manifest.Graduation != approved.Graduation || o.Manifest.CoreOracleRequired != approved.CoreOracleRequired || len(o.Manifest.Roles) != len(approved.Roles) {
-		return nil, qualificationRefusal("manifest", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("manifest", valueUnknown, common.Address{}, "identity")
 	}
 	for role, id := range approved.Roles {
 		if !o.Manifest.Roles[role].MatchesApproved(id) {
@@ -580,15 +580,15 @@ func NewRPCQualificationWithAttestation(ctx context.Context, client *ethclient.C
 	}
 	if o.Anchor != nil {
 		if o.Anchor.Height < approved.ActivationHeight {
-			return nil, qualificationRefusal("manifest", "unknown", common.Address{}, "identity")
+			return nil, qualificationRefusal("manifest", valueUnknown, common.Address{}, "identity")
 		}
 		if next, ok := deployment.NextActivationHeight(approved.ActivationHeight); ok && o.Anchor.Height >= next {
-			return nil, qualificationRefusal("manifest", "unknown", common.Address{}, "identity")
+			return nil, qualificationRefusal("manifest", valueUnknown, common.Address{}, "identity")
 		}
 	}
 	hash, err := o.Manifest.Hash()
 	if err != nil {
-		return nil, qualificationRefusal("manifest", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("manifest", valueUnknown, common.Address{}, "identity")
 	}
 	return newRPCQualification(ctx, client, o, hash, false, attest)
 }
@@ -607,7 +607,7 @@ type PrivateFixtureRPCOptions struct {
 
 func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Client, f PrivateFixtureRPCOptions) (*RPCQualification, error) {
 	if client == nil || !strings.HasPrefix(f.DeploymentVersion, "private-fixture-") || f.ActivationHeight == 0 || len(f.Roles) < 12 || len(f.Roles) > 64 || len(f.CreationTransactions) == 0 || len(f.CreationTransactions) > 128 {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	for _, role := range []string{valueEventEmitter, "ProtocolConfig", valueRouter, "Quoter", valueSidioraFactory, "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "OpticalRegistry", "PoolBeacon", valueUSDL} {
 		if !validRPCIdentity(f.Roles[role]) {
@@ -624,7 +624,7 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 		seen[address] = true
 	}
 	if f.Roles[valueUSDL].Kind != valueDirect || f.Roles["PoolBeacon"].Kind != valueBeacon {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	o := RPCOptions{Manifest: deployment.Manifest{DeploymentVersion: f.DeploymentVersion, ChainID: 125, ActivationHeight: f.ActivationHeight, Roles: f.Roles}, CatalogJSON: f.CatalogJSON, Epochs: f.Epochs, Discovery: f.Discovery, GenesisHash: f.GenesisHash, Timeout: f.Timeout}
 	d, err := digest(f)
@@ -639,16 +639,16 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 	defer cancel()
 	var nodeInfo json.RawMessage
 	if err = client.Client().CallContext(read, &nodeInfo, "anvil_nodeInfo"); err != nil || len(nodeInfo) == 0 {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	latest, latestHash, err := a.headerByNumber(read, nil)
 	if err != nil || latest == nil || latest.Number == nil || latest.Number.Uint64() < f.ActivationHeight {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	for address, txHash := range f.CreationTransactions {
 		r, err := client.TransactionReceipt(read, txHash)
 		if err != nil || r == nil || r.Status != 1 || r.ContractAddress != address {
-			return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+			return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 		}
 		block, receipts, err := a.pinnedBlockAt(read, r.BlockHash, 0)
 		lenReceiptsUint, conversionErr := checked.Convert[uint](len(receipts))
@@ -656,15 +656,15 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 			return nil, conversionErr
 		}
 		if err != nil || r.TransactionIndex >= lenReceiptsUint || !receiptEqual(r, receipts[r.TransactionIndex]) {
-			return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+			return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 		}
 		tx := block.Transactions[r.TransactionIndex]
 		if tx.To() != nil || tx.ChainId().Cmp(big.NewInt(125)) != 0 {
-			return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+			return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 		}
 		sender, err := types.Sender(types.LatestSignerForChainID(big.NewInt(125)), tx)
 		if err != nil || crypto.CreateAddress(sender, tx.Nonce()) != address {
-			return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+			return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 		}
 	}
 	for role, identity := range f.Roles {
@@ -684,7 +684,7 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 	}
 	decimals, err := a.word(read, common.HexToAddress(f.Roles[valueUSDL].Address), "decimals()", latestHash)
 	if err != nil || new(big.Int).SetBytes(decimals).Cmp(big.NewInt(6)) != 0 {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	return a, nil
 }
@@ -693,13 +693,13 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 	pinned := o.GenesisHash != (common.Hash{})
 	anchored := o.Anchor != nil && o.Anchor.Hash != (common.Hash{})
 	if client == nil || pinned == anchored || o.Anchor != nil && !anchored || !validBlockIdentity(o.BlockIdentity) || len(o.Epochs) == 0 || len(o.Epochs) > 4096 || len(o.CatalogJSON) > 32<<20 {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	if o.Timeout == 0 {
 		o.Timeout = 15 * time.Second
 	}
 	if o.Timeout <= 0 || o.Timeout > 15*time.Second {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	owned, err := clone(o)
 	if err != nil {
@@ -729,7 +729,7 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 		}
 	}
 	if len(owned.Epochs) > 4096 {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	for _, template := range owned.Discovery {
 		if (template.Role != valueSidioraPool && template.Role != valueSidioraERC20) || !rpcHash(template.RuntimeHash) || len(template.ABIRevision) != 64 || !validCodeRanges(template.Role, template.Immutables) {
@@ -804,11 +804,11 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 	}
 	registry, err := decode.NewRegistry(owned.CatalogJSON, deployments)
 	if err != nil {
-		return nil, qualificationRefusal("registry", "unknown", common.Address{}, "coverage")
+		return nil, qualificationRefusal("registry", valueUnknown, common.Address{}, "coverage")
 	}
 	var catalog decode.Catalog
 	if err = json.Unmarshal(owned.CatalogJSON, &catalog); err != nil {
-		return nil, qualificationRefusal("catalog", "unknown", common.Address{}, "template")
+		return nil, qualificationRefusal("catalog", valueUnknown, common.Address{}, "template")
 	}
 	for _, template := range owned.Discovery {
 		matched := false
@@ -826,19 +826,19 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 	defer cancel()
 	chain, err := client.ChainID(read)
 	if err != nil || chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	if err = a.verifyChainIdentity(read, attest); err != nil {
 		return nil, err
 	}
 	a.identityVerified = true
 	if len(owned.History) > 16 {
-		return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+		return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 	}
 	seenGenerations := map[uint64]bool{}
 	for _, generation := range owned.History {
 		if seenGenerations[generation.ActivationHeight] {
-			return nil, qualificationRefusal("authority", "unknown", common.Address{}, "identity")
+			return nil, qualificationRefusal("authority", valueUnknown, common.Address{}, "identity")
 		}
 		seenGenerations[generation.ActivationHeight] = true
 		if _, err = a.historicalAuthority(read, generation.ActivationHeight); err != nil {
@@ -894,7 +894,7 @@ func (a *RPCQualification) epoch(address common.Address, order decode.Order) (RP
 			return e, nil
 		}
 	}
-	role, kind := "unknown", "unknown"
+	role, kind := valueUnknown, valueUnknown
 	for _, e := range a.options.Epochs {
 		if e.Deployment.Address == address {
 			role, kind = e.Deployment.Role, e.Identity.Kind
@@ -1713,7 +1713,7 @@ func (a *RPCQualification) discover(ctx context.Context, receipts types.Receipts
 	}
 	registry, err := decode.NewRegistry(owned.CatalogJSON, deployments)
 	if err != nil {
-		return nil, qualificationRefusal("discovery", "unknown", common.Address{}, "coverage")
+		return nil, qualificationRefusal("discovery", valueUnknown, common.Address{}, "coverage")
 	}
 	return &RPCQualification{client: a.client, options: owned, registry: registry, manifestHash: a.manifestHash, privateFixture: a.privateFixture, identityVerified: a.identityVerified, reads: a.reads}, nil
 }

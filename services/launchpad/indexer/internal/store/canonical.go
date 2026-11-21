@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"math"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"

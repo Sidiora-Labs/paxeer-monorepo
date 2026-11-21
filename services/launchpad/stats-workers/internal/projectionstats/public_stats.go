@@ -941,7 +941,7 @@ func (p *PublicStatsProjector) windowChange(ctx context.Context, tx pgx.Tx, anch
 		// No price-moving event since creation: the price is unchanged.
 		zero := "0"
 		if created >= start {
-			return &zero, "insufficient_history", nil
+			return &zero, valueInsufficientHistory, nil
 		}
 		return &zero, valueComplete, nil
 	case baseline != nil:
@@ -956,11 +956,11 @@ func (p *PublicStatsProjector) windowChange(ctx context.Context, tx pgx.Tx, anch
 			return change, valueUnavailable, nil
 		}
 		if created >= start {
-			return change, "insufficient_history", nil
+			return change, valueInsufficientHistory, nil
 		}
 		return change, valueComplete, nil
 	default:
-		return nil, "insufficient_history", nil
+		return nil, valueInsufficientHistory, nil
 	}
 }
 

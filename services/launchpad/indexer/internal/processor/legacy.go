@@ -75,7 +75,7 @@ func (p *Processor) projectLegacyEnvelopes(ctx context.Context, b store.Canonica
 	}
 	events := make(map[key]*decode.Event)
 	for _, envelope := range envelopes {
-		if envelope == nil || envelope.Status != "decoded" || envelope.Event == nil || envelope.Family == nil {
+		if envelope == nil || envelope.Status != valueDecoded || envelope.Event == nil || envelope.Family == nil {
 			continue
 		}
 		if envelope.Family.Authority != "primary" && envelope.Family.Authority != "mirror" {

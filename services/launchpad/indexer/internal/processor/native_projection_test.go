@@ -1289,6 +1289,7 @@ func (db *nativeProjectionMemoryDB) QueryRow(ctx context.Context, sql string, ar
 	}
 	return nativeProjectionMemoryRow{err: fmt.Errorf("unsupported in-memory QueryRow: %s", sql)}
 }
+
 type nativeProjectionMemoryRows struct{ pgx.Rows }
 
 func (*nativeProjectionMemoryRows) Close()     {}

@@ -244,6 +244,14 @@ def test_launchpad_makefile_ci_target_exists():
     assert "$(GO) list ./...) ||" in text, "Discovery errors must fail the gate"
 
 
+def test_launchpad_ci_target_order():
+    text = (ROOT / "services/launchpad/Makefile").read_text()
+    (ci,) = re.findall(r"^ci:\s*([^\n#]+)", text, re.M)
+    assert ci.split() == [
+        "build", "vet", "fmt-check", "lint", "test", "race", "cover-check"
+    ], "CI must run static stages before tests, race detection and coverage"
+
+
 def test_launchpad_lint_release_and_module_selection():
     makefile = (ROOT / "services/launchpad/Makefile").read_text()
     lint_recipe = makefile.split("\nlint:", 1)[1].split("\n\ntest race cover:", 1)[0]

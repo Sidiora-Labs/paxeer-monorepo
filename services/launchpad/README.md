@@ -52,8 +52,9 @@ is also required. Integration tests use PostgreSQL, Redis, NATS and chain client
 service-specific tests may also require Anvil and S3-compatible object storage.
 
 Additional targets in the same Makefile are `make vet`, `make fmt-check`,
-`make lint`, `make race` and `make cover-check`. `make ci` combines the declared
-CI targets. `make sqlc` regenerates query bindings for modules with `sqlc.yaml`
+`make lint`, `make race` and `make cover-check`. `make ci` runs `build`, `vet`,
+`fmt-check`, `lint`, `test`, `race` and `cover-check`, in that order.
+`make sqlc` regenerates query bindings for modules with `sqlc.yaml`
 and requires the `sqlc` executable.
 
 The Python supply-chain tests have a separate command, run from the repository root:
