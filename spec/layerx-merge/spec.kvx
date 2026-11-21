@@ -16180,6 +16180,12 @@ value = "One. The files go.mod and go.sum of the metadata module take the form t
 basis = "Gotcha 4771."
 affects = []
 
+[decision.3845]
+title = "The job of the inventory consumer of the pnl app and the consumer jobs of the stats app run again after an error that is not permanent"
+value = "One. Decision 3844 points three and four hold for the job of the inventory consumer of the pnl app and for the consumer jobs of the stats app. The permanent classes of an error are authorization, integrity, schema and closed. The wait ahead of the next run starts at one second, doubles up to 30 seconds and is set back to one second by a run that lasted 30 seconds or longer. Two. The job of the inventory consumer of the pnl app calls the function runAccounting again after an error that is not permanent while the context lives. A permanent error and a return without an error while the context lives take the present path through the function accountingRuntimeError. Three. The consumer jobs of the stats app are the job market accounting and each search consumer job. Such a job is run again after an error that is not permanent while the context lives. From the error until a later run of the job has been running for 30 seconds the entry of the job in the type statsRuntimeHealth holds the error, and then the entry is cleared. A permanent error and a return without an error while the context lives take the present path of the loop over the jobs. Four. Each change of state of such a job writes one log line with the name of the job and the state failing or passing. Five. The other jobs of both apps, the function retryStatsJob, the readiness checks and the shared driver stay as they are. Tasks 22.39.1045 and 22.39.1046."
+basis = "Gotcha 4772."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45840,6 +45846,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1046]
+title = "Let the stats app of the launchpad run its consumer jobs again after an error that is not permanent and keep the error in its runtime health while a job fails"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestConsumerJobRunAgain ./internal/app/ | grep -q ^TestConsumerJobRunAgain)"
+do_1 = "do_1 Gotcha 4772 part two, decision 3845 points one, three and four. Read in the stats module the function Run of internal/app/app.go whole with the loop over the jobs of the app, the place where the jobs market accounting, stats durable publisher and the search consumer jobs are built, the function retryStatsJob and the type statsRuntimeHealth with its functions set and check, and read the functions Fetch and Run of the type Consumer in sdk/launchpad/shared/delivery/natsdriver/driver.go and the function runtimeStepErrorClass in services/launchpad/gateway/internal/app/runtime_steps.go. The final message names for each consumer job whether a second run after a returned first run is sound and what the task changed to make it so, and names what the run of the job stats durable publisher returns after an error of the broker."
+symbols = []
+
+[capability.22.39.1045]
+title = "Let the pnl app of the launchpad run its inventory consumer again after an error that is not permanent"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestInventoryRunAgain ./internal/app/ | grep -q ^TestInventoryRunAgain)"
+do_1 = "do_1 Gotcha 4772 part one, decision 3845 points one, two and four. Read the function Run of services/launchpad/pnl-tracker/internal/app/app.go whole with the job of the inventory consumer, the function runAccounting, the file services/launchpad/pnl-tracker/internal/app/accounting_lifecycle.go with the cases of services/launchpad/pnl-tracker/internal/app/accounting_lifecycle_test.go, the functions Fetch and Run of the type Consumer in sdk/launchpad/shared/delivery/natsdriver/driver.go and the function runtimeStepErrorClass in services/launchpad/gateway/internal/app/runtime_steps.go. The final message names every error the function runAccounting can return with its class and states why a second call of the function after a returned first call is sound."
+symbols = []
 
 [capability.22.39.1044]
 title = "Let the connected runtime of the launchpad social service run a background job again after an error that is not permanent and clear the stored error of the job once it runs"
@@ -210531,6 +210555,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1046]
+title = "Let the stats app of the launchpad run its consumer jobs again after an error that is not permanent and keep the error in its runtime health while a job fails"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1046"]
+interfaces = []
+do_1 = "do_1 Gotcha 4772 part two, decision 3845 points one, three and four. Read in the stats module the function Run of internal/app/app.go whole with the loop over the jobs of the app, the place where the jobs market accounting, stats durable publisher and the search consumer jobs are built, the function retryStatsJob and the type statsRuntimeHealth with its functions set and check, and read the functions Fetch and Run of the type Consumer in sdk/launchpad/shared/delivery/natsdriver/driver.go and the function runtimeStepErrorClass in services/launchpad/gateway/internal/app/runtime_steps.go. The final message names for each consumer job whether a second run after a returned first run is sound and what the task changed to make it so, and names what the run of the job stats durable publisher returns after an error of the broker."
+do_2 = "do_2 Add to the app one function that builds the run of a consumer job from the name of the job, the runtime health and a run. The run it returns calls the run of the job. For an error that is not permanent, while the context lives, it sets the entry of the job in the runtime health to the error, writes one log line with the name of the job and the state failing where the job was not failing, and calls the run again after a wait that starts at one second and doubles up to 30 seconds. A run that lasted 30 seconds or longer sets the wait back to one second. Once a run after a failing one has been running for 30 seconds, the entry of the job is cleared and one log line with the state passing is written. The wait and the clock are parameters, so a case can replace them. A permanent error and a return without an error while the context lives are returned as they are, so the loop over the jobs treats them as today. The permanent classes are read with errors.Is and errors.As on the errors of the shared delivery package, of the shared driver and of the broker client that can reach a job, in the way the gateway function reads them. Let the job market accounting and each search consumer job use that function. The task changes files of the stats module only."
+do_3 = "do_3 Add cases whose names begin with TestConsumerJobRunAgain, with stand-ins for the run, the wait and the clock and no broker. A run that returns an error that is not permanent once and then blocks: the function check of the runtime health returns an error after the first run, the run is called a second time after one wait of one second, and the function check returns no error once the second run has been running for 30 seconds by the clock of the case. Three such errors in a row give waits of one, two and four seconds, and no wait exceeds 30 seconds. An error of each permanent class is returned after one call and no second run. A return without an error while the context lives is returned after one call. An ended context gives no further run. The loop over the jobs, the other jobs, the function retryStatsJob, the readiness checks and the shared driver stay as they are. The present cases of the module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/stats-*ers && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestConsumerJobRunAgain ./internal/app/ | grep -q ^TestConsumerJobRunAgain)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1045]
+title = "Let the pnl app of the launchpad run its inventory consumer again after an error that is not permanent"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1045"]
+interfaces = []
+do_1 = "do_1 Gotcha 4772 part one, decision 3845 points one, two and four. Read the function Run of services/launchpad/pnl-tracker/internal/app/app.go whole with the job of the inventory consumer, the function runAccounting, the file services/launchpad/pnl-tracker/internal/app/accounting_lifecycle.go with the cases of services/launchpad/pnl-tracker/internal/app/accounting_lifecycle_test.go, the functions Fetch and Run of the type Consumer in sdk/launchpad/shared/delivery/natsdriver/driver.go and the function runtimeStepErrorClass in services/launchpad/gateway/internal/app/runtime_steps.go. The final message names every error the function runAccounting can return with its class and states why a second call of the function after a returned first call is sound."
+do_2 = "do_2 Add to the app one function that runs the inventory consumer under decision 3845 point two and takes the run as a parameter. It calls the run. For an error that is not permanent, while the context lives, it writes one log line with the state failing where the job was not failing and calls the run again after a wait that starts at one second and doubles up to 30 seconds. A run that lasted 30 seconds or longer sets the wait back to one second. Once a run after a failing one has been running for 30 seconds, one log line with the state passing is written. The wait and the clock are parameters, so a case can replace them. A permanent error and a return without an error while the context lives are returned as they are, and an ended context ends the function with the result of the run. The permanent classes are read with errors.Is and errors.As on the errors of the shared delivery package, of the shared driver and of the broker client that can reach the run, in the way the gateway function reads them. Let the job of the inventory consumer in the function Run call that function with the function runAccounting as the run and hand its result to the function accountingRuntimeError as today."
+do_3 = "do_3 Add cases whose names begin with TestInventoryRunAgain, with stand-ins for the run, the wait and the clock and no broker. A run that returns an error that is not permanent once and then blocks until the context ends is called twice with one wait of one second in between. Three such errors in a row give waits of one, two and four seconds, and no wait exceeds 30 seconds. A run that lasted 30 seconds by the clock of the case sets the next wait to one second. An error of each permanent class is returned after one call and no second run. A return without an error while the context lives is returned after one call. An ended context gives no further run. The function accountingRuntimeError, the readiness checks, the other jobs and the shared driver stay as they are. The present cases of services/launchpad/pnl-tracker/internal/app/accounting_lifecycle_test.go and the other present cases of the module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestInventoryRunAgain ./internal/app/ | grep -q ^TestInventoryRunAgain)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
