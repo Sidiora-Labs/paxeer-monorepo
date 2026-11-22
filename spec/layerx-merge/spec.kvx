@@ -211023,7 +211023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1079]
 title = "Let the authority cases of the launchpad gateway take the port of an authority process directly before its start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
