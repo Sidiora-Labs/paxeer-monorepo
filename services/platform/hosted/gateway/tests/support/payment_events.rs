@@ -144,8 +144,30 @@ fn payment_facts_cross_real_tls_and_refuse_foreign_principals_without_losing_the
     };
     let credentials = BTreeMap::from([("payment-principal".to_owned(), Zeroizing::new(format!("payment-key:{secret}"))), ("foreign-principal".to_owned(), Zeroizing::new(format!("payment-key:{secret}")))]);
     let sink = event_source(Arc::clone(&tls), upstream(principal.port, "unused-principal-bearer"), &credentials.clone(), &redis.directory.join("events"), 0);
+    let trigger = Listener::start(Arc::clone(&tls), |request| {
+        if request.method != "GET" || request.path != "/internal/v1/readiness/payment" {
+            return http::refusal(404, "not_found", None);
+        }
+        http::json(
+            200,
+            &serde_json::json!({
+                "schema": "layerx.event-admission.v1",
+                "role": "webhook-trigger",
+                "kind": "payment",
+                "ready": true,
+                "generation": 1,
+                "principals": 1,
+                "principal_digest": false,
+                "fresh_for_ms": 10_000,
+            }),
+        )
+    });
     let pending = enqueue_payment(&store, &key);
-    let client = Client::new(BTreeMap::from([("payment".to_owned(), upstream(sink.port, "producer-token"))]), upstream(sink.port, "notification-token")).unwrap_or_else(|error| panic!("{error}"));
+    let client = Client::new(
+        BTreeMap::from([("payment".to_owned(), upstream(sink.port, "producer-token"))]),
+        upstream(trigger.port, "notification-token"),
+    )
+    .unwrap_or_else(|error| panic!("{error}"));
     assert_eq!(client.deliver(&pending), Ok(true));
     assert_eq!(client.deliver(&pending), Ok(true));
     let response = upstream(sink.port, "consumer-token").get(&format!("/internal/v1/events/{}", pending.observation.id)).unwrap_or_else(|error| panic!("{error:?}"));
@@ -167,6 +189,7 @@ fn payment_facts_cross_real_tls_and_refuse_foreign_principals_without_losing_the
     observed.observed = true;
     assert_eq!(store.pending().unwrap_or_else(|error| panic!("{error}")), Some(observed));
     drop(sink);
+    drop(trigger);
     drop(principal);
 }
 
