@@ -195,6 +195,7 @@
 }
 
 .sl-notifications {
+  --sl-notice-bottom-offset: var(--sl-space-6);
   position: fixed;
   inset: 0;
   margin: 0;
@@ -208,6 +209,23 @@
   background: transparent;
   pointer-events: none;
   z-index: var(--sl-z-toast);
+}
+@media (width < 64rem) {
+  .sl-notifications {
+    --sl-notice-bottom-offset: calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0rem));
+  }
+  body:has(.foundation-shell[data-shell-route-id='coin']) .sl-notifications {
+    --sl-notice-bottom-offset: calc(
+      var(--sl-trade-cta-clearance) + env(safe-area-inset-bottom, 0rem)
+    );
+  }
+}
+@media (width < 48rem) {
+  .sl-notifications {
+    --sl-notice-bottom-offset: calc(
+      var(--sl-bottom-nav-height) + var(--sl-space-8) + env(safe-area-inset-bottom, 0rem)
+    );
+  }
 }
 .sl-notifications[data-suppressed='true'] {
   visibility: hidden;

@@ -27,6 +27,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// PinnedRPCReader supports concurrent reads through its concurrency-safe RPC client.
+// Its client references are immutable after construction.
 type PinnedRPCReader struct {
 	*ethclient.Client
 	rpc *rpc.Client
@@ -279,9 +281,10 @@ type PreflightEngine struct {
 const preflightAttestationLimit = 16
 
 type preflightAttestations struct {
-	mu      sync.Mutex
-	kept    map[common.Hash]deployment.ActivationAttestation
-	reading map[common.Hash]*preflightAttestationRead
+	mu              sync.Mutex
+	concurrentReads int
+	kept            map[common.Hash]deployment.ActivationAttestation
+	reading         map[common.Hash]*preflightAttestationRead
 }
 
 type preflightAttestationRead struct {
@@ -295,6 +298,21 @@ func newPreflightAttestations() *preflightAttestations {
 		kept:    make(map[common.Hash]deployment.ActivationAttestation),
 		reading: make(map[common.Hash]*preflightAttestationRead),
 	}
+}
+
+// SetAttestationReads bounds concurrent reads within each new attestation.
+// Zero and one preserve serial reads. Higher limits require a concurrent reader.
+func (e *PreflightEngine) SetAttestationReads(reads int) error {
+	if e == nil || e.attestations == nil {
+		return deployment.Issue{Code: valuePreflightEngineMissing}
+	}
+	if reads < 0 || reads > 16 {
+		return deployment.Issue{Code: "attestation_policy_invalid"}
+	}
+	e.attestations.mu.Lock()
+	e.attestations.concurrentReads = reads
+	e.attestations.mu.Unlock()
+	return nil
 }
 
 // Attestation shares the identity read for a block hash and checks its block
@@ -323,7 +341,7 @@ func (e *PreflightEngine) Attestation(ctx context.Context, block common.Hash, no
 	if flight == nil {
 		flight = &preflightAttestationRead{done: make(chan struct{})}
 		cache.reading[block] = flight
-		go e.readAttestation(context.WithoutCancel(ctx), block, now, flight)
+		go e.readAttestation(context.WithoutCancel(ctx), block, now, flight, cache.concurrentReads)
 	}
 	cache.mu.Unlock()
 	select {
@@ -340,8 +358,8 @@ func (e *PreflightEngine) Attestation(ctx context.Context, block common.Hash, no
 	}
 }
 
-func (e *PreflightEngine) readAttestation(ctx context.Context, block common.Hash, now time.Time, flight *preflightAttestationRead) {
-	policy := deployment.Policy{Now: now, MaxAge: e.maxAge, Timeout: e.timeout}
+func (e *PreflightEngine) readAttestation(ctx context.Context, block common.Hash, now time.Time, flight *preflightAttestationRead, reads int) {
+	policy := deployment.Policy{Now: now, MaxAge: e.maxAge, Timeout: e.timeout, ConcurrentReads: reads}
 	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
 	cache := e.attestations
 	cache.mu.Lock()
@@ -908,7 +926,7 @@ func (e *PreflightEngine) nativeDeployment() (bool, error) {
 		}
 	}
 	authority := approved.Roles[deployment.LaunchpadPrecompileRole]
-	if approved.Roles[valueSidioraFactory].Kind != "surface" || authority.Kind != "precompile" || authority.Address != deployment.LaunchpadPrecompileAddress {
+	if approved.Roles[valueSidioraFactory].Kind != valueSurface || authority.Kind != "precompile" || authority.Address != deployment.LaunchpadPrecompileAddress {
 		return false, refuse("identity_unverified", deployment.LaunchpadPrecompileRole)
 	}
 	return true, nil
@@ -926,7 +944,16 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	if err != nil {
 		return PoolState{}, failed
 	}
-	if len(code) == 0 || len(code) > 128<<10 || crypto.Keccak256Hash(code) != e.poolRuntime {
+	if len(code) == 0 || len(code) > 128<<10 {
+		return PoolState{}, bad
+	}
+	runtime := crypto.Keccak256Hash(code)
+	factory := e.manifest.Roles[valueSidioraFactory]
+	if factory.Kind == valueSurface {
+		if !factory.AcceptsRuntimeHash(runtime.Hex()) {
+			return PoolState{}, bad
+		}
+	} else if runtime != e.poolRuntime {
 		return PoolState{}, bad
 	}
 	native, err := e.nativeDeployment()
@@ -935,10 +962,7 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	}
 	version := e.manifest.Roles[valuePoolBeacon].ImplementationHash
 	if native {
-		if !e.manifest.Roles[valueSidioraFactory].AcceptsRuntimeHash(e.poolRuntime.Hex()) {
-			return PoolState{}, bad
-		}
-		version = e.manifest.DeploymentVersion + "/Pool/" + e.poolRuntime.Hex()
+		version = e.manifest.DeploymentVersion + "/Pool/" + runtime.Hex()
 	} else {
 		slot, err := e.reader.StorageAtHash(ctx, pool, deployment.BeaconSlot, block)
 		if err != nil {
@@ -1324,7 +1348,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 		if err != nil || len(implementation) == 0 || len(implementation) > 128<<10 || crypto.Keccak256Hash(implementation).Hex() != treasuryIdentity.ImplementationHash {
 			return CreationFeeReconciliation{}, bad
 		}
-	} else if (treasuryIdentity.Kind != "direct" && treasuryIdentity.Kind != "surface") || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
+	} else if (treasuryIdentity.Kind != "direct" && treasuryIdentity.Kind != valueSurface) || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
 		return CreationFeeReconciliation{}, bad
 	}
 	usdl := common.HexToAddress(e.manifest.Roles[valueUSDL].Address)

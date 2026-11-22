@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatUnits } from 'viem';
 import TradeToast from './trade-toast';
@@ -25,6 +26,8 @@ import {
   TradePreview,
   ApprovalCheckbox,
   ActionButton,
+  TradeQuoteNotices,
+  quoteActionState,
   FeeFooter,
   SharePnlButton,
   convertByPrice,
@@ -59,7 +62,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
   const pnlSnapshotId = t.pnlSnapshotId;
   const side: TradeSide = t.isBuy ? 'buy' : 'sell';
 
-  const tokenSymbol = snapshot.data?.token?.symbol?.trim() || t.tokenName;
+  const tokenSymbol = displayCoinText(snapshot.data?.token?.symbol, snapshot.data?.pool.tokenAddress ?? t.tokenAddress);
   const spendSymbol = t.isBuy ? 'USDL' : tokenSymbol;
   const nativeUnit = t.isBuy ? 'USDL' : tokenSymbol;
   const altUnit = t.isBuy ? tokenSymbol : 'USDL';
@@ -139,13 +142,12 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
                   ? { kind: 'confirming' }
                   : t.needsApproval
                     ? { kind: 'approve', assetSymbol: spendSymbol }
-                    : t.quoteUnavailable
-                      ? { kind: 'quote-pending' }
-                      : { kind: 'ready', side, tokenSymbol };
+                    : quoteActionState({ ...t, side, tokenSymbol });
 
   const onAction = () => {
     if (action.kind === 'connect' || action.kind === 'sign-in') { openAuthModal('trade'); return; }
     if (action.kind === 'switch-network') { void t.switchToPaxeer(); return; }
+    if (action.kind === 'quote-refresh') { t.retryQuote(); return; }
     if (!alternateInvalid) void t.handleTrade();
   };
 
@@ -229,24 +231,9 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
               Your balance can&apos;t load right now.{t.balanceTimestamp !== undefined ? ` Showing your balance from ${new Date(t.balanceTimestamp).toLocaleTimeString()}.` : ''}
             </NoticeBar>
           ) : null}
-          {t.staleQuote && !t.quote ? (
-            <NoticeBar tone="warning" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote}>Refresh</Button>}>
-              The price moved. Refresh to see the new price.
-            </NoticeBar>
-          ) : null}
           {/* A missing trading deployment is already the action button's state once the viewer can trade; before that it is noise in the rail. */}
-          {preview.showError ? (
-            <NoticeBar tone="danger" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote} aria-label="Refresh">Refresh</Button>}>
-              {plainTradeError(t.approvalError)}
-            </NoticeBar>
-          ) : null}
+          <TradeQuoteNotices priceMoved={t.priceMoved} error={preview.showError ? t.approvalError : undefined} onRefresh={t.retryQuote} />
         </div>
-
-        {tradeReady && validAmount && !t.quote && !t.isPending && !t.staleQuote ? (
-          <div className="flex justify-end">
-            <Button size="sm" variant="link" onClick={t.retryQuote}>Refresh price</Button>
-          </div>
-        ) : null}
 
         <ActionButton state={action} side={side} onClick={onAction} />
 

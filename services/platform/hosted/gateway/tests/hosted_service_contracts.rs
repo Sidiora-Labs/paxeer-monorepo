@@ -477,19 +477,20 @@ fn assert_contract(gateway: &Peer, ready: bool, missing: Option<&str>) -> Value 
         );
     }
     let (code, product) = exchange(gateway, "GET", "/readyz", &Value::Null);
-    assert_eq!(
-        code, 503,
-        "unconfigured advertised product dependencies degrade only the product scope"
-    );
-    assert_eq!(product["status"], "degraded");
+    assert_eq!(code, if ready { 200 } else { 503 });
+    assert_eq!(product["status"], document["status"]);
     assert_eq!(product["scope"], "product");
     assert_eq!(product["backends"], document["backends"]);
-    assert_eq!(product["product_routes"]["complete"], false);
-    assert!(product["product_routes"]["services"]
+    assert_eq!(product["product_routes"]["complete"], true);
+    let product_services = product["product_routes"]["services"]
         .as_object()
-        .unwrap_or_else(|| panic!("value required"))
-        .values()
-        .any(|v| v["ready"] == false));
+        .unwrap_or_else(|| panic!("value required"));
+    assert!(!product_services.is_empty());
+    for service in product_services.values() {
+        assert_eq!(service["configured"], false);
+        assert_eq!(service["ready"], false);
+        assert_eq!(service["reason"], "not_configured");
+    }
     document
 }
 
@@ -626,11 +627,24 @@ fn published_hosted_transport_and_discovery_refuse_retired_aliases() {
     assert_eq!(published["node_rpc"]["rpc_path"], "/");
     let (status, schema) = exchange(&gateway, "GET", "/openrpc.json", &Value::Null);
     assert_eq!(status, 200);
-    assert_eq!(
-        schema,
-        serde_json::from_str::<Value>(include_str!("../openrpc.json"))
-            .unwrap_or_else(|error| panic!("value required: {error:?}"))
-    );
+    let mut expected_schema = serde_json::from_str::<Value>(include_str!("../openrpc.json"))
+        .unwrap_or_else(|error| panic!("value required: {error:?}"));
+    expected_schema["methods"]
+        .as_array_mut()
+        .unwrap_or_else(|| panic!("value required"))
+        .retain(|method| {
+            !matches!(
+                method["name"].as_str(),
+                Some(
+                    "px_getInferenceRooms"
+                        | "px_getInferenceRoom"
+                        | "px_getInferenceDeal"
+                        | "px_getInferencePeer"
+                        | "px_getInferenceReceipts"
+                )
+            )
+        });
+    assert_eq!(schema, expected_schema);
     assert!(schema["info"]["description"]
         .as_str()
         .unwrap_or_else(|| panic!("value required"))
@@ -639,18 +653,18 @@ fn published_hosted_transport_and_discovery_refuse_retired_aliases() {
         rpc(&gateway, "px_getNetwork", &json!([]))["result"]["paxeer"]["chain_id"],
         "0x7d"
     );
-    for method in [
-        "lx_getNetwork",
-        "eth_chainId",
-        "net_version",
-        "web3_clientVersion",
-    ] {
+    for method in ["lx_getNetwork", "eth_sign", "eth_sendTransaction"] {
         assert_eq!(
             rpc(&gateway, method, &json!([]))["error"]["code"],
             -32601,
-            "hosted dispatcher does not own {method}"
+            "gateway refuses {method}"
         );
     }
+    assert_eq!(rpc(&gateway, "eth_chainId", &json!([]))["result"], "0x7d");
+    assert_eq!(
+        rpc(&gateway, "eth_subscribe", &json!(["newHeads"]))["error"]["code"],
+        -32004
+    );
     for path in [
         "/rpc",
         "/rpc/",

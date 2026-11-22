@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useRef, useState } from 'react';
 import { Zap } from 'lucide-react';
 import { formatUnits } from 'viem';
@@ -54,7 +55,7 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
   const snapshot = usePoolSnapshot(poolAddress);
   const instant = useInstantTrade();
   const side: TradeSide = t.isBuy ? 'buy' : 'sell';
-  const tokenSymbol = snapshot.data?.token?.symbol?.trim() || t.tokenName;
+  const tokenSymbol = displayCoinText(snapshot.data?.token?.symbol, snapshot.data?.pool.tokenAddress ?? t.tokenAddress);
   const spendSymbol = t.isBuy ? 'USDL' : tokenSymbol;
   const [armed, setArmed] = useState<Armed | null>(null);
   const [instantNote, setInstantNote] = useState<string | null>(null);

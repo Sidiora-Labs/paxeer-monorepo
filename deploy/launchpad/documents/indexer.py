@@ -155,6 +155,13 @@ def _receipt(values: dict[str, Any], addresses: dict[str, dict[str, str]]) -> di
         raise DocumentError("indexer: anchor_hash")
     timeout_ms = _positive(values, "rpc_timeout_ms", 15000)
     manifest = _manifest(values)
+    if anchor_height < manifest["activationHeight"]:
+        raise DocumentError(
+            f"indexer: anchor_height {anchor_height} below manifest activationHeight {manifest['activationHeight']}"
+        )
+    erc20_hash = _field(values, "erc20_masked_runtime_hash", str)
+    if not re.fullmatch(r"0x[0-9a-f]{64}", erc20_hash):
+        raise DocumentError("indexer: erc20_masked_runtime_hash")
     reviewed = _reviewed("sdk/launchpad/protocol/catalog/reviewed.json")
     catalog_names = {"USDL": "SidioraERC20", "LaunchpadPrecompile": "EventEmitter"}
     wanted = {catalog_names.get(role, role) for role in addresses} | {"SidioraPool"}
@@ -171,6 +178,20 @@ def _receipt(values: dict[str, Any], addresses: dict[str, dict[str, str]]) -> di
     # ABI member order is part of the reviewed ABI digest.
     catalog_bytes = json.dumps(catalog, separators=(",", ":")).encode("utf-8")
     revisions = {contract["name"]: contract["abiSha256"] for contract in contracts}
+    factory = manifest["roles"]["SidioraFactory"]
+    pool = {
+        "Role": "SidioraPool", "Kind": factory["kind"],
+        "ABIRevision": revisions["SidioraPool"], "RuntimeHash": factory["runtimeHash"],
+    }
+    for member, source in (("StagedRuntimeHash", "stagedRuntimeHash"), ("StagedUpgrade", "stagedUpgrade")):
+        if factory.get(source):
+            pool[member] = factory[source]
+    token = next(contract for contract in reviewed["contracts"] if contract["name"] == "SidioraERC20")
+    ranges = sorted(
+        ({"Start": span["start"], "Length": span["length"]}
+         for spans in token["immutableReferences"].values() for span in spans),
+        key=lambda span: span["Start"],
+    )
     epochs = []
     for role, identity in sorted(addresses.items()):
         name = catalog_names.get(role, role)
@@ -191,7 +212,11 @@ def _receipt(values: dict[str, Any], addresses: dict[str, dict[str, str]]) -> di
         "Manifest": manifest,
         "CatalogJSON": base64.b64encode(catalog_bytes).decode("ascii"),
         "Epochs": epochs,
-        "Discovery": [],
+        "Discovery": [
+            pool,
+            {"Role": "SidioraERC20", "ABIRevision": revisions["SidioraERC20"],
+             "RuntimeHash": erc20_hash, "Immutables": ranges},
+        ],
         "Anchor": {"Height": anchor_height, "Hash": anchor_hash},
         "BlockIdentity": "reported",
         "Timeout": timeout_ms * 1_000_000,

@@ -35,6 +35,14 @@ export class PoolNotFoundError extends Error {
   constructor(readonly address: string) { super(`No pool or token on chain 125 at ${address}`); }
 }
 
+export class PoolUnavailableError extends Error {
+  readonly code = 'CAPABILITY_UNAVAILABLE';
+  constructor(readonly operation: string, readonly status: number | null) {
+    super('This coin is not available yet');
+    this.name = 'PoolUnavailableError';
+  }
+}
+
 const address = (value: unknown): string | null => typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value) ? value.toLowerCase() : null;
 
 type PoolDetailResponse = V2ContractTypes['PoolDetailResponse'];
@@ -88,15 +96,17 @@ export async function resolvePoolIdentity(input: string, deps: ResolverDeps, sig
   const direct = await fetchPoolDetail(candidate, deps, signal);
   const detail = direct.value;
   if (detail) return { identity: { chainId: '125', poolAddress: candidate, tokenAddress: marketAddress(detail.data.pool.tokenAddress) }, detail, resolvedBy: 'detail', detailUnavailable: null };
-  const byToken = await searchHit(candidate, 'token', deps, signal);
-  if (byToken) {
-    const pool = address(byToken.poolAddress) as string;
+  const byToken = await optional('IF_SEARCH', () => searchHit(candidate, 'token', deps, signal));
+  if (byToken.value) {
+    const pool = address(byToken.value.poolAddress) as string;
     const resolved = await fetchPoolDetail(pool, deps, signal);
     if (resolved.value && marketAddress(resolved.value.data.pool.tokenAddress) !== candidate) throw new Error('Pool identity disagreement');
     return { identity: { chainId: '125', poolAddress: pool, tokenAddress: candidate }, detail: resolved.value, resolvedBy: 'search', detailUnavailable: resolved.unavailable };
   }
-  const byPool = await searchHit(candidate, 'pool', deps, signal);
-  if (byPool) return { identity: { chainId: '125', poolAddress: candidate, tokenAddress: address(byPool.tokenAddress) as string }, detail: null, resolvedBy: 'search', detailUnavailable: direct.unavailable };
+  const byPool = await optional('IF_SEARCH', () => searchHit(candidate, 'pool', deps, signal));
+  if (byPool.value) return { identity: { chainId: '125', poolAddress: candidate, tokenAddress: address(byPool.value.tokenAddress) as string }, detail: null, resolvedBy: 'search', detailUnavailable: direct.unavailable };
+  const unavailable = direct.unavailable?.status !== 404 ? direct.unavailable : byToken.unavailable ?? byPool.unavailable;
+  if (unavailable) throw new PoolUnavailableError(unavailable.operation, unavailable.status);
   throw new PoolNotFoundError(candidate);
 }
 

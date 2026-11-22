@@ -51,7 +51,7 @@ func (d IndexedDocument) Validate() error {
 	if d.ProfileWallet != "" && !exactIdentity(d.ProfileWallet) {
 		return ErrInvalid
 	}
-	if d.ProfileLabel != "" && !boundedDisplay(d.ProfileLabel, 100, 400) {
+	if d.ProfileLabel != "" && (!boundedDisplay(d.ProfileLabel, 100, 400) || strings.TrimSpace(d.ProfileLabel) == "") {
 		return ErrInvalid
 	}
 	if d.PublicExplanation != "" && (!strings.HasPrefix(d.PublicExplanation, "/safety/") || len(d.PublicExplanation) > 256 || strings.ContainsAny(d.PublicExplanation, "\r\n?")) {
@@ -355,7 +355,7 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 			rows.Close()
 			return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 		}
-		if !exactIdentity(wallet) || !boundedDisplay(label, 80, 320) {
+		if !exactIdentity(wallet) || !boundedDisplay(label, 80, 320) || strings.TrimSpace(label) == "" {
 			rows.Close()
 			return IntegratedPage{}, fmt.Errorf("%w: profile document: %v", ErrUnavailable, ErrInvalid)
 		}

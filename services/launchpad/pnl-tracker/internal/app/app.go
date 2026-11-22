@@ -471,6 +471,9 @@ func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			if err := fn(ctx); err != nil {
 				a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
 			}
@@ -538,7 +541,7 @@ func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logge
 				return
 			}
 			defer release()
-			if e := accountingRuntimeError(ctx, app.runAccounting(ctx)); e != nil {
+			if e := accountingRuntimeError(ctx, runInventoryAgain(ctx, logger, app.runAccounting, waitInventoryRun, time.Now)); e != nil {
 				runtimeErr <- e
 				logger.Error("inventory consumer failed", slog.Any("err", e))
 				app.tracker.BeginDrain()
@@ -1089,9 +1092,22 @@ func pnlIdentityAuthority(cfg config.Config, d pnlJourneyDocument) (auth.MTLSIde
 	if err != nil {
 		return auth.MTLSIdentityAuthority{}, err
 	}
-	keyPEM, err := pnlBoundAuthorityFile(d.IdentityClientKeyFile, d.IdentityClientKeySHA256)
-	if err != nil {
-		return auth.MTLSIdentityAuthority{}, err
+	fileKey := d.IdentityClientKeyFile != "" || d.IdentityClientKeySHA256 != ""
+	variableKey := cfg.IdentityMTLSClientKeyPEM != ""
+	if fileKey == variableKey {
+		return auth.MTLSIdentityAuthority{}, errors.New("pnl: exactly one identity client key form required")
+	}
+	var keyPEM []byte
+	if variableKey {
+		if len(cfg.IdentityMTLSClientKeyPEM) > 1048576 {
+			return auth.MTLSIdentityAuthority{}, errors.New("pnl: identity client key exceeds size bound")
+		}
+		keyPEM = []byte(cfg.IdentityMTLSClientKeyPEM)
+	} else {
+		keyPEM, err = pnlBoundAuthorityFile(d.IdentityClientKeyFile, d.IdentityClientKeySHA256)
+		if err != nil {
+			return auth.MTLSIdentityAuthority{}, err
+		}
 	}
 	certificate, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {

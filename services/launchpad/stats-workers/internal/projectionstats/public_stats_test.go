@@ -100,7 +100,14 @@ func newPublicFixture(t *testing.T) *publicFixture {
 		t.Fatal(err)
 	}
 	f.exec("CREATE SCHEMA indexer")
-	for _, id := range []string{"60000", "80000", "190001", "150002", "150004"} {
+	for _, name := range []string{"00001_init.sql", "00002_airdrop_claims.sql"} {
+		legacy, err := os.ReadFile(filepath.Join("..", "..", "..", "indexer", "migrations", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.exec(strings.Split(string(legacy), "-- +goose Down")[0])
+	}
+	for _, id := range []string{"60000", "60003", "80000", "190001", "150002", "150004"} {
 		f.exec(strings.ReplaceAll(migrationSQL(t, id), `"indexer".`, "indexer."))
 	}
 	if f.repo, err = NewRepository(pg, "stats"); err != nil {

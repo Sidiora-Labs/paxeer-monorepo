@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { cn } from '@/lib/utils';
 import { CoinCard } from '@/ui/primitives';
 import { feeStrategyLabel } from './strategy-picker';
@@ -36,8 +37,8 @@ export function CoinPreviewCard({ name, symbol, description, image, strategy, so
         <div data-create-preview-frame className="pointer-events-none flex flex-col gap-3 lg:min-h-72 rounded-lg bg-surface-1 p-3" aria-label="Coin card preview">
           <CoinCard
             image={image}
-            name={name.trim() || 'Untitled coin'}
-            symbol={symbol.trim() || 'TICKER'}
+            name={displayCoinText(name, null) || 'Untitled coin'}
+            symbol={displayCoinText(symbol, null) || 'TICKER'}
             mcapRaw={null}
             percentChange={null}
             createdAt={null}

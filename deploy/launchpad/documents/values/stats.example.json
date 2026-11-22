@@ -66,6 +66,21 @@
         },
         "eventType": "search.invalidation.v2",
         "kind": "invalidation"
+      },
+      {
+        "kind": "social_policy",
+        "eventType": "social.policy.changed.v2",
+        "consumer": {
+          "AckWait": 30000000000,
+          "Batch": 16,
+          "Durable": "stats_search_social_policy",
+          "FetchWait": 250000000,
+          "MaxAckPending": 64,
+          "MaxDeliver": 100,
+          "MaxWaiting": 4,
+          "Stream": "SOCIAL_EVENTS",
+          "Subject": "social.policy"
+        }
       }
     ],
     "searchGeneration": "g1",
@@ -85,13 +100,15 @@
       "accounting.market.v1": true,
       "canonical_creation": true,
       "search.invalidation.v2": true,
-      "stats.minute.v2": true
+      "stats.minute.v2": true,
+      "social.policy.changed.v2": true
     },
     "Subjects": {
       "accounting.market.v1": true,
       "canonical.creation.v1": true,
       "search.invalidation.v2": true,
-      "stats.minute.v2": true
+      "stats.minute.v2": true,
+      "social.policy": true
     }
   },
   "projectionVersion": "accounting-market-v1",

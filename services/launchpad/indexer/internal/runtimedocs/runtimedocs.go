@@ -53,8 +53,7 @@ type Inputs struct {
 	// ERC20RuntimeCode is the SidioraERC20 deployed bytecode (compiler
 	// artifact); immutables are masked before hashing.
 	ERC20RuntimeCode []byte
-	// PoolRuntimeHash is keccak256 of the runtime code every pool holds; after
-	// v6.12.0 that is the launchpad SurfaceRuntime.
+	// PoolRuntimeHash identifies pool code in deployments without a surface factory.
 	PoolRuntimeHash common.Hash
 	Anchor          receipt.BlockAnchor
 }
@@ -188,7 +187,8 @@ func sortedRoles(m deployment.Manifest) []string {
 // role with a reviewed ABI, factory discovery of pools and tokens, node-reported
 // block identity and the operator-issued chain anchor.
 func ReceiptOptions(in Inputs) (receipt.RPCOptions, Catalog, error) {
-	if in.Manifest.ChainID != 125 || in.Anchor.Hash == (common.Hash{}) || in.Anchor.Height < in.Manifest.ActivationHeight || in.PoolRuntimeHash == (common.Hash{}) || len(in.ERC20RuntimeCode) == 0 {
+	factory := in.Manifest.Roles["SidioraFactory"]
+	if in.Manifest.ChainID != 125 || in.Anchor.Hash == (common.Hash{}) || in.Anchor.Height < in.Manifest.ActivationHeight || factory.Kind != valueSurface && in.PoolRuntimeHash == (common.Hash{}) || len(in.ERC20RuntimeCode) == 0 {
 		return receipt.RPCOptions{}, Catalog{}, errors.New("runtimedocs: incomplete inputs")
 	}
 	catalog, err := TrimCatalog(in.ReviewedCatalog, in.Manifest)
@@ -222,14 +222,21 @@ func ReceiptOptions(in Inputs) (receipt.RPCOptions, Catalog, error) {
 		if native.Kind != "precompile" || native.Address != deployment.LaunchpadPrecompileAddress {
 			return receipt.RPCOptions{}, Catalog{}, errors.New("runtimedocs: invalid native pool authority")
 		}
-		poolKind = "surface"
+		poolKind = valueSurface
+	}
+	pool := receipt.RPCDiscovery{Role: "SidioraPool", Kind: poolKind, ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())}
+	if factory.Kind == valueSurface {
+		pool.Kind = valueSurface
+		pool.RuntimeHash = factory.RuntimeHash
+		pool.StagedRuntimeHash = factory.StagedRuntimeHash
+		pool.StagedUpgrade = factory.StagedUpgrade
 	}
 	o := receipt.RPCOptions{
 		Manifest:    manifest,
 		CatalogJSON: catalog.JSON,
 		Epochs:      epochs,
 		Discovery: []receipt.RPCDiscovery{
-			{Role: "SidioraPool", Kind: poolKind, ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())},
+			pool,
 			{Role: valueSidioraERC20, ABIRevision: catalog.Revisions[valueSidioraERC20], RuntimeHash: strings.ToLower(erc20.Hex()), Immutables: catalog.ERC20Ranges},
 		},
 		Anchor:        &receipt.BlockAnchor{Height: in.Anchor.Height, Hash: in.Anchor.Hash},
@@ -262,6 +269,6 @@ func CommittedOptions(o receipt.RPCOptions) (source.CommittedOptions, error) {
 		Epochs:           epochs,
 		LiveDeadline:     2 * time.Second,
 		BulkDeadline:     15 * time.Second,
-		MaxResponseBytes: 32 << 20,
+		MaxResponseBytes: source.MaxBlockResponseBytes,
 	}, nil
 }

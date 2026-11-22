@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useState, type ReactNode } from 'react';
 import { ArrowLeftRight, AtSign, Coins, Globe, Link as LinkIcon, MessageCircle, Send, Share2, Star } from 'lucide-react';
@@ -126,7 +127,7 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
           <span aria-hidden="true" className="flex size-avatar-2xl shrink-0 items-center justify-center rounded-md bg-surface-2 text-text-faint"><Coins className="size-6" /></span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <h1 className="truncate text-lg font-extrabold text-text"><span className="sr-only">Coin </span>{shortAddress(poolAddress)}</h1>
+              <h1 className="min-w-0 [overflow-wrap:anywhere] text-lg font-extrabold text-text"><span className="sr-only">Coin </span>{shortAddress(poolAddress)}</h1>
               {notice}
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -144,8 +145,8 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
     );
   }
 
-  const symbol = data.metadata?.displaySymbol ?? token?.symbol ?? 'Coin';
-  const name = data.metadata?.displayName ?? token?.name ?? '';
+  const symbol = displayCoinText(data.metadata?.displaySymbol ?? token?.symbol, data.pool.tokenAddress);
+  const name = displayCoinText(data.metadata?.displayName ?? token?.name, data.pool.tokenAddress);
   const pool = data.pool.poolAddress;
   const starred = watchlist.check(pool);
   // Market cap is price x total supply (pump.fun's figure); the circulating valuation is the secondary value on hover.
@@ -169,8 +170,8 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
         <Avatar src={logo} name={symbol} size="2xl" shape="square" decorative />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <h1 className="truncate text-lg font-extrabold text-text">{symbol}</h1>
-            {name ? <span className="truncate text-sm text-text-muted">{name}</span> : null}
+            <h1 title={symbol} className="min-w-0 [overflow-wrap:anywhere] text-lg font-extrabold text-text">{symbol}</h1>
+            {name ? <span className="min-w-0 truncate text-sm text-text-muted" title={name}>{name}</span> : null}
             {data.createdAt ? <AgeChip iso={data.createdAt} now={now} /> : null}
             {devShare ? (
               devShare.value !== null ? (

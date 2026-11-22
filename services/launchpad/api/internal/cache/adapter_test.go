@@ -289,6 +289,11 @@ func newAdversarialCacheFixture(t *testing.T) adversarialCacheFixture {
 	if dsn == "" || redisURL == "" || !strings.HasPrefix(namespace, "kd-421d7541932d2fd2136b3973") {
 		t.Fatal("allocated real PostgreSQL, Redis and lane namespace required")
 	}
+	return newCacheFixture(t, dsn, redisURL, namespace)
+}
+
+func newCacheFixture(t *testing.T, dsn, redisURL, namespace string) adversarialCacheFixture {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	t.Cleanup(cancel)
 	pool, e := pgxpool.New(ctx, dsn)
@@ -371,6 +376,10 @@ func (f adversarialCacheFixture) privateFetch(ctx context.Context, r ProjectionR
 	}
 	p.Generation, p.Visibility = r.Generation, "private"
 	e = f.pool.QueryRow(ctx, `SELECT revision::text,jsonb_build_object('snapshotId',id::text,'sourceEvent',source_event,'digest',digest),jsonb_build_object('wallet',wallet,'summary',summary) FROM pnl.portfolio_snapshots WHERE wallet=$1 ORDER BY revision DESC LIMIT 1`, wallet).Scan(&p.Revision, &p.SourceWatermark, &p.Body)
+	if e != nil {
+		return p, e
+	}
+	p.Body, e = json.Marshal(p.Body)
 	return p, e
 }
 
@@ -408,7 +417,7 @@ func phase3AuthenticatedRequest(t *testing.T, ctx context.Context, token string)
 }
 
 func TestRealTwoAuthenticatedWalletCacheIsolation(t *testing.T) {
-	f := newAdversarialCacheFixture(t)
+	f := localAdversarialCacheFixture(t, true)
 	a := f.adapter(t, 0)
 	resolve := phase3IdentityResolver(t)
 	tokens := []string{os.Getenv("L09_WALLET_A_ACCESS"), os.Getenv("L09_WALLET_B_ACCESS")}
@@ -458,7 +467,7 @@ func TestRealTwoAuthenticatedWalletCacheIsolation(t *testing.T) {
 }
 
 func TestRealHotExpiryAcrossTenReplicas(t *testing.T) {
-	f := newAdversarialCacheFixture(t)
+	f := localAdversarialCacheFixture(t, false)
 	var calls atomic.Int64
 	fetch := func(ctx context.Context, r ProjectionRequest) (Projection, error) {
 		calls.Add(1)
@@ -570,7 +579,7 @@ func (f adversarialCacheFixture) durableTruth(t *testing.T) [3]json.RawMessage {
 }
 
 func TestRealExclusiveRedisFlushPreservesDurableTruth(t *testing.T) {
-	f := newAdversarialCacheFixture(t)
+	f := localAdversarialCacheFixture(t, true)
 	u, e := url.Parse(os.Getenv("L09_REDIS_URL"))
 	if e != nil || (u.Hostname() != "127.0.0.1" && u.Hostname() != "localhost" && u.Hostname() != "::1") || f.redis.Options().DB <= 0 || os.Getenv("L09_EXCLUSIVE_REDIS_DB") != strconv.Itoa(f.redis.Options().DB) {
 		t.Fatal("flush requires an explicitly allocated exclusive nonzero loopback Redis database")
@@ -660,7 +669,7 @@ func TestRealExclusiveRedisFlushPreservesDurableTruth(t *testing.T) {
 }
 
 func TestRealAdapterMeasurementCapture(t *testing.T) {
-	f := newAdversarialCacheFixture(t)
+	f := localAdversarialCacheFixture(t, false)
 	a := f.adapter(t, 0)
 	q := url.Values{"page": {"1"}}
 	scope := VerifiedScope{NetworkID: "127.0.0.1"}

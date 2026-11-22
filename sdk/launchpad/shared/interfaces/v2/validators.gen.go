@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 )
@@ -21,14 +23,18 @@ const schemaDocument = "{\n  \"$defs\": {\n    \"AccountDeleteBody\": {\n      \
 
 var definitions = loadDefinitions()
 
-func loadDefinitions() map[string]json.RawMessage {
+func loadDefinitions() map[string]*compiledSchema {
 	var root struct {
 		Defs map[string]json.RawMessage `json:"$defs"`
 	}
 	if err := json.Unmarshal([]byte(schemaDocument), &root); err != nil {
 		panic(err)
 	}
-	return root.Defs
+	rules := make(map[string]*compiledSchema, len(root.Defs))
+	for name, raw := range root.Defs {
+		rules[name] = compileSchema(raw)
+	}
+	return rules
 }
 
 // ValidateJSON validates the exact canonical schema before decoding into a typed DTO.
@@ -41,7 +47,7 @@ func ValidateJSON(name string, raw []byte) error {
 	if !json.Valid(raw) {
 		return fmt.Errorf("invalid JSON")
 	}
-	return validateNode(schema, raw, "$")
+	return validateCompiled(schema, raw, "$")
 }
 func ValidateJSONVersion(schemaMajor int, name string, raw []byte) error {
 	if schemaMajor != 2 {
@@ -78,7 +84,96 @@ type schemaRule struct {
 	MinProperties    *int                       `json:"minProperties"`
 	MaxProperties    *int                       `json:"maxProperties"`
 }
+type compiledSchema struct {
+	schemaRule
+	decodeErr  error
+	types      []string
+	typeErr    error
+	oneOf      []*compiledSchema
+	anyOf      []*compiledSchema
+	allOf      []*compiledSchema
+	not        *compiledSchema
+	properties map[string]*compiledSchema
+	additional *compiledSchema
+	items      *compiledSchema
+	pattern    *compiledExpression
+}
+type schemaEntry struct {
+	once sync.Once
+	node compiledSchema
+}
+type compiledExpression struct {
+	once    sync.Once
+	pattern *regexp.Regexp
+	err     error
+}
 
+var schemaRules sync.Map
+var expressions sync.Map
+var schemaDecodes atomic.Uint64
+var expressionCompiles atomic.Uint64
+var uuidExpression = compileExpression(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+var hostnameExpression = compileExpression(`(?i)^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+
+func compileExpression(source string) *compiledExpression {
+	cached, ok := expressions.Load(source)
+	if !ok {
+		cached, _ = expressions.LoadOrStore(source, &compiledExpression{})
+	}
+	expression := cached.(*compiledExpression)
+	expression.once.Do(func() { expressionCompiles.Add(1); expression.pattern, expression.err = regexp.Compile(source) })
+	return expression
+}
+func compileSchema(raw json.RawMessage) *compiledSchema {
+	key := string(raw)
+	cached, ok := schemaRules.Load(key)
+	if !ok {
+		cached, _ = schemaRules.LoadOrStore(key, &schemaEntry{})
+	}
+	entry := cached.(*schemaEntry)
+	entry.once.Do(func() {
+		s := &entry.node
+		schemaDecodes.Add(1)
+		s.decodeErr = json.Unmarshal(raw, &s.schemaRule)
+		if s.decodeErr != nil {
+			return
+		}
+		if len(s.Type) > 0 {
+			var single string
+			if json.Unmarshal(s.Type, &single) == nil {
+				s.types = []string{single}
+			} else {
+				s.typeErr = json.Unmarshal(s.Type, &s.types)
+			}
+		}
+		for _, child := range s.OneOf {
+			s.oneOf = append(s.oneOf, compileSchema(child))
+		}
+		for _, child := range s.AnyOf {
+			s.anyOf = append(s.anyOf, compileSchema(child))
+		}
+		for _, child := range s.AllOf {
+			s.allOf = append(s.allOf, compileSchema(child))
+		}
+		if len(s.Not) > 0 {
+			s.not = compileSchema(s.Not)
+		}
+		s.properties = make(map[string]*compiledSchema, len(s.Properties))
+		for name, child := range s.Properties {
+			s.properties[name] = compileSchema(child)
+		}
+		if len(s.Additional) > 0 && string(s.Additional) != "true" && string(s.Additional) != "false" {
+			s.additional = compileSchema(s.Additional)
+		}
+		if len(s.Items) > 0 {
+			s.items = compileSchema(s.Items)
+		}
+		if s.Pattern != "" {
+			s.pattern = compileExpression(s.Pattern)
+		}
+	})
+	return &entry.node
+}
 func actualType(raw []byte) string {
 	raw = bytes.TrimSpace(raw)
 	if len(raw) == 0 {
@@ -159,9 +254,11 @@ func canonical(raw []byte) string {
 	return string(bytes.TrimSpace(raw))
 }
 func validateNode(schema, raw json.RawMessage, path string) error {
-	var s schemaRule
-	if err := json.Unmarshal(schema, &s); err != nil {
-		return fmt.Errorf("%s schema: %w", path, err)
+	return validateCompiled(compileSchema(schema), raw, path)
+}
+func validateCompiled(s *compiledSchema, raw json.RawMessage, path string) error {
+	if s.decodeErr != nil {
+		return fmt.Errorf("%s schema: %w", path, s.decodeErr)
 	}
 	fail := func(message string) error { return fmt.Errorf("%s: %s", path, message) }
 	if s.Ref != "" {
@@ -170,14 +267,14 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 		if !ok {
 			return fail("unknown schema reference")
 		}
-		if err := validateNode(target, raw, path); err != nil {
+		if err := validateCompiled(target, raw, path); err != nil {
 			return err
 		}
 	}
 	if len(s.OneOf) > 0 {
 		matches := 0
-		for _, v := range s.OneOf {
-			if validateNode(v, raw, path) == nil {
+		for _, v := range s.oneOf {
+			if validateCompiled(v, raw, path) == nil {
 				matches++
 			}
 		}
@@ -187,8 +284,8 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 	}
 	if len(s.AnyOf) > 0 {
 		matches := 0
-		for _, v := range s.AnyOf {
-			if validateNode(v, raw, path) == nil {
+		for _, v := range s.anyOf {
+			if validateCompiled(v, raw, path) == nil {
 				matches++
 			}
 		}
@@ -196,12 +293,12 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 			return fail("no anyOf variant matches")
 		}
 	}
-	for _, v := range s.AllOf {
-		if err := validateNode(v, raw, path); err != nil {
+	for _, v := range s.allOf {
+		if err := validateCompiled(v, raw, path); err != nil {
 			return err
 		}
 	}
-	if len(s.Not) > 0 && validateNode(s.Not, raw, path) == nil {
+	if s.not != nil && validateCompiled(s.not, raw, path) == nil {
 		return fail("prohibited value")
 	}
 	if len(s.Const) > 0 && canonical(s.Const) != canonical(raw) {
@@ -220,15 +317,11 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 	}
 	typ := actualType(raw)
 	if len(s.Type) > 0 {
-		var single string
-		var types []string
-		if json.Unmarshal(s.Type, &single) == nil {
-			types = []string{single}
-		} else if err := json.Unmarshal(s.Type, &types); err != nil {
+		if s.typeErr != nil {
 			return fail("invalid type schema")
 		}
 		match := false
-		for _, t := range types {
+		for _, t := range s.types {
 			if t == typ {
 				match = true
 			}
@@ -261,14 +354,14 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 			return fail("too many properties")
 		}
 		for k, v := range fields {
-			if property, ok := s.Properties[k]; ok {
-				if err := validateNode(property, v, path+"."+k); err != nil {
+			if property, ok := s.properties[k]; ok {
+				if err := validateCompiled(property, v, path+"."+k); err != nil {
 					return err
 				}
 			} else if string(s.Additional) == "false" {
 				return fail("unknown property " + k)
 			} else if len(s.Additional) > 0 && string(s.Additional) != "true" {
-				if err := validateNode(s.Additional, v, path+"."+k); err != nil {
+				if err := validateCompiled(s.additional, v, path+"."+k); err != nil {
 					return err
 				}
 			}
@@ -284,8 +377,8 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 		}
 		seen := map[string]bool{}
 		for i, v := range items {
-			if len(s.Items) > 0 {
-				if err := validateNode(s.Items, v, fmt.Sprintf("%s[%d]", path, i)); err != nil {
+			if s.items != nil {
+				if err := validateCompiled(s.items, v, fmt.Sprintf("%s[%d]", path, i)); err != nil {
 					return err
 				}
 			}
@@ -308,11 +401,10 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 			return fail("string too long")
 		}
 		if s.Pattern != "" {
-			pattern, err := regexp.Compile(s.Pattern)
-			if err != nil {
+			if s.pattern.err != nil {
 				return fail("unsupported schema pattern")
 			}
-			if !pattern.MatchString(value) {
+			if !s.pattern.pattern.MatchString(value) {
 				return fail("pattern mismatch")
 			}
 		}
@@ -322,7 +414,7 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 				return fail("invalid date-time")
 			}
 		case "uuid":
-			if !regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(value) {
+			if !uuidExpression.pattern.MatchString(value) {
 				return fail("invalid uuid")
 			}
 		case "uri":
@@ -350,7 +442,7 @@ func validateNode(schema, raw json.RawMessage, path string) error {
 			if len(name) < 1 || len(name) > 253 {
 				return fail("invalid hostname length")
 			}
-			labelPattern := regexp.MustCompile(`(?i)^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+			labelPattern := hostnameExpression.pattern
 			for _, label := range strings.Split(name, ".") {
 				if !labelPattern.MatchString(label) {
 					return fail("invalid hostname label")

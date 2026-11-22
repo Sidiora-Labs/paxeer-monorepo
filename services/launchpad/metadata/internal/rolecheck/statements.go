@@ -138,7 +138,7 @@ var RuntimeStatements = []Statement{
 			object("relation", "metadata.v2_documents", "asset_id document pool revision updated_at", "SELECT"),
 		},
 	},
-	{ID: "ReadPoolBlocked", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/v2.go", Function: "get", Call: 0, Kind: "SELECT", Role: runtimeRole,
+	{ID: "ReadPoolBlocked", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/v2.go", Function: "readCanonicalDocument", Call: 0, Kind: "SELECT", Role: runtimeRole,
 		Objects: []Object{
 			object("relation", "metadata.documents", "blocked pool", "SELECT"),
 		},
@@ -156,7 +156,12 @@ var RuntimeStatements = []Statement{
 			object("relation", "metadata.pools", "creator pool token", "SELECT"),
 		},
 	},
-	{ID: "ReadApprovedAsset", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "media", Call: 0, Kind: "SELECT", Role: runtimeRole,
+	{ID: "ReadMediaPool", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "media", Call: 0, Kind: "SELECT", Role: runtimeRole,
+		Objects: []Object{
+			object("relation", "metadata.pools", "pool", "SELECT"),
+		},
+	},
+	{ID: "ReadApprovedAsset", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "media", Call: 1, Kind: "SELECT", Role: runtimeRole,
 		Objects: []Object{
 			object("relation", "metadata.asset_details_v2", "asset_id height mime variants width", "SELECT"),
 			object("relation", "metadata.assets", "hash id pool state", "SELECT"),

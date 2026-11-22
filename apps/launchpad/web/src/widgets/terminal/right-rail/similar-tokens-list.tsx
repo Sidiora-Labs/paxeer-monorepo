@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { ArrowDownUp } from 'lucide-react';
 import { AgeChip, Avatar, Button, DropdownMenu, EmptyState, ErrorState, Tooltip, UnavailableState } from '@/ui/primitives';
@@ -20,14 +21,15 @@ function Figure({ raw, unit, reason }: { raw: string | null; unit: string; reaso
 }
 
 function Row({ row, liqReason }: { row: SimilarRow; liqReason: string }) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   return (
     <li>
       <Link prefetch={false} href={row.href} className="flex items-center gap-2 rounded-sm bg-surface-2 p-2 transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
         <Avatar src={row.image} name={row.symbol} size="lg" shape="square" decorative />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex min-w-0 items-baseline gap-1">
-            <span className="truncate text-sm font-bold text-text">{row.symbol}</span>
-            <span className="truncate text-xs text-text-muted">{row.name}</span>
+            <span className="truncate text-sm font-bold text-text" title={row.symbol}>{row.symbol}</span>
+            <span className="truncate text-xs text-text-muted" title={row.name}>{row.name}</span>
           </span>
           {row.createdAtMs !== null ? <AgeChip iso={row.createdAtMs} compact /> : <span className="text-2xs text-text-faint">—</span>}
         </span>
@@ -64,7 +66,7 @@ export function SimilarTokensList({ poolAddress, symbol, sort, symbolPending = f
   if (state.search.state === 'loading') return <p role="status" className="text-xs text-text-faint">Loading...</p>;
   if (state.search.state === 'unsupported') return <UnavailableState variant="inline" title="Similar coins" operation={state.search.operation} status={state.search.status} />;
   if (state.search.state === 'error') return <ErrorState variant="inline" message={`Similar coins can't load right now. ${userFacingMessage(state.search.error)}`} onRetry={state.search.retry} />;
-  if (state.rows.length === 0) return <EmptyState variant="inline" title="No similar coins yet" body={`No other coin uses the symbol ${symbol}.`} />;
+  if (state.rows.length === 0) return <EmptyState variant="inline" title="No similar coins yet" body={`No other coin uses the symbol ${displayCoinText(symbol, poolAddress)}.`} />;
   const liqReason = state.stats.state === 'unsupported'
     ? 'Liquidity is not available yet'
     : state.stats.state === 'error'

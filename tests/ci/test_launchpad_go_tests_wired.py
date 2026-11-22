@@ -216,6 +216,34 @@ def test_launchpad_go_matrix_lists_every_module():
         assert any((ROOT / module).rglob("*_test.go")), module
 
 
+def test_launchpad_ci_matrix_matches_makefile_modules():
+    jobs = launchpad_go_workflow()["jobs"]
+    job = jobs["launchpad-go-ci"]
+    matrix = job["strategy"]["matrix"]
+    assert set(matrix) == {"module"}, "Run every module without exclusions or overrides"
+    entries = matrix["module"]
+    assert entries == jobs["launchpad-go-test"]["strategy"]["matrix"]["module"]
+    assert len(entries) == len(set(entries)), "Run each module exactly once"
+    text = (ROOT / "services/launchpad/Makefile").read_text()
+    (assignment,) = re.findall(
+        r"^MODULES := (.*?)(?=\n\s*\n)", text, re.M | re.S
+    )
+    make_modules = assignment.replace("\\\n", " ").split()
+    expected = {
+        (ROOT / "services/launchpad" / module)
+        .resolve().relative_to(ROOT).as_posix(): module
+        for module in make_modules
+    }
+    assert len(expected) == len(make_modules)
+    assert set(entries) == set(expected)
+    for module in entries:
+        result = subprocess.run(
+            ["realpath", "--relative-to=services/launchpad", module],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        )
+        assert result.stdout.strip() == expected[module], module
+
+
 def test_launchpad_makefile_ci_target_exists():
     text = (ROOT / "services/launchpad/Makefile").read_text()
     assert re.search(r"^export GOWORK := off$", text, re.M)
@@ -242,6 +270,14 @@ def test_launchpad_makefile_ci_target_exists():
     assert 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)"' in recipe
     assert '|| exit 1' in recipe
     assert "$(GO) list ./...) ||" in text, "Discovery errors must fail the gate"
+
+
+def test_launchpad_ci_target_order():
+    text = (ROOT / "services/launchpad/Makefile").read_text()
+    (ci,) = re.findall(r"^ci:\s*([^\n#]+)", text, re.M)
+    assert ci.split() == [
+        "build", "vet", "fmt-check", "lint", "test", "race", "cover-check"
+    ], "CI must run static stages before tests, race detection and coverage"
 
 
 def test_launchpad_lint_release_and_module_selection():
@@ -327,81 +363,64 @@ def launchpad_current_test_name(name):
     }.get(name, name)
 
 
+@pytest.fixture
+def baseline_entry():
+    return {
+        "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
+        "test": "TestPhase2AuditDurableBridgeAndRealBroker",
+        "reason": "Authentication audit delivery uses a durable broker.",
+        "retiring_task": "22.39.117",
+    }
+
+
 def test_launchpad_baseline_names_only_reviewed_existing_tests():
     runner = baseline_runner()
     entries = runner.load_baseline()
-    assert len(entries) == 78
-    assert {entry["package"] for entry in entries} == {
-        runner.SHARED + "auth"
+    assert entries == []
+    packages = {
+        runner.SHARED + suffix
+        for suffix in ("auth", "chain", "db/production", "delivery",
+                       "delivery/natsdriver", "storage")
     } | {
-        runner.API + "internal/" + name for name in ("app", "broker", "cache", "rest", "store")
-    } | {
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/card',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile',
+        runner.PROTOCOL, runner.PROTOCOL + "/bindings", runner.PROTOCOL + "/coverage"
     }
-    for entry in entries:
-        if entry["package"].startswith(runner.SHARED):
-            directory = ROOT / "sdk/launchpad/shared" / entry["package"].removeprefix(
-                runner.SHARED
-            )
-        elif entry["package"].startswith(runner.API):
-            directory = ROOT / "services/launchpad/api" / entry["package"].removeprefix(
-                runner.API
-            )
-        elif entry["package"].startswith(runner.INDEXER):
-            directory = ROOT / "services/launchpad/indexer" / entry["package"].removeprefix(
-                runner.INDEXER
-            )
-        elif entry["package"] in runner.PNL_PACKAGES | runner.REMAINING_PACKAGES:
-            directory = next(
-                manifest.parent / entry["package"].removeprefix(
-                    re.search(r"^module (.+)$", manifest.read_text(), re.M)[1]
-                ).lstrip("/")
-                for manifest in (ROOT / "services/launchpad").rglob("go.mod")
-                if entry["package"] == re.search(r"^module (.+)$", manifest.read_text(), re.M)[1]
-                or entry["package"].startswith(
-                    re.search(r"^module (.+)$", manifest.read_text(), re.M)[1] + "/"
-                )
-            )
-        else:
-            directory = ROOT / "sdk/launchpad/protocol" / entry["package"].removeprefix(
-                runner.PROTOCOL
-            ).lstrip("/")
-        declarations = [
-            path for path in directory.glob("*_test.go")
-            if re.search(r"^func " + launchpad_current_test_name(entry["test"]) + r"\(t \*testing.T\)",
-                         path.read_text(), re.M)
-        ]
-        assert len(declarations) == 1, entry
-        current_name = launchpad_current_test_name(entry["test"])
-        if current_name != entry["test"]:
-            assert not re.search(runner.skip_pattern(entries, entry["package"]), current_name)
-        if entry["package"] == runner.SHARED + "auth":
-            assert "migrations/registry.json" in entry["reason"]
-            assert "reviewed provenance" in entry["reason"]
-    assert sum(entry["package"] == runner.SHARED + "auth" for entry in entries) == 6
+    packages |= (runner.API_PACKAGES | runner.INDEXER_PACKAGES
+                 | runner.PNL_PACKAGES | runner.REMAINING_PACKAGES)
+    for package in packages:
+        assert runner.skip_pattern(entries, package) == ""
 
 
 def test_launchpad_baseline_records_nats_duplicates_window_failures():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     assert not any(entry["package"] == runner.SHARED + "delivery/natsdriver"
                    for entry in runner.load_baseline())
 
 
 def test_launchpad_baseline_records_database_cancellation_failure():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     assert not any(entry["package"] == runner.SHARED + "db/production"
                    for entry in runner.load_baseline())
 
 
-def test_launchpad_baseline_patterns_are_exact_and_package_scoped():
+def test_launchpad_baseline_patterns_are_exact_and_package_scoped(
+    tmp_path, baseline_entry,
+):
     runner = baseline_runner()
-    entries = runner.load_baseline()
+    assert runner.load_baseline() == []
+    entries = [
+        baseline_entry,
+        baseline_entry | {"test": "TestPhase2AuditRuntimeCannotRewriteHistory"},
+        baseline_entry | {
+            "package": runner.API + "internal/app",
+            "test": baseline_entry["test"],
+            "retiring_task": "22.39.154",
+        },
+    ]
+    path = tmp_path / "patterns.json"
+    path.write_text(json.dumps(entries))
+    assert runner.load_baseline(path) == entries
     for package in {entry["package"] for entry in entries}:
         pattern = runner.skip_pattern(entries, package)
         assert pattern.startswith("^(") and pattern.endswith(")$")
@@ -415,6 +434,7 @@ def test_launchpad_baseline_patterns_are_exact_and_package_scoped():
 
 def test_launchpad_baseline_records_protocol_fixture_failures():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     assert not any(entry["package"] in {
         runner.PROTOCOL, runner.PROTOCOL + "/bindings", runner.PROTOCOL + "/coverage"
     } for entry in runner.load_baseline())
@@ -422,70 +442,24 @@ def test_launchpad_baseline_records_protocol_fixture_failures():
 
 def test_launchpad_baseline_records_api_failures_and_retiring_owner():
     runner = baseline_runner()
-    entries = [entry for entry in runner.load_baseline()
-               if entry["package"].startswith(runner.API)]
-    expected = {
-        "app": {
-            "TestDevelopmentTransactionStatusFromChainRPC",
-            "TestRepair_27_log_free_receipts",
-            "TestDevelopmentStreamTerminalFramesCarryCloseCode",
-            "TestDevelopmentStreamSnapshotWebSocketAndSSE",
-            "TestDevelopmentStreamUnknownPoolAndLegacy",
-            "TestDevelopmentStreamSnapshotKnownPoolWithoutData",
-            "TestDevelopmentStreamSnapshotRegistryFailureStaysRetryable",
-            "TestDevelopmentStreamUnknownPoolSubscribeCloses",
-        },
-        "broker": {
-            "TestPostgresRetainedIdentitiesSurviveInterruptedReplay",
-            "TestPostgresResumePreflightsByteLimitBeforeDelivery",
-        },
-        "cache": {
-            "TestRealTwoAuthenticatedWalletCacheIsolation",
-            "TestRealHotExpiryAcrossTenReplicas",
-            "TestRealExclusiveRedisFlushPreservesDurableTruth",
-            "TestRealAdapterMeasurementCapture",
-        },
-        "rest": {
-            "TestFrozenV2ResponseSchemasMatchHandlerBytes",
-            "TestHolderRewardsProductionRead",
-            "TestLeaderboardProductionRead",
-            "TestPoolDetailProductionRead",
-            "TestPoolListProductionRead",
-            "TestHoldersProductionReadValidation",
-            "TestPlatformMetricsProductionRead",
-            "TestPoolStatsInterface22FieldsRoundTrip",
-            "TestProductionCanonicalStatsAndSnapshotResume",
-            "TestProductionGeneratedSDKUsesActualHTTPAndExactAmounts",
-            "TestProductionPrivateSnapshotDenialIsUncacheableAndRedactsTokens",
-            "TestProductionHTTPAdmissionSurgePreservesReserveAndRejectsExplicitly",
-            "TestProductionRESTMeasurementHarness",
-            "TestProductionRESTMeasurementAggregate",
-            "TestProductionRegisteredOperationsHaveFrozenContracts",
-        },
-        "store": {"TestProductionCanonicalAccountingPagesKeepCommittedFrontier"},
-    }
-    assert {(entry["package"], entry["test"]) for entry in entries} == {
-        (runner.API + "internal/" + package, name)
-        for package, names in expected.items() for name in names
-    }
-    for entry in entries:
-        assert entry["retiring_task"] == "22.39.154"
-        assert re.match(r"\w+_test.go line \d+: .+", entry["reason"])
-        if entry["test"] in {
-            "TestDevelopmentTransactionStatusFromChainRPC", "TestRepair_27_log_free_receipts"
-        }:
-            assert "shared v2 receipt projection" in entry["reason"]
-        if entry["package"] == runner.API + "internal/broker":
-            assert "context deadline exceeded" in entry["reason"]
-    assert not any(entry["test"] == "TestProductionStreamRelayPublishesCommittedFrames"
-                   for entry in runner.load_baseline())
+    entries = runner.load_baseline()
+    assert entries == []
+    for package in runner.API_PACKAGES:
+        assert runner.skip_pattern(entries, package) == ""
 
 
-def test_launchpad_baseline_rejects_wrong_service_retiring_owner(tmp_path):
+def test_launchpad_baseline_rejects_wrong_service_retiring_owner(
+    tmp_path, baseline_entry,
+):
     runner = baseline_runner()
-    entry = next(entry for entry in runner.load_baseline()
-                 if entry["package"].startswith(runner.API))
+    entry = baseline_entry | {
+        "package": runner.API + "internal/app",
+        "test": "TestDevelopmentTransactionStatusFromChainRPC",
+        "retiring_task": "22.39.154",
+    }
     path = tmp_path / "wrong-owner.json"
+    path.write_text(json.dumps([entry]))
+    assert runner.load_baseline(path) == [entry]
     path.write_text(json.dumps([entry | {"retiring_task": "22.39.117"}]))
     with pytest.raises(ValueError, match="retiring task"):
         runner.load_baseline(path)
@@ -496,18 +470,18 @@ def test_launchpad_baseline_rejects_wrong_service_retiring_owner(tmp_path):
     {"package": "unreviewed/package"}, {"reason": ""},
     {"retiring_task": ""}, {"retiring_task": "22.39.154"}, {"extra": "field"},
 ])
-def test_launchpad_baseline_rejects_invalid_entries(tmp_path, mutation):
+def test_launchpad_baseline_rejects_invalid_entries(tmp_path, mutation, baseline_entry):
     runner = baseline_runner()
-    entry = runner.load_baseline()[0] | mutation
+    entry = baseline_entry | mutation
     path = tmp_path / "invalid.json"
     path.write_text(json.dumps([entry]))
     with pytest.raises(ValueError):
         runner.load_baseline(path)
 
 
-def test_launchpad_baseline_rejects_duplicate_entries(tmp_path):
+def test_launchpad_baseline_rejects_duplicate_entries(tmp_path, baseline_entry):
     runner = baseline_runner()
-    entry = runner.load_baseline()[0]
+    entry = baseline_entry
     path = tmp_path / "duplicate.json"
     path.write_text(json.dumps([entry, entry]))
     with pytest.raises(ValueError, match="duplicate"):
@@ -584,6 +558,7 @@ def test_launchpad_go_job_provides_indexer_services():
 
 def assert_indexer_runs_without_baseline(entries):
     runner = baseline_runner()
+    assert entries == []
     assert not any(entry["package"].startswith(runner.INDEXER) for entry in entries)
     for package in runner.INDEXER_PACKAGES:
         assert runner.skip_pattern(entries, package) == ""
@@ -678,12 +653,20 @@ def test_launchpad_baseline_records_only_approved_indexer_failures():
 
 
 @pytest.mark.parametrize("owner", ["22.39.117", "22.39.154"])
-def test_launchpad_baseline_rejects_wrong_indexer_retiring_owner(tmp_path, owner):
+def test_launchpad_baseline_rejects_wrong_indexer_retiring_owner(
+    tmp_path, owner, baseline_entry,
+):
     runner = baseline_runner()
     entries = runner.load_baseline()
-    assert not any(entry["package"].startswith(runner.INDEXER)
-                   and entry["retiring_task"] == owner for entry in entries)
     assert_indexer_runs_without_baseline(entries)
+    for index, package in enumerate(sorted(runner.INDEXER_PACKAGES)):
+        entry = baseline_entry | {"package": package, "retiring_task": "22.39.162"}
+        path = tmp_path / f"wrong-indexer-owner-{index}.json"
+        path.write_text(json.dumps([entry]))
+        assert runner.load_baseline(path) == [entry]
+        path.write_text(json.dumps([entry | {"retiring_task": owner}]))
+        with pytest.raises(ValueError, match="retiring task"):
+            runner.load_baseline(path)
 
 
 def test_launchpad_indexer_module_declares_test_dependencies():
@@ -895,6 +878,7 @@ def test_launchpad_baseline_records_indexer_refusal_classes():
 @pytest.mark.parametrize("owner", ["22.39.117", "22.39.154", "22.39.162"])
 def test_launchpad_baseline_rejects_wrong_remaining_module_owner(tmp_path, owner):
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     assert not any(entry["package"] in runner.REMAINING_PACKAGES
                    for entry in runner.load_baseline())
     record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
@@ -928,14 +912,16 @@ def test_launchpad_go_job_creates_real_export_bucket_before_tests():
 
 
 @pytest.mark.parametrize("owner", ["22.39.117", "22.39.162", "22.39.168"])
-def test_launchpad_baseline_rejects_wrong_pnl_retiring_owner(tmp_path, owner):
+def test_launchpad_baseline_rejects_wrong_pnl_retiring_owner(
+    tmp_path, owner, baseline_entry,
+):
     runner = baseline_runner()
-    entries = [entry for entry in runner.load_baseline()
-               if entry["package"] in runner.PNL_PACKAGES]
-    assert entries
-    for index, entry in enumerate(entries):
-        assert entry["retiring_task"] == "22.39.154"
+    assert runner.load_baseline() == []
+    for index, package in enumerate(sorted(runner.PNL_PACKAGES)):
+        entry = baseline_entry | {"package": package, "retiring_task": "22.39.154"}
         path = tmp_path / f"wrong-pnl-owner-{index}.json"
+        path.write_text(json.dumps([entry]))
+        assert runner.load_baseline(path) == [entry]
         path.write_text(json.dumps([entry | {"retiring_task": owner}]))
         with pytest.raises(ValueError, match="retiring task"):
             runner.load_baseline(path)
@@ -943,6 +929,7 @@ def test_launchpad_baseline_rejects_wrong_pnl_retiring_owner(tmp_path, owner):
 
 def test_launchpad_pnl_service_configuration_repairs_stay_out_of_baseline():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     actual = {(entry["package"], entry["test"]) for entry in runner.load_baseline()}
     repaired = {
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app': {
@@ -1049,6 +1036,7 @@ def test_launchpad_pnl_service_configuration_repairs_stay_out_of_baseline():
 def test_launchpad_baseline_records_exact_remaining_module_counts():
     runner = baseline_runner()
     entries = runner.load_baseline()
+    assert entries == []
     expected = {
         "ranking-algo": 0, "stats-workers": 0, "trading-charts": 0,
         "gateway": 0, "livestream": 0, "metadata": 0, "social": 0,
@@ -1059,7 +1047,7 @@ def test_launchpad_baseline_records_exact_remaining_module_counts():
         module: sum(entry["package"] in packages for entry in entries)
         for module, packages in runner.SERVICE_PACKAGES.items()
     } == expected
-    assert sum(entry["package"] in runner.PNL_PACKAGES for entry in entries) == 42
+    assert sum(entry["package"] in runner.PNL_PACKAGES for entry in entries) == 0
     for entry in entries:
         if entry["package"] in runner.REMAINING_PACKAGES | runner.PNL_PACKAGES:
             assert re.match(r"[\w.-]+_test.go line \d+: .+", entry["reason"])
@@ -1103,6 +1091,7 @@ def test_launchpad_go_job_builds_protocol_proofs_before_timed_tests():
 
 def test_launchpad_baseline_records_user_profile_producer_conflicts():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     package = "github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/app"
     entries = {entry["test"]: entry for entry in runner.load_baseline()
                if entry["package"] == package}
@@ -1127,6 +1116,7 @@ def test_launchpad_baseline_records_user_profile_producer_conflicts():
 
 def test_launchpad_baseline_records_security_canonical_field_conflict():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     package = "github.com/Sidiora-Technologies/KindleLaunch/security/policy"
     assert not any(entry["package"] == package for entry in runner.load_baseline())
     policy = (ROOT / "services/launchpad/security/policy/policy_test.go").read_text()
@@ -1142,6 +1132,7 @@ def test_launchpad_baseline_records_security_canonical_field_conflict():
 def test_launchpad_module_qualification_records_follow_runner_and_baseline():
     runner = baseline_runner()
     entries = runner.load_baseline()
+    assert entries == []
     job = launchpad_go_workflow()["jobs"]["launchpad-go-test"]
     retirement = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     for module in (
@@ -1185,7 +1176,9 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
     workflow = launchpad_go_workflow()
     test_job = workflow["jobs"]["launchpad-go-test"]
     job = workflow["jobs"]["launchpad-go-ci"]
-    assert job["timeout-minutes"] == "360"
+    assert job["name"] == "Go CI"
+    assert job["timeout-minutes"] == "180"
+    assert job["strategy"]["fail-fast"] == "false"
     assert job["runs-on"] == test_job["runs-on"]
     assert job["env"] == test_job["env"]
     assert job["env"]["GOFLAGS"] == "-timeout=15m"
@@ -1201,7 +1194,11 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
                    if step.get("uses", "").startswith("actions/setup-go@")]
     assert setup_go["with"]["go-version"] == "1.27.3"
     assert job["env"]["GOTOOLCHAIN"] == "go" + setup_go["with"]["go-version"]
-    (run,) = [step for step in steps if step.get("run") == "make -C services/launchpad ci"]
+    command = (
+        'make -C services/launchpad ci '
+        'MODULES="$(realpath --relative-to=services/launchpad "${{ matrix.module }}")"'
+    )
+    (run,) = [step for step in steps if step.get("run") == command]
     assert "working-directory" not in run
     assert steps[-1] == run
     for name in (
@@ -1216,7 +1213,7 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
         (fixture,) = [step for step in steps if step.get("name") == name]
         assert fixture in test_job["steps"]
         assert steps.index(fixture) < steps.index(run)
-    assert job["strategy"]["matrix"]["module"] == ["sdk/launchpad/protocol"]
+    assert set(job["strategy"]["matrix"]["module"]) == launchpad_go_modules()
     (timestamps,) = [step for step in steps
                      if step.get("name") == "Enable database commit timestamps"]
     assert "ALTER SYSTEM SET track_commit_timestamp = on" in timestamps["run"]

@@ -194,7 +194,7 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
     await waitFor(() => open.container.querySelector(`a[href="${poolPath(125, poolA)}"]`) !== null);
     const openRows = open.container.querySelectorAll('ul[aria-label="Open positions"] > li');
     expect(openRows).toHaveLength(1);
-    expect(openRows[0].textContent).toContain('Unknown');
+    expect(openRows[0].textContent).toContain('0x1111...1111');
     expect(Array.from(open.container.querySelectorAll('a')).some(link => link.textContent === 'Sell')).toBe(false);
     unmount(open);
 

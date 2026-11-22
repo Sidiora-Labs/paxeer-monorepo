@@ -326,7 +326,7 @@ func (d *developmentAuthority) envelope(attestation deployment.ActivationAttesta
 	if err != nil {
 		return nil, err
 	}
-	raw, err := json.Marshal(authorityEnvelope{2, export, projectAttestation(attestation), head})
+	raw, err := json.Marshal(authorityEnvelope{SchemaVersion: 2, SerialExport: export, Attestation: projectAttestation(attestation), CommittedHead: head})
 	if err != nil {
 		return nil, err
 	}

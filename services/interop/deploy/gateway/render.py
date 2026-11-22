@@ -893,13 +893,6 @@ def receipt_keys(path):
                 % (source, entry["keyId"])
             ])
         key_ids.add(entry["keyId"])
-    keys.sort(key=lambda entry: entry["firstHeight"])
-    for previous, current in zip(keys, keys[1:]):
-        if current["firstHeight"] <= previous["lastHeight"]:
-            raise Refused([
-                "receipt keys file %s has overlapping height ranges for keys %s and %s"
-                % (path, previous["keyId"], current["keyId"])
-            ])
     return keys
 
 
@@ -1032,27 +1025,16 @@ def self_test():
         ):
             entries = key_entries(ranges)
             keys_file.write_text(json.dumps(entries))
-            try:
-                receipt_keys(keys_file)
-            except Refused as refused:
-                message = "; ".join(refused.reasons)
-                assert "overlapping height ranges" in message, message
-                ordered = sorted(entries, key=lambda entry: entry["firstHeight"])
-                pair = next(
-                    (previous, current)
-                    for previous, current in zip(ordered, ordered[1:])
-                    if current["firstHeight"] <= previous["lastHeight"]
-                )
-                assert all(entry["keyId"] in message for entry in pair), message
-            else:
-                raise AssertionError("overlapping receipt keys were accepted: %r" % ranges)
+            assert receipt_keys(keys_file) == entries
 
         entries = key_entries([(11, (1 << 64) - 1), (0, 0), (1, 10)])
         keys_file.write_text(json.dumps(entries))
-        assert receipt_keys(keys_file) == [entries[1], entries[2], entries[0]]
+        assert receipt_keys(keys_file) == entries
         for broken, expected in (
             ([], "nonempty JSON array"),
             ([entries[1], {**entries[2], "keyId": entries[1]["keyId"]}], "repeats keyId"),
+            ([entries[0], {**entries[0], "firstHeight": 12}], "repeats keyId"),
+            ([entries[0], entries[0]], "repeats keyId"),
             (key_entries([(20, 10)]), "reversed height range"),
             ([{**entries[0], "publicKey": "0x" + "00" * 32}], "nonzero"),
             ([{**entries[0], "publicKey": "0x" + "ab" * 31}], "32-byte lowercase hexadecimal"),
@@ -1249,7 +1231,9 @@ def self_test():
             declared,
             tests[TRANSPORT_CONFORMANCE[identifier]],
         )
-    assert all(declared[1] == 8 for declared in transport_first_party.values())
+    assert {
+        identifier: declared[1] for identifier, declared in transport_first_party.items()
+    } == {"http": 8, "mcp": 11, "a2a": 14}
     transport_override = dict(complete)
     transport_override[TRANSPORT_VARIABLE["a2a"]] = "99" * 32
     overridden_transports = {

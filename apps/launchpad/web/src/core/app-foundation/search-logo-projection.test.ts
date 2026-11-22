@@ -51,15 +51,15 @@ async function search_logo_projection() {
   try {
     for (const approved of [logo, immutableLogo]) {
       logo = approved;
-      expect(await search()).toEqual(['pool', 'token'].map(kind => ({
-        identity: `125:${kind}:${kind === 'pool' ? pool : token}`, chainId: 125, kind,
+      expect(await search()).toEqual([{
+        identity: `125:pool:${pool}`, chainId: 125, kind: 'pool',
         token_address: token, pool_address: pool, name: metadata.name, symbol: metadata.symbol,
         images: { logo: approved },
-      })));
+      }]);
     }
     // A moderated/unpublished record has no image; it must not reuse an earlier approval.
     logo = null;
-    expect((await search()).map(item => item.images.logo)).toEqual([null, null]);
+    expect((await search()).map(item => item.images.logo)).toEqual([null]);
     for (const unapproved of [
       `${origin.origin}/quarantine/asset.png`, `${origin.origin}/logo/${pool}.png`,
       'https://untrusted.example/logo/' + token + '.png',

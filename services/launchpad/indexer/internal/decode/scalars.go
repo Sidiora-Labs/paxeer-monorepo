@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -19,11 +20,11 @@ const (
 )
 
 func newBig(s string) (*big.Int, bool) { return new(big.Int).SetString(s, 10) }
-func exactArgs(ev abi.Event, topics []common.Hash, data []byte, approved []string) (map[string]any, string, error) {
+func exactArgs(ev abi.Event, topics []common.Hash, data []byte, approved []string, alerts ...*[]string) (map[string]any, string, error) {
 	if out, handled, reason, err := exactFixedScalars(ev, topics, data); handled {
 		return out, reason, err
 	}
-	return exactGeneralArgs(ev, topics, data, approved)
+	return exactGeneralArgs(ev, topics, data, approved, alerts...)
 }
 
 func exactFixedScalars(ev abi.Event, topics []common.Hash, data []byte) (map[string]any, bool, string, error) {
@@ -79,7 +80,7 @@ func exactFixedScalars(ev abi.Event, topics []common.Hash, data []byte) (map[str
 	return out, true, "", nil
 }
 
-func exactGeneralArgs(ev abi.Event, topics []common.Hash, data []byte, approved []string) (map[string]any, string, error) {
+func exactGeneralArgs(ev abi.Event, topics []common.Hash, data []byte, approved []string, alerts ...*[]string) (map[string]any, string, error) {
 	indexed := indexedSubset(ev.Inputs)
 	if len(topics) != 1+len(indexed) {
 		return nil, valueArity, fmt.Errorf("topic count %d, expected %d", len(topics), 1+len(indexed))
@@ -136,10 +137,7 @@ func exactGeneralArgs(ev abi.Event, topics []common.Hash, data []byte, approved 
 		return nil, scalarOffsetFailure, fmt.Errorf("noncanonical event data")
 	}
 	for i, in := range original {
-		if err := boundedValue(reflect.ValueOf(values[i])); err != nil {
-			return nil, "bounds", err
-		}
-		value := values[i]
+		value := carryBoundedValue(reflect.ValueOf(values[i]), in.Type, in.Name, alerts).Interface()
 		if in.Type.T == abi.BoolTy && permitted[in.Name] {
 			value = value.(*big.Int).Sign() != 0
 		}
@@ -147,6 +145,35 @@ func exactGeneralArgs(ev abi.Event, topics []common.Hash, data []byte, approved 
 	}
 	return out, "", nil
 }
+
+func carryBoundedValue(v reflect.Value, typ abi.Type, path string, alerts []*[]string) reflect.Value {
+	switch typ.T {
+	case abi.StringTy, abi.BytesTy:
+		if err := boundedValue(v); err != nil {
+			for _, target := range alerts {
+				*target = append(*target, "withheld:"+path+":"+err.Error())
+			}
+			return reflect.Zero(v.Type())
+		}
+	case abi.SliceTy, abi.ArrayTy:
+		out := reflect.New(v.Type()).Elem()
+		if typ.T == abi.SliceTy {
+			out = reflect.MakeSlice(v.Type(), v.Len(), v.Len())
+		}
+		for i := 0; i < v.Len(); i++ {
+			out.Index(i).Set(carryBoundedValue(v.Index(i), *typ.Elem, fmt.Sprintf("%s[%d]", path, i), alerts))
+		}
+		return out
+	case abi.TupleTy:
+		out := reflect.New(v.Type()).Elem()
+		for i, field := range typ.TupleElems {
+			out.Field(i).Set(carryBoundedValue(v.Field(i), *field, path+"."+typ.TupleRawNames[i], alerts))
+		}
+		return out
+	}
+	return v
+}
+
 func boundedValue(v reflect.Value) error {
 	if !v.IsValid() {
 		return nil
@@ -159,15 +186,18 @@ func boundedValue(v reflect.Value) error {
 	}
 	switch v.Kind() {
 	case reflect.String:
-		if !utf8.ValidString(v.String()) {
-			return fmt.Errorf("invalid UTF-8 string")
-		}
 		if v.Len() > MaxFieldBytes {
-			return fmt.Errorf("string exceeds 64 KiB")
+			return fmt.Errorf("max_field_bytes")
+		}
+		if !utf8.ValidString(v.String()) {
+			return fmt.Errorf("invalid_utf8")
+		}
+		if strings.ContainsRune(v.String(), 0) {
+			return fmt.Errorf("nul")
 		}
 	case reflect.Slice:
 		if v.Type().Elem().Kind() == reflect.Uint8 && v.Len() > MaxFieldBytes {
-			return fmt.Errorf("bytes exceeds 64 KiB")
+			return fmt.Errorf("max_field_bytes")
 		}
 		fallthrough
 	case reflect.Array:

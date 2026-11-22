@@ -1,8 +1,10 @@
+import { displayCoinText } from '@/utils/coin-text';
 import { launchpadGeometry, launchpadMarkColors } from '@/app/presentation-tokens';
 import { dataApiUrl } from '@/core/sdk-config';
 import { CHART_UDF_ROUTES, chartsOrigin } from '@/core/charts-udf';
 import { unsupportedStatuses } from '@/core/market/unsupported';
 import { reportUserFacingError } from '@/core/user-facing-error';
+import { beforeFirstFrameTransport } from '@/core/realtime/topic-snapshot';
 import { getPublicClient } from '@/core/wallet-sdk/client';
 import { decodeV2Contract, type V2ContractTypes } from '@kindle/sdk';
 import { parseAbi, type Address } from 'viem';
@@ -166,7 +168,7 @@ export function chartSymbolInfo(value: unknown, poolAddress: string, mode: Chart
   const pricescale = info.pricescale;
   if (typeof pricescale !== 'number' || !Number.isSafeInteger(pricescale) || pricescale < 10 || !/^10*$/.test(String(pricescale))) throw new Error('Invalid chart symbol pricescale');
   if (info.minmov !== 1 || info.currency_code !== 'USDL' || info.timezone !== 'Etc/UTC') throw new Error('Invalid chart symbol quote or timezone');
-  const description = text('description', 160);
+  const description = displayCoinText(text('description', 160), typeof info.tokenAddress === 'string' ? info.tokenAddress : pool);
   text('full_name', 64);
   return {
     name: pool,
@@ -262,6 +264,7 @@ const replayBindingListeners = new Set<() => void>();
 export function chartReplayListenerCount(): number { return replayBindingListeners.size; }
 export function registerChartReplayTransport(binding: ChartReplayBinding): () => void {
   binding.signal.throwIfAborted();
+  binding = { ...binding, transport: beforeFirstFrameTransport(binding.transport) };
   chartReplayBinding = binding;
   replayBindingListeners.forEach(listener => listener());
   const release = () => {

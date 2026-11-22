@@ -1596,7 +1596,8 @@
             "block_hash",
             "transaction_hash",
             "transaction_index",
-            "log_index"
+            "log_index",
+            "payload"
           ],
           "argument_types": [],
           "grant_option": false,
@@ -2429,6 +2430,40 @@
           ],
           "argument_types": [],
           "grant_option": false
+        },
+        {
+          "schema": "indexer",
+          "object": "pool_state_snapshots_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_id",
+            "virtual_reserve",
+            "real_reserve",
+            "token_reserve",
+            "block_number",
+            "log_index"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "indexer",
+          "object": "pools_read_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_address",
+            "pool_id"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
         },
         {
           "schema": "indexer",
@@ -3853,6 +3888,23 @@
             "source_revision",
             "updated_at",
             "wallet"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "chat",
+          "object": "pool_search_visibility_v2",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool",
+            "token",
+            "public",
+            "revision"
           ],
           "argument_types": [],
           "grant_option": false,
@@ -9915,6 +9967,23 @@
             "updated_at",
             "public",
             "deleted"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "chat",
+          "object": "pool_search_visibility_v2",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool",
+            "token",
+            "public",
+            "revision"
           ],
           "argument_types": [],
           "grant_option": false,

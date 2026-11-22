@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -168,8 +169,8 @@ func productionChartDatabase(t *testing.T) (string, production.ExpectedSchema, p
 	return parsed.String(), expected, budget
 }
 
-func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testing.T) {
-	t.Run("composed container startup", assertComposedChartStartup)
+func productionChartRuntime(t *testing.T) (config.Config, config.ChartRuntimeFeatures, chartRuntimeDocument, jetstream.Stream) {
+	t.Helper()
 	ctx := context.Background()
 	dsn, expected, budget := productionChartDatabase(t)
 	redisURL := internaltest.NewRedisURL(t)
@@ -183,7 +184,7 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 	if _, err := stream.CreateConsumer(ctx, brokerConfig); err != nil {
 		t.Fatal(err)
 	}
-	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true, "candle.updated.v2": true}, EventTypes: map[string]bool{"market": true}}
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true, "candle.updated.v2": true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 	document := chartRuntimeDocument{Schema: "candles", SourceStream: "canonical", ConsumerID: "charts_runtime", Generation: "runtime_1", Owner: "runtime_owner", ProjectionVersion: "market-v1", Epoch: 1, Region: "local", MaxReplayBlocks: 4, MaxReplayFills: 10, Policy: policy, Consumer: consumerConfig, ChartOutbox: chartOutboxConfig{Stream: "CHART_RUNTIME", Subject: "candle.updated.v2", Batch: 1, IntervalMillis: 1000}}
 	deliveryWire, err := json.Marshal(document)
 	if err != nil {
@@ -218,13 +219,25 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 		DeliveryConfigFile: deliveryPath, DeliveryConfigSHA256: production.Checksum(deliveryWire), NATSCredentials: credentials,
 	}
 	cfg.NodeEnv, cfg.SecretsProvider, cfg.SecretsRefreshSeconds, cfg.Port = "production", "env", 1, 3000
+	return cfg, features, document, stream
+}
+
+func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testing.T) {
+	t.Run("composed container startup", assertComposedChartStartup)
+	ctx := context.Background()
+	cfg, features, document, stream := productionChartRuntime(t)
+	consumerConfig := document.Consumer
+	brokerConfig, err := consumerConfig.BrokerConsumerConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
 	application, err := New(ctx, cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(application.Close)
 	baseConfig := cfg
-	if application.accounting == nil || application.exact == nil || application.transport == nil || application.chartPublisher == nil || application.verifiedRPC == nil || application.features.AnchorHash != anchor.Hash {
+	if application.accounting == nil || application.exact == nil || application.transport == nil || application.chartPublisher == nil || application.verifiedRPC == nil || application.features.AnchorHash != features.AnchorHash {
 		t.Fatalf("production provider wiring: %+v", application)
 	}
 	if err := verifyArchiveAnchor(ctx, application.verifiedRPC, features.AnchorHeight, features.AnchorHash); err != nil {
@@ -259,30 +272,7 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 		t.Fatalf("outbox after runtime drain: %v", err)
 	}
 	application.Close()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	if err := listener.Close(); err != nil {
-		t.Fatal(err)
-	}
-	for key, value := range map[string]string{
-		"NODE_ENV": "production", "PORT": strconv.Itoa(port), "BIND_ADDRESS": "127.0.0.1", "REDIS_BULL_URL": redisURL,
-		"RUNTIME_PROFILE": "owned_local", "ZONE": "zone-a", "METRICS_ENVIRONMENT": "qualification",
-		"DB_BUDGET_DOCUMENT": cfg.RuntimeBudgetDocument, "DB_BUDGET_SHA256": cfg.RuntimeBudgetSHA256, "DB_POOL_ID": cfg.RuntimePoolID, "INSTANCE_ID": cfg.RuntimeInstanceID,
-		"EXPECTED_SCHEMA_DOCUMENT": cfg.ExpectedSchemaDocument, "EXPECTED_SCHEMA_SHA256": cfg.ExpectedSchemaSHA256,
-		"CHART_FEATURES_CONFIG_DOCUMENT": cfg.FeaturesConfigDocument, "CHART_FEATURES_CONFIG_SHA256": cfg.FeaturesConfigSHA256,
-		"DELIVERY_CONFIG_FILE": cfg.DeliveryConfigFile, "DELIVERY_CONFIG_SHA256": cfg.DeliveryConfigSHA256,
-		"SECRETS_PROVIDER": "env", "SECRETS_REFRESH_SECONDS": "1", "LOG_LEVEL": "error",
-	} {
-		t.Setenv(key, value)
-	}
-	for key, role := range map[string]string{
-		"EVENT_EMITTER_ADDRESS": "EventEmitter", "POOL_REGISTRY_ADDRESS": "PoolRegistry", "ROUTER_ADDRESS": "Router", "FACTORY_ADDRESS": "SidioraFactory", "QUOTER_ADDRESS": "Quoter", "PROTOCOL_CONFIG_ADDRESS": "ProtocolConfig", "FEE_ACCUMULATOR_ADDRESS": "FeeAccumulator", "SIDIORA_NFT_ADDRESS": "SidioraNFT", "FEES_ROUTER_ADDRESS": "FeesRouter", "POOL_BEACON_ADDRESS": "PoolBeacon",
-	} {
-		t.Setenv(key, deployment.Current().Roles[role].Address)
-	}
+	port := productionChartRunEnvironment(t, cfg)
 	runCtx, stop := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() { done <- Run(runCtx) }()
@@ -335,7 +325,7 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 	}
 	select {
 	case err := <-rollupDone:
-		if err != nil {
+		if !errors.Is(err, ErrInternalFailure) {
 			t.Fatalf("runtime with unavailable rollup authority: %v", err)
 		}
 	case <-time.After(5 * time.Second):
@@ -369,7 +359,7 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 	}
 	select {
 	case err := <-consumerDone:
-		if err != nil {
+		if !errors.Is(err, ErrInternalFailure) {
 			t.Fatalf("runtime after retained consumer removal: %v", err)
 		}
 	case <-time.After(5 * time.Second):
@@ -396,7 +386,7 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 	}
 	_, objectConfig := internaltest.NewObjectStoreWithConfig(t)
 	features.Archive = &config.ChartArchiveFeatures{Endpoint: objectConfig.Endpoint, Region: objectConfig.Region, Bucket: objectConfig.Bucket}
-	featureWire, err = json.Marshal(features)
+	featureWire, err := json.Marshal(features)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -554,4 +544,33 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 	if err == nil || !strings.Contains(err.Error(), "redis: parse url") {
 		t.Fatalf("invalid Redis authority: %v", err)
 	}
+}
+
+func productionChartRunEnvironment(t *testing.T, cfg config.Config) int {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for key, value := range map[string]string{
+		"NODE_ENV": "production", "PORT": strconv.Itoa(port), "BIND_ADDRESS": "127.0.0.1", "REDIS_BULL_URL": os.Getenv("REDIS_URL"),
+		"RUNTIME_PROFILE": "owned_local", "ZONE": "zone-a", "METRICS_ENVIRONMENT": "qualification",
+		"DB_BUDGET_DOCUMENT": cfg.RuntimeBudgetDocument, "DB_BUDGET_SHA256": cfg.RuntimeBudgetSHA256, "DB_POOL_ID": cfg.RuntimePoolID, "INSTANCE_ID": cfg.RuntimeInstanceID,
+		"EXPECTED_SCHEMA_DOCUMENT": cfg.ExpectedSchemaDocument, "EXPECTED_SCHEMA_SHA256": cfg.ExpectedSchemaSHA256,
+		"CHART_FEATURES_CONFIG_DOCUMENT": cfg.FeaturesConfigDocument, "CHART_FEATURES_CONFIG_SHA256": cfg.FeaturesConfigSHA256,
+		"DELIVERY_CONFIG_FILE": cfg.DeliveryConfigFile, "DELIVERY_CONFIG_SHA256": cfg.DeliveryConfigSHA256,
+		"SECRETS_PROVIDER": "env", "SECRETS_REFRESH_SECONDS": "1", "LOG_LEVEL": "error",
+	} {
+		t.Setenv(key, value)
+	}
+	for key, role := range map[string]string{
+		"EVENT_EMITTER_ADDRESS": "EventEmitter", "POOL_REGISTRY_ADDRESS": "PoolRegistry", "ROUTER_ADDRESS": "Router", "FACTORY_ADDRESS": "SidioraFactory", "QUOTER_ADDRESS": "Quoter", "PROTOCOL_CONFIG_ADDRESS": "ProtocolConfig", "FEE_ACCUMULATOR_ADDRESS": "FeeAccumulator", "SIDIORA_NFT_ADDRESS": "SidioraNFT", "FEES_ROUTER_ADDRESS": "FeesRouter", "POOL_BEACON_ADDRESS": "PoolBeacon",
+	} {
+		t.Setenv(key, deployment.Current().Roles[role].Address)
+	}
+	return port
 }

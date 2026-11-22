@@ -57,10 +57,28 @@ partition delivery tables live in `candles` and `stats`, respectively. Its
 evidence. Each input consumer's broker stream equals the indexer's `stream`,
 separate from the canonical source stream ID.
 
+For `--service ranking`, the version-two runtime binding requires
+`visibilityEndpoint`, the social service's HTTPS
+`/internal/v2/social/ranking-visibility` endpoint, and `evidenceEndpoint`, the
+indexer's HTTP or HTTPS `/internal/ranking-evidence` endpoint. Both require a
+host and accept no user information, query or fragment. Evidence reads bind
+pause observations to the frozen height, time and block hash; an unavailable
+read refuses the ranking input.
+
 For the indexer, receipt and lifecycle documents each have two forms. The default
 form composes the document from the indexer values and writes its standard base64
 to `INDEXER_RECEIPT_CONFIG_DOCUMENT` or `INDEXER_LIFECYCLE_CONFIG_DOCUMENT`, with
 the corresponding `*_SHA256`.
+
+The indexer value `primary_endpoint` supplies the address of `paxeer-primary`
+in the composed lifecycle document's `Committed.Endpoints` member. The value
+`rpc_secret_reference` supplies that endpoint's reference in
+`EndpointSecretReferences`: it names the secrets provider entry whose value
+the indexer app uses as that endpoint's address at startup.
+For a deployment with a reference, the address changes
+with the value of that secrets provider entry; restart the indexer to use the
+changed value. Without a reference, the app uses the document's endpoint address.
+At startup, the app logs each endpoint ID and reference name at info level.
 
 To use files rendered by `services/launchpad/indexer/cmd/indexer-runtime-docs`,
 set these pairs in `indexer.json` (or `indexer.example.json`):
@@ -94,8 +112,15 @@ from `sdk/launchpad/shared/config/deployment/current.json` and
 runtime and implementation hashes. ABI revisions are the catalog's ABI digests;
 the committed source uses the receipt's epochs and the hash of the complete
 manifest. The source manifest digest identifies the reviewed contract bundle.
-Factory discovery templates, including reviewed pool and masked ERC20 runtime
-hashes, are supplied by the native renderer in the rendered receipt form.
+Both receipt forms carry factory discovery templates in pool, then token order.
+The inline pool template takes its runtime and staged upgrade identities from
+the manifest's surface `SidioraFactory` role. The required indexer value
+`erc20_masked_runtime_hash` is the keccak-256 hash of the SidioraERC20 runtime
+code with the reviewed catalog's immutable spans zeroed, as computed by
+`runtimedocs.MaskedRuntimeHash`. Supply `0x` followed by exactly 64 lowercase
+hexadecimal characters. The token template uses that hash with the reviewed ABI
+revision and immutable spans sorted by start offset. The example hash is derived
+from the repository's SidioraERC20 compiler artifact.
 The receipt authority requires an issued, nonzero chain anchor at or after the
 manifest's activation height. Example anchors and runtime hashes are illustrative;
 deployment uses the chain-issued values with the matching rendered documents.
@@ -104,6 +129,13 @@ The broker stream and durable example is `values/broker.example.json`. Apply it
 with the shared module's `brokerprovision` command before starting consumers.
 Its `check` action compares the broker with the reviewed document without writes.
 Consumer durations are nanoseconds, matching the composed delivery documents.
+The example includes `PNL_JOURNEYS` for the PnL journey delivery policy and
+`USERS` for the ten account subjects in `values/user.example.json`. Set
+`ACCOUNT_NATS_STREAM=USERS` for the user service. Both streams use file storage,
+limits retention, one replica, 1,000,000 messages, 1 GiB, 72 hours, 2 MiB per
+message, 128 consumers, a two-minute duplicate window and discard-new, following
+the example's bounded publisher streams. Neither has a durable entry because
+no launchpad consumer reads these outputs under a durable name.
 
 For `--service gateway`, `gateway.json` (or `gateway.example.json`) supplies
 `runtime`, `identity` and credential references. Routes use `method`, `template`
@@ -188,7 +220,8 @@ to the same identity endpoint and font directory. The service reads version 3,
 issuer `pnld`, audience `identity`, the embedded font digests and the reward
 manifest digest supplied by the composer.
 
-Each member of `journeys` is required, including empty lists and `cdnZone`:
+Each member of `journeys` is required, including empty lists and `cdnZone`,
+except the client key file pair when using the variable form:
 
 | Input | Operator source and form |
 | --- | --- |
@@ -210,6 +243,14 @@ Each member of `journeys` is required, including empty lists and `cdnZone`:
 | `rewardRuntimeHashes` | Map of lowercase contract addresses to `0x`-prefixed lowercase keccak digests of runtime code, read as described below. |
 | `programs` | Reviewed reward programmes as `l18.Program` objects, using the exact member names below; empty when no programme is admitted. |
 | `approvedCommunityWallets` | At most 64 distinct nonzero Ethereum addresses from the approved community wallet policy; comparison ignores case. |
+
+Select exactly one client key form. For the file form, provide both
+`identityClientKeyFile` and `identityClientKeySha256` and leave
+`IDENTITY_MTLS_CLIENT_KEY_PEM` empty. For the variable form, omit both members
+and set `IDENTITY_MTLS_CLIENT_KEY_PEM` to PEM text, at most 1048576 bytes,
+through the service's deployment variables. The composer emits both members
+as empty strings for this form. In both forms, the key must belong to the
+client certificate named by `identityClientCertFile`.
 
 A programme uses `ID`, `Version` and `DeploymentID` from the reviewed policy,
 each an identifier of 1–128 letters, digits, underscores, dots, colons or
@@ -255,7 +296,8 @@ policy: `inventory.rebuild.v2`, `portfolio.snapshot.v2`, `fee.claimed`,
 `reward.payout_intent`, `reward.paid`, `reward.payout_state`,
 `reward.correction_review`, `referral.analytics`, `referral.bound`,
 `referral.code`, `referral.consent`, `referral.click` and `referral.bind`.
-Add this stream to the deployment's broker values before starting the service.
+The broker example provisions these subjects as `PNL_JOURNEYS`; keep that
+entry synchronized with the deployment's `brokerStream` before starting the service.
 The deployment's gateway values must include an `identityPeers` entry with
 issuer `pnld`, the SHA-256 pin of PnL's client certificate and the public key of
 `IDENTITY_SIGNING_KEY` in unpadded base64url form. Keep that entry synchronized

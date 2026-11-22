@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
 import { formatEther, formatUnits, parseAbi, type PublicClient, type WalletClient } from 'viem';
@@ -44,7 +45,7 @@ export function ChainLaunchSummary({
         </div>
         <div className="flex flex-col gap-1">
           <dt className="text-xs text-text-muted">Coin</dt>
-          <dd>{tokenName || <span className="text-text-muted">Coin name</span>} ({tokenSymbol || <span className="text-text-muted">Ticker</span>})</dd>
+          <dd>{displayCoinText(tokenName, null) || <span className="text-text-muted">Coin name</span>} ({displayCoinText(tokenSymbol, null) || <span className="text-text-muted">Ticker</span>})</dd>
         </div>
         <div className="flex flex-col gap-1">
           <dt className="text-xs text-text-muted">Send creator rewards to</dt>
@@ -385,7 +386,7 @@ export default function ChainWizard() {
               <h2 className="text-base font-semibold text-text">{result ? 'Your chain and token are live' : 'Review and launch'}</h2>
               <dl className="flex min-w-0 flex-col gap-3 text-sm text-text [overflow-wrap:anywhere]">
                 <div><dt className="text-xs text-text-muted">Chain and size</dt><dd>{name} · {tierNames[tier]}</dd></div>
-                <div><dt className="text-xs text-text-muted">Coin and creator rewards</dt><dd>{tokenName} ({tokenSymbol}) · {feeStrategyLabel(feeStrategy)}</dd></div>
+                <div><dt className="text-xs text-text-muted">Coin and creator rewards</dt><dd className="[overflow-wrap:anywhere]">{displayCoinText(tokenName, null)} ({displayCoinText(tokenSymbol, null)}) · {feeStrategyLabel(feeStrategy)}</dd></div>
                 <div><dt className="text-xs text-text-muted">Block capacity</dt><dd className="text-xs text-text-muted">Up to {SIZE_TIERS[tier].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[tier].bytes.toLocaleString('en-US')} bytes per block.</dd></div>
               </dl>
               {submission ? <div className="text-sm text-text [overflow-wrap:anywhere]" role="region" aria-label="Submitted transaction">
@@ -396,7 +397,7 @@ export default function ChainWizard() {
               </div> : null}
               {phase ? <LaunchProgress steps={progress} busy={busy} /> : null}
               {result ? <div className="flex min-w-0 flex-col gap-3 text-sm text-text [overflow-wrap:anywhere]" role="region" aria-label="Live chain">
-                <p>Token: <strong>{result.tokenName} ({result.tokenSymbol})</strong> · {result.token}</p>
+                <p className="[overflow-wrap:anywhere]">Token: <strong>{displayCoinText(result.tokenName, result.token)} ({displayCoinText(result.tokenSymbol, result.token)})</strong> · {result.token}</p>
                 <p>Pool: {result.pool}</p>
                 <p>Chain ID: <strong>{result.chainId}</strong></p>
                 <p>Registry ID: {result.id}</p>

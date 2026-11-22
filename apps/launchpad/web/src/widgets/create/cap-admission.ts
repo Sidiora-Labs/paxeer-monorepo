@@ -11,6 +11,100 @@ type CreationAuthority=Pick<RuntimeAuthority,'revision'|'expiresAt'|'network'>;
 export type CreationAdmissionStage = 'approval' | 'creation';
 export type CreationCapabilityAdmission=(draft:CreationDraftV2,scope:AccountScope,stage:CreationAdmissionStage)=>Promise<void>;
 
+export class ApprovalHeadWaitError extends Error {
+  constructor(readonly cause?: unknown) {
+    super('Approval confirmed. Try creating again in a moment.');
+    this.name = 'ApprovalHeadWaitError';
+  }
+}
+
+export type ApprovalHeadWait = (
+  blockNumber: bigint,
+  signal?: AbortSignal,
+) => Promise<void>;
+
+function headOperation<T>(
+  signal: AbortSignal,
+  action: () => Promise<T>,
+): Promise<T> {
+  signal.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener('abort', abort);
+      reject(signal.reason);
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    Promise.resolve()
+      .then(() => {
+        signal.throwIfAborted();
+        return action();
+      })
+      .then(
+        (value) => {
+          signal.removeEventListener('abort', abort);
+          resolve(value);
+        },
+        (error: unknown) => {
+          signal.removeEventListener('abort', abort);
+          reject(error);
+        },
+      );
+  });
+}
+
+export function runtimeApprovalHeadWait(
+  authority: CreationAuthority,
+): ApprovalHeadWait {
+  return async (blockNumber, signal) => {
+    signal?.throwIfAborted();
+    let lastError: unknown;
+    const deadline = new AbortController();
+    const timer = setTimeout(
+      () => deadline.abort(new ApprovalHeadWaitError(lastError)),
+      60000,
+    );
+    const stopped = signal
+      ? AbortSignal.any([signal, deadline.signal])
+      : deadline.signal;
+    try {
+      for (;;) {
+        stopped.throwIfAborted();
+        const read = new AbortController();
+        const readTimer = setTimeout(
+          () => read.abort(new DOMException('Head read took too long.', 'TimeoutError')),
+          10000,
+        );
+        const readSignal = AbortSignal.any([stopped, read.signal]);
+        try {
+          const head = await headOperation(readSignal, () =>
+            authority.network.committedHead(readSignal),
+          );
+          stopped.throwIfAborted();
+          if (head.number >= blockNumber) return;
+        } catch (error) {
+          stopped.throwIfAborted();
+          lastError = error;
+        } finally {
+          clearTimeout(readTimer);
+        }
+        let pause: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await headOperation(
+            stopped,
+            () => new Promise<void>((resolve) => {
+              pause = setTimeout(resolve, 2000);
+            }),
+          );
+        } finally {
+          clearTimeout(pause);
+        }
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
+
 // The answer type declares no stage member; the request digest and simulation mode bind the stage.
 async function creationPreflight(authority:CreationAuthority,draft:CreationDraftV2,scope:AccountScope,stage:CreationAdmissionStage,head:{hash:`0x${string}`;number:bigint},signal:AbortSignal) {
  const zero='0x0000000000000000000000000000000000000000';

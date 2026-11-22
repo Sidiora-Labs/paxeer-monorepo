@@ -47,5 +47,10 @@ It includes broker streams, not the logical `sourceStream` identifiers of
 projection documents. Its social chat and API sockets streams use three
 replicas; provisioning these requires a broker cluster with three servers.
 It keeps messages for 72 hours with explicit message, byte and consumer limits.
-Subjects supplied separately from composer values, such as the user service's
-`ACCOUNT_NATS_STREAM`, must be added to the operator's deployment document.
+`PNL_JOURNEYS` covers the PnL journey delivery policy and `USERS` covers all ten
+account event subjects; set the user service's `ACCOUNT_NATS_STREAM` to `USERS`.
+Both use one replica, 1,000,000 messages, 1 GiB, 72 hours, 2 MiB per message,
+128 consumers, a two-minute duplicate window and discard-new, matching the
+example's bounded publisher streams. They have no durables because no launchpad
+consumer reads these outputs under a durable name. Keep deployment stream names,
+subjects and limits synchronized with the corresponding service values.

@@ -875,7 +875,7 @@ func TestFaultPoisonQuarantineAndAuditedReprocessing(t *testing.T) {
 	broker := newFaultBroker(t)
 	nc := broker.start()
 	publisher, reader := faultProvision(t, ctx, nc, accounting.MarketSubject, "poison")
-	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{"market": true}}
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 	deliveries, err := delivery.NewStore(pool, st.Schema, policy)
 	if err != nil {
 		t.Fatal(err)
@@ -921,7 +921,7 @@ func TestFaultPoisonQuarantineAndAuditedReprocessing(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			envelope := delivery.Envelope{EventID: publication.PublicationID, EventType: "market", SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex}, EmittedAt: time.Now().UTC(), TraceID: "fault_poison", PayloadHash: delivery.Hash(payload), Payload: payload}
+			envelope := delivery.Envelope{EventID: publication.PublicationID, EventType: accounting.MarketSubject, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex}, EmittedAt: time.Now().UTC(), TraceID: "fault_poison", PayloadHash: delivery.Hash(payload), Payload: payload}
 			wire, err := envelope.Encode(policy, accounting.MarketSubject)
 			if err != nil {
 				t.Fatal(err)
@@ -1042,7 +1042,7 @@ func TestFaultCanonicalConflictFreezesBothPools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{"market": true}}
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 	deliveries, err := delivery.NewStore(pool, st.Schema, policy)
 	if err != nil {
 		t.Fatal(err)

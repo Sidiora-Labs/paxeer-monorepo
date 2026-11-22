@@ -29,6 +29,9 @@ type sourceRecoveryNode struct {
 	entered                                             chan struct{}
 	release                                             chan struct{}
 	requests                                            atomic.Int64
+
+	delay                 atomic.Int64
+	inFlight, maxInFlight atomic.Int64
 }
 
 func sourceRecoveryServe(t *testing.T) *sourceRecoveryNode {
@@ -46,6 +49,23 @@ func sourceRecoveryServe(t *testing.T) *sourceRecoveryNode {
 			return
 		}
 		n.requests.Add(1)
+		if delay := time.Duration(n.delay.Load()); delay > 0 {
+			active := n.inFlight.Add(1)
+			for peak := n.maxInFlight.Load(); active > peak; peak = n.maxInFlight.Load() {
+				if n.maxInFlight.CompareAndSwap(peak, active) {
+					break
+				}
+			}
+			timer := time.NewTimer(delay)
+			defer timer.Stop()
+			select {
+			case <-timer.C:
+				n.inFlight.Add(-1)
+			case <-r.Context().Done():
+				n.inFlight.Add(-1)
+				return
+			}
+		}
 		if n.invalid.Load() {
 			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":0,"result":"0x7d"}`)
 			return

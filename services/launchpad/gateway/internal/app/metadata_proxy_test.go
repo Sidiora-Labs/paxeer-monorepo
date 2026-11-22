@@ -172,9 +172,17 @@ func TestMetadataPublicationThroughGatewayProxy(t *testing.T) {
 	count := func() int { mu.Lock(); defer mu.Unlock(); return len(observed) }
 
 	// The rendered gateway-runtime metadata binding: the v2 media routes
-	// with MetadataConnectedRoutes appended, exactly as the runtime does.
+	// with missing MetadataConnectedRoutes added, exactly as the runtime does.
 	routes := []proxy.ConnectedRoute{{Method: http.MethodGet, Template: "/v2/tokens/{tokenAddress}/metadata"}, {Method: http.MethodPatch, Template: "/v2/tokens/{tokenAddress}/metadata", Authenticate: true}}
-	routes = append(routes, proxy.MetadataConnectedRoutes()...)
+	existing := map[string]bool{}
+	for _, route := range routes {
+		existing[route.Method+" "+route.Template] = true
+	}
+	for _, route := range proxy.MetadataConnectedRoutes() {
+		if !existing[route.Method+" "+route.Template] {
+			routes = append(routes, route)
+		}
+	}
 	handler, err := proxy.NewConnected(proxy.ConnectedDeps{Name: "metadata", URL: upstream, Routes: routes, Identity: e.authorityForGateway, SigningKey: e.gatewayKey.Private, TLS: e.gatewayClientTLS()})
 	if err != nil {
 		t.Fatal(err)

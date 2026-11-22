@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -364,7 +366,7 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 		for rows.Next() {
 			var address, t1, t2, t3, t4, data, hash, block []byte
 			var height, index, txIndex int64
-			if err = rows.Scan(&address, &t1, &t2, &t3, &t4, &data, &hash, &block, &height, &index, &txIndex); err != nil || len(address) != 20 || len(hash) != 32 || len(block) != 32 || data == nil || len(data) > 64<<10 || height < o.FromBlock || height > o.ToBlock || index < 0 || txIndex < 0 || index > math.MaxUint32 || txIndex > math.MaxUint32 {
+			if err = rows.Scan(&address, &t1, &t2, &t3, &t4, &data, &hash, &block, &height, &index, &txIndex); err != nil || len(address) != 20 || len(hash) != 32 || len(block) != 32 || data == nil || height < o.FromBlock || height > o.ToBlock || index < 0 || txIndex < 0 || index > math.MaxUint32 || txIndex > math.MaxUint32 {
 				rows.Close()
 				return empty, sourceError(IncompleteError, s.Name(), nil)
 			}
@@ -405,7 +407,7 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 				result.TxFromMap[strings.ToLower(log.TxHash.Hex())] = strings.ToLower(origin.from.Hex())
 			}
 			used += 256 + len(log.Data) + 32*len(log.Topics)
-			if used > 32<<20 {
+			if used > decode.MaxBlockLogBytes || o.FromBlock < o.ToBlock && used > 32<<20 {
 				rows.Close()
 				return empty, sourceError(OversizeError, s.Name(), nil)
 			}

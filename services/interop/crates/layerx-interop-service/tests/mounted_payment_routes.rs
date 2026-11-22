@@ -196,6 +196,7 @@ struct StoreState {
     strings: BTreeMap<String, Vec<u8>>,
     hashes: BTreeMap<String, BTreeMap<String, Vec<u8>>>,
     sets: BTreeMap<String, BTreeSet<Vec<u8>>>,
+    streams: BTreeMap<String, Vec<(Vec<u8>, Vec<Vec<u8>>)>>,
     expiries: BTreeMap<String, u128>,
 }
 impl StoreState {
@@ -215,29 +216,109 @@ impl StoreState {
             hash.insert((*field).into(), value.to_vec());
         }
     }
+    fn append_audit(
+        &mut self,
+        keys: [&str; 4],
+        previous: &[u8],
+        chain: &[u8],
+        event: &[u8],
+        outcome: Option<&[u8]>,
+    ) {
+        let [stream, head, principal_stream, version] = keys;
+        let mut fields = vec![
+            b"previous".to_vec(),
+            previous.to_vec(),
+            b"chain".to_vec(),
+            chain.to_vec(),
+            b"event".to_vec(),
+            event.to_vec(),
+        ];
+        if let Some(outcome) = outcome {
+            fields.extend([b"outcome".to_vec(), outcome.to_vec()]);
+        }
+        let entries = self.streams.entry(stream.into()).or_default();
+        let id = format!("{}-0", entries.len() + 1).into_bytes();
+        entries.push((id.clone(), fields.clone()));
+        self.streams
+            .entry(principal_stream.into())
+            .or_default()
+            .push((id, fields));
+        self.strings.insert(version.into(), b"1".to_vec());
+        self.strings.insert(head.into(), chain.to_vec());
+    }
+    fn expire(&mut self, key: &str, seconds: &[u8]) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .or_panic("test time")
+            .as_millis();
+        self.expiries.insert(
+            key.into(),
+            now + text(seconds).parse::<u128>().or_panic("test value") * 1000,
+        );
+    }
+    fn eval_read(&mut self, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
+        assert_eq!(keys.len(), 6);
+        assert_eq!(args.len(), 6);
+        let k = |i: usize| keys[i - 1].as_str();
+        let a = |i: usize| args[i - 1].as_slice();
+        if self.field(k(1), "disabled") != b"0" || self.field(k(1), "epoch") != a(1) {
+            return tag("revoked");
+        }
+        if self.value(k(4)) != a(5) {
+            return tag("audit_retry");
+        }
+        let used: u64 = if self.value(k(2)).is_empty() {
+            0
+        } else {
+            text(self.value(k(2))).parse().or_panic("test value")
+        };
+        let outcome = if used >= text(a(2)).parse().or_panic("test value") {
+            "rate_limited"
+        } else {
+            self.strings
+                .insert(k(2).into(), (used + 1).to_string().into_bytes());
+            self.expire(k(2), a(3));
+            "consumed"
+        };
+        self.append_audit(
+            [k(3), k(4), k(5), k(6)],
+            a(5),
+            a(6),
+            a(4),
+            Some(outcome.as_bytes()),
+        );
+        tag(outcome)
+    }
     fn eval_relay(&mut self, script: &str, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
         let k = |i: usize| keys[i - 1].as_str();
         let a = |i: usize| args[i - 1].as_slice();
         let terminal = format!("{}:finalized", k(1));
         if script.contains("local terminal") {
             assert_eq!(keys.len(), 1);
+            assert_eq!(args.len(), 2);
             if let Some(hash) = self.strings.get(&terminal) {
-                assert_eq!(hash, a(1));
+                if hash != a(1) {
+                    return b"-ERR relay finality hash mismatch\r\n".to_vec();
+                }
                 return bulk(Some(hash));
             }
             let Some(old) = self.strings.get(k(1)) else {
                 return bulk(None);
             };
-            assert_eq!(&old[..32], a(1));
+            if &old[..old.len().min(32)] != a(1) {
+                return bulk(None);
+            }
             self.strings.insert(terminal, a(1).to_vec());
-            let deadline = unix_millis() + text(a(2)).parse::<u128>().or_panic("test value") * 1000;
-            self.expiries.insert(k(1).to_owned(), deadline);
-            self.expiries
-                .insert(format!("{}:submitted", k(1)), deadline);
+            self.expire(k(1), a(2));
+            let submitted = format!("{}:submitted", k(1));
+            if self.strings.contains_key(&submitted) {
+                self.expire(&submitted, a(2));
+            }
             return bulk(Some(a(1)));
         }
         if script.contains("string.char(1) .. ARGV[1]") {
             assert_eq!(keys.len(), 1);
+            assert_eq!(args.len(), 1);
             if let Some(hash) = self.strings.get(&terminal) {
                 return bulk(Some(&[vec![0], hash.clone()].concat()));
             }
@@ -252,10 +333,13 @@ impl StoreState {
         }
         if script.contains("local progress") {
             assert_eq!(keys.len(), 2);
+            assert!(args.is_empty());
             let old = self.strings.get(k(1));
             if let Some(hash) = self.strings.get(&terminal) {
                 if let Some(old) = old {
-                    assert_eq!(&old[..32], hash);
+                    if &old[..old.len().min(32)] != hash {
+                        return b"-ERR relay finality hash mismatch\r\n".to_vec();
+                    }
                 }
                 return bulk(Some(&[vec![2], old.unwrap_or(hash).clone()].concat()));
             }
@@ -264,7 +348,9 @@ impl StoreState {
                 Some(record) => {
                     let progress = self.strings.get(k(2));
                     if let Some(progress) = progress {
-                        assert_eq!(progress, &record[..32]);
+                        if progress != &record[..record.len().min(32)] {
+                            return b"-ERR relay submission hash mismatch\r\n".to_vec();
+                        }
                     }
                     bulk(Some(
                         &[vec![u8::from(progress.is_some())], record.clone()].concat(),
@@ -274,6 +360,7 @@ impl StoreState {
         }
         assert!(script.contains("ARGV[2]"));
         assert_eq!(keys.len(), 2);
+        assert_eq!(args.len(), 2);
         if self.strings.get(k(1)).map(Vec::as_slice) != Some(a(1)) {
             return bulk(None);
         }
@@ -283,7 +370,8 @@ impl StoreState {
     fn eval_reserved(&mut self, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
         let k = |i: usize| keys[i - 1].as_str();
         let a = |i: usize| args[i - 1].as_slice();
-        assert_eq!(keys.len(), 8);
+        assert_eq!(keys.len(), 10);
+        assert!(args.len() >= 11);
         if self.field(k(1), "disabled") != b"0" || self.field(k(1), "epoch") != a(1) {
             return tag("revoked");
         }
@@ -315,6 +403,7 @@ impl StoreState {
             text(self.value(k(2))).parse().or_panic("test value")
         };
         if used >= text(a(2)).parse().or_panic("test value") {
+            self.append_audit([k(4), k(5), k(9), k(10)], a(8), a(9), a(6), Some(b"rate_limited"));
             return array(&[b"rate_limited".to_vec(), a(3).to_vec()]);
         }
         self.strings
@@ -344,11 +433,11 @@ impl StoreState {
             .insert(k(3).as_bytes().to_vec());
         self.strings.insert(k(7).into(), a(10).to_vec());
         self.strings.insert(k(8).into(), k(3).as_bytes().to_vec());
-        self.strings.insert(k(5).into(), a(9).to_vec());
-        let deadline = unix_millis() + text(a(4)).parse::<u128>().or_panic("test value") * 1000;
+        self.expire(k(2), a(3));
         for key in [k(3), k(7), k(8)] {
-            self.expiries.insert(key.to_owned(), deadline);
+            self.expire(key, a(4));
         }
+        self.append_audit([k(4), k(5), k(9), k(10)], a(8), a(9), a(6), Some(b"pending"));
         tag("reserved")
     }
     fn eval(&mut self, script: &str, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
@@ -356,12 +445,18 @@ impl StoreState {
         let a = |i: usize| args[i - 1].as_slice();
         if k(1) == "interop:relay:retention-cursor:v1" {
             assert!(script.contains("SCAN"));
+            assert_eq!(keys.len(), 1);
+            assert!(args.is_empty());
+            self.strings.insert(k(1).into(), b"0".to_vec());
             let keys = self
                 .strings
                 .keys()
                 .filter(|key| {
                     key.len() == 81
                         && key.starts_with("interop:relay:v1:")
+                        && key[17..]
+                            .bytes()
+                            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
                         && !self.strings.contains_key(&format!("{key}:finalized"))
                 })
                 .cloned()
@@ -372,7 +467,8 @@ impl StoreState {
             return self.eval_relay(script, keys, args);
         }
         if script.contains("return {'issued'}") {
-            assert_eq!(keys.len(), 4);
+            assert_eq!(keys.len(), 6);
+            assert_eq!(args.len(), 13);
             if self.value(k(4)) != a(12) {
                 return tag("audit_retry");
             }
@@ -402,17 +498,21 @@ impl StoreState {
                 .entry(k(2).into())
                 .or_default()
                 .insert(a(1).to_vec());
-            self.strings.insert(k(4).into(), a(13).to_vec());
+            self.append_audit([k(3), k(4), k(5), k(6)], a(12), a(13), a(11), None);
             return tag("issued");
         }
         if script.contains("return {'reserved'}") {
             return self.eval_reserved(keys, args);
         }
+        if script.contains("local outcome = 'consumed'") {
+            return self.eval_read(keys, args);
+        }
         assert!(
             script.contains("return {'completed'}"),
             "unrecorded fixture script: {script}"
         );
-        assert_eq!(keys.len(), 9);
+        assert_eq!(keys.len(), 11);
+        assert_eq!(args.len(), 15);
         if self.field(k(1), "digest") != a(1) {
             return tag("conflict");
         }
@@ -442,7 +542,7 @@ impl StoreState {
                 .or_default()
                 .remove(k(1).as_bytes());
         }
-        self.strings.insert(k(4).into(), a(7).to_vec());
+        self.append_audit([k(3), k(4), k(10), k(11)], a(6), a(7), a(5), Some(a(2)));
         tag("completed")
     }
     fn exchange(&mut self, arguments: &[Vec<u8>]) -> Vec<u8> {

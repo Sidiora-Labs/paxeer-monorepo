@@ -4,6 +4,7 @@
 //! The file holds handles and public keys only; no private key is ever
 //! configured into this process.
 
+use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -614,13 +615,9 @@ impl RelayerConfig {
                 "receipt key first_height must not exceed last_height",
             ));
         }
-        if keys
-            .windows(2)
-            .any(|pair| pair[1].first_height <= pair[0].last_height)
-        {
-            return Err(invalid(
-                "receipt key windows must be ordered and non-overlapping",
-            ));
+        let mut key_ids = BTreeSet::new();
+        if keys.iter().any(|key| !key_ids.insert(key.sequencer_id)) {
+            return Err(invalid("receipt key identifiers must be unique"));
         }
         Ok(keys
             .iter()

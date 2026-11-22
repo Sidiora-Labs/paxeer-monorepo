@@ -48,11 +48,38 @@ func TestFrozenIDsAndPrerequisitesMatchBaseline(t *testing.T) {
 	if string(x) != string(y) {
 		t.Fatal("frozen ID/prerequisite drift")
 	}
+	if len(c.Capabilities) != 14 {
+		t.Fatalf("capability count: %d", len(c.Capabilities))
+	}
+	listed := map[string]bool{}
 	for _, entry := range c.Capabilities {
+		listed[entry.ID] = true
+		if entry.ID == valueCoreMarket {
+			if err := Require(entry.ID); err != nil {
+				t.Fatalf("committed market release refused: %v", err)
+			}
+			continue
+		}
 		var unavailable Unavailable
 		if !errors.As(Require(entry.ID), &unavailable) || unavailable.ReasonCode != PrerequisiteUnavailable {
 			t.Fatalf("unqualified capability %s enabled", entry.ID)
 		}
+	}
+	if len(c.Released) != 1 || c.Released[0] != (Release{ID: valueCoreMarket, DeploymentVersion: "paxeer125-v6.12.0"}) {
+		t.Fatalf("committed releases: %+v", c.Released)
+	}
+	seen := map[Release]bool{}
+	for _, release := range c.Released {
+		if !listed[release.ID] || release.DeploymentVersion == "" || seen[release] {
+			t.Fatalf("invalid release: %+v", release)
+		}
+		seen[release] = true
+		if !Released(release.ID, release.DeploymentVersion) {
+			t.Fatalf("listed release refused: %+v", release)
+		}
+	}
+	if Released(valueCoreMarket, "another-deployment") || Released(valueCoreMarket, "") || Released("embedded_wallet", deployment.Current().DeploymentVersion) || Released("account_profile", deployment.Current().DeploymentVersion) {
+		t.Fatal("unlisted release accepted")
 	}
 	var u Unavailable
 	if !errors.As(Require("embedded_wallet"), &u) || u.ReasonCode != UnknownCapability {
@@ -63,7 +90,7 @@ func TestCoreIndependentOfOptionalOracle(t *testing.T) {
 	m, a, p := policyFixture()
 	for _, f := range []Family{Creation, Trading, PlainQuote, NFTFees} {
 		c, e := AssessFamily(f, m, a, p)
-		if e != nil || !c.Supported || c.OracleRequired || c.ReleaseEnabled {
+		if e != nil || !c.Supported || c.OracleRequired || !c.ReleaseEnabled {
 			t.Fatalf("family %s got %+v %v", f, c, e)
 		}
 		if len(c.Selectors) == 0 {
@@ -75,6 +102,19 @@ func TestCoreIndependentOfOptionalOracle(t *testing.T) {
 		if e != nil || c.Supported || c.ReleaseEnabled || c.ReasonCode == "" {
 			t.Fatalf("unqualified family enabled: %+v %v", c, e)
 		}
+	}
+}
+func TestCreationReleaseRequiresMatchingDeployment(t *testing.T) {
+	m, a, p := policyFixture()
+	m.DeploymentVersion = "another-deployment"
+	hash, err := m.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.DeploymentVersion, a.ManifestHash = m.DeploymentVersion, hash
+	c, err := AssessFamily(Creation, m, a, p)
+	if err != nil || !c.Supported || c.ReleaseEnabled || c.ReasonCode != "" {
+		t.Fatalf("creation for another deployment: %+v %v", c, err)
 	}
 }
 func TestMissingQuoterOnlyBlocksDependentFamily(t *testing.T) {

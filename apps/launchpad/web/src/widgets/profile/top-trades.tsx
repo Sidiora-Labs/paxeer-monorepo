@@ -45,7 +45,7 @@ function TradeRow({ trade, name, symbol, logo, poolAddress }: { trade: TopTrade;
       <Link prefetch={false} href={coinHref(trade.position.tokenAddress, poolAddress)} className="flex min-w-0 flex-1 items-center gap-3 rounded-sm">
         <Avatar src={logo} name={symbol ?? name} size="lg" shape="square" decorative />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-bold text-text">{name}{symbol ? <span className="ml-1 font-semibold text-text-muted">{symbol}</span> : null}</span>
+          <span className="block truncate text-sm font-bold text-text" title={`${name}${symbol ? ` ${symbol}` : ''}`}>{name}{symbol ? <span className="ml-1 font-semibold text-text-muted">{symbol}</span> : null}</span>
           <span className="block truncate font-mono-sl text-xs text-text-faint">{shortAddress(trade.position.tokenAddress, 6, 4)}</span>
         </span>
       </Link>

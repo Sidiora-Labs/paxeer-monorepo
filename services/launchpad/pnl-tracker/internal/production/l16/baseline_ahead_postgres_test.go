@@ -49,6 +49,15 @@ func realMarketEnv(t *testing.T, name string) string {
 	return value
 }
 
+func requireCommittedMarket(t *testing.T) {
+	t.Helper()
+	for _, name := range []string{"L16_BASELINE_RPC", "L16_SECOND_RPC"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("%s not set: committed chain-125 market history required", name)
+		}
+	}
+}
+
 type realMarketStage struct {
 	admin, runtime *pgxpool.Pool
 	indexer        *pgxpool.Pool
@@ -250,6 +259,7 @@ func recordedCreationMovements(t *testing.T, ctx context.Context, s *realMarketS
 // to require, which no factory-created market satisfies), a different
 // factory, a partial seed or an extra creation transfer are refused.
 func TestFactoryCreationSupplyMatchesDeployedCreationPath(t *testing.T) {
+	requireCommittedMarket(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	s := loadRealMarketStage(t, ctx, "creation")
@@ -299,6 +309,7 @@ func TestFactoryCreationSupplyMatchesDeployedCreationPath(t *testing.T) {
 // with its own query, and it is byte-for-byte the attestation the indexer's
 // recorded inventory frames are bound to. A new indexer fence rebinds it.
 func TestBaselineAheadIssuesCreatorBaselineBeforeFirstFillPostgres(t *testing.T) {
+	requireCommittedMarket(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	s := loadRealMarketStage(t, ctx, "creation")
@@ -402,6 +413,7 @@ func loadRecordedStageMirror(t *testing.T, stage string) recordedMirror {
 // partition 1 -> 2 -> next 3. After an indexer fence change the open partition
 // is rebound by the ahead issuer before any further fill.
 func TestIndexerInventoryFramesConsumedByPnlPostgres(t *testing.T) {
+	requireCommittedMarket(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 	s := loadRealMarketStage(t, ctx, "traded")
@@ -564,6 +576,7 @@ func consumeRecordedInventoryFrames(t *testing.T, ctx context.Context, s *realMa
 // was built against (an epoch not beyond the current fence); the baseline
 // uses record that row.
 func TestInventoryFramesInFlightAcrossFenceChangePostgres(t *testing.T) {
+	requireCommittedMarket(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 	s := loadRealMarketStage(t, ctx, "traded")
@@ -610,6 +623,7 @@ func TestInventoryFramesInFlightAcrossFenceChangePostgres(t *testing.T) {
 // row) published the held buy and the sell, and pnl's production consumer
 // verifies and applies both frames from sequence 1.
 func TestBaselineAheadIssuesBaselineForDeferredFirstFillPostgres(t *testing.T) {
+	requireCommittedMarket(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 	s := loadRealMarketStage(t, ctx, "deferred")
