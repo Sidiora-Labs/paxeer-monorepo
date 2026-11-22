@@ -1,12 +1,12 @@
 {
   "source_hashes": {
-    "services/interop/deploy/mirror/render-config.py": "467cbc3be472530972b4a50b14bd9bb5c4ab43cdd30f8cb12fcb2a8a122499f9",
+    "services/interop/deploy/mirror/render-config.py": "355d0493400e4d788955533da69b648f3fabd69a639bb2b002295db72241a52c",
     "services/interop/deploy/mirror/config.example.json": "72ea627f778dfebe610e6c590c6e28305452b33729d2ac6c192a690412e228d5",
     "services/interop/deploy/mirror/testdata/receipt_key_policy/receipt-keys.json": "291b3db747f812eca3f3dbd0e9a3b67687837981bb063e910151679d9a3a455d",
-    "services/interop/deploy/mirror/testdata/receipt_key_policy/record.py": "0fcadc08c0f65d375e50bc7f365f825ba92a7b404bf01e233788a167ffb99cdb",
-    "services/interop/deploy/gateway/render.py": "651614c6a641ae9c4c63f5fff81c02ea5a219f5c8c2eca3dc12f61c3be11f11c",
+    "services/interop/deploy/mirror/testdata/receipt_key_policy/record.py": "d4c149b71db129a9b415d1055df4fe3641ea43439dc1a95e3442ae93e8773d01",
+    "services/interop/deploy/gateway/render.py": "068fc81e7f2f19621614c088e830ad6de76366270e95eafc23219fa5f856c2f2",
     "services/interop/crates/layerx-mirror/tests/fixtures/committed_blocks.json": "21e44e52aa99bd6cfa8db10aaff3da68dca2c1f39ec337b70e2104df1937f2fe",
-    "services/agent/crates/layerx-proof/src/receipt.rs": "11b3d5c202014972fb043a5ea90f038e3e0afdb7efd392729fcc8d5a4fa1034f",
+    "services/agent/crates/layerx-proof/src/receipt.rs": "f49fc63cbc63fae99e36ded5da12cd7fbc8b0df7a5377ffcd560785e5fa89f07",
     "services/agent/crates/layerx-proof/src/inclusion.rs": "f439e617b47851cd742c6d6f06745aa758db8041003c424e015490fc45b03faf"
   },
   "renderings": [
@@ -288,16 +288,16 @@
       "gateway": {
         "keys": [
           {
-            "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
-            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
-            "firstHeight": 0,
-            "lastHeight": 1000
-          },
-          {
             "keyId": "0x0202020202020202020202020202020202020202020202020202020202020202",
             "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
             "firstHeight": 1001,
             "lastHeight": 18446744073709551615
+          },
+          {
+            "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 1000
           }
         ]
       }
@@ -458,10 +458,36 @@
         }
       ],
       "mirror": {
-        "error": "render-config: --receipt-keys-file contains overlapping height ranges"
+        "keys": [
+          {
+            "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 1000
+          },
+          {
+            "sequencer_id_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 1000,
+            "last_height": 18446744073709551615
+          }
+        ]
       },
       "gateway": {
-        "error": "receipt keys file <keys> has overlapping height ranges for keys 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b and 0x0202020202020202020202020202020202020202020202020202020202020202"
+        "keys": [
+          {
+            "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 1000
+          },
+          {
+            "keyId": "0x0202020202020202020202020202020202020202020202020202020202020202",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 1000,
+            "lastHeight": 18446744073709551615
+          }
+        ]
       }
     },
     {
@@ -719,6 +745,1726 @@
       "gateway": {
         "error": "receipt keys file <keys> entry 0 must declare exactly firstHeight, keyId, lastHeight, publicKey"
       }
+    },
+    {
+      "name": "overlap_partial_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 25
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 25
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 25
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_partial_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 25
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 25
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 25
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_partial_shared_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 25
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 25
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 25
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_partial_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 25
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 25
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 25
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_boundary_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 20,
+          "lastHeight": 30
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 20,
+            "last_height": 30
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 20,
+            "lastHeight": 30
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_boundary_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 20,
+          "lastHeight": 30
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 20,
+            "last_height": 30
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 20,
+            "lastHeight": 30
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_boundary_shared_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 20,
+          "lastHeight": 30
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 20,
+            "last_height": 30
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 20,
+            "lastHeight": 30
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_boundary_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 20,
+          "lastHeight": 30
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 20,
+            "last_height": 30
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 20,
+            "lastHeight": 30
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_contained_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 30
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 30
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 30
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_contained_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 30
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 30
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 30
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_contained_shared_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 30
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 30
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 30
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_contained_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 30
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 30
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 30
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_same_start_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 30
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 30
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 30
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_same_start_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 30
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 30
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 30
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_same_start_shared_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 30
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 30
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 30
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_same_start_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 30
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 30
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 30
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_identical_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_identical_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_identical_shared_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_identical_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_unsorted_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 30,
+          "lastHeight": 40
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 15,
+          "lastHeight": 25
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 30,
+            "last_height": 40
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000003",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 15,
+            "last_height": 25
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 30,
+            "lastHeight": 40
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 15,
+            "lastHeight": 25
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_unsorted_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 15,
+          "lastHeight": 25
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 30,
+          "lastHeight": 40
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000003",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 15,
+            "last_height": 25
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 30,
+            "last_height": 40
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 15,
+            "lastHeight": 25
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 30,
+            "lastHeight": 40
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_unsorted_shared_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 30,
+          "lastHeight": 40
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 25
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 30,
+            "last_height": 40
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000003",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 25
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 30,
+            "lastHeight": 40
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 25
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_unsorted_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 25
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 30,
+          "lastHeight": 40
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000003",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 15,
+            "last_height": 25
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 10,
+            "last_height": 20
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 30,
+            "last_height": 40
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 15,
+            "lastHeight": 25
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 10,
+            "lastHeight": 20
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 30,
+            "lastHeight": 40
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_uint64_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 18446744073709551615,
+          "lastHeight": 18446744073709551615
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 18446744073709551615,
+            "last_height": 18446744073709551615
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 18446744073709551615
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 18446744073709551615,
+            "lastHeight": 18446744073709551615
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_uint64_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 18446744073709551615
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 18446744073709551615,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 18446744073709551615
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 18446744073709551615,
+            "last_height": 18446744073709551615
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 18446744073709551615
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 18446744073709551615,
+            "lastHeight": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_uint64_shared_forward",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 18446744073709551615,
+          "lastHeight": 18446744073709551615
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 18446744073709551615,
+            "last_height": 18446744073709551615
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 18446744073709551615
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 18446744073709551615,
+            "lastHeight": 18446744073709551615
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "name": "overlap_uint64_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 18446744073709551615
+        },
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 18446744073709551615,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000002",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 18446744073709551615
+          },
+          {
+            "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 18446744073709551615,
+            "last_height": 18446744073709551615
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 18446744073709551615
+          },
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 18446744073709551615,
+            "lastHeight": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate_disjoint_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 21,
+          "lastHeight": 30
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_disjoint_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 21,
+          "lastHeight": 30
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_disjoint_shared_forward",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 21,
+          "lastHeight": 30
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_disjoint_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 21,
+          "lastHeight": 30
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_overlapping_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 15,
+          "lastHeight": 25
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_overlapping_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 15,
+          "lastHeight": 25
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_overlapping_shared_forward",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 25
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_overlapping_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 15,
+          "lastHeight": 25
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_identical_distinct_forward",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_identical_distinct_reverse",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_identical_shared_forward",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_identical_shared_reverse",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 10,
+          "lastHeight": 20
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
     }
   ],
   "endpoint_refusals": [
@@ -749,16 +2495,16 @@
   ],
   "gateway_keys": [
     {
-      "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
-      "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
-      "firstHeight": 0,
-      "lastHeight": 1000
-    },
-    {
       "keyId": "0x0202020202020202020202020202020202020202020202020202020202020202",
       "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
       "firstHeight": 1001,
       "lastHeight": 18446744073709551615
+    },
+    {
+      "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+      "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+      "firstHeight": 0,
+      "lastHeight": 1000
     }
   ],
   "gateway": {
@@ -770,7 +2516,7 @@
         "specification_sha256": "7d9be66cbcf51d3593e17ac51a623395f8ccb86fd3d76a27919419e4ce83efef",
         "conformance_suite": "layerx-x402-conformance-v1",
         "conformance_vectors": 27,
-        "conformance_sha256": "fa0f81cd359feeca5d9df78e4fe73aac58249540dc795e171b36f8a733f2f692",
+        "conformance_sha256": "d4a99ee8151a031bf9030a96fa1ded86c4840380585fd648a0774c76d5e906a6",
         "evidence_policy": "layerx-receipt"
       },
       {
@@ -790,7 +2536,7 @@
         "specification_sha256": "a579df10ae589a63f8f0d01e7b4f8e3183ba227025c692bb0385d92362b894b3",
         "conformance_suite": "layerx-ucp-conformance-v1",
         "conformance_vectors": 29,
-        "conformance_sha256": "2a1aaa7d7b24b1fc150a222f94aab28fe5e9db22299cb1d1cb8f5ac3c03dca80",
+        "conformance_sha256": "edc3f435c6c3d3584dc2da2e4debb786120f648b4afea9a44f2c5e3157544b60",
         "evidence_policy": "layerx-receipt"
       },
       {
@@ -807,10 +2553,10 @@
         "id": "fiat",
         "specification": "layerx-fiat-settlement",
         "version": "1",
-        "specification_sha256": "78f39be4ad25d685a5ca633ddf0e896010ca207d07903fbc277e1af98c7287ea",
+        "specification_sha256": "01c617be5517102f4bb24ee8c91cbf404d2485d92f7ccba1b2eef85e28ea8273",
         "conformance_suite": "layerx-fiat-conformance-v1",
         "conformance_vectors": 31,
-        "conformance_sha256": "b8ab8eaa5885aa5e47da7bf91de0b4ece329bc3104e069e722603d8b3dbc93e8",
+        "conformance_sha256": "8bddd83d3633ead57275ccbb34137ff087cdbcb239468b9a56b9735044968cc6",
         "evidence_policy": "external-settlement+layerx-receipt"
       }
     ],
@@ -819,19 +2565,19 @@
         "id": "http",
         "version": "2",
         "specification_sha256": "4f0298aaa23ac75de0eb49b1e96e6e67a5b910d7527b3a71c63e426b3bf5bdfb",
-        "conformance_sha256": "199c7351f47083cb9c99f92768a5edcd5a31207245fea2d63b0a749426759131"
+        "conformance_sha256": "e7f81231067302b8d210365ccece5645ef7189f2b0bec0fd558ad4cb0a96427f"
       },
       {
         "id": "mcp",
         "version": "2",
         "specification_sha256": "4f1e0bb50c60e3fe384142f589cd6323b8a9ec4432335ef29053d1220f9e2146",
-        "conformance_sha256": "32d731fd55bcb7e1a9ee8a95809db2cc19d9bf0652eb9ddd80f77dba47194999"
+        "conformance_sha256": "524ffba117a3df2bc40fe60110fb885adc7c09edc3f46dc0969d712051f25d2f"
       },
       {
         "id": "a2a",
         "version": "2",
         "specification_sha256": "bbf078363a2fc4eeeb8f6e9b66cf36033f5acfc3984c0e8f427143368979d878",
-        "conformance_sha256": "8a869441bb66ac99af142e84036db333cae9c61f54b98ab9a3f873e980c3ce9c"
+        "conformance_sha256": "603071ce48e6dc75986eb41401f3b7e2d3d75d57417de8e6cc7d0d911688db9c"
       }
     ],
     "x402_supported": {
@@ -871,7 +2617,7 @@
       {
         "asset": "b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898",
         "atomic_units_per_minor_unit": "1000000000000000000",
-        "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "audience": "https://interop-gateway.example.internal:9443",
         "currency": "LXT",
         "minor_unit_exponent": 0,
         "payee_account": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
@@ -889,7 +2635,7 @@
     },
     "visa_agents": [
       {
-        "agent_domain": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "agent_domain": "https://interop-gateway.example.internal:9443",
         "agent_id": "layerx-beta-trusted-agent",
         "algorithm": "ed25519",
         "expires_at": 1893456000,
@@ -901,7 +2647,7 @@
     ],
     "visa_targets": [
       {
-        "authority": "layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "authority": "interop-gateway.example.internal:9443",
         "path": "/checkout",
         "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333"
       }

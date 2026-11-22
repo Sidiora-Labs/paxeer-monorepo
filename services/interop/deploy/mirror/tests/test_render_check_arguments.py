@@ -242,7 +242,6 @@ def test_rendered_keys_match_the_example(tmp_path):
         expected_keys,
         [{name: value for name, value in keys[0].items() if name != "keyId"}],
         [{**keys[0], "unexpected": "value"}],
-        [keys[0], {**keys[1], "firstHeight": keys[0]["lastHeight"]}],
     ]
     for name in ("keyId", "publicKey"):
         for invalid in (None, 1, "00" * 32, "11" * 31, "gg" * 32):
@@ -259,6 +258,30 @@ def test_rendered_keys_match_the_example(tmp_path):
     for invalid_keys in invalid_key_sets:
         keys_file.write_text(json.dumps(invalid_keys))
         assert_refused(command, "--receipt-keys-file")
+
+    for windows in (
+        [(keys[0]["firstHeight"], keys[0]["lastHeight"]), (keys[0]["lastHeight"], keys[1]["lastHeight"])],
+        [(10, 20), (15, 25)],
+        [(10, 20), (20, 30)],
+        [(10, 30), (15, 20)],
+        [(10, 20), (10, 20)],
+        [(2**64 - 1, 2**64 - 1), (0, 2**64 - 1)],
+    ):
+        entries = [
+            {**key, "firstHeight": first, "lastHeight": last}
+            for key, (first, last) in zip(keys, windows)
+        ]
+        pins = [
+            {**key, "first_height": first, "last_height": last}
+            for key, (first, last) in zip(expected_keys, windows)
+        ]
+        for reverse in (False, True):
+            declared = entries[::-1] if reverse else entries
+            keys_file.write_text(json.dumps(declared))
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            assert result.returncode == 0, result.stderr
+            assert json.loads(output.read_text())["paxeer"]["receipt_keys"] == (pins[::-1] if reverse else pins)
+            assert json.loads(keys_file.read_text()) == declared
 
     reordered_keys = [
         {**key, "keyId": key["keyId"][2:].upper(), "publicKey": key["publicKey"][2:]}

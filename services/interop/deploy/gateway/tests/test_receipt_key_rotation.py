@@ -124,11 +124,11 @@ def test_gateway_rotation_refuses_unauthorized_signer_overrides(tmp_path, change
     assert not output.exists()
 
 
-@pytest.mark.parametrize("change", ["overlap", "reversed", "zero", "boolean"])
+@pytest.mark.parametrize("change", ["duplicate", "reversed", "zero", "boolean"])
 def test_gateway_rotation_keeps_receipt_window_validation(tmp_path, change):
     keys = rotation_keys()
-    if change == "overlap":
-        keys[1]["firstHeight"] = keys[0]["lastHeight"]
+    if change == "duplicate":
+        keys[1]["keyId"] = keys[0]["keyId"]
     elif change == "reversed":
         keys[1]["firstHeight"] = keys[1]["lastHeight"] + 1
     elif change == "zero":
@@ -139,6 +139,27 @@ def test_gateway_rotation_keeps_receipt_window_validation(tmp_path, change):
     assert result.returncode == 2, result.stderr
     assert "receipt keys file" in result.stderr
     assert not output.exists()
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("window", ["overlapping", "identical", "contained"])
+def test_gateway_rotation_accepts_distinct_key_windows(tmp_path, reverse, window):
+    keys = rotation_keys()
+    if window == "overlapping":
+        keys[1]["firstHeight"] = keys[0]["lastHeight"]
+    elif window == "identical":
+        keys[1]["firstHeight"] = keys[0]["firstHeight"]
+        keys[1]["lastHeight"] = keys[0]["lastHeight"]
+    else:
+        keys[1]["firstHeight"] = keys[0]["firstHeight"] + 1
+        keys[1]["lastHeight"] = keys[0]["lastHeight"] - 1
+    if reverse:
+        keys.reverse()
+    result, output = render(tmp_path, keys)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(output.read_text())["x402_supported"]["signers"] == expected_signers(keys)
+    assert output.stat().st_mode & 0o777 == 0o600
+    assert json.loads((tmp_path / "receipt-keys.json").read_text()) == keys
 
 
 @pytest.fixture(scope="module")
