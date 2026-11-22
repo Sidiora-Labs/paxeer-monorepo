@@ -13,10 +13,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/account"
@@ -35,6 +37,8 @@ type configuration struct {
 	HeaderAudit                                                   string
 }
 
+const addressInUseExitCode = 98
+
 func must(err error) {
 	if err != nil {
 		log.Fatal(err)
@@ -46,6 +50,13 @@ func main() {
 	raw, err := os.ReadFile(os.Args[1])
 	must(err)
 	must(json.Unmarshal(raw, &cfg))
+	listener, err := net.Listen("tcp", cfg.Listen)
+	if errors.Is(err, syscall.EADDRINUSE) {
+		log.Print(err)
+		os.Exit(addressInUseExitCode)
+	}
+	must(err)
+	defer listener.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	pool, err := pgxpool.New(ctx, cfg.DSN)
@@ -142,7 +153,7 @@ func main() {
 		defer cancel()
 		_ = server.Shutdown(bounded)
 	}()
-	err = server.ListenAndServeTLS("", "")
+	err = server.ServeTLS(listener, "", "")
 	if !errors.Is(err, http.ErrServerClosed) {
 		must(err)
 	}
