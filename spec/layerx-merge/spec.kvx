@@ -229608,7 +229608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1088]
 title = "Remove the file tests/testnets.rs of the mirror crate, whose three cases run under the target of the binary and the target verifier_documentation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -403269,7 +403269,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1087]
 title = "Bring the interop gateway file table, the interop definition and the hosted renderer call in step with the inputs that the service reads and with the rollout names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
