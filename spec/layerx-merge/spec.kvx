@@ -211113,7 +211113,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1083]
 title = "Render the example manifest of the gateway deployment again and keep one copy of the sequenced vector file of the ucp adapter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1081"]
@@ -229593,7 +229593,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1085]
 title = "Take the contract documents out of the cases of the bridge relayer and give the function collect of the cosign directory a fixed order"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1081"]
@@ -229624,7 +229624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1084]
 title = "Let the store doubles of the interop service cases take the keys and arguments of the hosted gateway store scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1081"]
