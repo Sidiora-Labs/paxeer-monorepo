@@ -403239,7 +403239,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1089]
 title = "Name the rollout service gateway in four platform definition cases and add the sources that the core boundary image file copies to the watch list of its definition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
