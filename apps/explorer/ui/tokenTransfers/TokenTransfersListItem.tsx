@@ -90,6 +90,7 @@ const TokenTransfersListItem = ({ item, isLoading, chainData }: Props) => {
               token={ item.token }
               decimals={ item.total.decimals || '0' }
               loading={ isLoading }
+              flexWrap="wrap"
             />
           </ListItemMobileGrid.Value>
         </>

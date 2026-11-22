@@ -74,6 +74,7 @@ func search(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 
 		rows, err := st.Search(ctx, isAddress, likePattern, resultLimit)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "search failed")
 			return
 		}
@@ -131,6 +132,7 @@ func RegisterCanonicalSearch(r chi.Router, st canonicalsearch.Store) {
 		}
 		page, err := st.Search(r.Context(), request)
 		if err != nil {
+			logReadError(r, err)
 			switch {
 			case errors.Is(err, canonicalsearch.ErrInvalid):
 				writeSearchError(w, r, 400, "CURSOR_INVALID")
@@ -219,6 +221,7 @@ func RegisterIntegratedSearch(r chi.Router, service *canonicalsearch.Service, id
 		}
 		page, err := service.Public(r.Context(), request)
 		if err != nil {
+			logReadError(r, err)
 			switch {
 			case errors.Is(err, canonicalsearch.ErrBusy):
 				writeExpandedSearchError(w, r, 429, "RATE_LIMITED")
@@ -242,6 +245,7 @@ func RegisterIntegratedSearch(r chi.Router, service *canonicalsearch.Service, id
 			}
 			page, err = service.Personalize(r.Context(), page, principal)
 			if err != nil {
+				logReadError(r, err)
 				writeExpandedSearchError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 				return
 			}

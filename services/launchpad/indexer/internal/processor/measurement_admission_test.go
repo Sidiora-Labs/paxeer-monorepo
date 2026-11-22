@@ -92,8 +92,9 @@ func TestMeasurementReportsActualMemoryAndConnectionBudgetViolations(t *testing.
 }
 
 func TestCanonicalProcessorDropsFencedReadinessAndRejectsUnavailableWatermarks(t *testing.T) {
-	h := newLifecycleCoverageHarness(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	h := newLifecycleCoverageHarness(t, ctx)
 	p := h.Processor
 	if err := p.ProcessBatch(ctx, 33963716, 33963716); err != nil {
 		t.Fatal(err)
@@ -133,10 +134,47 @@ func TestCanonicalProcessorDropsFencedReadinessAndRejectsUnavailableWatermarks(t
 	if err = h.Store.ReleaseLease(ctx, 125, realStream, inventoryTestOwner, p.canonicalFence); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = h.Store.AcquireLease(ctx, 125, realStream, "other-owner", 30*time.Second); err != nil {
+	if other, err = h.Store.AcquireLease(ctx, 125, realStream, "other-owner", 30*time.Second); err != nil {
 		t.Fatal(err)
 	}
-	if err = p.Run(ctx); !errors.Is(err, store.ErrFenced) || p.canonicalFence != 0 || p.readyFence.Load() != 0 {
-		t.Fatalf("loop retained stale lease: %v", err)
+	runCtx, stop := context.WithCancel(ctx)
+	defer stop()
+	done := make(chan error, 1)
+	go func() { done <- p.Run(runCtx) }()
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	for p.readyFence.Load() != 0 {
+		select {
+		case err := <-done:
+			t.Fatalf("fenced processor left standby: %v", err)
+		case <-ctx.Done():
+			t.Fatalf("fenced processor retained readiness: %v", ctx.Err())
+		case <-ticker.C:
+		}
+	}
+	if state, ready := p.LeaseState(), p.Ready(ctx); state != "standby" || ready != nil {
+		t.Fatalf("fenced processor standby health: %s: %v", state, ready)
+	}
+	var owner string
+	var fence int64
+	if err := h.Pool.QueryRow(ctx, `SELECT owner_instance,fence_token FROM indexer.indexer_ingest_leases WHERE chain_id=125 AND stream_id=$1 AND expires_at>clock_timestamp()`, realStream).Scan(&owner, &fence); err != nil || owner != "other-owner" || fence != other {
+		t.Fatalf("standby changed another owner's lease: %s/%d: %v", owner, fence, err)
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("fenced processor returned instead of waiting: %v", err)
+	default:
+	}
+	stop()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) || p.canonicalFence != 0 || p.readyFence.Load() != 0 {
+			t.Fatalf("loop retained stale lease: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("standby shutdown: %v", ctx.Err())
+	}
+	if err := h.Pool.QueryRow(ctx, `SELECT owner_instance,fence_token FROM indexer.indexer_ingest_leases WHERE chain_id=125 AND stream_id=$1 AND expires_at>clock_timestamp()`, realStream).Scan(&owner, &fence); err != nil || owner != "other-owner" || fence != other {
+		t.Fatalf("shutdown changed another owner's lease: %s/%d: %v", owner, fence, err)
 	}
 }

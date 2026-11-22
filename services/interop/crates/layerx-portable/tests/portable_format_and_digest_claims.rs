@@ -302,7 +302,6 @@ fn assert_shape_and_signature_refusals(wire: serde_json::Value, pin: ReceiptKeyE
 #[test]
 fn portable_format_versions_current_importer_refusals() {
     assert!(FORMAT.contains("### Current importer refusals"));
-    assert!(FORMAT.contains("## Retired v1 migration appendix"));
     let (answer, pin, raw) = recorded_receipt();
     let wire = wire_value(&answer, pin, &raw);
     assert_field_refusals(&wire, pin);

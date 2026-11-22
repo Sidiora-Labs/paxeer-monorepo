@@ -97,7 +97,7 @@ export const TradingVolumeProgress: FC<TradingVolumeProgressProps> = (
           </Flex>
         </Flex>
 
-        <div className="oui-h-2 oui-w-full oui-rounded-full oui-bg-base-contrast-4">
+        <div className="oui-h-[8px] oui-w-full oui-rounded-full oui-bg-base-contrast-4">
           <div
             style={{
               width: `${progressPercentage}%`,

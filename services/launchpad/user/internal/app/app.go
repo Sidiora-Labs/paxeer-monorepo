@@ -122,7 +122,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	rdb, err := sharedredis.NewClient(cfg.RedisURL)
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		return nil, err
 	}
 
@@ -134,7 +134,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Bucket:          cfg.S3Bucket,
 	})
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		_ = rdb.Close()
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if cfg.NodeEnv == nodeEnvProduction {
 		wiring, err = connectAccountRuntime(ctx, cfg, logger, pool, rdb, store, mux, accountHealth)
 		if err != nil {
-			pool.Close()
+			shareddb.ClosePool(pool)
 			_ = rdb.Close()
 			return nil, err
 		}
@@ -254,7 +254,7 @@ func (a *App) Close() {
 	if a.secretStop != nil {
 		a.secretStop()
 	}
-	a.pool.Close()
+	shareddb.ClosePool(a.pool)
 	if err := a.redis.Close(); err != nil && a.logger != nil {
 		a.logger.Warn("redis close", slog.String("err", err.Error()))
 	}
@@ -428,7 +428,7 @@ func runAccountWorkers(ctx context.Context, worker account.Worker, relay deliver
 			cancel()
 			health.record(e)
 			if e != nil && logger != nil {
-				logger.Error("account worker cycle failed", slog.String("class", "account_runtime"))
+				logger.Error("account worker cycle failed", slog.String("class", "account_runtime"), slog.Any("err", e))
 			}
 		}
 	}
@@ -597,9 +597,10 @@ func (a accountAssetsAuthority) DeleteAccount(ctx context.Context, id, deletion 
 }
 
 type accountImageDeletionOwner struct {
-	Redis  *goredis.Client
-	Legacy account.ImagePurger
-	Assets accountAssetsAuthority
+	Redis     *goredis.Client
+	Legacy    account.ImagePurger
+	Assets    accountAssetsAuthority
+	PublicURL string
 }
 
 func (o accountImageDeletionOwner) DeleteAccount(ctx context.Context, id, deletion uuid.UUID) error {
@@ -616,7 +617,7 @@ func (o accountImageDeletionOwner) DeleteAccount(ctx context.Context, id, deleti
 	if o.Redis == nil {
 		return errors.New("DEPENDENCY_UNAVAILABLE")
 	}
-	return o.Redis.Del(ctx, "user:json:"+wallet).Err()
+	return o.Redis.Del(ctx, "user:json:"+wallet, user.ProfileCacheKey(o.PublicURL, wallet)).Err()
 }
 
 type notificationDeletionOwner struct {

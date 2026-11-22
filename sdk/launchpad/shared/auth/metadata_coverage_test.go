@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -22,15 +20,7 @@ import (
 func TestMetadataNonceBindsSignedOperation(t *testing.T) {
 	pool, schema := phase2AuthDatabase(t)
 	ctx := context.Background()
-	endpoint := os.Getenv("L34_ANVIL_URL")
-	if endpoint == "" {
-		t.Fatal("owned chain 125 is required")
-	}
-	backend, err := ethclient.DialContext(ctx, endpoint)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer backend.Close()
+	backend := authChainClient(t)
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)

@@ -52,6 +52,7 @@ export default function WalletButton() {
           <Button
             variant="secondary"
             size="sm"
+            className="py-0"
             icon={<TriangleAlert className="text-warning" />}
             onClick={() =>
               openModal('Your wallet is on another network. Switch to Paxeer to continue')
@@ -60,7 +61,7 @@ export default function WalletButton() {
             Wrong network
           </Button>
         ) : null}
-        <Button variant="primary" size="sm" onClick={() => openModal()}>
+        <Button variant="primary" size="sm" className="py-0" onClick={() => openModal()}>
           Sign in
         </Button>
         <SignInModal />
@@ -83,7 +84,12 @@ export default function WalletButton() {
 
   return (
     <div className="inline-flex max-w-full flex-wrap items-center gap-2">
-      <Button variant="secondary" size="sm" onClick={() => openAccountMenu('receive')}>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="py-0"
+        onClick={() => openAccountMenu('receive')}
+      >
         Deposit
       </Button>
       <button
@@ -91,7 +97,7 @@ export default function WalletButton() {
         onClick={() => openAccountMenu('account')}
         title={balanceTitle}
         aria-label={`Balance ${balanceRaw ? formatUsdl(balanceRaw, { compact: true }) : 'not available yet'}, open account menu`}
-        className="flex min-h-control-height-sm items-center py-2 gap-1.5 rounded-pill bg-surface-2 px-3 text-num-sm text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active"
+        className="flex min-h-control-height-sm items-center py-0 gap-1.5 rounded-pill bg-surface-2 px-3 text-num-sm text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active"
         data-numeric
       >
         {portfolio.isPending && !summary ? (
@@ -106,7 +112,7 @@ export default function WalletButton() {
         type="button"
         onClick={() => openAccountMenu('account')}
         aria-label={`Account ${displayName ?? shortAddress(wallet)}; open account menu`}
-        className="inline-flex min-h-touch-target-min min-w-touch-target-min items-center justify-center rounded-pill transition-opacity duration-fast hover:opacity-90"
+        className="inline-flex size-8 items-center justify-center rounded-pill transition-opacity duration-fast hover:opacity-90"
       >
         <Avatar
           src={profile.data?.avatarUrl ?? null}

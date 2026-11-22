@@ -2,8 +2,8 @@ import { Box, chakra, Flex, Text } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
-import type { InferenceDeal, InferenceRoom, InferenceReceipt } from 'lib/api/services/general/paxeerXInference';
-import { inferenceQueryKey, isInferenceId, paxeerXInference } from 'lib/api/services/general/paxeerXInference';
+import type { InferenceDeal, InferenceRoom, InferenceReceipt, InferenceMethod } from 'lib/api/services/general/paxeerXInference';
+import { inferenceQueryKey, isInferenceId, isInferenceInactive, paxeerXInference } from 'lib/api/services/general/paxeerXInference';
 import { Button } from 'toolkit/chakra/button';
 import { Heading } from 'toolkit/chakra/heading';
 import { Input } from 'toolkit/chakra/input';
@@ -165,6 +165,12 @@ export function InferenceReceiptsTable({ receipts }: { receipts: Array<Inference
   );
 }
 
+async function readActiveInference<M extends InferenceMethod>(method: M, id: string | undefined, signal: AbortSignal) {
+  const result = await paxeerXInference(method, id, signal);
+  if (isInferenceInactive(result)) throw new Error('Inference market is not active on this network.');
+  return result;
+}
+
 export default function PaxeerXInference() {
   const dealInputRef = React.useRef<HTMLInputElement>(null);
   const [ selectedRoom, setSelectedRoom ] = React.useState<string>();
@@ -174,33 +180,35 @@ export default function PaxeerXInference() {
   const rooms = useQuery({
     queryKey: inferenceQueryKey('px_getInferenceRooms'),
     queryFn: ({ signal }) => paxeerXInference('px_getInferenceRooms', undefined, signal),
-    staleTime: 15000,
+    enabled: (query) => !isInferenceInactive(query.state.data),
+    staleTime: (query) => isInferenceInactive(query.state.data) ? Infinity : 15000,
     retry: false,
   });
+  const inactive = isInferenceInactive(rooms.data);
   const deal = useQuery({
     queryKey: inferenceQueryKey('px_getInferenceDeal', dealId),
-    queryFn: ({ signal }) => paxeerXInference('px_getInferenceDeal', dealId, signal),
-    enabled: Boolean(dealId),
+    queryFn: ({ signal }) => readActiveInference('px_getInferenceDeal', dealId, signal),
+    enabled: !inactive && Boolean(dealId),
     retry: false,
   });
   const roomId = selectedRoom ?? deal.data?.room_id;
   const room = useQuery({
     queryKey: inferenceQueryKey('px_getInferenceRoom', roomId),
-    queryFn: ({ signal }) => paxeerXInference('px_getInferenceRoom', roomId, signal),
-    enabled: Boolean(roomId),
+    queryFn: ({ signal }) => readActiveInference('px_getInferenceRoom', roomId, signal),
+    enabled: !inactive && Boolean(roomId),
     retry: false,
   });
   const dealRoomId = deal.data?.room_id;
   const dealRoom = useQuery({
     queryKey: inferenceQueryKey('px_getInferenceRoom', dealRoomId),
-    queryFn: ({ signal }) => paxeerXInference('px_getInferenceRoom', dealRoomId, signal),
-    enabled: Boolean(dealRoomId),
+    queryFn: ({ signal }) => readActiveInference('px_getInferenceRoom', dealRoomId, signal),
+    enabled: !inactive && Boolean(dealRoomId),
     retry: false,
   });
   const receipts = useQuery({
     queryKey: inferenceQueryKey('px_getInferenceReceipts', dealId),
-    queryFn: ({ signal }) => paxeerXInference('px_getInferenceReceipts', dealId, signal),
-    enabled: Boolean(deal.data),
+    queryFn: ({ signal }) => readActiveInference('px_getInferenceReceipts', dealId, signal),
+    enabled: !inactive && Boolean(deal.data),
     retry: false,
   });
 
@@ -227,32 +235,36 @@ export default function PaxeerXInference() {
         <Heading level="1">Inference</Heading>
         <Text mt={ 2 } color="text.secondary">Room markets, layer assignments and settled receipt batches.</Text>
       </Box>
-      { rooms.isPending && <Text role="status">Loading inference rooms…</Text> }
-      { rooms.isError && <Text role="alert">Could not load inference rooms. Please try again.</Text> }
-      { rooms.data && <InferenceRoomsTable rooms={ rooms.data } onSelect={ setSelectedRoom }/> }
-      { roomId && room.isPending && <Text role="status">Loading room profile…</Text> }
-      { roomId && room.isError && <Text role="alert">Could not load the room profile.</Text> }
-      { room.data && <RoomDetails room={ room.data }/> }
-      <Box as="form" onSubmit={ handleDeal }>
-        <chakra.label htmlFor="inference-deal" display="block" mb={ 2 } textStyle="sm">Deal ID</chakra.label>
-        <Text id="inference-deal-hint" textStyle="small" color="text.secondary" mb={ 2 }>64 lowercase hexadecimal characters</Text>
-        <Flex gap={ 3 } flexWrap="wrap">
-          <Input ref={ dealInputRef } id="inference-deal" name="deal_id" value={ dealInput } onChange={ handleDealInput }
-            autoCorrect="off" autoCapitalize="none" spellCheck={ false } enterKeyHint="search"
-            placeholder="64 lowercase hexadecimal characters" fontFamily="mono" maxLength={ 64 }
-            aria-invalid={ inputError } aria-describedby={ inputError ? 'inference-deal-hint inference-deal-error' : 'inference-deal-hint' }
-            flex="1 1 var(--chakra-spacing-65)" minW={ 0 }/>
-          <Button type="submit">Look up deal</Button>
-        </Flex>
-        { inputError && <Text id="inference-deal-error" role="alert">Enter a nonzero deal ID of 64 lowercase hexadecimal characters.</Text> }
-      </Box>
-      { dealId && deal.isPending && <Text role="status">Loading deal…</Text> }
-      { dealId && deal.isError && <Text role="alert">Could not load this deal. Check the ID and try again.</Text> }
-      { deal.data && <InferenceDealPanel deal={ deal.data } room={ dealRoom.data }/> }
-      { deal.data && dealRoom.isError && <Text role="alert">Could not load the payout profile.</Text> }
-      { deal.data && receipts.isPending && <Text role="status">Loading receipt batches…</Text> }
-      { deal.data && receipts.isError && <Text role="alert">Could not load receipt batches.</Text> }
-      { receipts.data && deal.data && <InferenceReceiptsTable receipts={ receipts.data }/> }
+      { inactive ? <Text>The inference market is not active on this network.</Text> : (
+        <>
+          { rooms.isPending && <Text role="status">Loading inference rooms…</Text> }
+          { rooms.isError && <Text role="alert">Could not load inference rooms. Please try again.</Text> }
+          { rooms.data && !isInferenceInactive(rooms.data) && <InferenceRoomsTable rooms={ rooms.data } onSelect={ setSelectedRoom }/> }
+          { roomId && room.isPending && <Text role="status">Loading room profile…</Text> }
+          { roomId && room.isError && <Text role="alert">Could not load the room profile.</Text> }
+          { room.data && <RoomDetails room={ room.data }/> }
+          <Box as="form" onSubmit={ handleDeal }>
+            <chakra.label htmlFor="inference-deal" display="block" mb={ 2 } textStyle="sm">Deal ID</chakra.label>
+            <Text id="inference-deal-hint" textStyle="small" color="text.secondary" mb={ 2 }>64 lowercase hexadecimal characters</Text>
+            <Flex gap={ 3 } flexWrap="wrap">
+              <Input ref={ dealInputRef } id="inference-deal" name="deal_id" value={ dealInput } onChange={ handleDealInput }
+                autoCorrect="off" autoCapitalize="none" spellCheck={ false } enterKeyHint="search"
+                placeholder="64 lowercase hexadecimal characters" fontFamily="mono" maxLength={ 64 }
+                aria-invalid={ inputError } aria-describedby={ inputError ? 'inference-deal-hint inference-deal-error' : 'inference-deal-hint' }
+                flex="1 1 var(--chakra-spacing-65)" minW={ 0 }/>
+              <Button type="submit">Look up deal</Button>
+            </Flex>
+            { inputError && <Text id="inference-deal-error" role="alert">Enter a nonzero deal ID of 64 lowercase hexadecimal characters.</Text> }
+          </Box>
+          { dealId && deal.isPending && <Text role="status">Loading deal…</Text> }
+          { dealId && deal.isError && <Text role="alert">Could not load this deal. Check the ID and try again.</Text> }
+          { deal.data && <InferenceDealPanel deal={ deal.data } room={ dealRoom.data }/> }
+          { deal.data && dealRoom.isError && <Text role="alert">Could not load the payout profile.</Text> }
+          { deal.data && receipts.isPending && <Text role="status">Loading receipt batches…</Text> }
+          { deal.data && receipts.isError && <Text role="alert">Could not load receipt batches.</Text> }
+          { receipts.data && deal.data && <InferenceReceiptsTable receipts={ receipts.data }/> }
+        </>
+      ) }
     </Flex>
   );
 }

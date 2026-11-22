@@ -7,6 +7,7 @@ import (
 	"os"
 	osexec "os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -33,6 +34,32 @@ func TestPlatformDocuments(t *testing.T) {
 		}
 		if err := os.WriteFile(filepath.Join(values, service+".example.json"), example, 0o600); err != nil {
 			t.Fatal(err)
+		}
+		if service == "api" || service == "indexer" {
+			var inputs map[string]json.RawMessage
+			if err := json.Unmarshal(example, &inputs); err != nil {
+				t.Fatal(err)
+			}
+			for name, input := range inputs {
+				if !strings.HasSuffix(name, "_rendered_file") {
+					continue
+				}
+				var source string
+				if err := json.Unmarshal(input, &source); err != nil {
+					t.Fatal(err)
+				}
+				rendered, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "documents", "values", source))
+				if err != nil {
+					t.Fatal(err)
+				}
+				path := filepath.Join(values, source)
+				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, rendered, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
 		}
 	}
 	digest := "0000000000000000000000000000000000000000000000000000000000000000"

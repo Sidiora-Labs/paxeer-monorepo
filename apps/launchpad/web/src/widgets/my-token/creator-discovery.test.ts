@@ -15,6 +15,7 @@ const { JSDOM } = require('jsdom') as {
 async function metadata_token_identity_creator_discovery_through_gateway() {
   const originalEnvironment = { ...process.env };
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalSelf = Object.getOwnPropertyDescriptor(globalThis, 'self');
   const originalDocument = Object.getOwnPropertyDescriptor(
     globalThis,
     'document',
@@ -106,6 +107,10 @@ async function metadata_token_identity_creator_discovery_through_gateway() {
       value: dom.window,
       configurable: true,
     });
+    Object.defineProperty(globalThis, 'self', {
+      value: dom.window,
+      configurable: true,
+    });
     Object.defineProperty(globalThis, 'document', {
       value: dom.window.document,
       configurable: true,
@@ -187,6 +192,8 @@ async function metadata_token_identity_creator_discovery_through_gateway() {
     );
     expect(container.textContent).toContain(alpha.Token);
     expect(container.textContent).toContain(alpha.Pool);
+    expect(container.querySelector('a[href="/coin/' + alpha.Pool.toLowerCase() + '"]')?.textContent).toBe('View coin');
+    expect(container.querySelector('a[href="/tokens/' + alpha.Token + '/metadata"]')?.textContent).toBe('Edit coin details');
     expect(
       [...container.querySelectorAll('button')].map(
         (button) => button.textContent,
@@ -219,6 +226,14 @@ async function metadata_token_identity_creator_discovery_through_gateway() {
     );
     expect(container.textContent).not.toContain(unknown.Name);
     expect(container.textContent).not.toContain(unknown.Symbol);
+    expect(container.textContent).not.toContain('...');
+    const retry = [...container.querySelectorAll('button')].find(button => button.textContent === 'Try again');
+    expect(retry).toBeDefined();
+    const readsBeforeRetry = chain.requests.filter(path => path === `/metadata/${unknown.Token.toLowerCase()}`).length;
+    await act(async () => retry!.click());
+    await waitFor(() => chain!.requests.filter(path => path === `/metadata/${unknown.Token.toLowerCase()}`).length > readsBeforeRetry, act);
+    await waitFor(() => container.querySelector('[role="alert"]')?.textContent === 'Coin info unavailable', act);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Coin info unavailable');
     await expect(
       fetchCreatorPoolMetadata(alpha.Pool, unknown.Token),
     ).rejects.toThrow('does not identify');
@@ -266,6 +281,9 @@ async function metadata_token_identity_creator_discovery_through_gateway() {
     if (originalWindow)
       Object.defineProperty(globalThis, 'window', originalWindow);
     else Reflect.deleteProperty(globalThis, 'window');
+    if (originalSelf)
+      Object.defineProperty(globalThis, 'self', originalSelf);
+    else Reflect.deleteProperty(globalThis, 'self');
     if (originalDocument)
       Object.defineProperty(globalThis, 'document', originalDocument);
     else Reflect.deleteProperty(globalThis, 'document');

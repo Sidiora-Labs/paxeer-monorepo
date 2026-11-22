@@ -1,7 +1,11 @@
 package app
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 
 	raster "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image"
@@ -34,4 +38,18 @@ func TestMediaReadinessStartupReasons(t *testing.T) {
 
 func containsErrorCode(err error, want string) bool {
 	return len(err.Error()) >= len(want) && (err.Error() == want || len(err.Error()) > len(want) && err.Error()[:len(want)] == want)
+}
+
+func TestMediaReadinessLogsDependencyCause(t *testing.T) {
+	var output bytes.Buffer
+	cause := &metadata.MediaReadinessError{Part: metadata.MediaPartScanner, Err: context.DeadlineExceeded}
+	check := mediaReadinessCheck(slog.New(slog.NewJSONHandler(&output, nil)), "media_scanner", func(context.Context) error { return cause })
+	if err := check(context.Background()); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("readiness cause = %v", err)
+	}
+	for _, field := range []string{`"check":"media_scanner"`, `"part":"scanner"`, `"cause":"deadline_exceeded"`} {
+		if !strings.Contains(output.String(), field) {
+			t.Fatalf("readiness diagnostic lacks %s: %s", field, output.String())
+		}
+	}
 }

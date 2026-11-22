@@ -91,7 +91,18 @@ func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window 
 	err = tx.QueryRow(ctx, `SELECT w.height, w.block_hash, (SELECT max(sequence) FROM `+commits+` WHERE projection_version=$1)::text, (SELECT max((fill->>'blockTimestampSeconds')::bigint) FROM `+commits+` WHERE projection_version=$1)::text FROM (SELECT fill->'position'->>'height' AS height, fill->'position'->>'blockHash' AS block_hash FROM `+commits+` WHERE projection_version=$1 ORDER BY (fill->'position'->>'height')::numeric DESC, (fill->'position'->>'transactionIndex')::numeric DESC, (fill->'position'->>'logIndex')::numeric DESC LIMIT 1) w`, s.config.ProjectionVersion).Scan(&height, &blockHash, &revision, &observed)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, ErrAccountingNotReady
+			watermark, headErr := committedWatermark(ctx, tx)
+			if headErr != nil {
+				return nil, headErr
+			}
+			if err = tx.Commit(ctx); err != nil {
+				return nil, err
+			}
+			snapshot := traderLeaderboardSnapshot(category, window, windowEnd, []LeaderboardEntry{}, 0, watermark)
+			// A committed head without accounting fills has a distinct identity
+			// even when the first fill has the same position and revision.
+			snapshot.SnapshotID = uuid.NewSHA1(leaderboardSnapshotNamespace, []byte("no-committed-fills|"+snapshot.SnapshotID)).String()
+			return snapshot, nil
 		}
 		return nil, err
 	}

@@ -80,9 +80,8 @@ export function Search() {
 
   useEffect(() => {
     if (!isOpen || entries) return
-    const controller = new AbortController()
     setStatus('loading')
-    fetch('/search-index.json', { signal: controller.signal })
+    fetch('/search-index.json')
       .then(async (response) => {
         if (!response.ok) throw new Error('Search index unavailable')
         const data: unknown = await response.json()
@@ -92,8 +91,8 @@ export function Search() {
         setEntries(data)
         setStatus('ready')
       })
-      .catch(() => { if (!controller.signal.aborted) setStatus('error') })
-    return () => controller.abort()
+      .catch(() => { setStatus('error') })
+    return undefined
   }, [isOpen, entries, retry])
 
   useEffect(() => {

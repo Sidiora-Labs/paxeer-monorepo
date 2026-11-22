@@ -125,7 +125,7 @@ const TransactionPageContent = () => {
 
   const tags = (
     <EntityTags
-      isLoading={ !txQuery.isFetchedAfterMount || (tacFeature.isEnabled && tacOperationQuery.isPlaceholderData) }
+      isLoading={ txQuery.isPending || txQuery.isPlaceholderData || (tacFeature.isEnabled && tacOperationQuery.isPlaceholderData) }
       tags={ txTags }
     />
   );
@@ -152,7 +152,7 @@ const TransactionPageContent = () => {
       <RoutedTabs
         tabs={ tabs }
         displayMode="entity"
-        isLoading={ !txQuery.isFetchedAfterMount }
+        isLoading={ txQuery.isPending || txQuery.isPlaceholderData }
         variant="pill"
         rightSlot={ <TxApiEntry/> }
       />

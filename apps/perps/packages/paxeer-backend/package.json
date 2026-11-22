@@ -78,6 +78,7 @@
     "./core/perps/portfolio": "./src/core/perps/portfolio.ts",
     "./core/perps/positionActions": "./src/core/perps/positionActions.ts",
     "./core/perps/positionWrites": "./src/core/perps/positionWrites.ts",
+    "./core/perps/priceWindow": "./src/core/perps/priceWindow.ts",
     "./core/perps/quoteFallback": "./src/core/perps/quoteFallback.ts",
     "./core/rpc": "./src/core/rpc.ts",
     "./core/spot/addresses": "./src/core/spot/addresses.ts",

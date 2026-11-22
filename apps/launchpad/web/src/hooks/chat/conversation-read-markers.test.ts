@@ -65,6 +65,19 @@ function chat_qualification_paths_reject_drift_and_escape() {
       JSON.stringify({ ...manifest, '../../../../etc/passwd': '0'.repeat(64) })
     )
   ).toThrow('source candidate digest mismatch');
+  for (const depth of [1, 3, 12]) {
+    expect(() =>
+      sourceManifestCommand(
+        '--validate',
+        JSON.stringify({ ...manifest, [`${'../'.repeat(depth)}etc/passwd`]: '0'.repeat(64) })
+      )
+    ).toThrow('source candidate digest mismatch');
+  }
+  for (const name of [join(repositoryRoot(), first), `apps/../${first}`]) {
+    expect(() =>
+      sourceManifestCommand('--validate', JSON.stringify({ ...manifest, [name]: manifest[first] }))
+    ).toThrow('source candidate digest mismatch');
+  }
   expect(() =>
     sourceManifestCommand(
       '--validate',
@@ -201,7 +214,7 @@ async function startServer() {
       for await (const chunk of request) body += String(chunk);
       const marker: { conversation_id: string; through_sequence: string } = JSON.parse(body);
       reads.push({ token, ...marker });
-      response.end('{}');
+      response.end(JSON.stringify({ success: true }));
     } else if (url.pathname === '/v2/stream/tickets') {
       response
         .writeHead(403)

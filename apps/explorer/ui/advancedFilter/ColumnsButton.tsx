@@ -29,8 +29,6 @@ const ColumnsButton = ({ columns, onChange }: Props) => {
           variant="dropdown"
           size="sm"
           aria-label="Columns"
-          minW="touchTarget"
-          minH="touchTarget"
           px={{ base: 1, lg: 3 }}
         >
           <IconSvg name="columns" boxSize={ 5 } color="inherit"/>
@@ -58,8 +56,6 @@ const ColumnsButton = ({ columns, onChange }: Props) => {
                 key={ col.id }
                 value={ col.id }
                 size="md"
-                minW="touchTarget"
-                minH="touchTarget"
               >
                 { col.id === 'or_and' ? 'And/Or' : col.name }
               </Checkbox>

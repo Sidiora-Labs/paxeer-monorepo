@@ -1,10 +1,10 @@
 .doc-figure { margin: var(--space-8) 0 var(--space-10); --hairline-plate: var(--gray-0); border: 0; background: var(--color-transparent); }
-.doc-figure-stage { block-size: auto; inline-size: min(100%, var(--figure-width)); max-block-size: var(--figure-height); margin-inline: auto; position: relative; color: var(--color-text); aspect-ratio: 5/4; }
+.doc-figure-stage { block-size: var(--figure-height); inline-size: min(100%, var(--figure-width)); margin-inline: auto; position: relative; color: var(--color-text); }
 .doc-figure-stage > svg { display: block; inline-size: 100%; block-size: 100%; }
 .doc-figure figcaption { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-3); font-size: var(--font-text-xs-size); line-height: var(--line-height-compact); color: var(--color-text-secondary); }
 .doc-figure figcaption button { font: inherit; min-inline-size: var(--target-size); min-block-size: var(--target-size); background: var(--color-transparent); color: inherit; border: var(--border-width) solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); }
 .doc-figure figcaption button:hover { background: var(--color-surface-elevated); color: var(--color-text); }
-.doc-figure--compact .doc-figure-stage { max-block-size: var(--figure-compact-height); }
+.doc-figure--compact .doc-figure-stage { block-size: var(--figure-compact-height); }
 .doc-related { margin-block-start: var(--space-10); border-block-start: var(--border-width) solid var(--color-border-subtle); padding-block-start: var(--space-5); }
 .doc-related > p { font-size: var(--font-text-xs-size); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--color-text-secondary); }
 .doc-related-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--card-min-width)), 1fr)); gap: var(--space-3); }

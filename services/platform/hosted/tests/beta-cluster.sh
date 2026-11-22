@@ -2390,7 +2390,7 @@ interop_runtime_render() {
     [ -r "$SECRETS_DIR/interop-beta-roots.json" ] \
         || fail "the generated interop beta trust roots are missing; the bring-up generates them in secrets_generate"
     python3 "$REPO_ROOT/services/interop/deploy/gateway/render.py" --network-id "$network" \
-        --sequencer-public-key-file "$SECRETS_DIR/sequencer-public-key" \
+        --receipt-keys-file "$SECRETS_DIR/receipt-keys.json" \
         --beta-roots-file "$SECRETS_DIR/interop-beta-roots.json" \
         --out "$SECRETS_DIR/interop-config.json" \
         || fail "the interop gateway runtime configuration was refused"

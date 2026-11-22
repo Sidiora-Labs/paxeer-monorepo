@@ -389,7 +389,7 @@ fn readme_retired_endpoint() {
     assert_eq!(public, "https://api1.mainnet-beta.paxeer.network/");
     assert!(README.contains("https://api-mainnet-beta.paxeer.network/"));
     assert!(!README.contains("/rpc/ws"));
-    assert!(README.contains("origin at the root path (`/`)"));
+    assert!(README.contains("HTTPS URLs at the **root path**"));
     assert!(layerx_platform_cli::rpc::RpcClient::new(public, None).is_ok());
     let retired = format!("{public}rpc");
     assert_eq!(

@@ -1,6 +1,10 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { surfaceSpacing } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { V2ContractTypes } from '@kindle/sdk';
+import { queryKeys } from '@/core/query-keys';
 import { AtSign, Bell, Globe, Link as LinkIcon, MessageCircle, Send, Settings, Share2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgeChip, Avatar, DropdownMenu, IconButton, Skeleton, StageBadge, StatTile, Tooltip, UnavailableState } from '@/ui/primitives';
@@ -122,6 +126,7 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
   const snapshot = usePoolSnapshot(poolAddress);
   const data = snapshot.data ?? null;
   const live = useTerminalLive(poolAddress);
+  const initialPrice = useQueryClient().getQueryData<V2ContractTypes['Price'] | null>(queryKeys.poolPriceSnapshot(poolAddress));
   const watchlist = useWatchlist();
   const image = useTokenMetadata(data?.pool.tokenAddress ?? null);
 
@@ -142,14 +147,14 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
     );
   }
 
-  const symbol = data.metadata?.displaySymbol ?? data.token?.symbol ?? 'Coin';
-  const name = data.metadata?.displayName ?? data.token?.name ?? '';
+  const symbol = displayCoinText(data.metadata?.displaySymbol ?? data.token?.symbol, data.pool.tokenAddress);
+  const name = displayCoinText(data.metadata?.displayName ?? data.token?.name, data.pool.tokenAddress);
   const pool = data.pool.poolAddress;
   const starred = watchlist.check(pool);
   const createdMs = data.createdAt ? Date.parse(data.createdAt) : NaN;
   const stage = stageFor(Number.isFinite(createdMs) ? live.now - createdMs : null);
   const socials = (data.metadata?.socialLinks ?? []).map(link => ({ ...link, href: socialHref(link.url) })).filter(link => link.href !== null);
-  const stats = tokenStripStats({ stats: live.state.stats ?? data.stats, token: data.token, livePrice: priceNumber(live.state.price) });
+  const stats = tokenStripStats({ stats: live.state.stats ?? data.stats, token: data.token, livePrice: priceNumber(live.state.price ?? initialPrice ?? null) });
 
   return (
     <header aria-label={`${symbol} summary`} className="flex min-h-13 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-surface-1 px-3 py-1">
@@ -157,8 +162,8 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
         <Avatar src={image.data?.images?.logo ?? null} name={symbol} size="lg" shape="square" decorative className="size-11" badge={stage ? <StageBadge stage={stage} size={14} surface={1} /> : undefined} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <h1 className="truncate text-sm font-extrabold text-text">{symbol}</h1>
-            {name ? <span className="truncate text-xs text-text-muted">{name}</span> : null}
+            <h1 title={symbol} className="min-w-0 truncate text-sm font-extrabold text-text">{symbol}</h1>
+            {name ? <span className="min-w-0 truncate text-xs text-text-muted" title={name}>{name}</span> : null}
             <CopyAddress address={data.pool.tokenAddress} variant="icon" />
             <IconButton label={starred ? 'Remove from watchlist' : 'Add to watchlist'} pressed={starred} icon={<Star className={starred ? 'fill-current text-accent' : undefined} />} size="sm" className="size-6" onClick={() => watchlist.toggle(pool)} />
             <IconButton label="Share coin link" icon={<Share2 />} size="sm" className="size-6" onClick={() => { void shareCurrentPage(`${symbol} on Sidiora`); }} />

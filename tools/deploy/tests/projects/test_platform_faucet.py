@@ -76,7 +76,7 @@ def test_platform_faucet_definition_matches_sources() -> None:
     assert service["replicas"] == 3
     assert service["public"] == 1
     assert service["order"] == 15
-    assert {"router", "core-boundary", "testnet-control"}.issubset(service["needs"])
+    assert {"gateway", "core-boundary", "testnet-control"}.issubset(service["needs"])
 
     source_variables, defaults = _source_variables()
     required = source_variables - defaults

@@ -32,9 +32,19 @@ class MyDocument extends Document {
 
   render() {
     return (
-      <Html lang="en">
+      <Html lang="en" suppressHydrationWarning>
         <Head>
           { /* FONTS */ }
+          <style>{ `
+            @font-face {
+              font-family: InterFallback;
+              src: local("Arial"), local("Liberation Sans");
+              size-adjust: 107.4%;
+              ascent-override: 90.2%;
+              descent-override: 22.48%;
+              line-gap-override: 0%;
+            }
+          ` }</style>
           <link
             href={ config.UI.fonts.body?.url ?? 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' }
             rel="stylesheet"

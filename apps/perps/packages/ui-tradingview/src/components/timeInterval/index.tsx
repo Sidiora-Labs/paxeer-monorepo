@@ -133,13 +133,11 @@ const DesktopTimeInterval: React.FC<IProps> = (props) => {
     <div
       className={cn(
         "oui-text-2xs oui-text-base-contrast-36 oui-flex oui-gap-[2px] oui-items-center oui-me-3 oui-font-semibold",
-        "oui-overflow-hidden",
+        "oui-overflow-auto",
       )}
     >
       {timeIntervalMap.map((item) => (
-        <button
-          type="button"
-          aria-pressed={props.interval === item.value}
+        <div
           key={item.value}
           className={cn(
             "oui-cursor-pointer oui-px-2",
@@ -152,7 +150,7 @@ const DesktopTimeInterval: React.FC<IProps> = (props) => {
           onClick={() => props.changeInterval(item.value)}
         >
           {item.label}
-        </button>
+        </div>
       ))}
     </div>
   );
@@ -211,14 +209,12 @@ export const MobileTimeInterval: React.FC<IProps> = (props) => {
       gap={3}
       className={cn(
         "oui-text-2xs oui-text-base-contrast-36",
-        "oui-overflow-hidden",
+        "oui-overflow-auto",
       )}
     >
       <div className=" oui-flex oui-gap-1 oui-items-center oui-me-3 oui-font-semibold">
         {mobileTimeIntervalDefaultMap.map((item) => (
-          <button
-            type="button"
-            aria-pressed={props.interval === item.value}
+          <div
             className={cn(
               "oui-px-2",
               "oui-break-normal oui-whitespace-nowrap",
@@ -229,7 +225,7 @@ export const MobileTimeInterval: React.FC<IProps> = (props) => {
             onClick={() => props.changeInterval(item.value)}
           >
             {item.label}
-          </button>
+          </div>
         ))}
       </div>
       <DropDownTimeInterval {...props}>
@@ -256,11 +252,7 @@ const DropDownTimeInterval: React.FC<React.PropsWithChildren<IProps>> = (
   return (
     <DropdownMenuRoot open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-haspopup="menu"
-          className="oui-flex oui-items-center oui-justify-start oui-gap-0.5"
-        >
+        <div className="oui-flex oui-justify-start oui-items-center oui-gap-0.5">
           {props.children}
           <CaretIcon
             className={cn(
@@ -268,7 +260,7 @@ const DropDownTimeInterval: React.FC<React.PropsWithChildren<IProps>> = (
               open && "oui-text-base-contrast-80 oui-rotate-180",
             )}
           />
-        </button>
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuPortal>
         <DropdownMenuContent
@@ -284,9 +276,7 @@ const DropDownTimeInterval: React.FC<React.PropsWithChildren<IProps>> = (
           {mobileTimeIntervalMoreMap.map((row, id) => (
             <div className="oui-flex oui-gap-2" key={id}>
               {row.map((item) => (
-                <button
-                  type="button"
-                  aria-pressed={item.value === props.interval}
+                <div
                   className={cn(
                     "oui-w-full  oui-text-2xs oui-flex oui-items-center oui-justify-center oui-h-6  oui-rounded",
                     item.value === props.interval
@@ -299,7 +289,7 @@ const DropDownTimeInterval: React.FC<React.PropsWithChildren<IProps>> = (
                   }}
                 >
                   <div>{item.label}</div>
-                </button>
+                </div>
               ))}
             </div>
           ))}

@@ -18,8 +18,6 @@ export const widget = {
   "linkDevice.createQRCode.success.copyUrl": "Copy URL",
 
   "linkDevice.scanQRCode": "Scan QR Code",
-  "linkDevice.scanQRCode.cameraUnavailable":
-    "Camera access is unavailable. Check your browser permissions and try again.",
   "linkDevice.scanQRCode.description":
     "Click the <0/> icon in the top right corner on desktop to generate a QR code to scan.",
   "linkDevice.scanQRCode.tooltip": "Link to Desktop via QR Code",

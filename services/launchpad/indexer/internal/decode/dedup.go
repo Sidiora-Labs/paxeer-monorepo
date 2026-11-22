@@ -8,7 +8,8 @@ import (
 )
 
 const MaxRawBatchLogs = 4096
-const MaxRawBatchBytes = 16 << 20
+const MaxBlockLogBytes = 256 << 20
+const MaxRawBatchBytes = MaxBlockLogBytes
 
 // DeduplicateRaw admits a bounded batch before allocating output or inspecting
 // payload contents. The caps include duplicates, preventing repeated deliveries
@@ -16,15 +17,12 @@ const MaxRawBatchBytes = 16 << 20
 // Native events and mirrors remain distinct. Cross-batch durable deduplication
 // remains the caller's responsibility.
 func DeduplicateRaw(logs []ethtypes.Log) ([]ethtypes.Log, error) {
-	if len(logs) > MaxRawBatchLogs {
-		return nil, fmt.Errorf("raw batch exceeds %d logs", MaxRawBatchLogs)
-	}
 	total := 0
 	for _, l := range logs {
-		if !rawSizeAllowed(l) {
+		if len(l.Topics) > 4 {
 			return nil, fmt.Errorf("raw log exceeds envelope limit")
 		}
-		size := len(l.Data) + 32*len(l.Topics)
+		size := 256 + len(l.Data) + 32*len(l.Topics)
 		if size > MaxRawBatchBytes-total {
 			return nil, fmt.Errorf("raw batch exceeds aggregate byte limit")
 		}

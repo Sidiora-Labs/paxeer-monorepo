@@ -27,12 +27,12 @@ async function developmentOperationRefusedInProduction() {
   const operations = new Operations(client);
 
   await assert.rejects(
-    operations.call('IF_ALERT_CREATE', {}),
+    operations.call('IF_ORDER_CREATE', {}),
     error => {
       assert.ok(error instanceof CapabilityUnavailableError);
       assert.equal(error.code, 'capability_unavailable');
       assert.equal(error.status, 501);
-      assert.equal(error.message, 'Operation IF_ALERT_CREATE is development-only');
+      assert.equal(error.message, 'Operation IF_ORDER_CREATE is development-only');
       return true;
     },
   );

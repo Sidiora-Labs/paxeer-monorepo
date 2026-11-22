@@ -22,7 +22,7 @@ const PageDataListDisplay = (props: Props) => {
   }, [ props.actionBar, props.itemsNum, props.isError ]);
 
   return (
-    <Box ref={ ref } minW={ 0 } css={{ '& thead': { top: 'var(--page-action-bar-height)' } }}>
+    <Box ref={ ref } minW={ 0 } css={{ '& thead:not([data-scroll-region-header])': { top: 'var(--page-action-bar-height)' } }}>
       <DataListDisplay { ...props }/>
     </Box>
   );

@@ -22,7 +22,7 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
 
   if (ranked.length === 0) {
     return (
-      <div className="col-span-2 bg-pax-surface rounded-xl py-8 text-center">
+      <div className="col-span-2 bg-pax-surface rounded-3xl py-8 text-center">
         <p className="text-xs text-pax-muted">No tokens found</p>
       </div>
     );
@@ -37,7 +37,7 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
             type="button"
             key={token.poolAddress}
             onClick={() => onTokenTrade?.(token.poolAddress, token.symbol)}
-            className="col-span-2 bg-pax-surface rounded-xl px-4 py-4 flex items-center gap-4 text-left press-scale"
+            className="col-span-2 bg-pax-surface rounded-3xl px-card-inline py-4 flex items-center gap-3.5 text-left press-scale"
           >
             <div className="relative w-10 h-10 rounded-full bg-pax-control overflow-hidden shrink-0">
               <Image
@@ -54,14 +54,14 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-bold truncate">{token.symbol}</p>
-                <span className="text-xs font-bold text-pax-muted">#{token.rank}</span>
+                <span className="text-size-9 font-bold text-pax-muted">#{token.rank}</span>
               </div>
-              <p className="text-xs text-pax-muted truncate">{token.name}</p>
+              <p className="text-size-11 text-pax-muted truncate">{token.name}</p>
             </div>
             <div className="text-right shrink-0">
               <p className="text-sm font-bold">{formatPrice(token.price)}</p>
               <p
-                className={`text-xs font-bold flex items-center justify-end gap-0.5 ${positive ? 'text-pax-success' : 'text-pax-error'}`}
+                className={`text-size-10 font-bold flex items-center justify-end gap-0.5 ${positive ? 'text-pax-success' : 'text-pax-error'}`}
               >
                 {positive ? (
                   <TrendingUp className="w-2.5 h-2.5" />
@@ -83,10 +83,10 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
             type="button"
             key={token.poolAddress}
             onClick={() => onTokenTrade?.(token.poolAddress, token.symbol)}
-            className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-token"
+            className="bg-pax-surface rounded-3xl p-4 flex flex-col justify-between text-left press-scale min-h-card-token"
           >
             <div className="flex items-center gap-2.5">
-              <div className="relative w-8 h-8 rounded-full bg-pax-control overflow-hidden shrink-0">
+              <div className="relative w-icon-30 h-icon-30 rounded-full bg-pax-control overflow-hidden shrink-0">
                 <Image
                   src={token.logoUrl || '/wallet/default_icon.webp'}
                   alt={token.symbol}
@@ -99,14 +99,14 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
                 />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold truncate">{token.symbol}</p>
-                <p className="text-xs text-pax-muted">#{token.rank}</p>
+                <p className="text-size-13 font-bold truncate">{token.symbol}</p>
+                <p className="text-size-10 text-pax-muted">#{token.rank}</p>
               </div>
             </div>
             <div className="mt-auto pt-2">
-              <p className="text-base font-bold">{formatPrice(token.price)}</p>
+              <p className="text-size-15 font-bold">{formatPrice(token.price)}</p>
               <p
-                className={`text-xs font-bold mt-0.5 ${positive ? 'text-pax-success' : 'text-pax-error'}`}
+                className={`text-size-10 font-bold mt-0.5 ${positive ? 'text-pax-success' : 'text-pax-error'}`}
               >
                 {positive ? '+' : ''}
                 {token.priceChange24h.toFixed(1)}%
@@ -117,7 +117,7 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
       })}
 
       {ranked.length > 3 && (
-        <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
+        <div className="col-span-2 bg-pax-surface rounded-3xl  divide-pax-line overflow-hidden">
           {ranked.slice(3).map((token) => {
             const positive = token.priceChange24h >= 0;
             return (
@@ -141,15 +141,15 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold truncate">{token.symbol}</p>
-                    <span className="text-xs font-bold text-pax-muted">#{token.rank}</span>
+                    <p className="text-size-13 font-semibold truncate">{token.symbol}</p>
+                    <span className="text-size-9 font-bold text-pax-muted">#{token.rank}</span>
                   </div>
-                  <p className="text-xs text-pax-muted truncate">{token.name}</p>
+                  <p className="text-size-10 text-pax-muted truncate">{token.name}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs font-semibold">{formatPrice(token.price)}</p>
                   <p
-                    className={`text-xs font-semibold flex items-center justify-end gap-0.5 ${positive ? 'text-pax-success' : 'text-pax-error'}`}
+                    className={`text-size-10 font-semibold flex items-center justify-end gap-0.5 ${positive ? 'text-pax-success' : 'text-pax-error'}`}
                   >
                     {positive ? (
                       <TrendingUp className="w-2.5 h-2.5" />

@@ -77,6 +77,7 @@ func creatorActivity(st *store.Store) http.HandlerFunc {
 
 		row, err := st.GetPoolStats(ctx, poolAddress)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "creator activity lookup failed")
 			return
 		}
@@ -103,12 +104,14 @@ func creatorActivity(st *store.Store) http.HandlerFunc {
 
 		history, err := st.CreatorTransactionPage(ctx, poolAddress, creatorLower, page.Limit+1, page.Offset, page.After, page.Head)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "creator activity lookup failed")
 			return
 		}
 
 		currentBalance := "0"
 		if bal, ok, err := st.GetHolderBalance(ctx, poolAddress, creatorLower); err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "creator activity lookup failed")
 			return
 		} else if ok {
@@ -151,6 +154,7 @@ func riskBreakdown(st *store.Store) http.HandlerFunc {
 
 		row, err := st.GetPoolStats(r.Context(), poolAddress)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "risk lookup failed")
 			return
 		}

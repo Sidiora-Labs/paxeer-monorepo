@@ -125,7 +125,7 @@ function FollowCounts({ wallet }: { wallet: string }) {
 function TrackRowItem({ row }: { row: TrackRow }) {
   return (
     <li className="relative flex h-11 items-center gap-3 bg-surface-1 px-3 transition-colors duration-fast hover:bg-surface-hover">
-      <Link href={row.href} aria-label={`Open profile of ${row.label}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
+      <Link prefetch={false} href={row.href} aria-label={`Open profile of ${row.label}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
       <Avatar src={row.avatarUrl} name={row.label} size="md" decorative />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-bold text-text">{row.label}</span>
@@ -153,7 +153,7 @@ function FollowedActivity() {
         <ul className="flex flex-col gap-0.5">
           {feed.chips.map(chip => (
             <li key={chip.key}>
-              <Link href={chip.href} className="flex h-9 items-center rounded-sm bg-surface-2 px-3 text-sm text-text hover:bg-surface-hover">
+              <Link prefetch={false} href={chip.href} className="flex h-9 items-center rounded-sm bg-surface-2 px-3 text-sm text-text hover:bg-surface-hover">
                 <span className="truncate">{chip.label}</span>
               </Link>
             </li>

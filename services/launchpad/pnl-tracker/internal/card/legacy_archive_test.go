@@ -53,14 +53,14 @@ func TestArchiveLegacyMintRetired(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if response.StatusCode != http.StatusInternalServerError {
-			t.Fatalf("retired mint status = %d, want current handler rejection 500: %s", response.StatusCode, payload)
+		if response.StatusCode != http.StatusGone {
+			t.Fatalf("retired mint status = %d, want retired handler rejection 410: %s", response.StatusCode, payload)
 		}
 		var rejected sharedhttp.ErrorResponse
 		if err := json.Unmarshal(payload, &rejected); err != nil {
 			t.Fatal(err)
 		}
-		if rejected.StatusCode != response.StatusCode || rejected.Error != "Internal Server Error" || rejected.Message != "An unexpected error occurred" {
+		if rejected.StatusCode != response.StatusCode || rejected.Error != "Gone" || rejected.Message != "legacy card minting retired; use owner-approved /v3/me/portfolio/shares/preview and /v3/me/portfolio/shares" {
 			t.Fatalf("unexpected mint rejection: %+v", rejected)
 		}
 		if response.Header.Get("Location") != "" || strings.Contains(string(payload), "/pnl/") {

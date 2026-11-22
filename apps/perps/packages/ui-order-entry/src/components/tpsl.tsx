@@ -2,7 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ERROR_MSG_CODES, OrderValidationResult } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import { useOrderEntryFormErrorMsg } from "@paxeer-network/react-app";
-import { PaxeerNetworkOrder, OrderType, PositionType } from "@paxeer-network/types";
+import {
+  PaxeerNetworkOrder,
+  OrderType,
+  PositionType,
+} from "@paxeer-network/types";
 import {
   cn,
   Flex,
@@ -133,18 +137,12 @@ export const OrderTPSL = (props: {
         </Flex>
       </Flex>
       <div
+        hidden={!props.switchState}
         className={cn(
           "oui-orderEntry-tpsl-body",
-          "oui-overflow-hidden oui-transition-all",
+          "oui-overflow-auto",
           props.switchState ? "oui-max-h-[120px]" : "oui-max-h-0",
         )}
-        onTransitionEnd={() => {
-          console.log("transition end");
-          tpslFormRef.current?.style.setProperty(
-            "opacity",
-            props.switchState ? "1" : "0",
-          );
-        }}
       >
         <TPSLInputForm
           ref={tpslFormRef}

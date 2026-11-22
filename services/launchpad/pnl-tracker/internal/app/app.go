@@ -32,6 +32,7 @@ import (
 	inventory "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
@@ -84,6 +85,7 @@ type App struct {
 	nats              *nats.Conn
 	rpc               *ethclient.Client
 	secretStop        context.CancelFunc
+	readinessStop     context.CancelFunc
 	tracker           *sharedprocess.Tracker
 	Router            http.Handler
 
@@ -101,8 +103,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, secretErr
 	}
 	secretOwned := false
+	readinessCtx, readinessStop := context.WithCancel(ctx)
 	defer func() {
 		if !secretOwned {
+			readinessStop()
 			secretStop()
 		}
 	}()
@@ -117,7 +121,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 	secretChecks := map[string]sharedhttp.Check{}
 	if secretCheck != nil {
-		secretChecks["secrets"] = secretCheck
+		secretChecks["secrets"] = readinessCheck(logger, "secrets", secretCheck)
 	}
 
 	if cfg.NodeEnv != runtimeProduction {
@@ -138,13 +142,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	rdb, err := sharedredis.NewClient(cfg.RedisURL)
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		return nil, err
 	}
 
 	defer func() {
 		if !secretOwned {
-			pool.Close()
+			shareddb.ClosePool(pool)
 			_ = rdb.Close()
 		}
 	}()
@@ -170,6 +174,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		if d.Schema != "pnl" || d.SourceStream == "" || d.Owner == "" || d.ConsumerID == "" || d.Generation == "" || d.ProjectionVersion == "" {
 			return nil, errors.New("pnl: incomplete inventory runtime configuration")
+		}
+		if d.Consumer.Subject != accounting.InventorySubject {
+			return nil, errors.New("pnl: inventory consumer subject must be accounting.inventory.v1")
 		}
 		rpc, err = ethclient.DialContext(ctx, cfg.RPCURL)
 		if err != nil {
@@ -234,6 +241,17 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if e != nil {
 			return nil, e
 		}
+		secretChecks["broker"] = readinessCheck(logger, "broker", func(c context.Context) error {
+			if !nc.IsConnected() {
+				return errors.New("pnl: inventory broker disconnected")
+			}
+			current, err := natsdriver.NewConsumer(c, nc, d.Consumer)
+			if err != nil {
+				return err
+			}
+			current.Close()
+			return nil
+		})
 	}
 	var journeys *pnlJourneys
 	if JourneysEnabled(cfg) {
@@ -270,7 +288,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
-			DB: func(c context.Context) error {
+			DB: readinessCheck(logger, "database", serviceReadiness(readinessCtx, func(c context.Context) error {
 				if err := cfg.CheckRuntimeSchema(c, pool); err != nil {
 					return err
 				}
@@ -278,8 +296,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					return checkRewardRequestSchema(c, pool, journeys.schema)
 				}
 				return nil
-			},
-			Redis: func(c context.Context) error { return rdb.Ping(c).Err() },
+			})),
+			Redis: readinessCheck(logger, "redis", func(c context.Context) error { return rdb.Ping(c).Err() }),
 		},
 	})
 
@@ -349,7 +367,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 	secretOwned = true
-	return &App{secretStop: secretStop, tracker: tracker, journeys: journeys,
+	return &App{secretStop: secretStop, readinessStop: readinessStop, tracker: tracker, journeys: journeys,
 		fixtureAckBarrier: cfg.FixtureCommitAckBarrier, baseline: baselineAuthority, baselineAhead: baselineAhead, archiveRPC: archiveRPC, accounting: accountingConsumer, transport: transport, nats: nc, rpc: rpc,
 		Router:      runtimeHandler(tracker, handler, metrics),
 		logger:      logger,
@@ -358,6 +376,16 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		reconciler:  reconciler,
 		reconcileIn: cfg.ReconcileInterval(),
 	}, nil
+}
+
+func readinessCheck(logger *slog.Logger, dependency string, check sharedhttp.Check) sharedhttp.Check {
+	return func(ctx context.Context) error {
+		err := check(ctx)
+		if err != nil {
+			logger.ErrorContext(ctx, "pnl dependency unavailable", slog.String("dependency", dependency), slog.Any("err", err))
+		}
+		return err
+	}
 }
 
 func registerRewardRoutes(router chi.Router, h l18.HTTP) {
@@ -384,6 +412,9 @@ func shareLabel(shareOrigin, code string) string {
 
 // Close releases all resources.
 func (a *App) Close() {
+	if a.readinessStop != nil {
+		a.readinessStop()
+	}
 	if a.journeys != nil && a.journeys.second != nil {
 		a.journeys.second.Close()
 	}
@@ -403,7 +434,7 @@ func (a *App) Close() {
 		a.secretStop()
 	}
 	if a.pool != nil {
-		a.pool.Close()
+		shareddb.ClosePool(a.pool)
 	}
 	if a.redis != nil {
 		_ = a.redis.Close()
@@ -440,6 +471,9 @@ func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			if err := fn(ctx); err != nil {
 				a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
 			}
@@ -455,6 +489,7 @@ func Run(parent context.Context) error {
 		return err
 	}
 	logger := sharedlog.New("pnl", cfg.LogLevel)
+	slog.SetDefault(logger)
 	logger.Info("starting pnl service")
 	return runConfigured(parent, cfg, logger)
 }
@@ -485,6 +520,7 @@ func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logge
 		logger.Info("inventory baseline captured", slog.String("checkpointDigest", string(digest)))
 		return nil
 	}
+	runtimeErr := make(chan error, 2)
 	if app.journeys != nil {
 		app.startJourneyJobs(ctx)
 	}
@@ -505,7 +541,8 @@ func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logge
 				return
 			}
 			defer release()
-			if e := app.runAccounting(ctx); !errors.Is(e, context.Canceled) {
+			if e := accountingRuntimeError(ctx, runInventoryAgain(ctx, logger, app.runAccounting, waitInventoryRun, time.Now)); e != nil {
+				runtimeErr <- e
 				logger.Error("inventory consumer failed", slog.Any("err", e))
 				app.tracker.BeginDrain()
 				cancel()
@@ -521,12 +558,11 @@ func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logge
 		ConnState:         app.tracker.ConnState,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	serveErr := make(chan error, 1)
 	go func() {
 		logger.Info("http server listening", slog.Int("port", cfg.Port),
 			slog.String("webhook", "POST /webhooks/events"))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serveErr <- err
+			runtimeErr <- err
 			cancel()
 		}
 	}()
@@ -539,7 +575,7 @@ func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logge
 	cancel()
 
 	select {
-	case err := <-serveErr:
+	case err := <-runtimeErr:
 		return err
 	default:
 		return shutErr
@@ -952,6 +988,7 @@ func (j *pnlJourneys) rebuildHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	summary, err := j.live.RebuildOwned(r.Context(), principal)
 	if err != nil {
+		slog.ErrorContext(r.Context(), "wallet replay unavailable", slog.Any("err", err))
 		http.Error(w, "Verified full wallet replay unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -1010,6 +1047,7 @@ func (j *pnlJourneys) intervalHTTP(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, l17.ErrInvalid) {
 			status = 422
 		}
+		slog.ErrorContext(r.Context(), "interval history unavailable", slog.Any("err", err))
 		http.Error(w, "Verified interval history unavailable", status)
 		return
 	}
@@ -1054,9 +1092,22 @@ func pnlIdentityAuthority(cfg config.Config, d pnlJourneyDocument) (auth.MTLSIde
 	if err != nil {
 		return auth.MTLSIdentityAuthority{}, err
 	}
-	keyPEM, err := pnlBoundAuthorityFile(d.IdentityClientKeyFile, d.IdentityClientKeySHA256)
-	if err != nil {
-		return auth.MTLSIdentityAuthority{}, err
+	fileKey := d.IdentityClientKeyFile != "" || d.IdentityClientKeySHA256 != ""
+	variableKey := cfg.IdentityMTLSClientKeyPEM != ""
+	if fileKey == variableKey {
+		return auth.MTLSIdentityAuthority{}, errors.New("pnl: exactly one identity client key form required")
+	}
+	var keyPEM []byte
+	if variableKey {
+		if len(cfg.IdentityMTLSClientKeyPEM) > 1048576 {
+			return auth.MTLSIdentityAuthority{}, errors.New("pnl: identity client key exceeds size bound")
+		}
+		keyPEM = []byte(cfg.IdentityMTLSClientKeyPEM)
+	} else {
+		keyPEM, err = pnlBoundAuthorityFile(d.IdentityClientKeyFile, d.IdentityClientKeySHA256)
+		if err != nil {
+			return auth.MTLSIdentityAuthority{}, err
+		}
 	}
 	certificate, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
@@ -1081,6 +1132,7 @@ func (j *pnlJourneys) enrollHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = j.live.EnqueueOwned(r.Context(), principal); err != nil {
+		slog.ErrorContext(r.Context(), "wallet enrollment unavailable", slog.Any("err", err))
 		http.Error(w, "Verified enrollment unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -1094,6 +1146,7 @@ func (j *pnlJourneys) cancelLiveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = j.live.CancelOwned(r.Context(), principal); err != nil {
+		slog.ErrorContext(r.Context(), "wallet cancellation unavailable", slog.Any("err", err))
 		http.Error(w, "Verified cancellation unavailable", http.StatusServiceUnavailable)
 		return
 	}

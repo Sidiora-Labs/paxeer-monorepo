@@ -52,6 +52,26 @@ an in-memory key registered in the pinned key record and parameter record of
 each temporary form's execution state, covering the checked block height,
 and in the signer's pins. It writes the key to no file and includes it in no output.
 
+Repeat `--stand-in-credit TOKEN:ACCOUNT:AMOUNT` to add token balances before
+building the checked block. Both addresses are Ethereum hex addresses; AMOUNT
+is a positive decimal integer in the token's base units (for example, 1000000
+for one token with six decimals). Malformed values, zero amounts and repeated
+token/account pairs are usage errors. Credits are applied in the given order
+in every form's preparer. A credit exists only in the temporary copies; neither
+the supplied home nor the stopped home it came from is changed, and the marker
+file remains required.
+
+For a registered native-token pointer, the bank ledger mints and credits the
+amount. For a contract token, the preparer reads `balanceOf`, probes Solidity
+`keccak256(account, slot)` and Vyper `keccak256(slot, account)` balance mappings
+at slots 0 through 255, and retains a write only when `balanceOf` reads the
+previous balance plus the amount. Unsuccessful probes restore the original
+storage value. An undiscovered balance stops the run before any transaction
+is applied. Contract credits do not adjust total supply, which may stay
+unchanged. Each form's `stand_in_credits` reports token, account, amount,
+`balance_before`, `balance_after`, `balance_source` (`ledger` or
+`contract_storage`) and `total_supply_may_be_unchanged`.
+
 The fast form enables the fast executor and loads the platform's engine
 library from the node's library location. It also runs when that library is
 absent. Its report member `engine_library` is `loaded` or `absent`.

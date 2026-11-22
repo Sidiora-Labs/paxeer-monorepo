@@ -28,7 +28,7 @@ export const recipe = defineSlotRecipe({
       alignItems: 'center',
       justifyContent: 'flex-start',
       width: 'full',
-      minH: 'touchTarget',
+      minH: 'var(--select-trigger-height)',
       pr: 'var(--select-trigger-padding-right)',
       pl: 'var(--select-trigger-padding-left)',
       borderRadius: 'base',
@@ -37,13 +37,13 @@ export const recipe = defineSlotRecipe({
       fontWeight: 'medium',
       cursor: 'pointer',
       focusVisibleRing: 'none',
+      _focusVisible: {
+        outline: 'var(--chakra-border-widths-2) solid',
+        outlineColor: 'focusRing',
+        outlineOffset: 'var(--chakra-spacing-0\\.5)',
+      },
       _disabled: {
         opacity: 'control.disabled',
-      },
-      _placeholderShown: {
-        '& [data-part=value-text]': {
-          display: '-webkit-box',
-        },
       },
     },
     indicatorGroup: {
@@ -103,7 +103,6 @@ export const recipe = defineSlotRecipe({
       flex: '1',
       textAlign: 'start',
       borderRadius: 'none',
-      minH: 'touchTarget',
       _disabled: {
         pointerEvents: 'none',
         opacity: 'control.disabled',
@@ -134,11 +133,12 @@ export const recipe = defineSlotRecipe({
       },
     },
     valueText: {
-      display: 'flex',
-      flexDirection: 'column',
-      lineClamp: '1',
+      display: 'block',
+      minW: 0,
       maxW: '100%',
-      wordBreak: 'break-all',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
     },
   },
 

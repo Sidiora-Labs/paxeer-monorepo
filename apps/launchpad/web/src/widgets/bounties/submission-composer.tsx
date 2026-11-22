@@ -85,7 +85,7 @@ export function SubmissionComposer({ bounty, className }: SubmissionComposerProp
   const pendingEvidence = evidence.items.some(item => item.status === 'uploading' || item.status === 'review');
 
   return (
-    <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-4 rounded-lg bg-surface-1 p-4', className)}>
+    <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-4 rounded-lg bg-surface-1 p-4 [&_.sl-field]:py-[calc(var(--sl-space-2)-var(--sl-edge-width))] [&_textarea]:text-base [&_textarea]:leading-[calc(var(--sl-leading-base)/var(--sl-text-base))]', className)}>
       <h2 id={`${id}-heading`} className="text-md font-bold text-text">Submit your entry</h2>
       <FormField
         id={`${id}-body`}

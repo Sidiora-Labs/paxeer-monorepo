@@ -1,0 +1,25 @@
+{
+  "result": {
+    "peer_key": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+    "worker": "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d",
+    "delegate": "0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e",
+    "metadata": "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f",
+    "generation": "1",
+    "key_version": "2",
+    "metadata_revision": "3",
+    "valid_from": "4",
+    "expiry": "100",
+    "state": 2,
+    "enrolled": true,
+    "capabilities_status": 4,
+    "capabilities": null,
+    "bond_status": 2,
+    "fault_count": 0,
+    "attestation_binding": {
+      "family": 1,
+      "model_digest": "0303030303030303030303030303030303030303030303030303030303030303",
+      "runtime_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+      "block_height": "6"
+    }
+  }
+}

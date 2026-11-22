@@ -576,6 +576,12 @@ func (db *publicationDatabase) serve(conn net.Conn) {
 					args[i] = strconv.FormatInt(int64(binary.BigEndian.Uint64(value)), 10)
 				case format == 1 && oid == pgtype.Int4OID:
 					args[i] = strconv.FormatInt(int64(int32(binary.BigEndian.Uint32(value))), 10)
+				case format == 1 && oid == pgtype.BoolOID:
+					if len(value) != 1 || value[0] > 1 {
+						db.t.Error("invalid boolean parameter")
+						return
+					}
+					args[i] = strconv.FormatBool(value[0] == 1)
 				default:
 					args[i] = string(value)
 				}
@@ -815,7 +821,7 @@ func (db *publicationDatabase) query(sql string, args []string, tx **publication
 					blocked = true
 				}
 			}
-			if !intent.Published && !blocked && (intent.Attempts < int(integer(0)) || !cooling) {
+			if !intent.Published && !blocked && (intent.Attempts < int(integer(0)) || args[2] == "true" && !cooling) {
 				result.rows = [][]string{{fmt.Sprint(intent.Sequence), h.RunID, h.Category, fmt.Sprint(intent.CategorySequence), fmt.Sprint(intent.Attempts)}}
 				break
 			}

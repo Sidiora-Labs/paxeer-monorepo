@@ -80,6 +80,7 @@ export interface AccentPalette {
   primary: string;
   muted: Record<ColorScheme, string>;
   onPrimary: string;
+  control: Record<ThemeId, { fill: string; ink: string }>;
 }
 
 export interface FontChoice {
@@ -162,6 +163,7 @@ export interface MotionScale {
 export interface ThemeData {
   themes: Record<ThemeId, ThemePalette>;
   accents: Record<AccentId, AccentPalette>;
+  accentInks: readonly string[];
   fonts: Record<FontId, FontChoice>;
   sizes: Record<SizeId, SizePreset>;
   densities: Record<DensityId, DensityPreset>;

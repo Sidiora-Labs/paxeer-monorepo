@@ -1433,45 +1433,53 @@ impl Node {
                     read_request(&mut stream).unwrap_or_else(|| panic!("JSON-RPC HTTP request"));
                 let request: Value = serde_json::from_slice(&body)
                     .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
-                let params = &request["params"];
-                let result = match request["method"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("method"))
-                {
-                    "eth_chainId" => chain["chain_id"].clone(),
-                    "eth_blockNumber" => chain["canonical"]["head"].clone(),
-                    "eth_getBlockByNumber" => {
-                        let height = u64::from_str_radix(
-                            params[0]
-                                .as_str()
-                                .unwrap_or_else(|| panic!("height"))
-                                .trim_start_matches("0x"),
-                            16,
-                        )
-                        .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
-                        let mut block = chain["canonical"]["blocks"][height.to_string()].clone();
-                        if params[1] == true {
-                            full_count.fetch_add(1, Ordering::Relaxed);
-                        } else if let Some(txs) = block["transactions"].as_array_mut() {
-                            for tx in txs {
-                                *tx = tx["hash"].clone();
+                let answer = |request: &Value| {
+                    let params = &request["params"];
+                    let result = match request["method"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("method"))
+                    {
+                        "eth_chainId" => chain["chain_id"].clone(),
+                        "eth_blockNumber" => chain["canonical"]["head"].clone(),
+                        "eth_getBlockByNumber" => {
+                            let height = u64::from_str_radix(
+                                params[0]
+                                    .as_str()
+                                    .unwrap_or_else(|| panic!("height"))
+                                    .trim_start_matches("0x"),
+                                16,
+                            )
+                            .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
+                            let mut block =
+                                chain["canonical"]["blocks"][height.to_string()].clone();
+                            if params[1] == true {
+                                full_count.fetch_add(1, Ordering::Relaxed);
+                            } else if let Some(txs) = block["transactions"].as_array_mut() {
+                                for tx in txs {
+                                    *tx = tx["hash"].clone();
+                                }
+                            }
+                            block
+                        }
+                        "eth_getTransactionReceipt" => {
+                            receipt_count.fetch_add(1, Ordering::Relaxed);
+                            if missing_receipts {
+                                Value::Null
+                            } else {
+                                chain["receipts"]
+                                    [params[0].as_str().unwrap_or_else(|| panic!("hash"))]
+                                .clone()
                             }
                         }
-                        block
-                    }
-                    "eth_getTransactionReceipt" => {
-                        receipt_count.fetch_add(1, Ordering::Relaxed);
-                        if missing_receipts {
-                            Value::Null
-                        } else {
-                            chain["receipts"][params[0].as_str().unwrap_or_else(|| panic!("hash"))]
-                                .clone()
-                        }
-                    }
-                    other => panic!("unexpected node method {other}"),
+                        other => panic!("unexpected node method {other}"),
+                    };
+                    json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
                 };
-                let response =
-                    json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+                let response = match request.as_array() {
+                    Some(batch) => Value::Array(batch.iter().map(answer).collect()),
+                    None => answer(&request),
+                }
+                .to_string();
                 write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "node response"));
             }
         });

@@ -56,15 +56,15 @@ export function MarketTradeFeed({ pool, token, rows, watermark, contiguous, expl
   const decimals = token.decimalsQuality === 'verified' ? token.decimals : null;
   const reset = () => { setStart(0); setNewItems(0); if (scroller.current) scroller.current.scrollTop = 0; };
   if (ordered.length === 0) return <section data-market-list="fills" data-market-history-size={0} aria-label="Trade history"><EmptyState icon={ArrowLeftRight} title="No trades yet" body="Trades appear here as soon as someone buys or sells this coin." /></section>;
-  return <section data-market-list="fills" data-market-history-size={ordered.length} data-market-filter={filter} aria-label="Trade history" className="flex flex-col gap-3 text-text">
+  return <section data-market-list="fills" data-market-history-size={ordered.length} data-market-filter={filter} aria-label="Trade history" className="flex min-w-0 max-w-full flex-col gap-3 text-text">
     <div className="flex flex-wrap items-center gap-2">
-      <div role="group" aria-label="Trade type" className="flex items-center gap-2">
+      <div role="group" aria-label="Trade type" className="flex flex-wrap items-center gap-2">
         {sideFilters.map(option => <Chip key={option.value} pressed={option.value === filter} onClick={() => { setFilter(option.value); reset(); const url = new URL(window.location.href); url.searchParams.set('side', option.value); window.history.replaceState(window.history.state, '', url); }}>{option.label}</Chip>)}
       </div>
       {newItems > 0 && <Chip pressed={false} onClick={reset} className="bg-accent-soft text-accent hover:bg-accent-soft-strong">Show {newItems} new trades</Chip>}
       <p role="status" className="ml-auto text-xs text-text-faint">{contiguous ? 'Live' : 'Catching up...'}</p>
     </div>
-    {matching.length ? <div data-market-scroller="fills" ref={scroller} role="region" aria-label="Trade history table" tabIndex={0} className="max-h-[var(--sl-list-max-height)] overflow-auto focus-visible:outline-2 focus-visible:outline-focus" style={{ overflowAnchor: 'none' }} onScroll={event => setStart(Math.min(Math.max(0, matching.length - 1), Math.floor(event.currentTarget.scrollTop / rowHeight)))}>
+    {matching.length ? <div data-market-scroller="fills" ref={scroller} role="region" aria-label="Trade history table" tabIndex={0} className="relative min-w-0 max-w-full max-h-[var(--sl-list-max-height)] overflow-auto focus-visible:outline-2 focus-visible:outline-focus" style={{ overflowAnchor: 'none' }} onScroll={event => setStart(Math.min(Math.max(0, matching.length - 1), Math.floor(event.currentTarget.scrollTop / rowHeight)))}>
       <table className="w-full min-w-160 text-sm [&_td]:whitespace-nowrap [&_td]:px-3">
         <thead className="sticky top-0 z-[1] bg-surface-1"><tr>
           <SortHeader label="Block" />

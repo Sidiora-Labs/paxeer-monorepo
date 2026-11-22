@@ -120,6 +120,7 @@ export async function revenueEpochs(
   );
   const epochs: ClaimableEpoch[] = [];
   let cursor: string | undefined;
+  const seen = new Set<string>();
   do {
     const page = await sdk.revenue(
       chain.chain,
@@ -149,6 +150,11 @@ export async function revenueEpochs(
       epochs.push({ ...epoch, claimableAmount: amount.toString() });
     }
     cursor = page.nextCursor ?? undefined;
+    if (cursor && seen.has(cursor))
+      throw new Error(
+        'Page cursor did not advance. Refresh current data.',
+      );
+    if (cursor) seen.add(cursor);
   } while (cursor);
   return epochs;
 }
@@ -196,11 +202,15 @@ export async function claimableChainPositions(
   holder: string,
   signal: AbortSignal,
 ): Promise<ClaimableChainPosition[]> {
-  if (!services.config.walletConnect) throw new Error('Chain RPC unavailable');
+  if (!services.config.walletConnect)
+    throw new Error('Chain RPC unavailable');
   const sdk = new Chains(services.sdk);
-  const owned = new Set(tokens.map((token) => getAddress(token).toLowerCase()));
+  const owned = new Set(
+    tokens.map((token) => getAddress(token).toLowerCase()),
+  );
   const positions: ClaimableChainPosition[] = [];
   let cursor: string | undefined;
+  const seen = new Set<string>();
   do {
     const page = await sdk.list({ limit: 100, cursor }, { signal });
     if (page.quality !== 'complete')
@@ -216,6 +226,11 @@ export async function claimableChainPositions(
         positions.push({ chain, epochs, total: total.toString() });
     }
     cursor = page.nextCursor ?? undefined;
+    if (cursor && seen.has(cursor))
+      throw new Error(
+        'Page cursor did not advance. Refresh current data.',
+      );
+    if (cursor) seen.add(cursor);
   } while (cursor);
   return positions;
 }
@@ -257,7 +272,7 @@ export function chainRevenueClaimRequest(
   };
 }
 
-export async function claimChainRevenueBatch(
+export async function prepareChainRevenueClaim(
   wallet: WalletExecutionProvider,
   services: MobileServices,
   chain: string,
@@ -293,5 +308,24 @@ export async function claimChainRevenueBatch(
   signal.throwIfAborted();
   if (amounts.some((amount) => amount <= 0n))
     throw new Error('Selected epoch has no claimable revenue');
-  return wallet.sendTransaction(request, signal);
+  return request;
+}
+
+export async function claimChainRevenueBatch(
+  wallet: WalletExecutionProvider,
+  services: MobileServices,
+  chain: string,
+  epochs: readonly string[],
+  holder: string,
+  signal: AbortSignal,
+) {
+  const request = await prepareChainRevenueClaim(
+    wallet,
+    services,
+    chain,
+    epochs,
+    holder,
+    signal,
+  );
+  return wallet.sendTransaction!(request, signal);
 }

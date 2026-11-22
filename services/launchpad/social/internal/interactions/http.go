@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -79,6 +80,9 @@ func httpError(w http.ResponseWriter, e error) {
 		status, code = 422, "unsupported_reaction_kind"
 	case errors.Is(e, pgx.ErrNoRows):
 		status, code = 404, "NOT_FOUND"
+	}
+	if status == http.StatusServiceUnavailable {
+		slog.Error("social interaction request failed", "error", e)
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Content-Type", "application/json")

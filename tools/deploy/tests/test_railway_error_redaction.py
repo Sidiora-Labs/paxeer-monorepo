@@ -114,7 +114,7 @@ def client(tmp_path, monkeypatch):
     manifest.write_text(
         '[meta]\nkind = "railway-project"\nproject = "repair-project"\nenvironment = "production"\n'
         '[service.gateway]\nkind = "image"\nimage = "repair-gateway"\nrailway_service = "gateway"\n'
-        'order = 1\nhealth = "/healthz"\nrestart = "ALWAYS"\nreplicas = 1\n'
+        'order = 1\nhealth = "/healthz"\nrestart = "ALWAYS"\nreplicas = 1\ncredentials = 1\n'
         '[vars.gateway]\nAUTH_SECRET = "env:REPAIR_AUTH_VALUE"\nRPC_URLS = "env:REPAIR_RPC_VALUE"\n'
     )
     digests = tmp_path / "digests.json"

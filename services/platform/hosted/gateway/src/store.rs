@@ -1112,7 +1112,21 @@ impl RedisStore {
         let connector = self.connector()?;
         pay_timing("gateway.store.command.connector", connector_started);
         let pool_started = Instant::now();
-        let pooled = self.take_idle()?;
+        let pooled = loop {
+            let Some(mut stream) = self.take_idle()? else {
+                break None;
+            };
+            if stream.get_ref().set_nonblocking(true).is_err() {
+                continue;
+            }
+            let probe = stream.read(&mut [0; 1]);
+            let restored = stream.get_ref().set_nonblocking(false).is_ok();
+            if restored
+                && matches!(probe, Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            {
+                break Some(stream);
+            }
+        };
         pay_timing("gateway.store.command.pool", pool_started);
         if let Some(mut stream) = pooled {
             let exchange_started = Instant::now();

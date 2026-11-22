@@ -289,7 +289,7 @@ func (h AccountingV2Handler) serve(w http.ResponseWriter, req *http.Request, can
 	} else {
 		page, err = h.Store.Trades(ctx, r)
 	}
-	if err != nil {
+	if err != nil && !errors.Is(err, store.ErrAccountingUntraded) {
 		if errors.Is(err, store.ErrDataIntegrity) {
 			WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		} else if token != "" && errors.Is(err, store.ErrAccountingNotReady) {
@@ -361,7 +361,11 @@ func (h AccountingV2Handler) EncodeCachePage(r store.AccountingPageRequest, cand
 		data[literalSeriesModelVersion] = page.SeriesModelVersion
 	}
 	id := requestID
-	body, err := json.Marshal(map[string]any{literalRequestId: id, literalData: data, literalWatermark: page.Watermark, literalRevision: page.Revision, literalQuality: literalPartial, literalNextCursor: next, literalGeneratedAt: page.GeneratedAt})
+	var revision any = page.Revision
+	if page.Revision == "" {
+		revision = nil
+	}
+	body, err := json.Marshal(map[string]any{literalRequestId: id, literalData: data, literalWatermark: page.Watermark, literalRevision: revision, literalQuality: literalPartial, literalNextCursor: next, literalGeneratedAt: page.GeneratedAt})
 	if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON(name, body) != nil {
 		return nil, store.ErrDataIntegrity
 	}

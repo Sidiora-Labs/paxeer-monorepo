@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useMarketStore } from "@paxeer-network/hooks/paxeer-network/useMarket/market.store";
 import { MarketsType, useMarkets } from "@paxeer-network/hooks";
 import { MarketsTabName } from "../../type";
 import { searchBySymbol, useSort } from "../../utils";
@@ -23,7 +24,7 @@ const MarketsTypeMap = {
 };
 
 export const useMarketsListScript = (options: MarketsListScriptOptions) => {
-  const [loading, setLoading] = useState(true);
+  const loading = useMarketStore((state) => state.quotesPending);
 
   const [data, favorite] = useMarkets(
     MarketsTypeMap[options.type] || MarketsType.ALL,
@@ -63,10 +64,6 @@ export const useMarketsListScript = (options: MarketsListScriptOptions) => {
     selectedFavoriteTab,
     showLowVolume,
   ]);
-
-  useEffect(() => {
-    setLoading(false);
-  }, [data]);
 
   const isFavoritesList = options.type === MarketsTabName.Favorites;
 

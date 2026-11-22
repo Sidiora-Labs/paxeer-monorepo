@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"reflect"
 	"strconv"
@@ -116,6 +118,29 @@ func TestDevelopmentAuthorityEligibleEnvelopeMatchesContract(t *testing.T) {
 	if err := interfaces.ValidateJSON("ConnectedNetworkAuthorityResponse", raw); err != nil {
 		t.Fatalf("envelope violates the frozen contract: %v\n%s", err, raw)
 	}
+	catalog, err := json.Marshal(struct {
+		Catalog     capabilities.Catalog `json:"catalog"`
+		PoolRuntime string               `json:"poolRuntime"`
+	}{capabilities.Frozen(), developmentPoolRuntime})
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(catalog)
+	var document struct {
+		SerialExport deployment.SerialExport `json:"serialExport"`
+	}
+	if err := json.Unmarshal(raw, &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.SerialExport.Revision.CapabilitySHA256 != hex.EncodeToString(digest[:]) {
+		t.Fatal("authority revision does not bind the released catalog")
+	}
+	for _, family := range []capabilities.Family{capabilities.Creation, capabilities.Trading, capabilities.PlainQuote, capabilities.NFTFees} {
+		result, err := capabilities.AssessFamily(family, d.manifest, attestation, policy)
+		if err != nil || !result.Supported || !result.ReleaseEnabled || result.ReasonCode != "" {
+			t.Fatalf("committed family %s: %+v %v", family, result, err)
+		}
+	}
 	assertWebAuthorityFields(t, raw, d.manifest)
 }
 
@@ -202,7 +227,7 @@ func assertWebAuthorityFields(t *testing.T, raw []byte, m deployment.Manifest) {
 			if _, present := id["runtimeHash"]; present {
 				t.Fatalf("precompile identity %s carries an EVM runtime hash: %v", name, id)
 			}
-		} else if !strings.EqualFold(str(id, "runtimeHash", name), role.RuntimeHash) {
+		} else if !role.AcceptsRuntimeHash(str(id, "runtimeHash", name)) {
 			t.Fatalf("identity %s runtime hash = %v", name, id)
 		}
 		if issues, present := id["issues"]; present {

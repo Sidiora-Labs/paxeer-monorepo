@@ -30,7 +30,7 @@ export const useAssetsColumns = (options: ColumnsOptions) => {
         title: t("portfolio.overview.column.token"),
         dataIndex: "token",
         align: "left",
-
+        width: 150,
         render(val: string) {
           return (
             <Flex itemAlign="center" gap={2}>
@@ -44,7 +44,7 @@ export const useAssetsColumns = (options: ColumnsOptions) => {
         title: t("portfolio.overview.column.qty"),
         dataIndex: "holding",
         align: "left",
-
+        width: 140,
         render(val: number, record) {
           const findToken = tokensInfo?.find(
             ({ token }) => token === record.token,
@@ -60,7 +60,7 @@ export const useAssetsColumns = (options: ColumnsOptions) => {
         title: t("portfolio.overview.column.indexPrice"),
         dataIndex: "indexPrice",
         align: "left",
-
+        width: 140,
         render(val: number) {
           return (
             <Text.numeral rule="price" dp={6} currency="$" padding={false}>
@@ -73,7 +73,7 @@ export const useAssetsColumns = (options: ColumnsOptions) => {
         title: t("portfolio.overview.column.assetValue"),
         dataIndex: "assetValue",
         align: "left",
-
+        width: 140,
         render(val: number) {
           return (
             <Text.assetValue rule="price" dp={6} currency="$" padding={false}>
@@ -86,7 +86,7 @@ export const useAssetsColumns = (options: ColumnsOptions) => {
         title: t("portfolio.overview.column.collateralRatio"),
         dataIndex: "collateralRatio",
         align: "left",
-
+        width: 140,
         render(val: number) {
           return (
             <Text.numeral dp={2} suffix="%">
@@ -99,7 +99,7 @@ export const useAssetsColumns = (options: ColumnsOptions) => {
         title: t("transfer.deposit.collateralContribution"),
         dataIndex: "collateralContribution",
         align: "left",
-
+        width: 140,
         render(val: number) {
           return (
             <Text.collateral rule="price" dp={6} currency="$" padding={false}>
@@ -112,7 +112,7 @@ export const useAssetsColumns = (options: ColumnsOptions) => {
         title: null,
         dataIndex: "account_id",
         align: "center",
-
+        width: 180,
         render(id: string, record: EnhancedHolding) {
           const { token } = record;
           return (

@@ -33,18 +33,18 @@ export function HeroBalance({
   const pos = pnlVal !== null && pnlVal >= 0;
 
   return (
-    <div className="col-span-2 bg-pax-surface rounded-xl px-5 pt-6 pb-5 relative">
+    <div className="col-span-2 bg-pax-surface rounded-3xl px-5 pt-6 pb-5 relative">
+      <p className="text-size-11 font-semibold text-pax-muted tracking-[0.08em] uppercase mb-2 pr-12">
+        Total Balance
+      </p>
       <button
         type="button"
         aria-label={hidden ? 'Show total balance' : 'Hide total balance'}
         onClick={() => setHidden(!hidden)}
-        className="absolute right-4 top-5 min-h-[var(--touch-target)] min-w-[var(--touch-target)] flex items-center justify-center rounded-md bg-pax-control press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
+        className="absolute top-5 right-4 w-8 h-8 flex items-center justify-center rounded-10 bg-pax-control press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
       >
         <SvgIcon name="lock" className="w-4 h-4" />
       </button>
-      <p className="text-xs font-semibold text-pax-muted tracking-[0.08em] uppercase mb-2">
-        Total Balance
-      </p>
       {loading ? (
         <div className="h-12 w-48 shimmer rounded-lg mb-2" />
       ) : (
@@ -57,13 +57,13 @@ export function HeroBalance({
           {!hidden && pnlVal !== null && (
             <>
               <span
-                className={`text-sm font-semibold ${pos ? 'text-pax-success' : 'text-pax-error'}`}
+                className={`text-size-13 font-semibold ${pos ? 'text-pax-success' : 'text-pax-error'}`}
               >
                 {pos ? '+' : ''}
                 {formatUsd(pnlVal)}
               </span>
               <span
-                className={`text-xs font-bold px-2 py-0.5 rounded-md ${pos ? 'bg-pax-success/[0.12] text-pax-success' : 'bg-pax-error/[0.12] text-pax-error'}`}
+                className={`text-size-11 font-bold px-2 py-0.5 rounded-md ${pos ? 'bg-pax-success/[0.12] text-pax-success' : 'bg-pax-error/[0.12] text-pax-error'}`}
               >
                 {pos ? '+' : ''}
                 {pnlPct.toFixed(2)}%
@@ -71,7 +71,7 @@ export function HeroBalance({
             </>
           )}
           {paxPrice > 0 && (
-            <span className="text-xs text-pax-muted ml-auto">
+            <span className="text-size-11 text-pax-muted ml-auto">
               PAX {hidden ? '•••' : formatUsd(paxPrice)}
             </span>
           )}

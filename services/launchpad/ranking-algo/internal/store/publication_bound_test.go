@@ -13,11 +13,90 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/ranker"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	v1 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v1"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
+
+func TestDirectPublicationExhaustionSurvivesReopen(t *testing.T) {
+	natsURL := internaltest.RankingBroker(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	db := internaltest.NewRankingRuntimeDatabase(t)
+	conn, err := nats.Connect(natsURL, nats.NoReconnect(), nats.Timeout(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	js, err := jetstream.New(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamName := "RANKING_DIRECT_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	stream, err := js.CreateStream(ctx, jetstream.StreamConfig{Name: streamName, Subjects: []string{"market.rankings.*"}, Storage: jetstream.FileStorage, Duplicates: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	publisher, err := natsdriver.NewPublisher(conn, streamName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guard, err := queue.NewEpochGuard("recovery", db.Epoch, db.Region)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshots, err := ranker.ComputeRun(publicationPopulatedInput(t), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := func() (*pgxpool.Pool, *store.PublicationStore) {
+		t.Helper()
+		pool, err := pgxpool.New(ctx, db.AdminDSN)
+		if err != nil {
+			t.Fatal(err)
+		}
+		publication, err := store.NewPublicationStore(pool, "ranking", guard)
+		if err != nil {
+			pool.Close()
+			t.Fatal(err)
+		}
+		return pool, publication
+	}
+	pool, publication := open()
+	if err = publication.Complete(ctx, snapshots); err != nil {
+		pool.Close()
+		t.Fatal(err)
+	}
+	for range 2 * len(snapshots) {
+		worked, err := publication.DispatchOnce(ctx, publisher, streamName+"_OTHER", 2)
+		if err == nil || worked {
+			pool.Close()
+			t.Fatalf("foreign stream acknowledgement admitted: worked=%v, %v", worked, err)
+		}
+	}
+	pool.Close()
+	pool, publication = open()
+	defer pool.Close()
+	if worked, err := publication.DispatchOnce(ctx, publisher, streamName, 2); err != nil || worked {
+		t.Fatalf("exhausted intent dispatched after reopen: worked=%v, %v", worked, err)
+	}
+	health, err := publication.PublicationHealth(ctx, time.Now(), 2)
+	if err != nil || health.Exhausted != int64(len(snapshots)) || health.Pending != int64(len(snapshots)) {
+		t.Fatalf("durable exhaustion: %+v, %v", health, err)
+	}
+	var exhausted int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM ranking.publication_outbox WHERE attempts=2 AND published_at IS NULL AND broker_stream IS NULL AND broker_sequence IS NULL`).Scan(&exhausted); err != nil || exhausted != len(snapshots) {
+		t.Fatalf("outbox exhaustion rows=%d, %v", exhausted, err)
+	}
+	info, err := stream.Info(ctx)
+	if err != nil || info.State.Msgs != uint64(len(snapshots)) {
+		t.Fatalf("deduplicated broker messages: %+v, %v", info, err)
+	}
+}
 
 func TestPublicationBoundRetriesDrainInCategoryOrder(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
@@ -36,7 +115,7 @@ func TestPublicationBoundRetriesDrainInCategoryOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pace := 100 * time.Millisecond
+	pace := 2 * time.Second
 	if err = publication.SetRetryInterval(pace); err != nil {
 		t.Fatal(err)
 	}
@@ -81,15 +160,18 @@ func TestPublicationBoundRetriesDrainInCategoryOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	writer := delivery.StreamWriter{Schema: "api_stream"}
+	var lastAttempt time.Time
 	for i := 0; i < 2; i++ {
+		lastAttempt = time.Now()
 		result, e := publication.CommitStreamOnceWithStatus(ctx, writer, 2)
 		if e == nil || !strings.Contains(e.Error(), "publication unavailable") || result.Published || result.Category != "breakout" || result.ReachedBound != (i == 1) {
 			t.Fatalf("failure %d: %+v %v", i, result, e)
 		}
 	}
-	lastFailure := time.Now()
+	lastFailure := lastAttempt
 	failures := 2
 	for {
+		attemptAt := time.Now()
 		result, e := publication.CommitStreamOnceWithStatus(ctx, writer, 2)
 		if e != nil {
 			if !strings.Contains(e.Error(), "publication unavailable") || !result.AtBound || result.ReachedBound || result.Category != "breakout" {
@@ -102,7 +184,7 @@ func TestPublicationBoundRetriesDrainInCategoryOrder(t *testing.T) {
 			if failures > 3 {
 				t.Fatalf("append still failing after availability returned: %v", e)
 			}
-			lastFailure = time.Now()
+			lastFailure = attemptAt
 		}
 		if result.Published && result.AtBound {
 			if failures != 3 || time.Since(lastFailure) < pace {

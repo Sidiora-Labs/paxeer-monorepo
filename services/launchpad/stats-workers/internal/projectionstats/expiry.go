@@ -3,6 +3,7 @@ package projectionstats
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
@@ -119,6 +120,9 @@ func (p DurablePublisher) Run(ctx context.Context) error {
 		cancel()
 		delay := 10 * time.Millisecond
 		if err != nil {
+			if ctx.Err() == nil {
+				slog.ErrorContext(ctx, "statistics publication failed", "error", err)
+			}
 			delay = backoff
 			backoff *= 2
 			if backoff > 5*time.Second {

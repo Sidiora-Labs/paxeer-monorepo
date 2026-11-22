@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, expect, it } from 'vitest';
@@ -99,7 +100,7 @@ describe('query prefill and link slots', () => {
   });
 });
 
-describe('create components render honestly without border utilities', () => {
+describe('create components render with token control edges', () => {
   it('renders the strategy picker with the mutability note and all four strategies on reveal', () => {
     const twoUp = html(<StrategyPicker value={2} onChange={noop} />);
     expect(twoUp).toContain('Holders');
@@ -111,8 +112,17 @@ describe('create components render honestly without border utilities', () => {
     expect(fourUp).toContain('LP rewards');
     expect(fourUp).toContain('Burn');
     expect(feeStrategies.map(s => s.value).sort()).toEqual([0, 1, 2, 3]);
-    expect(twoUp).not.toMatch(BORDER);
-    expect(fourUp).not.toMatch(BORDER);
+    for (const markup of [twoUp, fourUp]) {
+      const doc = new DOMParser().parseFromString(markup, 'text/html');
+      const radios = Array.from(doc.querySelectorAll('[role="radio"]'));
+      expect(radios).toHaveLength(markup === twoUp ? 2 : 4);
+      for (const radio of radios) {
+        expect(radio.classList.contains('border')).toBe(true);
+        expect(radio.classList.contains('border-control-edge')).toBe(true);
+        radio.classList.remove('border', 'border-control-edge');
+      }
+      expect(assertControlEdges(doc.body.innerHTML)).not.toMatch(BORDER);
+    }
   });
 
   it('renders the legend with our rules, not the original 15 MB / 30 MB limits', () => {
@@ -120,7 +130,7 @@ describe('create components render honestly without border utilities', () => {
     expect(legend).toContain('PNG, JPEG or WebP');
     expect(legend).toContain('6 MB');
     expect(legend).not.toContain('15 MB');
-    expect(legend).not.toMatch(BORDER);
+    expect(assertControlEdges(legend)).not.toMatch(BORDER);
   });
 
   it('renders the preview as an empty sentence and then as a coin card', () => {
@@ -132,7 +142,7 @@ describe('create components render honestly without border utilities', () => {
     expect(filled).toContain('Holders');
     expect(filled).toContain('x.com');
     expect(filled).toContain('no market cap yet');
-    expect(filled).not.toMatch(BORDER);
+    expect(assertControlEdges(filled)).not.toMatch(BORDER);
   });
 
   it('shows the protocol fee and a network-derived gas line only after a funding read', () => {
@@ -150,7 +160,7 @@ describe('create components render honestly without border utilities', () => {
     expect(after).toContain('5.00 USDL');
     expect(after).toContain('12.00 USDL');
     expect(after).toContain(fundingCopy.approval_required.replace(/'/g, '&#x27;').replace(/;/g, ';'));
-    expect(after).not.toMatch(BORDER);
+    expect(assertControlEdges(after)).not.toMatch(BORDER);
     const short = creationFunding({ ...read, balances: { ...read.balances, usdl: '1000000' } });
     expect(short.state).toBe('insufficient_usdl');
   });
@@ -173,7 +183,7 @@ describe('create components render honestly without border utilities', () => {
     expect(markup).toContain('recovery controls');
     expect(markup).not.toContain('hidden body');
     expect(markup).toContain('Confirm in your wallet');
-    expect(markup).not.toMatch(BORDER);
+    expect(assertControlEdges(markup)).not.toMatch(BORDER);
   });
 });
 
@@ -185,12 +195,13 @@ describe('create page loading frame', () => {
     expect(h1?.textContent).toBe('Create new coin');
     expect(h1?.className).toContain('text-md');
     expect(h1?.className).not.toMatch(/text-(2xl|3xl|4xl)|font-extrabold/);
-    expect(markup).toContain('grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))]');
+    expect(markup).toContain('sm:grid-cols-2');
+    expect(markup).toContain('sm:gap-3');
     expect(markup).toContain('Coin name');
     expect(markup).toContain('Ticker');
     expect(markup).toContain('Preview');
     expect(markup).toContain('lg:min-h-72');
     expect(doc.querySelector('[data-create-fallback]')?.getAttribute('aria-busy')).toBe('true');
-    expect(markup).not.toMatch(BORDER);
+    expect(assertControlEdges(markup)).not.toMatch(BORDER);
   });
 });

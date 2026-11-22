@@ -16,7 +16,7 @@ interface Props {
 }
 
 const PaxeerXFeedObservationsTable = ({ items }: Props) => (
-  <TableScrollArea label="Observations">
+  <TableScrollArea label="Observations" minTableWidth="var(--chakra-spacing-200)">
     <TableRoot aria-label="Observations" variant="scan" minW="max-content" data-label="paxeer-x-feed-observations">
       <thead>
         <TableRow>

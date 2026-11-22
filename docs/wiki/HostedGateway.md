@@ -203,6 +203,11 @@ is deployed or has completed an end-to-end operation.
 | `GET /readyz/core` | No credential; backend readiness with product route report omitted |
 | `GET /v1/status` | No credential; service availability summary |
 | `GET /metrics` | Event producer failure and overflow counters |
+| `GET /v1/chains` | Public indexer read; list chains |
+| `GET /v1/chains/:id` | Public indexer read; chain registry record |
+| `GET /v1/chains/:id/summary` | Public indexer read; chain summary |
+| `GET /v1/chains/:id/transfers` | Public indexer read; paged chain transfers |
+| `GET /v1/chains/:id/events` | Public indexer read; paged chain events |
 | `POST /v1/keys` | Bearer session, `Idempotency-Key`; JSON signer, scopes and quota settings |
 | `GET /v1/keys` | Bearer session; principal's key metadata |
 | `DELETE /v1/keys/{id}` | Bearer session; revoke an owned key |
@@ -213,6 +218,30 @@ is deployed or has completed an end-to-end operation.
 | `GET /v1/receipts/{id}` | `LayerX-Key`, `receipt:read`, configured component; owner-scoped receipt verification |
 | `GET /v1/state` | `LayerX-Key`, `state:read`, configured component; verified current head evidence |
 | `POST /v1/settle` | `LayerX-Key`, `receipt:read`, configured component; JSON merchant evidence checked against chain commitment |
+
+The five chain reads use `LAYERX_GATEWAY_INDEXER_URL` through the same client
+as the history methods and require no credential. They share the public-read
+budget of 120 reads per second overall and 30 per client; exhaustion returns
+`429 public_read_rate_limit` with a one-second retry interval. Caller headers
+are not forwarded to the indexer.
+
+`:id` must contain only decimal ASCII digits and fit an unsigned 32-bit number;
+invalid selectors return `400 invalid_read_selector` before any indexer request.
+Transfers and events pass their query string unchanged, bounded at 512 bytes
+using letters, digits, `-._~=&` and complete `%XX` escapes for cursor, limit and
+kind parameters. The indexer validates parameter names, duplicates and values.
+The list, record and summary routes accept only an empty query. Queries outside
+these boundaries return `400 invalid_read_selector`; other methods return
+`405 method_not_allowed`, subject to the gateway's existing CORS preflight rule.
+The chain-by-name route is not served.
+
+Indexer JSON documents and statuses pass through unchanged, including selector
+refusals and `404` for unknown chains. Non-JSON replies return
+`502 invalid_indexer_response`. An absent indexer returns
+`503 indexer_not_configured`; an unreachable indexer returns
+`503 indexer_unreachable`. Gateway refusals use its JSON error envelope.
+The route bindings' allowed origins govern CORS headers and preflight replies;
+an unlisted origin returns `403 origin_not_allowed`.
 
 The explorer proxy admits these public backend routes:
 
@@ -251,7 +280,7 @@ checked-in service hostname does not establish a public network endpoint.
 | `LAYERX_GATEWAY_PROTOCOL_NETWORK_ID` | Required signed-activity protocol network number; distinct from EVM chain ID |
 | `LAYERX_GATEWAY_PAXEER_RPC_URLS` | Optional JSON array of 2–8 distinct HTTPS node endpoints |
 | `LAYERX_GATEWAY_CONSENSUS_RPC_URL` | Optional consensus JSON-RPC endpoint for commits, validators, batch inclusion and head |
-| `LAYERX_GATEWAY_INDEXER_URL` | Optional history and asset indexer origin |
+| `LAYERX_GATEWAY_INDEXER_URL` | Optional history, asset and public chain-read indexer origin |
 | `LAYERX_GATEWAY_RECEIPT_KEYS_FILE` | Optional pinned receipt-key list; required for receipt verification and publication |
 | `LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS` | Probe cache lifetime, 1–300 seconds; default 15 |
 | `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | Optional product upstream bindings; catalogue presence alone is insufficient |
@@ -556,8 +585,10 @@ not certify successful execution of every product route.
 Redis readiness requires `PING` → `PONG`. Chain readiness requires
 `eth_chainId` → `0x7d`. Configured consensus readiness requires a valid
 `status` response with `catching_up=false`. A configured indexer must report
-ready ingestion sources with fresh, reconciled observations and indexed cursors
-at their source heads. An absent indexer reports `not_configured` and does not
+fresh, reconciled source observations without failures, with indexed cursors at or
+below their source heads by at most one ingestion step; a consensus source whose
+node declares its transaction index off reports `index_disabled` without lowering
+readiness. An absent indexer reports `not_configured` and does not
 prevent readiness. With no hosted kernel backends,
 the report omits their components, retains chain and consensus availability,
 and includes configured durable store/event producer dependencies. An

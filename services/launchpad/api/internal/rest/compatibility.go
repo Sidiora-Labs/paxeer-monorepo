@@ -58,6 +58,7 @@ type ProductionReadOptions struct {
 	Model             *store.AccountingReadModel
 	Stream            *broker.PostgresStream
 	Store             *store.Store
+	PoolFeePolicy     func() store.PoolFeePolicy
 	StatsOrigin       string
 	RegisterSnapshots bool
 	Admission         *Admission
@@ -469,6 +470,11 @@ func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 }
 
 func writeSnapshotError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, broker.ErrTopicNotStarted) {
+		WriteV2APIError(w, r, 404, topicNotStartedCode)
+		return
+	}
+	slog.ErrorContext(r.Context(), "API read unavailable", "path", r.URL.Path, "reason", err.Error(), "request_id", responseRequestID(w))
 	switch {
 	case errors.Is(err, broker.ErrExpired):
 		WriteV2APIError(w, r, 409, "RESNAPSHOT_REQUIRED")

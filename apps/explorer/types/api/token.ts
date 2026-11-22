@@ -15,6 +15,7 @@ export interface TokenInfo {
   decimals: string | null;
   holders_count: string | null;
   exchange_rate: string | null;
+  price_change_percentage_24h?: number | string | null;
   total_supply: string | null;
   icon_url: string | null;
   circulating_market_cap: string | null;

@@ -1,4 +1,3 @@
-import surface from "../../../../../surface.module.css";
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -148,8 +147,8 @@ export const CommissionTableUI: FC<CommissionTableUIProps> = (props) => {
     <div className="oui-affiliate-commissionTable oui-flex oui-w-full oui-flex-col">
       <Flex
         width="100%"
-        height={"calc(var(--oui-space-1) * 12.25)"}
-        className={`${surface.surface} oui-commissionTable-header oui-border-b oui-border-line-6`}
+        height={49}
+        className="oui-commissionTable-header oui-border-b oui-border-line-6"
       >
         <div className="oui-px-3">
           <DatePicker.range
@@ -179,23 +178,16 @@ export const CommissionTableUI: FC<CommissionTableUIProps> = (props) => {
         <div
           className={`oui-affiliate-commissionTable-container oui-px-3 ${showPagination ? "" : "oui-pb-3"}`}
         >
-          <div
-            role="region"
-            aria-label="Referral data"
-            tabIndex={0}
-            className={surface.scrollRegion}
-          >
-            <AuthGuardDataTable
-              bordered
-              columns={columns}
-              dataSource={props.commissionData}
-              loading={props.isLoading}
-              pagination={showPagination ? props.pagination : undefined}
-              onSort={props.onSort}
-              onRow={() => ({ className: "oui-commissionTable-row oui-h-12" })}
-              className="oui-commissionTable-table [&_.oui-h-10.oui-w-full]:!oui-mx-0 [&_.oui-table-pagination]:!oui-justify-end [&_th]:!oui-tracking-normal [&_th]:!oui-px-3 [&_td]:!oui-px-3"
-            />
-          </div>
+          <AuthGuardDataTable
+            bordered
+            columns={columns}
+            dataSource={props.commissionData}
+            loading={props.isLoading}
+            pagination={showPagination ? props.pagination : undefined}
+            onSort={props.onSort}
+            onRow={() => ({ className: "oui-commissionTable-row oui-h-12" })}
+            className="oui-commissionTable-table [&_.oui-h-10.oui-w-full]:!oui-mx-0 [&_.oui-table-pagination]:!oui-justify-end [&_th]:!oui-tracking-[0.03em] [&_th]:!oui-px-3 [&_td]:!oui-px-3"
+          />
         </div>
       )}
     </div>

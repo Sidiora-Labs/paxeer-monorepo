@@ -1,3 +1,4 @@
+import { requireRootQuoteChain } from '../runtime/flow-state.ts';
 import React, { useState } from 'react';
 import { decodeContract } from '../../../../../sdk/launchpad/packages/sdk/src/validate.ts';
 import { Linking } from 'react-native';
@@ -10,6 +11,7 @@ import {
   Field,
   Page,
   ResourceStatus,
+  WalletRecovery,
   showAction,
   useResource,
   useRetainedInput,
@@ -55,6 +57,7 @@ export function Token({
       'amount',
     ),
     [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const [side, setSide] = useRetainedInput(
     runtime,
     `token:${address}`,
@@ -76,16 +79,21 @@ export function Token({
         : undefined;
   const quote = runtime.lifecycle.quote,
     streamPrice = runtime.marketData.get(`market.price.${address}`),
-    price = streamPrice ? decodeContract('Price', streamPrice) : undefined;
+    price = streamPrice
+      ? decodeContract('Price', streamPrice)
+      : undefined;
   return (
     <Page
       runtime={runtime}
       stateKey={`token:${address}`}
       title={detail?.token.name ?? 'Token'}
     >
+      <WalletRecovery runtime={runtime} />
       <ResourceStatus {...state} />
       <ResourceStatus {...chainState} />
-      <Text style={ui.subtle}>Market continuity: {runtime.marketState}</Text>
+      <Text style={ui.subtle}>
+        Market continuity: {runtime.marketState}
+      </Text>
       {price && (
         <Copyable
           label="Current price ratio (quote raw units per base raw units)"
@@ -93,16 +101,22 @@ export function Token({
         />
       )}
       {error && <ErrorNotice message={error} />}
+      {notice && <Text style={ui.text}>{notice}</Text>}
       <Copyable label="Pool address" value={address} />
       {detail && (
         <>
           {chain && (
             <Card>
               <Text style={ui.text}>Home chain: {chain.name}</Text>
-              <Copyable label="Registry number" value={chain.chain.chain} />
+              <Copyable
+                label="Registry number"
+                value={chain.chain.chain}
+              />
               <Copyable label="Chain ID" value={chain.chain.chainId} />
               <Text style={ui.subtle}>Status: {chain.chain.status}</Text>
-              {runtime.session.account && <ResourceStatus {...revenueState} />}
+              {runtime.session.account && (
+                <ResourceStatus {...revenueState} />
+              )}
               {revenueState.data?.map((epoch) => (
                 <Card key={epoch.epoch}>
                   <Copyable label="Revenue epoch" value={epoch.epoch} />
@@ -120,7 +134,10 @@ export function Token({
           )}
           <Card>
             <Text style={ui.text}>{detail.token.symbol}</Text>
-            <Copyable label="Token contract" value={detail.token.address} />
+            <Copyable
+              label="Token contract"
+              value={detail.token.address}
+            />
             <Copyable
               label="Real pool USDL balance (raw, 6 decimals)"
               value={detail.pool.realUsdlBalanceRaw}
@@ -140,6 +157,7 @@ export function Token({
                       runtime.session.signal,
                     ),
                   setError,
+                  () => setNotice('Pool added to your watchlist.'),
                 )
               }
             />
@@ -196,21 +214,24 @@ export function Token({
               label="Refresh quote"
               disabled={
                 !runtime.session.token ||
+                chainState.data === undefined ||
+                !!chainState.error ||
                 state.offline ||
                 !/^\d+$/.test(amount) ||
                 BigInt(amount || '0') <= 0n
               }
               onPress={() =>
-                showAction(
-                  () =>
-                    runtime.lifecycle.requestQuote({
-                      poolAddress: address,
-                      inputRaw: amount,
-                      side: side === 'sell' ? 'sell' : 'buy',
-                      slippageBps: 100,
-                    }),
-                  setError,
-                )
+                showAction(async () => {
+                  requireRootQuoteChain(
+                    chain === null ? 125 : chain!.route.chainId,
+                  );
+                  return runtime.lifecycle.requestQuote({
+                    poolAddress: address,
+                    inputRaw: amount,
+                    side: side === 'sell' ? 'sell' : 'buy',
+                    slippageBps: 100,
+                  });
+                }, setError)
               }
             />
             {quote &&
@@ -226,7 +247,8 @@ export function Token({
                     value={quote.minOutputRaw}
                   />
                   <Text style={ui.subtle}>
-                    Expires {new Date(quote.validUntil).toLocaleTimeString()}
+                    Expires{' '}
+                    {new Date(quote.validUntil).toLocaleTimeString()}
                   </Text>
                 </>
               )}
@@ -257,6 +279,10 @@ export function Token({
                   <Text accessibilityRole="header" style={ui.text}>
                     External wallet approval
                   </Text>
+                  <Copyable
+                    label="Approval chain ID"
+                    value={String(approval.chainId)}
+                  />
                   <Copyable label="Input token" value={approval.asset} />
                   <Copyable
                     label="Attested Router spender"
@@ -285,13 +311,14 @@ export function Token({
                   <Copyable
                     label="Estimated maximum network fee (PAX wei)"
                     value={(
-                      BigInt(approval.gasRaw) * BigInt(approval.feePerGasRaw)
+                      BigInt(approval.gasRaw) *
+                      BigInt(approval.feePerGasRaw)
                     ).toString()}
                   />
                   <Text style={ui.subtle}>
-                    The wallet shows the final network fee before you sign.
-                    Approval grants the Router an allowance; it does not buy or
-                    sell.
+                    The wallet shows the final network fee before you
+                    sign. Approval grants the Router an allowance; it does
+                    not buy or sell.
                   </Text>
                   <Text style={ui.text}>{approval.statusText}</Text>
                   {approval.state === 'ready' && (
@@ -382,7 +409,8 @@ export function Token({
                 (chain !== null && chain?.chain.status !== 'active') ||
                 runtime.wallet.supportsTrade === false ||
                 !runtime.lifecycle.canExecute ||
-                quote?.poolAddress.toLowerCase() !== address.toLowerCase() ||
+                quote?.poolAddress.toLowerCase() !==
+                  address.toLowerCase() ||
                 quote?.side !== side
               }
               onPress={() =>
@@ -411,17 +439,29 @@ export function Token({
             />
             {!runtime.wallet && (
               <Text style={ui.text}>
-                Native wallet execution requires a supported external wallet
-                adapter.
+                Native wallet execution requires a supported external
+                wallet adapter.
               </Text>
             )}
             {runtime.pending.current && (
               <Text style={ui.text}>
-                Transaction {runtime.pending.current.state}. Only chain evidence
-                establishes the outcome.
+                Transaction {runtime.pending.current.state}. Only chain
+                evidence establishes the outcome.
               </Text>
             )}
           </Card>
+          <Button
+            label="Open market in the web app"
+            onPress={() =>
+              showAction(
+                () =>
+                  Linking.openURL(
+                    `${runtime.services.config.canonicalOrigin}/token/${address}`,
+                  ),
+                setError,
+              )
+            }
+          />
           <Button
             label="Launch a chain in the web app"
             onPress={() =>

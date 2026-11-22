@@ -57,7 +57,7 @@ const SearchBarRecentKeywords = ({ onClick, onClear }: Props) => {
       ) }
       <Flex mb={ 3 } justifyContent="space-between" fontSize="sm">
         <Text textStyle="label">Recent</Text>
-        <Button onClick={ clearKeywords } variant="link" minH="touchTarget" minW="touchTarget" textStyle="small">Clear all</Button>
+        <Button onClick={ clearKeywords } variant="link" textStyle="small">Clear all</Button>
       </Flex>
       <Flex flexDirection="column" overflowY="auto">
         { keywords.map(kw => (
@@ -89,8 +89,8 @@ const SearchBarRecentKeywords = ({ onClick, onClear }: Props) => {
             <Button
               onClick={ handleClick(kw) }
               variant="plain"
+              textStyle="body"
               minW={ 0 }
-              minH="touchTarget"
               flex="1"
               justifyContent="flex-start"
               px={ 0 }
@@ -105,7 +105,7 @@ const SearchBarRecentKeywords = ({ onClick, onClear }: Props) => {
                 <Text overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">{ kw }</Text>
               }
             </Button>
-            <ClearButton minH="touchTarget" minW="touchTarget" color="text.secondary" aria-label={ `Remove ${ kw }` } onClick={ removeKeyword(kw) }/>
+            <ClearButton color="text.secondary" aria-label={ `Remove ${ kw }` } onClick={ removeKeyword(kw) }/>
           </Flex>
         )) }
       </Flex>

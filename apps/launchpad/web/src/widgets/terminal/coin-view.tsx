@@ -78,11 +78,12 @@ export default function TerminalCoinView({ poolAddress }: { poolAddress: string 
   }, [redirectTo, router]);
 
   const pool = target.kind === 'render' ? target.pool : null;
+  const recentPool = target.kind === 'render' ? target.pool : null;
   useEffect(() => {
-    if (pool) recordRecentPool(pool);
-  }, [pool]);
+    if (recentPool) recordRecentPool(recentPool);
+  }, [recentPool]);
 
-  const left = <TerminalLeftRail activePool={pool ?? requested} />;
+  const left = <TerminalLeftRail activePool={recentPool} />;
   const status = <TerminalStatusBar poolAddress={pool} />;
 
   if (target.kind === 'not-found') {

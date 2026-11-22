@@ -25,7 +25,9 @@ function OptionGroup<T extends string>({
 }) {
   return (
     <div>
-      <p className="text-sm font-bold text-pax-muted uppercase tracking-label mb-3 px-1">{label}</p>
+      <p className="text-size-13 font-bold text-pax-muted uppercase tracking-label mb-3 px-1">
+        {label}
+      </p>
       <div role="radiogroup" aria-label={label} data-group={name} className="flex flex-wrap gap-2">
         {options.map((option) => {
           const selected = option.id === value;

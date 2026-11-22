@@ -1,11 +1,9 @@
-import { Tooltip } from "../../../../ui-connector/src/platformOverlays";
-import { SimpleDialog } from "../../../../ui-connector/src/platformOverlays";
 import { FC, SVGProps } from "react";
 import { useTranslation, Trans } from "@paxeer-network/i18n";
-import { Box, cn, Flex, Text } from "@paxeer-network/ui";
+import { Box, cn, Flex, SimpleDialog, Text, Tooltip } from "@paxeer-network/ui";
 import { MainLogo } from "../main/mainLogo";
 import { UseScanQRCodeScriptReturn } from "./scanQRCode.script";
-import { QRCodeScanner } from "./scanner";
+import { QRCodeScanner, QRCODE_WIDTH, QRCODE_HEIGHT } from "./scanner";
 
 type ScanQRCodeProps = UseScanQRCodeScriptReturn;
 
@@ -16,21 +14,15 @@ export const ScanQRCode: FC<ScanQRCodeProps> = (props) => {
       <Tooltip
         open={props.showScanTooltip}
         content={t("linkDevice.scanQRCode.tooltip")}
-        className="oui-bg-base-6 oui-text-2xs oui-font-semibold oui-text-base-contrast-80"
+        data-link-device-hint=""
+        className="oui-pointer-events-none oui-bg-base-6 oui-text-2xs oui-font-semibold oui-text-warning-darken"
         arrow={{ className: "!oui-fill-base-6" }}
       >
         <Flex
-          asChild
-          className="oui-h-12 oui-w-12 oui-cursor-pointer oui-items-center oui-justify-center oui-rounded-md oui-bg-base-5 oui-px-2"
+          className="oui-h-8 oui-w-8 oui-cursor-pointer oui-items-center oui-justify-center oui-rounded-md oui-bg-base-5 oui-px-[6px]"
           onClick={props.showDialog}
         >
-          <button
-            type="button"
-            aria-label={t("linkDevice.scanQRCode")}
-            className="oui-shell-action"
-          >
-            <ScanIcon className="oui-text-base-contrast-80" />
-          </button>
+          <ScanIcon className="oui-text-base-contrast-80" />
         </Flex>
       </Tooltip>
       <SimpleDialog
@@ -50,14 +42,14 @@ const ScanQRCodeContent: FC<ScanQRCodeProps> = (props) => {
 
   return (
     <Flex justify="center" direction="column" gapY={5}>
-      <Box className="oui-relative oui-w-full oui-aspect-square oui-max-w-[calc(var(--oui-space-24)*3+var(--oui-space-8))]">
+      <Box width={QRCODE_WIDTH} height={QRCODE_HEIGHT} className="oui-relative">
         <QRCodeScanner onSuccess={props.onScanSuccess} />
         <>
           <LineGradient />
-          <RadiusGradient className="oui-absolute -oui-start-px -oui-top-px" />
-          <RadiusGradient className="oui-absolute -oui-end-px -oui-top-px oui-rotate-90" />
-          <RadiusGradient className="oui-absolute -oui-bottom-px -oui-start-px -oui-rotate-90" />
-          <RadiusGradient className="oui-absolute -oui-bottom-px -oui-end-px -oui-rotate-180" />
+          <RadiusGradient className="oui-absolute oui-start-[-1.5px] oui-top-[-1.5px]" />
+          <RadiusGradient className="oui-absolute oui-end-[-1.5px] oui-top-[-1.5px] oui-rotate-90" />
+          <RadiusGradient className="oui-absolute oui-bottom-[-1.5px] oui-start-[-1.5px] -oui-rotate-90" />
+          <RadiusGradient className="oui-absolute oui-bottom-[-1.5px] oui-end-[-1.5px] -oui-rotate-180" />
         </>
       </Box>
 
@@ -68,7 +60,7 @@ const ScanQRCodeContent: FC<ScanQRCodeProps> = (props) => {
       <span className="oui-px-3 oui-text-center">
         <Text
           size="2xs"
-          intensity={80}
+          intensity={54}
           weight="regular"
           className="oui-break-words"
         >
@@ -130,10 +122,10 @@ const LineGradient: FC<SVGProps<SVGSVGElement>> = () => {
   return (
     <div
       className={cn(
-        "oui-absolute oui-start-8 oui-top-0",
-        "oui-h-0.5 oui-w-[calc(100%-var(--oui-space-16))] oui-rounded-full",
+        "oui-absolute oui-start-[30px] oui-top-0",
+        "oui-h-[2px] oui-w-[calc(100%-60px)] oui-rounded-full",
         "oui-bg-[linear-gradient(270deg,rgb(var(--oui-gradient-brand-end))_0%,rgb(var(--oui-gradient-brand-start))_100%)]",
-        "oui-shadow-md",
+        "oui-shadow-[0_0_8px_4px_rgba(var(--oui-gradient-brand-start)/0.12)]",
         "oui-animate-scan-qr-code",
       )}
     />

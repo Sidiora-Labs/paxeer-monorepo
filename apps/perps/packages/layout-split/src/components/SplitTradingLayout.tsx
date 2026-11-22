@@ -1,4 +1,3 @@
-import { useMediaQuery } from "@paxeer-network/ui";
 /**
  * SplitTradingLayout - LayoutStrategy Renderer for the split trading desktop layout.
  *
@@ -37,6 +36,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS, type Transform } from "@dnd-kit/utilities";
+import { flushSync } from "react-dom";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import type {
   LayoutRendererProps,
@@ -221,7 +221,7 @@ export function SplitTradingLayout(
       );
     };
     sync();
-    const observer = new ResizeObserver(sync);
+    const observer = new ResizeObserver(() => flushSync(sync));
     observer.observe(el);
     return (): void => observer.disconnect();
   }, []);
@@ -247,12 +247,12 @@ export function SplitTradingLayout(
   const [orderEntryHeight, setOrderEntryHeight] = useState(0);
 
   /** Observe order entry column height for max2XL min-height constraint. */
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = orderEntryViewRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (entry) setOrderEntryHeight(entry.contentRect.height);
+      if (entry) flushSync(() => setOrderEntryHeight(entry.contentRect.height));
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -267,7 +267,6 @@ export function SplitTradingLayout(
   const onTradingviewAndOrderbookDragging = useCallback(() => {}, []);
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
 
   /** showPositionIcon: show drag handle when there are sortable panels. Always true for split layout. */
   const showPositionIcon = true;
@@ -345,8 +344,8 @@ export function SplitTradingLayout(
       className={cn(
         "oui-trading-markets-container",
         "oui-bg-base-10",
-        "oui-sticky oui-z-30 -oui-mb-2 oui-py-2",
-        !max4XL && "-oui-mt-2",
+        "oui-sticky oui-z-30 oui-mb-[-8px] oui-py-2",
+        !max4XL && "oui-mt-[-8px]",
       )}
       style={{
         bottom: 0,
@@ -368,7 +367,7 @@ export function SplitTradingLayout(
       height="100%"
       width={marketsWidth}
       style={{ minWidth: marketsWidth }}
-      className="oui-trading-markets-container oui-transition-all oui-[transition-duration:var(--oui-duration-fast)]"
+      className="oui-trading-markets-container oui-transition-all oui-duration-150"
     >
       {marketLayout === "left" && marketsWidget}
     </Box>
@@ -399,7 +398,7 @@ export function SplitTradingLayout(
       intensity={900}
       r="2xl"
       style={{ flex: 1, minWidth: TRADINGVIEW_MIN_WIDTH }}
-      className="oui-trading-tradingview-container oui-overflow-hidden"
+      className="oui-trading-tradingview-container oui-overflow-auto"
     >
       {tradingviewWidget}
     </Box>
@@ -416,7 +415,7 @@ export function SplitTradingLayout(
           : ORDERBOOK_MIN_WIDTH,
         width: orderBookSplitSize,
       }}
-      className="oui-trading-orderBook-container oui-overflow-hidden"
+      className="oui-trading-orderBook-container oui-overflow-auto"
     >
       {getPanel(TRADING_PANEL_IDS.ORDERBOOK)}
     </Box>
@@ -431,7 +430,7 @@ export function SplitTradingLayout(
         height: dataListSplitSize,
         minHeight: DATA_LIST_INITIAL_HEIGHT,
       }}
-      className="oui-trading-dataList-container oui-overflow-hidden"
+      className="oui-trading-dataList-container oui-overflow-auto"
     >
       {getPanel(TRADING_PANEL_IDS.DATA_LIST)}
     </Box>
@@ -477,7 +476,7 @@ export function SplitTradingLayout(
       return (
         <Flex
           gap={2}
-          className="oui-flex-1 oui-overflow-hidden"
+          className="oui-flex-1 oui-overflow-auto"
           style={{ minWidth: marketsWidth + TRADINGVIEW_MIN_WIDTH + SPACE }}
         >
           {marketLayout === "left" && marketsView}
@@ -518,7 +517,7 @@ export function SplitTradingLayout(
   const mainView = (
     <Flex
       direction="column"
-      className="oui-min-h-0 oui-flex-1 oui-overflow-hidden"
+      className="oui-min-h-0 oui-flex-1 oui-overflow-auto"
       gap={2}
       style={{
         minWidth: max4XL
@@ -541,7 +540,7 @@ export function SplitTradingLayout(
           width: "100%",
           overflow: "hidden",
         }}
-        className="oui-flex oui-min-h-0 oui-w-full oui-flex-1 oui-overflow-hidden"
+        className="oui-flex oui-min-h-0 oui-w-full oui-flex-1 oui-overflow-auto"
         mode="vertical"
         onSizeChange={setDataListSplitSize}
       >
@@ -597,11 +596,11 @@ export function SplitTradingLayout(
               ref={max2XLSplitRef}
               style={{
                 minHeight: minScreenHeightSM,
-                minWidth: 0,
+                minWidth: 1024 - SCROLLBAR_WIDTH,
               }}
               className={cn(
                 "oui-flex oui-flex-1",
-                "oui-size-full oui-min-w-0",
+                "oui-size-full oui-min-w-[1018px]",
                 "oui-px-3 oui-py-2",
                 className,
               )}
@@ -635,7 +634,7 @@ export function SplitTradingLayout(
                 {/* Chart + orderbook column */}
                 <Flex
                   height="100%"
-                  className="oui-min-h-0 oui-min-w-0 oui-flex-1"
+                  className="oui-min-h-0 oui-w-[calc(100%_-_280px_-_12px)] oui-flex-1"
                   direction="column"
                   gapY={2}
                 >
@@ -777,7 +776,7 @@ export function SplitTradingLayout(
                   minHeight: Math.max(dataListMinHeight, 0),
                   maxHeight: DATA_LIST_MAX_HEIGHT,
                 }}
-                className="oui-overflow-hidden"
+                className="oui-overflow-auto"
               >
                 {getPanel(TRADING_PANEL_IDS.DATA_LIST)}
               </Box>
@@ -786,7 +785,7 @@ export function SplitTradingLayout(
             </TradingSplitLayout>
           </Box>
         </SortableContext>
-        <DragOverlay dropAnimation={reducedMotion ? null : dropAnimationConfig}>
+        <DragOverlay dropAnimation={dropAnimationConfig}>
           {dragOverlayContent}
         </DragOverlay>
       </DndContext>
@@ -818,7 +817,7 @@ export function SplitTradingLayout(
             className,
             "oui-justify-start",
             tradingViewFullScreen &&
-              "oui-relative oui-h-[calc(100dvh-var(--oui-space-20))] oui-w-full oui-overflow-hidden !oui-p-0",
+              "oui-relative oui-h-[calc(100vh-80px)] oui-w-screen oui-overflow-auto !oui-p-0",
           )}
           width="100%"
           p={2}
@@ -832,7 +831,7 @@ export function SplitTradingLayout(
           {/* Main content row */}
           <Flex
             className={cn(
-              "oui-flex-1 oui-overflow-hidden",
+              "oui-flex-1 oui-overflow-auto",
               layout === "left" && "oui-flex-row-reverse",
             )}
             gap={2}
@@ -841,7 +840,7 @@ export function SplitTradingLayout(
 
             {/* Horizontal split: order-entry | main content */}
             <TradingSplitLayout
-              className="oui-flex oui-flex-1 oui-overflow-hidden"
+              className="oui-flex oui-flex-1 oui-overflow-auto"
               onSizeChange={onMainSplitSizeChange}
               disable={!horizontalDraggable}
             >
@@ -855,7 +854,7 @@ export function SplitTradingLayout(
         </Flex>
       </SortableContext>
 
-      <DragOverlay dropAnimation={reducedMotion ? null : dropAnimationConfig}>
+      <DragOverlay dropAnimation={dropAnimationConfig}>
         {dragOverlayContent}
       </DragOverlay>
     </DndContext>

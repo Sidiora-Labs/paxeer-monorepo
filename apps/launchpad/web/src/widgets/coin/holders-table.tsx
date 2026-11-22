@@ -133,8 +133,9 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
       chain.push(page);
       key = page.nextCursor;
     }
+    if (chain.length === 0 && firstPage) chain.push(firstPage);
     return chain;
-  }, [pages]);
+  }, [pages, firstPage]);
   const token = snapshot.data?.token ?? null;
   // The live quote first; else PoolStats.spotPriceWad (null before the first trade: positions stay unavailable).
   const spot = statsSpotPrice(snapshot.data?.stats ?? null).value;
@@ -174,7 +175,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
     </div>
     <HoldersFilters value={search} onChange={setSearch} pnlReason={pnlReason} />
     {coverage && coverage !== 'complete' ? <NoticeBar tone="warning" announce>Some holders may be missing from this list.</NoticeBar> : null}
-    <div role="region" aria-label="Token holders table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
+    <div role="region" aria-label="Token holders table" tabIndex={0} className="@container/holders relative min-w-0 max-w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
       <table className="w-full min-w-160 text-sm">
         <thead>
           <tr>
@@ -193,22 +194,27 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
           </tr>
         </thead>
         <tbody>
-          {visible.length === 0 ? <EmptyState variant="table" colSpan={7} icon={search.query ? SearchX : Users} title={search.query ? 'No holders match' : 'No holders yet'} body={search.query ? `Nothing matched "${search.query}".` : 'Holders appear here after the first buy.'} announce={Boolean(search.query)} /> : null}
+          {visible.length === 0 ? <EmptyState variant="table" colSpan={7} icon={search.query ? SearchX : Users} title={search.query ? 'No holders match' : 'No holders yet'} body={search.query ? `Nothing matched "${search.query}".` : 'Holders appear here after the first buy.'} announce={Boolean(search.query)} className="sticky left-0 w-[min(100%,100cqw)]" /> : null}
           {visible.map(row => {
             const identity = identities.identities[row.wallet];
             const name = identity?.displayName ?? shortAddress(row.wallet);
+            const isPool = row.wallet.toLowerCase() === pool.toLowerCase();
+            const walletContent = <>
+              <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className={identity?.displayName ? 'truncate font-bold text-text' : 'font-mono text-xs text-text-muted'}>{name}</span>
+                  {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Creator</span> : null}
+                  {isPool ? <span data-pool-badge title="Coins held by the bonding curve" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Bonding curve</span> : null}
+                </span>
+                {identity?.displayName ? <span className="font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
+              </span>
+            </>;
             return <tr key={row.wallet} className="h-table-row bg-surface-1 transition-colors hover:bg-surface-hover [&>td]:px-3">
               <td className="min-w-0">
-                <Link href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">
-                  <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
-                  <span className="flex min-w-0 flex-col leading-tight">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className={identity?.displayName ? 'truncate font-bold text-text' : 'font-mono text-xs text-text-muted'}>{name}</span>
-                      {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Creator</span> : null}
-                    </span>
-                    {identity?.displayName ? <span className="font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
-                  </span>
-                </Link>
+                {isPool
+                  ? <span className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</span>
+                  : <Link prefetch={false} href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</Link>}
               </td>
               <td data-numeric className="text-right font-bold tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.balanceRaw, decimals)}</td>
               <td data-numeric className="text-right tabular-nums text-text-muted">{row.supplyPercent === null ? <span className="text-text-faint">—</span> : formatPercent(row.supplyPercent, { sign: 'negative' })}</td>

@@ -56,7 +56,7 @@ export function PositionsTable({ positions, token, symbol }: PositionsTableProps
               <tr key={position.positionId} data-position-id={position.positionId} className="min-h-table-row-dense bg-surface-1 transition-colors hover:bg-surface-hover">
                 <td>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="font-bold text-text">{symbol}</span>
+                    <span className="block min-w-0 truncate font-bold text-text" title={symbol}>{symbol}</span>
                     <QualityTag label="Cost incomplete" value={position.basisQuality} good="complete" />
                     <QualityTag label="No price yet" value={position.pricingQuality} good="priced" />
                   </span>

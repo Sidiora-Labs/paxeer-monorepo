@@ -29,7 +29,9 @@ export function approvedPublicKey(key: string) {
   );
 }
 export function validatePublicSnapshot(key: string, value: unknown) {
-  if (!approvedPublicKey(key)) throw new Error('Unapproved public snapshot');
+  key = key.split(':page:')[0];
+  if (!approvedPublicKey(key))
+    throw new Error('Unapproved public snapshot');
   if (key === 'live') {
     const snapshot = decodeV2Contract('StreamListResponse', value);
     const fields = [
@@ -53,7 +55,12 @@ export function validatePublicSnapshot(key: string, value: unknown) {
         : key.startsWith('profile:')
           ? 'ProfileGetResponse'
           : 'SearchResponse';
-  return decodeContract(contract, value);
+  return key.startsWith('profile:')
+    ? decodeContract(contract, value)
+    : decodeV2Contract(contract, value);
+}
+function publicContractVersion(key: string) {
+  return key.startsWith('profile:') ? 1 : 2;
 }
 export class SnapshotCache {
   private entries = new Map<string, Snapshot<unknown>>();
@@ -97,10 +104,21 @@ export class SnapshotCache {
       cap = account === null ? this.publicCap : this.privateCap;
     if (bytes > cap) throw new Error('Snapshot exceeds cache budget');
     const copy = JSON.parse(JSON.stringify(value)) as T;
-    if (persist && account === null && approvedPublicKey(key) && this.storage)
+    if (
+      persist &&
+      account === null &&
+      approvedPublicKey(key) &&
+      this.storage
+    )
       validatePublicSnapshot(key, copy);
     this.entries.delete(key);
-    const snapshot = { value: copy, storedAt: now, expiresAt, account, bytes };
+    const snapshot = {
+      value: copy,
+      storedAt: now,
+      expiresAt,
+      account,
+      bytes,
+    };
     this.entries.set(key, snapshot);
     const used = () =>
       [...this.entries.values()]
@@ -111,10 +129,15 @@ export class SnapshotCache {
       if ((item.account === null) === (account === null))
         this.entries.delete(entry);
     }
-    if (persist && account === null && approvedPublicKey(key) && this.storage) {
+    if (
+      persist &&
+      account === null &&
+      approvedPublicKey(key) &&
+      this.storage
+    ) {
       const encoded = JSON.stringify({
         formatVersion: 2,
-        contractVersion: key === 'live' ? 2 : 1,
+        contractVersion: publicContractVersion(key),
         ...snapshot,
       });
       this.persistence = this.persistence
@@ -147,7 +170,8 @@ export class SnapshotCache {
   ): Promise<Snapshot<T> | undefined> {
     const memory = this.get<T>(key, account, now);
     if (memory) return memory;
-    if (account !== null || !approvedPublicKey(key) || !this.storage) return;
+    if (account !== null || !approvedPublicKey(key) || !this.storage)
+      return;
     const saved = await this.storage.read(key);
     if (!saved) return;
     const candidate: unknown = JSON.parse(saved);
@@ -162,9 +186,9 @@ export class SnapshotCache {
       snapshot.contractVersion === undefined;
     if (
       legacy
-        ? key === 'live'
+        ? publicContractVersion(key) !== 1
         : snapshot.formatVersion !== 2 ||
-          snapshot.contractVersion !== (key === 'live' ? 2 : 1)
+          snapshot.contractVersion !== publicContractVersion(key)
     )
       throw new Error('Unsupported public snapshot version');
     if (

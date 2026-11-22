@@ -5,7 +5,7 @@ import React from 'react';
 import { tokenInfoERC721a } from 'mocks/tokens/tokenInfo';
 import * as tokenInstanceMock from 'mocks/tokens/tokenInstance';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, test, vi } from 'vitest';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
@@ -18,8 +18,8 @@ Object.defineProperty(document, 'fonts', {
 
 const HASH = tokenInfoERC721a.address_hash;
 
-const renderTitle = (instance = tokenInstanceMock.base, token = tokenInfoERC721a) => render(
-  <TokenInstancePageTitle isLoading={ false } token={ token } instance={ instance } hash={ HASH }/>,
+const renderTitle = (instance = tokenInstanceMock.base, token = tokenInfoERC721a, isLoading = false) => render(
+  <TokenInstancePageTitle isLoading={ isLoading } token={ token } instance={ instance } hash={ HASH }/>,
 );
 
 describe('TokenInstancePageTitle', () => {
@@ -36,6 +36,33 @@ describe('TokenInstancePageTitle', () => {
     expect(container.querySelector('h1')?.textContent).toBe(tokenInstanceMock.base.metadata?.name);
     expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('TOKEN');
   });
+
+  function tokenInstanceHeadingShowsWholeLongNameAndSymbol() {
+    const name = 'A'.repeat(40);
+    const symbol = 'LONG';
+    const title = `${ name } (${ symbol })`;
+
+    for (const isLoading of [ false, true ]) {
+      const { container } = renderTitle({
+        ...tokenInstanceMock.base,
+        metadata: { ...tokenInstanceMock.base.metadata, name: title },
+      }, { ...tokenInfoERC721a, name, symbol }, isLoading);
+      const heading = container.querySelector('h1') as HTMLElement;
+
+      expect(heading.textContent).toBe(title);
+      if (!isLoading) {
+        const style = getComputedStyle(heading);
+
+        expect(style.whiteSpace).toBe('normal');
+        expect(style.overflow).not.toBe('hidden');
+        expect(style.textOverflow).not.toBe('ellipsis');
+        expect(style.overflowWrap).toBe('anywhere');
+      }
+      expect(getComputedStyle(container.querySelector('[data-entity-identifier]') as HTMLElement).flexWrap).toBe('nowrap');
+    }
+  }
+
+  test(tokenInstanceHeadingShowsWholeLongNameAndSymbol.name, tokenInstanceHeadingShowsWholeLongNameAndSymbol);
 
   it('carries the instance name beside the heading', () => {
     const { container } = renderTitle();

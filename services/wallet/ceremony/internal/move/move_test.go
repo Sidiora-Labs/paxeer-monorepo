@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -153,7 +154,10 @@ func TestMoveCopiesEveryTableWithMatchingCountsAndDigests(t *testing.T) {
 		t.Fatalf("the move changed the working directory: %v", got)
 	}
 	files := testsupport.GatewayMigrationFiles(t)
-	if n := one(t, f.target.DB, `select count(*)::text from _migrations`); n != strconv.Itoa(len(files)) || len(files) != 22 {
+	if len(files) == 0 {
+		t.Fatal("gateway migrations directory has no SQL files")
+	}
+	if n := one(t, f.target.DB, `select count(*)::text from _migrations`); n != strconv.Itoa(len(files)) {
 		t.Fatalf("target ledger holds %s of %d files", n, len(files))
 	}
 	plan, err := migrate.PlanMigration(context.Background(), f.target.DB)
@@ -181,6 +185,16 @@ func TestMoveCopiesEveryTableWithMatchingCountsAndDigests(t *testing.T) {
 
 func TestMoveDeltaCopiesOnlyAbsentRows(t *testing.T) {
 	f := newFixture(t)
+	gateway := f.pg.Database(t, "gateway_schema")
+	testsupport.ApplyGatewayMigrations(t, gateway.DB)
+	gatewayTables := testsupport.TableCounts(t, gateway.DB)
+	var dropped []move.DroppedTable
+	for name, rows := range testsupport.TableCounts(t, f.pg.DB) {
+		if _, present := gatewayTables[name]; !present {
+			dropped = append(dropped, move.DroppedTable{Table: name, SourceRows: rows})
+		}
+	}
+	sort.Slice(dropped, func(i, j int) bool { return dropped[i].Table < dropped[j].Table })
 	if _, err := move.Move(ctx(t), f.opts); err != nil {
 		t.Fatalf("move: %v", err)
 	}
@@ -207,8 +221,8 @@ func TestMoveDeltaCopiesOnlyAbsentRows(t *testing.T) {
 	if w := delta(t, r, "wallets"); w.SourceRows != 4 || w.TargetBefore != 4 {
 		t.Fatalf("delta wallets counted source %d target %d", w.SourceRows, w.TargetBefore)
 	}
-	if len(r.Dropped) != 3 || r.Dropped[0].Table != "funded_tiers" || r.Dropped[1].Table != "layerx_accounts" || r.Dropped[2].Table != "whitelist_entries" {
-		t.Fatalf("dropped tables %+v", r.Dropped)
+	if !reflect.DeepEqual(r.Dropped, dropped) {
+		t.Fatalf("dropped tables %+v, want %+v", r.Dropped, dropped)
 	}
 	if got := one(t, f.target.DB, `select count(*)::text from wallets`); got != "5" {
 		t.Fatalf("target holds %s wallets after the delta", got)

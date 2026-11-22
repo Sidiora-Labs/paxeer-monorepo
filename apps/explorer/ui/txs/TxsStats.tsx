@@ -22,8 +22,22 @@ interface Props extends BoxProps {}
 
 const DELTA_ACCURACY = 2;
 
+export function getTransactionStatsColumns(cardCount: number): number {
+  const rowCount = Math.ceil(cardCount / 4);
+
+  return Math.ceil(cardCount / rowCount);
+}
+
 function formatTransactionCount(value: string | undefined): string {
   return value === undefined ? '-' : BigNumber(value).toFormat();
+}
+
+function formatTransactionFee(value: number, currency: typeof config.chain.currency): string {
+  const maximumFractionDigits = value > 0 && value < 0.01 ?
+    Math.min(currency.decimals, 1 - Math.floor(Math.log10(value))) :
+    2;
+
+  return `${ value.toLocaleString(undefined, { maximumFractionDigits }) }${ thinsp }${ currency.symbol }`;
 }
 
 function toShareDelta(
@@ -184,7 +198,7 @@ const TxsStats = (props: Props) => {
       label: `${ txsStatsQuery.data?.transactions_fee_24h?.title ?
         getStatsLabelFromTitle(txsStatsQuery.data.transactions_fee_24h.title) :
         'Total transaction fee' } (24h)`,
-      value: `${ txFeeSum24h.toLocaleString(undefined, { maximumFractionDigits: 2 }) }${ thinsp }${ chainConfig.chain.currency.symbol }`,
+      value: formatTransactionFee(txFeeSum24h, chainConfig.chain.currency),
       delta: coinPriceDelta,
       hint: coinPriceHint,
       href: chartRoute('txnsFee'),
@@ -207,7 +221,11 @@ const TxsStats = (props: Props) => {
   return (
     <Box
       display="grid"
-      gridTemplateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-62\.5)), 1fr))"
+      gridTemplateColumns={{
+        base: 'minmax(0, 1fr)',
+        md: 'repeat(2, minmax(0, 1fr))',
+        lg: `repeat(${ getTransactionStatsColumns(items.length) }, minmax(0, 1fr))`,
+      }}
       rowGap={ 3 }
       columnGap={ 3 }
       mb={ 6 }

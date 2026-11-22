@@ -1,5 +1,5 @@
 import { gatewayUrl } from '@/core/sdk-config';
-import { accountSession } from '@/widgets/profile/account-transport';
+import { accountSession, assertAccount } from '@/widgets/profile/account-transport';
 
 export type Inbox = 'everyone' | 'followed_only' | 'nobody';
 export type Privacy = { inbox: Inbox; revision: string };
@@ -34,7 +34,9 @@ export class InteractionClient {
     }
   }
   private async request<T>(path: string, method = 'GET', body?: unknown, key?: string, signal?: AbortSignal): Promise<ResponseEnvelope<T>> {
-    const token = accountSession()?.accessToken;
+    const scope = accountSession();
+    const token = scope?.accessToken;
+    signal = AbortSignal.any([AbortSignal.timeout(8000), ...(signal ? [signal] : []), ...(scope ? [scope.signal] : [])]);
     let csrf: string | undefined;
     if (method !== 'GET' && method !== 'HEAD') {
       csrf = interactionCsrfToken();
@@ -50,8 +52,9 @@ export class InteractionClient {
       const error = value && typeof value === 'object' ? value as Record<string, unknown> : {};
       throw new InteractionError(typeof error.code === 'string' ? error.code : 'REQUEST_FAILED', error.retryable === true, response.status);
     }
-    if (response.status === 204) return { data: null as T, nextCursor: null };
-    return response.json() as Promise<ResponseEnvelope<T>>;
+    const value = response.status === 204 ? { data: null as T, nextCursor: null } : await response.json() as ResponseEnvelope<T>;
+    if (scope) assertAccount(scope);
+    return value;
   }
   stats(wallet: string, signal?: AbortSignal) { return this.request<FollowStats>(`/users/${encodeURIComponent(wallet)}/follow-stats`, 'GET', undefined, undefined, signal); }
   follow(wallet: string, remove: boolean, key: string) { return this.request<{ success: boolean }>(`/follow/${encodeURIComponent(wallet)}`, remove ? 'DELETE' : 'PUT', undefined, key); }

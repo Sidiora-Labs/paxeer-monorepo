@@ -1,0 +1,1 @@
+CREATE INDEX CONCURRENTLY "indexer_committed_heads_height_integrity" ON "indexer"."indexer_committed_heads" ("chain_id", "height", "integrity");

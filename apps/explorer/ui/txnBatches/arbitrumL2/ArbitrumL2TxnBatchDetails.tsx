@@ -198,8 +198,6 @@ const ArbitrumL2TxnBatchDetails = ({ query }: Props) => {
           }}
         >
           <chakra.summary
-            minH="touchTarget"
-            minW="touchTarget"
             w="fit-content"
             textStyle="sm"
             color="accent"

@@ -53,7 +53,7 @@ const SimpleValue = ({
   }, [ postfix, prefix, value, tooltipContentBefore ]);
 
   return (
-    <Skeleton loading={ loading } display="inline-flex" alignItems="center" whiteSpace="pre" maxW="100%" overflow="hidden" { ...rest }>
+    <Skeleton loading={ loading } display="inline-flex" alignItems="center" whiteSpace="pre" maxW="100%" { ...rest }>
       { startElement }
       <Tooltip
         content={ tooltipContentProp ?? tooltipContent }

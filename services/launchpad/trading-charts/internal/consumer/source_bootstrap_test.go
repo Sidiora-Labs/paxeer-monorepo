@@ -244,7 +244,7 @@ func TestSourceVerifiedBootstrapFromPoolCreationLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{"market": true}}
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 	var fills []accounting.FillV1
 	var wires [][]byte
 	for _, s := range swaps {
@@ -276,7 +276,7 @@ func TestSourceVerifiedBootstrapFromPoolCreationLive(t *testing.T) {
 			t.Fatal(err)
 		}
 		exec(`INSERT INTO indexer.indexer_ingest_outbox(chain_id,transaction_hash,log_index,event_kind,payload) VALUES(125,$1,$2,'accounting.market.v1',$3)`, fill.Position.TransactionHash, int64(s.log.Index), payload)
-		envelope := delivery.Envelope{EventID: publication.PublicationID, EventType: "market", SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex}, EmittedAt: time.Now().UTC(), TraceID: "charts_live_bootstrap", PayloadHash: delivery.Hash(payload), Payload: payload}
+		envelope := delivery.Envelope{EventID: publication.PublicationID, EventType: accounting.MarketSubject, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex}, EmittedAt: time.Now().UTC(), TraceID: "charts_live_bootstrap", PayloadHash: delivery.Hash(payload), Payload: payload}
 		wire, err := envelope.Encode(policy, accounting.MarketSubject)
 		if err != nil {
 			t.Fatal(err)

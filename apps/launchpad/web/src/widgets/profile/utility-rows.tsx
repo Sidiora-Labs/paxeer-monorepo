@@ -183,7 +183,7 @@ function CalloutHistoryRow({ wallet }: { wallet: string }) {
           {state.data.map(callout => (
             <li key={callout.ID} className="flex items-center justify-between gap-3 rounded-sm bg-surface-3 px-3 py-2 text-sm">
               {/^0x[0-9a-fA-F]{40}$/.test(callout.PoolAddress)
-                ? <Link href={poolPath(125, callout.PoolAddress)} className="truncate font-mono text-text hover:text-accent">{shortAddress(callout.PoolAddress)}</Link>
+                ? <Link prefetch={false} href={poolPath(125, callout.PoolAddress)} className="truncate font-mono text-text hover:text-accent">{shortAddress(callout.PoolAddress)}</Link>
                 : <span className="truncate font-mono text-text-muted">{callout.PoolAddress}</span>}
               <span className="shrink-0 text-xs text-text-muted">{callout.Direction} · {relativeAge(callout.CreatedAt, now)} ago</span>
             </li>

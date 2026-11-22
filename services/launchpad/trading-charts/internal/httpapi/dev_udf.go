@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -32,6 +33,7 @@ const developmentSupplyUnavailable = "historical_supply_unavailable"
 // from the development candle store and symbols resolved from the
 // development indexer.
 func RegisterDevelopmentUDF(r chi.Router, symbols SymbolsHandler, history DevelopmentHistoryHandler) {
+	r.Get("/symbols", symbols.ServeHTTP)
 	r.Get("/v2/udf/config", udfConfig)
 	r.Get("/v2/udf/symbols", symbols.ServeHTTP)
 	r.Get("/v2/udf/history", history.ServeHTTP)
@@ -75,6 +77,7 @@ func (h DevelopmentHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Re
 		r.From = r.To - maxHistorySpan
 	}
 	if h.Source == nil {
+		slog.ErrorContext(req.Context(), "development history unavailable", "err", "history source absent")
 		historyError(w, 503, "DEPENDENCY_UNAVAILABLE", "canonical history unavailable", true)
 		return
 	}
@@ -86,11 +89,13 @@ func (h DevelopmentHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Re
 	}
 	rows, err := h.Source.QueryHistory(ctx, r, limit)
 	if err != nil || ctx.Err() != nil || len(rows) > MaxHistoryBars {
+		slog.ErrorContext(ctx, "development history read failed", "err", errors.Join(err, ctx.Err()), "rows", len(rows))
 		historyError(w, 503, "DEPENDENCY_UNAVAILABLE", "canonical history unavailable", true)
 		return
 	}
 	body, err := developmentValuationHistory(r, rows, mode)
 	if err != nil {
+		slog.ErrorContext(ctx, "development candle integrity failed", "err", err)
 		historyError(w, 503, "INTEGRITY_QUARANTINED", "malformed stored candle", false)
 		return
 	}

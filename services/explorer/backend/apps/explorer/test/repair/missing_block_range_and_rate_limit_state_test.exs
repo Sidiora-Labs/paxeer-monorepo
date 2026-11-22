@@ -152,15 +152,19 @@ defmodule Explorer.Repair.MissingBlockRangeAndRateLimitStateTest do
     end
 
     test "renewed ban survives an older expiry and its own timer clears all history", context do
-      update_action(time_interval_limit: 60_000, limitation_period: 3_000)
-      assert request(context, 2) == [:ok, :ignore]
+      interval = 60_000
+      ban_wait = 3_000
+      update_action(time_interval_limit: interval, limitation_period: 3_000)
+      assert request(context, 2, ban_wait + 5_000) == [:ok, :ignore]
+      first_window = div(System.system_time(:millisecond), interval)
       assert_consumed(context)
       [{_, first_value}] = :ets.lookup(:rate_limiter, context.key)
       [try_after, "1"] = String.split(first_value, ":")
       {old_timer, old_token} = Map.fetch!(:sys.get_state(context.limiter), context.key)
 
-      assert_eventually(fn -> System.system_time(:second) > String.to_integer(try_after) end, 3_000)
+      assert_eventually(fn -> System.system_time(:second) > String.to_integer(try_after) end, ban_wait)
       assert request(context, 1) == [:ignore]
+      assert div(System.system_time(:millisecond), interval) == first_window
       [{_, renewed_value}] = :ets.lookup(:rate_limiter, context.key)
       assert String.ends_with?(renewed_value, ":2")
       {new_timer, new_token} = Map.fetch!(:sys.get_state(context.limiter), context.key)
@@ -205,12 +209,12 @@ defmodule Explorer.Repair.MissingBlockRangeAndRateLimitStateTest do
     end
   end
 
-  defp request(context, count) do
+  defp request(context, count, room \\ nil) do
     # Keep the request burst (and a subsequent backoff renewal) away from a
     # fixed-window boundary in the real Hammer backend.
     interval = Application.get_env(:explorer, RateLimiter)[:on_demand][:time_interval_limit]
-    margin = min(div(interval, 2), 5_000)
-    assert_eventually(fn -> interval - rem(System.system_time(:millisecond), interval) > margin end, margin + 1_000)
+    room = room || min(div(interval, 2), 5_000)
+    assert_eventually(fn -> interval - rem(System.system_time(:millisecond), interval) > room end, room + 1_000)
     owner = self()
 
     {pid, monitor} =

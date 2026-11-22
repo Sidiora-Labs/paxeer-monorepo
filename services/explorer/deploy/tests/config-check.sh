@@ -60,7 +60,7 @@ done
 
 for pair in explorer-backend:BLOCKSCOUT_VERSION explorer-frontend:GIT_COMMIT_SHA; do
   image="${pair%%:*}" arg="${pair#*:}"
-  if ! grep -qE "^ARG $arg\$" "$repo/docker/$image/Dockerfile"; then
+  if ! grep -qE "^ARG $arg(=.*)?\$" "$repo/docker/$image/Dockerfile"; then
     echo "FAIL docker/$image/Dockerfile does not declare ARG $arg"
     fail=1
   fi

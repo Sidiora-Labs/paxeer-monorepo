@@ -58,6 +58,7 @@ func pressure(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 		now := shareddb.NowSeconds()
 		ps, found, err := st.PressureStats(ctx, poolAddress, now-3600)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "pressure lookup failed")
 			return
 		}

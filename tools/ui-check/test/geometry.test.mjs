@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
-import { checkSurface } from "../check.mjs";
-import { GEOMETRY_WIDTHS, readSurface } from "../config.mjs";
+import { checkSurface, readSurface } from "../check.mjs";
+import { GEOMETRY_WIDTHS } from "../config.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 const cli = resolve(dirname(fileURLToPath(import.meta.url)), "../check.mjs");
@@ -249,7 +249,7 @@ async function reportedKindsKeepTheirContextAndDetermineTheExitStatus(context) {
       reported = report;
       assert.equal(report.reportedCount, 22);
       assert.equal(report.failingCount, 0);
-      assert.match(result.stdout, /^scale: 22 renders, 0 did not render, 0 showed nothing, 22 findings, 22 reported, 0 failing\n/);
+      assert.match(result.stdout, /^scale: 22 renders, 0 did not render, 0 showed nothing, 22 findings, 22 reported, 0 failing, 0 retried\n/);
       assert.match(result.stdout, /Total: 22 renders, 0 showed nothing, 22 findings, 22 reported, 0 failing, 0 cancelled, pass/);
     } else assert.deepEqual(report.findings, reported.findings);
     context.diagnostic(result.stdout.trim());

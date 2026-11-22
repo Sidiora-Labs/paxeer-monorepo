@@ -25,7 +25,7 @@ import (
 //     cup program exists) and the per-cup reads answer 404 NOT_FOUND;
 //   - operations with no backing store anywhere in the development stack
 //     (conditional orders, price alerts, the push inbox, funding rails,
-//     narratives, the SSE event stream) answer the frozen v2 503
+//     narratives) answer the frozen v2 503
 //     DEPENDENCY_UNAVAILABLE envelope with retryable=false, so clients render
 //     their unavailable state instead of retrying or treating a plain-text
 //     404 as a transport fault.
@@ -49,7 +49,6 @@ var developmentUnservedOperations = []struct{ method, path string }{
 	{http.MethodGet, "/v2/funding/rails"},
 	{http.MethodGet, "/v2/narratives"},
 	{http.MethodGet, "/v2/narratives/{narrativeId}/feed"},
-	{http.MethodGet, "/v2/events/stream"},
 }
 
 // developmentNetworkReads serves the network reads from the embedded

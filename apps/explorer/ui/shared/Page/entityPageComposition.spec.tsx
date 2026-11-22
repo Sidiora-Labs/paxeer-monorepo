@@ -98,7 +98,7 @@ function sectionGroupRendersLabelRowsAndResponsiveGrid() {
   expect(Array.from(container.querySelectorAll('[data-detailed-info-value]')).map((row) => row.textContent)).toEqual([ '2 ETH', '0.001 ETH' ]);
   expect(container.querySelector('[data-detailed-info-label] svg')).not.toBeNull();
   const styles = Array.from(document.styleSheets).flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText)).join('\n');
-  expect(styles).toContain('220px minmax(0, 1fr)');
+  expect(styles).toContain('calc(var(--chakra-spacing-40) + var(--chakra-spacing-15)) minmax(0, 1fr)');
   expect(styles).toContain('minmax(0, 1fr)');
   expect(styles).toContain('--chakra-colors-hairline');
 }

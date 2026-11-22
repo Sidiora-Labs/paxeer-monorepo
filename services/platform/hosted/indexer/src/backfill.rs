@@ -12,6 +12,8 @@
 //! at the cutover the live cursor is written at exactly the cutover, so
 //! live ingestion resumes at `cutover + 1` with no overlap and no gap.
 
+use std::time::Duration;
+
 use serde_json::Value;
 
 use crate::blockscout::{rpc_blocks, BlockscoutRange};
@@ -37,6 +39,7 @@ pub struct Backfill<'a> {
     range_blocks: u64,
     readers: usize,
     batch_blocks: usize,
+    retry_delay: Duration,
 }
 
 fn hash_of(value: &Value, what: &str) -> Result<String, IndexError> {
@@ -88,7 +91,15 @@ impl<'a> Backfill<'a> {
             range_blocks,
             readers: if readers == 0 { 1 } else { readers },
             batch_blocks: if batch_blocks == 0 { 1 } else { batch_blocks },
+            retry_delay: Duration::from_millis(250),
         }
+    }
+
+    /// Sets the initial pause between source retries; each repeat doubles it.
+    #[must_use]
+    pub const fn with_retry_delay(mut self, delay: Duration) -> Self {
+        self.retry_delay = delay;
+        self
     }
 
     /// The next height to backfill, or `None` when the backfill has reached
@@ -171,14 +182,25 @@ impl<'a> Backfill<'a> {
         F: FnMut(u64, u64) -> Result<BlockscoutRange, IndexError>,
     {
         self.node.check_chain_id()?;
+        let mut repeats = 0;
         loop {
-            match self.step(store, &mut fetch)? {
-                BackfillOutcome::Advanced { from, to, filled } => {
+            let range = self.next_range(store)?;
+            match (self.step(store, &mut fetch), range) {
+                (Ok(BackfillOutcome::Advanced { from, to, filled }), _) => {
+                    repeats = 0;
                     eprintln!(
                         "layerx-indexer backfill committed {from}..={to} ({filled} from the node)"
                     );
                 }
-                BackfillOutcome::Finished { cutover } => return Ok(cutover),
+                (Ok(BackfillOutcome::Finished { cutover }), _) => return Ok(cutover),
+                (Err(IndexError::Source(_)), Some((from, to))) if repeats < 5 => {
+                    repeats += 1;
+                    eprintln!(
+                        "layerx-indexer backfill retry {from}..={to} repeat={repeats} class=source"
+                    );
+                    std::thread::sleep(self.retry_delay.saturating_mul(1 << (repeats - 1)));
+                }
+                (Err(error), _) => return Err(error),
             }
         }
     }

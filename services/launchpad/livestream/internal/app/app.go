@@ -9,11 +9,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -214,7 +214,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 	handlers := streams.New(deps)
-	mux := sharedhttp.NewRouter(sharedhttp.ServerOptions{TrustedProxies: trustedProxies, CORSOrigins: cfg.CORSAllowedOrigins, Health: sharedhttp.HealthDeps{Custom: checks, State: a.tracker.Ready, DB: func(c context.Context) error { return cfg.CheckRuntimeSchema(c, a.pool) }, Redis: func(c context.Context) error { return a.redis.Ping(c).Err() }}})
+	for name, check := range checks {
+		checks[name] = loggedReadiness(logger, name, check)
+	}
+	mux := sharedhttp.NewRouter(sharedhttp.ServerOptions{TrustedProxies: trustedProxies, CORSOrigins: cfg.CORSAllowedOrigins, Health: sharedhttp.HealthDeps{Custom: checks, State: a.tracker.Ready, DB: loggedReadiness(logger, "database", func(c context.Context) error { return cfg.CheckRuntimeSchema(c, a.pool) }), Redis: loggedReadiness(logger, "redis", func(c context.Context) error { return a.redis.Ping(c).Err() })}})
 	mux.Group(func(gr chi.Router) {
 		limiter := sharedhttp.RateLimit(sharedhttp.RateLimitOptions{Max: rateLimitMax, Window: rateLimitWindow, Redis: a.redis})
 		if platform {
@@ -263,6 +266,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					a.workerMu.Lock()
 					a.workerError = workerErr
 					a.workerMu.Unlock()
+					if logger != nil {
+						logger.Error("livestream worker stopped", slog.Any("err", workerErr))
+					}
 					a.tracker.BeginDrain()
 					select {
 					case a.failure <- errors.New("livestream_worker_failure"):
@@ -280,6 +286,17 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	owned = true
 	return a, nil
 }
+
+func loggedReadiness(logger *slog.Logger, dependency string, check sharedhttp.Check) sharedhttp.Check {
+	return func(ctx context.Context) error {
+		err := check(ctx)
+		if err != nil && logger != nil {
+			logger.Error("livestream readiness failed", slog.String("dependency", dependency), slog.Any("err", err))
+		}
+		return err
+	}
+}
+
 func (a *App) workerReady(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -341,7 +358,7 @@ func Run(parent context.Context) error {
 		return err
 	}
 	defer a.Close()
-	srv := &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: a.Router, ConnState: a.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
+	srv := &http.Server{Addr: net.JoinHostPort(cfg.BindAddress, strconv.Itoa(cfg.Port)), Handler: a.Router, ConnState: a.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	serveErr := make(chan error, 2)
 	var privateSrv *http.Server
 	if a.private != nil {

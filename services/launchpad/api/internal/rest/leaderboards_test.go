@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,6 +19,7 @@ const (
 	leaderboardWalletA = "0xaaaa000000000000000000000000000000000001"
 	leaderboardWalletB = "0xbbbb000000000000000000000000000000000002"
 	leaderboardWalletC = "0xcccc000000000000000000000000000000000003"
+	leaderboardWalletD = "0xdddd000000000000000000000000000000000004"
 )
 
 // insertWindowFill commits one accounting fill with an explicit side, trader
@@ -25,19 +28,58 @@ const (
 func insertWindowFill(t *testing.T, pool *pgxpool.Pool, address string, sequence int, side, usdl, tokenAmount, fee string, sender string, trader *string, blockTimestamp int64) {
 	t.Helper()
 	position := poolReadsPosition(int64(1000+sequence), int64(sequence))
-	position.TransactionHash = "0x" + strings.Repeat(address[2:4], 32)
-	paid, disposition := usdl, "distributed_usdl"
+	position.TransactionHash = fmt.Sprintf("0x%064x", 1000+sequence)
+	logIndex := strconv.Itoa(sequence - 1)
+	receipt := fmt.Sprintf("%064x", 2000+sequence)
+	paid, disposition, kind, from, to := usdl, "distributed_usdl", "output-transfer", address, sender
 	if side == "sell" {
-		paid, disposition = tokenAmount, "retained_token_reserve"
+		paid, disposition, kind, from, to = tokenAmount, "retained_token_reserve", "input-transfer", sender, address
 	}
 	feeBps := uint16(30)
 	attribution := accounting.Attribution{TransactionSender: sender, Quality: "unavailable", Evidence: []accounting.EvidenceRef{}}
 	if trader != nil {
 		attribution.Trader = trader
+		attribution.Payer = trader
+		attribution.Recipient = trader
 		attribution.Quality = "exact_receipt"
+		attribution.Evidence = []accounting.EvidenceRef{{Kind: kind, ArtifactSHA256: receipt, ArtifactID: position.TransactionHash, LogIndex: &logIndex}}
 	}
-	fill := accounting.FillV1{Version: accounting.FillVersion, Position: position, ActualEmitter: address, PoolAddress: address, Side: side, TokenAmountRaw: tokenAmount, USDLAmountRaw: usdl, PaidInputRaw: paid, FeeRaw: fee, FeeDisposition: disposition, Execution: accounting.ExecutionPolicy{Quality: "qualified_execution", FeeBPS: &feeBps, Evidence: []accounting.EvidenceRef{}}, Attribution: attribution, Provenance: accounting.Provenance{DeploymentID: "fixture125", ABIRevision: "sidiora-v1", EmitterCodeEpoch: "epoch1", PoolCodeEpoch: "epoch1", ReceiptSHA256: strings.Repeat("c", 64), HeaderSHA256: strings.Repeat("d", 64)}, BlockTimestampSeconds: strconv.FormatInt(blockTimestamp, 10)}
+	digest := accounting.Digest(strings.Repeat("e", 64))
+	fill := accounting.FillV1{
+		Version: accounting.FillVersion, Position: position, ActualEmitter: address, PoolAddress: address,
+		Token:      accounting.Asset{Address: "0x" + strings.Repeat("3", 40), Decimals: 18},
+		Settlement: accounting.Asset{Address: "0x" + strings.Repeat("4", 40), Decimals: 6},
+		Side:       side, TokenAmountRaw: tokenAmount, USDLAmountRaw: usdl, PaidInputRaw: paid, FeeRaw: fee,
+		FeeDisposition: disposition, InputDerivationQuality: "receipt_incomplete", Attribution: attribution,
+		Execution: accounting.ExecutionPolicy{
+			Quality: "qualified_execution", FeeBPS: &feeBps, ConfigDigest: &digest,
+			PreTransactionStateDigest: &digest, ReplayEvidenceDigest: &digest,
+			Evidence: []accounting.EvidenceRef{{Kind: "execution", ArtifactSHA256: receipt, ArtifactID: position.TransactionHash}},
+		},
+		Provenance:            accounting.Provenance{DeploymentID: "fixture125", ABIRevision: "sidiora-v1", EmitterCodeEpoch: "epoch1", PoolCodeEpoch: "epoch1", ReceiptSHA256: receipt, HeaderSHA256: strings.Repeat("d", 64)},
+		BlockTimestampSeconds: strconv.FormatInt(blockTimestamp, 10),
+	}
 	fill.SourceFillID = accounting.SourceFillIdentity(fill.Position, fill.Provenance.DeploymentID)
+	if err := accounting.ValidateFillV1(fill); err != nil {
+		t.Fatal(err)
+	}
+	movementPosition := position
+	movementPosition.LogIndex = logIndex
+	movement, err := json.Marshal(map[string]any{"token": fill.Token.Address, "from": from, "to": to, "amountRaw": tokenAmount, "position": movementPosition, "provenance": fill.Provenance})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provenance, err := json.Marshal(fill.Provenance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES(125,$1,$2,$3,3,$4,$5,'[]','')`, position.TransactionHash, sequence-1, 1000+sequence, position.BlockHash, fill.Token.Address); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_token_transfers(chain_id,transaction_hash,log_index,token,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,payload) VALUES(125,$1,$2,$3,$4,$5,$6,$7,3,$8,$9,$10)`, position.TransactionHash, sequence-1, fill.Token.Address, from, to, tokenAmount, 1000+sequence, position.BlockHash, provenance, movement); err != nil {
+		t.Fatal(err)
+	}
 	raw, err := json.Marshal(fill)
 	if err != nil {
 		t.Fatal(err)
@@ -61,18 +103,21 @@ func leaderboardEntries(t *testing.T, envelope map[string]any) ([]map[string]any
 
 func TestLeaderboardProductionRead(t *testing.T) {
 	f := newPoolReadsFixture(t, "")
+	applyLeaderboardTransfers(t, f.pool)
 	now := time.Now().Unix()
 	walletA, walletB, walletC := leaderboardWalletA, leaderboardWalletB, leaderboardWalletC
 	insertWindowFill(t, f.pool, f.first, 10, "buy", "1000000", "500000000000000000000", "3000", walletA, &walletA, now-3600)
 	insertWindowFill(t, f.pool, f.first, 11, "sell", "2500000", "400000000000000000000", "1000", walletA, &walletA, now-1800)
-	insertWindowFill(t, f.pool, f.first, 12, "buy", "4000000", "900000000000000000000", "12000", walletB, nil, now-900)
+	insertWindowFill(t, f.pool, f.first, 12, "buy", "4000000", "900000000000000000000", "12000", walletB, &walletB, now-900)
 	insertWindowFill(t, f.pool, f.first, 13, "buy", "500000", "100000000000000000000", "1500", walletC, &walletC, now-3*86400)
 	// Realised PnL: A sells 400 of 500 bought for 1000000 (basis 800000) for
 	// 2500000; B sells 100 of 900 bought for 4000000 (basis 444444) for 300000
-	// without trader attribution; C sells 50 of 100 bought for 500000 (basis
+	// with receipt attribution; C sells 50 of 100 bought for 500000 (basis
 	// 250000) for 100000 two days ago. Buy-only wallets realise nothing.
-	insertWindowFill(t, f.pool, f.first, 14, "sell", "300000", "100000000000000000000", "0", walletB, nil, now-600)
+	insertWindowFill(t, f.pool, f.first, 14, "sell", "300000", "100000000000000000000", "0", walletB, &walletB, now-600)
 	insertWindowFill(t, f.pool, f.first, 15, "sell", "100000", "50000000000000000000", "0", walletC, &walletC, now-2*86400)
+	insertWindowFill(t, f.pool, f.first, 16, "buy", "1", "1", "0", leaderboardWalletD, nil, now-120)
+	insertWindowFill(t, f.pool, f.first, 17, "sell", "1", "1", "0", leaderboardWalletD, nil, now-60)
 
 	cases := []struct {
 		name   string
@@ -102,14 +147,14 @@ func TestLeaderboardProductionRead(t *testing.T) {
 	if len(entries) != 2 || entries[0]["wallet"] != walletA || entries[0]["metricRaw"] != "1700000" || entries[0]["metricSigned"] != "1700000" || entries[0]["quality"] != "complete" || entries[0]["rank"] != float64(1) {
 		t.Fatalf("trader 24h first entry: %v", entries)
 	}
-	if entries[1]["wallet"] != walletB || entries[1]["metricRaw"] != "144444" || entries[1]["metricSigned"] != "-144444" || entries[1]["quality"] != "partial" || entries[1]["rank"] != float64(2) {
+	if entries[1]["wallet"] != walletB || entries[1]["metricRaw"] != "144444" || entries[1]["metricSigned"] != "-144444" || entries[1]["quality"] != "complete" || entries[1]["rank"] != float64(2) {
 		t.Fatalf("trader 24h second entry: %v", entries)
 	}
 	if snapshot["category"] != "trader" || snapshot["window"] != "24h" || snapshot["methodologyVersion"] == "" || day["quality"] != "partial" || day["nextCursor"] != nil {
 		t.Fatalf("trader 24h snapshot: %s", string(mustMarshal(day)))
 	}
 	watermark := snapshot["watermark"].(map[string]any)
-	if watermark["height"] != "1015" || watermark["projectionRevision"] != "15" || watermark["integrity"] != "healthy" || watermark["blockHash"] != "0x"+strings.Repeat("cd", 32) || day["revision"] != "15" {
+	if watermark["height"] != "1017" || watermark["projectionRevision"] != "17" || watermark["integrity"] != "healthy" || watermark["blockHash"] != "0x"+strings.Repeat("cd", 32) || day["revision"] != "17" {
 		t.Fatalf("watermark: %v revision=%v", watermark, day["revision"])
 	}
 	if !reflectEqualJSON(day["watermark"], snapshot["watermark"]) {
@@ -124,7 +169,7 @@ func TestLeaderboardProductionRead(t *testing.T) {
 
 	volume := assertV2Success(t, getV2(t, f.srv.URL+"/v2/leaderboards/volume?window=24h"), "LeaderboardsResponse")
 	entries, _ = leaderboardEntries(t, volume)
-	if len(entries) != 2 || entries[0]["wallet"] != walletB || entries[0]["metricRaw"] != "4300000" || entries[1]["wallet"] != walletA || entries[1]["metricRaw"] != "3500000" || entries[1]["quality"] != "complete" {
+	if len(entries) != 3 || entries[0]["wallet"] != walletB || entries[0]["metricRaw"] != "4300000" || entries[1]["wallet"] != walletA || entries[1]["metricRaw"] != "3500000" || entries[1]["quality"] != "complete" || entries[2]["wallet"] != leaderboardWalletD || entries[2]["metricRaw"] != "2" || entries[2]["quality"] != "partial" {
 		t.Fatalf("volume 24h: %v", entries)
 	}
 	if _, signed := entries[0]["metricSigned"]; signed {
@@ -182,4 +227,85 @@ func reflectEqualJSON(a, b any) bool {
 	left, errA := json.Marshal(a)
 	right, errB := json.Marshal(b)
 	return errA == nil && errB == nil && string(left) == string(right)
+}
+
+func TestLeaderboardEmptyAccountingProductionRead(t *testing.T) {
+	f := newPoolReadsFixture(t, "")
+	applyLeaderboardTransfers(t, f.pool)
+	ctx := context.Background()
+	internaltest.ApplyReadMigrations(t, f.pool, "60001")
+	if _, err := f.pool.Exec(ctx, `DELETE FROM stats.accounting_market_commits`); err != nil {
+		t.Fatal(err)
+	}
+	for _, category := range []string{"trader", "creator", "volume"} {
+		for _, window := range []string{"24h", "7d", "30d"} {
+			assertV2Error(t, getV2(t, f.srv.URL+"/v2/leaderboards/"+category+"?window="+window), 503, "DEPENDENCY_UNAVAILABLE")
+		}
+	}
+	insertCommittedHead(t, f.pool, 900, "healthy")
+	insertCommittedHead(t, f.pool, 1001, "healthy")
+	type emptyScope struct {
+		path, snapshotID, cursor string
+	}
+	scopes := []emptyScope{}
+	before := time.Now().UTC().Truncate(time.Millisecond)
+	for _, category := range []string{"trader", "creator", "volume"} {
+		for _, window := range []string{"24h", "7d", "30d"} {
+			t.Run(category+"/"+window, func(t *testing.T) {
+				path := "/v2/leaderboards/" + category + "?window=" + window
+				envelope := assertV2Success(t, getV2(t, f.srv.URL+path), "LeaderboardsResponse")
+				entries, snapshot := leaderboardEntries(t, envelope)
+				if len(entries) != 0 || envelope["nextCursor"] != nil || envelope["quality"] != "complete" || envelope["revision"] != "1001" || snapshot["category"] != category || snapshot["window"] != window || snapshot["methodologyVersion"] == "" {
+					t.Fatalf("empty leaderboard: %s", mustMarshal(envelope))
+				}
+				watermark := snapshot["watermark"].(map[string]any)
+				observed, err := time.Parse("2006-01-02T15:04:05.000Z", watermark["observedAt"].(string))
+				if err != nil || observed.Before(before) || observed.After(time.Now()) || watermark["chainId"] != "125" || watermark["height"] != "1001" || watermark["blockHash"] != "0x"+strings.Repeat("ab", 32) || watermark["projectionRevision"] != "1001" || watermark["integrity"] != "healthy" || !reflectEqualJSON(envelope["watermark"], watermark) {
+					t.Fatalf("empty watermark: %v, %v", watermark, err)
+				}
+				cursorJSON, err := json.Marshal(map[string]any{"snapshotId": snapshot["snapshotId"], "offset": 0, "windowEnd": observed.Unix()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				cursor := base64.RawURLEncoding.EncodeToString(cursorJSON)
+				replay := assertV2Success(t, getV2(t, f.srv.URL+path+"&cursor="+cursor), "LeaderboardsResponse")
+				replayedEntries, replayed := leaderboardEntries(t, replay)
+				if replayed["snapshotId"] != snapshot["snapshotId"] || len(replayedEntries) != 0 || replay["nextCursor"] != nil {
+					t.Fatalf("empty snapshot replay: %s", mustMarshal(replay))
+				}
+				scopes = append(scopes, emptyScope{path: path, snapshotID: snapshot["snapshotId"].(string), cursor: cursor})
+			})
+		}
+	}
+	if len(scopes) != 9 {
+		t.Fatalf("empty scopes: %+v", scopes)
+	}
+	stats := assertV2Success(t, getV2(t, f.srv.URL+"/v2/holder-rewards/stats"), "HolderRewardsStatsResponse")
+	data := stats["data"].(map[string]any)
+	if data["cumulativeDistributedRaw"] != "0" || data["walletsRewarded"] != float64(0) {
+		t.Fatalf("empty holder rewards: %s", mustMarshal(stats))
+	}
+	for _, sort := range []string{"rewards", "mcap", "holders", "age"} {
+		envelope := assertV2Success(t, getV2(t, f.srv.URL+"/v2/holder-rewards/pools?sort="+sort), "HolderRewardsPoolsResponse")
+		if len(holderRewardItems(t, envelope)) != 0 || envelope["nextCursor"] != nil {
+			t.Fatalf("empty holder reward pools: %s", mustMarshal(envelope))
+		}
+	}
+	wallet := leaderboardWalletA
+	insertWindowFill(t, f.pool, f.first, 1, "buy", "1000000", "500000000000000000000", "3000", wallet, &wallet, before.Unix()-1)
+	for _, scope := range scopes {
+		envelope := assertV2Success(t, getV2(t, f.srv.URL+scope.path), "LeaderboardsResponse")
+		_, snapshot := leaderboardEntries(t, envelope)
+		if snapshot["snapshotId"] == scope.snapshotID || envelope["revision"] != "1" {
+			t.Fatalf("first fill snapshot: %s", mustMarshal(envelope))
+		}
+		assertV2Error(t, getV2(t, f.srv.URL+scope.path+"&cursor="+scope.cursor), 409, "RESNAPSHOT_REQUIRED")
+	}
+	if _, err := f.pool.Exec(ctx, `DELETE FROM stats.accounting_market_commits`); err != nil {
+		t.Fatal(err)
+	}
+	insertCommittedHead(t, f.pool, 1002, "quarantined")
+	for _, scope := range scopes {
+		assertV2Error(t, getV2(t, f.srv.URL+scope.path), 503, "INTEGRITY_QUARANTINED")
+	}
 }

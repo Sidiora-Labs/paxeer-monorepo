@@ -3,9 +3,12 @@ import plugin from "tailwindcss/plugin";
 export const componentsPlugin = () =>
   plugin(function ({ addComponents, addBase }) {
     const components = {
+      ".card": {
+        color: "red",
+      },
       ".card:has(.header-list)": {
-        paddingTop: "var(--oui-space-0)",
-        paddingBottom: "var(--oui-space-0)",
+        paddingTop: "0px",
+        paddingBottom: "0px",
       },
     };
 

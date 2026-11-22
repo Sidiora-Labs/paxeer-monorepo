@@ -56,12 +56,13 @@ export interface SkeletonProps extends Omit<RecipeProps, 'loading'> {
 
 export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
   function Skeleton(props, ref) {
-    const { loading = false, ...rest } = props;
+    const { loading = false, inert, ...rest } = props;
     return (
       <RecipeComponent
         ref={ ref }
         { ...(loading ? { 'data-loading': true, state: 'loading' as const } : { variant: 'none' }) }
         { ...rest }
+        inert={ loading || inert }
       />
     );
   },

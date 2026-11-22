@@ -63,11 +63,20 @@ def main():
     deployment = json.loads(manifest.read_text())
     items = []
     for binding in sorted((module / 'bindings').glob('*.go')):
-        if binding.name.endswith('_test.go'):
+        if binding.name.endswith('_test.go') or not binding.read_text().startswith('// Code generated - DO NOT EDIT.'):
             continue
         name, existing = binding_metadata(binding)
         abi_path = args.abi_root / (name + '.json')
-        if abi_path.is_file():
+        if name == 'NativeLaunchpad':
+            abi_path = module.parents[2] / 'precompiles/launchpad/abi.json'
+            chain_launch_path = abi_path.parent / 'abi/ChainLaunch.json'
+            methods = {entry['name'] for entry in json.loads(chain_launch_path.read_text())
+                       if entry['type'] == 'function'}
+            current = [entry for entry in json.loads(abi_path.read_text())
+                       if entry['type'] in {'event', 'error'} or
+                       (entry['type'] == 'function' and entry['name'] in methods)]
+            source = 'native-abi'
+        elif abi_path.is_file():
             current = json.loads(abi_path.read_text())
             source = 'role-abi'
         else:
@@ -92,7 +101,9 @@ def main():
             'missing_signatures': added,
             'removed_signatures': removed,
             'changed_schemas': [k for k in sorted(new.keys() & old.keys()) if canonical(new[k]) != canonical(old[k])],
-            'current_address': deployment.get(name + '_proxy', deployment.get(name)),
+            'current_address': (json.loads((module.parent / 'shared/config/deployment/current.json').read_text())
+                                ['roles']['LaunchpadPrecompile']['address'] if name == 'NativeLaunchpad' else
+                                deployment.get(name + '_proxy', deployment.get(name))),
         })
     records = {
         k: {field: v.get(field) for field in ['address', 'status', 'txHash', 'blockNumber', 'creationHash', 'runtimeHash']}

@@ -40,10 +40,10 @@ export function createMetadataImageTransport(authority:CreatorImageAuthority){
   if(!operation){operation={sha256:hash};if(pending.size>=32)throw new Error('Too many unfinished image operations. Reload before starting another image.');pending.set(operationId,operation)}
   const headers=await authority.authenticationHeaders();
   const endpoint=metadataApiUrl(`/v2/tokens/${token}/assets/${operationId}`);
-  let asset=await assetResponse(await fetch(endpoint,{method:'PUT',body:file,signal,credentials:'include',redirect:'error',headers:{...headers,'Content-Type':file.type,'Idempotency-Key':operationId}}),token);
+  let asset=await assetResponse(await fetch(endpoint,{method:'PUT',body:file,signal,credentials:'omit',redirect:'error',headers:{...headers,'Content-Type':file.type,'Idempotency-Key':operationId}}),token);
   if(asset.assetId!==operationId||asset.ownerWallet.toLowerCase()!==authority.wallet.toLowerCase()||asset.sha256.toLowerCase()!=='0x'+hash)throw new Error('Image response did not match this operation.');
   const deadline=Date.now()+60000;
-  while(asset.state!=='approved'&&asset.state!=='rejected'&&Date.now()<deadline){await pause(signal,1000);asset=await assetResponse(await fetch(endpoint,{signal,credentials:'include',cache:'no-store',redirect:'error',headers:{...headers,'Idempotency-Key':operationId}}),token);if(asset.assetId!==operationId||asset.ownerWallet.toLowerCase()!==authority.wallet.toLowerCase()||asset.sha256.toLowerCase()!=='0x'+hash)throw new Error('Image status changed identity.');}
+  while(asset.state!=='approved'&&asset.state!=='rejected'&&Date.now()<deadline){await pause(signal,1000);asset=await assetResponse(await fetch(endpoint,{signal,credentials:'omit',cache:'no-store',redirect:'error',headers:{...headers,'Idempotency-Key':operationId}}),token);if(asset.assetId!==operationId||asset.ownerWallet.toLowerCase()!==authority.wallet.toLowerCase()||asset.sha256.toLowerCase()!=='0x'+hash)throw new Error('Image status changed identity.');}
   if(asset.state!=='approved')return projectV2Image(asset,operationId,authority.revision,null);
   let metadata=await fetchMetadataV2(token,signal);
   if(metadata?.token.logoAssetId===asset.assetId&&BigInt(metadata.revision)>BigInt(authority.revision)){const outcome=projectV2Image(asset,operationId,authority.revision,metadata);pending.delete(operationId);return outcome;}

@@ -108,7 +108,7 @@ func (c Change) Validate() error {
 		if c.Document == nil || c.Document.Validate() != nil || c.PoolAddress != c.Document.PoolAddress {
 			return ErrInvalid
 		}
-	case "visibility":
+	case valueVisibility:
 		if !exactIdentity(c.PoolAddress) {
 			return ErrInvalid
 		}
@@ -192,7 +192,14 @@ func (p *Projection) authorizeTx(ctx context.Context, tx pgx.Tx, e delivery.Enve
 				Symbol string `json:"symbol"`
 			} `json:"metadata"`
 		}
-		if json.Unmarshal(raw, &fact) != nil || fact.Metadata == nil || fact.Metadata.Name != d.Name || fact.Metadata.Symbol != d.Ticker || fact.Pool != d.PoolAddress || fact.Token != d.TokenAddress || fact.Creator != d.Creator {
+		if json.Unmarshal(raw, &fact) != nil || fact.Pool != d.PoolAddress || fact.Token != d.TokenAddress || fact.Creator != d.Creator {
+			return delivery.ErrIntegrity
+		}
+		var name, ticker string
+		if fact.Metadata != nil {
+			name, ticker = fact.Metadata.Name, fact.Metadata.Symbol
+		}
+		if displayPrefix(name, 100, 400) != d.Name || displayPrefix(ticker, 16, 64) != d.Ticker || d.NameKey != storedNameKey(d.Name) || d.CanonicalTicker != canonicalTicker(d.Ticker) {
 			return delivery.ErrIntegrity
 		}
 		ts, err := strconv.ParseInt(fact.BlockTimestampSeconds, 10, 64)
@@ -223,7 +230,7 @@ func (p *Projection) authorizeTx(ctx context.Context, tx pgx.Tx, e delivery.Enve
 }
 func applyChangeTx(ctx context.Context, tx pgx.Tx, c Change) (bool, error) {
 	switch c.Kind {
-	case "visibility":
+	case valueVisibility:
 		result, err := tx.Exec(ctx, `INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone) VALUES($1,$2,$3,$4) ON CONFLICT(pool_address) DO UPDATE SET visibility_revision=excluded.visibility_revision,public=excluded.public,tombstone=excluded.tombstone WHERE stats_search.authority_v2.visibility_revision<excluded.visibility_revision`, c.PoolAddress, c.Revision, c.Public, c.Tombstone)
 		return result.RowsAffected() > 0, err
 	case valueProfileDeletion:
@@ -344,7 +351,26 @@ func applyChangeTx(ctx context.Context, tx pgx.Tx, c Change) (bool, error) {
 		}
 		changed = true
 	}
+	if c.Kind == valueCreation {
+		if _, err = tx.Exec(ctx, `INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone) VALUES($1,$2,$3,$4) ON CONFLICT(pool_address) DO NOTHING`, d.PoolAddress, d.VisibilityRevision, true, false); err != nil {
+			return false, err
+		}
+	}
 	return changed, nil
+}
+
+func (s Store) BackfillAuthority(ctx context.Context) (int64, error) {
+	if s.Pool == nil {
+		return 0, ErrUnavailable
+	}
+	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	result, err := s.Pool.Exec(bounded, `INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone)
+ SELECT d.pool_address,d.visibility_revision,true,false FROM stats_search.documents_v2 d
+ JOIN stats_search.active_v2 a ON a.generation=d.generation AND a.singleton
+ WHERE NOT EXISTS(SELECT 1 FROM stats_search.authority_v2 v WHERE v.pool_address=d.pool_address)
+ ON CONFLICT(pool_address) DO NOTHING`)
+	return result.RowsAffected(), err
 }
 
 type CanonicalCreation struct {
@@ -374,7 +400,7 @@ func (p *Projection) ConsumeCanonicalCreation(ctx context.Context, subject strin
 	defer cancel()
 	return p.Delivery.Consume(bounded, p.ConsumerID, p.InboxGeneration, subject, wire, message, func(ctx context.Context, tx pgx.Tx, e delivery.Envelope) error {
 		var fact CanonicalCreation
-		if !utf8.Valid(e.Payload) || json.Unmarshal(e.Payload, &fact) != nil || fact.Metadata == nil || fact.Position.ChainID != "125" || fact.Position.Height != e.SourceOrder.Height || fact.Position.TransactionIndex != e.SourceOrder.TransactionIndex || fact.Position.LogIndex != e.SourceOrder.LogIndex {
+		if !utf8.Valid(e.Payload) || json.Unmarshal(e.Payload, &fact) != nil || fact.Position.ChainID != "125" || fact.Position.Height != e.SourceOrder.Height || fact.Position.TransactionIndex != e.SourceOrder.TransactionIndex || fact.Position.LogIndex != e.SourceOrder.LogIndex {
 			return ErrInvalid
 		}
 		var same bool
@@ -388,11 +414,12 @@ func (p *Projection) ConsumeCanonicalCreation(ctx context.Context, subject strin
 		if err != nil || timestamp < 1 {
 			return ErrInvalid
 		}
-		query, err := Normalize(fact.Metadata.Name)
-		if err != nil {
-			return err
+		var name, ticker string
+		if fact.Metadata != nil {
+			name = displayPrefix(fact.Metadata.Name, 100, 400)
+			ticker = displayPrefix(fact.Metadata.Symbol, 16, 64)
 		}
-		d := IndexedDocument{Document: Document{Version: 1, ChainID: "125", PoolAddress: fact.Pool, TokenAddress: fact.Token, Name: fact.Metadata.Name, Ticker: fact.Metadata.Symbol, NameKey: query.Key, CanonicalTicker: canonicalTicker(fact.Metadata.Symbol), LanguageHints: []string{}, ConfusableWarnings: tickerWarnings(fact.Metadata.Symbol), CreationEventID: "125:" + fact.Position.TransactionHash + ":" + fact.Position.LogIndex, ChainHeight: fact.Position.Height, MetadataRevision: 1, VisibilityRevision: 1, PoolStatus: valueActive, IndexedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")}, Creator: fact.Creator, CreatedAt: time.Unix(timestamp, 0).UTC(), LifecycleRevision: 1, Volumes: map[string]string{}, RiskFlags: []string{}, SourceHeight: fact.Position.Height, SourceBlockHash: fact.Position.BlockHash}
+		d := IndexedDocument{Document: Document{Version: 1, ChainID: "125", PoolAddress: fact.Pool, TokenAddress: fact.Token, Name: name, Ticker: ticker, NameKey: storedNameKey(name), CanonicalTicker: canonicalTicker(ticker), LanguageHints: []string{}, ConfusableWarnings: tickerWarnings(ticker), CreationEventID: "125:" + fact.Position.TransactionHash + ":" + fact.Position.LogIndex, ChainHeight: fact.Position.Height, MetadataRevision: 1, VisibilityRevision: 1, PoolStatus: valueActive, IndexedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")}, Creator: fact.Creator, CreatedAt: time.Unix(timestamp, 0).UTC(), LifecycleRevision: 1, Volumes: map[string]string{}, RiskFlags: []string{}, SourceHeight: fact.Position.Height, SourceBlockHash: fact.Position.BlockHash}
 		if d.Validate() != nil {
 			return ErrInvalid
 		}
@@ -461,7 +488,7 @@ func (p *Projection) ConsumeAccountProfile(ctx context.Context, subject string, 
 				return err
 			}
 		} else {
-			if !boundedDisplay(label, 80, 320) || updated.IsZero() {
+			if !boundedDisplay(label, 80, 320) || strings.TrimSpace(label) == "" || updated.IsZero() {
 				return ErrInvalid
 			}
 			var deletedBefore bool

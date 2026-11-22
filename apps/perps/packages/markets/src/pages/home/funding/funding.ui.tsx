@@ -3,23 +3,11 @@ import { useTranslation } from "@paxeer-network/i18n";
 import { Box, TabPanel, Tabs } from "@paxeer-network/ui";
 import type { FundingScriptReturn } from "./funding.script";
 
-const LazySearchInput = React.lazy(() =>
-  import("../../../components/searchInput").then((mod) => {
-    return { default: mod.SearchInput };
-  }),
-);
+import { SearchInput } from "../../../components/searchInput";
 
-const LazyFundingOverviewWidget = React.lazy(() =>
-  import("../../../components/fundingOverview").then((mod) => {
-    return { default: mod.FundingOverviewWidget };
-  }),
-);
+import { FundingOverviewWidget } from "../../../components/fundingOverview";
 
-const LazyFundingComparisonWidget = React.lazy(() =>
-  import("../../../components/fundingComparison").then((mod) => {
-    return { default: mod.FundingComparisonWidget };
-  }),
-);
+import { FundingComparisonWidget } from "../../../components/fundingComparison";
 
 export const Funding: React.FC<FundingScriptReturn> = (props) => {
   const { t } = useTranslation();
@@ -39,7 +27,7 @@ export const Funding: React.FC<FundingScriptReturn> = (props) => {
         onValueChange={props.onTabChange as (value: string) => void}
         trailing={
           <React.Suspense fallback={null}>
-            <LazySearchInput classNames={{ root: "oui-my-1 oui-w-60" }} />
+            <SearchInput classNames={{ root: "oui-my-1 oui-w-[240px]" }} />
           </React.Suspense>
         }
       >
@@ -53,7 +41,7 @@ export const Funding: React.FC<FundingScriptReturn> = (props) => {
           testid="oui-testid-funding-overview-tab"
         >
           <React.Suspense fallback={null}>
-            <LazyFundingOverviewWidget />
+            <FundingOverviewWidget />
           </React.Suspense>
         </TabPanel>
         <TabPanel
@@ -66,7 +54,7 @@ export const Funding: React.FC<FundingScriptReturn> = (props) => {
           testid="oui-testid-funding-comparison-tab"
         >
           <React.Suspense fallback={null}>
-            <LazyFundingComparisonWidget />
+            <FundingComparisonWidget />
           </React.Suspense>
         </TabPanel>
       </Tabs>

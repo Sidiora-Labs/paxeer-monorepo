@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -332,13 +331,7 @@ func TestProductionGeneratedSDKUsesActualHTTPAndExactAmounts(t *testing.T) {
 	}
 	srv := httptest.NewServer(router)
 	defer srv.Close()
-	sdk, err := filepath.Abs("../../../../../sdk/launchpad/packages/sdk/dist/index.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = os.Stat(sdk); err != nil {
-		t.Fatalf("coordinator-built real generated SDK required: %v", err)
-	}
+	sdk := productionSDKFixture(t)
 	script := `import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 const {SdkClient,Operations,HttpError}=await import(pathToFileURL(process.argv[1]).href);

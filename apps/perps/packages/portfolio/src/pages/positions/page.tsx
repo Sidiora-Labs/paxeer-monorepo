@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import { useMemo, useState } from "react";
 import React from "react";
 import { useAccount } from "@paxeer-network/hooks";
@@ -12,9 +11,7 @@ import {
   TabPanel,
   DataFilter,
   formatAddress,
-  PopoverRoot,
-  PopoverTrigger,
-  PopoverContent,
+  Tooltip,
   InfoCircleIcon,
 } from "@paxeer-network/ui";
 import {
@@ -27,6 +24,10 @@ import {
 import type { SelectOption } from "@paxeer-network/ui/src/select/withOptions";
 import { AccountType } from "../assets/assetsPage/assets.ui.desktop";
 
+const EMPTY_SUB_ACCOUNTS: NonNullable<
+  ReturnType<typeof useAccount>["state"]["subAccounts"]
+> = [];
+
 enum TabsType {
   positions = "Positions",
   positionHistory = "Position history",
@@ -38,7 +39,7 @@ export const PositionsPage: React.FC<PositionsProps> = (props) => {
   const { t } = useTranslation();
   const { state, isMainAccount } = useAccount();
 
-  const subAccounts = state.subAccounts ?? [];
+  const subAccounts = state.subAccounts ?? EMPTY_SUB_ACCOUNTS;
 
   const [selectedAccount, setAccount] = React.useState<string>(AccountType.ALL);
 
@@ -90,14 +91,13 @@ export const PositionsPage: React.FC<PositionsProps> = (props) => {
       </Flex>
       <Divider className="oui-w-full" />
       {/* 26(title height) + 1(divider) + 32 (padding) */}
-      <Box width="100%" className="oui-h-[calc(100%_-_var(--oui-space-16))]">
+      <Box width="100%" className="oui-h-[calc(100%_-_59px)]">
         <Tabs
           value={tab}
           onValueChange={(e) => setTab(e as any)}
           classNames={{
             tabsList: "!oui-border-none oui-pb-1",
-            tabsContent:
-              "oui-h-[calc(100%_-_var(--oui-space-4)-var(--oui-space-3))]",
+            tabsContent: "oui-h-[calc(100%_-_28px)]",
             trigger: "oui-group",
           }}
           className="oui-h-full"
@@ -131,11 +131,7 @@ export const PositionsPage: React.FC<PositionsProps> = (props) => {
           >
             <PositionHistoryWidget {...props} enableSortingStorage={false} />
           </TabPanel>
-          <TabPanel
-            value={TabsType.liquidation}
-            title={t("positions.liquidation")}
-          >
-            <LiquidationTab />
+          <TabPanel value={TabsType.liquidation} title={<LiquidationTab />}>
             <LiquidationWidget />
           </TabPanel>
         </Tabs>
@@ -149,19 +145,9 @@ const LiquidationTab: React.FC = () => {
   return (
     <div className="oui-flex oui-gap-x-1">
       <span>{t("positions.liquidation")}</span>
-      <PopoverRoot>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label={t("positions.liquidation")}
-            className="oui-min-h-12 oui-min-w-12"
-          >
-            <InfoCircleIcon />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          className={`${styles.surface} oui-max-w-[calc(100vw-var(--oui-space-6))] oui-w-72 oui-bg-base-6`}
-        >
+      <Tooltip
+        className="oui-max-w-[275px] oui-bg-base-6"
+        content={
           <div>
             <div className="oui-text-pretty">
               {t("positions.Liquidation.tooltip.liquidation")}
@@ -177,8 +163,15 @@ const LiquidationTab: React.FC = () => {
               </a>
             </div>
           </div>
-        </PopoverContent>
-      </PopoverRoot>
+        }
+        arrow={{
+          className: "oui-fill-base-6",
+        }}
+      >
+        <button className="oui-hidden group-data-[state=active]:oui-block">
+          <InfoCircleIcon />
+        </button>
+      </Tooltip>
     </div>
   );
 };

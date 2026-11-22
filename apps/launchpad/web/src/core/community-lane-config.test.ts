@@ -9,4 +9,4 @@ function communityLaneIncludeMatchesSuites() {
   expect(suites).toEqual(['src/widgets/community-interactions/interaction-controls.test.tsx']);
 }
 
-test(communityLaneIncludeMatchesSuites);
+test(communityLaneIncludeMatchesSuites.name, communityLaneIncludeMatchesSuites);

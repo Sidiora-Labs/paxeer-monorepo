@@ -59,9 +59,6 @@ export const PositionHistory: FC<PositionHistoryProps> = (props) => {
             <button
               key={`item-${value}`}
               className="oui-relative oui-px-2 oui-py-[2px] oui-text-sm"
-              type="button"
-              aria-pressed={props.filterDays === value}
-              onClick={() => props.updateFilterDays(value as any)}
             >
               <div className="oui-z-10">
                 <Text.gradient
@@ -78,7 +75,9 @@ export const PositionHistory: FC<PositionHistoryProps> = (props) => {
               </div>
               <div
                 className="oui-absolute oui-inset-0 oui-rounded oui-opacity-[.12] oui-gradient-primary"
-                aria-hidden="true"
+                onClick={() => {
+                  props.updateFilterDays(value as any);
+                }}
               ></div>
             </button>
           );
@@ -112,7 +111,6 @@ export const PositionHistory: FC<PositionHistoryProps> = (props) => {
         }}
         classNames={{
           root: "!oui-h-[calc(100%_-_49px)]",
-          scroll: "oui-surface-scroll oui-overflow-x-auto",
         }}
       />
     </Flex>
@@ -143,7 +141,7 @@ export const MobilePositionHistory: FC<
       </Flex>
       <ListView
         className={cn(
-          "oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-hidden",
+          "oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-auto",
           props.classNames?.root,
         )}
         contentClassName={cn("!oui-space-y-1", props.classNames?.content)}

@@ -167,7 +167,7 @@ export function SlippageDrawer({ open, onClose, slippageBps, onChange }: Slippag
               {riskLevel === 'high' && (
                 <div className="flex items-start gap-2 rounded-xl bg-pax-error-muted   px-3 py-2.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-pax-error mt-0.5 shrink-0" />
-                  <p className="text-xs text-pax-error leading-relaxed">
+                  <p className="text-size-11 text-pax-error leading-relaxed">
                     High slippage ({slippageBps / 100}%) may result in unfavorable swap rates or
                     front-running.
                   </p>
@@ -176,7 +176,7 @@ export function SlippageDrawer({ open, onClose, slippageBps, onChange }: Slippag
               {riskLevel === 'low' && (
                 <div className="flex items-start gap-2 rounded-xl bg-pax-warning-muted   px-3 py-2.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-pax-warning mt-0.5 shrink-0" />
-                  <p className="text-xs text-pax-warning leading-relaxed">
+                  <p className="text-size-11 text-pax-warning leading-relaxed">
                     Very low slippage may cause your transaction to fail if the price moves
                     slightly.
                   </p>

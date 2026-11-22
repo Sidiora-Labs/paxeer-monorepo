@@ -139,10 +139,14 @@ type CapWarning struct {
 	Reason     string `json:"reason"`
 	Revision   string `json:"revision"`
 	ObservedAt string `json:"observedAt"`
+
+	Limit     uint64    `json:"limit"`
+	Effective time.Time `json:"effectiveAt"`
+	Expires   time.Time `json:"expiresAt"`
 }
 
 func (d CapDecision) Warning(now time.Time) CapWarning {
-	return CapWarning{Capability: d.Capability, Allowed: d.Allowed, Stale: d.Stale, Reason: d.Reason, Revision: strconv.FormatUint(d.Revision, 10), ObservedAt: now.UTC().Format("2006-01-02T15:04:05.000Z")}
+	return CapWarning{Capability: d.Capability, Allowed: d.Allowed, Stale: d.Stale, Reason: d.Reason, Revision: strconv.FormatUint(d.Revision, 10), ObservedAt: now.UTC().Format("2006-01-02T15:04:05.000Z"), Limit: d.Limit, Effective: d.Effective, Expires: d.Expires}
 }
 func ErrorResponse(err error) (int, string) {
 	switch err {

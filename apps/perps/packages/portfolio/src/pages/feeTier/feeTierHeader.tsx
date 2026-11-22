@@ -24,15 +24,15 @@ export const MobileHeaderItem: React.FC<FeeTierHeaderItemProps> = (props) => {
     <Flex justify="between" itemAlign="center" width="100%">
       <Text
         as="div"
-        intensity={80}
+        intensity={36}
         size="xs"
         weight="semibold"
-        className="oui-leading-normal"
+        className="oui-leading-[18px]"
       >
         {label}
       </Text>
       <Flex className="oui-gap-1.5" itemAlign="center" justify="between">
-        <Text size="xs" intensity={80} className="oui-leading-normal">
+        <Text size="xs" intensity={80} className="oui-leading-[24px]">
           {value}
         </Text>
         {interactive && <EffectiveFee />}
@@ -48,17 +48,17 @@ export const DesktopHeaderItem: React.FC<FeeTierHeaderItemProps> = (props) => {
       <Flex itemAlign="center" justify="between">
         <Text
           as="div"
-          intensity={80}
+          intensity={36}
           size="2xs"
           weight="semibold"
-          className="oui-leading-normal"
+          className="oui-leading-[18px]"
         >
           {label}
         </Text>
         {interactive && <EffectiveFee />}
       </Flex>
       <Flex className="oui-mt-1 oui-w-full">
-        <Text size="base" intensity={80} className="oui-leading-normal">
+        <Text size="base" intensity={80} className="oui-leading-[24px]">
           {value}
         </Text>
       </Flex>

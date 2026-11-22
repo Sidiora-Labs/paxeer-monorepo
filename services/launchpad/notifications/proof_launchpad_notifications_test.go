@@ -1,18 +1,9 @@
-// Proves: Store.CommitTrigger/SetReadV2/ListPage -> HTTPRuntime.Handler/HTTP.Handler/AdaptV2Notifications/writeError -> v2.DecodeNotificationsResponse/DecodeNotificationReadResponse/DecodeError.
-// The consumer uses real PostgreSQL and HTTPS with verified client certificates;
-// its authenticated account is the client certificate's subject. Closing the
-// server and database between production and consumption proves durable recovery.
-// The proof starts its own isolated PostgreSQL cluster using pg_config's binaries;
-// no externally provisioned database or environment configuration is required.
-// Repairs: store.go SetReadV2 and http.go readV2Notification now update and return
-// the first-read timestamp atomically, removing the lookup/deletion race;
-// v2_wire.go AdaptV2Notifications now exposes ErrInvalid for inconsistent read
-// state instead of an untyped error. errors.go writeError shares request-ID
-// normalization with successful responses. The exported signatures exercised here
-// are the existing Go surface, including SetReadV2's string ID and read flag.
+// Notification production, HTTPS consumption and recovery use registered
+// PostgreSQL migrations and the API REST role's reviewed privileges.
 package notifications
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -24,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -40,6 +32,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/google/uuid"
 )
@@ -47,7 +40,8 @@ import (
 func TestProofLaunchpadNotifications(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	dsn := proofNotificationsPostgres(t, ctx)
+	database := coordinatortest.Bootstrap(t, proofNotificationsPostgres(t, ctx), "api_rest_runtime")
+	dsn := database.Runtimes["api_rest_runtime"].DSN
 	account, other := uuid.NewString(), uuid.NewString()
 	const wallet = "0x0123456789abcdef0123456789abcdef01234567"
 	requestID := uuid.NewString()
@@ -63,6 +57,11 @@ func TestProofLaunchpadNotifications(t *testing.T) {
 		store = Store{DB: db}
 		if err = db.PingContext(ctx); err != nil {
 			t.Fatal(err)
+		}
+		var role string
+		var privileged bool
+		if err = db.QueryRowContext(ctx, `SELECT current_user,rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls FROM pg_roles WHERE rolname=current_user`).Scan(&role, &privileged); err != nil || privileged || role != database.Runtimes["api_rest_runtime"].Role {
+			t.Fatalf("notification runtime role: %s privileged=%v err=%v", role, privileged, err)
 		}
 	}
 	stop := func() {
@@ -94,9 +93,6 @@ func TestProofLaunchpadNotifications(t *testing.T) {
 			}
 		}
 	})
-	if _, err := store.DB.ExecContext(ctx, Schema); err != nil {
-		t.Fatal(err)
-	}
 	createdAt := time.Now().UTC().Truncate(time.Second).Add(123456789 * time.Nanosecond)
 	var produced []InboxItem
 	for _, event := range []string{"crossing-a", "crossing-b", "crossing-c"} {
@@ -302,12 +298,49 @@ func TestProofLaunchpadNotifications(t *testing.T) {
 	if err := json.Unmarshal(raw, &extensions); err != nil || len(extensions.Data.Items) != 3 || extensions.Data.Items[0].Summary != produced[0].Summary || !extensions.Data.Items[0].Read || extensions.Data.Items[1].Read {
 		t.Fatalf("adapter lost public summary/read fields: %+v err=%v", extensions, err)
 	}
+	legacyRequest, err := http.NewRequestWithContext(ctx, http.MethodPatch, server.URL+"/v2/discovery/notifications/"+produced[2].ID, strings.NewReader(`{"read":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyResponse, err := client.Do(legacyRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacyRead struct{ Read bool }
+	err = json.NewDecoder(legacyResponse.Body).Decode(&legacyRead)
+	legacyResponse.Body.Close()
+	if err != nil || legacyResponse.StatusCode != http.StatusOK || !legacyRead.Read {
+		t.Fatalf("legacy read: status=%d read=%v err=%v", legacyResponse.StatusCode, legacyRead.Read, err)
+	}
+	if page := list("/v2/me/notifications?unreadOnly=true"); len(page.Data.Items) != 0 {
+		t.Fatalf("legacy read did not reach frozen inbox: %+v", page)
+	}
+	if status, raw := request(foreignClient, http.MethodDelete, "/v2/discovery/notifications/"+produced[2].ID, requestID); status != http.StatusNotFound {
+		t.Fatalf("foreign legacy deletion: status=%d body=%s", status, raw)
+	}
+	if status, raw := request(client, http.MethodDelete, "/v2/discovery/notifications/"+produced[2].ID, requestID); status != http.StatusOK {
+		t.Fatalf("legacy deletion: status=%d body=%s", status, raw)
+	}
+	if page := list("/v2/me/notifications"); len(page.Data.Items) != 2 {
+		t.Fatalf("legacy deletion did not reach frozen inbox: %+v", page)
+	}
 	// A stopped real dependency must reach the consumer as the frozen retryable
 	// error envelope, never a successful empty list or a private database error.
 	if err := store.DB.Close(); err != nil {
 		t.Fatal(err)
 	}
+	var diagnostics bytes.Buffer
+	previousOutput := log.Writer()
+	log.SetOutput(&diagnostics)
+	defer log.SetOutput(previousOutput)
 	status, unavailableRaw := request(client, http.MethodGet, "/v2/me/notifications", requestID)
+	legacyStatus, legacyRaw := request(client, http.MethodGet, "/v2/discovery/notifications", requestID)
+	if legacyStatus != http.StatusServiceUnavailable || strings.Contains(string(legacyRaw), "database is closed") {
+		t.Fatalf("legacy dependency response: status=%d body=%s", legacyStatus, legacyRaw)
+	}
+	if strings.Count(diagnostics.String(), "notification request failed: sql: database is closed") != 2 {
+		t.Fatalf("notification dependency diagnostics: %s", diagnostics.String())
+	}
 	open()
 	unavailable, err := v2.DecodeError(unavailableRaw)
 	if err != nil || status != http.StatusServiceUnavailable || unavailable.Code != "DEPENDENCY_UNAVAILABLE" || unavailable.Message != http.StatusText(status) || unavailable.RequestId != requestID || !unavailable.Retryable || unavailable.RetryAfterMs != nil || unavailable.Details != nil || unavailable.FieldErrors == nil || len(unavailable.FieldErrors) != 0 {
@@ -375,7 +408,7 @@ func proofNotificationsPostgres(t *testing.T, ctx context.Context) string {
 		log, logErr := os.ReadFile(filepath.Join(dir, "postgres.log"))
 		t.Fatalf("start isolated PostgreSQL producer: %v\n%s\n%s (log read: %v)", err, output, log, logErr)
 	}
-	return "host=" + dir + " port=5432 user=postgres dbname=postgres sslmode=disable"
+	return (&url.URL{Scheme: "postgres", User: url.User("postgres"), Host: "localhost", Path: "/postgres", RawQuery: url.Values{"host": {dir}, "sslmode": {"disable"}}.Encode()}).String()
 }
 
 func proofNotificationsServer(t *testing.T, store Store, account, other string) (*httptest.Server, *http.Client, *http.Client) {

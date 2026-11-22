@@ -97,11 +97,11 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
           <dl className="space-y-1.5 text-sm">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-text-muted">{isBuy ? 'Spent' : 'Sold'}</dt>
-              <dd className="font-bold text-text tabular-nums">{data.inputAmount} {data.inputSymbol}</dd>
+              <dd className="min-w-0 truncate font-bold text-text tabular-nums" title={`${data.inputAmount} ${data.inputSymbol}`}>{data.inputAmount} {data.inputSymbol}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-text-muted">{isBuy ? 'Received' : 'Returned'}</dt>
-              <dd className={cn('font-bold tabular-nums', tone)}>{data.outputAmount} {data.outputSymbol}</dd>
+              <dd className={cn('min-w-0 truncate font-bold tabular-nums', tone)} title={`${data.outputAmount} ${data.outputSymbol}`}>{data.outputAmount} {data.outputSymbol}</dd>
             </div>
             {data.feeRaw ? (
               <div className="flex items-center justify-between gap-3 text-xs">
@@ -124,7 +124,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
               <span className="font-bold text-text tabular-nums">{data.newUsdlBalance ?? '...'}</span>
             </div>
             <div className="flex items-center justify-between gap-3 text-xs">
-              <span className="text-text-muted">{data.tokenName || 'Coin'}</span>
+              <span className="min-w-0 truncate text-text-muted" title={data.tokenName}>{data.tokenName || 'Coin'}</span>
               <span className="font-bold text-text tabular-nums">{data.newTokenBalance ?? '...'}</span>
             </div>
           </div>

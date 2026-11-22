@@ -1,0 +1,53 @@
+package social
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+)
+
+func TestSDKVoiceAnswers(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	room := voice.Room{ID: uuid.NewString(), PoolID: crypto.PubkeyToAddress(key.PublicKey).Hex(), State: "ended", Revision: 3}
+	account := uuid.NewString()
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	router := chi.NewRouter()
+	RegisterSafetyRoutes(router, &safety.Store{}, &voice.Control{})
+	routes := make(map[string]bool)
+	if err = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		routes[method+" "+route] = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	emit := func(name, route string, body []byte, err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !routes[route] {
+			t.Fatalf("voice route %s is required", route)
+		}
+		record, err := json.Marshal(map[string]any{"operation": name, "route": route, "body": json.RawMessage(body)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("SDK_SERVICE %s\n", record)
+	}
+	read, err := AdaptV2VoiceRead(uuid.NewString(), room, account, "private", []string{}, now)
+	emit("IF_VOICE_READ", "GET /v2/voice-rooms/{roomId}", read, err)
+	end, err := AdaptV2VoiceEnd(uuid.NewString(), room, account, "private", now)
+	emit("IF_VOICE_END", "POST /v2/voice-rooms/{roomId}:end", end, err)
+	leave, err := AdaptV2VoiceLeave(uuid.NewString(), "revoked", 2, now)
+	emit("IF_VOICE_LEAVE", "POST /v2/voice-rooms/{roomId}:leave", leave, err)
+}

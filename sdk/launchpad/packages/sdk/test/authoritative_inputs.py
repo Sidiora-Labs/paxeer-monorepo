@@ -32,7 +32,10 @@ def schema_input(major, root=ROOT):
     release = json.loads((package / "release-manifest.json").read_bytes())
     assert release["apiMajor"] == release["streamMajor"] == major
     for name, digest in release["outputs"].items():
-        assert hashlib.sha256((package / "src" / name).read_bytes()).hexdigest() == digest, name
+        selected = package / "src" / name
+        if major == 2 and name == "types.gen.ts":
+            selected = root / "sdk/launchpad/packages/sdk/releases/0.1.0/types-v2.gen.ts"
+        assert hashlib.sha256(selected.read_bytes()).hexdigest() == digest, name
     types = (package / "src/types.gen.ts").read_text()
     document = json.loads((package / "src/schemas.gen.json").read_bytes())
     # The emitter appends lifted union definitions to its output schema. Its
@@ -48,9 +51,10 @@ def schema_input(major, root=ROOT):
 def copy_bundle(major, destination):
     package = package_path(major)
     for relative in (
-        GENERATOR, GENERATOR.with_name("validator.go.txt"),
+        GENERATOR, GENERATOR.with_name("validator.go.txt"), GENERATOR.with_name("validator.compiled.go.txt"),
         package / "src/types.gen.ts", package / "src/schemas.gen.json",
         package / "release-manifest.json",
+        pathlib.Path("sdk/launchpad/packages/sdk/releases/0.1.0/types-v2.gen.ts"),
     ):
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)

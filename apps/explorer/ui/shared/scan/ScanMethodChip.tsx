@@ -14,6 +14,7 @@ const ScanMethodChip = ({ method, isLoading, className }: ScanMethodChipProps) =
       variant="outlined"
       loading={ isLoading }
       truncated
+      maxW="100%"
       className={ className }
       data-scan-method={ method }
     >

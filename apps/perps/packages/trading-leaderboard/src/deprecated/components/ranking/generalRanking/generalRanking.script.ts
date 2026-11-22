@@ -12,6 +12,8 @@ import { DateRange } from "../../../type";
 import { formatDateRange, getDateRange } from "../../../utils";
 import { getCurrentAddressRowKey, isSameAddress } from "../shared/util";
 
+const EMPTY_USER_DATA: GeneralRankingData[] = [];
+
 export type GeneralRankingData = {
   account_id: string;
   address: string;
@@ -166,7 +168,9 @@ export function useGeneralRankingScript(options?: GeneralRankingScriptOptions) {
     },
   );
 
-  const { data: userDataRes = [] } = useQuery<GeneralRankingData[]>(
+  const { data: userDataRes = EMPTY_USER_DATA } = useQuery<
+    GeneralRankingData[]
+  >(
     state.address
       ? getUrl({ page: 1, pageSize: 1, address: state.address, sort: null })
       : null,

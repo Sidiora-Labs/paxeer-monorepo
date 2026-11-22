@@ -26,6 +26,7 @@ export function Notifications({ runtime }: { runtime: Runtime }) {
       true,
     );
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   return (
     <ListPage
       runtime={runtime}
@@ -41,31 +42,60 @@ export function Notifications({ runtime }: { runtime: Runtime }) {
       header={
         <>
           <ResourceStatus {...inbox} />
+          <ResourceStatus {...preferences} />
           {error && <ErrorNotice message={error} />}
+          {notice && <Text style={ui.text}>{notice}</Text>}
           <Text style={ui.subtle}>
-            Optional push notifications show generic lock-screen text. Tap opens
-            current authorized inbox content.
+            Optional push notifications show generic lock-screen text. Tap
+            opens current authorized inbox content.
           </Text>
           {runtime.push?.tokenChanged && (
             <Text style={ui.text}>
-              The provider rotated this device token. Re-enable push to register
-              it with current account proof.
+              The provider rotated this device token. Re-enable push to
+              register it with current account proof.
             </Text>
           )}
           <Button
             label="Explain and enable push notifications"
-            disabled={!runtime.push || !runtime.session.token}
+            disabled={
+              !runtime.push ||
+              !runtime.session.token ||
+              preferences.offline ||
+              !preferences.data
+            }
             onPress={() =>
               showAction(async () => {
                 if (!runtime.push)
                   throw new Error('Native push provider unavailable');
-                await runtime.push.enableByUserAction();
+                const status = await runtime.push.enableByUserAction();
+                if (status === 'granted') {
+                  const current = preferences.data!.data.preferences;
+                  await runtime.services.updatePreferences(
+                    {
+                      expectedRevision: current.revision,
+                      channels: {
+                        inapp: current.channels.includes('inapp'),
+                        email: current.channels.includes('email'),
+                        push: true,
+                      },
+                    },
+                    runtime.session.signal,
+                  );
+                  preferences.reload();
+                }
+                setNotice(
+                  status === 'granted'
+                    ? 'This device is registered for push notifications.'
+                    : 'Notification permission was denied. Enable it in device settings to retry.',
+                );
+                runtime.changed();
               }, setError)
             }
           />
           {!runtime.push && (
             <Text style={ui.text}>
-              Push provider is unavailable. The in-app inbox remains accessible.
+              Push provider is unavailable. The in-app inbox remains
+              accessible.
             </Text>
           )}
           {preferences.data && (
@@ -76,6 +106,7 @@ export function Notifications({ runtime }: { runtime: Runtime }) {
               </Text>
               <Button
                 label="Disable push channel"
+                disabled={preferences.offline}
                 onPress={() =>
                   showAction(
                     () =>
@@ -95,9 +126,21 @@ export function Notifications({ runtime }: { runtime: Runtime }) {
                         runtime.session.signal,
                       ),
                     setError,
-                    preferences.reload,
+                    () => {
+                      setNotice('Push channel disabled.');
+                      preferences.reload();
+                    },
                   )
                 }
+              />
+              <Button
+                label="Reload current preferences"
+                disabled={preferences.loading}
+                onPress={() => {
+                  setError(undefined);
+                  setNotice(undefined);
+                  preferences.reload();
+                }}
               />
             </Card>
           )}
@@ -105,7 +148,9 @@ export function Notifications({ runtime }: { runtime: Runtime }) {
       }
       row={(item) => (
         <Card>
-          <Text style={ui.text}>{item.category.replaceAll('_', ' ')}</Text>
+          <Text style={ui.text}>
+            {item.category.replaceAll('_', ' ')}
+          </Text>
           <Text style={ui.subtle}>{item.summary}</Text>
           <Text style={ui.subtle}>
             {new Date(item.createdAt).toLocaleString()} ·{' '}

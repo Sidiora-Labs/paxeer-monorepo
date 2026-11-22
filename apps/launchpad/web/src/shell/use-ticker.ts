@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useMemo } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { History, Star, Trophy, Users, Wallet } from 'lucide-react';
@@ -77,7 +78,7 @@ export function usdlChip(raw: string | null): Pick<TickerChip, 'value' | 'tone'>
 }
 
 function symbolLabel(symbol: string | null | undefined, fallback: string): string {
-  return symbol && symbol.trim() ? `$${symbol.trim().toUpperCase()}` : shortAddress(fallback);
+  return `$${displayCoinText(symbol, fallback)}`;
 }
 
 /** Starred pools joined with their 24h change (IF_STATS_BATCH, complete baselines only) and metadata. */
@@ -91,7 +92,7 @@ export function useWatchlistTicker(): TickerFeed {
     return {
       key: row.poolAddress,
       href: coinPath(row.poolAddress),
-      label: symbolLabel(row.metadata?.symbol, row.poolAddress),
+      label: symbolLabel(row.metadata?.symbol, row.tokenAddress ?? row.poolAddress),
       image: row.metadata?.images?.logo ?? null,
       avatarShape: 'square',
       ...percentChip(change),
@@ -140,7 +141,7 @@ export function useRecentTicker(): TickerFeed {
     return {
       key: item.address,
       href: coinPath(item.address),
-      label: symbolLabel(item.symbol, item.address),
+      label: symbolLabel(item.symbol, item.tokenAddress ?? item.address),
       image: item.logo,
       avatarShape: 'square',
       value: mcap === null ? null : `MC ${mcap}`,
@@ -150,11 +151,12 @@ export function useRecentTicker(): TickerFeed {
   return { state: 'ready', chips, emptyText: null };
 }
 
-/** IF_LEADERBOARDS trader / 24h; the real 404 surfaces as Unsupported until core/api serves it. */
+/** IF_LEADERBOARDS trader / 24h; unavailable rankings leave the feed empty. */
 export function useEarnersTicker(): TickerFeed {
   const board = useLeaderboard('trader', '24h', 20);
   const entries = board.state === 'ready' ? board.data.data.snapshot.entries : [];
   const identities = useWalletIdentities(entries.map(entry => entry.wallet));
+  if (board.state === 'unsupported') return { state: 'ready', chips: [], emptyText: null };
   if (board.state !== 'ready') return board;
   if (entries.length === 0) return { state: 'ready', chips: [], emptyText: 'No top earners in the last 24h', emptyShort: 'None in 24h' };
   const chips = entries.map<TickerChip>(entry => {

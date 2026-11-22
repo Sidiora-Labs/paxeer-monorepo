@@ -7,6 +7,7 @@ import {
   useIndexPricesStream,
   usePaxeerNetworkContext,
 } from "@paxeer-network/hooks";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { useAppContext } from "@paxeer-network/react-app";
 import { ChainNamespace, NetworkId } from "@paxeer-network/types";
 import { useAuthGuard } from "@paxeer-network/ui-connector";
@@ -16,6 +17,7 @@ import { useCollateralValue } from "./hooks/useCollateralValue";
 import { useDepositAction } from "./hooks/useDepositAction";
 import { useDepositFee } from "./hooks/useDepositFee";
 import { useDepositFormQuantities } from "./hooks/useDepositQuantities";
+import { useDepositQuantityInput } from "./hooks/useDepositQuantityInput";
 import { useDepositValidation } from "./hooks/useDepositValidation";
 import { useNativeBalance } from "./hooks/useNativeBalance";
 import { usePaxeerNetworkTokens } from "./hooks/usePaxeerNetworkTokens";
@@ -61,8 +63,7 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     depositFee,
     balanceRevalidating,
     depositFeeRevalidating,
-    quantity,
-    setQuantity,
+    setQuantity: setDepositQuantity,
     approve,
     deposit,
     fetchBalance,
@@ -77,6 +78,8 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     dstToken: targetToken?.symbol,
     depositorAddress: enableSwapDeposit ? SWAP_CONTRACT_ADDRESS : undefined,
   });
+
+  const { quantity, setQuantity } = useDepositQuantityInput(setDepositQuantity);
 
   const { balance: nativeBalance, isLoading: nativeBalanceRevalidating } =
     useNativeBalance({
@@ -131,6 +134,7 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     indexPrice,
     swapIndexPrice,
   } = useDepositFormQuantities({
+    chainId: currentChain?.id,
     sourceToken,
     targetToken,
     balance: balance || "0",
@@ -170,9 +174,10 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     setQuantity("");
     setDepositError("");
     // when sourceToken or currentChain?.id changes, clean state
-  }, [sourceToken, currentChain?.id]);
+  }, [sourceToken?.address, sourceToken?.symbol, currentChain?.id]);
 
   const fee = useDepositFee({
+    chainId: currentChain?.id,
     nativeSymbol,
     depositFee,
     getIndexPrice,
@@ -222,6 +227,7 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     currentLTV,
     nextLTV,
   } = useCollateralValue({
+    chainId: currentChain?.id,
     sourceToken,
     targetToken,
     quantity,
@@ -240,7 +246,8 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
   const disabled =
     !sourceToken ||
     !quantity ||
-    Number(quantity) === 0 ||
+    !Number.isFinite(Number(quantity)) ||
+    Number(quantity) <= 0 ||
     depositDisabled ||
     loading ||
     !!swapErrorMessage;
@@ -264,6 +271,8 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     onSourceTokenChange,
     onTargetTokenChange,
 
+    collateralUnit:
+      currentChain?.id === paxeerChain.id ? targetToken : undefined,
     nativeSymbol,
     isNativeToken,
     quantity,

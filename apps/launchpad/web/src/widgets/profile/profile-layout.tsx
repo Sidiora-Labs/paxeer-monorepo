@@ -19,14 +19,14 @@ export default function ProfileLayout({ left, center, right, rightLabel = 'Top t
   const hasLeft = left !== undefined && left !== null;
   const hasRight = right !== undefined && right !== null;
   const columns = hasLeft && hasRight
-    ? '@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width)] @market-three/profile:grid-cols-[minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))_minmax(0,var(--sl-form-max-width))_minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))]'
+    ? '@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width)] xl:max-2xl:@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width-wide)] @market-three/profile:grid-cols-[minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))_minmax(0,var(--sl-form-max-width))_minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))]'
     : hasRight
-      ? '@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width)] @market-three/profile:grid-cols-[minmax(0,var(--sl-form-max-width))_minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))]'
+      ? '@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width)] xl:max-2xl:@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width-wide)] @market-three/profile:grid-cols-[minmax(0,var(--sl-form-max-width))_minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))]'
       : hasLeft
         ? '@market-three/profile:grid-cols-[minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))_minmax(0,var(--sl-form-max-width))]'
         : '@market-two/profile:grid-cols-[minmax(0,var(--sl-form-max-width))]';
   return (
-    <div className="@container/profile w-full">
+    <div className="@container/profile w-full min-w-0">
       <div data-profile-layout className={cn('grid w-full grid-cols-1 items-stretch lg:min-h-[calc(100dvh-var(--sl-shell-top-total))] @market-three/profile:justify-center', columns, className)}>
         {hasLeft ? (
           <aside aria-label="Leaderboard" className="hidden min-w-0 bg-surface-1 @market-three/profile:block">

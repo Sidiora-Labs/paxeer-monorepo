@@ -8,7 +8,6 @@ import { IconButton } from 'toolkit/chakra/icon-button';
 import type { SelectOption } from 'toolkit/chakra/select';
 import { SelectContent, SelectItem, SelectRoot, SelectControl } from 'toolkit/chakra/select';
 import { Skeleton } from 'toolkit/chakra/skeleton';
-import { TruncatedText } from 'toolkit/components/truncation/TruncatedText';
 import IconSvg from 'ui/shared/IconSvg';
 import TextSeparator from 'ui/shared/TextSeparator';
 
@@ -62,7 +61,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
           <TextSeparator mx={ 0 }/>
         </>
       ) }
-      <HStack gap={ 1 } minW="0">
+      <HStack gap={ 1 } minW="0" maxW="100%">
         <SelectRoot
           name="time_format"
           collection={ collection }
@@ -70,6 +69,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
           onValueChange={ handleFormatChange }
           variant="plain"
           w="fit-content"
+          flexShrink={ 0 }
         >
           <SelectControl
             triggerProps={{ asChild: true, minH: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -80,6 +80,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
               aria-label="Toggle time format"
               variant="icon_secondary"
               boxSize={ 5 }
+              inlineLineSize="var(--chakra-sizes-5)"
               borderRadius="sm"
               selected={ !isLoading }
               loadingSkeleton={ isLoading }
@@ -95,11 +96,14 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
             )) }
           </SelectContent>
         </SelectRoot>
-        <TruncatedText
-          text={ timeText }
+        <Skeleton
           loading={ isLoading }
           minW="0"
-        />
+          truncate
+          title={ timeText }
+        >
+          { timeText }
+        </Skeleton>
       </HStack>
     </HStack>
   );

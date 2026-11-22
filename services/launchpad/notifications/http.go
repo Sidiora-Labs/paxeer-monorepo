@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -129,6 +130,9 @@ func notificationRequestID(r *http.Request) string {
 func writeV2Notification(w http.ResponseWriter, r *http.Request, raw []byte, err error) {
 	if err != nil {
 		status, code := errorStatus(err)
+		if status == http.StatusServiceUnavailable {
+			log.Printf("notification request failed: %v", err)
+		}
 		writeError(w, r, status, code)
 		return
 	}
@@ -245,6 +249,9 @@ func respond(w http.ResponseWriter, v any, e error) {
 	w.Header().Set("Content-Type", "application/json")
 	if e != nil {
 		status, code := errorStatus(e)
+		if status == http.StatusServiceUnavailable {
+			log.Printf("notification request failed: %v", e)
+		}
 		writeError(w, nil, status, code)
 		return
 	}

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Layout movement</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  #space { height: 10em; }
+  main { height: 360px; background: black; color: white; }
+  p { margin: 0; }
+</style>
+<body>
+<div id="space"></div>
+<main id="content"><p id="status">Content position</p></main>
+<script>
+  const query = new URL(location.href).searchParams;
+  const space = document.getElementById("space");
+  const status = document.getElementById("status");
+  window.shiftFixture = {
+    delayMs: Number(query.get("delay") ?? 80),
+    moving: false,
+    moved: false,
+    painted: () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    move() {
+      space.style.marginTop = "220px";
+      this.moved = true;
+    },
+    startMotion() {
+      this.moving = true;
+      let high = false;
+      const tick = () => {
+        if (!this.moving) return;
+        space.style.height = `${high ? 160 : 380}px`;
+        high = !high;
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    },
+  };
+  if (query.get("movement") === "before") {
+    shiftFixture.painted().then(() => setTimeout(async () => {
+      shiftFixture.move();
+      await shiftFixture.painted();
+      status.textContent = "Ready for steps";
+    }, shiftFixture.delayMs));
+  }
+  if (query.get("movement") === "after") {
+    const afterRest = () => {
+      const interval = window.__uiCheck?.shiftWindows.at(-1);
+      if (!interval || interval.end === null) { requestAnimationFrame(afterRest); return; }
+      shiftFixture.restEnd = interval.end;
+      setTimeout(() => shiftFixture.move(), shiftFixture.delayMs);
+    };
+    requestAnimationFrame(afterRest);
+  }
+</script>
+</body>
+</html>

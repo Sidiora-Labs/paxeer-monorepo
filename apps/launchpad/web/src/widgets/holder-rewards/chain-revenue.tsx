@@ -1,20 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { defineChain, formatEther, type Address, type PublicClient } from 'viem';
+import { defineChain, formatEther, type Address } from 'viem';
 import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
 import { getPaxeerRpcUrl } from '@/core/rpc';
+import { userFacingMessage } from '@/core/user-facing-error';
 import { VIRTUAL_CHAIN_ID_BASE } from '../create-chain/chain-domain';
 import { homeChainClient } from '../trade/home-chain';
+import { readChainRevenue, type ChainRevenueEpoch, type InitialChainRevenue } from './chain-revenue-reader';
 
-export interface ChainRevenueEpoch {
-  epoch: bigint;
-  amount: bigint;
-  claimable: bigint | null;
-  openedAt: bigint;
-  claimed: boolean;
-}
+export { readChainRevenue } from './chain-revenue-reader';
+export type { ChainRevenueEpoch } from './chain-revenue-reader';
 
 export function chainRevenueWriteRequest(chain: number, action: 'claim' | 'batch' | 'open', epochs: readonly bigint[] = []) {
   if (!Number.isInteger(chain) || chain < 1 || chain > 0xffffffff) throw new Error('Invalid launched chain');
@@ -30,42 +27,13 @@ export function chainRevenueWriteRequest(chain: number, action: 'claim' | 'batch
   return { address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'openChainRevenueEpoch' as const, args: [chain] as const };
 }
 
-export async function readChainRevenue(root: PublicClient, pool: Address, holder: Address | undefined): Promise<{ chain: number; epochs: ChainRevenueEpoch[] }> {
-  const chain = await root.readContract({ address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'launchedChainOfPool', args: [pool] });
-  if (chain === 0) return { chain: 0, epochs: [] };
-  const epochs: ChainRevenueEpoch[] = [];
-  for (let epoch = 1n; ; epoch++) {
-    let record: readonly [number, bigint, bigint, bigint, bigint, bigint, bigint];
-    try {
-      record = await root.readContract({ address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'chainRevenueEpoch', args: [chain, epoch] });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (/NotLaunchedChain/i.test(message)) break;
-      throw error;
-    }
-    let isClaimed = false;
-    let claimable: bigint | null = null;
-    if (holder) {
-      try {
-        claimable = await root.readContract({ address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'chainRevenueClaimable', args: [chain, epoch, holder] });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (/AlreadyClaimed/i.test(message)) { isClaimed = true; claimable = 0n; }
-        else if (/ZeroAmount/i.test(message)) claimable = 0n;
-        else throw error;
-      }
-    }
-    epochs.push({ epoch, amount: record[2], claimable, openedAt: record[6], claimed: isClaimed });
-  }
-  return { chain, epochs };
-}
-
-export default function ChainRevenue({ poolAddress }: { poolAddress: string }) {
+export default function ChainRevenue({ poolAddress, initial }: { poolAddress: string; initial?: InitialChainRevenue }) {
   const { address, chainId } = useAccount();
   const root = usePublicClient({ chainId: 125 });
   const { data: wallet } = useWalletClient();
-  const [data, setData] = useState<{ chain: number; epochs: ChainRevenueEpoch[] } | null>(null);
-  const [error, setError] = useState('');
+  const [data, setData] = useState<{ chain: number; epochs: ChainRevenueEpoch[] } | null>(!address && initial?.poolAddress === poolAddress ? initial.data : null);
+  const [error, setError] = useState(!address && initial?.poolAddress === poolAddress ? initial.error : '');
+  const initialOwner = useRef(initial?.poolAddress === poolAddress ? `${poolAddress}:` : null);
   const [pending, setPending] = useState(false);
   const [revision, setRevision] = useState(0);
   const validPool = /^0x[0-9a-fA-F]{40}$/.test(poolAddress);
@@ -73,14 +41,20 @@ export default function ChainRevenue({ poolAddress }: { poolAddress: string }) {
   useEffect(() => {
     if (!root || !validPool) return;
     let active = true;
-    setData(null);
+    const owner = `${poolAddress}:${address ?? ''}`;
+    if (initialOwner.current !== owner) {
+      const publicInitial = !address && initial?.poolAddress === poolAddress ? initial : null;
+      setData(publicInitial?.data ?? null);
+      setError(publicInitial?.error ?? '');
+    }
+    initialOwner.current = owner;
     readChainRevenue(root, poolAddress as Address, address).then(value => {
       if (active) { setData(value); setError(''); }
     }).catch(cause => {
-      if (active) setError(cause instanceof Error ? cause.message : 'Revenue epochs could not be loaded.');
+      if (active) setError(userFacingMessage(cause, 'Revenue epochs could not be loaded.'));
     });
     return () => { active = false; };
-  }, [root, poolAddress, validPool, address, revision]);
+  }, [root, poolAddress, validPool, address, revision, initial]);
 
   const submit = useCallback(async (action: 'claim' | 'batch' | 'open', epochs: readonly bigint[] = []) => {
     if (!wallet || !address || !chainId || !data?.chain || pending) return;
@@ -107,7 +81,7 @@ export default function ChainRevenue({ poolAddress }: { poolAddress: string }) {
       }
       setRevision(value => value + 1);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Revenue transaction failed.');
+      setError(userFacingMessage(cause, 'Revenue transaction failed.'));
     } finally {
       setPending(false);
     }

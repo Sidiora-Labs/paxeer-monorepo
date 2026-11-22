@@ -113,7 +113,7 @@ const Stats = () => {
           top={{ lg: 6 }}
           alignSelf="flex-start"
           flexShrink={ 0 }
-          w={{ base: '100%', lg: 'var(--chakra-spacing-40\\.5)' }}
+          w={{ base: '100%', lg: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-10))' }}
           maxW="100%"
           mb={{ base: 4, lg: 0 }}
           overflowX={{ base: 'auto', lg: 'visible' }}
@@ -142,7 +142,6 @@ const Stats = () => {
                   borderRadius="md"
                   px={ 3 }
                   py={ 2 }
-                  minH="touchTarget"
                   color="link.navigation.fg"
                   _hover={{ color: 'link.navigation.fg.hover' }}
                   css={{

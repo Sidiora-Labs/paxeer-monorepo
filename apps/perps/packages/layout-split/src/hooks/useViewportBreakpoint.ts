@@ -1,4 +1,4 @@
-import { useState, useEffect, type RefObject } from "react";
+import { useState, useEffect } from "react";
 import { BREAKPOINT_KEYS, VIEWPORT_BREAKPOINTS } from "../constants";
 import type { ViewportBreakpointKey } from "../constants";
 
@@ -19,8 +19,6 @@ export function getViewportBreakpointKey(
 export interface UseViewportBreakpointOptions {
   /** Breakpoint map; defaults to VIEWPORT_BREAKPOINTS. */
   breakpoints?: typeof VIEWPORT_BREAKPOINTS;
-  /** Element whose available inline width selects the layout. */
-  containerRef?: RefObject<HTMLElement>;
   /** Initial width when ref not yet mounted. */
   fallbackWidth?: number;
 }
@@ -36,19 +34,16 @@ export function useViewportBreakpoint(
   options: UseViewportBreakpointOptions = {},
 ): ViewportBreakpointKey {
   const {
-    containerRef,
     breakpoints = VIEWPORT_BREAKPOINTS,
     fallbackWidth = typeof window !== "undefined" ? window.innerWidth : 1440,
   } = options;
   const [width, setWidth] = useState(fallbackWidth);
 
   useEffect(() => {
-    const element = containerRef
-      ? containerRef.current
-      : document.documentElement;
+    const element = document.documentElement;
     if (!element) return;
 
-    setWidth(element.getBoundingClientRect().width);
+    setWidth(window.innerWidth);
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -59,7 +54,7 @@ export function useViewportBreakpoint(
     resizeObserver.observe(element);
 
     return () => resizeObserver.disconnect();
-  }, [containerRef]);
+  }, []);
 
   const bp = getViewportBreakpointKey(width, breakpoints);
   return bp;

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -44,6 +45,7 @@ func writeData(w http.ResponseWriter, r *http.Request, status int, schema string
 		err = v2.ValidateJSON(schema, body)
 	}
 	if err != nil {
+		slog.ErrorContext(r.Context(), "social response contract failed", "method", r.Method, "path", r.URL.Path, "error", err)
 		writeError(w, r, http.StatusServiceUnavailable, "INTEGRITY_QUARANTINED", "response failed its contract")
 		return
 	}
@@ -148,6 +150,7 @@ func storeError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, pgx.ErrNoRows), errors.Is(err, errNotFound):
 		writeError(w, r, http.StatusNotFound, "NOT_FOUND", "not found")
 	default:
+		slog.ErrorContext(r.Context(), "social store request failed", "method", r.Method, "path", r.URL.Path, "error", err)
 		writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE", "store unavailable")
 	}
 }

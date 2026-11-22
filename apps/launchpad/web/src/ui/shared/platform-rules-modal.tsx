@@ -64,11 +64,19 @@ const RULES: { text: React.ReactNode }[] = [
     text: (
       <>
         By continuing, you confirm you have read and accept our{' '}
-        <Link href="/docs/terms" className="text-accent underline hover:opacity-80 transition">
+        <Link
+          prefetch={false}
+          href="/docs/terms"
+          className="text-accent underline hover:opacity-80 transition"
+        >
           Terms of Service
         </Link>{' '}
         and{' '}
-        <Link href="/docs/privacy" className="text-accent underline hover:opacity-80 transition">
+        <Link
+          prefetch={false}
+          href="/docs/privacy"
+          className="text-accent underline hover:opacity-80 transition"
+        >
           Privacy Policy
         </Link>
         .
@@ -154,9 +162,9 @@ export default function PlatformRulesModal() {
                   aria-hidden="true"
                   className="mt-1.5 block size-1.5 shrink-0 rounded-full bg-accent"
                 />
-                <span className="text-xs text-text-muted leading-[var(--sl-leading-prose)]">
+                <p className="min-w-0 text-xs text-text-muted leading-[var(--sl-leading-prose)]">
                   {rule.text}
-                </span>
+                </p>
               </li>
             ))}
           </ul>

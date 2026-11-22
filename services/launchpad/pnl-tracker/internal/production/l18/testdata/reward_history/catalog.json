@@ -1,47 +1,76 @@
 {
-  "description": "Reviewed coordinator bootstrap catalog transcript: complete dependency-ordered DDL inventory; source hashes bind every input. It supplies the database peer for the focused in-process gate, not a substitute PostgreSQL engine.",
-  "registry_sha256": "efd072556a7d2c3b047901990987cd663f1b888dc110f60fb02c07f84bb95085",
+  "description": "Reward runtime catalog from the registered migration dependency plan and legacy sources.",
+  "registry_sha256": "c3af3b3dec84541c9d30b8549cb2d033d9965e1be4995b494c8b3a2cc5963f74",
   "applied": {
-    "160000": "d0e14e39b91a41d8efb75108e39922e5541ed12d261a857a5c2e83faeb194318",
-    "80000": "9c1645ffdf7df49058eb2c67c0b498590a59c624b29d41726422caa0a7d099cc",
-    "160001": "cd1e15187c1f453f08b653a16d80f82aa3ca48eb246c259534a21cdb9fe717e8",
-    "80003": "e5475a321d8e7d10f2a79d419af2b0129681fb066372d20932241967b9faf374",
-    "80002": "c4725e366fba56e84c02254f0a4e6b0c5567f93c74c599eb6a2078fc9d7bc9f4",
-    "160002": "5dd75c69d0d5413a669d5bc845f916c04e92fad64a98fd424a1aee0f26183323",
-    "80004": "0d66a86d82ceaec5deb4050bc8d8c047107748f91105af99362cacf31b8fbcd1",
+    "60000": "5cccc2f2e1468342481d5c03513a25f291dd2591cb0158755fa786b2edbc8545",
     "80001": "c6269641c857da5ffb00f7aad2cfeeb39f3ed7c2f879ce2b1d32b1b06941bf77",
-    "160003": "1f46c128ef40f695023f37f31248f9b2ebe9b61e68b59476bb55b75cb9f3d26d",
-    "80009": "924343d96c7eba9db2253915a45d83459dc1fed4e6a95522ee859986d33e0b26",
-    "80008": "d47d185b488ca264d65e38c4dc5cf27f00c6d1c190df28d7adfe61de9c066475",
+    "80002": "c4725e366fba56e84c02254f0a4e6b0c5567f93c74c599eb6a2078fc9d7bc9f4",
+    "80003": "e5475a321d8e7d10f2a79d419af2b0129681fb066372d20932241967b9faf374",
+    "80004": "0d66a86d82ceaec5deb4050bc8d8c047107748f91105af99362cacf31b8fbcd1",
+    "80006": "6cef77846e6d4f3fc2331fb9956f7cd09483119f84cc098442029661dc1f6c06",
+    "190000": "7b0f040ca17a6e019053cd7d8b499e119c6de5e1ae7603fa13a966ac71fdd8eb",
     "330000": "632b472ce11f3c4bd30e9e10feffb12e890feba34df1decd5683a8bd46015596",
     "330001": "017f7171fd0f5dfbef42aa385e15acd07f3fe7ccb474c195f41ab05c5963f01c",
-    "330002": "b1d22caebae4962d25082526af9684e4a612c0a1469925fbf76e18b7f08b865d",
-    "170000": "0ca96e306ede432d3f5f2dcdccbbd82754dd33f5f13afd2cf62d863b02436078",
-    "180000": "5aed18e2a3d7869f71bc25d9de78f5edbb546c0c579f2153e9529f76bbfccee7",
-    "180001": "e1c728094af3edf12c6a5d1d3384691b976c29d77d0f3ed26630eb4bdcae3482",
-    "100001": "2ac1170299255faab6381f5f25547718a1e5af2fda980fba0fef181e14a59bc6",
-    "100000": "cc981bc522ccb3843ac585663d87518649f7556e27561f05c059b23810c62370",
-    "190000": "7b0f040ca17a6e019053cd7d8b499e119c6de5e1ae7603fa13a966ac71fdd8eb",
-    "190001": "f3650bb5df134922e17d44da61f92c33d3e8410df705b544edb1c941a3223dc6",
-    "190002": "31b4924e704abe17f670703cd2c245bc79dfa3e6e64345217206aabe3c923610",
-    "190003": "d7a89c88ea7076064328b01729f949348c469b39b8cebfaafb337ad510d350d2",
-    "190004": "0373a9789d53e077bdf5af982cdf929e07f24044af49d2e84f2c469425d9846b",
+    "340002": "62c405f1c1f15d2adccd13f07cc3f3e427b8b596f1daba73016d45ba0ccba49c",
     "440000": "2f77e922553f640bc6a25ad748afd4ac7a53d454eff14a369aa3c8ab1fce345f",
-    "440001": "7679977e772a3e2ca41928ace3945b32232c873841f82cb0b0ead985e271a641",
+    "80000": "9c1645ffdf7df49058eb2c67c0b498590a59c624b29d41726422caa0a7d099cc",
+    "80008": "d47d185b488ca264d65e38c4dc5cf27f00c6d1c190df28d7adfe61de9c066475",
+    "100000": "cc981bc522ccb3843ac585663d87518649f7556e27561f05c059b23810c62370",
     "130000": "6954a01fdc15ba305fe935c42955f66e6cb55beffcc55fbaf235506e7c60590b",
-    "450000": "bf10cc35a7ad09249d5166fc16b2426f50813a2713ef199f9a7c9c530f363a3d",
-    "130001": "35d48f481e76a071cb4bb3992f818257e4db9dfa08b52758757f1a34ed42f33e",
-    "60000": "5cccc2f2e1468342481d5c03513a25f291dd2591cb0158755fa786b2edbc8545",
-    "60001": "3ae70f10b5092b367aa025c0d78c8a48f4ec5d59c385efa6e46b01e1191a3640",
+    "160000": "d0e14e39b91a41d8efb75108e39922e5541ed12d261a857a5c2e83faeb194318",
+    "340000": "df61354c400871d2a4c8036deede639e85aea37fd2c99293bbeb892a12d5eb9f",
+    "390000": "c1b3b0b840797c2712db88b920f04a3a33fc6e332995cca21d47f7570ed8c491",
+    "150000": "b6bba284e4f86f8f2782311766ba4be2dd12e1dd4ad0345ac455a9236427de4f",
+    "180000": "5aed18e2a3d7869f71bc25d9de78f5edbb546c0c579f2153e9529f76bbfccee7",
+    "200000": "b18621ef0310a6edbd5a01be36e9678208d37bc9bb313367d8d8f70720f1aa73",
+    "350000": "c3be6db65f18b0eaee7f28f782d7c68c7a87a02f83e53630c87258ad562079ba",
+    "150001": "f46f30c6ec4dc7a2fb8a1204542ab1b27f14c7bb9de7528cd07daba7bc8b1d9b",
     "470000": "c83b9ecc3ef30df974bb787ca0137e3bfcb82d0904179a6b9c008e8fe950de4f",
-    "470001": "ab507d1233b474314d10b42429f98387b9568826e3047796a8d38c2f8379785d",
+    "190001": "f3650bb5df134922e17d44da61f92c33d3e8410df705b544edb1c941a3223dc6",
+    "160001": "cd1e15187c1f453f08b653a16d80f82aa3ca48eb246c259534a21cdb9fe717e8",
+    "440001": "7679977e772a3e2ca41928ace3945b32232c873841f82cb0b0ead985e271a641",
     "150002": "89433d6361c8b99f505a2574ea5676478f594cb0794ac2cc9ae9ac5d591ddc82",
+    "60001": "3ae70f10b5092b367aa025c0d78c8a48f4ec5d59c385efa6e46b01e1191a3640",
+    "80009": "924343d96c7eba9db2253915a45d83459dc1fed4e6a95522ee859986d33e0b26",
+    "100001": "2ac1170299255faab6381f5f25547718a1e5af2fda980fba0fef181e14a59bc6",
+    "130001": "35d48f481e76a071cb4bb3992f818257e4db9dfa08b52758757f1a34ed42f33e",
+    "160002": "5dd75c69d0d5413a669d5bc845f916c04e92fad64a98fd424a1aee0f26183323",
+    "190002": "31b4924e704abe17f670703cd2c245bc79dfa3e6e64345217206aabe3c923610",
+    "200001": "4ac46f8e13b13257e2a9eb5159a3926bfcf303817381fd395470414848a6f288",
+    "330002": "b1d22caebae4962d25082526af9684e4a612c0a1469925fbf76e18b7f08b865d",
+    "350001": "4344bbe3b2f018056258dd34c2b48ba7507fed239862225be50a633a96880d4c",
+    "390001": "be2b4c7b6d8cdfcea1745f3bf21741e025fb7b7fcc688c1b203c01149cbb20ef",
+    "170000": "0ca96e306ede432d3f5f2dcdccbbd82754dd33f5f13afd2cf62d863b02436078",
+    "180001": "e1c728094af3edf12c6a5d1d3384691b976c29d77d0f3ed26630eb4bdcae3482",
+    "340006": "23021aeaa72030e49869f4dbc0cb37bcddbb2cba37c02befb4f3f8b7ffab5b8b",
+    "410000": "a45d7165bd5998fde966de7f830fb3a0d4a23d18e621a5e449ee4b5373b67e95",
+    "450000": "bf10cc35a7ad09249d5166fc16b2426f50813a2713ef199f9a7c9c530f363a3d",
+    "470001": "ab507d1233b474314d10b42429f98387b9568826e3047796a8d38c2f8379785d",
     "150003": "01fd82f1d414daac348c6c9239e572c06ef47df17a6a777e64ea6a28f1692009",
-    "150004": "8a24a6e2148f801a14c9b5ce67f95282aec5b88f87166fe68399de140082a21c",
+    "160003": "1f46c128ef40f695023f37f31248f9b2ebe9b61e68b59476bb55b75cb9f3d26d",
     "150005": "09a63b1b9f9c2fee0b26bc21efbe865056030924e7ed3c4b9e755ee6163d5bc1",
-    "160004": "d12ae78c8afd2e94557641698aef2f35b4c2e15f4c94f71887ecbda897035124"
+    "150004": "8a24a6e2148f801a14c9b5ce67f95282aec5b88f87166fe68399de140082a21c",
+    "190004": "0373a9789d53e077bdf5af982cdf929e07f24044af49d2e84f2c469425d9846b",
+    "190003": "d7a89c88ea7076064328b01729f949348c469b39b8cebfaafb337ad510d350d2",
+    "150006": "fbb24dc7f3c0c5e4d98f2d715be8e0889c2d6beec143ae3785616d0463b528a9",
+    "160004": "d12ae78c8afd2e94557641698aef2f35b4c2e15f4c94f71887ecbda897035124",
+    "150007": "6ac4406e4078b58e67eb3ec6ff9eec0ae3eda7bebdb627feea88973a4efef5b2",
+    "410001": "1fed42d561f12429d40ceb882f3437b756aafb5301f3ee4648620f19ce892630",
+    "60002": "77834bed00344b385051c86358b8ee033759cf688fd13282f739f2125365c097",
+    "350002": "0cc38042fa7005d155e9c861363e3917b033ba74cf50225d95ca1941db49ef8b",
+    "390002": "4395af68532b09812e731a8e31a29bdc835c7d3646702d2583089d8fd20e3b4e",
+    "150008": "5e333ee477e88ee3e86a1db14e85462d14cd41fa43d5b11e7a0383afe7b85cc3",
+    "60003": "7cee2f9b8b0ab9ac76cdbfd4200c04c2d029f67dfb44e63cd4010e2843f1fdbb",
+    "150009": "34ab060e473f4b6479c2920c6605d4c3ba8b80fb2f3d829f5b5ff75ef6b85ae4",
+    "190006": "09f6f78147ad1d71f2d7a533a3aa5055a9af6d27f985e7055368d4c203bb6c4c",
+    "60004": "6e84caef40d3807aaae618832a674031c003b363c36152938a6897d6106bef9e",
+    "60005": "8733ff0db35154c7955d14089d9ea415c8832d34e4cf4a8283e2b0a001dc597c",
+    "60006": "a054038d166fa9415af094d69b1bca1b21e5985d6ab8140874a003fe29d894e1",
+    "60007": "c8c6a29551071c8a46ceddcfc77c00dbcf8a9ebf02a198fa50353076c60f5a55",
+    "60008": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a"
   },
   "sources": {
+    "sdk/launchpad/shared/db/production/migrations.go": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5",
     "services/launchpad/indexer/migrations/00001_init.sql": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
     "services/launchpad/indexer/migrations/00002_airdrop_claims.sql": "c1564eedaf42b200012365d15fd3013608d9cde146fb03e53ca8e514dec7f683",
     "services/launchpad/trading-charts/migrations/00001_init.sql": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",
@@ -49,21 +78,31 @@
     "services/launchpad/stats-workers/migrations/00001_init.sql": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
     "services/launchpad/pnl-tracker/migrations/00001_init.sql": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
     "services/launchpad/user/migrations/00001_init.sql": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
+    "services/launchpad/metadata/migrations/00001_init.sql": "75dffff2b76737c76e425f395852dea20c3018ae01771b2361728ccfee2044f3",
+    "services/launchpad/metadata/migrations/00002_add_decimals.sql": "ca32154857496eed96c7301e7f41c470fb91c47a7636beb3835e971ea0a9360a",
     "migrations/60000.sql": "5cccc2f2e1468342481d5c03513a25f291dd2591cb0158755fa786b2edbc8545",
     "migrations/80001.sql": "c6269641c857da5ffb00f7aad2cfeeb39f3ed7c2f879ce2b1d32b1b06941bf77",
     "migrations/80002.sql": "c4725e366fba56e84c02254f0a4e6b0c5567f93c74c599eb6a2078fc9d7bc9f4",
     "migrations/80003.sql": "e5475a321d8e7d10f2a79d419af2b0129681fb066372d20932241967b9faf374",
     "migrations/80004.sql": "0d66a86d82ceaec5deb4050bc8d8c047107748f91105af99362cacf31b8fbcd1",
+    "migrations/80006.sql": "6cef77846e6d4f3fc2331fb9956f7cd09483119f84cc098442029661dc1f6c06",
     "migrations/190000.sql": "7b0f040ca17a6e019053cd7d8b499e119c6de5e1ae7603fa13a966ac71fdd8eb",
     "migrations/330000.sql": "632b472ce11f3c4bd30e9e10feffb12e890feba34df1decd5683a8bd46015596",
     "migrations/330001.sql": "017f7171fd0f5dfbef42aa385e15acd07f3fe7ccb474c195f41ab05c5963f01c",
+    "migrations/340002.sql": "62c405f1c1f15d2adccd13f07cc3f3e427b8b596f1daba73016d45ba0ccba49c",
     "migrations/440000.sql": "2f77e922553f640bc6a25ad748afd4ac7a53d454eff14a369aa3c8ab1fce345f",
     "migrations/80000.sql": "9c1645ffdf7df49058eb2c67c0b498590a59c624b29d41726422caa0a7d099cc",
     "migrations/80008.sql": "d47d185b488ca264d65e38c4dc5cf27f00c6d1c190df28d7adfe61de9c066475",
     "migrations/100000.sql": "cc981bc522ccb3843ac585663d87518649f7556e27561f05c059b23810c62370",
     "migrations/130000.sql": "6954a01fdc15ba305fe935c42955f66e6cb55beffcc55fbaf235506e7c60590b",
     "migrations/160000.sql": "d0e14e39b91a41d8efb75108e39922e5541ed12d261a857a5c2e83faeb194318",
+    "migrations/340000.sql": "df61354c400871d2a4c8036deede639e85aea37fd2c99293bbeb892a12d5eb9f",
+    "migrations/390000.sql": "c1b3b0b840797c2712db88b920f04a3a33fc6e332995cca21d47f7570ed8c491",
+    "migrations/150000.sql": "b6bba284e4f86f8f2782311766ba4be2dd12e1dd4ad0345ac455a9236427de4f",
     "migrations/180000.sql": "5aed18e2a3d7869f71bc25d9de78f5edbb546c0c579f2153e9529f76bbfccee7",
+    "migrations/200000.sql": "b18621ef0310a6edbd5a01be36e9678208d37bc9bb313367d8d8f70720f1aa73",
+    "migrations/350000.sql": "c3be6db65f18b0eaee7f28f782d7c68c7a87a02f83e53630c87258ad562079ba",
+    "migrations/150001.sql": "f46f30c6ec4dc7a2fb8a1204542ab1b27f14c7bb9de7528cd07daba7bc8b1d9b",
     "migrations/470000.sql": "c83b9ecc3ef30df974bb787ca0137e3bfcb82d0904179a6b9c008e8fe950de4f",
     "migrations/190001.sql": "f3650bb5df134922e17d44da61f92c33d3e8410df705b544edb1c941a3223dc6",
     "migrations/160001.sql": "cd1e15187c1f453f08b653a16d80f82aa3ca48eb246c259534a21cdb9fe717e8",
@@ -75,9 +114,14 @@
     "migrations/130001.sql": "35d48f481e76a071cb4bb3992f818257e4db9dfa08b52758757f1a34ed42f33e",
     "migrations/160002.sql": "5dd75c69d0d5413a669d5bc845f916c04e92fad64a98fd424a1aee0f26183323",
     "migrations/190002.sql": "31b4924e704abe17f670703cd2c245bc79dfa3e6e64345217206aabe3c923610",
+    "migrations/200001.sql": "4ac46f8e13b13257e2a9eb5159a3926bfcf303817381fd395470414848a6f288",
     "migrations/330002.sql": "b1d22caebae4962d25082526af9684e4a612c0a1469925fbf76e18b7f08b865d",
+    "migrations/350001.sql": "4344bbe3b2f018056258dd34c2b48ba7507fed239862225be50a633a96880d4c",
+    "migrations/390001.sql": "be2b4c7b6d8cdfcea1745f3bf21741e025fb7b7fcc688c1b203c01149cbb20ef",
     "migrations/170000.sql": "0ca96e306ede432d3f5f2dcdccbbd82754dd33f5f13afd2cf62d863b02436078",
     "migrations/180001.sql": "e1c728094af3edf12c6a5d1d3384691b976c29d77d0f3ed26630eb4bdcae3482",
+    "migrations/340006.sql": "23021aeaa72030e49869f4dbc0cb37bcddbb2cba37c02befb4f3f8b7ffab5b8b",
+    "migrations/410000.sql": "a45d7165bd5998fde966de7f830fb3a0d4a23d18e621a5e449ee4b5373b67e95",
     "migrations/450000.sql": "bf10cc35a7ad09249d5166fc16b2426f50813a2713ef199f9a7c9c530f363a3d",
     "migrations/470001.sql": "ab507d1233b474314d10b42429f98387b9568826e3047796a8d38c2f8379785d",
     "migrations/150003.sql": "01fd82f1d414daac348c6c9239e572c06ef47df17a6a777e64ea6a28f1692009",
@@ -86,403 +130,586 @@
     "migrations/150004.sql": "8a24a6e2148f801a14c9b5ce67f95282aec5b88f87166fe68399de140082a21c",
     "migrations/190004.sql": "0373a9789d53e077bdf5af982cdf929e07f24044af49d2e84f2c469425d9846b",
     "migrations/190003.sql": "d7a89c88ea7076064328b01729f949348c469b39b8cebfaafb337ad510d350d2",
-    "sdk/launchpad/shared/db/production/migrations.go": "a34b119b55077cf1d87f377cca09d2bb8336d19b659a49184d31bfc0742918f4",
-    "migrations/160004.sql": "d12ae78c8afd2e94557641698aef2f35b4c2e15f4c94f71887ecbda897035124"
+    "migrations/150006.sql": "fbb24dc7f3c0c5e4d98f2d715be8e0889c2d6beec143ae3785616d0463b528a9",
+    "migrations/160004.sql": "d12ae78c8afd2e94557641698aef2f35b4c2e15f4c94f71887ecbda897035124",
+    "migrations/150007.sql": "6ac4406e4078b58e67eb3ec6ff9eec0ae3eda7bebdb627feea88973a4efef5b2",
+    "migrations/410001.sql": "1fed42d561f12429d40ceb882f3437b756aafb5301f3ee4648620f19ce892630",
+    "migrations/60002.sql": "77834bed00344b385051c86358b8ee033759cf688fd13282f739f2125365c097",
+    "migrations/350002.sql": "0cc38042fa7005d155e9c861363e3917b033ba74cf50225d95ca1941db49ef8b",
+    "migrations/390002.sql": "4395af68532b09812e731a8e31a29bdc835c7d3646702d2583089d8fd20e3b4e",
+    "migrations/150008.sql": "5e333ee477e88ee3e86a1db14e85462d14cd41fa43d5b11e7a0383afe7b85cc3",
+    "migrations/60003.sql": "7cee2f9b8b0ab9ac76cdbfd4200c04c2d029f67dfb44e63cd4010e2843f1fdbb",
+    "migrations/150009.sql": "34ab060e473f4b6479c2920c6605d4c3ba8b80fb2f3d829f5b5ff75ef6b85ae4",
+    "migrations/190006.sql": "09f6f78147ad1d71f2d7a533a3aa5055a9af6d27f985e7055368d4c203bb6c4c",
+    "migrations/60004.sql": "6e84caef40d3807aaae618832a674031c003b363c36152938a6897d6106bef9e",
+    "migrations/60005.sql": "8733ff0db35154c7955d14089d9ea415c8832d34e4cf4a8283e2b0a001dc597c",
+    "migrations/60006.sql": "a054038d166fa9415af094d69b1bca1b21e5985d6ab8140874a003fe29d894e1",
+    "migrations/60007.sql": "c8c6a29551071c8a46ceddcfc77c00dbcf8a9ebf02a198fa50353076c60f5a55",
+    "migrations/60008.sql": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a"
   },
   "objects": {
-    "indexer.cursors": {
-      "kind": "table",
-      "columns": [
-        "chain_id",
-        "last_processed_block",
-        "updated_at"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.pools": {
-      "kind": "table",
-      "columns": [
-        "pool_address",
-        "token_address",
-        "creator",
-        "optical",
-        "pool_id",
-        "nft_id",
-        "created_at",
-        "created_block",
-        "tx_hash"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.swaps": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "pool_id",
-        "pool_address",
-        "sender",
-        "router",
-        "is_buy",
-        "amount_in",
-        "amount_out",
-        "fee",
-        "price",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.pool_state_snapshots": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "pool_id",
-        "virtual_reserve",
-        "real_reserve",
-        "token_reserve",
-        "price",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.fee_events": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "pool_id",
-        "fee_amount",
-        "protocol_cut",
-        "pool_cut",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.fee_distributions": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "pool_id",
-        "nft_id",
-        "strategy",
-        "amount",
-        "recipient",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.fee_strategy_changes": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "pool_id",
-        "nft_id",
-        "old_strategy",
-        "new_strategy",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.optical_executions": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "pool_id",
-        "optical",
-        "hook_name",
-        "data",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.token_for_token_swaps": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "sender",
-        "token_in",
-        "token_out",
-        "pool_in",
-        "pool_out",
-        "amount_in",
-        "intermediate_usdl",
-        "amount_out",
-        "fee_in",
-        "fee_out",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.config_updates": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "key",
-        "old_value",
-        "new_value",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.backfill_jobs": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "chain_id",
-        "from_block",
-        "to_block",
-        "last_processed_block",
-        "total_blocks",
-        "status",
-        "error_message",
-        "started_at",
-        "completed_at",
-        "updated_at"
-      ],
-      "source": "services/launchpad/indexer/migrations/00001_init.sql"
-    },
-    "indexer.airdrop_claims": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "pool_id",
-        "pool_address",
-        "nft_id",
-        "holder",
-        "amount",
-        "epoch",
-        "event_name",
-        "block_number",
-        "block_timestamp",
-        "tx_hash",
-        "log_index"
-      ],
-      "source": "services/launchpad/indexer/migrations/00002_airdrop_claims.sql"
-    },
-    "pnl.user_positions": {
-      "kind": "table",
-      "columns": [
-        "user_address",
-        "pool_address",
-        "token_address",
-        "total_usdl_spent",
-        "total_tokens_bought",
-        "total_usdl_received",
-        "total_tokens_sold",
-        "avg_cost_basis",
-        "current_holdings",
-        "realized_pnl_usdl",
-        "first_buy_ts",
-        "last_trade_ts",
-        "trade_count"
-      ],
-      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
-    },
-    "pnl.user_trades": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "user_address",
-        "pool_address",
-        "token_address",
-        "is_buy",
-        "usdl_amount",
-        "token_amount",
-        "price",
-        "fee",
-        "block_number",
-        "block_timestamp",
-        "tx_hash"
-      ],
-      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
-    },
-    "pnl.pnl_cards": {
-      "kind": "table",
-      "columns": [
-        "card_id",
-        "short_code",
-        "owner_address",
-        "pool_address",
-        "token_address",
-        "snapshot",
-        "created_at"
-      ],
-      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
-    },
-    "pnl.referrals": {
-      "kind": "table",
-      "columns": [
-        "short_code",
-        "sharer_address",
-        "card_id",
-        "created_at"
-      ],
-      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
-    },
-    "pnl.referral_events_id_seq": {
-      "kind": "sequence",
+    "api_stream.append_candle": {
+      "kind": "function",
       "columns": [],
-      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+      "source": "migrations/150003.sql"
     },
-    "pnl.referral_events": {
+    "api_stream.append_market_price": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/150004.sql"
+    },
+    "api_stream.append_market_stats": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/150004.sql"
+    },
+    "api_stream.append_market_trade": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/150002.sql"
+    },
+    "api_stream.append_portfolio": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/150002.sql"
+    },
+    "api_stream.append_ranking": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/190003.sql"
+    },
+    "api_stream.market_projection_head": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/150004.sql"
+    },
+    "api_stream.stream_delivery_offsets": {
       "kind": "table",
       "columns": [
-        "id",
-        "short_code",
-        "event_type",
-        "wallet_address",
-        "card_id",
-        "credited",
-        "created_at"
-      ],
-      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
-    },
-    "pnl.reconciler_cursor": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "last_block",
-        "last_log_index",
-        "last_swap_id",
+        "partition_id",
+        "next_sequence",
+        "broker_stream",
+        "broker_sequence",
         "updated_at"
       ],
-      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+      "source": "migrations/150003.sql"
     },
-    "indexer.indexer_ingest_leases": {
+    "api_stream.stream_delivery_outbox": {
       "kind": "table",
       "columns": [
-        "chain_id",
-        "stream_id",
-        "owner_instance",
-        "fence_token",
-        "expires_at",
-        "last_heartbeat_at"
-      ],
-      "source": "migrations/60000.sql"
-    },
-    "indexer.indexer_ingest_watermarks": {
-      "kind": "table",
-      "columns": [
-        "chain_id",
-        "stream_id",
-        "raw_complete_height",
-        "typed_complete_height"
-      ],
-      "source": "migrations/60000.sql"
-    },
-    "indexer.indexer_raw_logs": {
-      "kind": "table",
-      "columns": [
-        "chain_id",
-        "transaction_hash",
-        "log_index",
-        "height",
-        "transaction_index",
-        "block_hash",
-        "emitter",
-        "topics",
-        "data"
-      ],
-      "source": "migrations/60000.sql"
-    },
-    "indexer.indexer_block_completeness": {
-      "kind": "table",
-      "columns": [
-        "chain_id",
-        "stream_id",
-        "height",
-        "block_hash",
-        "raw_count",
-        "fetch_complete",
-        "required_decode_complete",
-        "completed_at"
-      ],
-      "source": "migrations/60000.sql"
-    },
-    "indexer.indexer_ingest_outbox": {
-      "kind": "table",
-      "columns": [
-        "chain_id",
-        "transaction_hash",
-        "log_index",
-        "event_kind",
-        "payload",
+        "partition_id",
+        "sequence",
+        "event_id",
+        "frame",
         "created_at"
       ],
-      "source": "migrations/60000.sql"
+      "source": "migrations/150002.sql"
     },
-    "indexer.indexer_ingest_commits": {
+    "api_stream.stream_delivery_publications": {
       "kind": "table",
       "columns": [
-        "chain_id",
-        "stream_id",
-        "batch_id",
-        "previous_height",
-        "last_complete_height",
-        "block_hash",
-        "record_count",
-        "outbox_count",
-        "commit_time"
+        "partition_id",
+        "sequence",
+        "event_id",
+        "frame_sha256",
+        "state",
+        "owner",
+        "epoch",
+        "expires_at",
+        "attempts",
+        "available_at",
+        "claimed_at",
+        "lease_expiry_count",
+        "acknowledgement_latency_ms",
+        "failure_class",
+        "broker_stream",
+        "broker_sequence",
+        "published_at"
       ],
-      "source": "migrations/60000.sql"
+      "source": "migrations/150003.sql"
     },
-    "indexer.indexer_accounting_fills": {
+    "api_stream.stream_generation": {
       "kind": "table",
       "columns": [
-        "source_fill_id",
-        "source_fact_digest",
-        "chain_id",
-        "transaction_hash",
-        "log_index",
-        "pool_address",
-        "payload"
+        "singleton",
+        "generation"
       ],
-      "source": "migrations/60000.sql"
+      "source": "migrations/150002.sql"
     },
-    "indexer.indexer_accounting_fills_v1": {
-      "kind": "view",
+    "api_stream.stream_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/150002.sql"
+    },
+    "api_stream.stream_projection": {
+      "kind": "table",
       "columns": [
-        "source_fill_id",
-        "source_fact_digest",
-        "chain_id",
-        "transaction_hash",
-        "log_index",
-        "pool_address",
-        "payload"
+        "topic",
+        "partition_id",
+        "sequence",
+        "frame",
+        "updated_at"
       ],
-      "source": "migrations/60000.sql"
+      "source": "migrations/150002.sql"
     },
-    "indexer.indexer_accounting_publications_v1": {
-      "kind": "view",
+    "api_stream.stream_projection_partition_id_seq": {
+      "kind": "sequence",
       "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/150002.sql"
+    },
+    "api_stream.stream_publication_identity": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/150003.sql"
+    },
+    "api_stream.stream_snapshots": {
+      "kind": "table",
+      "columns": [
+        "snapshot_id",
+        "account_id",
+        "session_id",
+        "auth_epoch",
+        "filter_digest",
+        "generation",
+        "scope",
+        "initial_offsets",
+        "created_at",
+        "expires_at"
+      ],
+      "source": "migrations/150002.sql"
+    },
+    "candles.candle_cursors": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "timeframe",
+        "last_close",
+        "last_candle_start",
+        "last_sequence_num"
+      ],
+      "source": "services/launchpad/trading-charts/migrations/00001_init.sql"
+    },
+    "candles.candle_traders": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "timeframe",
+        "candle_start",
+        "trader_address"
+      ],
+      "source": "services/launchpad/trading-charts/migrations/00001_init.sql"
+    },
+    "candles.candles": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "timeframe",
+        "candle_start",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume_usdl",
+        "volume_token",
+        "buy_volume_usdl",
+        "sell_volume_usdl",
+        "trade_count",
+        "unique_traders",
+        "large_trade_count",
+        "last_trade_ts",
+        "sequence_num",
+        "mcap_open",
+        "mcap_high",
+        "mcap_low",
+        "mcap_close"
+      ],
+      "source": "services/launchpad/trading-charts/migrations/00001_init.sql"
+    },
+    "candles.chart_archive_checkpoints": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "from_time",
+        "to_time",
+        "manifest_digest",
+        "verified_at"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_delivery_attempts": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "generation",
         "publication_id",
+        "wire_digest",
+        "source_sequence",
+        "attempt_count",
+        "first_seen",
+        "last_attempt",
+        "last_category",
+        "resolved"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_exact": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "snapshot"
+      ],
+      "source": "migrations/100000.sql"
+    },
+    "candles.chart_exact_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "snapshot"
+      ],
+      "source": "migrations/100000.sql"
+    },
+    "candles.chart_exact_v2": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "snapshot"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_inbox": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "emitter",
+        "code_epoch",
+        "tx_hash",
+        "log_index",
+        "pool",
+        "digest",
+        "fill",
+        "algorithm"
+      ],
+      "source": "migrations/100000.sql"
+    },
+    "candles.chart_inbox_v2": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "pool",
+        "emitter",
+        "code_epoch",
+        "tx_hash",
+        "log_index",
+        "fill",
+        "digest"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_outbox": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "revision",
+        "payload",
+        "published_at"
+      ],
+      "source": "migrations/100000.sql"
+    },
+    "candles.chart_outbox_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/100000.sql"
+    },
+    "candles.chart_outbox_v2": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "revision",
         "payload"
       ],
-      "source": "migrations/60000.sql"
+      "source": "migrations/100001.sql"
     },
-    "pnl.delivery_outbox": {
+    "candles.chart_pool_fences": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "epoch",
+        "frozen"
+      ],
+      "source": "migrations/100000.sql"
+    },
+    "candles.chart_pool_fences_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "pool",
+        "frozen"
+      ],
+      "source": "migrations/100000.sql"
+    },
+    "candles.chart_rebuild_candles": {
+      "kind": "table",
+      "columns": [
+        "run_id",
+        "interval",
+        "start",
+        "snapshot"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_rebuild_fills": {
+      "kind": "table",
+      "columns": [
+        "run_id",
+        "source_id",
+        "digest",
+        "payload"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_rebuild_runs": {
+      "kind": "table",
+      "columns": [
+        "run_id",
+        "pool",
+        "from_time",
+        "to_time",
+        "manifest_digest",
+        "expected_digest",
+        "output_digest",
+        "status",
+        "base_revision",
+        "promotion_epoch",
+        "created_at",
+        "promoted_at",
+        "operator_name"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_rebuild_traders": {
+      "kind": "table",
+      "columns": [
+        "run_id",
+        "interval",
+        "start",
+        "actor"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_recoverability_incidents": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool",
+        "reason",
+        "evidence_digest",
+        "created_at"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_recoverability_incidents_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_replay_references": {
+      "kind": "table",
+      "columns": [
+        "reference_id",
+        "pool",
+        "from_time",
+        "to_time",
+        "expires_at"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_reprocess_audit": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "consumer_id",
+        "generation",
+        "publication_id",
+        "previous_digest",
+        "corrected_digest",
+        "decoder_version",
+        "operator_id",
+        "created_at"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_reprocess_audit_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_rollup_lineage": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "child_digest",
+        "source_watermark",
+        "algorithm"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_rollup_pending": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "child_revision"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_series_clock": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "revision",
+        "watermark_height",
+        "watermark_timestamp",
+        "has_gaps"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_stream_source_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_stream_sources": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "revision",
+        "event_id",
+        "snapshot",
+        "payload",
+        "watermark",
+        "occurred_at",
+        "projection_version",
+        "source_sequence",
+        "source_fill_id",
+        "source_fact_digest"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_stream_sources_v2": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "revision",
+        "event_id",
+        "snapshot",
+        "payload",
+        "watermark",
+        "occurred_at",
+        "projection_version",
+        "source_sequence",
+        "source_fill_id",
+        "source_fact_digest"
+      ],
+      "source": "migrations/100001.sql"
+    },
+    "candles.chart_traders": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval",
+        "start",
+        "actor"
+      ],
+      "source": "migrations/100000.sql"
+    },
+    "candles.delivery_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/80001.sql"
+    },
+    "candles.delivery_inbox": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/80001.sql"
+    },
+    "candles.delivery_ordered_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "failure_class",
+        "subject",
+        "publication_id",
+        "envelope",
+        "affected_pools",
+        "evidence_digest",
+        "created_at"
+      ],
+      "source": "migrations/80001.sql"
+    },
+    "candles.delivery_ordered_quarantine_v1": {
+      "kind": "view",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "affected_pools"
+      ],
+      "source": "migrations/80001.sql"
+    },
+    "candles.delivery_outbox": {
       "kind": "table",
       "columns": [
         "event_id",
@@ -505,62 +732,35 @@
         "published_at",
         "failure_class"
       ],
-      "source": "migrations/80003.sql"
+      "source": "migrations/80001.sql"
     },
-    "pnl.delivery_immutable": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/80003.sql"
-    },
-    "pnl.delivery_inbox": {
+    "candles.delivery_partition_commits": {
       "kind": "table",
       "columns": [
         "consumer_id",
         "projection_generation",
-        "event_id",
-        "envelope_hash",
-        "committed_at"
-      ],
-      "source": "migrations/80003.sql"
-    },
-    "pnl.delivery_quarantine": {
-      "kind": "table",
-      "columns": [
-        "consumer_id",
-        "projection_generation",
-        "envelope_hash",
-        "subject",
-        "envelope",
-        "failure_class",
-        "created_at"
-      ],
-      "source": "migrations/80003.sql"
-    },
-    "pnl.delivery_partition_producers": {
-      "kind": "table",
-      "columns": [
-        "projection_version",
-        "partition_kind",
-        "partition_key",
-        "last_sequence",
-        "last_effect_identity",
-        "last_source_order"
-      ],
-      "source": "migrations/80003.sql"
-    },
-    "pnl.delivery_partition_positions": {
-      "kind": "table",
-      "columns": [
-        "projection_version",
         "partition_kind",
         "partition_key",
         "sequence",
         "effect_identity",
         "position"
       ],
-      "source": "migrations/80003.sql"
+      "source": "migrations/80001.sql"
     },
-    "pnl.delivery_partition_leases": {
+    "candles.delivery_partition_commits_v1": {
+      "kind": "view",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80001.sql"
+    },
+    "candles.delivery_partition_leases": {
       "kind": "table",
       "columns": [
         "consumer_id",
@@ -571,9 +771,9 @@
         "epoch",
         "expires_at"
       ],
-      "source": "migrations/80003.sql"
+      "source": "migrations/80001.sql"
     },
-    "pnl.delivery_partition_offsets": {
+    "candles.delivery_partition_offsets": {
       "kind": "table",
       "columns": [
         "consumer_id",
@@ -586,22 +786,347 @@
         "next_sequence",
         "previous_effect_identity"
       ],
-      "source": "migrations/80003.sql"
+      "source": "migrations/80001.sql"
     },
-    "pnl.delivery_partition_commits": {
-      "kind": "table",
+    "candles.delivery_partition_offsets_v1": {
+      "kind": "view",
       "columns": [
         "consumer_id",
         "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "checkpoint_digest",
+        "next_sequence",
+        "previous_effect_identity"
+      ],
+      "source": "migrations/80001.sql"
+    },
+    "candles.delivery_partition_positions": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
         "partition_kind",
         "partition_key",
         "sequence",
         "effect_identity",
         "position"
       ],
-      "source": "migrations/80003.sql"
+      "source": "migrations/80001.sql"
     },
-    "pnl.delivery_ordered_quarantine": {
+    "candles.delivery_partition_producers": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "last_sequence",
+        "last_effect_identity",
+        "last_source_order"
+      ],
+      "source": "migrations/80001.sql"
+    },
+    "candles.delivery_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "subject",
+        "envelope",
+        "failure_class",
+        "created_at"
+      ],
+      "source": "migrations/80001.sql"
+    },
+    "candles.processed_swaps": {
+      "kind": "table",
+      "columns": [
+        "tx_hash",
+        "log_index",
+        "processed_at"
+      ],
+      "source": "services/launchpad/trading-charts/migrations/00002_processed_swaps.sql"
+    },
+    "gateway.inventory_cursors": {
+      "kind": "table",
+      "columns": [
+        "bucket",
+        "prefix",
+        "continuation"
+      ],
+      "source": "migrations/410001.sql"
+    },
+    "gateway.inventory_reports": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "bucket",
+        "prefix",
+        "checked",
+        "orphans",
+        "truncated",
+        "generated_at"
+      ],
+      "source": "migrations/410000.sql"
+    },
+    "gateway.lineage": {
+      "kind": "table",
+      "columns": [
+        "hash",
+        "object_key",
+        "kind",
+        "legal_hold",
+        "retain_until",
+        "removed_at"
+      ],
+      "source": "migrations/410000.sql"
+    },
+    "gateway.operations": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "hash",
+        "revision",
+        "kind",
+        "state",
+        "provider_id",
+        "proof",
+        "attempts",
+        "requested_at",
+        "updated_at"
+      ],
+      "source": "migrations/410000.sql"
+    },
+    "gateway.outbox": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "kind",
+        "hash",
+        "revision",
+        "payload",
+        "created_at"
+      ],
+      "source": "migrations/410000.sql"
+    },
+    "gateway.outbox_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/410000.sql"
+    },
+    "gateway.restriction_receipts": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "payload_hash",
+        "applied_at"
+      ],
+      "source": "migrations/410000.sql"
+    },
+    "gateway.restrictions": {
+      "kind": "table",
+      "columns": [
+        "hash",
+        "revision",
+        "state",
+        "updated_at",
+        "initial_visibility"
+      ],
+      "source": "migrations/410001.sql"
+    },
+    "gateway.tombstones": {
+      "kind": "table",
+      "columns": [
+        "hash",
+        "revision",
+        "deleted_at"
+      ],
+      "source": "migrations/410000.sql"
+    },
+    "indexer.airdrop_claims": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool_id",
+        "pool_address",
+        "nft_id",
+        "holder",
+        "amount",
+        "epoch",
+        "event_name",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00002_airdrop_claims.sql"
+    },
+    "indexer.airdrop_claims_v1": {
+      "kind": "view",
+      "columns": [
+        "holder",
+        "pool_id"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.backfill_jobs": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "chain_id",
+        "from_block",
+        "to_block",
+        "last_processed_block",
+        "total_blocks",
+        "status",
+        "error_message",
+        "started_at",
+        "completed_at",
+        "updated_at"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.chain_revenue_claims": {
+      "kind": "table",
+      "columns": [
+        "chain",
+        "epoch",
+        "holder",
+        "amount",
+        "block_number",
+        "tx_hash"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.chain_revenue_claims_v1": {
+      "kind": "view",
+      "columns": [
+        "chain",
+        "epoch",
+        "holder",
+        "amount",
+        "block_number"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.chain_revenue_epochs": {
+      "kind": "table",
+      "columns": [
+        "chain",
+        "epoch",
+        "amount",
+        "snapshot_block",
+        "eligible_supply",
+        "opened_block"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.chain_revenue_epochs_v1": {
+      "kind": "view",
+      "columns": [
+        "chain",
+        "epoch",
+        "amount",
+        "snapshot_block",
+        "eligible_supply"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.config_updates": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "key",
+        "old_value",
+        "new_value",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.cursors": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "last_processed_block",
+        "updated_at"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.delivery_archive_manifests": {
+      "kind": "table",
+      "columns": [
+        "manifest_digest",
+        "source_stream",
+        "from_height",
+        "to_height",
+        "raw_count",
+        "final_block_hash",
+        "manifest",
+        "created_at"
+      ],
+      "source": "migrations/80009.sql"
+    },
+    "indexer.delivery_consumer_watermarks": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "generation",
+        "partition_kind",
+        "partition_key",
+        "broker_stream",
+        "broker_sequence",
+        "source_order",
+        "position_sequence",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/80009.sql"
+    },
+    "indexer.delivery_cutover_history": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "revision",
+        "generation",
+        "prior_generation",
+        "changed_at"
+      ],
+      "source": "migrations/80009.sql"
+    },
+    "indexer.delivery_generation_paths": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "generation",
+        "authoritative_path"
+      ],
+      "source": "migrations/80009.sql"
+    },
+    "indexer.delivery_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/80000.sql"
+    },
+    "indexer.delivery_inbox": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/80000.sql"
+    },
+    "indexer.delivery_ordered_quarantine": {
       "kind": "table",
       "columns": [
         "consumer_id",
@@ -615,64 +1140,7 @@
         "evidence_digest",
         "created_at"
       ],
-      "source": "migrations/80003.sql"
-    },
-    "recovery.recovery_control": {
-      "kind": "table",
-      "columns": [
-        "singleton",
-        "epoch",
-        "region",
-        "revision",
-        "checkpoint_sha256"
-      ],
-      "source": "migrations/440000.sql"
-    },
-    "recovery.recovery_proposals": {
-      "kind": "table",
-      "columns": [
-        "proposal_id",
-        "expected_epoch",
-        "next_region",
-        "revision",
-        "checkpoint_sha256",
-        "fence_proof_sha256",
-        "state",
-        "actor",
-        "created_at"
-      ],
-      "source": "migrations/440000.sql"
-    },
-    "recovery.recovery_audit": {
-      "kind": "table",
-      "columns": [
-        "id",
-        "proposal_id",
-        "state",
-        "actor",
-        "revision",
-        "epoch",
-        "region",
-        "checkpoint_sha256",
-        "fence_proof_sha256",
-        "at"
-      ],
-      "source": "migrations/440000.sql"
-    },
-    "recovery.assert_epoch": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/440000.sql"
-    },
-    "recovery.current_epoch": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/440000.sql"
-    },
-    "recovery.activate": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/440000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_outbox": {
       "kind": "table",
@@ -699,51 +1167,11 @@
       ],
       "source": "migrations/80000.sql"
     },
-    "indexer.delivery_immutable": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/80000.sql"
-    },
-    "indexer.delivery_inbox": {
+    "indexer.delivery_partition_commits": {
       "kind": "table",
       "columns": [
         "consumer_id",
         "projection_generation",
-        "event_id",
-        "envelope_hash",
-        "committed_at"
-      ],
-      "source": "migrations/80000.sql"
-    },
-    "indexer.delivery_quarantine": {
-      "kind": "table",
-      "columns": [
-        "consumer_id",
-        "projection_generation",
-        "envelope_hash",
-        "subject",
-        "envelope",
-        "failure_class",
-        "created_at"
-      ],
-      "source": "migrations/80000.sql"
-    },
-    "indexer.delivery_partition_producers": {
-      "kind": "table",
-      "columns": [
-        "projection_version",
-        "partition_kind",
-        "partition_key",
-        "last_sequence",
-        "last_effect_identity",
-        "last_source_order"
-      ],
-      "source": "migrations/80000.sql"
-    },
-    "indexer.delivery_partition_positions": {
-      "kind": "table",
-      "columns": [
-        "projection_version",
         "partition_kind",
         "partition_key",
         "sequence",
@@ -780,11 +1208,10 @@
       ],
       "source": "migrations/80000.sql"
     },
-    "indexer.delivery_partition_commits": {
+    "indexer.delivery_partition_positions": {
       "kind": "table",
       "columns": [
-        "consumer_id",
-        "projection_generation",
+        "projection_version",
         "partition_kind",
         "partition_key",
         "sequence",
@@ -793,243 +1220,297 @@
       ],
       "source": "migrations/80000.sql"
     },
-    "indexer.delivery_ordered_quarantine": {
+    "indexer.delivery_partition_producers": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "last_sequence",
+        "last_effect_identity",
+        "last_source_order"
+      ],
+      "source": "migrations/80000.sql"
+    },
+    "indexer.delivery_quarantine": {
       "kind": "table",
       "columns": [
         "consumer_id",
         "projection_generation",
         "envelope_hash",
-        "failure_class",
         "subject",
-        "publication_id",
         "envelope",
-        "affected_pools",
-        "evidence_digest",
+        "failure_class",
         "created_at"
       ],
       "source": "migrations/80000.sql"
     },
-    "pnl.inventory_l16": {
+    "indexer.delivery_read_aliases": {
       "kind": "table",
       "columns": [
-        "partition",
+        "consumer_id",
+        "generation",
+        "prior_generation",
+        "revision"
+      ],
+      "source": "migrations/80009.sql"
+    },
+    "indexer.delivery_rebuilds": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "generation",
+        "manifest_digest",
+        "next_height",
+        "raw_count",
         "revision",
-        "state",
-        "last_identity",
-        "height",
-        "tx_index",
-        "log_index"
-      ],
-      "source": "migrations/160000.sql"
-    },
-    "pnl.inventory_l16_inbox": {
-      "kind": "table",
-      "columns": [
-        "consumer_version",
-        "identity",
-        "partition",
-        "payload_hash",
-        "payload"
-      ],
-      "source": "migrations/160000.sql"
-    },
-    "pnl.inventory_l16_outbox": {
-      "kind": "table",
-      "columns": [
-        "consumer_version",
-        "identity",
-        "partition",
-        "payload"
-      ],
-      "source": "migrations/160000.sql"
-    },
-    "pnl.inventory_l16_transfers": {
-      "kind": "table",
-      "columns": [
-        "consumer_version",
-        "identity",
-        "source_partition",
-        "destination_partition",
-        "payload_hash",
-        "payload"
-      ],
-      "source": "migrations/160000.sql"
-    },
-    "pnl.inventory_l16_effects": {
-      "kind": "table",
-      "columns": [
-        "projection_generation",
-        "partition",
-        "effect_identity",
-        "leg_identity",
-        "mapping_digest",
-        "position"
-      ],
-      "source": "migrations/160000.sql"
-    },
-    "pnl.l18_funding": {
-      "kind": "table",
-      "columns": [
-        "program",
-        "version",
-        "day",
-        "asset",
-        "treasury",
-        "adapter",
-        "proof",
-        "funded",
-        "reserved",
-        "daily_cap",
-        "beneficiary_cap"
-      ],
-      "source": "migrations/180000.sql"
-    },
-    "pnl.l18_inbox": {
-      "kind": "table",
-      "columns": [
-        "identity",
-        "digest"
-      ],
-      "source": "migrations/180000.sql"
-    },
-    "pnl.l18_awards": {
-      "kind": "table",
-      "columns": [
-        "identity",
-        "program",
-        "version",
-        "day",
-        "beneficiary",
-        "asset",
-        "kind",
-        "eligible",
-        "payable",
         "status",
-        "provenance",
-        "referred",
-        "hold_reason",
-        "appeal_status"
-      ],
-      "source": "migrations/180000.sql"
-    },
-    "pnl.l18_entries_sequence_seq": {
-      "kind": "sequence",
-      "columns": [],
-      "source": "migrations/180000.sql"
-    },
-    "pnl.l18_entries": {
-      "kind": "table",
-      "columns": [
-        "sequence",
-        "identity",
-        "asset",
-        "debit_account",
-        "credit_account",
-        "raw",
-        "rule_version",
-        "service_identity",
-        "provenance"
-      ],
-      "source": "migrations/180000.sql"
-    },
-    "pnl.l18_claims": {
-      "kind": "table",
-      "columns": [
-        "identity",
-        "pool",
-        "beneficiary",
-        "asset",
-        "raw",
-        "block_number",
-        "block_hash",
-        "tx_hash",
-        "log_index",
-        "version"
-      ],
-      "source": "migrations/180000.sql"
-    },
-    "pnl.l18_epochs": {
-      "kind": "table",
-      "columns": [
-        "pool",
+        "projection_digest",
+        "final_watermark",
+        "owner",
         "epoch",
-        "snapshot_block",
-        "funded",
-        "claimed",
-        "eligible_supply",
-        "version",
-        "checkpoint_hash"
+        "lease_until"
       ],
-      "source": "migrations/180000.sql"
+      "source": "migrations/80009.sql"
     },
-    "pnl.l18_epoch_claims": {
+    "indexer.delivery_shadow_comparisons": {
       "kind": "table",
       "columns": [
-        "pool",
-        "epoch",
-        "beneficiary",
-        "identity",
-        "raw"
+        "manifest_digest",
+        "event_digest",
+        "event_count",
+        "compared_at"
       ],
-      "source": "migrations/180000.sql"
+      "source": "migrations/80009.sql"
     },
-    "pnl.l18_outbox_sequence_seq": {
-      "kind": "sequence",
-      "columns": [],
-      "source": "migrations/180000.sql"
-    },
-    "pnl.l18_outbox": {
+    "indexer.delivery_shadow_observations": {
       "kind": "table",
       "columns": [
-        "sequence",
-        "identity",
-        "topic",
-        "payload",
-        "published_at"
+        "range_digest",
+        "path",
+        "event_id",
+        "payload_hash",
+        "source_order"
       ],
-      "source": "migrations/180000.sql"
+      "source": "migrations/80009.sql"
     },
-    "pnl.l18_bindings": {
+    "indexer.delivery_webhook_cursors": {
       "kind": "table",
       "columns": [
-        "campaign",
-        "beneficiary",
-        "policy_version",
-        "referrer",
-        "attribution",
-        "issued_at",
-        "consent_at",
-        "token_nonce"
+        "target_id",
+        "generation",
+        "partition",
+        "enqueued_sequence",
+        "enqueued_event",
+        "committed_sequence",
+        "committed_event"
       ],
-      "source": "migrations/180000.sql"
+      "source": "migrations/80009.sql"
     },
-    "pnl.objects": {
-      "kind": "table",
-      "columns": [
-        "kind",
-        "id",
-        "body"
-      ],
-      "source": "migrations/470000.sql"
-    },
-    "pnl.audit": {
-      "kind": "table",
-      "columns": [
-        "seq",
-        "at",
-        "actor",
-        "role",
-        "operation",
-        "resource",
-        "reason",
-        "result"
-      ],
-      "source": "migrations/470000.sql"
-    },
-    "pnl.immutable_audit": {
+    "indexer.delivery_webhook_immutable": {
       "kind": "function",
       "columns": [],
-      "source": "migrations/470000.sql"
+      "source": "migrations/80009.sql"
+    },
+    "indexer.delivery_webhook_retry_audit": {
+      "kind": "table",
+      "columns": [
+        "target_id",
+        "generation",
+        "partition",
+        "sequence",
+        "attempts_before",
+        "allowed_attempts",
+        "authorized_at"
+      ],
+      "source": "migrations/80009.sql"
+    },
+    "indexer.delivery_webhooks": {
+      "kind": "table",
+      "columns": [
+        "target_id",
+        "generation",
+        "partition",
+        "sequence",
+        "position_identity",
+        "event_id",
+        "predecessor",
+        "payload_hash",
+        "wire_hash",
+        "idempotency_key",
+        "created_at",
+        "state",
+        "attempts",
+        "allowed_attempts",
+        "available_at",
+        "lease_expiry_count",
+        "claimed_at",
+        "acknowledgement_latency_ms",
+        "owner",
+        "fence",
+        "lease_until",
+        "response_status",
+        "failure_class",
+        "delivered_at"
+      ],
+      "source": "migrations/80009.sql"
+    },
+    "indexer.fee_distributions": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool_id",
+        "nft_id",
+        "strategy",
+        "amount",
+        "recipient",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.fee_distributions_v1": {
+      "kind": "view",
+      "columns": [
+        "strategy",
+        "amount",
+        "pool_id",
+        "block_number",
+        "log_index"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.fee_events": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool_id",
+        "fee_amount",
+        "protocol_cut",
+        "pool_cut",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.fee_strategy_changes": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool_id",
+        "nft_id",
+        "old_strategy",
+        "new_strategy",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.fee_strategy_changes_v1": {
+      "kind": "view",
+      "columns": [
+        "pool_id",
+        "block_number",
+        "log_index",
+        "new_strategy"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.indexer_accounting_fills": {
+      "kind": "table",
+      "columns": [
+        "source_fill_id",
+        "source_fact_digest",
+        "chain_id",
+        "transaction_hash",
+        "log_index",
+        "pool_address",
+        "payload"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_accounting_fills_v1": {
+      "kind": "view",
+      "columns": [
+        "source_fill_id",
+        "source_fact_digest",
+        "chain_id",
+        "transaction_hash",
+        "log_index",
+        "pool_address",
+        "payload"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_accounting_publications_v1": {
+      "kind": "view",
+      "columns": [
+        "publication_id",
+        "payload"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_archive_segments": {
+      "kind": "table",
+      "columns": [
+        "segment_id",
+        "chain_id",
+        "source_stream",
+        "from_height",
+        "to_height",
+        "manifest",
+        "manifest_digest",
+        "object_key",
+        "verified_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_archive_segments_v2": {
+      "kind": "view",
+      "columns": [
+        "manifest",
+        "manifest_digest",
+        "object_key",
+        "verified_at",
+        "source_stream",
+        "from_height",
+        "to_height"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_block_completeness": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "height",
+        "block_hash",
+        "raw_count",
+        "fetch_complete",
+        "required_decode_complete",
+        "completed_at"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_block_completeness_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "height",
+        "block_hash",
+        "raw_count",
+        "fetch_complete",
+        "required_decode_complete",
+        "completed_at"
+      ],
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_canonical_creations": {
       "kind": "table",
@@ -1071,6 +1552,352 @@
       ],
       "source": "migrations/190001.sql"
     },
+    "indexer.indexer_capability_degradation": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "transaction_hash",
+        "log_index",
+        "requirement",
+        "raw_digest",
+        "created_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_committed_heads": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "height",
+        "block_hash",
+        "integrity",
+        "source_id",
+        "observed_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_committed_heads_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "height",
+        "block_hash",
+        "integrity",
+        "source_id",
+        "observed_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_committed_heads_v2": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "height",
+        "block_hash",
+        "integrity"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_generation_raw": {
+      "kind": "table",
+      "columns": [
+        "target",
+        "generation",
+        "projection_revision",
+        "height",
+        "transaction_index",
+        "log_index",
+        "transaction_hash",
+        "raw_digest",
+        "payload"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_ingest_commits": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "batch_id",
+        "previous_height",
+        "last_complete_height",
+        "block_hash",
+        "record_count",
+        "outbox_count",
+        "commit_time"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_ingest_commits_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "batch_id",
+        "previous_height",
+        "last_complete_height",
+        "block_hash",
+        "record_count"
+      ],
+      "source": "migrations/190001.sql"
+    },
+    "indexer.indexer_ingest_leases": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "owner_instance",
+        "fence_token",
+        "expires_at",
+        "last_heartbeat_at"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_ingest_leases_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "owner_instance",
+        "fence_token",
+        "expires_at"
+      ],
+      "source": "migrations/190001.sql"
+    },
+    "indexer.indexer_ingest_outbox": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "transaction_hash",
+        "log_index",
+        "event_kind",
+        "payload",
+        "created_at"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_ingest_watermarks": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "raw_complete_height",
+        "typed_complete_height"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_ingest_watermarks_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "raw_complete_height",
+        "typed_complete_height"
+      ],
+      "source": "migrations/190001.sql"
+    },
+    "indexer.indexer_market_partition_positions_v1": {
+      "kind": "view",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "position"
+      ],
+      "source": "migrations/190001.sql"
+    },
+    "indexer.indexer_quarantine": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "stream_id",
+        "transaction_hash",
+        "log_index",
+        "block_hash",
+        "height",
+        "raw_digest",
+        "raw_payload",
+        "error_code",
+        "abi_revision",
+        "requirement",
+        "required",
+        "first_seen",
+        "last_attempt_at",
+        "attempt_count",
+        "next_attempt_at",
+        "operator_required",
+        "resolution",
+        "resolved_at",
+        "resolved_by"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_quarantine_waivers": {
+      "kind": "table",
+      "columns": [
+        "raw_digest",
+        "requirement",
+        "operator_identity",
+        "authorization_id",
+        "reason",
+        "from_height",
+        "to_height",
+        "expires_at",
+        "created_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_raw_logs": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "transaction_hash",
+        "log_index",
+        "height",
+        "transaction_index",
+        "block_hash",
+        "emitter",
+        "topics",
+        "data"
+      ],
+      "source": "migrations/60000.sql"
+    },
+    "indexer.indexer_raw_logs_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "transaction_hash",
+        "log_index",
+        "height",
+        "transaction_index",
+        "block_hash",
+        "emitter",
+        "topics",
+        "data"
+      ],
+      "source": "migrations/190001.sql"
+    },
+    "indexer.indexer_replay_authorizations": {
+      "kind": "table",
+      "columns": [
+        "authorization_id",
+        "operator_identity",
+        "authorization_evidence",
+        "action",
+        "target",
+        "generation",
+        "projection_revision",
+        "from_height",
+        "to_height",
+        "max_concurrent",
+        "expires_at",
+        "revoked_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_replay_batches": {
+      "kind": "table",
+      "columns": [
+        "job_id",
+        "from_height",
+        "to_height",
+        "raw_count",
+        "intent_count",
+        "identity_digest",
+        "checkpoint_digest",
+        "committed_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_replay_checkpoint_conflicts": {
+      "kind": "table",
+      "columns": [
+        "job_id",
+        "from_height",
+        "to_height",
+        "expected_checkpoint",
+        "observed_digest",
+        "observed",
+        "reason",
+        "created_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_replay_checkpoints": {
+      "kind": "table",
+      "columns": [
+        "source_stream",
+        "height",
+        "block_hash"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_replay_effects": {
+      "kind": "table",
+      "columns": [
+        "target",
+        "generation",
+        "projection_revision",
+        "effect_id",
+        "raw_digest",
+        "height",
+        "event_kind",
+        "payload"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_replay_jobs": {
+      "kind": "table",
+      "columns": [
+        "job_id",
+        "request_digest",
+        "request",
+        "chain_id",
+        "source_stream",
+        "target",
+        "generation",
+        "projection_revision",
+        "mode",
+        "authorization_id",
+        "from_height",
+        "to_height",
+        "progress_height",
+        "status",
+        "owner",
+        "fence",
+        "expires_at",
+        "last_error",
+        "unavailable_from",
+        "unavailable_to",
+        "updated_at"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_replay_source_blocks": {
+      "kind": "table",
+      "columns": [
+        "source_stream",
+        "height",
+        "block_hash",
+        "raw_count"
+      ],
+      "source": "migrations/60001.sql"
+    },
+    "indexer.indexer_swap_outbox_v1": {
+      "kind": "view",
+      "columns": [
+        "chain_id",
+        "transaction_hash",
+        "log_index",
+        "event_kind",
+        "payload"
+      ],
+      "source": "migrations/60002.sql"
+    },
     "indexer.indexer_token_transfers": {
       "kind": "table",
       "columns": [
@@ -1107,79 +1934,951 @@
       ],
       "source": "migrations/190001.sql"
     },
-    "indexer.indexer_raw_logs_v1": {
-      "kind": "view",
+    "indexer.launched_chains": {
+      "kind": "table",
       "columns": [
+        "chain",
         "chain_id",
-        "transaction_hash",
-        "log_index",
-        "height",
-        "transaction_index",
-        "block_hash",
-        "emitter",
-        "topics",
-        "data"
+        "pool",
+        "token",
+        "fee_right",
+        "creator",
+        "block_number",
+        "tx_hash",
+        "status",
+        "retired_block"
       ],
-      "source": "migrations/190001.sql"
+      "source": "migrations/60003.sql"
     },
-    "indexer.indexer_block_completeness_v1": {
+    "indexer.launched_chains_v1": {
+      "kind": "view",
+      "columns": [
+        "chain",
+        "chain_id",
+        "pool",
+        "token",
+        "fee_right",
+        "creator",
+        "block_number",
+        "status"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.lock_ingest_lease_v1": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.optical_executions": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool_id",
+        "optical",
+        "hook_name",
+        "data",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.pool_state_snapshots": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool_id",
+        "virtual_reserve",
+        "real_reserve",
+        "token_reserve",
+        "price",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.pool_state_snapshots_v1": {
+      "kind": "view",
+      "columns": [
+        "pool_id",
+        "virtual_reserve",
+        "real_reserve",
+        "token_reserve",
+        "block_number",
+        "log_index"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.pools": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "token_address",
+        "creator",
+        "optical",
+        "pool_id",
+        "nft_id",
+        "created_at",
+        "created_block",
+        "tx_hash",
+        "home_chain"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.pools_read_v1": {
+      "kind": "view",
+      "columns": [
+        "pool_address",
+        "pool_id",
+        "home_chain",
+        "token_address",
+        "created_at"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.swap_progress_v1": {
+      "kind": "view",
+      "columns": [
+        "block_number"
+      ],
+      "source": "migrations/60003.sql"
+    },
+    "indexer.swaps": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool_id",
+        "pool_address",
+        "sender",
+        "router",
+        "is_buy",
+        "amount_in",
+        "amount_out",
+        "fee",
+        "price",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "indexer.token_for_token_swaps": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "sender",
+        "token_in",
+        "token_out",
+        "pool_in",
+        "pool_out",
+        "amount_in",
+        "intermediate_usdl",
+        "amount_out",
+        "fee_in",
+        "fee_out",
+        "block_number",
+        "block_timestamp",
+        "tx_hash",
+        "log_index"
+      ],
+      "source": "services/launchpad/indexer/migrations/00001_init.sql"
+    },
+    "metadata.account_assets_authority_v2": {
+      "kind": "view",
+      "columns": [
+        "id",
+        "owner_wallet",
+        "state",
+        "blocked"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.account_assets_v2": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "owner_wallet",
+        "hash",
+        "size",
+        "mime",
+        "width",
+        "height",
+        "state",
+        "variants",
+        "scanner_engine",
+        "scanner_revision",
+        "moderation_revision",
+        "blocked",
+        "rejected_until",
+        "investigation_hold",
+        "deletion_id",
+        "created_at"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.asset_details_v2": {
+      "kind": "table",
+      "columns": [
+        "asset_id",
+        "mime",
+        "width",
+        "height",
+        "variants",
+        "created_at",
+        "rejected_until",
+        "investigation_hold"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.asset_details_v2_v2": {
+      "kind": "view",
+      "columns": [
+        "asset_id",
+        "variants",
+        "created_at",
+        "investigation_hold"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.assets": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool",
+        "state",
+        "hash",
+        "size",
+        "object_key",
+        "scanner_engine",
+        "scanner_revision"
+      ],
+      "source": "migrations/390000.sql"
+    },
+    "metadata.assets_v2": {
+      "kind": "view",
+      "columns": [
+        "id",
+        "pool",
+        "hash",
+        "state",
+        "object_key",
+        "scanner_engine",
+        "scanner_revision"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.auth_committed_blocks": {
       "kind": "view",
       "columns": [
         "chain_id",
-        "stream_id",
         "height",
         "block_hash",
-        "raw_count",
-        "fetch_complete",
-        "required_decode_complete",
-        "completed_at"
+        "integrity"
       ],
-      "source": "migrations/190001.sql"
+      "source": "migrations/390001.sql"
     },
-    "indexer.indexer_ingest_leases_v1": {
-      "kind": "view",
+    "metadata.delivery_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/80006.sql"
+    },
+    "metadata.delivery_inbox": {
+      "kind": "table",
       "columns": [
-        "chain_id",
-        "stream_id",
-        "owner_instance",
-        "fence_token",
+        "consumer_id",
+        "projection_generation",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/80006.sql"
+    },
+    "metadata.delivery_ordered_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "failure_class",
+        "subject",
+        "publication_id",
+        "envelope",
+        "affected_pools",
+        "evidence_digest",
+        "created_at"
+      ],
+      "source": "migrations/80006.sql"
+    },
+    "metadata.delivery_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "schema_version",
+        "subject",
+        "payload_hash",
+        "envelope",
+        "created_at",
+        "state",
+        "attempts",
+        "available_at",
+        "lease_owner",
+        "lease_until",
+        "fence",
+        "lease_expiry_count",
+        "claimed_at",
+        "acknowledgement_latency_ms",
+        "broker_stream",
+        "broker_sequence",
+        "published_at",
+        "failure_class"
+      ],
+      "source": "migrations/80006.sql"
+    },
+    "metadata.delivery_partition_commits": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80006.sql"
+    },
+    "metadata.delivery_partition_leases": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "owner",
+        "epoch",
         "expires_at"
       ],
-      "source": "migrations/190001.sql"
+      "source": "migrations/80006.sql"
     },
-    "indexer.indexer_ingest_watermarks_v1": {
-      "kind": "view",
+    "metadata.delivery_partition_offsets": {
+      "kind": "table",
       "columns": [
-        "chain_id",
-        "stream_id",
-        "raw_complete_height",
-        "typed_complete_height"
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "checkpoint_digest",
+        "initial_sequence",
+        "initial_predecessor",
+        "next_sequence",
+        "previous_effect_identity"
       ],
-      "source": "migrations/190001.sql"
+      "source": "migrations/80006.sql"
     },
-    "indexer.indexer_ingest_commits_v1": {
-      "kind": "view",
-      "columns": [
-        "chain_id",
-        "stream_id",
-        "batch_id",
-        "previous_height",
-        "last_complete_height",
-        "block_hash",
-        "record_count"
-      ],
-      "source": "migrations/190001.sql"
-    },
-    "indexer.indexer_market_partition_positions_v1": {
-      "kind": "view",
+    "metadata.delivery_partition_positions": {
+      "kind": "table",
       "columns": [
         "projection_version",
         "partition_kind",
         "partition_key",
         "sequence",
+        "effect_identity",
         "position"
       ],
-      "source": "migrations/190001.sql"
+      "source": "migrations/80006.sql"
+    },
+    "metadata.delivery_partition_producers": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "last_sequence",
+        "last_effect_identity",
+        "last_source_order"
+      ],
+      "source": "migrations/80006.sql"
+    },
+    "metadata.delivery_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "subject",
+        "envelope",
+        "failure_class",
+        "created_at"
+      ],
+      "source": "migrations/80006.sql"
+    },
+    "metadata.documents": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "revision",
+        "document",
+        "asset_id",
+        "moderation_revision",
+        "blocked"
+      ],
+      "source": "migrations/390000.sql"
+    },
+    "metadata.documents_v2": {
+      "kind": "view",
+      "columns": [
+        "pool",
+        "blocked",
+        "moderation_revision"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.metadata_publication_grants_v3": {
+      "kind": "table",
+      "columns": [
+        "operation",
+        "nonce",
+        "envelope",
+        "envelope_digest",
+        "body_hash",
+        "request_id",
+        "account_id",
+        "session_id",
+        "auth_epoch",
+        "response"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.metadata_publication_intents_v3": {
+      "kind": "table",
+      "columns": [
+        "operation",
+        "draft_id",
+        "token",
+        "pool",
+        "creator",
+        "creation_tx_hash",
+        "content_hash",
+        "body_hash",
+        "body",
+        "metadata",
+        "upload_refs",
+        "envelope",
+        "envelope_digest",
+        "nonce",
+        "request_id",
+        "account_id",
+        "session_id",
+        "auth_epoch",
+        "admission_response",
+        "accepted_at",
+        "expires_at"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.metadata_publication_jobs_v3": {
+      "kind": "table",
+      "columns": [
+        "operation",
+        "state",
+        "attempt_count",
+        "fence",
+        "lease_owner",
+        "lease_until",
+        "grant_nonce",
+        "next_at",
+        "last_error_code",
+        "result",
+        "revision",
+        "updated_at"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.operation_ledger": {
+      "kind": "table",
+      "columns": [
+        "actor",
+        "action",
+        "nonce",
+        "envelope_digest",
+        "body_digest",
+        "request_id",
+        "response",
+        "response_digest",
+        "created_at",
+        "retain_until"
+      ],
+      "source": "migrations/340002.sql"
+    },
+    "metadata.operations": {
+      "kind": "table",
+      "columns": [
+        "operation",
+        "pool",
+        "actor",
+        "body_hash",
+        "revision"
+      ],
+      "source": "migrations/390000.sql"
+    },
+    "metadata.outbox": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "revision",
+        "payload"
+      ],
+      "source": "migrations/390000.sql"
+    },
+    "metadata.pools": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "creator",
+        "token"
+      ],
+      "source": "migrations/390000.sql"
+    },
+    "metadata.pools_v2": {
+      "kind": "view",
+      "columns": [
+        "pool"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.security_audit_delivery_receipts": {
+      "kind": "table",
+      "columns": [
+        "audit_id",
+        "event_id",
+        "enqueued_at"
+      ],
+      "source": "migrations/340006.sql"
+    },
+    "metadata.security_audit_outbox": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "request_id",
+        "actor_pseudonym",
+        "action",
+        "result",
+        "policy_version",
+        "request_digest",
+        "created_at"
+      ],
+      "source": "migrations/340002.sql"
+    },
+    "metadata.security_audit_outbox_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/340002.sql"
+    },
+    "metadata.security_audit_sink": {
+      "kind": "table",
+      "columns": [
+        "request_id",
+        "action",
+        "payload_hash",
+        "payload",
+        "revision"
+      ],
+      "source": "migrations/340006.sql"
+    },
+    "metadata.token_images": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "token_address",
+        "image_type",
+        "storage_key",
+        "mime_type",
+        "size_bytes",
+        "uploaded_at"
+      ],
+      "source": "services/launchpad/metadata/migrations/00001_init.sql"
+    },
+    "metadata.token_metadata": {
+      "kind": "table",
+      "columns": [
+        "token_address",
+        "pool_address",
+        "name",
+        "symbol",
+        "description",
+        "website",
+        "twitter",
+        "telegram",
+        "discord",
+        "custom_tags",
+        "created_by",
+        "created_at",
+        "updated_at",
+        "decimals"
+      ],
+      "source": "services/launchpad/metadata/migrations/00002_add_decimals.sql"
+    },
+    "metadata.token_search_v1": {
+      "kind": "view",
+      "columns": [
+        "token_address",
+        "pool_address",
+        "name",
+        "symbol",
+        "description",
+        "created_by",
+        "created_at"
+      ],
+      "source": "migrations/390002.sql"
+    },
+    "metadata.v2_documents": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "revision",
+        "document",
+        "asset_id",
+        "updated_at",
+        "search_document"
+      ],
+      "source": "migrations/390001.sql"
+    },
+    "metadata.v2_nonces": {
+      "kind": "table",
+      "columns": [
+        "wallet",
+        "nonce",
+        "operation",
+        "digest"
+      ],
+      "source": "migrations/390000.sql"
+    },
+    "metadata.v2_operations": {
+      "kind": "table",
+      "columns": [
+        "operation",
+        "pool",
+        "actor",
+        "body_hash",
+        "revision",
+        "result"
+      ],
+      "source": "migrations/390000.sql"
+    },
+    "metadata.v2_outbox": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "revision",
+        "payload"
+      ],
+      "source": "migrations/390000.sql"
+    },
+    "migration_control.applied_migrations": {
+      "kind": "table",
+      "columns": [
+        "migration_id",
+        "service",
+        "schema_name",
+        "checksum",
+        "registry_digest",
+        "applied_at"
+      ],
+      "source": "sdk/launchpad/shared/db/production/migrations.go"
+    },
+    "migration_control.legacy_baselines": {
+      "kind": "table",
+      "columns": [
+        "service",
+        "original_version",
+        "source_checksum",
+        "up_checksum",
+        "structural_fingerprint"
+      ],
+      "source": "sdk/launchpad/shared/db/production/migrations.go"
+    },
+    "migration_control.readiness": {
+      "kind": "function",
+      "columns": [],
+      "source": "sdk/launchpad/shared/db/production/migrations.go"
+    },
+    "migration_control.runtime_readiness": {
+      "kind": "table",
+      "columns": [
+        "role_name",
+        "service",
+        "registry_digest",
+        "interface_digest",
+        "reader_min_version",
+        "migrations"
+      ],
+      "source": "sdk/launchpad/shared/db/production/migrations.go"
+    },
+    "pnl.audit": {
+      "kind": "table",
+      "columns": [
+        "seq",
+        "at",
+        "actor",
+        "role",
+        "operation",
+        "resource",
+        "reason",
+        "result"
+      ],
+      "source": "migrations/470000.sql"
+    },
+    "pnl.audit_seq_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/470000.sql"
+    },
+    "pnl.authority_credentials": {
+      "kind": "table",
+      "columns": [
+        "credential_id",
+        "actor_id",
+        "role",
+        "scopes",
+        "token_hash",
+        "session_id",
+        "expires_at",
+        "revoked_at"
+      ],
+      "source": "migrations/470001.sql"
+    },
+    "pnl.authority_credentials_v2": {
+      "kind": "view",
+      "columns": [
+        "credential_id",
+        "actor_id",
+        "role",
+        "scopes",
+        "token_hash",
+        "session_id",
+        "expires_at",
+        "revoked_at"
+      ],
+      "source": "migrations/470001.sql"
+    },
+    "pnl.delivery_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_inbox": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_ordered_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "failure_class",
+        "subject",
+        "publication_id",
+        "envelope",
+        "affected_pools",
+        "evidence_digest",
+        "created_at"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "schema_version",
+        "subject",
+        "payload_hash",
+        "envelope",
+        "created_at",
+        "state",
+        "attempts",
+        "available_at",
+        "lease_owner",
+        "lease_until",
+        "fence",
+        "lease_expiry_count",
+        "claimed_at",
+        "acknowledgement_latency_ms",
+        "broker_stream",
+        "broker_sequence",
+        "published_at",
+        "failure_class"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_partition_commits": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_partition_leases": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "owner",
+        "epoch",
+        "expires_at"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_partition_offsets": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "checkpoint_digest",
+        "initial_sequence",
+        "initial_predecessor",
+        "next_sequence",
+        "previous_effect_identity"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_partition_positions": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_partition_producers": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "last_sequence",
+        "last_effect_identity",
+        "last_source_order"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.delivery_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "subject",
+        "envelope",
+        "failure_class",
+        "created_at"
+      ],
+      "source": "migrations/80003.sql"
+    },
+    "pnl.identity_control_wallets_v2": {
+      "kind": "view",
+      "columns": [
+        "actor_id",
+        "account_id",
+        "wallet",
+        "chain_id",
+        "state"
+      ],
+      "source": "migrations/470001.sql"
+    },
+    "pnl.immutable_audit": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/470000.sql"
+    },
+    "pnl.inventory_l16": {
+      "kind": "table",
+      "columns": [
+        "partition",
+        "revision",
+        "state",
+        "last_identity",
+        "height",
+        "tx_index",
+        "log_index"
+      ],
+      "source": "migrations/160000.sql"
+    },
+    "pnl.inventory_l16_active_v2": {
+      "kind": "table",
+      "columns": [
+        "partition",
+        "generation",
+        "snapshot_digest",
+        "height"
+      ],
+      "source": "migrations/160002.sql"
+    },
+    "pnl.inventory_l16_append_only_v2": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/160002.sql"
+    },
+    "pnl.inventory_l16_archive_v2": {
+      "kind": "table",
+      "columns": [
+        "generation",
+        "partition",
+        "identity",
+        "payload_hash",
+        "payload"
+      ],
+      "source": "migrations/160002.sql"
+    },
+    "pnl.inventory_l16_baseline_uses": {
+      "kind": "table",
+      "columns": [
+        "projection_generation",
+        "partition",
+        "effect_identity",
+        "owner_epoch",
+        "baseline_digest",
+        "checkpoint_height",
+        "checkpoint_hash",
+        "movement_digest",
+        "replayed_balance_raw",
+        "attestation_digest",
+        "attestation"
+      ],
+      "source": "migrations/160001.sql"
     },
     "pnl.inventory_l16_baselines": {
       "kind": "table",
@@ -1221,35 +2920,111 @@
       ],
       "source": "migrations/160001.sql"
     },
-    "pnl.inventory_l16_baseline_uses": {
+    "pnl.inventory_l16_checkpoints_v2": {
+      "kind": "table",
+      "columns": [
+        "generation",
+        "partition",
+        "day",
+        "snapshot_digest",
+        "checkpoint_digest",
+        "payload"
+      ],
+      "source": "migrations/160002.sql"
+    },
+    "pnl.inventory_l16_effects": {
       "kind": "table",
       "columns": [
         "projection_generation",
         "partition",
         "effect_identity",
-        "owner_epoch",
-        "baseline_digest",
-        "checkpoint_height",
-        "checkpoint_hash",
-        "movement_digest",
-        "replayed_balance_raw",
-        "attestation_digest",
-        "attestation"
+        "leg_identity",
+        "mapping_digest",
+        "position"
       ],
-      "source": "migrations/160001.sql"
+      "source": "migrations/160000.sql"
     },
-    "pnl.inventory_l16_stream_state_v1": {
-      "kind": "view",
+    "pnl.inventory_l16_inbox": {
+      "kind": "table",
       "columns": [
+        "consumer_version",
+        "identity",
         "partition",
-        "revision",
-        "state",
-        "last_identity",
-        "height",
-        "tx_index",
-        "log_index"
+        "payload_hash",
+        "payload"
       ],
-      "source": "migrations/160001.sql"
+      "source": "migrations/160000.sql"
+    },
+    "pnl.inventory_l16_live_commits_v1": {
+      "kind": "table",
+      "columns": [
+        "generation",
+        "wallet",
+        "source_stream",
+        "height",
+        "block_hash",
+        "source_owner",
+        "source_epoch",
+        "release_digest",
+        "input_digest",
+        "snapshot_id"
+      ],
+      "source": "migrations/160003.sql"
+    },
+    "pnl.inventory_l16_live_owners_v1": {
+      "kind": "table",
+      "columns": [
+        "wallet",
+        "account_id",
+        "session_id",
+        "auth_epoch",
+        "proof_at",
+        "expires_at",
+        "accepted_height",
+        "accepted_hash",
+        "accepted_snapshot",
+        "source_digest",
+        "updated_at",
+        "last_attempt_at",
+        "cancelled_at"
+      ],
+      "source": "migrations/160003.sql"
+    },
+    "pnl.inventory_l16_outbox": {
+      "kind": "table",
+      "columns": [
+        "consumer_version",
+        "identity",
+        "partition",
+        "payload"
+      ],
+      "source": "migrations/160000.sql"
+    },
+    "pnl.inventory_l16_quarantine_v2": {
+      "kind": "table",
+      "columns": [
+        "generation",
+        "partition",
+        "height",
+        "block_hash",
+        "reason",
+        "payload",
+        "observed_at"
+      ],
+      "source": "migrations/160002.sql"
+    },
+    "pnl.inventory_l16_snapshots_v2": {
+      "kind": "table",
+      "columns": [
+        "generation",
+        "partition",
+        "snapshot_digest",
+        "payload",
+        "height",
+        "block_hash",
+        "release_digest"
+      ],
+      "source": "migrations/160002.sql"
     },
     "pnl.inventory_l16_stream_proof_v1": {
       "kind": "view",
@@ -1271,611 +3046,405 @@
       ],
       "source": "migrations/160001.sql"
     },
-    "recovery.recovery_broker_fences": {
-      "kind": "table",
+    "pnl.inventory_l16_stream_state_v1": {
+      "kind": "view",
       "columns": [
-        "proposal_id",
-        "expected_epoch",
-        "region",
+        "partition",
         "revision",
-        "actor",
-        "configuration_sha256",
         "state",
-        "proof_sha256",
-        "evidence",
-        "failure_code",
-        "created_at",
-        "verified_at"
-      ],
-      "source": "migrations/440001.sql"
-    },
-    "recovery.activate_fenced_v2": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/440001.sql"
-    },
-    "api_stream.stream_generation": {
-      "kind": "table",
-      "columns": [
-        "singleton",
-        "generation"
-      ],
-      "source": "migrations/150002.sql"
-    },
-    "api_stream.stream_projection": {
-      "kind": "table",
-      "columns": [
-        "topic",
-        "partition_id",
-        "sequence",
-        "frame",
-        "updated_at"
-      ],
-      "source": "migrations/150002.sql"
-    },
-    "api_stream.stream_delivery_outbox": {
-      "kind": "table",
-      "columns": [
-        "partition_id",
-        "sequence",
-        "event_id",
-        "frame",
-        "created_at"
-      ],
-      "source": "migrations/150002.sql"
-    },
-    "api_stream.stream_immutable": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/150002.sql"
-    },
-    "api_stream.stream_snapshots": {
-      "kind": "table",
-      "columns": [
-        "snapshot_id",
-        "account_id",
-        "session_id",
-        "auth_epoch",
-        "filter_digest",
-        "generation",
-        "scope",
-        "initial_offsets",
-        "created_at",
-        "expires_at"
-      ],
-      "source": "migrations/150002.sql"
-    },
-    "api_stream.append_market_trade": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/150002.sql"
-    },
-    "api_stream.append_portfolio": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/150002.sql"
-    },
-    "indexer.indexer_quarantine": {
-      "kind": "table",
-      "columns": [
-        "chain_id",
-        "stream_id",
-        "transaction_hash",
-        "log_index",
-        "block_hash",
+        "last_identity",
         "height",
-        "raw_digest",
-        "raw_payload",
-        "error_code",
-        "abi_revision",
-        "requirement",
-        "required",
-        "first_seen",
-        "last_attempt_at",
-        "attempt_count",
-        "next_attempt_at",
-        "operator_required",
-        "resolution",
-        "resolved_at",
-        "resolved_by"
+        "tx_index",
+        "log_index"
       ],
-      "source": "migrations/60001.sql"
+      "source": "migrations/160001.sql"
     },
-    "indexer.indexer_capability_degradation": {
+    "pnl.inventory_l16_transfers": {
       "kind": "table",
       "columns": [
-        "chain_id",
-        "stream_id",
-        "transaction_hash",
-        "log_index",
-        "requirement",
-        "raw_digest",
-        "created_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_replay_authorizations": {
-      "kind": "table",
-      "columns": [
-        "authorization_id",
-        "operator_identity",
-        "authorization_evidence",
-        "action",
-        "target",
-        "generation",
-        "projection_revision",
-        "from_height",
-        "to_height",
-        "max_concurrent",
-        "expires_at",
-        "revoked_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_quarantine_waivers": {
-      "kind": "table",
-      "columns": [
-        "raw_digest",
-        "requirement",
-        "operator_identity",
-        "authorization_id",
-        "reason",
-        "from_height",
-        "to_height",
-        "expires_at",
-        "created_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_replay_jobs": {
-      "kind": "table",
-      "columns": [
-        "job_id",
-        "request_digest",
-        "request",
-        "chain_id",
-        "source_stream",
-        "target",
-        "generation",
-        "projection_revision",
-        "mode",
-        "authorization_id",
-        "from_height",
-        "to_height",
-        "progress_height",
-        "status",
-        "owner",
-        "fence",
-        "expires_at",
-        "last_error",
-        "unavailable_from",
-        "unavailable_to",
-        "updated_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_replay_effects": {
-      "kind": "table",
-      "columns": [
-        "target",
-        "generation",
-        "projection_revision",
-        "effect_id",
-        "raw_digest",
-        "height",
-        "event_kind",
-        "payload"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_replay_batches": {
-      "kind": "table",
-      "columns": [
-        "job_id",
-        "from_height",
-        "to_height",
-        "raw_count",
-        "intent_count",
-        "identity_digest",
-        "checkpoint_digest",
-        "committed_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_archive_segments": {
-      "kind": "table",
-      "columns": [
-        "segment_id",
-        "chain_id",
-        "source_stream",
-        "from_height",
-        "to_height",
-        "manifest",
-        "manifest_digest",
-        "object_key",
-        "verified_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_replay_source_blocks": {
-      "kind": "table",
-      "columns": [
-        "source_stream",
-        "height",
-        "block_hash",
-        "raw_count"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_replay_checkpoints": {
-      "kind": "table",
-      "columns": [
-        "source_stream",
-        "height",
-        "block_hash"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_generation_raw": {
-      "kind": "table",
-      "columns": [
-        "target",
-        "generation",
-        "projection_revision",
-        "height",
-        "transaction_index",
-        "log_index",
-        "transaction_hash",
-        "raw_digest",
-        "payload"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_replay_checkpoint_conflicts": {
-      "kind": "table",
-      "columns": [
-        "job_id",
-        "from_height",
-        "to_height",
-        "expected_checkpoint",
-        "observed_digest",
-        "observed",
-        "reason",
-        "created_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_committed_heads": {
-      "kind": "table",
-      "columns": [
-        "chain_id",
-        "stream_id",
-        "height",
-        "block_hash",
-        "integrity",
-        "source_id",
-        "observed_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_archive_segments_v2": {
-      "kind": "view",
-      "columns": [
-        "manifest",
-        "manifest_digest",
-        "object_key",
-        "verified_at",
-        "source_stream",
-        "from_height",
-        "to_height"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_committed_heads_v2": {
-      "kind": "view",
-      "columns": [
-        "chain_id",
-        "height",
-        "block_hash",
-        "integrity='quarantined' OR EXISTS(\n SELECT 1"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.indexer_committed_heads_v1": {
-      "kind": "view",
-      "columns": [
-        "chain_id",
-        "stream_id",
-        "height",
-        "block_hash",
-        "integrity",
-        "source_id",
-        "observed_at"
-      ],
-      "source": "migrations/60001.sql"
-    },
-    "indexer.delivery_webhook_cursors": {
-      "kind": "table",
-      "columns": [
-        "target_id",
-        "generation",
-        "partition",
-        "enqueued_sequence",
-        "enqueued_event",
-        "committed_sequence",
-        "committed_event"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_webhooks": {
-      "kind": "table",
-      "columns": [
-        "target_id",
-        "generation",
-        "partition",
-        "sequence",
-        "position_identity",
-        "event_id",
-        "predecessor",
-        "payload_hash",
-        "wire_hash",
-        "idempotency_key",
-        "created_at",
-        "state",
-        "attempts",
-        "allowed_attempts",
-        "available_at",
-        "lease_expiry_count",
-        "claimed_at",
-        "acknowledgement_latency_ms",
-        "owner",
-        "fence",
-        "lease_until",
-        "response_status",
-        "failure_class",
-        "delivered_at"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_webhook_immutable": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_webhook_retry_audit": {
-      "kind": "table",
-      "columns": [
-        "target_id",
-        "generation",
-        "partition",
-        "sequence",
-        "attempts_before",
-        "allowed_attempts",
-        "authorized_at"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_archive_manifests": {
-      "kind": "table",
-      "columns": [
-        "manifest_digest",
-        "source_stream",
-        "from_height",
-        "to_height",
-        "raw_count",
-        "final_block_hash",
-        "manifest",
-        "created_at"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_rebuilds": {
-      "kind": "table",
-      "columns": [
-        "consumer_id",
-        "generation",
-        "manifest_digest",
-        "next_height",
-        "raw_count",
-        "revision",
-        "status",
-        "projection_digest",
-        "final_watermark",
-        "owner",
-        "epoch",
-        "lease_until"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_read_aliases": {
-      "kind": "table",
-      "columns": [
-        "consumer_id",
-        "generation",
-        "prior_generation",
-        "revision"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_cutover_history": {
-      "kind": "table",
-      "columns": [
-        "consumer_id",
-        "revision",
-        "generation",
-        "prior_generation",
-        "changed_at"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_generation_paths": {
-      "kind": "table",
-      "columns": [
-        "consumer_id",
-        "generation",
-        "authoritative_path"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_shadow_observations": {
-      "kind": "table",
-      "columns": [
-        "range_digest",
-        "path",
-        "event_id",
-        "payload_hash",
-        "source_order"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_shadow_comparisons": {
-      "kind": "table",
-      "columns": [
-        "manifest_digest",
-        "event_digest",
-        "event_count",
-        "compared_at"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "indexer.delivery_consumer_watermarks": {
-      "kind": "table",
-      "columns": [
-        "consumer_id",
-        "generation",
-        "partition_kind",
-        "partition_key",
-        "broker_stream",
-        "broker_sequence",
-        "source_order",
-        "position_sequence",
-        "event_id",
-        "envelope_hash",
-        "committed_at"
-      ],
-      "source": "migrations/80009.sql"
-    },
-    "pnl.inventory_l16_archive_v2": {
-      "kind": "table",
-      "columns": [
-        "generation",
-        "partition",
+        "consumer_version",
         "identity",
+        "source_partition",
+        "destination_partition",
         "payload_hash",
         "payload"
       ],
-      "source": "migrations/160002.sql"
+      "source": "migrations/160000.sql"
     },
-    "pnl.inventory_l16_snapshots_v2": {
-      "kind": "table",
+    "pnl.inventory_l16_wallet_intervals_read_v3": {
+      "kind": "view",
       "columns": [
-        "generation",
-        "partition",
-        "snapshot_digest",
-        "payload",
-        "height",
-        "block_hash",
-        "release_digest"
-      ],
-      "source": "migrations/160002.sql"
-    },
-    "pnl.inventory_l16_active_v2": {
-      "kind": "table",
-      "columns": [
-        "partition",
-        "generation",
-        "snapshot_digest",
-        "height"
-      ],
-      "source": "migrations/160002.sql"
-    },
-    "pnl.inventory_l16_checkpoints_v2": {
-      "kind": "table",
-      "columns": [
-        "generation",
-        "partition",
-        "day",
-        "snapshot_digest",
-        "checkpoint_digest",
+        "snapshot_id",
+        "interval",
+        "bucket",
         "payload"
       ],
-      "source": "migrations/160002.sql"
+      "source": "migrations/160004.sql"
     },
-    "pnl.inventory_l16_quarantine_v2": {
+    "pnl.inventory_l16_wallet_intervals_v3": {
       "kind": "table",
       "columns": [
+        "snapshot_id",
+        "interval",
+        "bucket",
+        "payload"
+      ],
+      "source": "migrations/160004.sql"
+    },
+    "pnl.inventory_l16_wallet_ranges_read_v3": {
+      "kind": "view",
+      "columns": [
+        "snapshot_id",
+        "wallet",
         "generation",
-        "partition",
-        "height",
-        "block_hash",
+        "start_at",
+        "end_at",
+        "release_digest",
+        "input_digest",
+        "watermark"
+      ],
+      "source": "migrations/160004.sql"
+    },
+    "pnl.inventory_l16_wallet_ranges_v3": {
+      "kind": "table",
+      "columns": [
+        "snapshot_id",
+        "wallet",
+        "generation",
+        "start_at",
+        "end_at",
+        "release_digest",
+        "input_digest",
+        "watermark"
+      ],
+      "source": "migrations/160004.sql"
+    },
+    "pnl.l18_analytics": {
+      "kind": "table",
+      "columns": [
+        "identity",
+        "campaign",
+        "actor",
+        "day",
+        "short_code",
+        "kind",
+        "created_at"
+      ],
+      "source": "migrations/180001.sql"
+    },
+    "pnl.l18_audit": {
+      "kind": "table",
+      "columns": [
+        "identity",
+        "actor",
+        "action",
         "reason",
         "payload",
-        "observed_at"
+        "created_at"
       ],
-      "source": "migrations/160002.sql"
+      "source": "migrations/180001.sql"
     },
-    "pnl.inventory_l16_append_only_v2": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/160002.sql"
-    },
-    "pnl.portfolio_snapshots": {
+    "pnl.l18_awards": {
       "kind": "table",
       "columns": [
-        "id",
-        "wallet",
-        "source_event",
-        "digest",
+        "identity",
+        "program",
+        "version",
+        "day",
+        "beneficiary",
+        "asset",
+        "kind",
+        "eligible",
+        "payable",
+        "status",
+        "provenance",
+        "referred",
+        "hold_reason",
+        "appeal_status"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_bindings": {
+      "kind": "table",
+      "columns": [
+        "campaign",
+        "beneficiary",
+        "policy_version",
+        "referrer",
+        "attribution",
+        "issued_at",
+        "consent_at",
+        "token_nonce"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_claims": {
+      "kind": "table",
+      "columns": [
+        "identity",
+        "pool",
+        "beneficiary",
+        "asset",
+        "raw",
+        "block_number",
+        "block_hash",
+        "tx_hash",
+        "log_index",
+        "version"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_community_history": {
+      "kind": "table",
+      "columns": [
         "revision",
-        "expires_at",
-        "summary",
-        "observed_at"
+        "request_id",
+        "nft_id",
+        "state",
+        "owner",
+        "policy_digest",
+        "service_identity",
+        "block_number",
+        "block_hash",
+        "payload",
+        "created_at"
       ],
-      "source": "migrations/170000.sql"
+      "source": "migrations/180001.sql"
     },
-    "pnl.portfolio_snapshot_rows": {
+    "pnl.l18_community_history_revision_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/180001.sql"
+    },
+    "pnl.l18_community_scan": {
       "kind": "table",
       "columns": [
-        "snapshot_id",
-        "ordinal",
-        "payload"
+        "nft_id",
+        "checked_at"
       ],
-      "source": "migrations/170000.sql"
+      "source": "migrations/180001.sql"
     },
-    "pnl.portfolio_outbox": {
+    "pnl.l18_corrections": {
       "kind": "table",
       "columns": [
-        "event_id",
+        "identity",
+        "award_id",
+        "proposer",
+        "approver",
+        "reason",
+        "approval_reason",
+        "state",
+        "created_at"
+      ],
+      "source": "migrations/180001.sql"
+    },
+    "pnl.l18_entries": {
+      "kind": "table",
+      "columns": [
+        "sequence",
+        "identity",
+        "asset",
+        "debit_account",
+        "credit_account",
+        "raw",
+        "rule_version",
+        "service_identity",
+        "provenance"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_entries_sequence_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_epoch_claims": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "epoch",
+        "beneficiary",
+        "identity",
+        "raw"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_epochs": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "epoch",
+        "snapshot_block",
+        "funded",
+        "claimed",
+        "eligible_supply",
+        "version",
+        "checkpoint_hash"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_funding": {
+      "kind": "table",
+      "columns": [
+        "program",
+        "version",
+        "day",
+        "asset",
+        "treasury",
+        "adapter",
+        "proof",
+        "funded",
+        "reserved",
+        "daily_cap",
+        "beneficiary_cap"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_inbox": {
+      "kind": "table",
+      "columns": [
+        "identity",
+        "digest"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_outbox": {
+      "kind": "table",
+      "columns": [
+        "sequence",
+        "identity",
+        "topic",
         "payload",
         "published_at"
       ],
-      "source": "migrations/170000.sql"
+      "source": "migrations/180000.sql"
     },
-    "pnl.portfolio_history_snapshots": {
+    "pnl.l18_outbox_sequence_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/180000.sql"
+    },
+    "pnl.l18_payout_attempts": {
       "kind": "table",
       "columns": [
-        "id",
-        "source_event",
+        "award_id",
+        "attempt",
+        "tx_hash",
+        "state",
+        "raw",
+        "beneficiary",
+        "actor",
+        "reason",
+        "receipt_identity",
+        "created_at"
+      ],
+      "source": "migrations/180001.sql"
+    },
+    "pnl.l18_referral_codes": {
+      "kind": "table",
+      "columns": [
+        "campaign",
+        "beneficiary",
+        "short_code",
+        "created_at"
+      ],
+      "source": "migrations/180001.sql"
+    },
+    "pnl.l18_referral_consents": {
+      "kind": "table",
+      "columns": [
+        "revision",
+        "campaign",
+        "beneficiary",
+        "consent",
+        "recorded_at",
+        "request_id"
+      ],
+      "source": "migrations/180001.sql"
+    },
+    "pnl.l18_referral_consents_revision_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/180001.sql"
+    },
+    "pnl.l18_referral_requests": {
+      "kind": "table",
+      "columns": [
+        "actor",
+        "request_id",
+        "operation",
         "digest",
-        "row_count"
+        "response",
+        "created_at"
       ],
-      "source": "migrations/170000.sql"
+      "source": "migrations/180001.sql"
     },
-    "pnl.portfolio_history_rows": {
+    "pnl.l18_requests": {
       "kind": "table",
       "columns": [
-        "snapshot_id",
-        "ordinal",
-        "payload"
+        "actor",
+        "request_key",
+        "digest",
+        "method",
+        "path",
+        "response",
+        "expires_at",
+        "release_digest",
+        "interface_digest"
       ],
-      "source": "migrations/170000.sql"
+      "source": "migrations/180001.sql"
     },
-    "pnl.portfolio_history_outbox": {
+    "pnl.objects": {
+      "kind": "table",
+      "columns": [
+        "kind",
+        "id",
+        "body"
+      ],
+      "source": "migrations/470000.sql"
+    },
+    "pnl.pnl_cards": {
+      "kind": "table",
+      "columns": [
+        "card_id",
+        "short_code",
+        "owner_address",
+        "pool_address",
+        "token_address",
+        "snapshot",
+        "created_at"
+      ],
+      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+    },
+    "pnl.portfolio_card_outbox": {
       "kind": "table",
       "columns": [
         "event_id",
-        "payload",
-        "published_at"
+        "card_id",
+        "kind",
+        "published_at",
+        "fence",
+        "lease_owner",
+        "lease_until",
+        "attempts",
+        "next_attempt",
+        "last_error"
       ],
       "source": "migrations/170000.sql"
     },
@@ -1893,22 +3462,6 @@
         "created_at",
         "purge_requested_at",
         "purged_at"
-      ],
-      "source": "migrations/170000.sql"
-    },
-    "pnl.portfolio_card_outbox": {
-      "kind": "table",
-      "columns": [
-        "event_id",
-        "card_id",
-        "kind",
-        "published_at",
-        "fence",
-        "lease_owner",
-        "lease_until",
-        "attempts",
-        "next_attempt",
-        "last_error"
       ],
       "source": "migrations/170000.sql"
     },
@@ -1944,12 +3497,56 @@
       ],
       "source": "migrations/170000.sql"
     },
-    "pnl.portfolio_snapshot_history_metadata": {
+    "pnl.portfolio_history_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "payload",
+        "published_at"
+      ],
+      "source": "migrations/170000.sql"
+    },
+    "pnl.portfolio_history_rows": {
       "kind": "table",
       "columns": [
         "snapshot_id",
-        "source_event",
+        "ordinal",
         "payload"
+      ],
+      "source": "migrations/170000.sql"
+    },
+    "pnl.portfolio_history_snapshots": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "source_event",
+        "digest",
+        "row_count"
+      ],
+      "source": "migrations/170000.sql"
+    },
+    "pnl.portfolio_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "payload",
+        "published_at"
+      ],
+      "source": "migrations/170000.sql"
+    },
+    "pnl.portfolio_share_outbox_v3": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "share_id",
+        "kind",
+        "fence",
+        "lease_owner",
+        "lease_until",
+        "attempts",
+        "next_attempt",
+        "last_error",
+        "published_at"
       ],
       "source": "migrations/170000.sql"
     },
@@ -1980,327 +3577,2037 @@
       ],
       "source": "migrations/170000.sql"
     },
-    "pnl.portfolio_share_outbox_v3": {
+    "pnl.portfolio_snapshot_history_metadata": {
       "kind": "table",
       "columns": [
-        "event_id",
-        "share_id",
-        "kind",
-        "fence",
-        "lease_owner",
-        "lease_until",
-        "attempts",
-        "next_attempt",
-        "last_error",
-        "published_at"
+        "snapshot_id",
+        "source_event",
+        "payload"
       ],
       "source": "migrations/170000.sql"
     },
-    "pnl.l18_requests": {
+    "pnl.portfolio_snapshot_rows": {
       "kind": "table",
       "columns": [
-        "actor",
-        "request_key",
-        "digest",
-        "method",
-        "path",
-        "response",
-        "expires_at",
-        "release_digest",
-        "interface_digest"
+        "snapshot_id",
+        "ordinal",
+        "payload"
       ],
-      "source": "migrations/180001.sql"
+      "source": "migrations/170000.sql"
     },
-    "pnl.l18_audit": {
+    "pnl.portfolio_snapshots": {
       "kind": "table",
       "columns": [
-        "identity",
+        "id",
+        "wallet",
+        "source_event",
+        "digest",
+        "revision",
+        "expires_at",
+        "summary",
+        "observed_at"
+      ],
+      "source": "migrations/170000.sql"
+    },
+    "pnl.reconciler_cursor": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "last_block",
+        "last_log_index",
+        "last_swap_id",
+        "updated_at"
+      ],
+      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+    },
+    "pnl.referral_events": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "short_code",
+        "event_type",
+        "wallet_address",
+        "card_id",
+        "credited",
+        "created_at"
+      ],
+      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+    },
+    "pnl.referral_events_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+    },
+    "pnl.referrals": {
+      "kind": "table",
+      "columns": [
+        "short_code",
+        "sharer_address",
+        "card_id",
+        "created_at"
+      ],
+      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+    },
+    "pnl.user_positions": {
+      "kind": "table",
+      "columns": [
+        "user_address",
+        "pool_address",
+        "token_address",
+        "total_usdl_spent",
+        "total_tokens_bought",
+        "total_usdl_received",
+        "total_tokens_sold",
+        "avg_cost_basis",
+        "current_holdings",
+        "realized_pnl_usdl",
+        "first_buy_ts",
+        "last_trade_ts",
+        "trade_count"
+      ],
+      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+    },
+    "pnl.user_trades": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "user_address",
+        "pool_address",
+        "token_address",
+        "is_buy",
+        "usdl_amount",
+        "token_amount",
+        "price",
+        "fee",
+        "block_number",
+        "block_timestamp",
+        "tx_hash"
+      ],
+      "source": "services/launchpad/pnl-tracker/migrations/00001_init.sql"
+    },
+    "ranking.category_heads": {
+      "kind": "table",
+      "columns": [
+        "category",
+        "run_id",
+        "cutoff_time",
+        "revision"
+      ],
+      "source": "migrations/190002.sql"
+    },
+    "ranking.delivery_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_inbox": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_ordered_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "failure_class",
+        "subject",
+        "publication_id",
+        "envelope",
+        "affected_pools",
+        "evidence_digest",
+        "created_at"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "schema_version",
+        "subject",
+        "payload_hash",
+        "envelope",
+        "created_at",
+        "state",
+        "attempts",
+        "available_at",
+        "lease_owner",
+        "lease_until",
+        "fence",
+        "lease_expiry_count",
+        "claimed_at",
+        "acknowledgement_latency_ms",
+        "broker_stream",
+        "broker_sequence",
+        "published_at",
+        "failure_class"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_partition_commits": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_partition_leases": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "owner",
+        "epoch",
+        "expires_at"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_partition_offsets": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "checkpoint_digest",
+        "initial_sequence",
+        "initial_predecessor",
+        "next_sequence",
+        "previous_effect_identity"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_partition_positions": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_partition_producers": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "last_sequence",
+        "last_effect_identity",
+        "last_source_order"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.delivery_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "subject",
+        "envelope",
+        "failure_class",
+        "created_at"
+      ],
+      "source": "migrations/80008.sql"
+    },
+    "ranking.publication_outbox": {
+      "kind": "table",
+      "columns": [
+        "sequence",
+        "run_id",
+        "category",
+        "artifact",
+        "created_at",
+        "published_at",
+        "category_sequence",
+        "attempts",
+        "broker_stream",
+        "broker_sequence"
+      ],
+      "source": "migrations/190002.sql"
+    },
+    "ranking.publication_outbox_sequence_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/190000.sql"
+    },
+    "ranking.publication_outbox_v1": {
+      "kind": "view",
+      "columns": [
+        "run_id",
+        "category",
+        "category_sequence",
+        "published_at"
+      ],
+      "source": "migrations/190004.sql"
+    },
+    "ranking.snapshot_entries": {
+      "kind": "table",
+      "columns": [
+        "run_id",
+        "category",
+        "rank",
+        "pool_address",
+        "score"
+      ],
+      "source": "migrations/190002.sql"
+    },
+    "ranking.snapshot_entries_v1": {
+      "kind": "view",
+      "columns": [
+        "run_id",
+        "category",
+        "pool_address",
+        "score",
+        "rank"
+      ],
+      "source": "migrations/190004.sql"
+    },
+    "ranking.snapshots": {
+      "kind": "table",
+      "columns": [
+        "run_id",
+        "category",
+        "input_digest",
+        "output_digest",
+        "artifact",
+        "completed_at",
+        "public_header"
+      ],
+      "source": "migrations/190002.sql"
+    },
+    "ranking.snapshots_v1": {
+      "kind": "view",
+      "columns": [
+        "run_id",
+        "category",
+        "output_digest",
+        "public_header",
+        "completed_at"
+      ],
+      "source": "migrations/190004.sql"
+    },
+    "recovery.activate": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/440000.sql"
+    },
+    "recovery.activate_fenced_v2": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/440001.sql"
+    },
+    "recovery.assert_epoch": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/440000.sql"
+    },
+    "recovery.current_epoch": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/440000.sql"
+    },
+    "recovery.recovery_audit": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "proposal_id",
+        "state",
+        "actor",
+        "revision",
+        "epoch",
+        "region",
+        "checkpoint_sha256",
+        "fence_proof_sha256",
+        "at"
+      ],
+      "source": "migrations/440000.sql"
+    },
+    "recovery.recovery_audit_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/440000.sql"
+    },
+    "recovery.recovery_broker_fences": {
+      "kind": "table",
+      "columns": [
+        "proposal_id",
+        "expected_epoch",
+        "region",
+        "revision",
+        "actor",
+        "configuration_sha256",
+        "state",
+        "proof_sha256",
+        "evidence",
+        "failure_code",
+        "created_at",
+        "verified_at"
+      ],
+      "source": "migrations/440001.sql"
+    },
+    "recovery.recovery_control": {
+      "kind": "table",
+      "columns": [
+        "singleton",
+        "epoch",
+        "region",
+        "revision",
+        "checkpoint_sha256"
+      ],
+      "source": "migrations/440000.sql"
+    },
+    "recovery.recovery_proposals": {
+      "kind": "table",
+      "columns": [
+        "proposal_id",
+        "expected_epoch",
+        "next_region",
+        "revision",
+        "checkpoint_sha256",
+        "fence_proof_sha256",
+        "state",
+        "actor",
+        "created_at"
+      ],
+      "source": "migrations/440000.sql"
+    },
+    "security.audit_outbox": {
+      "kind": "table",
+      "columns": [
+        "seq",
+        "at",
+        "record"
+      ],
+      "source": "migrations/450000.sql"
+    },
+    "security.audit_outbox_seq_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/450000.sql"
+    },
+    "security.authorization_decisions": {
+      "kind": "table",
+      "columns": [
+        "seq",
+        "at",
+        "actor",
+        "scope",
+        "request_id",
+        "policy_version",
+        "allowed"
+      ],
+      "source": "migrations/450000.sql"
+    },
+    "security.authorization_decisions_seq_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/450000.sql"
+    },
+    "security.deadletter_redrives": {
+      "kind": "table",
+      "columns": [
+        "job_id",
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "reason",
+        "actor",
+        "state",
+        "created_at"
+      ],
+      "source": "migrations/450000.sql"
+    },
+    "security.operator_sessions": {
+      "kind": "table",
+      "columns": [
+        "session_id",
+        "wallet",
+        "actor",
+        "audience",
+        "issued_at",
+        "expires_at",
+        "mfa_expires_at",
+        "scopes",
+        "revoked"
+      ],
+      "source": "migrations/450000.sql"
+    },
+    "security.operator_sessions_v2": {
+      "kind": "view",
+      "columns": [
+        "session_id",
+        "actor",
+        "audience",
+        "issued_at",
+        "expires_at",
+        "mfa_expires_at",
+        "revoked"
+      ],
+      "source": "migrations/450000.sql"
+    },
+    "security.reject_audit_change": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/450000.sql"
+    },
+    "stats.accounting_inventory_facets": {
+      "kind": "table",
+      "columns": [
+        "publication_id",
+        "source_fill_id",
+        "source_fact_digest",
+        "projection_version",
+        "partition_key",
+        "position",
+        "payload"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.accounting_market_commits": {
+      "kind": "table",
+      "columns": [
+        "publication_id",
+        "source_fill_id",
+        "source_fact_digest",
+        "projection_version",
+        "pool",
+        "bucket_start",
+        "position",
+        "fill",
+        "sequence",
+        "revision"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.accounting_market_commits_v1": {
+      "kind": "view",
+      "columns": [
+        "source_fill_id",
+        "source_fact_digest",
+        "projection_version",
+        "pool",
+        "fill",
+        "sequence"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.accounting_market_commits_v2": {
+      "kind": "view",
+      "columns": [
+        "projection_version",
+        "source_fill_id",
+        "source_fact_digest",
+        "fill",
+        "pool"
+      ],
+      "source": "migrations/130001.sql"
+    },
+    "stats.accounting_pool_fences": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "frozen",
+        "evidence_digest"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.accounting_pool_fences_v1": {
+      "kind": "view",
+      "columns": [
+        "pool",
+        "frozen"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.accounting_pool_fences_v2": {
+      "kind": "view",
+      "columns": [
+        "frozen"
+      ],
+      "source": "migrations/130001.sql"
+    },
+    "stats.analytics_outbox": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool",
+        "model",
+        "revision",
+        "payload",
+        "created_at"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.analytics_outbox_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.analytics_progress": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "height",
+        "transaction_index",
+        "log_index",
+        "block_hash",
+        "revision",
+        "observed_at"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.analytics_risk_inputs": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "height",
+        "block_hash",
+        "payload"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.analytics_snapshots": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "model",
+        "height",
+        "revision",
+        "payload"
+      ],
+      "source": "migrations/150001.sql"
+    },
+    "stats.analytics_trades": {
+      "kind": "table",
+      "columns": [
+        "source_id",
+        "pool",
+        "height",
+        "transaction_index",
+        "log_index",
+        "block_hash",
+        "event_time",
+        "side",
+        "usdl_raw",
+        "digest"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.bucket_traders": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "bucket_start",
+        "bucket_size",
+        "trader"
+      ],
+      "source": "services/launchpad/stats-workers/migrations/00001_init.sql"
+    },
+    "stats.canonical_blocks": {
+      "kind": "table",
+      "columns": [
+        "height",
+        "block_hash",
+        "block_timestamp"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.canonical_multihop_checkpoints": {
+      "kind": "table",
+      "columns": [
+        "source_stream",
+        "transaction_hash",
+        "log_index",
+        "height",
+        "transaction_index",
+        "block_hash",
+        "source_sha256",
+        "swap_id",
+        "committed_at"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.canonical_pool_assets": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "usdl",
+        "token",
+        "token_decimals"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.canonical_positions": {
+      "kind": "table",
+      "columns": [
+        "height",
+        "transaction_index",
+        "log_index",
+        "transaction_hash",
+        "digest"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.canonical_transactions": {
+      "kind": "table",
+      "columns": [
+        "transaction_hash",
+        "height",
+        "transaction_index"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.cross_token_swaps": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "sender",
+        "token_in",
+        "token_out",
+        "pool_in",
+        "pool_out",
+        "amount_in",
+        "intermediate_usdl",
+        "amount_out",
+        "fee_in",
+        "fee_out",
+        "block_timestamp",
+        "tx_hash"
+      ],
+      "source": "services/launchpad/stats-workers/migrations/00001_init.sql"
+    },
+    "stats.delivery_consumer_watermarks": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "generation",
+        "partition_kind",
+        "partition_key",
+        "broker_stream",
+        "broker_sequence",
+        "source_order",
+        "position_sequence",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.delivery_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_inbox": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_ordered_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "failure_class",
+        "subject",
+        "publication_id",
+        "envelope",
+        "affected_pools",
+        "evidence_digest",
+        "created_at"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_ordered_quarantine_v1": {
+      "kind": "view",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "affected_pools"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "schema_version",
+        "subject",
+        "payload_hash",
+        "envelope",
+        "created_at",
+        "state",
+        "attempts",
+        "available_at",
+        "lease_owner",
+        "lease_until",
+        "fence",
+        "lease_expiry_count",
+        "claimed_at",
+        "acknowledgement_latency_ms",
+        "broker_stream",
+        "broker_sequence",
+        "published_at",
+        "failure_class"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_partition_commits": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_partition_commits_v1": {
+      "kind": "view",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_partition_leases": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "owner",
+        "epoch",
+        "expires_at"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_partition_offsets": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "checkpoint_digest",
+        "initial_sequence",
+        "initial_predecessor",
+        "next_sequence",
+        "previous_effect_identity"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_partition_offsets_v1": {
+      "kind": "view",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "checkpoint_digest",
+        "next_sequence",
+        "previous_effect_identity"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_partition_positions": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_partition_producers": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "last_sequence",
+        "last_effect_identity",
+        "last_source_order"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.delivery_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "subject",
+        "envelope",
+        "failure_class",
+        "created_at"
+      ],
+      "source": "migrations/80002.sql"
+    },
+    "stats.fee_groups": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "start",
+        "projection_version",
+        "asset",
+        "decimals",
+        "fee_type",
+        "disposition",
+        "raw",
+        "revision"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.inbox": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "transaction_hash",
+        "log_index",
+        "consumer_version",
+        "digest",
+        "revision"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.minute_buckets": {
+      "kind": "table",
+      "columns": [
+        "chain_id",
+        "pool",
+        "interval_seconds",
+        "start",
+        "projection_version",
+        "volume",
+        "buys",
+        "sells",
+        "revision",
+        "close_height",
+        "close_transaction_index",
+        "close_log_index",
+        "close_payload"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.operation_ledger": {
+      "kind": "table",
+      "columns": [
         "actor",
         "action",
-        "reason",
-        "payload",
-        "created_at"
-      ],
-      "source": "migrations/180001.sql"
-    },
-    "pnl.l18_payout_attempts": {
-      "kind": "table",
-      "columns": [
-        "award_id",
-        "attempt",
-        "tx_hash",
-        "state",
-        "raw",
-        "beneficiary",
-        "actor",
-        "reason",
-        "receipt_identity",
-        "created_at"
-      ],
-      "source": "migrations/180001.sql"
-    },
-    "pnl.l18_corrections": {
-      "kind": "table",
-      "columns": [
-        "identity",
-        "award_id",
-        "proposer",
-        "approver",
-        "reason",
-        "approval_reason",
-        "state",
-        "created_at"
-      ],
-      "source": "migrations/180001.sql"
-    },
-    "pnl.l18_analytics": {
-      "kind": "table",
-      "columns": [
-        "identity",
-        "campaign",
-        "actor",
-        "day",
-        "short_code",
-        "kind",
-        "created_at"
-      ],
-      "source": "migrations/180001.sql"
-    },
-    "pnl.l18_community_history_revision_seq": {
-      "kind": "sequence",
-      "columns": [],
-      "source": "migrations/180001.sql"
-    },
-    "pnl.l18_community_history": {
-      "kind": "table",
-      "columns": [
-        "revision",
+        "nonce",
+        "envelope_digest",
+        "body_digest",
         "request_id",
-        "nft_id",
-        "state",
-        "owner",
-        "policy_digest",
-        "service_identity",
-        "block_number",
-        "block_hash",
+        "response",
+        "response_digest",
+        "created_at",
+        "retain_until"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "projection_version",
+        "revision",
+        "payload",
+        "attempts",
+        "published"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.phase2_read_snapshots": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool",
+        "side",
+        "projection_version",
+        "watermark",
+        "expires_at"
+      ],
+      "source": "migrations/130001.sql"
+    },
+    "stats.phase2_windows": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "seconds",
+        "projection_version",
+        "observed_at",
+        "payload"
+      ],
+      "source": "migrations/130001.sql"
+    },
+    "stats.pool_holders": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "holder_address",
+        "balance",
+        "pct_of_supply",
+        "last_updated"
+      ],
+      "source": "services/launchpad/stats-workers/migrations/00001_init.sql"
+    },
+    "stats.pool_market_caps_v1": {
+      "kind": "view",
+      "columns": [
+        "pool_address",
+        "market_cap"
+      ],
+      "source": "migrations/150006.sql"
+    },
+    "stats.pool_market_context_v1": {
+      "kind": "view",
+      "columns": [
+        "pool_address",
+        "price",
+        "market_cap"
+      ],
+      "source": "migrations/150009.sql"
+    },
+    "stats.pool_stats": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "token_address",
+        "price",
+        "price_change_1m",
+        "price_change_5m",
+        "price_change_15m",
+        "price_change_1h",
+        "price_change_24h",
+        "price_change_dollar_1m",
+        "price_change_dollar_5m",
+        "price_change_dollar_15m",
+        "price_change_dollar_1h",
+        "price_change_dollar_24h",
+        "high_24h",
+        "low_24h",
+        "volume_24h",
+        "volume_1h",
+        "volume_5m",
+        "market_cap",
+        "buy_count_24h",
+        "sell_count_24h",
+        "unique_traders_24h",
+        "holder_count",
+        "top10_concentration",
+        "creator_holdings_pct",
+        "risk_rating",
+        "risk_factors",
+        "creator_address",
+        "created_at",
+        "updated_at"
+      ],
+      "source": "services/launchpad/stats-workers/migrations/00001_init.sql"
+    },
+    "stats.pool_transactions": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool_address",
+        "sender",
+        "is_buy",
+        "amount_in",
+        "amount_out",
+        "price",
+        "fee",
+        "block_timestamp",
+        "tx_hash"
+      ],
+      "source": "services/launchpad/stats-workers/migrations/00001_init.sql"
+    },
+    "stats.price_snapshots": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "minute_ts",
+        "price"
+      ],
+      "source": "services/launchpad/stats-workers/migrations/00001_init.sql"
+    },
+    "stats.public_stats_sync_baselines": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "pool",
+        "checkpoint_key",
+        "events"
+      ],
+      "source": "migrations/150008.sql"
+    },
+    "stats.reaction_nonces": {
+      "kind": "table",
+      "columns": [
+        "wallet",
+        "nonce",
+        "digest",
+        "result"
+      ],
+      "source": "migrations/150000.sql"
+    },
+    "stats.reaction_outbox": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "pool",
         "payload",
         "created_at"
       ],
-      "source": "migrations/180001.sql"
+      "source": "migrations/150000.sql"
     },
-    "pnl.l18_referral_codes": {
+    "stats.reaction_outbox_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/150000.sql"
+    },
+    "stats.reaction_pools": {
       "kind": "table",
       "columns": [
-        "campaign",
-        "beneficiary",
-        "short_code",
+        "pool",
+        "revision"
+      ],
+      "source": "migrations/150000.sql"
+    },
+    "stats.reaction_votes": {
+      "kind": "table",
+      "columns": [
+        "pool",
+        "wallet",
+        "reaction",
+        "revision"
+      ],
+      "source": "migrations/150000.sql"
+    },
+    "stats.reaction_wallets": {
+      "kind": "table",
+      "columns": [
+        "wallet",
+        "last_change"
+      ],
+      "source": "migrations/150000.sql"
+    },
+    "stats.security_audit_outbox": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "request_id",
+        "actor_pseudonym",
+        "action",
+        "result",
+        "policy_version",
+        "request_digest",
         "created_at"
       ],
-      "source": "migrations/180001.sql"
+      "source": "migrations/150008.sql"
     },
-    "pnl.l18_referral_consents_revision_seq": {
+    "stats.security_audit_outbox_id_seq": {
       "kind": "sequence",
-      "columns": [],
-      "source": "migrations/180001.sql"
-    },
-    "pnl.l18_referral_consents": {
-      "kind": "table",
       "columns": [
-        "revision",
-        "campaign",
-        "beneficiary",
-        "consent",
-        "recorded_at",
-        "request_id"
+        "last_value",
+        "log_cnt",
+        "is_called"
       ],
-      "source": "migrations/180001.sql"
+      "source": "migrations/150008.sql"
     },
-    "pnl.l18_referral_requests": {
+    "stats.trade_facts": {
       "kind": "table",
       "columns": [
+        "event_id",
+        "projection_version",
+        "pool",
         "actor",
+        "height",
+        "transaction_index",
+        "log_index",
+        "block_timestamp",
+        "volume",
+        "fee",
+        "fee_asset",
+        "fee_decimals",
+        "disposition",
+        "side",
+        "payload",
+        "revision"
+      ],
+      "source": "migrations/130000.sql"
+    },
+    "stats.trade_facts_v1": {
+      "kind": "view",
+      "columns": [
+        "projection_version",
+        "pool",
+        "height",
+        "transaction_index",
+        "log_index",
+        "block_timestamp",
+        "volume",
+        "side",
+        "payload"
+      ],
+      "source": "migrations/150005.sql"
+    },
+    "stats.volume_buckets": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "bucket_start",
+        "volume_usdl",
+        "buy_count",
+        "sell_count",
+        "high_price",
+        "low_price"
+      ],
+      "source": "services/launchpad/stats-workers/migrations/00001_init.sql"
+    },
+    "stats_search.active_v2": {
+      "kind": "table",
+      "columns": [
+        "singleton",
+        "generation",
+        "revision",
+        "privacy_revision"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.authority_v2": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "visibility_revision",
+        "public",
+        "tombstone"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.documents": {
+      "kind": "table",
+      "columns": [
+        "generation",
+        "chain_id",
+        "pool_address",
+        "token_address",
+        "name",
+        "name_key",
+        "ticker_key",
+        "creation_event_id",
+        "revision",
+        "metadata_revision",
+        "visibility_revision",
+        "pool_status",
+        "canonical",
+        "quarantined"
+      ],
+      "source": "migrations/200000.sql"
+    },
+    "stats_search.documents_v2": {
+      "kind": "table",
+      "columns": [
+        "generation",
+        "pool_address",
+        "token_address",
+        "name_key",
+        "ticker_key",
+        "creator",
+        "created_at",
+        "pool_status",
+        "visibility_revision",
+        "revision",
+        "metrics_at",
+        "liquidity_raw",
+        "volume_1h",
+        "volume_24h",
+        "volume_7d",
+        "verified_quote",
+        "risk_flags",
+        "payload"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.generation": {
+      "kind": "table",
+      "columns": [
+        "singleton",
+        "generation",
+        "watermark"
+      ],
+      "source": "migrations/200000.sql"
+    },
+    "stats_search.generations_v2": {
+      "kind": "table",
+      "columns": [
+        "generation",
+        "state",
+        "source_watermark",
+        "source_observed_at",
+        "row_count",
+        "digest",
+        "validated_at",
+        "activated_at"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.preferences_v2": {
+      "kind": "table",
+      "columns": [
+        "wallet",
+        "revision",
+        "payload"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.profile_documents_v2": {
+      "kind": "table",
+      "columns": [
+        "wallet",
+        "display_name",
+        "name_key",
+        "revision",
+        "updated_at"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.profile_tombstones_v2": {
+      "kind": "table",
+      "columns": [
+        "wallet",
+        "revision"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.revision_v2": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.source_documents_v2": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "payload"
+      ],
+      "source": "migrations/200001.sql"
+    },
+    "stats_search.visibility": {
+      "kind": "table",
+      "columns": [
+        "pool_address",
+        "revision",
+        "public",
+        "tombstone"
+      ],
+      "source": "migrations/200000.sql"
+    },
+    "users.account_backfill": {
+      "kind": "table",
+      "columns": [
+        "source_key",
+        "source_hash",
+        "account_id",
+        "state",
+        "reason"
+      ],
+      "source": "migrations/350000.sql"
+    },
+    "users.account_backfill_range": {
+      "kind": "table",
+      "columns": [
+        "range_id",
+        "after_wallet",
+        "batch_limit",
+        "result",
+        "completed_at"
+      ],
+      "source": "migrations/350001.sql"
+    },
+    "users.account_consent": {
+      "kind": "table",
+      "columns": [
+        "account_id",
+        "category",
+        "channel",
+        "enabled",
+        "source",
+        "policy_version",
+        "revision",
+        "revoke_revision",
+        "changed_at"
+      ],
+      "source": "migrations/350000.sql"
+    },
+    "users.account_device_installation": {
+      "kind": "table",
+      "columns": [
+        "installation_id",
+        "account_id",
+        "session_id",
+        "provider",
+        "platform",
+        "verified_at",
+        "revoked"
+      ],
+      "source": "migrations/350001.sql"
+    },
+    "users.account_endpoint": {
+      "kind": "table",
+      "columns": [
+        "fingerprint",
+        "account_id",
+        "ciphertext",
+        "platform",
+        "consent_revision",
+        "validated_at",
+        "revoked",
+        "device_id",
+        "provider",
+        "session_id"
+      ],
+      "source": "migrations/350001.sql"
+    },
+    "users.account_endpoint_proof": {
+      "kind": "table",
+      "columns": [
+        "digest",
+        "expires_at"
+      ],
+      "source": "migrations/350000.sql"
+    },
+    "users.account_idempotency": {
+      "kind": "table",
+      "columns": [
+        "account_id",
+        "method",
+        "path",
+        "key",
+        "digest",
+        "result",
+        "expires_at"
+      ],
+      "source": "migrations/350000.sql"
+    },
+    "users.account_job": {
+      "kind": "table",
+      "columns": [
+        "job_id",
+        "account_id",
+        "kind",
+        "state",
+        "requested_at",
+        "expires_at",
+        "payload",
+        "download_hash",
+        "consumed_at",
+        "lease_owner",
+        "lease_until",
+        "fence"
+      ],
+      "source": "migrations/350001.sql"
+    },
+    "users.account_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "account_id",
+        "revision",
+        "kind",
+        "payload",
+        "created_at"
+      ],
+      "source": "migrations/350000.sql"
+    },
+    "users.account_public_search_v2": {
+      "kind": "view",
+      "columns": [
+        "wallet",
+        "display_name",
+        "revision",
+        "updated_at",
+        "public",
+        "deleted"
+      ],
+      "source": "migrations/350001.sql"
+    },
+    "users.account_read_switch": {
+      "kind": "table",
+      "columns": [
+        "singleton",
+        "stable_reads",
+        "changed_at",
+        "generation"
+      ],
+      "source": "migrations/350001.sql"
+    },
+    "users.account_revision_inbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "digest",
+        "account_id",
+        "revision"
+      ],
+      "source": "migrations/350001.sql"
+    },
+    "users.account_search_events_v2": {
+      "kind": "view",
+      "columns": [
+        "event_id",
+        "kind",
+        "payload",
+        "source_revision",
+        "wallet",
+        "display_name",
+        "revision",
+        "deleted",
+        "updated_at",
+        "public"
+      ],
+      "source": "migrations/350002.sql"
+    },
+    "users.account_state": {
+      "kind": "table",
+      "columns": [
+        "account_id",
+        "wallet",
+        "revision",
+        "deleted",
+        "profile",
+        "preferences",
+        "updated_at"
+      ],
+      "source": "migrations/350000.sql"
+    },
+    "users.account_state_v2": {
+      "kind": "view",
+      "columns": [
+        "account_id",
+        "wallet",
+        "revision",
+        "deleted"
+      ],
+      "source": "migrations/350001.sql"
+    },
+    "users.account_watch": {
+      "kind": "table",
+      "columns": [
+        "account_id",
+        "chain_id",
+        "pool",
+        "added_at",
+        "revision",
+        "alert_enabled"
+      ],
+      "source": "migrations/350000.sql"
+    },
+    "users.consume_account_deletion_reauth": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/330001.sql"
+    },
+    "users.delivery_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_inbox": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "event_id",
+        "envelope_hash",
+        "committed_at"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_ordered_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "failure_class",
+        "subject",
+        "publication_id",
+        "envelope",
+        "affected_pools",
+        "evidence_digest",
+        "created_at"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "schema_version",
+        "subject",
+        "payload_hash",
+        "envelope",
+        "created_at",
+        "state",
+        "attempts",
+        "available_at",
+        "lease_owner",
+        "lease_until",
+        "fence",
+        "lease_expiry_count",
+        "claimed_at",
+        "acknowledgement_latency_ms",
+        "broker_stream",
+        "broker_sequence",
+        "published_at",
+        "failure_class"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_partition_commits": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_partition_leases": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "owner",
+        "epoch",
+        "expires_at"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_partition_offsets": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "partition_kind",
+        "partition_key",
+        "checkpoint_digest",
+        "initial_sequence",
+        "initial_predecessor",
+        "next_sequence",
+        "previous_effect_identity"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_partition_positions": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "sequence",
+        "effect_identity",
+        "position"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_partition_producers": {
+      "kind": "table",
+      "columns": [
+        "projection_version",
+        "partition_kind",
+        "partition_key",
+        "last_sequence",
+        "last_effect_identity",
+        "last_source_order"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.delivery_quarantine": {
+      "kind": "table",
+      "columns": [
+        "consumer_id",
+        "projection_generation",
+        "envelope_hash",
+        "subject",
+        "envelope",
+        "failure_class",
+        "created_at"
+      ],
+      "source": "migrations/80004.sql"
+    },
+    "users.identity_accounts": {
+      "kind": "table",
+      "columns": [
+        "account_id",
+        "auth_epoch",
+        "created_at"
+      ],
+      "source": "migrations/330000.sql"
+    },
+    "users.identity_accounts_v2": {
+      "kind": "view",
+      "columns": [
+        "account_id",
+        "auth_epoch"
+      ],
+      "source": "migrations/330002.sql"
+    },
+    "users.identity_challenge_requests": {
+      "kind": "table",
+      "columns": [
+        "wallet",
+        "request_id",
+        "body_hash",
+        "response",
+        "retain_until"
+      ],
+      "source": "migrations/330001.sql"
+    },
+    "users.identity_challenges": {
+      "kind": "table",
+      "columns": [
+        "challenge_id",
+        "wallet",
+        "nonce_hash",
+        "message",
+        "message_hash",
+        "domain",
+        "uri",
+        "purpose",
+        "account_id",
+        "session_id",
+        "link_id",
+        "issued_at",
+        "expires_at",
+        "consumed_at",
+        "consumption_id"
+      ],
+      "source": "migrations/330000.sql"
+    },
+    "users.identity_guard_v2": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/330002.sql"
+    },
+    "users.identity_limits": {
+      "kind": "table",
+      "columns": [
+        "key_hash",
+        "window_at",
+        "requests"
+      ],
+      "source": "migrations/330000.sql"
+    },
+    "users.identity_outbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "account_id",
+        "session_id",
+        "action",
+        "created_at"
+      ],
+      "source": "migrations/330000.sql"
+    },
+    "users.identity_owner_requests": {
+      "kind": "table",
+      "columns": [
+        "account_id",
         "request_id",
         "operation",
-        "digest",
+        "body_hash",
         "response",
-        "created_at"
+        "retain_until"
       ],
-      "source": "migrations/180001.sql"
+      "source": "migrations/330002.sql"
     },
-    "pnl.l18_community_scan": {
+    "users.identity_reauth": {
       "kind": "table",
       "columns": [
-        "nft_id",
-        "checked_at"
+        "proof_hash",
+        "account_id",
+        "session_id",
+        "action",
+        "issued_at",
+        "expires_at",
+        "consumed_at"
       ],
-      "source": "migrations/180001.sql"
+      "source": "migrations/330000.sql"
     },
-    "pnl.authority_credentials": {
+    "users.identity_refresh": {
       "kind": "table",
       "columns": [
-        "credential_id",
-        "actor_id",
-        "role",
-        "scopes",
-        "token_hash",
+        "refresh_hash",
+        "salt",
         "session_id",
+        "parent_hash",
+        "issued_at",
         "expires_at",
+        "consumed_at"
+      ],
+      "source": "migrations/330000.sql"
+    },
+    "users.identity_remote_revisions": {
+      "kind": "table",
+      "columns": [
+        "account_id",
+        "revision"
+      ],
+      "source": "migrations/330002.sql"
+    },
+    "users.identity_revision_inbox": {
+      "kind": "table",
+      "columns": [
+        "event_id",
+        "account_id",
+        "revision",
+        "payload_hash"
+      ],
+      "source": "migrations/330002.sql"
+    },
+    "users.identity_revisions": {
+      "kind": "table",
+      "columns": [
+        "account_id",
+        "revision"
+      ],
+      "source": "migrations/330002.sql"
+    },
+    "users.identity_sessions": {
+      "kind": "table",
+      "columns": [
+        "session_id",
+        "account_id",
+        "wallet",
+        "auth_epoch",
+        "access_hash",
+        "csrf_hash",
+        "issued_at",
+        "access_expires_at",
+        "refresh_expires_at",
+        "reauthenticated_at",
+        "last_seen_at",
+        "device_label",
         "revoked_at"
       ],
-      "source": "migrations/470001.sql"
+      "source": "migrations/330000.sql"
     },
-    "pnl.authority_credentials_v2": {
+    "users.identity_sessions_v2": {
       "kind": "view",
       "columns": [
-        "credential_id",
-        "actor_id",
-        "role",
-        "scopes",
-        "token_hash",
         "session_id",
-        "expires_at",
-        "revoked_at"
+        "account_id",
+        "wallet",
+        "auth_epoch",
+        "access_hash",
+        "revoked_at",
+        "access_expires_at"
       ],
-      "source": "migrations/470001.sql"
+      "source": "migrations/330002.sql"
     },
-    "pnl.identity_control_wallets_v2": {
+    "users.identity_tickets": {
+      "kind": "table",
+      "columns": [
+        "ticket_hash",
+        "session_id",
+        "origin",
+        "endpoint",
+        "issued_at",
+        "expires_at",
+        "consumed_at",
+        "binding"
+      ],
+      "source": "migrations/330001.sql"
+    },
+    "users.identity_verified_at_immutable": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/330002.sql"
+    },
+    "users.identity_wallet_links": {
+      "kind": "table",
+      "columns": [
+        "link_id",
+        "account_id",
+        "chain_id",
+        "wallet",
+        "visibility",
+        "state",
+        "linked_at"
+      ],
+      "source": "migrations/330000.sql"
+    },
+    "users.identity_wallet_links_v2": {
       "kind": "view",
       "columns": [
-        "actor_id",
         "account_id",
         "wallet",
         "chain_id",
-        "state"
+        "state",
+        "visibility"
       ],
-      "source": "migrations/470001.sql"
+      "source": "migrations/330002.sql"
     },
-    "api_stream.stream_delivery_offsets": {
+    "users.operation_ledger": {
       "kind": "table",
       "columns": [
-        "partition_id",
-        "next_sequence",
-        "broker_stream",
-        "broker_sequence",
+        "actor",
+        "action",
+        "nonce",
+        "envelope_digest",
+        "body_digest",
+        "request_id",
+        "response",
+        "response_digest",
+        "created_at",
+        "retain_until"
+      ],
+      "source": "migrations/340000.sql"
+    },
+    "users.revoke_account_sessions": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/330001.sql"
+    },
+    "users.security_audit_outbox": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "request_id",
+        "actor_pseudonym",
+        "action",
+        "result",
+        "policy_version",
+        "request_digest",
+        "created_at"
+      ],
+      "source": "migrations/340000.sql"
+    },
+    "users.security_audit_outbox_id_seq": {
+      "kind": "sequence",
+      "columns": [
+        "last_value",
+        "log_cnt",
+        "is_called"
+      ],
+      "source": "migrations/340000.sql"
+    },
+    "users.user_images": {
+      "kind": "table",
+      "columns": [
+        "id",
+        "wallet_address",
+        "image_type",
+        "storage_key",
+        "mime_type",
+        "size_bytes",
+        "uploaded_at"
+      ],
+      "source": "services/launchpad/user/migrations/00001_init.sql"
+    },
+    "users.user_profiles": {
+      "kind": "table",
+      "columns": [
+        "wallet_address",
+        "display_name",
+        "bio",
+        "twitter",
+        "telegram",
+        "discord",
+        "website",
+        "created_at",
         "updated_at"
       ],
-      "source": "migrations/150003.sql"
+      "source": "services/launchpad/user/migrations/00001_init.sql"
     },
-    "api_stream.stream_delivery_publications": {
+    "users.watchlists": {
       "kind": "table",
       "columns": [
-        "partition_id",
-        "sequence",
-        "event_id",
-        "frame_sha256",
-        "state",
-        "owner",
-        "epoch",
-        "expires_at",
-        "attempts",
-        "available_at",
-        "claimed_at",
-        "lease_expiry_count",
-        "acknowledgement_latency_ms",
-        "failure_class",
-        "broker_stream",
-        "broker_sequence",
-        "published_at"
+        "wallet_address",
+        "pool_address",
+        "added_at"
       ],
-      "source": "migrations/150003.sql"
-    },
-    "api_stream.stream_publication_identity": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/150003.sql"
-    },
-    "api_stream.append_candle": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/150003.sql"
-    },
-    "pnl.inventory_l16_live_owners_v1": {
-      "kind": "table",
-      "columns": [
-        "wallet",
-        "account_id",
-        "session_id",
-        "auth_epoch",
-        "proof_at",
-        "expires_at",
-        "accepted_height",
-        "accepted_hash",
-        "accepted_snapshot",
-        "source_digest",
-        "updated_at",
-        "last_attempt_at",
-        "cancelled_at"
-      ],
-      "source": "migrations/160003.sql"
-    },
-    "pnl.inventory_l16_live_commits_v1": {
-      "kind": "table",
-      "columns": [
-        "generation",
-        "wallet",
-        "source_stream",
-        "height",
-        "block_hash",
-        "source_owner",
-        "source_epoch",
-        "release_digest",
-        "input_digest",
-        "snapshot_id"
-      ],
-      "source": "migrations/160003.sql"
-    },
-    "api_stream.market_projection_head": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/150004.sql"
-    },
-    "api_stream.append_market_stats": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/150004.sql"
-    },
-    "api_stream.append_market_price": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/150004.sql"
-    },
-    "api_stream.append_ranking": {
-      "kind": "function",
-      "columns": [],
-      "source": "migrations/190003.sql"
-    },
-    "migration_control.readiness": {
-      "kind": "function",
-      "columns": [],
-      "source": "sdk/launchpad/shared/db/production/migrations.go"
-    },
-    "pnl.inventory_l16_wallet_ranges_v3": {
-      "kind": "table",
-      "columns": [
-        "snapshot_id",
-        "wallet",
-        "generation",
-        "start_at",
-        "end_at",
-        "release_digest",
-        "input_digest",
-        "watermark"
-      ],
-      "source": "migrations/160004.sql"
-    },
-    "pnl.inventory_l16_wallet_intervals_v3": {
-      "kind": "table",
-      "columns": [
-        "snapshot_id",
-        "interval",
-        "bucket",
-        "payload"
-      ],
-      "source": "migrations/160004.sql"
+      "source": "services/launchpad/user/migrations/00001_init.sql"
     }
   }
 }

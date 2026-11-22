@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test --test-reporter=tap tests/*.test.mjs"
+    "test": "node --test --test-reporter=tap tests/*.test.mjs test/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3"

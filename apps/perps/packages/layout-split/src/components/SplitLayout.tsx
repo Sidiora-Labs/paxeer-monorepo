@@ -82,13 +82,13 @@ const SPLIT_HANDLE_BASE_CLASSNAME = [
   "!oui-shadow-none",
   "!oui-bg-transparent",
   "hover:!oui-bg-primary-light",
-  "hover:!oui-shadow-sm",
+  "hover:!oui-shadow-[0px_0px_2px_0px]",
   "hover:!oui-shadow-primary-light/80",
   "active:!oui-bg-primary-light",
-  "active:!oui-shadow-sm",
+  "active:!oui-shadow-[0px_0px_2px_0px]",
   "active:!oui-shadow-primary-light/80",
   // "focus:!oui-bg-primary-light",
-  // "focus:!oui-shadow-sm",
+  // "focus:!oui-shadow-[0px_0px_4px_0px]",
   // "focus:!oui-shadow-primary-light/80",
 ];
 
@@ -131,11 +131,11 @@ export function SplitLayout({
   if (count === 0) return <></>;
 
   /** Handle margin: gap = total px between panels (gap/2 each side). Undefined → 3px per side (backward compat). */
-  const margin = gap != null ? gap * 2 : "var(--oui-space-1)";
+  const marginPx = gap != null ? gap * 2 : 4;
   const handleStyle: React.CSSProperties =
     orientation === "horizontal"
-      ? { width: "var(--oui-focus-ring-width)", marginInline: margin }
-      : { height: "var(--oui-focus-ring-width)", marginBlock: margin };
+      ? { width: 2, marginLeft: marginPx, marginRight: marginPx }
+      : { height: 2, marginTop: marginPx, marginBottom: marginPx };
 
   return (
     <ResizablePanelGroup

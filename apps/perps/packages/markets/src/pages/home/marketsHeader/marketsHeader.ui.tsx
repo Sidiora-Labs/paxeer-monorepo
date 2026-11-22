@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { FC, ReactNode, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Box, cn, Flex, Text } from "@paxeer-network/ui";
@@ -33,9 +32,9 @@ export const MarketsHeader: FC<MarketsHeaderProps> = (props) => {
   return (
     <div
       id="oui-markets-header"
-      className={cn(styles.surface, props.className)}
+      className={cn("oui-overflow-hidden", props.className)}
     >
-      <div className={styles.cards}>
+      <div className="oui-grid oui-grid-cols-3 oui-gap-4">
         <BlockList
           total24Amount={total24Amount}
           totalOpenInterest={totalOpenInterest}
@@ -116,7 +115,12 @@ const BlockList: React.FC<BlockListProps> = (props) => {
   }, [t, total24Amount, totalOpenInterest, tvl]);
 
   return (
-    <div className={cn(styles.metrics, props.className)}>
+    <div
+      className={cn(
+        "oui-col-span-3 oui-grid oui-grid-cols-3 oui-gap-4",
+        props.className,
+      )}
+    >
       {list?.map((item, index) => (
         <BlockItem key={`item-${index}`} {...item} />
       ))}
@@ -138,14 +142,14 @@ const BlockItem: React.FC<BlockItemProps> = (props) => {
       r="lg"
       className={cn(
         "oui-flex oui-w-full oui-flex-col oui-justify-between",
-        "oui-min-h-32 oui-p-4",
+        "oui-min-h-[clamp(6.5rem,8vw,8.25rem)] oui-p-[clamp(1rem,1.75vw,1.75rem)]",
         "oui-bg-primary-darken oui-text-primary-contrast",
       )}
     >
       <Text
         as="div"
         weight="semibold"
-        className="oui-text-sm oui-leading-5 oui-text-primary-contrast/80"
+        className="oui-text-[length:clamp(0.75rem,0.9vw,0.875rem)] oui-leading-5 oui-text-primary-contrast/80"
       >
         {props.label}
       </Text>
@@ -156,8 +160,8 @@ const BlockItem: React.FC<BlockItemProps> = (props) => {
         rm={Decimal.ROUND_DOWN}
         rule={props.rule as any}
         className={cn(
-          "oui-text-3xl oui-font-semibold",
-          "oui-tabular-nums oui-tracking-tight oui-leading-none",
+          "oui-text-[length:clamp(1.5rem,2.25vw,2.75rem)] oui-font-semibold",
+          "oui-tabular-nums oui-tracking-[-0.025em] oui-leading-none",
         )}
       >
         {props.value!}
@@ -210,13 +214,11 @@ const ListItem: React.FC<ListItemProps> = (props) => {
 
   return (
     <Box
-      asChild
       width="100%"
       py={2}
       px={4}
       className={cn(
-        styles.marketRow,
-        "oui-items-center",
+        "oui-grid oui-grid-cols-[minmax(0,1fr)_96px_72px] oui-items-center oui-gap-x-3",
         "oui-cursor-pointer hover:oui-bg-base-8",
         props.className,
       )}
@@ -224,36 +226,34 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         props.onSymbol(item);
       }}
     >
-      <button type="button">
-        <SymbolDisplay formatString="base" showIcon className="oui-min-w-0">
-          {item.symbol}
-        </SymbolDisplay>
+      <SymbolDisplay formatString="base" showIcon className="oui-min-w-0">
+        {item.symbol}
+      </SymbolDisplay>
 
-        <Flex justify="end">
-          <Text.numeral
-            currency="$"
-            size="xs"
-            weight="semibold"
-            dp={item.quote_dp}
-            className="oui-tabular-nums oui-text-end"
-          >
-            {item["24h_close"]}
-          </Text.numeral>
-        </Flex>
+      <Flex justify="end">
+        <Text.numeral
+          currency="$"
+          size="xs"
+          weight="semibold"
+          dp={item.quote_dp}
+          className="oui-tabular-nums oui-text-end"
+        >
+          {item["24h_close"]}
+        </Text.numeral>
+      </Flex>
 
-        <Flex justify="end">
-          <Text.numeral
-            rule="percentages"
-            coloring
-            size="xs"
-            weight="semibold"
-            showIdentifier
-            className="oui-tabular-nums oui-text-end"
-          >
-            {item.change}
-          </Text.numeral>
-        </Flex>
-      </button>
+      <Flex justify="end">
+        <Text.numeral
+          rule="percentages"
+          coloring
+          size="xs"
+          weight="semibold"
+          showIdentifier
+          className="oui-tabular-nums oui-text-end"
+        >
+          {item.change}
+        </Text.numeral>
+      </Flex>
     </Box>
   );
 };

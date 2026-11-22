@@ -108,7 +108,13 @@ export function WindowStatsCard({ poolAddress, fills, stats }: { poolAddress: st
           <Notes stats={current} />
         </>
       ) : active.candles.state === 'loading' ? (
-        <Skeleton variant="rows" rows={2} label="window stats" />
+        <div aria-busy="true" className="flex flex-col gap-2">
+          <span className="sr-only">Loading window stats</span>
+          <dl className="grid grid-cols-4 gap-1 rounded-sm bg-surface-2 px-1 py-2">
+            {['Volume', 'Buys', 'Sells', 'Net vol.'].map(label => <Figure key={label} label={label}><Skeleton className="w-8" /></Figure>)}
+          </dl>
+          <Skeleton className="w-20" />
+        </div>
       ) : marker ? (
         <div className="flex flex-col gap-2">
           <dl className="grid grid-cols-4 gap-1 rounded-sm bg-surface-2 px-1 py-2">

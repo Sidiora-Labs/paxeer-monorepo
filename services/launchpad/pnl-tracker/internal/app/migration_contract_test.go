@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/migrate"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -54,7 +55,7 @@ func migrationContractValidateMigrationPlan(t *testing.T, existing []int64) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	root := rewardSchemaRoot()
-	registry, err := proofLaunchpadRewardRegistry(root)
+	registry, err := proofLaunchpadRewardRegistry(t, root)
 	if err != nil {
 		t.Fatalf("reward-proof-schema: production registry admission: %v", err)
 	}
@@ -68,7 +69,7 @@ func migrationContractValidateMigrationPlan(t *testing.T, existing []int64) {
 		if !ok || m.Service != "core/pnl-tracker" || m.Schema != "pnl" {
 			t.Fatalf("reward prerequisite %d is unregistered", id)
 		}
-		sql := migrationContractRead(t, filepath.Join("launchpad", m.Path))
+		sql := migrationContractRead(t, m.Path)
 		if production.Checksum(sql) != m.SHA256 {
 			t.Fatalf("migration %d source differs from registration", id)
 		}
@@ -120,7 +121,7 @@ func migrationContractValidateMigrationPlan(t *testing.T, existing []int64) {
 	// The actual coordinator, not just Manifest.Validate, must refuse changed
 	// bytes, incompatible readers, absent approvals and missing prerequisites.
 	target := catalog[180001]
-	sql := migrationContractRead(t, filepath.Join("launchpad", target.Path))
+	sql := migrationContractRead(t, target.Path)
 	conn, err := coordinator.Acquire(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -324,16 +325,14 @@ func migrationContractValidateMigrationPlan(t *testing.T, existing []int64) {
 }
 
 func TestMigrationApprovalBindings(t *testing.T) {
-	source := migrationContractRead(t, "migrations/registry.json")
-	approval := migrationContractRead(t, "migrations/pnl-reward-approval.json")
-	reader := migrationContractRead(t, "sdk/launchpad/shared/interfaces/v2/validators.gen.go")
+	source, approval, reader := internaltest.RewardRegistryFixture(t, rewardSchemaRoot())
 	for _, bad := range []struct {
 		name                     string
 		source, approval, reader []byte
 	}{
 		{"changed approval", source, append(bytes.Clone(approval), byte(' ')), reader},
 		{"changed reader", source, approval, append(bytes.Clone(reader), byte(' '))},
-		{"unapproved registry", bytes.Replace(source, []byte(`"approval_digest": "`), []byte(`"approval_digest": "0`), 1), approval, reader},
+		{"unapproved registry", bytes.Replace(source, []byte(`"approval_digest":"`), []byte(`"approval_digest":"0`), 1), approval, reader},
 	} {
 		if _, err := migrate.LoadRewardRegistry(bad.source, bad.approval, bad.reader); err == nil {
 			t.Fatalf("loader accepted %s", bad.name)
@@ -366,24 +365,48 @@ func migrationContractRPC(t *testing.T) *migrationContractChain {
 	c.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		var request struct {
+		type rpcRequest struct {
 			ID     json.RawMessage   `json:"id"`
 			Method string            `json:"method"`
 			Params []json.RawMessage `json:"params"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		var raw json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		result, err := c.result(request.Method, request.Params)
-		response := map[string]any{"jsonrpc": "2.0", "id": request.ID}
-		if err != nil {
-			response["error"] = map[string]any{"code": -32000, "message": err.Error()}
-		} else {
-			response["result"] = result
+		respond := func(request rpcRequest) map[string]any {
+			result, err := c.result(request.Method, request.Params)
+			response := map[string]any{"jsonrpc": "2.0", "id": request.ID}
+			if err != nil {
+				response["error"] = map[string]any{"code": -32000, "message": err.Error()}
+			} else {
+				response["result"] = result
+			}
+			return response
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
+		if len(raw) > 0 && raw[0] == '[' {
+			var requests []rpcRequest
+			if err := json.Unmarshal(raw, &requests); err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			responses := make([]map[string]any, len(requests))
+			for i, request := range requests {
+				responses[i] = respond(request)
+			}
+			if err := json.NewEncoder(w).Encode(responses); err != nil {
+				t.Error(err)
+			}
+			return
+		}
+		var request rpcRequest
+		if err := json.Unmarshal(raw, &request); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(respond(request)); err != nil {
 			t.Error(err)
 		}
 	}))

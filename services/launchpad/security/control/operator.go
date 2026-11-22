@@ -129,6 +129,12 @@ func capability(v string) bool {
 	return v == "pool_creation" || v == "quote" || v == "socket" || v == "paid_features"
 }
 
+// CapDigest binds approval to a capability payload independently of its revision.
+func CapDigest(c Cap) string {
+	c.Revision = 0
+	return digest(c)
+}
+
 // Cap increases consume dual-approved cap_change actions bound to exact payload.
 // Reductions can be immediate. Read-only market routes never consult this gate.
 func (s *Store) SetCap(ctx context.Context, cred, scope, reason, approvalKey string, c Cap, expected uint64) error {
@@ -166,9 +172,7 @@ func (s *Store) SetCap(ctx context.Context, cred, scope, reason, approvalKey str
 			if a.Revision == ^uint64(0) {
 				return Conflict
 			}
-			payload := c
-			payload.Revision = 0
-			if a.Kind != controlCapChange || a.Scope != scope || a.State != controlApproved || a.PayloadHash != digest(payload) || !a.Expires.After(t.now) || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
+			if a.Kind != controlCapChange || a.Scope != scope || a.State != controlApproved || a.PayloadHash != CapDigest(c) || !a.Expires.After(t.now) || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
 				return Denied
 			}
 			a.State = controlSucceeded
@@ -184,7 +188,8 @@ func (s *Store) SetCap(ctx context.Context, cred, scope, reason, approvalKey str
 type CapDecision struct {
 	Allowed, Stale     bool
 	Capability, Reason string
-	Revision           uint64
+	Revision, Limit    uint64
+	Effective, Expires time.Time
 }
 
 func (s *Store) Admission(ctx context.Context, capabilityName string, knownVersion uint64) (CapDecision, error) {
@@ -216,6 +221,9 @@ func (s *Store) Admission(ctx context.Context, capabilityName string, knownVersi
 		return d, e
 	}
 	d.Revision = c.Revision
+	d.Limit = c.Limit
+	d.Effective = c.Effective
+	d.Expires = c.Expires
 	if c.Version != 1 || knownVersion != c.Version || !c.Expires.After(now) || c.Effective.After(now) {
 		return d, nil
 	}

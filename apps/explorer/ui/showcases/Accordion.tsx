@@ -1,3 +1,4 @@
+import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import { AccordionItemContent, AccordionItemTrigger, AccordionItem, AccordionRoot } from 'toolkit/chakra/accordion';
@@ -20,20 +21,20 @@ const AccordionShowcase = () => {
         <SectionHeader>Variant</SectionHeader>
         <SamplesStack>
           <Sample label="variant: outline">
-            <AccordionRoot w="full" maxW="var(--chakra-spacing-100)">
+            <AccordionRoot w="var(--chakra-spacing-100)" maxW="full">
               { items.map((item, index) => (
                 <AccordionItem key={ index } value={ item.value }>
-                  <AccordionItemTrigger>{ item.title }</AccordionItemTrigger>
+                  <AccordionItemTrigger><Box as="span" minW={ 0 } overflowWrap="anywhere">{ item.title }</Box></AccordionItemTrigger>
                   <AccordionItemContent>{ item.text }</AccordionItemContent>
                 </AccordionItem>
               )) }
             </AccordionRoot>
           </Sample>
           <Sample label="variant: faq">
-            <AccordionRoot w="full" maxW="var(--chakra-spacing-100)" variant="faq">
+            <AccordionRoot w="var(--chakra-spacing-100)" maxW="full" variant="faq">
               { items.map((item, index) => (
                 <AccordionItem key={ index } value={ item.value }>
-                  <AccordionItemTrigger variant="faq">{ item.title }</AccordionItemTrigger>
+                  <AccordionItemTrigger variant="faq"><Box as="span" minW={ 0 } overflowWrap="anywhere">{ item.title }</Box></AccordionItemTrigger>
                   <AccordionItemContent>{ item.text }</AccordionItemContent>
                 </AccordionItem>
               )) }
@@ -44,20 +45,20 @@ const AccordionShowcase = () => {
         <SectionHeader>Size</SectionHeader>
         <SamplesStack>
           <Sample label="size: md">
-            <AccordionRoot w="full" maxW="var(--chakra-spacing-100)">
+            <AccordionRoot w="var(--chakra-spacing-100)" maxW="full">
               { items.map((item, index) => (
                 <AccordionItem key={ index } value={ item.value }>
-                  <AccordionItemTrigger>{ item.title }</AccordionItemTrigger>
+                  <AccordionItemTrigger><Box as="span" minW={ 0 } overflowWrap="anywhere">{ item.title }</Box></AccordionItemTrigger>
                   <AccordionItemContent>{ item.text }</AccordionItemContent>
                 </AccordionItem>
               )) }
             </AccordionRoot>
           </Sample>
           <Sample label="size: sm">
-            <AccordionRoot w="full" maxW="var(--chakra-spacing-100)" size="sm">
+            <AccordionRoot w="var(--chakra-spacing-100)" maxW="full" size="sm">
               { items.map((item, index) => (
                 <AccordionItem key={ index } value={ item.value }>
-                  <AccordionItemTrigger indicatorPlacement="start">{ item.title }</AccordionItemTrigger>
+                  <AccordionItemTrigger indicatorPlacement="start"><Box as="span" minW={ 0 } overflowWrap="anywhere">{ item.title }</Box></AccordionItemTrigger>
                   <AccordionItemContent>{ item.text }</AccordionItemContent>
                 </AccordionItem>
               )) }

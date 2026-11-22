@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -34,6 +35,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/brokerprovision"
 	sharedconfig "github.com/Sidiora-Technologies/KindleLaunch/shared/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	shareddb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
@@ -94,7 +96,23 @@ func compositionIdentity(t *testing.T) (config.Config, pnlJourneyDocument) {
 	return cfg, d
 }
 
-func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
+type journeyCompositionFixture struct {
+	ctx          context.Context
+	root         string
+	chainFixture internaltest.ChainFixture
+	primary      *ethclient.Client
+	db           coordinatortest.Database
+	pool         *pgxpool.Pool
+	nc           *nats.Conn
+	cfg          config.Config
+	document     pnlJourneyDocument
+	runtime      inventoryRuntimeDocument
+	baseline     *inventory.BaselineAuthority
+	consumer     *inventory.AccountingConsumer
+}
+
+func newJourneyCompositionFixture(t *testing.T) journeyCompositionFixture {
+	t.Helper()
 	ctx := context.Background()
 	root := coordinatortest.RepositoryRoot(t)
 	chain, chainFixture := internaltest.NewAnvilFixture(t, ctx, root)
@@ -134,6 +152,36 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 	d.BrokerStream = "PNL_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	raw, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/documents/values/broker.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	brokerExample, err := brokerprovision.Read(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var journeyStream brokerprovision.Stream
+	for _, entry := range brokerExample.Streams {
+		if entry.Name == "PNL_JOURNEYS" {
+			journeyStream = entry
+		}
+	}
+	if journeyStream.Name == "" {
+		t.Fatal("PNL_JOURNEYS stream must be declared")
+	}
+	journeyStream.Name = d.BrokerStream
+	js, err := jetstream.New(nc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = js.CreateStream(ctx, journeyStream.BrokerConfig()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := js.DeleteStream(context.Background(), journeyStream.Name); err != nil {
+			t.Error(err)
+		}
+	})
 	d.CDNOrigin = cfg.IdentityURL
 	d.RewardManifestDigest = l18.ManifestDigest
 	d.RewardRuntimeHashes = map[string]string{}
@@ -182,6 +230,19 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return journeyCompositionFixture{ctx: ctx, root: root, chainFixture: chainFixture, primary: primary, db: db, pool: pool, nc: nc, cfg: cfg, document: d, runtime: runtime, baseline: baseline, consumer: consumer}
+}
+
+func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
+	var requestLog bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&requestLog, nil)))
+	defer slog.SetDefault(previousLogger)
+	fixture := newJourneyCompositionFixture(t)
+	ctx, root, chainFixture := fixture.ctx, fixture.root, fixture.chainFixture
+	primary, db, pool, nc := fixture.primary, fixture.db, fixture.pool, fixture.nc
+	cfg, d, runtime := fixture.cfg, fixture.document, fixture.runtime
+	baseline, consumer := fixture.baseline, fixture.consumer
 	journey, err := newPnLJourneys(ctx, cfg, pool, nil, primary, nc, baseline, consumer)
 	if err != nil {
 		t.Fatal(err)
@@ -249,8 +310,12 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 			t.Fatal(out.Code, out.Body.String())
 		}
 	}
+	requestLog.Reset()
 	if out := call(journey.rebuildHTTP, "/", "{}"); out.Code != 503 {
 		t.Fatal(out.Code, out.Body.String())
+	}
+	if !strings.Contains(requestLog.String(), "wallet replay unavailable") || !strings.Contains(requestLog.String(), "err=") {
+		t.Fatal("wallet replay cause missing", requestLog.String())
 	}
 	for _, query := range []string{"unknown=1", "from=a&from=b", "from=invalid", "from=2026-01-01T00:00:00Z&to=invalid", "from=2026-01-01T00:00:00%2B01:00&to=2026-01-02T00:00:00Z", "from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z&limit=abc", "from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z&interval=invalid"} {
 		out := call(journey.intervalHTTP, "/?"+query, "")
@@ -258,8 +323,12 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 			t.Fatal(query, out.Code, out.Body.String())
 		}
 	}
+	requestLog.Reset()
 	if out := call(journey.intervalHTTP, "/?from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z", ""); out.Code != 503 {
 		t.Fatal(out.Code, out.Body.String())
+	}
+	if !strings.Contains(requestLog.String(), "interval history unavailable") || !strings.Contains(requestLog.String(), "err=") {
+		t.Fatal("interval history cause missing", requestLog.String())
 	}
 	if out := call(journey.enrollHTTP, "/", ""); out.Code != 202 {
 		t.Fatal(out.Code, out.Body.String())
@@ -346,7 +415,10 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 	productionConfig.NATSCredentialsCreds = "-----BEGIN NATS USER JWT-----\n" + signing + "." + enc(signature) + "\n------END NATS USER JWT------\n\n-----BEGIN USER NKEY SEED-----\n" + string(seed) + "\n------END USER NKEY SEED------\n"
-	runtime.Consumer = natsdriver.ConsumerConfig{Stream: d.BrokerStream, Durable: "pnl-composition", Subject: accounting.InventorySubject, Batch: 1, MaxAckPending: 4, MaxWaiting: 1, MaxDeliver: 8, FetchWait: 100 * time.Millisecond, AckWait: time.Second}
+	t.Run("composed inventory deployment", func(t *testing.T) {
+		assertComposedInventoryLifecycle(t, root, db, productionConfig)
+	})
+	runtime.Consumer = natsdriver.ConsumerConfig{Stream: "PNL_INVENTORY_" + strings.ReplaceAll(uuid.NewString(), "-", ""), Durable: "pnl-composition", Subject: accounting.InventorySubject, Batch: 1, MaxAckPending: 4, MaxWaiting: 1, MaxDeliver: 8, FetchWait: 100 * time.Millisecond, AckWait: time.Second}
 	js, err := jetstream.New(nc)
 	if err != nil {
 		t.Fatal(err)
@@ -372,7 +444,8 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 	for key, value := range map[string]string{"DATABASE_URL": productionConfig.DatabaseURL, "REDIS_URL": productionConfig.RedisURL, "RPC_URL": productionConfig.RPCURL, "RPC_URL_FALLBACK": productionConfig.RPCURLFallback, "NATS_URL": productionConfig.NATSURL, "NATS_CREDENTIALS_CREDS": productionConfig.NATSCredentialsCreds, "WEBHOOK_HMAC_SECRET": productionConfig.WebhookHMACSecret} {
 		t.Setenv(key, value)
 	}
-	built, err := New(ctx, productionConfig, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	var dependencyLog bytes.Buffer
+	built, err := New(ctx, productionConfig, slog.New(slog.NewTextHandler(&dependencyLog, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +461,44 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 		built.Close()
 		t.Fatal(err)
 	}
+	built.nats.Close()
+	health = httptest.NewRecorder()
+	built.Router.ServeHTTP(health, httptest.NewRequest("GET", "/health/ready", nil))
+	if health.Code != http.StatusServiceUnavailable || !strings.Contains(health.Body.String(), `"broker":"failed"`) || !strings.Contains(dependencyLog.String(), "inventory broker disconnected") {
+		built.Close()
+		t.Fatal(health.Code, health.Body.String(), dependencyLog.String())
+	}
+	live := httptest.NewRecorder()
+	built.Router.ServeHTTP(live, httptest.NewRequest("GET", "/health/live", nil))
+	if live.Code != http.StatusOK {
+		built.Close()
+		t.Fatal(live.Code, live.Body.String())
+	}
 	built.Close()
+	for _, failure := range []string{"schema", "proxies"} {
+		t.Run("runtime retry after "+failure, func(t *testing.T) {
+			candidate := productionConfig
+			candidate.RuntimeInstanceID = "pnl_retry_" + failure
+			if failure == "schema" {
+				candidate.ExpectedSchemaSHA256 = strings.Repeat("0", 64)
+			} else {
+				candidate.TrustedProxyCIDRs = "invalid"
+			}
+			if a, err := New(ctx, candidate, slog.Default()); err == nil {
+				a.Close()
+				t.Fatal("invalid runtime accepted")
+			}
+			candidate.ExpectedSchemaSHA256 = productionConfig.ExpectedSchemaSHA256
+			candidate.TrustedProxyCIDRs = productionConfig.TrustedProxyCIDRs
+			for restart := 0; restart < 2; restart++ {
+				a, err := New(ctx, candidate, slog.Default())
+				if err != nil {
+					t.Fatal(err)
+				}
+				a.Close()
+			}
+		})
+	}
 	grantSQL, err := l18.OutboxRuntimeGrantSQL("pnl", database.User.Username())
 	if err != nil {
 		t.Fatal(err)
@@ -401,7 +511,15 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 	if err = json.Unmarshal(db.Runtimes["pnl_runtime"].ExpectedSchema, &expected); err != nil {
 		t.Fatal(err)
 	}
-	expected.Privileges = append(expected.Privileges, production.Grant{Schema: "pnl", Object: "l18_outbox", Privileges: []string{"UPDATE"}, Columns: []string{"published_at"}, ObjectKind: "table"})
+	outboxUpdates := 0
+	for _, grant := range expected.Privileges {
+		if grant.Schema == "pnl" && grant.Object == "l18_outbox" && grant.ObjectKind == "table" && len(grant.Privileges) == 1 && grant.Privileges[0] == "UPDATE" && len(grant.Columns) == 1 && grant.Columns[0] == "published_at" {
+			outboxUpdates++
+		}
+	}
+	if outboxUpdates != 1 {
+		t.Fatalf("coordinator outbox marker grants=%d, want 1", outboxUpdates)
+	}
 	fullConfig.ExpectedSchemaFile, fullConfig.ExpectedSchemaSHA256 = writeCompositionDocument(t, expected)
 	fullConfig.RuntimeInstanceID = "pnl_composition_full"
 	fullDocument := d
@@ -461,6 +579,9 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 			if err == nil {
 				built.Close()
 				t.Fatal("unbound runtime configuration accepted")
+			}
+			if tc.name == "consumer subject" && !strings.Contains(err.Error(), "inventory consumer subject must be accounting.inventory.v1") {
+				t.Fatal(err)
 			}
 		})
 	}
@@ -628,6 +749,34 @@ func TestBackgroundLoopContinuesAfterErrorAndStopsOnCancellation(t *testing.T) {
 	}
 	if calls.Load() != 2 {
 		t.Fatal(calls.Load())
+	}
+}
+
+func TestBackgroundLoopStopsAfterCancellationInFirstRun(t *testing.T) {
+	a := &App{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	for iteration := 0; iteration < 100; iteration++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		var calls atomic.Int64
+		go func() {
+			defer close(done)
+			a.loop(ctx, time.Millisecond, "reconcile", func(context.Context) error {
+				calls.Add(1)
+				cancel()
+				time.Sleep(2 * time.Millisecond)
+				return nil
+			})
+		}()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			cancel()
+			t.Fatalf("iteration %d: loop did not stop", iteration)
+		}
+		cancel()
+		if got := calls.Load(); got != 1 {
+			t.Fatalf("iteration %d: calls = %d, want 1", iteration, got)
+		}
 	}
 }
 

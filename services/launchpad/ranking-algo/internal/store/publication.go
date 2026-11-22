@@ -264,8 +264,9 @@ type pendingEvent struct {
 }
 
 // nextEvent locks the oldest publishable outbox row (category order kept) and
-// returns its RankingEvent; nil when nothing is pending.
-func (s *PublicationStore) nextEvent(ctx context.Context, tx pgx.Tx, maxAttempts int) (*pendingEvent, error) {
+// returns its RankingEvent; nil when nothing is pending. Only stream appends
+// retry at the attempt bound, with the configured recovery pace.
+func (s *PublicationStore) nextEvent(ctx context.Context, tx pgx.Tx, maxAttempts int, retryAtBound bool) (*pendingEvent, error) {
 	if err := s.guard.Assert(ctx, tx); err != nil {
 		return nil, err
 	}
@@ -277,7 +278,7 @@ func (s *PublicationStore) nextEvent(ctx context.Context, tx pgx.Tx, maxAttempts
 			cooling = append(cooling, sequence)
 		}
 	}
-	err := tx.QueryRow(ctx, `SELECT o.sequence,o.run_id,o.category,o.category_sequence,o.attempts FROM `+s.table("publication_outbox")+` o WHERE o.published_at IS NULL AND (o.attempts<$1 OR NOT(o.sequence=ANY($2::bigint[]))) AND o.category_sequence IS NOT NULL AND NOT EXISTS(SELECT 1 FROM `+s.table("publication_outbox")+` prior WHERE prior.category=o.category AND prior.category_sequence<o.category_sequence AND prior.published_at IS NULL) ORDER BY o.sequence LIMIT 1 FOR UPDATE OF o SKIP LOCKED`, maxAttempts, cooling).Scan(&p.sequence, &runID, &category, &p.categorySequence, &p.attempts)
+	err := tx.QueryRow(ctx, `SELECT o.sequence,o.run_id,o.category,o.category_sequence,o.attempts FROM `+s.table("publication_outbox")+` o WHERE o.published_at IS NULL AND (o.attempts<$1 OR ($3 AND NOT(o.sequence=ANY($2::bigint[])))) AND o.category_sequence IS NOT NULL AND NOT EXISTS(SELECT 1 FROM `+s.table("publication_outbox")+` prior WHERE prior.category=o.category AND prior.category_sequence<o.category_sequence AND prior.published_at IS NULL) ORDER BY o.sequence LIMIT 1 FOR UPDATE OF o SKIP LOCKED`, maxAttempts, cooling, retryAtBound).Scan(&p.sequence, &runID, &category, &p.categorySequence, &p.attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -372,7 +373,7 @@ func (s *PublicationStore) CommitStreamOnceWithStatus(ctx context.Context, write
 		return result, err
 	}
 	defer rollbackTransaction(ctx, tx)
-	p, err := s.nextEvent(ctx, tx, maxAttempts)
+	p, err := s.nextEvent(ctx, tx, maxAttempts, true)
 	if err != nil || p == nil {
 		return result, err
 	}
@@ -429,7 +430,7 @@ func (s *PublicationStore) DispatchOnce(ctx context.Context, publisher delivery.
 		return false, err
 	}
 	defer rollbackTransaction(ctx, tx)
-	p, err := s.nextEvent(ctx, tx, maxAttempts)
+	p, err := s.nextEvent(ctx, tx, maxAttempts, false)
 	if err != nil || p == nil {
 		return false, err
 	}

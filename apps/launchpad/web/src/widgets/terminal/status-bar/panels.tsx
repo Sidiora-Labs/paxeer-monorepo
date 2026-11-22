@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { Flame, LineChart, Rss, Star } from 'lucide-react';
@@ -38,9 +39,9 @@ function LoadableState<T>({ value, title, signedOut }: { value: Exclude<Loadable
 function ChipRow({ chip }: { chip: TickerChip }) {
   return (
     <li>
-      <Link href={terminalPoolPath(chip.key)} className={rowClass}>
+      <Link prefetch={false} href={terminalPoolPath(chip.key)} className={rowClass}>
         <Avatar src={chip.image} name={chip.label} size="sm" shape={chip.avatarShape} decorative />
-        <span className="min-w-0 flex-1 truncate font-bold text-text">{chip.label}</span>
+        <span className="min-w-0 flex-1 truncate font-bold text-text" title={chip.label}>{chip.label}</span>
         <span className={cn('text-xs tabular-nums', chip.tone === 'up' ? 'text-percent-up' : chip.tone === 'down' ? 'text-percent-down' : 'text-text-muted')}>{chip.value ?? '-'}</span>
       </Link>
     </li>
@@ -80,15 +81,15 @@ export function TrendingPanel() {
         const pool = item.poolAddress.toLowerCase();
         const token = listings.data?.[pool]?.tokenAddress ?? null;
         const meta = token ? metadata.data?.[token] ?? null : null;
-        const label = meta?.symbol ? `$${meta.symbol.toUpperCase()}` : shortAddress(pool);
+        const label = `$${displayCoinText(meta?.symbol, token ?? pool)}`;
         const row = byPool.get(pool) ?? null;
         const change = row && row.changeBaselineQuality === 'complete' ? bpsPercent(row.priceChangeBps24h) : null;
         return (
           <li key={pool}>
-            <Link href={terminalPoolPath(pool)} className={rowClass}>
+            <Link prefetch={false} href={terminalPoolPath(pool)} className={rowClass}>
               <span className="w-5 shrink-0 text-xs tabular-nums text-text-faint">{item.rank}</span>
               <Avatar src={meta?.images?.logo ?? null} name={label} size="sm" shape="square" decorative />
-              <span className="min-w-0 flex-1 truncate font-bold text-text">{label}</span>
+              <span className="min-w-0 flex-1 truncate font-bold text-text" title={label}>{label}</span>
               <PercentPill value={change} variant="text" />
             </Link>
           </li>
@@ -110,7 +111,7 @@ export function FeedPanel() {
         const body = <span className="line-clamp-2 text-sm text-text">{card.Body}</span>;
         return (
           <li key={card.Source.ID}>
-            {pool ? <Link href={terminalPoolPath(pool)} className={cn(rowClass, 'h-auto py-2')}>{body}</Link> : <div className="px-2 py-2">{body}</div>}
+            {pool ? <Link prefetch={false} href={terminalPoolPath(pool)} className={cn(rowClass, 'h-auto py-2')}>{body}</Link> : <div className="px-2 py-2">{body}</div>}
           </li>
         );
       })}

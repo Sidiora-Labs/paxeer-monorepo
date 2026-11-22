@@ -1,10 +1,12 @@
 'use client';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, EmptyState, ErrorState, RankBadge, SegmentedControl, SelectPill, UnavailableState } from '@/ui/primitives';
 import { useLeaderboard, type LeaderboardCategory, type LeaderboardWindow } from '@/core/market/use-leaderboard';
+import { queryKeys } from '@/core/query-keys';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
 import { formatUsdl, shortAddress } from '@/utils/format';
 import { RankRowSkeleton } from '@/ui/shared/skeletons';
@@ -60,6 +62,8 @@ export function LeaderboardWidget({ filter }: WidgetProps) {
   const [category, setCategory] = useState<LeaderboardCategory>('trader');
   const [window, setWindow] = useState<LeaderboardWindow>('24h');
   const board = useLeaderboard(category, window, 50);
+  const client = useQueryClient();
+  const retry = () => { void client.invalidateQueries({ queryKey: queryKeys.leaderboard(category, window, 50) }); };
   const entries = useMemo(() => (board.state === 'ready' ? board.data.data.snapshot.entries : []), [board]);
   const wallets = useMemo(() => entries.map(entry => entry.wallet), [entries]);
   const identities = useWalletIdentities(wallets);
@@ -76,7 +80,7 @@ export function LeaderboardWidget({ filter }: WidgetProps) {
         {board.state === 'loading' ? (
           <RankRowSkeleton count={8} />
         ) : board.state === 'unsupported' ? (
-          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Leaderboard" operation={board.operation} status={board.status} message={board.status === 404 ? 'The leaderboard is coming soon' : board.message} />
+          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Leaderboard" operation={board.operation} status={board.status} message={board.status === 404 ? 'The leaderboard is coming soon' : board.message} onRetry={retry} />
         ) : board.state === 'error' ? (
           <ErrorState variant="chip" className={columnNoticeClass} message="Couldn't load the leaderboard" error={board.error} onRetry={board.retry} />
         ) : visible.length === 0 ? (
@@ -91,7 +95,7 @@ export function LeaderboardWidget({ filter }: WidgetProps) {
                 <li key={entry.wallet} className="relative flex h-table-row items-center gap-3 px-3 hover:bg-surface-hover">
                   <RankBadge rank={entry.rank} className="w-7 shrink-0" />
                   <Avatar src={identity?.avatarUrl ?? null} name={name ?? shortAddress(entry.wallet)} size="md" decorative />
-                  <Link href={`/profile/${entry.wallet}`} className={cn('min-w-0 flex-1 truncate after:absolute after:inset-0 after:content-[\'\']', name ? 'text-md font-bold text-text' : 'font-mono text-sm text-text-muted')}>
+                  <Link prefetch={false} href={`/profile/${entry.wallet}`} className={cn('min-w-0 flex-1 truncate after:absolute after:inset-0 after:content-[\'\']', name ? 'text-md font-bold text-text' : 'font-mono text-sm text-text-muted')}>
                     {name ?? shortAddress(entry.wallet)}
                   </Link>
                   {entry.quality === 'partial' ? <span className="text-2xs text-text-faint" title="Still counting">partial</span> : null}

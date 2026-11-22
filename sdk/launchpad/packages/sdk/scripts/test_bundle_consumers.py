@@ -48,6 +48,7 @@ def copy_bundle(root, major):
     """Build a small pinned fixture with the real producer, never a substitute emitter."""
     generator_path = copy_file(root, GENERATOR)
     copy_file(root, GENERATOR.with_name('validator.go.txt'))
+    copy_file(root, GENERATOR.with_name('validator.compiled.go.txt'))
     producer = load_module(generator_path, 'bundle_protocol_codegen')
     contracts = root / BUNDLES / ('v' + str(major))
     schemas = {'EventId': {'type': 'string', 'minLength': 1}}
@@ -77,7 +78,7 @@ def copy_bundle(root, major):
     digest = lambda data: hashlib.sha256(data).hexdigest()
     manifest = {
         'generator': str(GENERATOR), 'generatorSha256': digest(generator_path.read_bytes()),
-        'validatorTemplateSha256': digest(generator_path.with_name('validator.go.txt').read_bytes()),
+        'validatorTemplateSha256': digest(producer.validator_template(major).read_bytes()),
         'schemaMajor': major, 'schemaSha256': digest((contracts / 'schema-definitions.json').read_bytes()),
         'goPackage': 'v' + str(major), 'formatOutput': False,
         'outputs': {name: digest(source.encode()) for name, source in outputs.items()},
@@ -139,7 +140,8 @@ def test_authoritative_bundle_matches_frozen_release(tmp_path, major, monkeypatc
     generator = tmp_path / manifest['generator']
     assert generate.sha(generator) == manifest['generatorSha256']
     assert manifest['schemaMajor'] == major
-    assert generate.sha(generator.with_name('validator.go.txt')) == manifest['validatorTemplateSha256']
+    template = generator.with_name('validator.go.txt' if major == 1 else 'validator.compiled.go.txt')
+    assert generate.sha(template) == manifest['validatorTemplateSha256']
     assert generate.sha(contracts / 'schema-definitions.json') == manifest['schemaSha256']
     definitions = json.loads((contracts / 'schema-definitions.json').read_bytes())['$defs']
     versions = []

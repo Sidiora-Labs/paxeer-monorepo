@@ -262,9 +262,46 @@ func readsToMarketReads(reads []receipt.BatchRead) []marketHeightRead {
 }
 
 func (s *recoveringQualifiedSource) readMarketHeights(ctx context.Context, from, to uint64, concurrency int) ([]marketHeightRead, error) {
-	count := int(to-from) + 1
+	if from > to || to-from >= 64 {
+		return nil, receipt.ErrQualification
+	}
+	count, err := checked.Convert[int](to - from)
+	if err != nil {
+		return nil, err
+	}
+	count++
+	var totalsMu sync.Mutex
+	totalTransactions, totalLogs, totalBytes := 0, 0, 0
 	return source.ParallelBatchRead(ctx, count, concurrency, func(readCtx context.Context, index int) (marketHeightRead, error) {
-		return s.readMarketHeight(readCtx, from+uint64(index))
+		offset, err := checked.Convert[uint64](index)
+		if err != nil {
+			return marketHeightRead{}, err
+		}
+		value, err := s.readMarketHeight(readCtx, from+offset)
+		if err != nil {
+			return marketHeightRead{}, err
+		}
+		if from < to {
+			totalsMu.Lock()
+			defer totalsMu.Unlock()
+			totalTransactions += len(value.transactions)
+			for _, r := range value.receipts {
+				if r == nil {
+					return marketHeightRead{}, receipt.ErrBinding
+				}
+				totalLogs += len(r.Logs)
+				for _, log := range r.Logs {
+					if log == nil {
+						return marketHeightRead{}, receipt.ErrBinding
+					}
+					totalBytes += 256 + len(log.Data) + 32*len(log.Topics)
+				}
+			}
+			if totalTransactions > 4096 || totalLogs > 65536 || totalBytes > 32<<20 {
+				return marketHeightRead{}, receipt.ErrQualification
+			}
+		}
+		return value, nil
 	})
 }
 
@@ -278,7 +315,7 @@ func (s *recoveringQualifiedSource) readMarketHeight(ctx context.Context, height
 		Hash         common.Hash
 		Transactions []json.RawMessage
 	}
-	if json.Unmarshal(raw, &header) != nil || json.Unmarshal(raw, &body) != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || body.Hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 || len(body.Transactions) > 4096 {
+	if json.Unmarshal(raw, &header) != nil || json.Unmarshal(raw, &body) != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || body.Hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 {
 		return marketHeightRead{}, receipt.ErrBinding
 	}
 	transactions := make(types.Transactions, len(body.Transactions))
@@ -326,16 +363,24 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 		addresses[address] = true
 		return nil
 	}
-	if len(reads) != int(to-from)+1 {
+	if from > to || to-from >= 64 {
+		return nil, nil, receipt.ErrBinding
+	}
+	count, err := checked.Convert[int](to - from)
+	if err != nil || len(reads) != count+1 {
 		return nil, nil, receipt.ErrBinding
 	}
 	totalBytes, totalLogs, totalTransactions := 0, 0, 0
 	for index, read := range reads {
-		height := from + uint64(index)
+		offset, err := checked.Convert[uint64](index)
+		if err != nil {
+			return nil, nil, err
+		}
+		height := from + offset
 		header := read.header
 		block := source.BlockRecord{ChainID: 125, Height: height, Hash: read.hash, ParentHash: header.ParentHash, TimestampSeconds: 0, TransactionCount: len(read.transactions)}
 		headerTimeInt64, conversionErr := checked.Convert[int64](header.Time)
-		if conversionErr != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || read.hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 || len(read.transactions) > 4096 {
+		if conversionErr != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || read.hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 {
 			return nil, nil, receipt.ErrBinding
 		}
 		block.TimestampSeconds = headerTimeInt64
@@ -347,7 +392,7 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 			return nil, nil, receipt.ErrBinding
 		}
 		totalTransactions += len(read.transactions)
-		if totalTransactions > 4096 {
+		if from < to && totalTransactions > 4096 {
 			return nil, nil, receipt.ErrQualification
 		}
 		if len(read.rawTxs) > 0 {
@@ -362,7 +407,8 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 				}
 				if meta.TransactionIndex != nil {
 					transactionIndex, conversionErr := checked.Convert[uint64](*meta.TransactionIndex)
-					if conversionErr != nil || transactionIndex != uint64(i) {
+					expectedIndex, indexErr := checked.Convert[uint64](i)
+					if conversionErr != nil || indexErr != nil || transactionIndex != expectedIndex {
 						return nil, nil, receipt.ErrBinding
 					}
 				}
@@ -388,7 +434,7 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 				totalBytes += 256 + len(log.Data) + 32*len(log.Topics)
 			}
 		}
-		if totalLogs > 65536 || totalBytes > 32<<20 {
+		if from < to && (totalLogs > 65536 || totalBytes > 32<<20) {
 			return nil, nil, receipt.ErrQualification
 		}
 		for _, r := range regularReceipts {
@@ -424,13 +470,20 @@ type recoveringReserveReader struct {
 	newAuthority func(context.Context) (*receipt.RPCQualification, error)
 }
 
+func (s *recoveringReserveReader) DiscoveredEpochs() []receipt.RPCCodeEpoch {
+	s.mu.RLock()
+	active := s.active
+	s.mu.RUnlock()
+	return active.DiscoveredEpochs()
+}
+
 func (s *recoveringReserveReader) PoolReserves(ctx context.Context, pool common.Address, block common.Hash) (receipt.PoolReserves, error) {
 	s.mu.RLock()
 	active := s.active
 	s.mu.RUnlock()
 	if active != nil {
 		for _, epoch := range active.DiscoveredEpochs() {
-			if epoch.Deployment.Address == pool && epoch.Deployment.Role == "SidioraPool" {
+			if epoch.Deployment.Address == pool && epoch.Deployment.Role == valueSidioraPool {
 				return active.PoolReserves(ctx, pool, block)
 			}
 		}

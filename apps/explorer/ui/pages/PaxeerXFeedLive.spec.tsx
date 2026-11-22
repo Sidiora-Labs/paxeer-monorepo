@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 
+import type { AddressInfo } from 'node:net';
 import React from 'react';
+import { WebSocketServer } from 'ws';
 
 import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 
 import { SocketProvider } from 'lib/socket/context';
+import useSocketChannel from 'lib/socket/useSocketChannel';
 import * as feedMock from 'mocks/paxeerX/feed';
 import { FEED_FALLBACK_REFETCH_INTERVAL } from 'ui/paxeerX/feed/useFeedSocket';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { waitFor } from 'vitest/lib';
+import { act, waitFor } from 'vitest/lib';
 import { createTestSocket } from 'vitest/utils/socketServer';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
@@ -17,6 +20,11 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 import PaxeerXFeed from './PaxeerXFeed';
 
 const TOPIC = 'paxeer_x_feed:new_update';
+
+function FeedConnectionReadiness({ onJoin }: { onJoin: () => void }) {
+  useSocketChannel({ topic: TOPIC, isDisabled: false, onJoin });
+  return null;
+}
 
 const solIndexPrice = '151230000000000000000';
 const solMarkPrice = '151250000000000000000';
@@ -67,35 +75,92 @@ describe('PaxeerXFeed live updates', () => {
     fetchMock.mockResponse(JSON.stringify(feedMock.markets), { headers: { 'Content-Type': 'application/json' } });
   });
 
-  it('shows the socket alert while the feed channel is not joined', async function showsTheSocketAlertWhileTheFeedChannelIsNotJoined() {
+  it('shows the socket alert after a channel error until it rejoins', async function showsTheSocketAlertAfterAChannelErrorUntilItRejoins() {
     const socket = await createTestSocket();
+    const joined = new Set<string>();
+    const { container, rerender, unmount } = render(
+      <SocketProvider>
+        <PaxeerXFeed/>
+      </SocketProvider>,
+    );
+    const marketReads = () => fetchMock.mock.calls.filter(([ url ]) => String(url).includes('/api/v2/paxeer-x/feed/markets')).length;
 
     try {
-      const { container, rerender } = render(
-        <SocketProvider>
-          <PaxeerXFeed/>
-        </SocketProvider>,
-      );
-
       await waitFor(() => {
         expect(indexPriceOf(container, 0)).toBe(feedMock.btcIndexPrice);
       });
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      const initialReads = marketReads();
+      rerender(
+        <SocketProvider key="connected" url={ socket.url }>
+          <PaxeerXFeed/>
+          <FeedConnectionReadiness onJoin={ () => {
+            joined.add('connected');
+          } }/>
+        </SocketProvider>,
+      );
+      await waitFor(() => {
+        expect(joined.has('connected')).toBe(true);
+        expect(marketReads()).toBeGreaterThan(initialReads);
+      });
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      await act(async() => socket.send(TOPIC, 'phx_error', {}));
+      await waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
       const alert = container.querySelector('[role="alert"]');
       expect(alert?.textContent).toBe('Connection lost, click to load newer records');
       expect(alert?.querySelector('a')?.getAttribute('href')).toBe(window.document.location.href);
       expect(alert?.compareDocumentPosition(container.querySelector('table')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
+      const readsBeforeReconnect = marketReads();
       rerender(
-        <SocketProvider url={ socket.url }>
+        <SocketProvider key="reconnected" url={ socket.url }>
           <PaxeerXFeed/>
+          <FeedConnectionReadiness onJoin={ () => {
+            joined.add('reconnected');
+          } }/>
         </SocketProvider>,
       );
-      await socket.join(TOPIC);
       await waitFor(() => {
+        expect(joined.has('reconnected')).toBe(true);
+        expect(marketReads()).toBeGreaterThan(readsBeforeReconnect);
         expect(container.querySelector('[role="alert"]')).toBeNull();
       });
     } finally {
+      unmount();
       await socket.close();
+    }
+  });
+
+  it('keeps the connection notice absent until the first join answers', async function feedOverviewHasNoNoticeDuringFirstJoin() {
+    const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    let accept: (() => void) | undefined;
+    server.on('connection', (socket) => {
+      socket.on('message', (raw) => {
+        const [ joinRef, ref, topic, event ] = JSON.parse(raw.toString()) as Array<string>;
+        if (event === 'phx_join') {
+          accept = () => socket.send(JSON.stringify([ joinRef, ref, topic, 'phx_reply', { status: 'ok', response: {} } ]));
+        }
+      });
+    });
+    const { port } = server.address() as AddressInfo;
+    const { container, unmount } = render(<SocketProvider url={ `ws://127.0.0.1:${ port }/socket` }><PaxeerXFeed/></SocketProvider>);
+    try {
+      await waitFor(() => {
+        expect(accept).toBeTypeOf('function');
+        expect(indexPriceOf(container, 0)).toBe(feedMock.btcIndexPrice);
+      });
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      expect(fetchMock.mock.calls.filter(([ url ]) => String(url).includes('/api/v2/paxeer-x/feed/markets'))).toHaveLength(1);
+      accept!();
+      await waitFor(() => {
+        expect(fetchMock.mock.calls.filter(([ url ]) => String(url).includes('/api/v2/paxeer-x/feed/markets'))).toHaveLength(2);
+      });
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+    } finally {
+      unmount();
+      server.clients.forEach((socket) => socket.terminate());
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
   });
 
