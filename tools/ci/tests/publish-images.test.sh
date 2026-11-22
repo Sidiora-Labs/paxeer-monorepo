@@ -13,11 +13,10 @@ source services/platform/hosted/tests/beta-images.sh
 
 image_contexts_match_dockerfile_inputs() {
     local name
-    [ "$(image_context explorer-backend)" = services/explorer/backend ] || fail "explorer-backend context is not services/explorer/backend"
     [ "$(image_context platform-registry-builder)" = @registry-builder ] || fail "platform-registry-builder context is not prepared"
     for name in "${IMAGE_NAMES[@]}"; do
         case "$name" in
-            explorer-backend|platform-registry-builder) continue ;;
+            platform-registry-builder) continue ;;
         esac
         [ "$(image_context "$name")" = . ] || fail "$name: context is not the repository root"
     done
@@ -27,7 +26,7 @@ import re
 import shlex
 import yaml
 
-context = Path("services/explorer/backend")
+context = Path(".")
 copies = 0
 for line in Path("docker/explorer-backend/Dockerfile").read_text().splitlines()[:24]:
     if not re.match(r"^\s*COPY\s+", line, re.IGNORECASE):
