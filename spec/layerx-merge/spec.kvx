@@ -229698,7 +229698,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1095]
 title = "Write the default user line of the store access list in ten gateway case files in the disabled form with rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1094"]
