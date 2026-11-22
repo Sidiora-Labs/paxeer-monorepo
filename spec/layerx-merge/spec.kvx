@@ -16582,6 +16582,12 @@ value = "One. The case file tools/qualification/audit_repairs/test_repository_li
 basis = "Gotcha 4838."
 affects = []
 
+[decision.3912]
+title = "Every request of the stream work of the ranking case helper holds a wait of its own and is sent again inside the deadline of the work"
+value = "One. Every request that the function clean sends to the broker holds a wait of its own of 500 milliseconds and is sent again after 20 milliseconds inside the deadline of the work, in the form of the function brokerFixtureRequest of the provisioning fixture. The requests are the listing of the streams as a whole, each removal of a stream and each read of a stream in the wait after a removal. A listing that is sent again starts from an empty result, and the names of a listing count only when the listing ended without an error. Two. An answer of the broker is an answer: the answer that a stream is absent ends the wait after a removal and counts for a removal as removed, and every other error answer ends the work as it does today. Only a request without an answer inside its own wait is sent again. Three. At the end of the deadline the error of clean names the step and the stream at which the work stood and holds the last error of the request. The two messages of the helper keep their texts and carry that error. Four. Scope: the function rankingStreamDeadline with its two constants, the lock, the callers of RankingBroker and the product code of the module stay as they are. The function that sends one request stands in the package of the helper, is not exported and takes the request as a value, so that a case can give it a stand-in. Five. Target: the verification of task 22.39.1130 passes. It runs the lint, race and coverage targets of the launchpad for the module ranking-algo and requires cases whose names begin with TestRankingStreamRequest. Task 22.39.1130."
+basis = "Gotcha 4839."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46242,6 +46248,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1130]
+title = "Bound every request of the stream work of the ranking case helper by a wait of its own"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=ranking-algo && (cd services/launchpad/ranking-algo && go test -count=1 -list ^TestRankingStreamRequest ./internal/internaltest/ | grep -q ^TestRankingStreamRequest)"
+do_1 = "do_1 Gotcha 4839, decision 3912. Read services/launchpad/ranking-algo/internal/internaltest/broker.go whole, services/launchpad/ranking-algo/internal/internaltest/broker_test.go, the places that call RankingBroker in services/launchpad/ranking-algo/internal/app/app_test.go, services/launchpad/ranking-algo/internal/store/production_universe_test.go and services/launchpad/ranking-algo/internal/store/publication_bound_test.go, and the function brokerFixtureRequest with its cases in sdk/launchpad/shared/brokerprovision/provision_fixture_request_test.go as the form to follow. Read in the source of the broker client module that services/launchpad/ranking-algo/go.mod pins how long a request waits when its context holds a deadline and when it holds none. The final message lists each request of the function clean with its line and the context it uses."
+symbols = []
 
 [capability.22.39.1129]
 title = "Bring the licence case, the relocation case of the vendored tree under tools and the client transports case to the present tree"
@@ -211758,6 +211773,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1130]
+title = "Bound every request of the stream work of the ranking case helper by a wait of its own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1130"]
+interfaces = []
+do_1 = "do_1 Gotcha 4839, decision 3912. Read services/launchpad/ranking-algo/internal/internaltest/broker.go whole, services/launchpad/ranking-algo/internal/internaltest/broker_test.go, the places that call RankingBroker in services/launchpad/ranking-algo/internal/app/app_test.go, services/launchpad/ranking-algo/internal/store/production_universe_test.go and services/launchpad/ranking-algo/internal/store/publication_bound_test.go, and the function brokerFixtureRequest with its cases in sdk/launchpad/shared/brokerprovision/provision_fixture_request_test.go as the form to follow. Read in the source of the broker client module that services/launchpad/ranking-algo/go.mod pins how long a request waits when its context holds a deadline and when it holds none. The final message lists each request of the function clean with its line and the context it uses."
+do_2 = "do_2 Add to the package of the helper one function that is not exported, sends one request with a wait of its own of 500 milliseconds and sends it again after 20 milliseconds until the request answers or the deadline of the caller ends. An answer of the broker, an error answer among them, ends the function and is returned. At the end of the deadline the function returns an error that holds the last error of the request. Let the listing as a whole, each removal and each read of the wait after a removal in the function clean go through it under decision 3912 points one to three. The task changes files of the package of the helper only."
+do_3 = "do_3 Add cases to services/launchpad/ranking-algo/internal/internaltest/broker_test.go whose names begin with TestRankingStreamRequest. One gives the function a request that leaves its first two sends without an answer and answers the third and requires that answer well inside the deadline. One gives it a request that answers with an error at once and requires that error after one send. One gives it a request that never answers and a deadline of two seconds and requires the error of the deadline with the last error of the request in it. The cases use a stand-in for the request and start no broker. The 4 present cases of the file keep their names and pass. Decision 3912 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=ranking-algo && (cd services/launchpad/ranking-algo && go test -count=1 -list ^TestRankingStreamRequest ./internal/internaltest/ | grep -q ^TestRankingStreamRequest)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -404175,7 +404220,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1129]
 title = "Bring the licence case, the relocation case of the vendored tree under tools and the client transports case to the present tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404205,7 +404250,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1128]
 title = "Bring the bridge attestor, perps wake and dependency policy case files to the present image file, shell case and dependency configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404235,7 +404280,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1127]
 title = "Bring three agent case files of the qualification directory and the pins fixture to the present Makefile, fuel suite and agent sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404265,7 +404310,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1126]
 title = "Bring the dashboard, hosted endpoint and platform documentation case files and the reference page of the human API to the present sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404295,7 +404340,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1125]
 title = "Bring four wallet case files of the qualification directory to the present documents, image file, workflow and demo sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404325,7 +404370,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1124]
 title = "Bring the human bank plan case file and the qualification intent tool to the transfer form of the send leg"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404355,7 +404400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1123]
 title = "Bring the version pins of three case files, the hosted fact of the gateway readme row and the image retirement case to the present files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404385,7 +404430,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1122]
 title = "Bring three gateway case files of the qualification directory and the two schema document fixtures to the present gateway source and schema document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404415,7 +404460,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1121]
 title = "Count px_openSession as a hosted operation in the node root design document, its case file, the transport case file and the schema tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404445,7 +404490,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1120]
 title = "Bring the line values of the three chain launch route rows of the interface inventory to the present source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404475,7 +404520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1119]
 title = "Bring the migration registry case file to the approved registry and the present reader functions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404505,7 +404550,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1118]
 title = "Take the start time of a coverage run of the launchpad from the clock of the file system of the cover directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

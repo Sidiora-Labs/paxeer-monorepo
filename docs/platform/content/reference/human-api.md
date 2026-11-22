@@ -2,7 +2,7 @@
 
 # Human API reference
 
-Schema `LayerX Human API`, contract major `1`, minor `10`, generated from `services/human/schema/human-api`.
+Schema `LayerX Human API`, contract major `1`, minor `11`, generated from `services/human/schema/human-api`.
 
 Transport is HTTPS with JSON bodies under the `/v1` base path. Every amount is a decimal string of base units and always travels with its currency code. Every mutation that can move money requires the `Idempotency-Key` header, and repeating the request returns the original journey rather than a second effect.
 
@@ -305,7 +305,7 @@ additive_only
 | `JourneyPage` | type | required: `journeys:Journey[]`, `next_cursor:Cursor` |
 | `JourneyStage` | type | required: `stage_id:StageId`, `copy_key:CopyKey`, `state:JourneyState`, `evidence:EvidenceRef[]`<br>optional: `tx_hash:TransactionHash`, `nonce:integer` |
 | `JourneyState` | type | variants: `getting-ready`, `sending`, `processing`, `done`, `done-finalised`, `still-checking`, `refused`, `waiting-for-you`, `closed`, `awaiting-approval` |
-| `VerificationLevel` | type | variants: `unverified`, `receipt-verified`, `checkpoint-finalised`, `paxeer-finalised`, `settlement-anchored` |
+| `VerificationLevel` | type | variants: `unverified`, `receipt-verified`, `committed`, `checkpoint-finalised`, `paxeer-finalised`, `settlement-anchored` |
 
 ### Module `movement`
 
