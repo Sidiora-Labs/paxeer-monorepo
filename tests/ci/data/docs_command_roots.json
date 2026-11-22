@@ -30,6 +30,7 @@
     "tests/integration/rpc_tests/README.md": "tests/integration/rpc_tests",
     "tools/loadtest/": "tools/loadtest",
     "tools/paxctl/": "tools/paxctl",
+    "tools/ui-check/README.md": "tools/ui-check",
     "wasm-runtime/": "wasm-runtime",
     "docs/site/paxeer-docs/README.md": "docs/site/paxeer-docs",
     "docs/site/docs-assistant/README.md": "docs/site/docs-assistant"

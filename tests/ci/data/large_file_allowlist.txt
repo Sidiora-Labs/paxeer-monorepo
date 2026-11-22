@@ -92,6 +92,7 @@ tools/hyperfide/vendor/parsers/web/javascript/src/parser.c	2487319	Vendored gene
 tools/hyperfide/vendor/parsers/web/typescript/tsx/src/parser.c	8769870	Vendored generated tree-sitter parser tables.
 tools/hyperfide/vendor/parsers/web/typescript/typescript/src/parser.c	8745894	Vendored generated tree-sitter parser tables.
 tools/jev/tests/fixtures/ledger/beta-qualification.kvx	2711384	Ledger qualification fixture.
+tools/ui-check/surfaces/wallet.json	2312642	Render check surface file of the wallet application.
 tools/wasm-tools/crates/wasmparser/benches/spidermonkey.wasm	5399306	Upstream WebAssembly parser benchmark module.
 tools/wasm-tools/tests/snapshots/testsuite/simd_f32x4_cmp.wast.json	2140607	Upstream WebAssembly SIMD conformance snapshot.
 tools/wasm-tools/tests/snapshots/testsuite/simd_f32x4_pmin_pmax.wast.json	3388772	Upstream WebAssembly SIMD conformance snapshot.
