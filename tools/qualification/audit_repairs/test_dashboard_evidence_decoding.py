@@ -38,7 +38,9 @@ def test_028_static_command_runs_both_suites_and_typecheck():
     argv = shlex.split(manifest["scripts"]["test:static"])
     assert argv == [
         "node", "tests/ui-contract.mjs", "&&",
-        "node", "tests/evidence-decoding.mjs", "&&", "tsc", "--noEmit",
+        "node", "tests/evidence-decoding.mjs", "&&",
+        "node", "--test", "tests/session-routes.mjs", "tests/session-digests.mjs",
+        "tests/key-routes.mjs", "&&", "tsc", "--noEmit",
     ]
     assert manifest["type"] == "module"
     assert manifest["engines"]["node"] == ">=24.0.0"
@@ -145,10 +147,18 @@ def test_028_producer_serializer_transport_and_consumer_sources_are_connected():
         "serde_json::to_string(value)", "|body| Reply::json(200, body)",
     )
     require(
-        read(WEB / "app/page.tsx"),
-        'fetch(`/v1/dashboard${path}`, { credentials: "include", cache: "no-store", signal })',
+        read(WEB / "app/dashboard-client.tsx"),
+        'fetch(`/v1/dashboard${path}`, {\n'
+        '    credentials: "include",\n'
+        '    cache: "no-store",\n'
+        '    signal,\n'
+        '  })',
         "return decode(await response.json());", 'read("/overview", decodeOverview, signal)',
-        "setOverview(summary);", "<OverviewPanel value={overview} />",
+        "setOverview(summary);",
+        "<OverviewPanel\n"
+        "                value={overview}\n"
+        '                onOpenKeys={() => setActive("keys")}\n'
+        "              />",
     )
     require(
         read(WEB / "app/data.ts"),
