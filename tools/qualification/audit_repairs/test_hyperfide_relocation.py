@@ -16,7 +16,7 @@ PROJECT = ROOT / "tools/hyperfide"
 DOCS = ROOT / "docs/hyperfide"
 BASE = "2e0a668a793a7b5c0469b44950808547467f017e"
 # Published source-control and issue work has advanced the relocated code.
-LIVE_SOURCE = "2910889b640274b1b6f2bd14a2fba25019093bb2"
+LIVE_SOURCE = "4274acec68ee7b3d428a4e0dfd815e98fea34e52"
 REMOVED = {
     "CHANGELOG.md",
     "CODEMAP.md",
