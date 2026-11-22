@@ -229381,7 +229381,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1080]
 title = "Let the node boundary relay the four read methods of the px family that the node client calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
