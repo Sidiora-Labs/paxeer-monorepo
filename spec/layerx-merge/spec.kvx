@@ -16282,6 +16282,12 @@ value = "One. Task 22.39.1080 changes the crate under services/platform/hosted/p
 basis = "Gotcha 4788."
 affects = []
 
+[decision.3862]
+title = "Every loader and renderer of receipt keys in the interop workspace takes the rule of the node module: a key id is unique and ranges of distinct key ids may overlap"
+value = "One. Task 22.39.1081 changes files under services/interop/crates/layerx-interop-service, services/interop/crates/layerx-bridge-relayer, services/interop/deploy/gateway and services/interop/deploy/mirror. No file outside these four paths changes. Two. The rule. Each of the four places of parts three to five of gotcha 4789 refuses a list that is empty, a list in which an entry holds a reversed range and a list in which a key id appears twice. Key ids are compared by their bytes, so two spellings of one id count as one id. Entries with distinct key ids are admitted whatever their ranges are, equal ranges and containing ranges included. The refusal of overlapping ranges and its text leave all four places. Three. The two Rust functions gain the refusal of a key id that appears twice. Its text is the choice of the participant in the style of the other refusals of the file. Four. Order. A place that sorts the entries today keeps the sort by first height and orders entries with an equal first height by key id, so that the loaded order does not depend on the order of the file. A place that returns the entries in the order of the file today keeps that order and no longer asks for ascending windows. Five. The function check_receipt_keys of the interop service, the example files, the pins of the example manifest, every other region of the self test and every other check of an entry stay as they are. Cases that read them are outside this task. Six. Cases. The module tests of services/interop/crates/layerx-interop-service/src/config.rs: lists of distinct key ids with overlapping, equal and containing ranges load in either file order with one loaded order. A list with one key id twice is refused with disjoint ranges and with overlapping ranges. The reversed range and the empty list stay refused, and the unsorted list of disjoint ranges loads sorted as before. The case receipt_keys_are_loaded_as_height_windows of services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs: distinct ids load with overlapping windows and in an order that does not ascend, and a list with one id twice is refused also with disjoint windows. The gateway renderer: the receipt key region of the self test and the cases of services/interop/deploy/gateway/tests/test_render_receipt_keys.py, services/interop/deploy/gateway/tests/test_manifest_conformance.py and services/interop/deploy/gateway/tests/test_receipt_key_rotation.py follow the rule. The change named overlap leaves the lists of refused changes, and lists with overlapping ranges of distinct ids get cases that expect acceptance. The case test_gateway_rotation_keeps_receipt_window_validation keeps its name and its other refused changes. The mirror renderer: the recorder services/interop/deploy/mirror/testdata/receipt_key_policy/record.py keeps every policy name. Both renderers accept the policy named overlap, and the case TestMirrorRenderingKeyPolicy expects acceptance for it and refusal for the two duplicate policies as before. Seven. Records. After the last change of a file that a record names, each recorder runs again and writes its record. No record is edited by hand. Eight. Document. The sentence of services/interop/deploy/gateway/README.md on overlapping ranges states the rule of point two. Every phrase of that file that a case reads stays. Nine. Target: every command of the verification passes. These are the module tests of the interop loader, the case file of the relayer, the selected cases of the three pytest files and both Go packages of the mirror deployment. Task 22.39.1081."
+basis = "Gotcha 4789."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45942,6 +45948,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1081]
+title = "Give every loader and renderer of receipt keys in the interop workspace the rule of the node module"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-interop-service", "services/interop/crates/layerx-bridge-relayer", "services/interop/deploy/gateway", "services/interop/deploy/mirror"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --lib config::tests && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test operator_config && python3 -m pytest -q services/interop/deploy/gateway/tests/test_render_receipt_keys.py && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py -k key && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py -k readme && python3 -m pytest -q services/interop/deploy/gateway/tests/test_receipt_key_rotation.py -k window && go test -count=1 ./services/interop/deploy/mirror/ ./services/interop/deploy/mirror/tests/"
+do_1 = "do_1 Gotcha 4789, decision 3862. Read the type ReceiptKeys with its function Validate in modules/sequencer/keeper/receipt_keys.go, the function select_receipt_key of services/agent/crates/layerx-proof/src/receipt.rs and the type ReceiptKeyList of services/platform/hosted/gateway/src/lib.rs. Then read the four places with their cases: parse_receipt_keys of services/interop/crates/layerx-interop-service/src/config.rs, receipt_keys of services/interop/crates/layerx-bridge-relayer/src/config.rs, receipt_keys of services/interop/deploy/gateway/render.py and checkpoint_policy of services/interop/deploy/mirror/render-config.py, and read both recorders. Search the four paths of the task for every further wording of the rule on overlapping ranges."
+symbols = []
 
 [capability.22.39.1080]
 title = "Let the node boundary relay the four read methods of the px family that the node client calls"
@@ -211017,6 +211032,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1081]
+title = "Give every loader and renderer of receipt keys in the interop workspace the rule of the node module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1081"]
+interfaces = []
+do_1 = "do_1 Gotcha 4789, decision 3862. Read the type ReceiptKeys with its function Validate in modules/sequencer/keeper/receipt_keys.go, the function select_receipt_key of services/agent/crates/layerx-proof/src/receipt.rs and the type ReceiptKeyList of services/platform/hosted/gateway/src/lib.rs. Then read the four places with their cases: parse_receipt_keys of services/interop/crates/layerx-interop-service/src/config.rs, receipt_keys of services/interop/crates/layerx-bridge-relayer/src/config.rs, receipt_keys of services/interop/deploy/gateway/render.py and checkpoint_policy of services/interop/deploy/mirror/render-config.py, and read both recorders. Search the four paths of the task for every further wording of the rule on overlapping ranges."
+do_2 = "do_2 Give the four places the form of points two to five of the decision, bring the cases into the form of point six and the sentence of the document into the form of point eight."
+do_3 = "do_3 Run both recorders as point seven says and confirm that each record holds the digest of the final form of every file it names."
+do_4 = "do_4 Points one to nine hold. The final message names the four functions after the change with their refusals, each changed or new case with its file, each further wording found in do_1, the two records with the command that wrote each, and the result of each command of the verification. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/layerx-interop-service", "services/interop/crates/layerx-bridge-relayer", "services/interop/deploy/gateway", "services/interop/deploy/mirror"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --bin layerx-interop-gateway && cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --lib config::tests && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test operator_config && python3 -m pytest -q services/interop/deploy/gateway/tests/test_render_receipt_keys.py && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py -k key && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py -k readme && python3 -m pytest -q services/interop/deploy/gateway/tests/test_receipt_key_rotation.py -k window && go test -count=1 ./services/interop/deploy/mirror/ ./services/interop/deploy/mirror/tests/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
