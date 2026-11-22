@@ -1,5 +1,6 @@
 """Audit the 7.0.0 documentation against the registered node plans and stores."""
 
+import json
 from pathlib import Path
 import re
 
@@ -11,7 +12,7 @@ NODE_DOCS = (
     (
         "services/platform/hosted/gateway/README.md",
         "The px namespace is served at the node root from node state;",
-        "only px_register and px_requestFunds are hosted operations.",
+        "px_openSession, px_register and px_requestFunds are hosted operations.",
     ),
     (
         "docs/readme/PUBLIC-RPC.md",
@@ -119,7 +120,8 @@ def test_release_documents_700_package_without_retired_daemon_option():
     text = prose("RELEASE.md")
     assert "PAXD_RELEASE_LAYERXD" not in text
     assert "enable the retired daemon option" not in text
-    assert "version = v7.0.0" in text
+    version = json.loads(read("tools/release/version.json"))["version"]
+    assert f"version = {version}" in text
     assert "upgrade = v7.0" in text
     assert "MergeUpgrade" in text
     assert "mergeUpgradePlan" in text
