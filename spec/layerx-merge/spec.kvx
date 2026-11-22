@@ -230034,7 +230034,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1103]
 title = "Require the phrase of the readme on the root path in the case readme_retired_endpoint of the command line crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404025,7 +404025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1116]
 title = "Return the repository root context for the explorer backend image and add the wallet inventory row to the image table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404115,7 +404115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1113]
 title = "Name the root of the render check readme in the docs command roots file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404175,7 +404175,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1111]
 title = "Link the perps test workflow and the render check workflow in the runner variable row of the secrets and runners page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404205,7 +404205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1110]
 title = "List the wallet surface file of the render check in the size allowlist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404235,7 +404235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1109]
 title = "Key the rows of the launchpad object rights document by call occurrence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404265,7 +404265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1108]
 title = "List the document composer directory and the deploy case directory of the launchpad in the Python suite exclusions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404355,7 +404355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1105]
 title = "Admit the hosted identity crate in the ignore file of the node image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
