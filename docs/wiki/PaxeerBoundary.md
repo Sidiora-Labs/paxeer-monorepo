@@ -93,11 +93,21 @@ The crate `layerx-platform-paxeer-boundary` builds the binary `layerx-paxeer-bou
 
 Unknown methods or paths return `404` `not_found`. These health, genesis, and Comet routes describe the harness adapter only; they are not promised at the public EVM endpoint.
 
-`POST /` requires exactly `Content-Type: application/json` and one JSON object. It allows `net_version`, `web3_clientVersion`, `pax_sequencerReceipt`, and `eth_` methods except `eth_accounts`, `eth_coinbase`, `eth_sendTransaction`, `eth_sign`, `eth_signTransaction`, `eth_signTypedData`, `eth_signTypedData_v4`, and `eth_mining`. `eth_sendRawTransaction` is permitted. Names must be at most 64 bytes and contain only ASCII letters, digits, or `_`.
+`POST /` requires exactly `Content-Type: application/json` and one JSON object. It allows `net_version`, `web3_clientVersion`, `pax_sequencerReceipt`, `px_getReceiptKeys`, `px_getCommit`, `px_getValidators`, `px_getHistory`, and `eth_` methods except `eth_accounts`, `eth_coinbase`, `eth_sendTransaction`, `eth_sign`, `eth_signTransaction`, `eth_signTypedData`, `eth_signTypedData_v4`, and `eth_mining`. Other `px_` methods are refused. `eth_sendRawTransaction` is permitted. Names must be at most 64 bytes and contain only ASCII letters, digits, or `_`.
 
 The envelope must have `jsonrpc: "2.0"`; `params`, when present, must be an array or object. IDs may be null, a number, or a string of at most 256 bytes. Unknown envelope members are refused. The upstream must return HTTP `200` and a matching single JSON-RPC reply containing exactly one of `result` or `error`. Request bodies are limited to 2 MiB, upstream responses to 8 MiB, and simultaneous connections to 128; excess connections are dropped.
 
-`POST /comet` has a separate 4096-byte request limit and allows only `status`, `commit`, `validators`, and proof-bearing `abci_query` for `/store/evm/key`. Its parameter validation is declared in `services/platform/hosted/paxeer/src/comet.rs`; it is not a general Comet proxy.
+`POST /comet` has a separate 4096-byte request limit. Its consensus calls are:
+
+| Method | Parameters |
+| --- | --- |
+| `status` | Empty parameters |
+| `commit` | Optional decimal `height` |
+| `block` | Decimal `height` |
+| `validators` | Decimal `height`, `page`, and `per_page=100` |
+| `abci_query` | A proof for `/store/evm/key` or `/store/sequencer/key` with key `0x03` |
+
+Its parameter validation is declared in `services/platform/hosted/paxeer/src/comet.rs`; it is not a general Comet proxy.
 
 ## Credentials
 

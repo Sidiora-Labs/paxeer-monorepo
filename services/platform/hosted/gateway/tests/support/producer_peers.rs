@@ -351,7 +351,7 @@ impl RedisMemory {
                 .as_str()
                 .unwrap_or_else(|| panic!("{}", "issue script"))
         {
-            assert_eq!((count, args.len()), (4, 13));
+            assert_eq!((count, args.len()), (6, 13));
             if self.hashes.contains_key(&keys[0]) {
                 return tag("conflict");
             }
@@ -390,7 +390,7 @@ impl RedisMemory {
                 .as_str()
                 .unwrap_or_else(|| panic!("{}", "rotation script"))
         {
-            assert_eq!((count, args.len()), (5, 14));
+            assert_eq!((count, args.len()), (7, 14));
             if self.field(&keys[0], "principal") != Some(&args[0])
                 || self.field(&keys[0], "epoch") != Some(&args[1])
                 || self.field(&keys[0], "disabled") != Some("0")
@@ -450,7 +450,7 @@ impl RedisMemory {
                 .as_str()
                 .unwrap_or_else(|| panic!("{}", "quota script"))
         {
-            assert_eq!((count, args.len()), (4, 6));
+            assert_eq!((count, args.len()), (6, 6));
             if self.field(&keys[0], "disabled") != Some("0")
                 || self.field(&keys[0], "epoch") != Some(&args[0])
             {
@@ -522,8 +522,10 @@ pub fn matches_schema(value: &Value, schema: &Value) -> bool {
                     | "type"
                     | "required"
                     | "properties"
+                    | "oneOf"
                     | "additionalProperties"
                     | "items"
+                    | "minItems"
                     | "maxItems"
                     | "minimum"
                     | "maximum"
@@ -533,6 +535,17 @@ pub fn matches_schema(value: &Value, schema: &Value) -> bool {
             ),
             "unsupported schema keyword {key}"
         );
+    }
+    if let Some(alternatives) = schema.get("oneOf") {
+        let matches = alternatives
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", "oneOf alternatives"))
+            .iter()
+            .filter(|alternative| matches_schema(value, alternative))
+            .count();
+        if matches != 1 {
+            return false;
+        }
     }
     let has_type = |kind: &str| match kind {
         "object" => value.is_object(),
@@ -585,9 +598,12 @@ pub fn matches_schema(value: &Value, schema: &Value) -> bool {
         }
     }
     if let Some(items) = value.as_array() {
-        if schema["maxItems"]
+        if schema["minItems"]
             .as_u64()
-            .is_some_and(|n| items.len() as u64 > n)
+            .is_some_and(|n| (items.len() as u64) < n)
+            || schema["maxItems"]
+                .as_u64()
+                .is_some_and(|n| items.len() as u64 > n)
         {
             return false;
         }
@@ -620,6 +636,12 @@ pub fn matches_schema(value: &Value, schema: &Value) -> bool {
             "^[0-9a-f]{128}$" => hex(text, 128),
             "^(0|[1-9][0-9]*)$" => canonical,
             "^[1-9][0-9]*$" => canonical && text != "0",
+            "^([1-9][0-9]*|explorer:[1-9][0-9]*)$" => {
+                let height = text.strip_prefix("explorer:").unwrap_or(text);
+                !height.is_empty()
+                    && !height.starts_with('0')
+                    && height.bytes().all(|byte| byte.is_ascii_digit())
+            }
             "^[a-z0-9_]{1,64}$" => {
                 (1..=64).contains(&text.len())
                     && text

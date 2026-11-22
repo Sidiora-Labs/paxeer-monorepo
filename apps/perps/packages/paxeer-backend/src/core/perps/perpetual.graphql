@@ -14,7 +14,13 @@ scalar DateTime
     marketId: Int!
     name: String!
     symbol: String!
-    maxLeverage: BigDecimal!
+    oracleSymbol: String!
+    szDecimals: Int
+    pxDecimals: Int
+    tickSize: BigDecimal
+    lotSize: BigDecimal
+    tierClass: Int
+    maxLeverage: BigDecimal
     enabled: Boolean!
     createdAt: DateTime
     latestPrice: LatestPrice
@@ -128,7 +134,7 @@ scalar DateTime
   type LatestPrice {
     marketId: Int!
     price: BigDecimal!
-    onchainTimestamp: Int!
+    onchainTimestamp: Int
     blockNumber: Int!
     updatedAt: DateTime
   }
@@ -188,8 +194,8 @@ scalar DateTime
 
   type PoolState {
     marketId: Int!
-    baseReserve: BigDecimal!
-    quoteReserve: BigDecimal!
+    baseReserve: BigDecimal
+    quoteReserve: BigDecimal
     oraclePrice: BigDecimal
     updatedAt: DateTime
     blockNumber: Int
@@ -200,10 +206,10 @@ scalar DateTime
   # ============================================================
 
   type FeeConfig {
-    takerFeeBps: Int!
-    makerFeeBps: Int!
-    liquidationFeeBps: Int!
-    insuranceFeeBps: Int!
+    takerFeeBps: Int
+    makerFeeBps: Int
+    liquidationFeeBps: Int
+    insuranceFeeBps: Int
     updatedAt: DateTime
   }
 
@@ -371,8 +377,8 @@ scalar DateTime
     marketId: Int!
     markPrice: BigDecimal!
     indexPrice: BigDecimal!
-    baseReserve: BigDecimal!
-    quoteReserve: BigDecimal!
+    baseReserve: BigDecimal
+    quoteReserve: BigDecimal
     blockNumber: Int!
     txHash: String!
     blockTimestamp: DateTime!
@@ -487,16 +493,16 @@ scalar DateTime
   }
 
   # ============================================================
-  #  ENRICHED STATS (on-chain + paxeer-network)
+  #  ENRICHED STATS (on-chain + Orderly)
   # ============================================================
 
-  type PaxeerNetworkTicker {
+  type OrderlyTicker {
     symbol: String!
     paxeerSymbol: String!
     mark_price: Float
     index_price: Float
     sum_unitary_funding: Float
-    est_funding_rate: Float
+    last_funding_rate_hourly: String
     last_funding_rate: Float
     next_funding_time: Float
     open_interest: Float
@@ -508,7 +514,7 @@ scalar DateTime
     h24_volume: Float
   }
 
-  type PaxeerNetworkVolumeStats {
+  type OrderlyVolumeStats {
     perp_volume_ytd: Float
     perp_volume_ltd: Float
     perp_volume_today: Float
@@ -517,7 +523,7 @@ scalar DateTime
     perp_volume_last_30_days: Float
   }
 
-  type PaxeerNetworkPriceChange {
+  type OrderlyPriceChange {
     symbol: String!
     paxeerSymbol: String!
     last_price: Float
@@ -531,18 +537,17 @@ scalar DateTime
     change_30d: Float
   }
 
-  type PaxeerNetworkOpenInterest {
+  type OrderlyOpenInterest {
     symbol: String!
     paxeerSymbol: String!
     long_oi: Float
     short_oi: Float
   }
 
-  type PaxeerNetworkFundingRate {
+  type OrderlyFundingRate {
     symbol: String!
     paxeerSymbol: String!
-    est_funding_rate: Float
-    est_funding_rate_timestamp: Float
+    last_funding_rate_hourly: String
     last_funding_rate: Float
     last_funding_rate_timestamp: Float
     next_funding_time: Float
@@ -551,15 +556,15 @@ scalar DateTime
 
   type EnrichedGlobalStats {
     onchain: GlobalStats!
-    paxeer-network: PaxeerNetworkVolumeStats
+    orderly: OrderlyVolumeStats
   }
 
   type EnrichedMarketStats {
     onchain: MarketStats!
-    ticker: PaxeerNetworkTicker
-    fundingRate: PaxeerNetworkFundingRate
-    openInterest: PaxeerNetworkOpenInterest
-    priceChange: PaxeerNetworkPriceChange
+    ticker: OrderlyTicker
+    fundingRate: OrderlyFundingRate
+    openInterest: OrderlyOpenInterest
+    priceChange: OrderlyPriceChange
   }
 
   # ============================================================
@@ -743,15 +748,15 @@ scalar DateTime
       offset: Int
     ): [ProtocolSnapshotRecord!]!
 
-    # Enriched Stats (on-chain + paxeer-network)
+    # Enriched Stats (on-chain + Orderly)
     enrichedGlobalStats: EnrichedGlobalStats!
     enrichedMarketStats(marketId: Int!): EnrichedMarketStats!
 
-    # paxeer-network market data via GraphQL
-    paxeerNetworkTickers: [PaxeerNetworkTicker!]!
-    paxeerNetworkFundingRates: [PaxeerNetworkFundingRate!]!
-    paxeerNetworkPriceChanges: [PaxeerNetworkPriceChange!]!
-    paxeerNetworkOpenInterests: [PaxeerNetworkOpenInterest!]!
+    # Orderly market data via GraphQL
+    orderlyTickers: [OrderlyTicker!]!
+    orderlyFundingRates: [OrderlyFundingRate!]!
+    orderlyPriceChanges: [OrderlyPriceChange!]!
+    orderlyOpenInterests: [OrderlyOpenInterest!]!
 
     # ============================================================
     #  V4 SPOT TRADING
@@ -780,24 +785,6 @@ scalar DateTime
       offset: Int
     ): [SpotOrderFill!]!
 
-    # Batch auction results
-    spotBatchClearings(
-      marketId: String
-      limit: Int
-      offset: Int
-    ): [SpotBatchClearing!]!
-
-    # Epoch settlements
-    spotEpochSettlements(limit: Int, offset: Int): [SpotEpochSettlement!]!
-
-    # Fast settlements
-    spotFastSettlements(
-      userAddress: String
-      tokenAddress: String
-      limit: Int
-      offset: Int
-    ): [SpotFastSettlement!]!
-
     # Collateral movements (spot deposits / withdrawals)
     spotCollateralMovements(
       userAddress: String
@@ -806,34 +793,6 @@ scalar DateTime
       limit: Int
       offset: Int
     ): [SpotCollateralMovement!]!
-
-    # Market mode-change audit log
-    spotMarketModeChanges(
-      marketId: String
-      limit: Int
-      offset: Int
-    ): [SpotMarketModeChange!]!
-
-    # PoFQ reputation updates
-    spotPofqUpdates(
-      entityAddress: String
-      isVault: Boolean
-      limit: Int
-      offset: Int
-    ): [SpotPofqUpdate!]!
-
-    # Registered PLVs
-    spotPLVs(isRegistered: Boolean, limit: Int, offset: Int): [SpotPLV!]!
-
-    # Spot keeper cycle log
-    spotKeeperCycles(limit: Int, offset: Int): [SpotKeeperCycle!]!
-
-    # Spot batch clear failures
-    spotBatchClearFailures(
-      marketId: String
-      limit: Int
-      offset: Int
-    ): [SpotBatchClearFailure!]!
   }
 
   # ============================================================
@@ -841,12 +800,12 @@ scalar DateTime
   # ============================================================
 
   type SpotMarket {
-    marketId: String!
-    baseToken: String!
-    quoteToken: String!
-    mode: Int!
+    marketId: String
+    baseToken: String
+    quoteToken: String
+    mode: Int
     modeName: String
-    status: String!
+    status: String
     createdAt: DateTime
     createdBlock: Int
     createdTxHash: String
@@ -858,14 +817,14 @@ scalar DateTime
   type SpotOrder {
     orderId: BigDecimal!
     traderAddress: String!
-    marketId: String!
-    side: Int!
+    marketId: String
+    side: Int
     sideName: String
     orderType: Int!
     orderTypeName: String
-    offsetBps: Int!
-    size: BigDecimal!
-    filledSize: BigDecimal!
+    offsetBps: Int
+    size: BigDecimal
+    filledSize: BigDecimal
     status: String!
     placedAt: DateTime!
     placedBlock: Int!
@@ -884,7 +843,7 @@ scalar DateTime
     marketId: String!
     fillSize: BigDecimal!
     fillPrice: BigDecimal!
-    fillScore: BigDecimal!
+    fillScore: BigDecimal
     blockNumber: Int!
     txHash: String!
     logIndex: Int!

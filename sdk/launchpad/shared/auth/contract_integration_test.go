@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"os"
 	"strings"
@@ -18,23 +17,11 @@ import (
 
 // Real source-backed ERC1271 fixture verifies ECDSA signer and revocation.
 func TestRealEVMContractMagicAndRevocation(t *testing.T) {
-	endpoint := os.Getenv("L34_ANVIL_URL")
-	if endpoint == "" {
-		t.Skip("requires lease-owned Anvil")
-	}
 	ctx := context.Background()
-	client, err := ethclient.DialContext(ctx, endpoint)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer client.Close()
-	chain, err := client.ChainID(ctx)
-	if err != nil || chain.Cmp(big.NewInt(125)) != 0 {
-		t.Fatal("private fixture chain", err)
-	}
+	client := authChainClient(t)
 	key, _ := crypto.GenerateKey()
 	sender := crypto.PubkeyToAddress(key.PublicKey)
-	if err = client.Client().CallContext(ctx, nil, "anvil_setBalance", sender, "0x56bc75e2d63100000"); err != nil {
+	if err := client.Client().CallContext(ctx, nil, "anvil_setBalance", sender, "0x56bc75e2d63100000"); err != nil {
 		t.Fatal(err)
 	}
 	bytecode, err := os.ReadFile("testdata/TestWallet.bin")
@@ -115,15 +102,7 @@ func TestPhase2CommittedContractRevocation(t *testing.T) {
 	pool, _ := phase2AuthDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	endpoint := os.Getenv("L34_ANVIL_URL")
-	if endpoint == "" {
-		t.Fatal("owned chain125 required")
-	}
-	client, err := ethclient.DialContext(ctx, endpoint)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer client.Close()
+	client := authChainClient(t)
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)

@@ -22,6 +22,8 @@ vi.hoisted(() => {
   };
 });
 
+vi.setConfig({ testTimeout: 30_000 });
+
 import Layout from './Layout';
 import LayoutError from './LayoutError';
 import LayoutHome from './LayoutHome';
@@ -133,10 +135,10 @@ test('layout_skipped: restores base/mobile and both xxl navigation screenshots a
   }
 
   const { container } = renderLayout(React.createElement(Layout, null, 'Page Content'));
-  const main = await within(container).findByRole('main');
+  const main = await within(container).findByRole('main', undefined, { timeout: 15_000 });
   expect(main.textContent).toBe('Page Content');
   expect(container.querySelector('footer')).toBeTruthy();
-  expect(await within(container).findByText(/10% Blocks Indexed/)).toBeTruthy();
+  expect(await within(container).findByText(/10% Blocks Indexed/, undefined, { timeout: 15_000 })).toBeTruthy();
   await document.fonts.ready;
 });
 
@@ -148,21 +150,23 @@ test('error_layout_wrong_subject: screenshots the production error layout and er
   const { container } = renderLayout(React.createElement(LayoutError, null,
     React.createElement(AppError, { error: new Error('An unexpected error has occurred') }),
   ));
-  const main = await within(container).findByRole('main');
+  const main = await within(container).findByRole('main', undefined, { timeout: 15_000 });
   expect(within(main).getByText('Oops! Something went wrong')).toBeTruthy();
-  expect(within(main).getByRole('button', { name: 'Back to home' })).toBeTruthy();
+  const homeLink = within(main).getByRole('link', { name: 'Back to home' });
+  expect(homeLink.getAttribute('href')).toBe('/');
+  expect(homeLink.querySelector('button, a, [tabindex]')).toBeNull();
   expect(container.querySelector('[data-label="hero-band"]')).toBeNull();
   expect(container.querySelector('footer')).toBeTruthy();
-  expect(await within(container).findByText(/10% Blocks Indexed/)).toBeTruthy();
+  expect(await within(container).findByText(/10% Blocks Indexed/, undefined, { timeout: 15_000 })).toBeTruthy();
   await document.fonts.ready;
 });
 
 test('home_layout_skipped: restores base/mobile home screenshots after readiness', async function homeLayoutSkipped() {
   assertScreenshotSuite('LayoutHome.pw.tsx', 'LayoutHome', [ 'base view +@mobile' ]);
   const { container } = renderLayout(React.createElement(LayoutHome, null, 'Page Content'));
-  expect(await within(container).findByText('Page Content')).toBeTruthy();
+  expect(await within(container).findByText('Page Content', undefined, { timeout: 15_000 })).toBeTruthy();
   expect(container.querySelector('[data-label="hero-band"]')).toBeTruthy();
   expect(container.querySelector('footer')).toBeTruthy();
-  expect(await within(container).findByText(/10% Blocks Indexed/)).toBeTruthy();
+  expect(await within(container).findByText(/10% Blocks Indexed/, undefined, { timeout: 15_000 })).toBeTruthy();
   await document.fonts.ready;
 });

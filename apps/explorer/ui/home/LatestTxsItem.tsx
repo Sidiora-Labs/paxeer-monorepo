@@ -21,7 +21,7 @@ import TxFee from 'ui/shared/tx/TxFee';
 import TxWatchListTags from 'ui/shared/tx/TxWatchListTags';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import TxAdditionalInfo from 'ui/txs/TxAdditionalInfo';
-import { isPriceUpdate, priceUpdateHref, priceUpdateMethod } from 'ui/txs/TxPriceUpdate';
+import { isPriceUpdate, priceUpdateHref, priceUpdateKind, priceUpdateMarkets } from 'ui/txs/TxPriceUpdate';
 import TxType from 'ui/txs/TxType';
 
 type Props = {
@@ -44,7 +44,7 @@ export const PriceUpdateWatchListTags = ({ from, isLoading }: {
   return (
     <Flex columnGap={ 2 } rowGap={ 2 } flexWrap="wrap" overflow="hidden" maxW="100%">
       { tags.map((tag) => (
-        <Badge key={ tag.label } loading={ isLoading } truncated maxW={{ base: '115px', lg: '100%' }} colorPalette="gray">
+        <Badge key={ tag.label } loading={ isLoading } truncated maxW={{ base: 'var(--chakra-spacing-30)', lg: '100%' }} colorPalette="gray">
           { tag.display_name }
         </Badge>
       )) }
@@ -73,7 +73,7 @@ const LatestTxsItem = ({ tx, isLoading }: Props) => {
           <TxEntity isLoading={ isLoading } hash={ tx.hash } href={ priceUpdate ? priceUpdateHref(tx.hash) : undefined } noIcon textStyle="number"/>
           { evmTx && <TxAdditionalInfo tx={ evmTx } isLoading={ isLoading } flexShrink={ 0 }/> }
         </Flex>
-        <Flex alignItems="center" columnGap={ 2 } minW={ 0 } overflow="hidden">
+        <Flex alignItems="center" columnGap={ 2 } rowGap={ 1 } minW={ 0 } flexWrap="wrap">
           <TimeWithTooltip
             timestamp={ tx.timestamp }
             enableIncrement={ !isLoading }
@@ -83,11 +83,11 @@ const LatestTxsItem = ({ tx, isLoading }: Props) => {
             textStyle="small"
             flexShrink={ 0 }
           />
-          <HStack gap={ 1 } minW={ 0 } data-label="tx-tags" _empty={{ display: 'none' }}>
+          <HStack gap={ 1 } minW={ 0 } maxW="100%" flexWrap="wrap" data-label="tx-tags" _empty={{ display: 'none' }}>
             { priceUpdate ?
-              <ScanMethodChip method={ priceUpdateMethod(tx) } isLoading={ isLoading }/> :
-              <TxType types={ tx.transaction_types } isLoading={ isLoading }/> }
-            { tx.status !== 'ok' && <TxStatus status={ tx.status } errorText={ tx.status === 'error' ? tx.result : undefined } isLoading={ isLoading }/> }
+              <Box flexShrink={ 0 }><ScanMethodChip method={ priceUpdateKind } isLoading={ isLoading }/></Box> :
+              <TxType types={ tx.transaction_types } isLoading={ isLoading } flexShrink={ 0 }/> }
+            { tx.status !== 'ok' && <TxStatus status={ tx.status } errorText={ tx.status === 'error' ? tx.result : undefined } isLoading={ isLoading } flexShrink={ 0 }/> }
             { evmTx ? <TxWatchListTags tx={ evmTx } isLoading={ isLoading }/> : <PriceUpdateWatchListTags from={ tx.from } isLoading={ isLoading }/> }
             { protocolTag && <EntityTag data={ protocolTag } isLoading={ isLoading } minW="0" noColors/> }
           </HStack>
@@ -106,7 +106,7 @@ const LatestTxsItem = ({ tx, isLoading }: Props) => {
       <TableCell isNumeric data-label="tx-value">
         { !config.UI.views.tx.hiddenFields?.value && (
           <Box whiteSpace="nowrap" textStyle="number">
-            { evmTx ? <NativeCoinValue amount={ evmTx.value } accuracy={ 5 } loading={ isLoading }/> : <Text as="span" color="text.muted">—</Text> }
+            { evmTx ? <NativeCoinValue amount={ evmTx.value } accuracy={ 5 } loading={ isLoading }/> : priceUpdateMarkets(tx) }
           </Box>
         ) }
         { !config.UI.views.tx.hiddenFields?.tx_fee && (

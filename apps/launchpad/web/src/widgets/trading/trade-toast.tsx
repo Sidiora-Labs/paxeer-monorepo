@@ -1,5 +1,6 @@
 'use client';
 
+import { launchpadMotion } from '@/app/presentation-tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Share2, X } from 'lucide-react';
 import { Button, IconButton } from '@/ui/primitives';
@@ -34,7 +35,7 @@ interface TradeToastProps {
   shareError?: string | null;
 }
 
-const AUTO_DISMISS_MS = 6000;
+const AUTO_DISMISS_MS = launchpadMotion.toastLifetime;
 
 export default function TradeToast({ data, onDismiss, onShare, sharing = false, shareError }: TradeToastProps) {
   const [visible, setVisible] = useState(false);
@@ -43,7 +44,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
 
   const dismiss = useCallback(() => {
     setExiting(true);
-    setTimeout(onDismiss, 300);
+    setTimeout(onDismiss, launchpadMotion.slow);
   }, [onDismiss]);
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        'fixed bottom-24 left-3 right-3 z-[9999] w-auto transition-all duration-slow ease-out sm:bottom-5 sm:left-auto sm:right-5 sm:w-[360px]',
+        'fixed bottom-24 left-3 right-3 z-[var(--sl-z-toast)] w-auto transition-all duration-slow ease-sl sm:bottom-5 sm:left-auto sm:right-5 sm:w-90',
         visible && !exiting ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
       )}
     >
@@ -96,11 +97,11 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
           <dl className="space-y-1.5 text-sm">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-text-muted">{isBuy ? 'Spent' : 'Sold'}</dt>
-              <dd className="font-bold text-text tabular-nums">{data.inputAmount} {data.inputSymbol}</dd>
+              <dd className="min-w-0 truncate font-bold text-text tabular-nums" title={`${data.inputAmount} ${data.inputSymbol}`}>{data.inputAmount} {data.inputSymbol}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-text-muted">{isBuy ? 'Received' : 'Returned'}</dt>
-              <dd className={cn('font-bold tabular-nums', tone)}>{data.outputAmount} {data.outputSymbol}</dd>
+              <dd className={cn('min-w-0 truncate font-bold tabular-nums', tone)} title={`${data.outputAmount} ${data.outputSymbol}`}>{data.outputAmount} {data.outputSymbol}</dd>
             </div>
             {data.feeRaw ? (
               <div className="flex items-center justify-between gap-3 text-xs">
@@ -123,7 +124,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
               <span className="font-bold text-text tabular-nums">{data.newUsdlBalance ?? '...'}</span>
             </div>
             <div className="flex items-center justify-between gap-3 text-xs">
-              <span className="text-text-muted">{data.tokenName || 'Coin'}</span>
+              <span className="min-w-0 truncate text-text-muted" title={data.tokenName}>{data.tokenName || 'Coin'}</span>
               <span className="font-bold text-text tabular-nums">{data.newTokenBalance ?? '...'}</span>
             </div>
           </div>
@@ -149,7 +150,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
           ) : null}
         </div>
 
-        <div className="h-[2px] bg-track" aria-hidden="true">
+        <div className="h-0.5 bg-track" aria-hidden="true">
           <div
             className={isBuy ? 'h-full bg-accent' : 'h-full bg-danger'}
             style={{ animation: `toast-progress ${AUTO_DISMISS_MS}ms linear forwards`, animationPlayState: hold ? 'paused' : 'running' }}

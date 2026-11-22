@@ -62,7 +62,11 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       "PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)",
       "RouterTrade(uint8,address,address,address,address,uint256,uint256,uint256,uint256,uint256)",
       "Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)",
-      "TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)"
+      "TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)",
+      "ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)",
+      "ChainRevenueEpochOpened(uint32,uint64,uint256,uint64,uint256,uint256,uint256)",
+      "ChainRevenueClaimed(uint32,uint64,address,uint256,uint256,uint256)",
+      "LaunchedChainRetired(uint32,address,uint256,uint256,uint256)"
     ]
   }
 
@@ -179,7 +183,7 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       end
 
       keys = Enum.map(definitions, &{&1.address, &1.topic})
-      assert length(keys) == 39
+      assert length(keys) == 43
       assert Enum.uniq(keys) == keys
     end
 

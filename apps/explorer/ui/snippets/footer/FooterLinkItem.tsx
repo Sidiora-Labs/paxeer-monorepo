@@ -34,7 +34,7 @@ const FooterLinkItemIconExternal = ({ iconUrl, text }: { iconUrl: Array<string>;
 
 const FooterLinkItem = ({ icon, iconSize, iconUrl, text, url, isLoading }: Props) => {
   if (isLoading) {
-    return <Skeleton loading my="3px">{ text }</Skeleton>;
+    return <Skeleton loading my="calc(var(--chakra-spacing-1) * 0.75)">{ text }</Skeleton>;
   }
 
   const iconElement = (() => {
@@ -49,7 +49,7 @@ const FooterLinkItem = ({ icon, iconSize, iconUrl, text, url, isLoading }: Props
     if (icon) {
       return (
         <Center minW={ 6 }>
-          <IconSvg boxSize={ iconSize || 5 } name={ icon }/>
+          <IconSvg aria-hidden={ true } boxSize={ iconSize || 5 } name={ icon }/>
         </Center>
       );
     }
@@ -58,7 +58,17 @@ const FooterLinkItem = ({ icon, iconSize, iconUrl, text, url, isLoading }: Props
   })();
 
   return (
-    <Link href={ url } display="flex" alignItems="center" minH="28px" variant="subtle" external noIcon textStyle="small" columnGap={ 2 }>
+    <Link
+      href={ url }
+      display="flex"
+      alignItems="center"
+      minH={ 7 }
+      variant="subtle"
+      external
+      noIcon
+      textStyle="small"
+      columnGap={ 2 }
+    >
       { iconElement }
       { text }
     </Link>

@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { Suspense } from 'react';
 import { Skeleton } from '@/ui/primitives';
 import CreateWizard from '@/widgets/create/create-wizard';
@@ -11,7 +12,7 @@ import CreateWizard from '@/widgets/create/create-wizard';
  */
 export function CreatePageFallback() {
   return (
-    <div data-create-fallback aria-busy="true" className="mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
+    <div data-create-fallback aria-busy="true" className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
       <span className="sr-only">Loading...</span>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
@@ -26,16 +27,16 @@ export function CreatePageFallback() {
                 {['Coin name', 'Ticker'].map(label => (
                   <div key={label} className="flex flex-col gap-1.5">
                     <p className="text-sm font-bold text-text">{label}</p>
-                    <Skeleton variant="block" height={36} />
+                    <Skeleton variant="block" height={surfaceSpacing(9)} />
                   </div>
                 ))}
               </div>
               <div className="flex flex-col gap-1.5">
                 <p className="text-sm font-bold text-text">Description <span className="font-normal text-text-faint">(Optional)</span></p>
-                <Skeleton variant="block" height={112} />
+                <Skeleton variant="block" height={surfaceSpacing(28)} />
               </div>
-              <Skeleton variant="block" height={44} />
-              <Skeleton variant="block" height={56} />
+              <Skeleton variant="block" height={surfaceSpacing(11)} />
+              <Skeleton variant="block" height={surfaceSpacing(14)} />
             </div>
           </section>
         </div>
@@ -50,8 +51,10 @@ export function CreatePageFallback() {
 
 export default function CreateModule() {
   return (
-    <Suspense fallback={<CreatePageFallback />}>
-      <CreateWizard />
-    </Suspense>
+    <div data-create-route className="min-w-0">
+      <Suspense fallback={<CreatePageFallback />}>
+        <CreateWizard />
+      </Suspense>
+    </div>
   );
 }

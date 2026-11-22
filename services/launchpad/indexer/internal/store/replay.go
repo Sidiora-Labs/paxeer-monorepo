@@ -144,6 +144,9 @@ func (s *Store) AcquireReplay(ctx context.Context, id, owner string, ttl time.Du
 	j.Status = "running"
 	return j, tx.Commit(ctx)
 }
+
+const maxReplayRawDataBytes = 1 << 20
+
 func ValidateReplaySegment(segment ReplaySegment) error {
 	fromHeight1Int, conversionErr := checked.Convert[int](segment.ToHeight - segment.FromHeight + 1)
 	if conversionErr != nil {
@@ -158,6 +161,9 @@ func ValidateReplaySegment(segment ReplaySegment) error {
 	bytes := 0
 	for i := range segment.Records {
 		r := segment.Records[i]
+		if len(r.Data) > maxReplayRawDataBytes {
+			return errors.New("replay raw record exceeds document bound")
+		}
 		digest, err := RawDigest(r)
 		if err != nil {
 			return err
@@ -195,6 +201,9 @@ func ValidateReplaySegment(segment ReplaySegment) error {
 	}
 	events := map[string]bool{}
 	for _, event := range segment.Events {
+		if len(event.Raw.Data) > maxReplayRawDataBytes {
+			return errors.New("replay raw record exceeds document bound")
+		}
 		digest, err := RawDigest(event.Raw)
 		if err != nil {
 			return err
@@ -212,6 +221,20 @@ func ValidateReplaySegment(segment ReplaySegment) error {
 	return nil
 }
 func (s *Store) CommitReplaySegment(ctx context.Context, j ReplayJob, segment ReplaySegment, project func(context.Context, pgx.Tx, ReplayEvent) (string, error)) error {
+	return s.commitReplaySegment(ctx, j, segment, project, nil)
+}
+
+// CommitProjectedBackfillSegment adds canonical projections below the issued
+// checkpoint while replay progress and effects commit in the same transaction.
+// The live watermark remains independent of the historical job.
+func (s *Store) CommitProjectedBackfillSegment(ctx context.Context, j ReplayJob, segment ReplaySegment, project func(context.Context, pgx.Tx, ReplayEvent) (string, error), canonical func(context.Context, CanonicalTx) error) error {
+	if j.Request.Mode != "backfill" || j.Request.Target != "indexer" || canonical == nil {
+		return ErrIntegrity
+	}
+	return s.commitReplaySegment(ctx, j, segment, project, canonical)
+}
+
+func (s *Store) commitReplaySegment(ctx context.Context, j ReplayJob, segment ReplaySegment, project func(context.Context, pgx.Tx, ReplayEvent) (string, error), canonical func(context.Context, CanonicalTx) error) error {
 	if err := ValidateReplaySegment(segment); err != nil {
 		return err
 	}
@@ -277,6 +300,33 @@ func (s *Store) CommitReplaySegment(ctx context.Context, j ReplayJob, segment Re
 		}
 		digest, _ := RawDigest(r)
 		identities = append(identities, digest)
+	}
+	if canonical != nil {
+		var watermark int64
+		err = tx.QueryRow(ctx, `SELECT typed_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=125 AND stream_id=$1 AND raw_complete_height=typed_complete_height FOR UPDATE`, segment.SourceStream).Scan(&watermark)
+		if err != nil {
+			return err
+		}
+		if watermark < j.Request.CheckpointHeight {
+			return ErrWatermark
+		}
+		for _, block := range segment.Blocks {
+			_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_block_completeness(chain_id,stream_id,height,block_hash,raw_count,fetch_complete,required_decode_complete) VALUES(125,$1,$2,$3,$4,true,true) ON CONFLICT DO NOTHING`, segment.SourceStream, block.Height, block.Hash, block.RawCount)
+			if err != nil {
+				return err
+			}
+			var same bool
+			err = tx.QueryRow(ctx, `SELECT block_hash=$3 AND raw_count=$4 AND fetch_complete AND required_decode_complete FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2`, segment.SourceStream, block.Height, block.Hash, block.RawCount).Scan(&same)
+			if err != nil {
+				return err
+			}
+			if !same {
+				return ErrIntegrity
+			}
+		}
+		if err = canonical(ctx, CanonicalTx{Tx: tx, Store: NewFromDBTX(tx)}); err != nil {
+			return err
+		}
 	}
 	for _, event := range segment.Events {
 		effect, err := project(ctx, tx, event)
@@ -452,4 +502,34 @@ func (s *Store) PauseReplayLease(ctx context.Context, job ReplayJob, reason stri
 		return ErrFenced
 	}
 	return tx.Commit(ctx)
+}
+
+// InsertBackfillOutboxIntents binds historical canonical intents to the same
+// complete raw batch and retains the immutable payload checks of live ingest.
+func (c CanonicalTx) InsertBackfillOutboxIntents(ctx context.Context, b CanonicalBatch, intents []OutboxIntent) error {
+	if c.Tx == nil {
+		return ErrIntegrity
+	}
+	if b.Outbox != nil && !sameIntents(b.Outbox, intents) {
+		return ErrIntegrity
+	}
+	b.Outbox = intents
+	if err := validateBatch(b); err != nil {
+		return err
+	}
+	for _, o := range intents {
+		_, err := c.Tx.Exec(ctx, `INSERT INTO indexer.indexer_ingest_outbox(chain_id,transaction_hash,log_index,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, b.ChainID, o.TransactionHash, int64(o.LogIndex), o.Kind, o.Payload)
+		if err != nil {
+			return err
+		}
+		var same bool
+		err = c.Tx.QueryRow(ctx, `SELECT payload=$5::jsonb FROM indexer.indexer_ingest_outbox WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3 AND event_kind=$4`, b.ChainID, o.TransactionHash, int64(o.LogIndex), o.Kind, o.Payload).Scan(&same)
+		if err != nil {
+			return err
+		}
+		if !same {
+			return ErrIntegrity
+		}
+	}
+	return nil
 }

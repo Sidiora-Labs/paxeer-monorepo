@@ -1,28 +1,7 @@
 defmodule Explorer.Repair.TokenBtcConversionAndTaskRecoveryTest do
   @moduledoc """
-  Task 22.33.377 repair record (audit 22.30.140).
-
-  btc-config-owner: the configured BTC conversion and disabled BTC conversion
-  tests drive source selection, HTTP, the adapter and the coin fetcher's ETS consumer.
-  dia-task-exits: the killed quote and timed out quote tests drive the recorded
-  asset catalog, HTTP quotes, the token fetcher's retry callback and token schema.
-
-  Baseline verification was not run: the ordered gate instructions require the
-  entire implementation before the sole hf-build/hf-done qualification sequence.
-  No pre-change test failures are claimed. The runner's gate ledger records the
-  verified candidate revision, command, exit and private evidence location.
-
-  Wiring request (domain 14): services/explorer/backend/config/runtime.exs must
-  declare fetch_btc_value under Explorer.Market.Fetcher.Coin.
-  Wiring request (domain 14): registry row 14.cfg-explorer-explorer-market-fetcher-coin
-  must retain Coin ownership and document the runtime flag.
-  Wiring request (domain 14): services/explorer/backend/apps/explorer/test/explorer/market/source/coin_market_cap_test.exs
-  must configure Explorer.Market.Fetcher.Coin.fetch_btc_value explicitly for its fiat-only fixtures.
-
-  Provider payloads preserve the CoinMarketCap latest-quotes and DIA quotedAssets /
-  assetQuotation response shapes used by the committed market source fixtures.
-  Slow responses and worker death are injected at the loopback server and process
-  boundary; production adapters, transport, task supervision and schemas run intact.
+  Exercises BTC conversion through HTTP and the coin cache, and token quote
+  recovery after worker termination and timeouts.
   """
 
   use ExUnit.Case, async: false
@@ -213,7 +192,6 @@ defmodule Explorer.Repair.TokenBtcConversionAndTaskRecoveryTest do
 
     Application.put_env(:explorer, Explorer.Market, fetch_btc_value: not enabled)
     response = Jason.decode!(@cmc)
-    response = if enabled, do: response, else: update_in(response, ["data", "1", "quote"], &Map.delete(&1, "1"))
     observer = self()
 
     Bypass.expect(server, "GET", "/cryptocurrency/quotes/latest", fn conn ->
@@ -238,10 +216,10 @@ defmodule Explorer.Repair.TokenBtcConversionAndTaskRecoveryTest do
     assert_receive :coin_request
 
     state = %Coin{secondary_coin_source: Source.secondary_coin_source()}
-    assert {:noreply, ^state} = Coin.handle_info({:update, true}, state)
+    assert {:noreply, fetching_state} = Coin.handle_info({:update, true}, state)
     assert_receive {ref, {{:ok, secondary}, true}} = reply, 2_000
-    Process.demonitor(ref, [:flush])
-    assert {:noreply, ^state} = Coin.handle_info(reply, state)
+    assert fetching_state == %{state | tasks: %{ref => true}}
+    assert {:noreply, ^state} = Coin.handle_info(reply, fetching_state)
     assert_receive :coin_request
     assert secondary == native
     assert Coin.get_secondary_coin_exchange_rate() == secondary

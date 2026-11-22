@@ -1,0 +1,45 @@
+[surface]
+name = "LayerX Developer dashboard"
+page_routes = ["/"]
+page_route_count = 1
+response_routes = ["/healthz", "/session", "/session/registration", "/keys", "/keys/[id]", "/keys/[id]/rotate"]
+response_route_count = 6
+route_count = 7
+view_count = 23
+state_count = 61
+named_state_count = 38
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+configured_renders = 2074
+captured_renders = 2074
+incomplete_renders = 0
+findings = 0
+result = "pass"
+reviewed_screenshots = 610
+reviewed_widths = [360, 768, 1440, 2560, "844x390"]
+guides = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "tabs", "spinner", "css-layout", "natural-interactions", "dialog"]
+
+[presentation]
+account = "Account details wrap within stable header rows; the session action reserves room for its busy indicator."
+tabs = "The selected section stays in a single scrolling track with proximity snapping and visible continuation edges."
+public_key = "The public key uses the body-small type step and body line height."
+
+button_spacing = "Button padding and list text gaps use shared spacing steps."
+list_rows = "Long request and payment lists paint every row in full-page views."
+key_rows = "Active key actions sit together at the card edge; narrow rows move actions below the key text, and revoked keys omit the remaining count."
+key_dialogs = "The new-secret and revocation dialogs use native modal focus containment, Escape dismissal and responsive sizing, and are represented after their opening motion."
+unsupported_keys = "The unsupported-key view presents session-token sign-in."
+
+sign_in = "The session-token form precedes asynchronous browser-key details."
+payment_details = "The final verification phrase stays together within wrapped payment details."
+
+[content]
+sections = ["Overview", "Keys", "Logs", "Webhooks", "Payments"]
+states = ["filled", "empty", "loading", "unavailable", "verified receipt", "receipt loading", "receipt unavailable", "sign-in", "unconfigured key sign-in", "unsupported key sign-in", "unavailable browser storage", "browser key loading", "held key", "copied public key", "field validation", "filled token", "key submission", "token submission", "sign-out", "sign-out submission", "sign-out refusal", "long request log", "long payment list", "active key", "revoked key", "new key secret", "revoke confirmation"]
+overview_source = "services/platform/hosted/dashboard/web/tests/fixtures/rust-overview.json"
+receipt_source = "services/platform/hosted/dashboard/src/fixtures/verified_payment_receipts.json"
+session_source = "services/platform/hosted/dashboard/web/tests/session-routes.mjs"

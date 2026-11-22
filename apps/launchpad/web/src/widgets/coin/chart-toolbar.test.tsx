@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -41,7 +42,7 @@ describe('ChartToolbar', () => {
     expect(html).not.toMatch(/\bSOL\b/);
     expect(html).toContain('Live');
     expect(html).toContain('Block 4242');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
 
   it('promotes a caret interval into the group while it is active', () => {
@@ -83,6 +84,51 @@ describe('ChartToolbar', () => {
     expect(freshnessLabel('replaying')).toBe('Syncing...');
     expect(freshnessLabel('resync_required')).toBe('May be out of date');
   });
+
+  it.each(['connecting', 'snapshotting', 'replaying'] as const)('waits for trades with a neutral mark while %s', function waitsForTrades(connectionStatus) {
+    const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus, lastSourceHeight: null } })} />);
+    const view = document.createElement('div');
+    view.innerHTML = html;
+    const status = view.querySelector('[role="status"]')!;
+    expect(status.textContent).toBe('Waiting for trades');
+    expect(status.querySelector('[aria-hidden="true"]')?.className).toContain('bg-text-faint');
+    expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.querySelector('button')).toBeNull();
+    expect(freshnessLabel(connectionStatus)).toBe('Syncing...');
+  });
+
+  it('keeps a known source block while waiting for trades', function waitingForTradesKeepsSourceHeight() {
+    const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus: 'snapshotting' } })} />);
+    expect(html).toContain('Waiting for trades');
+    expect(html).toContain('Block 4242');
+    expect(html).not.toContain('Try again');
+  });
+
+  it.each([
+    ['offline', 'Updates paused', 'bg-danger', true],
+    ['live', 'Live', 'bg-success', false],
+    ['degraded', 'May be out of date', 'bg-text-faint', true],
+    ['resync_required', 'May be out of date', 'bg-text-faint', true],
+    ['closed', 'Chart closed', 'bg-text-faint', false],
+  ] as const)('keeps the %s status for a coin without trades', function noTradesKeepsOtherFeedStatuses(connectionStatus, label, mark, retry) {
+    const view = document.createElement('div');
+    view.innerHTML = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus, lastSourceHeight: null } })} />);
+    const status = view.querySelector('[role="status"]')!;
+    expect(status.textContent).toContain(label);
+    expect(status.textContent).not.toContain('Waiting for trades');
+    expect(status.querySelector('[aria-hidden="true"]')?.className).toContain(mark);
+    expect(status.querySelector('[data-numeric]')?.textContent).toBe('Block —');
+    expect(status.querySelector('button')?.textContent ?? null).toBe(retry ? 'Try again' : null);
+  });
+
+  it.each([false, undefined])('keeps connecting status when noTrades is %s', function connectingKeepsFeedStatus(noTrades) {
+    const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades, freshness: { ...live, connectionStatus: 'connecting', lastSourceHeight: null } })} />);
+    expect(html).toContain('Syncing...');
+    expect(html).toContain('bg-text-faint');
+    expect(html).toContain('Block —');
+    expect(html).toContain('Try again');
+    expect(html).not.toContain('Waiting for trades');
+  });
 });
 
 describe('ChartSplit', () => {
@@ -96,7 +142,7 @@ describe('ChartSplit', () => {
     expect(handle?.getAttribute('aria-valuemax')).toBe(String(CHART_MAX_HEIGHT));
     act(() => { handle?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
     expect(heights).toEqual([CHART_DEFAULT_HEIGHT]);
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     unmount(root, container);
   });
 });

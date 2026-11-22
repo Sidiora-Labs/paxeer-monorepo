@@ -260,6 +260,22 @@ def test_dockerfile_pnpm_matches_package_manager(dockerfile, stage, owner):
     commands = "\n".join(
         line for line in matching[0].splitlines() if not line.lstrip().startswith("#")
     ).replace("\\\n", " ")
+    manifest_activation = (
+        "corepack prepare \"$(node -p 'require(\"./package.json\").packageManager')\" --activate"
+    )
+    if manifest_activation in commands:
+        assert (ROOT / owner / "pnpm-workspace.yaml").is_file(), owner
+        assert re.search(r"^WORKDIR /app$", matching[0], re.M)
+        if stage == "deps":
+            assert "COPY package.json pnpm-lock.yaml ./" in matching[0]
+            assert "COPY pnpm-workspace.yaml .npmrc ./" in matching[0]
+        else:
+            assert stage == "builder"
+            assert "COPY --from=deps /app ./" in matching[0]
+        assert "corepack enable" in commands
+        assert not re.search(r"\bpnpm@", commands)
+        assert _release(_manifest(manifest_path.parent)["packageManager"], manifest_path) == expected
+        return
     pins = re.findall(r"\bpnpm@([^\s\"';]+)", commands)
     assert pins, f"{dockerfile}: {stage} must activate a pinned pnpm release"
     assert re.search(

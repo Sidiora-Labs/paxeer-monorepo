@@ -11,7 +11,7 @@ import {
   getKeyRotation,
   getPoolStreams,
   getPrivateIngestKey,
-  getStream,
+  getPlaybackStream,
   getStreamOperation,
   requestStream,
   type PrivateIngestKey,
@@ -88,7 +88,7 @@ export function actionAvailability(operation: StreamOperation | null, replacing:
   const status = operation.status;
   const settled = status === 'ready' || status === 'live';
   return {
-    edit: status !== 'ended' && status !== 'failed',
+    edit: status !== 'ended' && status !== 'failed' && status !== 'suspended',
     start: status === 'ready',
     end: status === 'live',
     credential: settled,
@@ -100,6 +100,14 @@ export function actionAvailability(operation: StreamOperation | null, replacing:
 export function credentialRemainingMs(credential: PrivateIngestKey | null, now = Date.now()): number {
   if (!credential) return 0;
   return Math.max(0, Date.parse(credential.visibilityUntil) - now);
+}
+
+export function creatorSubmitAction(operation: StreamOperation | null): 'create' | 'edit' {
+  return !operation || operation.status === 'failed' || operation.status === 'ended' ? 'create' : 'edit';
+}
+
+export function streamTitle(value: string): string {
+  return [...value].slice(0, TITLE_MAX).join('');
 }
 
 /** Milliseconds the broadcast has been live, from the service start time when the projection carries one. */
@@ -248,7 +256,7 @@ export function useCreatorStream(poolAddress: string): CreatorStream {
       if (inFlight) return;
       inFlight = true;
       try {
-        const next = await getStream(streamId);
+        const next = await getPlaybackStream(streamId, session?.accessToken);
         if (!canceled) setPublicStream(next);
       } catch (failure) {
         if (!canceled) setError(humanError(failure, "Couldn't load viewers, try again"));
@@ -259,7 +267,7 @@ export function useCreatorStream(poolAddress: string): CreatorStream {
     void refresh();
     const timer = setInterval(() => void refresh(), LIVE_POLL_MS);
     return () => { canceled = true; clearInterval(timer); };
-  }, [streamId, status]);
+  }, [streamId, status, session]);
 
   useEffect(() => {
     if (!replacement || !session) return;
@@ -294,7 +302,7 @@ export function useCreatorStream(poolAddress: string): CreatorStream {
   }, [replacement, session]);
 
   const setTitle = useCallback((value: string) => {
-    setTitleState(value.slice(0, TITLE_MAX));
+    setTitleState(streamTitle(value));
     requestKey.current = null;
   }, []);
 
@@ -336,6 +344,7 @@ export function useCreatorStream(poolAddress: string): CreatorStream {
           : await controlStream(held.streamId, held.revision, action, current.accessToken, context);
       }
       context.assertCurrent();
+      if (action === 'create') requestKey.current = null;
       setOperation(next);
       if (action === 'rotate' || action === 'restore') setReplacement(next.streamId);
     } catch (failure) {

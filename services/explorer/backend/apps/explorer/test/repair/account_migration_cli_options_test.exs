@@ -21,6 +21,7 @@ defmodule Explorer.Repair.AccountMigrationCliOptionsTest do
   import ExUnit.CaptureLog
 
   alias Explorer.Account
+  alias Explorer.Account.Auth0ToKeycloakMigration
   alias Explorer.Account.{Identity, TagAddress}
   alias Explorer.Repo
   alias Explorer.ThirdPartyIntegrations.{Auth0, Dynamic, Keycloak}
@@ -31,12 +32,17 @@ defmodule Explorer.Repair.AccountMigrationCliOptionsTest do
   @status_fixtures Path.join(@fixtures, "status")
   @legacy_error "Migration did not report an explicit success status. Review migration errors before retrying."
 
+  setup_all do
+    %{certificates: Explorer.Test.TLSCertificates.create!()}
+  end
+
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo.account_repo())
     replace_env(:ueberauth, OAuth, domain: nil, auth0_application_id: "")
     replace_env(:explorer, Keycloak, [])
     replace_env(:explorer, Dynamic, enabled: false)
     replace_env(:explorer, Account, enabled: true)
+    replace_env(:explorer, Auth0ToKeycloakMigration, [])
 
     @export
     |> File.read!()
@@ -141,8 +147,10 @@ defmodule Explorer.Repair.AccountMigrationCliOptionsTest do
       ] do
     @scenario scenario
     @failure failure
-    test "migration-status #{@scenario} propagates a real runner phase failure to the command" do
-      start_auth0_transcript(@scenario)
+    test "migration-status #{@scenario} propagates a real runner phase failure to the command", %{
+      certificates: certificates
+    } do
+      start_auth0_transcript(@scenario, certificates)
       start_token_cache()
 
       Application.put_env(:explorer, Keycloak,
@@ -162,9 +170,9 @@ defmodule Explorer.Repair.AccountMigrationCliOptionsTest do
         end)
 
       assert log =~ "Phase 1: Exporting Auth0 users"
-      assert log =~ "Migration failed:"
+      assert log =~ "Migration planning failed:"
       assert log =~ @failure
-      assert log =~ "Disabling account access for migration"
+      refute log =~ "Disabling account access for migration"
       refute log =~ "Phase 3:"
       assert snapshot() == before
 
@@ -226,7 +234,7 @@ defmodule Explorer.Repair.AccountMigrationCliOptionsTest do
     end
   end
 
-  defp start_auth0_transcript(scenario) do
+  defp start_auth0_transcript(scenario, certificates) do
     transcript =
       @status_fixtures |> Path.join("export_jobs.json") |> File.read!() |> Jason.decode!() |> Map.fetch!(scenario)
 
@@ -240,8 +248,8 @@ defmodule Explorer.Repair.AccountMigrationCliOptionsTest do
          ref: ref,
          ip: {127, 0, 0, 1},
          port: 0,
-         certfile: Path.join(@status_fixtures, "localhost-cert.pem"),
-         keyfile: Path.join(@status_fixtures, "localhost-key.pem")
+         certfile: Path.join(certificates, "trusted-server.pem"),
+         keyfile: Path.join(certificates, "trusted-server-key.pem")
        ]}
     )
 
@@ -253,7 +261,7 @@ defmodule Explorer.Repair.AccountMigrationCliOptionsTest do
       auth0_application_id: "",
       client_id: "recorded-client",
       client_secret: "recorded-secret",
-      request_opts: [ssl: [verify: :verify_peer, cacertfile: Path.join(@status_fixtures, "ca-cert.pem")]]
+      request_opts: [ssl: [verify: :verify_peer, cacertfile: Path.join(certificates, "trusted-ca.pem")]]
     )
   end
 

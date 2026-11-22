@@ -18,6 +18,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jackc/pgx/v5"
 )
@@ -43,7 +44,7 @@ func qualifiedCreationFacts(ctx context.Context, receipts []*receipt.QualifiedRe
 }
 
 func tokenMirror(env *decode.DecodedEnvelope) bool {
-	if env == nil || env.Event == nil || env.EventName != "TokenDeployed" {
+	if env == nil || env.Status != valueDecoded || env.Event == nil || env.EventName != "TokenDeployed" {
 		return false
 	}
 	return env.EmitterRole == "EventEmitter" || (env.EmitterRole == decode.LaunchpadPrecompileRole && strings.EqualFold(env.Raw.Emitter, deployment.LaunchpadPrecompileAddress))
@@ -53,7 +54,7 @@ func creationFacts(events []*decode.DecodedEnvelope, timestamp int64, provenance
 	facts := []store.CreationFact{}
 	var err error
 	for _, env := range events {
-		if env == nil || env.Event == nil || env.EmitterRole != "SidioraFactory" || env.EventName != valueMarketCreated {
+		if env == nil || env.Status != valueDecoded || env.Event == nil || env.EmitterRole != "SidioraFactory" || env.EventName != valueMarketCreated {
 			continue
 		}
 		args := env.Event.Args
@@ -146,6 +147,23 @@ func creationFacts(events []*decode.DecodedEnvelope, timestamp int64, provenance
 	return facts, nil
 }
 
+func decodedSourceLogs(logs []types.Log, envelopes []*decode.DecodedEnvelope) []types.Log {
+	decoded := map[decode.RawIdentity]string{}
+	for _, env := range envelopes {
+		if env != nil && env.Status == valueDecoded && env.Event != nil {
+			decoded[env.Raw.Identity] = env.Raw.Emitter
+		}
+	}
+	selected := make([]types.Log, 0, len(logs))
+	for _, l := range logs {
+		id := decode.RawIdentity{ChainID: 125, BlockHash: l.BlockHash.Hex(), TransactionHash: l.TxHash.Hex(), LogIndex: l.Index}
+		if emitter, ok := decoded[id]; ok && strings.EqualFold(emitter, l.Address.Hex()) {
+			selected = append(selected, l)
+		}
+	}
+	return selected
+}
+
 func stageQualifiedSourceFacts(ctx context.Context, c store.CanonicalTx, b store.CanonicalBatch, receipts []*receipt.QualifiedReceipt, durable *publisher.DurableStager) ([]store.OutboxIntent, error) {
 	facts, err := qualifiedCreationFacts(ctx, receipts)
 	if err != nil {
@@ -186,7 +204,11 @@ func stageQualifiedSourceFacts(ctx context.Context, c store.CanonicalTx, b store
 		if err != nil {
 			return nil, err
 		}
-		for _, l := range logs {
+		envelopes, err := q.QualifiedEvents(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, l := range decodedSourceLogs(logs, envelopes) {
 			if len(l.Topics) != 3 || l.Topics[0] != crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)")) {
 				continue
 			}

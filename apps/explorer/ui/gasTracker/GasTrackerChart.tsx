@@ -6,7 +6,6 @@ import { route } from 'nextjs-routes';
 import useApiQuery from 'lib/api/useApiQuery';
 import { STATS_CHARTS_SECTION_GAS } from 'stubs/stats';
 import { Link } from 'toolkit/chakra/link';
-import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import ChartWidgetContainer from 'ui/stats/ChartWidgetContainer';
 
@@ -29,10 +28,6 @@ const GasTrackerChart = () => {
   const chart = data?.sections.map((section) => section.charts.find((chart) => chart.id === GAS_PRICE_CHART_ID)).filter(Boolean)?.[0];
 
   const content = (() => {
-    if (isPlaceholderData) {
-      return <ContentLoader/>;
-    }
-
     if (isChartLoadingError || isError) {
       return <DataFetchAlert/>;
     }
@@ -49,7 +44,7 @@ const GasTrackerChart = () => {
         interval="oneMonth"
         isPlaceholderData={ isPlaceholderData }
         onLoadingError={ handleLoadingError }
-        h="320px"
+        h="var(--chakra-spacing-80)"
       />
     );
   })();
@@ -60,9 +55,16 @@ const GasTrackerChart = () => {
 
   return (
     <Box>
-      <Flex justifyContent="space-between" alignItems="center" mb={ 2 }>
+      <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" mb={ 2 }>
         <chakra.h3 textStyle="label" color="text.muted">Gas price history</chakra.h3>
-        <Link href={ route({ pathname: '/stats', hash: 'gas' }) }>Charts & stats</Link>
+        <Link
+          href={ route({ pathname: '/stats', hash: 'gas' }) }
+          data-touch-inline
+          css={{
+            '--touch-line-size': 'var(--chakra-line-heights-body)',
+            '@media (max-width: 834px)': { minWidth: 'touchTarget', minHeight: 'touchTarget' },
+          }}
+        >Charts & stats</Link>
       </Flex>
       { content }
     </Box>

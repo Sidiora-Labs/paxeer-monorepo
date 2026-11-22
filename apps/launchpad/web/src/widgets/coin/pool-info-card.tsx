@@ -30,7 +30,7 @@ export default function PoolInfoCard({ poolAddress }: { poolAddress: string }) {
   const unavailable = data?.unavailable.stats ?? null;
   return (
     <section aria-labelledby="pool-info-title" className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="pool-info-title" className="text-sm font-bold text-text">Pool information</h2>
         <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-xs text-text-muted">Paired with <span className="font-bold text-text">USDL</span></span>
       </div>

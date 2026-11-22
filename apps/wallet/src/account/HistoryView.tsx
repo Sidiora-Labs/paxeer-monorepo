@@ -75,7 +75,7 @@ export function HistoryView({ account, pageSize = 20 }: { account: string; pageS
   }, [load]);
 
   return (
-    <section aria-label="History" className="space-y-3 rounded-[20px] bg-pax-surface p-4">
+    <section aria-label="History" className="space-y-3 rounded-3xl bg-pax-surface p-4">
       <h2 className="text-sm font-bold">History</h2>
       {state.items.length === 0 && state.loading && <Skeleton className="h-24 w-full" />}
       {state.started && state.items.length === 0 && !state.loading && !state.error && (
@@ -92,7 +92,7 @@ export function HistoryView({ account, pageSize = 20 }: { account: string; pageS
                   <p className="text-sm font-semibold">
                     {item.direction === 'in' ? 'Received' : 'Sent'} {symbol}
                   </p>
-                  <p className="text-[11px] text-pax-muted">
+                  <p className="text-size-11 text-pax-muted">
                     {item.kind.replace(/_/g, ' ')}
                     {item.counterparty ? ` · ${shortenAddress(item.counterparty)}` : ''}
                   </p>
@@ -104,7 +104,7 @@ export function HistoryView({ account, pageSize = 20 }: { account: string; pageS
               </div>
               <Button
                 variant="quiet"
-                className="min-h-0 px-0 py-0 text-xs"
+                className="px-0 py-0 text-xs"
                 aria-expanded={selected === item.id}
                 onClick={() => setSelected((prev) => (prev === item.id ? null : item.id))}
               >
@@ -133,7 +133,7 @@ export function HistoryView({ account, pageSize = 20 }: { account: string; pageS
         </Button>
       )}
       {state.started && state.cursor === null && state.items.length > 0 && (
-        <p data-history="end" className="text-center text-[11px] text-pax-muted">
+        <p data-history="end" className="text-center text-size-11 text-pax-muted">
           End of history
         </p>
       )}

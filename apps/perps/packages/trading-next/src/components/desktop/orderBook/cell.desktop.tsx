@@ -104,7 +104,7 @@ export const DesktopOrderBookCell: FC<DesktopOrderBookCellProps> = (props) => {
       </div>
       <div
         className={cn(
-          "oui-fex-row oui-relative oui-flex oui-basis-5/12 oui-items-center oui-justify-end oui-overflow-hidden",
+          "oui-fex-row oui-relative oui-flex oui-basis-5/12 oui-items-center oui-justify-end oui-overflow-auto",
           showTotal && "oui-basis-7/12",
         )}
       >

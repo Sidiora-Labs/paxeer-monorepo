@@ -58,7 +58,7 @@ func publicationRecoveryVisibilityPeer(t *testing.T, pki *testPKI, social, clien
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		observed := time.Now().UTC().Truncate(time.Second)
+		observed := time.Now().UTC()
 		if len(observedAt) > 0 {
 			observed = observedAt[0]
 		}
@@ -82,7 +82,7 @@ func publicationRecoveryVisibilityPeer(t *testing.T, pki *testPKI, social, clien
 type publicationRecoveryFixture struct {
 	cfg       config.Config
 	dsn       string
-	evidence  *store.HTTPCanonicalEvidence
+	evidence  *httptest.Server
 	cutoff    time.Time
 	gateway   leaf
 	roots     *x509.CertPool
@@ -105,10 +105,30 @@ func publicationRecoveryNewFixture(t *testing.T) *publicationRecoveryFixture {
 		pools[fmt.Sprintf("0x%040x", i)] = i != 61
 	}
 	peer, authority := publicationRecoveryVisibilityPeer(t, pki, social, client, pools, cutoff)
+	// The publication fixture carries explicit canonical pause observations,
+	// just as the store's production-universe fixture does. An observation for
+	// another height, block or time must never make a pool eligible here.
+	observations := map[string]store.CanonicalPoolEvidence{}
+	for address := range pools {
+		paused := false
+		observations[address] = store.CanonicalPoolEvidence{Paused: &paused, PauseEvidence: strings.Repeat("a", 64)}
+	}
+	evidence := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/internal/ranking-evidence" || request.URL.Query().Get("cutoffHeight") != "200" || request.URL.Query().Get("cutoffTime") != strconv.FormatInt(cutoff.Unix(), 10) || request.URL.Query().Get("blockHash") != "0x"+strings.Repeat("c8", 32) {
+			t.Error("evidence request is not bound to frozen cutoff")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(store.CanonicalRankingEvidence{Revision: strings.Repeat("d", 64), CutoffHeight: 200, CutoffTime: cutoff.Unix(), BlockHash: "0x" + strings.Repeat("c8", 32), Pools: observations}); err != nil {
+			t.Errorf("canonical evidence response: %v", err)
+		}
+	}))
+	t.Cleanup(evidence.Close)
 	dir := t.TempDir()
 	binding := config.RankingRuntimeBinding{
 		Version: 2, RankingSchema: "ranking", StatsSchema: "stats", SourceSchema: "indexer", SourceStream: sourceStream, ProjectionVersion: projection,
 		CacheNamespace: "snapshots", CursorKeyReference: "PUBLICATION_RECOVERY_CURSOR_KEY", RecoverySchema: "recovery", RecoveryEpoch: 1, RecoveryRegion: "fixture-loopback",
+		EvidenceEndpoint:   evidence.URL + "/internal/ranking-evidence",
 		VisibilityEndpoint: peer.URL + "/internal/v2/social/ranking-visibility", VisibilityDNS: visibilityDNS, VisibilityCertSHA256: social.pin(), GatewayDNS: gatewayDNS, GatewayCertSHA256: gateway.pin(),
 		CAFile: filepath.Join(dir, "ca.pem"), ClientCertFile: filepath.Join(dir, "client.pem"), ClientKeyReference: "PUBLICATION_RECOVERY_CLIENT_KEY", ServerCertFile: filepath.Join(dir, "server.pem"), ServerKeyReference: "PUBLICATION_RECOVERY_SERVER_KEY", MaxAttempts: 10, MaximumReads: 8,
 	}
@@ -128,31 +148,8 @@ func publicationRecoveryNewFixture(t *testing.T) *publicationRecoveryFixture {
 	roots := x509.NewCertPool()
 	roots.AddCert(pki.caCert)
 	db := internaltest.NewRankingRuntimeDatabase(t)
-	f := &publicationRecoveryFixture{cfg: cfg, dsn: db.AdminDSN, cutoff: cutoff, gateway: gateway, roots: roots, authority: authority}
+	f := &publicationRecoveryFixture{cfg: cfg, dsn: db.AdminDSN, cutoff: cutoff, gateway: gateway, roots: roots, authority: authority, evidence: evidence}
 	publicationRecoverySeed(t, db.AdminDSN, cutoff)
-	// The publication fixture carries explicit canonical pause observations,
-	// just as the store's production-universe fixture does. An observation for
-	// another height, block or time must never make a pool eligible here.
-	observations := map[string]store.CanonicalPoolEvidence{}
-	for address := range pools {
-		paused := false
-		observations[address] = store.CanonicalPoolEvidence{Paused: &paused, PauseEvidence: strings.Repeat("a", 64)}
-	}
-	evidence := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.URL.Query().Get("cutoffHeight") != "200" || request.URL.Query().Get("cutoffTime") != strconv.FormatInt(cutoff.Unix(), 10) || request.URL.Query().Get("blockHash") != "0x"+strings.Repeat("c8", 32) {
-			t.Error("evidence request is not bound to frozen cutoff")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if err := json.NewEncoder(w).Encode(store.CanonicalRankingEvidence{Revision: strings.Repeat("d", 64), CutoffHeight: 200, CutoffTime: cutoff.Unix(), BlockHash: "0x" + strings.Repeat("c8", 32), Pools: observations}); err != nil {
-			t.Errorf("canonical evidence response: %v", err)
-		}
-	}))
-	t.Cleanup(evidence.Close)
-	f.evidence, err = store.NewHTTPCanonicalEvidence(evidence.URL, evidence.Client())
-	if err != nil {
-		t.Fatal(err)
-	}
 	t.Cleanup(f.close)
 	f.open(t)
 	return f
@@ -172,7 +169,6 @@ func (f *publicationRecoveryFixture) open(t *testing.T) {
 		pool.Close()
 		t.Fatalf("native application prerequisites: %v", err)
 	}
-	a.native.reader.Evidence = f.evidence
 	f.app = a
 	f.server = httptest.NewUnstartedServer(a.Router)
 	f.server.TLS = a.native.serverTLS.Clone()
@@ -404,14 +400,14 @@ func TestApplicationVisibilityRequiresMutualTLSAndPinnedIdentity(t *testing.T) {
 	transport := f.app.native.client.Transport.(*http.Transport)
 	noCertificate := transport.Clone()
 	noCertificate.TLSClientConfig.Certificates = nil
-	c := &rankingVisibilityClient{endpoint: f.app.native.visibility.endpoint, client: &http.Client{Transport: noCertificate, Timeout: time.Second}}
+	c := &rankingVisibilityClient{endpoint: f.app.native.visibility.endpoint, client: &http.Client{Transport: noCertificate, Timeout: time.Second}, now: time.Now}
 	defer c.client.CloseIdleConnections()
 	if _, err := c.ReadRankingVisibility(ctx); err == nil {
 		t.Fatal("visibility accepted without a client certificate")
 	}
 	wrongPin := transport.Clone()
 	wrongPin.TLSClientConfig.ServerName = "other.railway.internal"
-	c = &rankingVisibilityClient{endpoint: f.app.native.visibility.endpoint, client: &http.Client{Transport: wrongPin, Timeout: time.Second}}
+	c = &rankingVisibilityClient{endpoint: f.app.native.visibility.endpoint, client: &http.Client{Transport: wrongPin, Timeout: time.Second}, now: time.Now}
 	defer c.client.CloseIdleConnections()
 	if _, err := c.ReadRankingVisibility(ctx); err == nil {
 		t.Fatal("visibility accepted a different server identity")

@@ -10,12 +10,13 @@ import {
   type Abi, type Address, type Hex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { afterAll, afterEach, expect, test } from 'vitest';
 import { WagmiProvider } from 'wagmi';
 
-import { base58Decode, base58Encode, bytesToHex, solanaProgramAddress, solanaRecipientHandle } from './solana';
+import { afterAll, afterEach, expect, test } from 'vitest';
+
 import { bankAbi, BANK_ADDRESS, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from './contracts';
 import { inboundDigest, outboundDigest, paxeerRecipient, releaseNullifier } from './digests';
+import { base58Decode, base58Encode, bytesToHex, solanaProgramAddress, solanaRecipientHandle } from './solana';
 
 const wallet = privateKeyToAccount(`0x${ '12'.repeat(32) }`);
 const attestor = privateKeyToAccount(`0x${ '34'.repeat(32) }`);
@@ -33,13 +34,13 @@ const receipts = new Map<Hex, ReturnType<typeof wireReceipt>>();
 const accounts = new Map<string, Uint8Array>();
 const nullifiers = new Set<string>();
 const attestationBodies = new Map<string, unknown>();
-const requests: Array<{ method: string; params: unknown[] }> = [];
-const serverErrors: unknown[] = [];
+const requests: Array<{ method: string; params: Array<unknown> }> = [];
+const serverErrors: Array<unknown> = [];
 let pairCap = 10n ** 25n;
 let registeredVault = vault;
 let nextNonce = 0n;
 
-function wireReceipt(hash: Hex, from: Address, to: Address, logs: Array<{ address: Address; data: Hex; topics: readonly Hex[] }>, status: 'success' | 'reverted' = 'success') {
+function wireReceipt(hash: Hex, from: Address, to: Address, logs: Array<{ address: Address; data: Hex; topics: ReadonlyArray<Hex> }>, status: 'success' | 'reverted' = 'success') {
   return {
     transactionHash: hash, transactionIndex: '0x0', blockNumber: '0x10', blockHash: keccak256('0x10'),
     from, to, cumulativeGasUsed: '0x186a0', gasUsed: '0x186a0', effectiveGasPrice: '0x1',
@@ -123,7 +124,7 @@ function contractRead(call: { to: Address; data: Hex }): Hex {
   return encodeFunctionResult({ abi, functionName, result });
 }
 
-async function rpcResult(method: string, params: unknown[]) {
+async function rpcResult(method: string, params: Array<unknown>) {
   requests.push({ method, params });
   switch (method) {
     case 'eth_call': return contractRead(params[0] as { to: Address; data: Hex });
@@ -154,7 +155,7 @@ const server = createServer(async(incoming, outgoing) => {
     let body = '';
     for await (const chunk of incoming) body += chunk.toString();
     const input = JSON.parse(body);
-    const dispatch = async(message: { id: number; method: string; params: unknown[] }) => ({ jsonrpc: '2.0', id: message.id, result: await rpcResult(message.method, message.params) });
+    const dispatch = async(message: { id: number; method: string; params: Array<unknown> }) => ({ jsonrpc: '2.0', id: message.id, result: await rpcResult(message.method, message.params) });
     outgoing.end(JSON.stringify(Array.isArray(input) ? await Promise.all(input.map(dispatch)) : await dispatch(input)));
   } catch (error) {
     serverErrors.push(error);
@@ -192,7 +193,7 @@ const { releaseAttestationPath, depositAttestationPath } = await import('./attes
 const { depositAttestationOptions } = await import('@/components/bridge/transfers-panel');
 const originalWalletState = wagmiConfig.state;
 const originalStorage = window.localStorage.getItem(storageKey);
-const clients: QueryClient[] = [];
+const clients: Array<QueryClient> = [];
 
 function newClient() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -215,6 +216,23 @@ async function mount(component: ReactElement, client = newClient(), chainId: (ty
   return { client, view };
 }
 
+async function observePanelQuery(client: QueryClient, queryKey: ReadonlyArray<unknown>) {
+  const { promise } = await waitFor(() => {
+    const query = client.getQueryCache().find({ queryKey, exact: true });
+    if (!query?.promise) throw new Error('The transfer query has not started.');
+    return { promise: query.promise };
+  });
+  await act(async() => {
+    await promise;
+  });
+}
+
+async function observeWithdrawalPanel(client: QueryClient, transfer: Parameters<typeof transferLiveOptions>[0], refreshKey: number) {
+  await observePanelQuery(client, transferListOptions(wallet.address, refreshKey, 0).queryKey);
+  await observePanelQuery(client, transferLiveOptions(transfer).queryKey);
+  await observePanelQuery(client, releaseAttestationOptions(transfer, false).queryKey);
+}
+
 async function submitWithdrawal() {
   const foreign = bridgeChainByKey('base')!;
   const asset = foreign.assets[0];
@@ -225,7 +243,7 @@ async function submitWithdrawal() {
   const nonce = nextNonce++;
   const topics = encodeEventTopics({ abi: layerxBridgeAbi, eventName: 'BridgeOut', args: { chain: foreign.chainId, asset: asset.assetId, nonce } });
   receipts.set(hash, wireReceipt(hash, wallet.address, LAYERX_BRIDGE_ADDRESS, [ {
-    address: LAYERX_BRIDGE_ADDRESS, topics: topics as Hex[],
+    address: LAYERX_BRIDGE_ADDRESS, topics: topics as Array<Hex>,
     data: encodeAbiParameters([ { type: 'uint256' }, { type: 'address' } ], [ amount, wallet.address ]),
   } ]));
   const transfer = recordBridgeSubmission({ direction: 'out', input: { hash, foreign, asset, amount, account: wallet.address, destination: wallet.address, requiredConfirmations: 1 } }, () => {
@@ -293,6 +311,7 @@ async function settlementBroadcastRestartsReconcilesAndRetries() {
   expect(stored.releasedAt).toBeUndefined();
   expect(phaseOf(stored, undefined, true)).toBe('settling');
   let first = await mount(createElement(TransfersPanel, { refreshKey: 0 }), newClient(), 8453);
+  await observeWithdrawalPanel(first.client, stored, 0);
   await waitFor(() => expect(first.view.getByRole('button', { name: 'Retry settlement' })).toBeTruthy());
   expect(first.view.getByText(/Settlement broadcast/)).toBeTruthy();
   first.view.unmount();
@@ -300,6 +319,7 @@ async function settlementBroadcastRestartsReconcilesAndRetries() {
   // Reopen with a fresh React Query cache: a pending hash must still be read.
   const before = requests.filter((entry) => entry.method === 'eth_getTransactionReceipt').length;
   first = await mount(createElement(TransfersPanel, { refreshKey: 1 }), newClient(), 8453);
+  await observeWithdrawalPanel(first.client, stored, 1);
   await waitFor(() => expect(first.view.getByRole('button', { name: 'Retry settlement' })).toBeTruthy());
   expect(requests.filter((entry) => entry.method === 'eth_getTransactionReceipt').length).toBeGreaterThan(before);
   expect(listTransfers(wallet.address)[0].releasedAt).toBeUndefined();
@@ -318,6 +338,7 @@ async function settlementBroadcastRestartsReconcilesAndRetries() {
   expect(reverted.settlementStatus).toBe('reverted');
   expect(listTransfers(wallet.address)[0].releasedAt).toBeUndefined();
   const reopened = await mount(createElement(TransfersPanel, { refreshKey: 2 }), newClient(), 8453);
+  await observeWithdrawalPanel(reopened.client, listTransfers(wallet.address)[0], 2);
   await waitFor(() => {
     expect(reopened.view.getByText(/settlement attempt reverted/)).toBeTruthy();
     expect(reopened.view.getByRole('button', { name: 'Retry settlement' })).toBeTruthy();
@@ -359,7 +380,7 @@ async function settlementClaimBroadcastRecoversAfterReload() {
     value: amount, gas: 200000n, maxFeePerGas: 2n, maxPriorityFeePerGas: 1n });
   const hash = keccak256(signed);
   const topics = encodeEventTopics({ abi: paxeerXVaultAbi, eventName: 'BridgeDeposit', args: { asset: asset.assetId, sender: wallet.address, paxeerRecipient: recipient32 } });
-  receipts.set(hash, wireReceipt(hash, wallet.address, vault, [ { address: vault, topics: topics as Hex[],
+  receipts.set(hash, wireReceipt(hash, wallet.address, vault, [ { address: vault, topics: topics as Array<Hex>,
     data: encodeAbiParameters([ { type: 'uint256' }, { type: 'uint64' } ], [ amount, 1n ]) } ]));
   recordBridgeSubmission({ direction: 'in', input: { hash, foreign, asset, amount, vault, account: wallet.address, recipient: wallet.address, requiredConfirmations: 1 } }, () => {});
   const [ transfer ] = await newClient().fetchQuery(transferListOptions(wallet.address, 0, 0));
@@ -420,7 +441,8 @@ async function solanaCustodyLimitsReachTheActualCard() {
   for (const asset of foreign.assets) {
     if (asset.symbol === 'SID') {
       fireEvent.click(view.getByRole('button', { name: 'Asset: SOL' }));
-      fireEvent.click(await view.findByRole('option', { name: 'SID SID' }));
+      fireEvent.click(await view.findByRole('button', { name: 'SID SID', pressed: false }));
+      expect(view.getByRole('button', { name: 'SID SID', pressed: true })).toBeTruthy();
       fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
       await waitFor(() => expect(ready().disabled).toBe(false));
     }
@@ -429,6 +451,8 @@ async function solanaCustodyLimitsReachTheActualCard() {
     expect(state.outstanding).toBe(3n * unit);
     expect(state.perTx).toBe(2n * unit);
     fireEvent.change(amountInput, { target: { value: '2.5' } });
+    expect(view.queryByText('Above the vault per-transaction cap.')).toBeNull();
+    fireEvent.blur(amountInput);
     await waitFor(() => expect(view.getByText('Above the vault per-transaction cap.')).toBeTruthy());
     expect(ready().disabled).toBe(true);
     const entry = [ ...accounts.values() ].find((bytes) => bytes.length === 89 && bytesToHex(bytes.subarray(42, 62)).toLowerCase() === asset.assetId.toLowerCase())!;
@@ -438,9 +462,11 @@ async function solanaCustodyLimitsReachTheActualCard() {
       await client.invalidateQueries({ queryKey: [ 'solana-custody' ] });
     });
     fireEvent.change(amountInput, { target: { value: '4' } });
+    fireEvent.blur(amountInput);
     await waitFor(() => expect(view.getByText('That is more than the vault\'s outstanding balance for this asset.')).toBeTruthy());
     expect(ready().disabled).toBe(true);
     fireEvent.change(amountInput, { target: { value: '1' } });
+    fireEvent.blur(amountInput);
     await waitFor(() => expect(ready().disabled).toBe(false));
     pairCap = unit / 2n;
     await act(async() => {

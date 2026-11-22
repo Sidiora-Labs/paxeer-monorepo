@@ -1,3 +1,4 @@
+import { withinDeadline } from './flow-state.ts';
 import type { Session } from '../../../../../sdk/launchpad/packages/sdk-v2/src/types.gen.ts';
 import { decodeV2Contract } from '../../../../../sdk/launchpad/packages/sdk/src/transport.ts';
 import type { CurrentIdentity, MobileServices } from './service-client.ts';
@@ -60,14 +61,45 @@ export class SessionController {
       ? this.current.identity.sessionId
       : undefined;
   }
+  private listedSession(
+    services: MobileServices,
+    id: string,
+    signal: AbortSignal,
+  ) {
+    return withinDeadline(signal, (bounded) =>
+      this.readListedSession(services, id, bounded),
+    );
+  }
+  private async readListedSession(
+    services: MobileServices,
+    id: string,
+    signal: AbortSignal,
+  ) {
+    let cursor: string | undefined;
+    const seen = new Set<string>();
+    do {
+      const result = await services.sessions(signal, cursor);
+      signal.throwIfAborted();
+      const session = result.data.items.find(
+        (item) => item.sessionId === id,
+      );
+      if (session) return session;
+      cursor = result.nextCursor ?? undefined;
+      if (cursor && seen.has(cursor))
+        throw new Error('Session page did not advance');
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    return undefined;
+  }
   async restore(services?: MobileServices) {
     await this.storage.remove('session');
     if (!services) return;
     try {
       const identity = await services.currentSession(this.signal),
-        result = await services.sessions(this.signal),
-        session = result.data.items.find(
-          (item) => item.sessionId === identity.sessionId,
+        session = await this.listedSession(
+          services,
+          identity.sessionId,
+          this.signal,
         );
       if (!session) throw new Error('Current cookie session not listed');
       await this.establish({ session, identity });
@@ -115,13 +147,14 @@ export class SessionController {
         authorityChanged = true;
         throw new Error('Current identity binding changed');
       }
-      const result = await services.sessions(signal);
+      const session = await this.listedSession(
+        services,
+        identity.sessionId,
+        signal,
+      );
       signal.throwIfAborted();
       if (generation !== this.generation)
         throw new Error('Session changed during validation');
-      const session = result.data.items.find(
-        (item) => item.sessionId === identity.sessionId,
-      );
       if (
         !session ||
         session.revokedAt ||

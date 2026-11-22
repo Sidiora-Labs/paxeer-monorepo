@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { Archive, Wallet } from 'lucide-react';
@@ -26,10 +27,10 @@ export interface PositionsOpenClosedProps {
 export interface TokenIdentity { name: string; symbol: string | null; logo: string | null; known: boolean; decimals: number | null }
 
 export function tokenIdentity(address: string, metadata: TokenMetadata | null | undefined): TokenIdentity {
-  if (!metadata) return { name: 'Unknown', symbol: null, logo: null, known: false, decimals: null };
+  if (!metadata) return { name: displayCoinText(null, address), symbol: null, logo: null, known: false, decimals: null };
   return {
-    name: metadata.name?.trim() || 'Unknown',
-    symbol: metadata.symbol?.trim() || null,
+    name: displayCoinText(metadata.name, address),
+    symbol: displayCoinText(metadata.symbol, address),
     logo: metadata.images?.logo ?? null,
     known: !!metadata.name?.trim(),
     decimals: typeof metadata.decimals === 'number' ? metadata.decimals : null,
@@ -49,10 +50,10 @@ function Amount({ raw, signed = false, className }: { raw: bigint | string | nul
 
 function TokenCell({ address, identity, href }: { address: string; identity: TokenIdentity; href: string }) {
   return (
-    <Link href={href} className="flex min-w-0 items-center gap-3 rounded-sm">
+    <Link prefetch={false} href={href} className="flex min-h-10 min-w-0 items-center gap-3 rounded-sm">
       <Avatar src={identity.logo} name={identity.symbol ?? identity.name} size="lg" shape="square" decorative />
       <span className="min-w-0">
-        <span className="block truncate text-sm font-bold text-text">{identity.name}{identity.symbol ? <span className="ml-1 font-semibold text-text-muted">{identity.symbol}</span> : null}</span>
+        <span className="flex min-w-0 items-baseline gap-1 text-sm font-bold text-text"><span className="min-w-0 truncate" title={identity.name}>{identity.name}</span>{identity.symbol ? <span className="min-w-0 truncate font-semibold text-text-muted" title={identity.symbol}>{identity.symbol}</span> : null}</span>
         <span className="block truncate font-mono-sl text-xs text-text-faint">{shortAddress(address, 6, 4)}</span>
       </span>
     </Link>
@@ -77,33 +78,33 @@ function PositionRow({ position, identity, poolAddress, mode, owner }: { positio
       <TokenCell address={position.tokenAddress} identity={identity} href={href} />
       {mode === 'open' ? (
         <>
-          <div className="min-w-0 text-right sm:text-left">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Quantity</span>
-            <MaskedAmount className="block truncate text-xs text-text-faint tabular-nums">{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount>
+          <div className="min-w-0 text-right">
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Quantity</span>
+            <MaskedAmount className="block truncate text-xs text-text-faint tabular-nums [contain:inline-size]">{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount>
           </div>
-          <div className="min-w-0">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Value</span>
+          <div className="min-w-0 text-right">
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Value</span>
             <Amount raw={valueRaw} className={cn(dust && 'text-text-faint')} />
             {valueRaw === null ? <span className="block text-2xs text-text-faint">no price yet</span> : null}
           </div>
-          <div className="min-w-0 text-right sm:text-left">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Unrealized</span>
+          <div className="min-w-0 text-right">
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Unrealized</span>
             <Amount raw={unrealized} signed />
           </div>
           {owner ? <Button variant="secondary" size="sm" href={href} className="col-span-2 sm:col-span-1">Sell</Button> : <span aria-hidden="true" className="hidden sm:block sm:w-14" />}
         </>
       ) : (
         <>
-          <div className="min-w-0 text-right sm:text-left">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Realized</span>
+          <div className="min-w-0 text-right">
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Realized</span>
             <Amount raw={realized} signed />
           </div>
-          <div className="min-w-0">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Known realized</span>
+          <div className="min-w-0 text-right">
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Known realized</span>
             <Amount raw={knownRealized} signed />
           </div>
-          <div className="min-w-0 text-right sm:text-left">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Basis</span>
+          <div className="min-w-0 text-right">
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Basis</span>
             <span className="text-xs text-text-muted">{position.realizedBasisQuality}</span>
           </div>
         </>
@@ -143,7 +144,7 @@ export function PositionsOpenClosed({ wallet, mode, isOwner, className }: Positi
   const label = mode === 'open' ? 'Open positions' : 'Closed positions';
   const collected = useProfileIssue(`positions-${mode}`, failed && portfolio.loadable.state === 'error' ? { label, error: portfolio.loadable.error, retry: portfolio.loadable.retry } : null);
 
-  if (portfolio.loadable.state === 'loading') return <Skeleton variant="rows" rows={4} label={`Loading ${mode} positions`} className={className} />;
+  if (portfolio.loadable.state === 'loading') return <Skeleton variant="rows" rows={1} label={`Loading ${mode} positions`} className={className} />;
   if (issue) return <PortfolioIssueState issue={issue} className={className} />;
   if (portfolio.loadable.state === 'unsupported') return <UnavailableState title={label} plural operation={portfolio.loadable.operation} status={portfolio.loadable.status} message="Check back in a bit" onRetry={portfolio.refetch} className={className} />;
   if (portfolio.loadable.state === 'error') {
@@ -169,9 +170,9 @@ export function PositionsOpenClosed({ wallet, mode, isOwner, className }: Positi
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <div className={cn('hidden px-3 text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:grid sm:gap-x-4', mode === 'open' ? 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]')} aria-hidden="true">
+      <div className={cn('hidden px-3 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:grid sm:gap-x-4', mode === 'open' ? 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]')} aria-hidden="true">
         <span>Coin</span>
-        {mode === 'open' ? <><span>Quantity</span><span>Value</span><span>Unrealized</span><span className="w-14" /></> : <><span>Realized</span><span>Known realized</span><span>Basis</span></>}
+        {mode === 'open' ? <><span className="text-right">Quantity</span><span className="text-right">Value</span><span className="text-right">Unrealized</span><span className="w-14" /></> : <><span className="text-right">Realized</span><span className="text-right">Known realized</span><span className="text-right">Basis</span></>}
       </div>
       <ul aria-label={mode === 'open' ? 'Open positions' : 'Closed positions'} className="flex flex-col gap-0.5">
         {rows.map(position => (

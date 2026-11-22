@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	redis "github.com/redis/go-redis/v9"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 )
 
 func TestConnectedAdmissionCapsAcrossInstances(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	defer db.Close()
 	namespace := "l41-connected-" + time.Now().Format("150405000000000")
 	first, e := NewAdmission(db, namespace, 2)

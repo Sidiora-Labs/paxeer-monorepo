@@ -60,7 +60,7 @@ func (p CanonicalPools) ResolvePublic(ctx context.Context, kind, id string) (dis
 		return out, sql.ErrNoRows
 	}
 	if err != nil {
-		return out, ErrUnavailable
+		return out, fmt.Errorf("%w: read canonical pool: %w", ErrUnavailable, err)
 	}
 	for _, address := range []string{pool, token, creator} {
 		if !notificationWalletPattern.MatchString(address) || strings.ToLower(address) != address {
@@ -80,7 +80,7 @@ func (p CanonicalPools) PublicSources(ctx context.Context) ([]discovery.SourceRe
 	}
 	rows, err := p.DB.QueryContext(ctx, `SELECT pool FROM indexer.indexer_canonical_creations_v1 ORDER BY block_timestamp DESC,transaction_hash,log_index LIMIT 2000`)
 	if err != nil {
-		return nil, ErrUnavailable
+		return nil, fmt.Errorf("%w: list canonical pools: %w", ErrUnavailable, err)
 	}
 	ids := []string{}
 	for rows.Next() {
@@ -112,8 +112,8 @@ func NewRuntimeAuthorities(ctx context.Context, db *sql.DB, config RuntimeConfig
 	// Read the exact owner interfaces up front, including permission and column checks.
 	for _, query := range []string{
 		`SELECT pool,token,creator,height,block_hash,transaction_hash,log_index,block_timestamp FROM indexer.indexer_canonical_creations_v1 LIMIT 0`,
-		`SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 LIMIT 0`,
-		`SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_v3 LIMIT 0`,
+		`SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_read_v3 LIMIT 0`,
+		`SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_read_v3 LIMIT 0`,
 	} {
 		rows, err := db.QueryContext(ctx, query)
 		if err != nil {

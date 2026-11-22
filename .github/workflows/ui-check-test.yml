@@ -1,0 +1,47 @@
+name: UI check
+
+on:
+  pull_request:
+    paths:
+      - tools/ui-check/**
+      - tests/ci/test_ui_check_workflow.py
+      - .github/workflows/ui-check-test.yml
+  push:
+    branches: [main]
+    paths:
+      - tools/ui-check/**
+      - tests/ci/test_ui_check_workflow.py
+      - .github/workflows/ui-check-test.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Render check
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install render check dependencies
+        working-directory: tools/ui-check
+        run: npm ci
+      - name: Install Chromium
+        working-directory: tools/ui-check
+        run: npx playwright install --with-deps chromium
+      - name: Run render check tests
+        working-directory: tools/ui-check
+        run: npm test

@@ -6,7 +6,7 @@ IMAGE_NAMES=(layerx-testnet-control layerx-gateway layerx-faucet layerx-program-
     paxd-node paxd
     bridge-relayer bridge-web explorer-backend explorer-elixir-builder explorer-frontend explorer-sig-provider explorer-smart-contract-verifier flyci-controller flyci-runner
     gas-station hpx-registry kernel layerx localnode platform-indexer platform-registry-builder rpcnode
-    search-front wallet-attestor wallet-gateway wallet-pwa x-websearch redis feeder inference-peer-web)
+    search-front wallet-attestor wallet-gateway wallet-pwa names-web x-websearch redis feeder inference-peer-web ai-evaluator)
 
 core_image_version() {
     jq -er .version "${REPO_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)}/tools/release/version.json"
@@ -51,12 +51,14 @@ image_source() {
         layerx) printf 'ghcr.io/sidiora-labs/layerx:%s docker/layerx/Dockerfile' "$core_version" ;;
         localnode) printf 'ghcr.io/sidiora-labs/localnode:%s docker/localnode/Dockerfile' "$core_version" ;;
         platform-indexer) printf 'ghcr.io/sidiora-labs/platform-indexer:0.1.0 docker/platform-indexer/Dockerfile' ;;
+        ai-evaluator) printf 'ghcr.io/sidiora-labs/ai-evaluator:0.1.0 docker/ai-evaluator/Dockerfile' ;; 
         platform-registry-builder) printf 'ghcr.io/sidiora-labs/platform-registry-builder:0.1.0 docker/platform-registry-builder/Dockerfile' ;;
         rpcnode) printf 'ghcr.io/sidiora-labs/rpcnode:%s docker/rpcnode/Dockerfile' "$core_version" ;;
         search-front) printf 'ghcr.io/sidiora-labs/search-front:0.1.0 docker/search-front/Dockerfile' ;;
         wallet-attestor) printf 'ghcr.io/sidiora-labs/wallet-attestor:0.1.0 docker/wallet-attestor/Dockerfile' ;;
         wallet-gateway) printf 'ghcr.io/sidiora-labs/wallet-gateway:0.1.0 docker/wallet-gateway/Dockerfile' ;;
         wallet-pwa) printf 'ghcr.io/sidiora-labs/wallet-pwa:0.1.0 docker/wallet-pwa/Dockerfile' ;;
+        names-web) printf 'ghcr.io/sidiora-labs/names-web:0.1.0 docker/names-web/Dockerfile' ;;
         x-websearch) printf 'ghcr.io/sidiora-labs/x-websearch:0.1.0 docker/x-websearch/Dockerfile' ;;
         redis) printf 'ghcr.io/sidiora-labs/redis:0.1.0 docker/redis/Dockerfile' ;;
         feeder) printf 'ghcr.io/sidiora-labs/feeder:0.1.0 services/platform/hosted/feeder/Dockerfile' ;;

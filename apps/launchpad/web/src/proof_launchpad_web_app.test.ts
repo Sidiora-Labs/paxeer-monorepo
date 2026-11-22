@@ -29,7 +29,7 @@ import { resolveAnvilBinary } from './core/test-anvil';
 import { ChainTradeProvider, OpticalRejection, opticalRejection, productionTradeDeployment, tradeRouterAbi } from './widgets/trading/transaction-controls/providers';
 import type { TradeContext } from './widgets/trading/transaction-controls/domain';
 
-let RootLayout: typeof import('./app/layout').default;
+let RootLayout: typeof import('./app/root-layout').default;
 const { CookieJar, JSDOM } = createRequire(import.meta.url)('jsdom');
 let AppProviders: typeof import('./ui/providers/app-providers').default;
 let createPrivateFixtureWagmiConfig: typeof import('./ui/providers/app-providers').createPrivateFixtureWagmiConfig;
@@ -51,7 +51,7 @@ beforeAll(async () => {
   const { createWorkStore } = await import('next/dist/server/async-storage/work-store');
   const { workAsyncStorage } = await import('next/dist/server/app-render/work-async-storage.external');
   const { workUnitAsyncStorage } = await import('next/dist/server/app-render/work-unit-async-storage.external');
-  ({ default: RootLayout } = await import('./app/layout'));
+  ({ default: RootLayout } = await import('./app/root-layout'));
   ({ default: AppProviders, createPrivateFixtureWagmiConfig } = await import('./ui/providers/app-providers'));
   requestLayout = cookie => {
     const request = new NextRequest('https://localhost:3050/', { headers: { cookie } });
@@ -142,7 +142,7 @@ async function NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE() {
       const active = useConfig(); observed.push(active);
       return createElement('output', null, active.state.current);
     }
-    const html = renderToString(createElement(AppProviders, { ...first!.props, children: createElement(ObservePrivateConfig) }));
+    const html = renderToString(createElement(AppProviders, first!.props, createElement(ObservePrivateConfig)));
     expect(html).toContain(selected);
     expect(observed).toHaveLength(1);
     expect(observed[0].state.current).toBe(selected);
@@ -155,7 +155,7 @@ async function NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE() {
     process.env.NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE = '{';
     const malformed = providerElement(await requestLayout(cookie));
     expect(malformed!.props.privateFixtureProfileInput).toBe('{');
-    const refused = renderToString(createElement(AppProviders, { ...malformed!.props, children: createElement(ObservePrivateConfig) }));
+    const refused = renderToString(createElement(AppProviders, malformed!.props, createElement(ObservePrivateConfig)));
     expect(refused).toContain('Something went wrong, reload the page');
     expect(observed).toHaveLength(1);
     expect(() => resolvePrivateFixtureAuthorityProfileV1({ privateFixtureProfile: profile, privateFixtureProfileInput: JSON.stringify(profile) })).toThrow('ambiguous');
@@ -168,8 +168,8 @@ function deploymentFlowsIntoContractsAndTradeCalldata() {
   expect([ROUTER_ADDRESS, QUOTER_ADDRESS, FEES_ROUTER_ADDRESS, OPTICAL_REGISTRY_ADDRESS, USDL_ADDRESS, PROTOCOL_CONFIG_ADDRESS]).toEqual([
     CORE_DEPLOYMENT.router, CORE_DEPLOYMENT.quoter, CORE_DEPLOYMENT.feesRouter, CORE_DEPLOYMENT.opticalRegistry, CORE_DEPLOYMENT.usdl, CORE_DEPLOYMENT.protocolConfig,
   ]);
-  const approval = erc20ApprovalRequest({ token: USDL_ADDRESS, spender: ROUTER_ADDRESS, amount: 1_000_000n });
-  expect(approval).toMatchObject({ address: USDL_ADDRESS, chainId: 125, functionName: 'approve', args: [ROUTER_ADDRESS, 1_000_000n] });
+  const approval = erc20ApprovalRequest({ token: USDL_ADDRESS, spender: CORE_DEPLOYMENT.launchpadPrecompile, amount: 1_000_000n });
+  expect(approval).toMatchObject({ address: USDL_ADDRESS, chainId: 125, functionName: 'approve', args: [CORE_DEPLOYMENT.launchpadPrecompile, 1_000_000n] });
   expect(() => erc20ApprovalRequest({ token: USDL_ADDRESS, spender: QUOTER_ADDRESS, amount: 1_000_000n })).toThrow('Approval spender is unavailable');
   expect(productionTradeDeployment.pins).toHaveLength(CORE_TRADE_EXECUTION_ROLES.length);
   CORE_TRADE_EXECUTION_ROLES.forEach((role, index) => {
@@ -216,7 +216,7 @@ function ANVIL_BIN() {
   expect(() => resolveAnvilBinary({ ANVIL_BIN: join(tmpdir(), 'absent-launchpad-anvil'), PATH: '' })).toThrow('anvil binary unavailable');
 }
 
-test(NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE);
-test(deploymentFlowsIntoContractsAndTradeCalldata);
-test(Error);
-test(ANVIL_BIN);
+test(NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE.name, NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE);
+test(deploymentFlowsIntoContractsAndTradeCalldata.name, deploymentFlowsIntoContractsAndTradeCalldata);
+test(Error.name, Error);
+test(ANVIL_BIN.name, ANVIL_BIN);

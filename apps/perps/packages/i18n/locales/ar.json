@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "لا يُدعم BBO عند اختيار TP/SL أو Post-Only أو IOC أو FOK.",
   "orderEntry.estLiqPrice": "س. التصفية المُقدَّر",
   "orderEntry.disableOrderConfirm": "تعطيل تأكيد الأمر",
+  "orderEntry.nativeFunding.twoTransactions": "ستتبع معاملتان: إيداع الضمان الناقص، ثم تقديم الأمر. قد تكون الموافقة على الرمز مطلوبة أيضًا.",
   "orderEntry.orderConfirm": "تأكيد الأمر",
   "orderEntry.confirmScaledOrder": "تأكيد الأمر المتدرج",
   "orderEntry.hidden": "مخفي",

@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO no es compatible cuando se selecciona TP/SL, Post-Only, IOC o FOK.",
   "orderEntry.estLiqPrice": "Precio de liquidación estimado",
   "orderEntry.disableOrderConfirm": "Deshabilitar confirmación de orden",
+  "orderEntry.nativeFunding.twoTransactions": "Se realizarán dos transacciones: depositar la garantía que falta y luego colocar la orden. También puede ser necesaria una aprobación del token.",
   "orderEntry.orderConfirm": "Confirmar orden",
   "orderEntry.confirmScaledOrder": "Confirmar orden escalonada",
   "orderEntry.hidden": "Oculta",

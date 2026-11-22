@@ -244,7 +244,7 @@ function canonicalAbiPreservesNestedArraysAndEntryMultiplicity() {
   expect(canonicalAbi([...precompileQuoterAbi, precompileQuoterAbi[0]])).not.toEqual(original);
 }
 
-test(repairFeesRouterAbiShapeCoverage);
-test(repairQuoterAbiShapeCoverage);
-test(repairRouterAbiShapeCoverage);
-test(canonicalAbiPreservesNestedArraysAndEntryMultiplicity);
+test(repairFeesRouterAbiShapeCoverage.name, repairFeesRouterAbiShapeCoverage);
+test(repairQuoterAbiShapeCoverage.name, repairQuoterAbiShapeCoverage);
+test(repairRouterAbiShapeCoverage.name, repairRouterAbiShapeCoverage);
+test(canonicalAbiPreservesNestedArraysAndEntryMultiplicity.name, canonicalAbiPreservesNestedArraysAndEntryMultiplicity);

@@ -11,14 +11,14 @@ export const ContentLoader = React.memo(({ text, ...props }: Props) => {
     <Box display="inline-block" { ...props }>
       <Box
         width="100%"
-        height="6px"
+        height={ 'var(--chakra-spacing-1\\.5)' }
         position="relative"
         _after={{
           content: `" "`,
           position: 'absolute',
-          width: '60px',
-          height: '6px',
-          animation: `fromLeftToRight 700ms ease-in-out infinite alternate`,
+          width: 'var(--chakra-spacing-15)',
+          height: 'var(--chakra-spacing-1\\.5)',
+          _motionSafe: { animation: 'fromLeftToRight var(--chakra-durations-loader) var(--chakra-easings-standard) infinite alternate' },
           left: '0%',
           top: 0,
           backgroundColor: 'blue.300',

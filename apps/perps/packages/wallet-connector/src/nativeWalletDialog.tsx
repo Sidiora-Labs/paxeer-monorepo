@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
-import { useAccount, useConnect } from "@paxeer-network/paxeer-backend/walletRuntime";
+import {
+  useAccount,
+  useConnect,
+} from "@paxeer-network/paxeer-backend/walletRuntime";
 import {
   usePaxeer,
   PAXEER_CONNECTOR_ID,
 } from "@paxeer-network/paxeer-backend/core/wallet/embedded";
-import { SimpleDialog, Button, Flex, Text, Input, toast } from "@paxeer-network/ui";
+import {
+  SimpleDialog,
+  Button,
+  Flex,
+  Text,
+  Input,
+  toast,
+} from "@paxeer-network/ui";
 import { ChainNamespace } from "@paxeer-network/types";
 export function NativeWalletDialog() {
   const [request, setRequest] = useState<any>(null);
@@ -19,7 +29,8 @@ export function NativeWalletDialog() {
       setRequest((event as CustomEvent).detail);
     };
     window.addEventListener("paxeer-network:wallet-picker", listener);
-    return () => window.removeEventListener("paxeer-network:wallet-picker", listener);
+    return () =>
+      window.removeEventListener("paxeer-network:wallet-picker", listener);
   }, []);
   const connect = async (connector: (typeof connectors)[number]) => {
     try {

@@ -209,7 +209,8 @@ def test_readme_native_perps_and_historical_exchange_are_distinguished():
     assert "serves `perps` at `0x1015` in place of the earlier `layerxExchange`" in native
     assert "Constructor and ABI inventories include historical versions" in native
     assert "select the interface for the upgrade active at the queried height" in native
-    assert "apps/perps` (the Hyperpax perps frontend)" in README
+    assert "Paxeer Xtrades trading workspace" in README
+    assert "apps/perps/README.md" in README
     record = tomllib.loads(RECORD.read_text(encoding="utf-8"))
     request = record["wiring"]["historical_exchange_replay"]
     assert request["path"] == "README.md"

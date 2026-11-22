@@ -11,12 +11,15 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"math"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"regexp"
 	"strings"
@@ -63,15 +66,17 @@ import (
 
 // App is a fully-wired, ready-to-run indexer service.
 type App struct {
-	runStop    context.CancelFunc
-	workers    *runtimeWorkers
-	history    *source.HistoricalSource
-	webhook    *delivery.WebhookBridge
-	archive    *processor.Archive
-	rawArchive *delivery.Archive
-	replay     *processor.ReplayRunner
-	lifecycle  lifecycleRuntimeDocument
-	transport  *http.Transport
+	runStop         context.CancelFunc
+	workers         *runtimeWorkers
+	pauseWorkers    *runtimeWorkers
+	canonicalSource *canonicalSourceReadiness
+	history         *source.HistoricalSource
+	webhook         *delivery.WebhookBridge
+	archive         *processor.Archive
+	rawArchive      *delivery.Archive
+	replay          *processor.ReplayRunner
+	lifecycle       lifecycleRuntimeDocument
+	transport       *http.Transport
 
 	runtimeRPC      *ethclient.Client
 	runtimeRPCClose func()
@@ -97,6 +102,11 @@ func (a *App) SourceCapacityProviders() source.CapacityProviders {
 		return source.CapacityProviders{}
 	}
 	return source.CapacityProviders{Live: a.history.RPC, Historical: a.history, Head: a.sources.Head, Processor: a.Processor, Pool: a.pool}
+}
+
+func (p *pauseObservations) configureInventoryCoverage(realm string, batchSource processor.QualifiedBatchSource) {
+	recovery, ok := batchSource.(*recoveringQualifiedSource)
+	p.inventoryCovered = realm == valueProduction && ok && recovery != nil
 }
 
 // New runs migrations and builds every component for the configured run mode.
@@ -197,21 +207,26 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	st := store.New(pool)
 	pub := publisher.New(publisher.Options{Logger: logger, Redis: rdb})
+	canonicalReadTimeout, err := cfg.CanonicalReadTimeout()
+	if err != nil {
+		return nil, err
+	}
 
 	deps := processor.Deps{
-		Source:              sources.Log,
-		Head:                sources.Head,
-		Store:               st,
-		Publisher:           pub,
-		Decoder:             decode.NewDecoder(),
-		NFT:                 nftReader,
-		EventEmitterAddress: cfg.EventEmitterAddress,
-		ChainID:             cfgChainIDInt32,
-		StartBlock:          cfg.IndexerStartBlock,
-		BatchSize:           cfg.IndexerBatchSize,
-		Concurrency:         cfg.IndexerConcurrency,
-		PollInterval:        time.Duration(cfg.IndexerPollIntervalMS) * time.Millisecond,
-		Logger:              logger,
+		Source:               sources.Log,
+		Head:                 sources.Head,
+		Store:                st,
+		Publisher:            pub,
+		Decoder:              decode.NewDecoder(),
+		NFT:                  nftReader,
+		EventEmitterAddress:  cfg.EventEmitterAddress,
+		ChainID:              cfgChainIDInt32,
+		StartBlock:           cfg.IndexerStartBlock,
+		BatchSize:            cfg.IndexerBatchSize,
+		Concurrency:          cfg.IndexerConcurrency,
+		PollInterval:         time.Duration(cfg.IndexerPollIntervalMS) * time.Millisecond,
+		CanonicalReadTimeout: canonicalReadTimeout,
+		Logger:               logger,
 	}
 	var runtimeRPC *ethclient.Client
 	var runtimeRPCClose func()
@@ -225,12 +240,21 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var replay *processor.ReplayRunner
 	var webhookTransport *http.Transport
 	workers := newRuntimeWorkers(logger)
+	var canonicalSource *canonicalSourceReadiness
 	var selectionAuthority *source.SelectionAuthority
+	var pauses *pauseObservations
+	var pauseWorkers *runtimeWorkers
 	status := httpapi.StatusDeps{Mode: httpapi.StatusLegacy}
 
 	defer func() {
 		if !secretOwned {
+			if canonicalSource != nil {
+				canonicalSource.Close()
+			}
 			workers.Close()
+			if pauseWorkers != nil {
+				pauseWorkers.Close()
+			}
 			if history != nil {
 				_ = history.Close()
 			}
@@ -254,8 +278,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if err = d.validateStatus(); err != nil {
 			return nil, err
 		}
-		if d.Schema != "indexer" || d.Owner == "" || d.CanonicalStreamID == "" || d.ProjectionVersion == "" || d.DeploymentID == "" {
-			return nil, errors.New("indexer: incomplete durable source configuration")
+		if err = d.validateIdentity(); err != nil {
+			return nil, err
 		}
 		archiveTuning, err := cfg.ArchiveTuning()
 		if err != nil {
@@ -329,7 +353,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		status.CanonicalStreamID = d.CanonicalStreamID
 		status.MaxDeliveryLag = time.Duration(d.MaxDeliveryLagMS) * time.Millisecond
 		if policy := d.DeadLetters; policy != nil {
-			status.DeadLetters = httpapi.AuditedDeadLetters{DB: pool, DeliverySchema: d.Schema, SecuritySchema: policy.SecuritySchema, Audience: policy.Audience, PolicyVersion: policy.PolicyVersion, Verifier: policy.verifier()}
+			status.DeadLetters = httpapi.AuditedDeadLetters{Logger: logger, DB: pool, DeliverySchema: d.Schema, SecuritySchema: policy.SecuritySchema, Audience: policy.Audience, PolicyVersion: policy.PolicyVersion, Verifier: policy.verifier()}
 		}
 		partitions, e := delivery.NewPartitionStore(pool, d.Schema)
 		if e != nil {
@@ -346,6 +370,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		lifecycleSecrets := map[string]string{}
+		lifecycle.logEndpointReferences(logger)
 		for endpoint, reference := range lifecycle.EndpointSecretReferences {
 			value, e := provider.GetRequired(ctx, reference)
 			if e != nil {
@@ -430,6 +455,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return durableBlockHash(c, pool, d.CanonicalStreamID, height, lifecycle)
 		}}
 		deps.Reserves = qualified
+		discoveredEpochs := qualified.DiscoveredEpochs
 		if doc.Realm == valueProduction {
 			inventory := postgresMarketInventory{pool: pool}
 			newAuthority := func(c context.Context) (*receipt.RPCQualification, error) {
@@ -455,6 +481,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			historicalRecovery.reserves = nil
 			historicalQualified = &historicalRecovery
 			deps.Reserves = reserves
+			discoveredEpochs = reserves.DiscoveredEpochs
 		}
 		deps.Quarantine = &processor.QuarantinePolicy{Registry: qualified.Registry(), SourceStream: d.CanonicalStreamID, OptionalEmitterTopics: lifecycle.OptionalEmitterTopics}
 		authorize := func(c context.Context, action string) error {
@@ -494,6 +521,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				nc.Close()
 			}
 		}()
+		secretChecks["broker"] = func(c context.Context) error {
+			if err := c.Err(); err != nil {
+				return err
+			}
+			if !nc.IsConnected() {
+				return errors.New("indexer: durable broker disconnected")
+			}
+			return nil
+		}
 		brokerPublisher, e := natsdriver.NewPublisher(nc, d.Stream)
 		if e != nil {
 			return nil, e
@@ -506,7 +542,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			persistentPublisher = fixturePublishBarrier{Publisher: brokerPublisher, Path: cfg.FixturePubAckBarrier}
 		}
 		relay = &delivery.Relay{Store: durable, Publisher: persistentPublisher, Owner: d.Owner, Batch: 32, LeaseDuration: 30 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 5}
-		replay = &processor.ReplayRunner{Store: st, Source: historicalQualified, Deliveries: durable, Owner: d.Owner, DeliverySchema: d.Schema, BatchSize: lifecycle.ReplayBatchSize}
+		replay = &processor.ReplayRunner{Store: st, Source: historicalQualified, Deliveries: durable, Owner: d.Owner, DeliverySchema: d.Schema, BatchSize: lifecycle.ReplayBatchSize, ReadTimeout: canonicalReadTimeout}
 		if lifecycle.Archive.Enabled {
 			catalog := doc.Production.CatalogJSON
 			if doc.Realm == valuePrivateFixture {
@@ -589,23 +625,22 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		if cfg.IndexerMode == config.ModeBackfill {
 			request := lifecycle.BackfillRequest
-			if request == nil {
+			if request == nil && len(lifecycle.BackfillRequests) == 0 {
 				return nil, errors.New("indexer: authorized backfill request unavailable")
 			}
 			deps.HistoricalReplay = replay
 			deps.HistoricalRequest = request
+			deps.HistoricalRequests = lifecycle.BackfillRequests
 		}
+		pauses = &pauseObservations{pool: pool, rpc: runtimeRPC, stream: d.CanonicalStreamID, epochs: lifecycle.Committed.Epochs, discoveredEpochs: discoveredEpochs}
+		pauses.configureInventoryCoverage(doc.Realm, liveQualified)
+		pauseWorkers = newRuntimeWorkers(logger)
+		pauseWorkers.AddPeriodic("pause_observations", time.Second, false, pauses.refresh)
 		secretChecks["workers"] = workers.Ready
-		secretChecks["canonical_source"] = func(c context.Context) error {
-			_, e := deps.Head.Head(c)
-			if e != nil {
-				return e
-			}
-			watermark, e := st.GetCanonicalWatermark(c, 125, d.CanonicalStreamID)
-			if e != nil {
-				return e
-			}
-			return verifyCanonicalRuntimeCheckpoint(c, pool, history.RPC, d.CanonicalStreamID, watermark, lifecycle)
+		canonicalSource = newCanonicalSourceReadiness(st, pool, history.RPC, d.CanonicalStreamID, lifecycle, time.Now, logger)
+		secretChecks["canonical_source"] = canonicalSource.Ready
+		if cfg.IndexerMode != config.ModeBackfill {
+			canonicalSource.Start(ctx)
 		}
 		deps.QualifiedBatchSource = liveQualified
 		deps.CanonicalOwner = d.Owner
@@ -633,21 +668,23 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		},
 	})
 	status.Store, status.ChainID, status.Publisher, status.StartTime = st, cfgChainIDInt32, pub, time.Now()
+	status.Logger = logger
 	httpapi.RegisterStatus(router, status)
 
+	router.Handle("/internal/ranking-evidence", pauses)
 	if selectionAuthority != nil {
-		router.Handle("/internal/source-selection", selectionAuthority.Handler(history.RPC))
+		router.Handle("/internal/source-selection", selectionAuthority.HandlerWithLogger(history.RPC, logger))
 	}
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", proc.MetricsHandler(metrics))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err
 	}
 	secretOwned = true
-	return &App{workers: workers, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
+	return &App{workers: workers, pauseWorkers: pauseWorkers, canonicalSource: canonicalSource, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
 		runtimeRPC: runtimeRPC, runtimeRPCClose: runtimeRPCClose, nats: nc, relay: relay,
-		Router:    runtimeHandler(tracker, router, metrics),
+		Router:    runtimeHandlerWithIngestionState(tracker, router, metrics, proc.LeaseState),
 		Processor: proc,
 		Backfill:  backfill,
 		Publisher: pub,
@@ -667,8 +704,14 @@ func (a *App) Close() {
 	if a.runStop != nil {
 		a.runStop()
 	}
+	if a.canonicalSource != nil {
+		a.canonicalSource.Close()
+	}
 	if a.workers != nil {
 		a.workers.Stop()
+	}
+	if a.pauseWorkers != nil {
+		a.pauseWorkers.Stop()
 	}
 	if a.tracker != nil {
 		if err := a.tracker.Drain(drain); err != nil && a.logger != nil {
@@ -677,6 +720,9 @@ func (a *App) Close() {
 	}
 	if a.workers != nil {
 		a.workers.CloseContext(drain)
+	}
+	if a.pauseWorkers != nil {
+		a.pauseWorkers.CloseContext(drain)
 	}
 	if a.history != nil {
 		_ = a.history.Close()
@@ -711,7 +757,7 @@ func Run(parent context.Context) error {
 	if err != nil {
 		return err
 	}
-	logger := sharedlog.New("indexer", cfg.LogLevel)
+	logger := sharedlog.New(valueIndexer, cfg.LogLevel)
 	logger.Info("starting indexer service",
 		slog.String("mode", cfg.IndexerMode), slog.String("logSource", cfg.IndexerLogSource))
 
@@ -731,10 +777,16 @@ func Run(parent context.Context) error {
 		ConnState:         app.tracker.ConnState,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	serveErr := make(chan error, 1)
+	listener, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = listener.Close() }()
+	defer func() { _ = srv.Close() }()
+	serveErr := make(chan error, 2)
 	go func() {
 		logger.Info("http server listening", slog.Int("port", cfg.Port))
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := srv.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serveErr <- err
 			cancel()
 		}
@@ -742,6 +794,11 @@ func Run(parent context.Context) error {
 
 	if err = app.workers.Start(ctx); err != nil {
 		return err
+	}
+	if app.pauseWorkers != nil {
+		if err = app.pauseWorkers.Start(ctx); err != nil {
+			return err
+		}
 	}
 	if app.relay != nil {
 		go func() {
@@ -759,6 +816,7 @@ func Run(parent context.Context) error {
 				case <-ticker.C:
 					if e := app.relay.RunOnce(ctx); e != nil && !errors.Is(e, context.Canceled) {
 						logger.Error("durable relay failed", slog.Any("err", e))
+						serveErr <- fmt.Errorf("indexer: durable relay: %w", e)
 						app.tracker.BeginDrain()
 						cancel()
 						return
@@ -780,6 +838,9 @@ func Run(parent context.Context) error {
 			return firstNonShutdownErr(serveErr)
 		}
 		logger.Info("backfill complete — transitioning to live mode")
+		if app.canonicalSource != nil {
+			app.canonicalSource.Start(ctx)
+		}
 	}
 
 	procErr := make(chan error, 1)
@@ -840,6 +901,10 @@ func firstNonShutdownErr(serveErr <-chan error) error {
 }
 
 func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {
+	return runtimeHandlerWithIngestionState(tracker, next, metrics, nil)
+}
+
+func runtimeHandlerWithIngestionState(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics, ingestionState func() string) http.Handler {
 	observed := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if metrics == nil || r.Method != http.MethodGet || r.URL.Path == "/metrics" {
 			next.ServeHTTP(w, r)
@@ -864,11 +929,47 @@ func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *teleme
 	tracked := tracker.Middleware(observed)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == "/metrics" {
+			if r.URL.Path == "/health/ready" && r.Method == http.MethodGet && ingestionState != nil {
+				writeReadinessWithIngestionState(w, r, next, ingestionState)
+				return
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
 		tracked.ServeHTTP(w, r)
 	})
+}
+
+func writeReadinessWithIngestionState(w http.ResponseWriter, r *http.Request, next http.Handler, ingestionState func() string) {
+	recorded := httptest.NewRecorder()
+	next.ServeHTTP(recorded, r)
+	state := ingestionState()
+	if state == "standby" {
+		var body struct {
+			Status string            `json:"status"`
+			Checks map[string]string `json:"checks"`
+		}
+		if err := json.Unmarshal(recorded.Body.Bytes(), &body); err == nil && body.Checks != nil {
+			if body.Checks["ingestion"] == "ok" {
+				body.Checks["ingestion"] = "standby"
+			}
+			payload, err := json.Marshal(body)
+			if err == nil {
+				for key, values := range recorded.Header() {
+					w.Header()[key] = values
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(recorded.Code)
+				_, _ = w.Write(payload)
+				return
+			}
+		}
+	}
+	for key, values := range recorded.Header() {
+		w.Header()[key] = values
+	}
+	w.WriteHeader(recorded.Code)
+	_, _ = w.Write(recorded.Body.Bytes())
 }
 
 type receiptRuntimeDocument struct {
@@ -891,6 +992,13 @@ type deliveryRuntimeDocument struct {
 	Generation                 string                `json:"generation"`
 	Policy                     delivery.Policy       `json:"policy"`
 	Subjects                   map[string]string     `json:"subjects"`
+}
+
+func (d deliveryRuntimeDocument) validateIdentity() error {
+	if d.Schema != valueIndexer || d.Owner == "" || d.CanonicalStreamID == "" || d.ProjectionVersion == "" || !delivery.ValidDeploymentVersion(d.DeploymentID) {
+		return errors.New("indexer: incomplete durable source configuration")
+	}
+	return nil
 }
 
 func (d deliveryRuntimeDocument) validateStatus() error {
@@ -1019,6 +1127,7 @@ type lifecycleRuntimeDocument struct {
 	EventsPerSecond            float64
 	ReplayRequests             []store.ReplayRequest           `json:"replayRequests"`
 	BackfillRequest            *store.ReplayRequest            `json:"backfillRequest,omitempty"`
+	BackfillRequests           []store.ReplayRequest           `json:"backfillRequests,omitempty"`
 	Rebuilds                   []lifecycleRebuildDocument      `json:"rebuilds"`
 	Operations                 map[string]store.OperationScope `json:"operations"`
 	InitialCheckpointHeight    int64
@@ -1047,14 +1156,31 @@ func (d *lifecycleRuntimeDocument) validate(deliveryDoc deliveryRuntimeDocument,
 	if err := deliveryDoc.validateInventory(); err != nil {
 		return err
 	}
-	if cfg.IndexerMode == config.ModeBackfill && (d.BackfillRequest == nil || cfg.BackfillBatchSize < 1 || cfg.BackfillBatchSize > 64) {
+	if cfg.IndexerMode == config.ModeBackfill && (d.BackfillRequest == nil && len(d.BackfillRequests) == 0 || cfg.BackfillBatchSize < 1 || cfg.BackfillBatchSize > 64) {
 		return errors.New("indexer: explicit bounded authorized backfill configuration required")
+	}
+	if len(d.BackfillRequests) > 16 || d.BackfillRequest != nil && len(d.BackfillRequests) > 0 {
+		return errors.New("indexer: bounded exclusive backfill request sources required")
+	}
+	for i, request := range d.BackfillRequests {
+		if err := store.ValidateReplayRequest(request); err != nil {
+			return err
+		}
+		if request.SourceStream != deliveryDoc.CanonicalStreamID || request.Mode != valueBackfill || request.Target != valueIndexer || request.Generation != deliveryDoc.Generation || request.ProjectionRevision != deliveryDoc.ProjectionVersion || request.CheckpointHeight != d.InitialCheckpointHeight || request.CheckpointHash != d.InitialCheckpointHash {
+			return errors.New("indexer: historical backfill source or checkpoint mismatch")
+		}
+		if i > 0 && request.FromHeight != d.BackfillRequests[i-1].ToHeight+1 {
+			return errors.New("indexer: contiguous ordered backfill requests required")
+		}
+	}
+	if len(d.BackfillRequests) > 0 && d.BackfillRequests[len(d.BackfillRequests)-1].ToHeight != d.InitialCheckpointHeight {
+		return errors.New("indexer: backfill must finish at the initial checkpoint")
 	}
 	for _, request := range d.ReplayRequests {
 		if err := store.ValidateReplayRequest(request); err != nil {
 			return err
 		}
-		if request.SourceStream != deliveryDoc.CanonicalStreamID || request.Mode == "backfill" {
+		if request.SourceStream != deliveryDoc.CanonicalStreamID || request.Mode == valueBackfill {
 			return errors.New("indexer: replay request source or mode mismatch")
 		}
 	}
@@ -1062,7 +1188,7 @@ func (d *lifecycleRuntimeDocument) validate(deliveryDoc deliveryRuntimeDocument,
 		if err := store.ValidateReplayRequest(*d.BackfillRequest); err != nil {
 			return err
 		}
-		if d.BackfillRequest.SourceStream != deliveryDoc.CanonicalStreamID || d.BackfillRequest.Mode != "backfill" {
+		if d.BackfillRequest.SourceStream != deliveryDoc.CanonicalStreamID || d.BackfillRequest.Mode != valueBackfill {
 			return errors.New("indexer: historical backfill source mismatch")
 		}
 	}
@@ -1164,6 +1290,9 @@ func (h *canonicalRuntimeHead) Head(ctx context.Context) (int64, error) {
 	h.height.Store(durableUint64)
 	head, err := h.source.ObserveHead(ctx, durableUint64)
 	if err != nil {
+		if ctx.Err() != nil {
+			return 0, ctx.Err()
+		}
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 		defer cancel()
 		return 0, errors.Join(err, h.store.QuarantineCommittedHead(cleanup, h.stream))
@@ -1359,7 +1488,7 @@ func verifyCanonicalRuntimeCheckpoint(ctx context.Context, pool *pgxpool.Pool, p
 	err := pool.QueryRow(ctx, `SELECT block_hash FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2 AND fetch_complete AND required_decode_complete`, stream, height).Scan(&expected)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if height != doc.InitialCheckpointHeight {
-			return errors.New("indexer: canonical checkpoint has no complete source block or issued initial checkpoint")
+			return errCanonicalCheckpointIncomplete
 		}
 		expected = doc.InitialCheckpointHash
 	} else if err != nil {
@@ -1369,12 +1498,12 @@ func verifyCanonicalRuntimeCheckpoint(ctx context.Context, pool *pgxpool.Pool, p
 	if conversionErr != nil {
 		return conversionErr
 	}
-	original, err := provider.BlockAt(ctx, heightUint64)
+	original, err := provider.CheckpointBlockAt(ctx, heightUint64)
 	if err != nil {
 		return err
 	}
 	if strings.ToLower(original.Hash.Hex()) != expected {
-		return errors.New("indexer: persisted checkpoint differs from canonical source")
+		return errCanonicalCheckpointMismatch
 	}
 	return nil
 }

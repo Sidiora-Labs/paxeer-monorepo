@@ -48,7 +48,7 @@ const RadioShowcase = () => {
         <SectionHeader>Orientation</SectionHeader>
         <SamplesStack>
           <Sample label="orientation: horizontal">
-            <RadioGroup defaultValue="1" orientation="horizontal">
+            <RadioGroup defaultValue="1" orientation="horizontal" flexWrap="wrap">
               <Radio value="1">Option 1</Radio>
               <Radio value="2">Option 2</Radio>
             </RadioGroup>

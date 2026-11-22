@@ -2,7 +2,6 @@ import { TestChain } from './support/chain.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { generateKeyPairSync, randomBytes, randomUUID, sign } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +13,10 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 import { startIdentityProvider, type IdentityProvider } from './support/identity.js';
 import { buildAttestor, makePki, type Pki } from './e2e/attestors.js';
+import { assertProcessRunning, startOnReservedPorts, stopPortProcess } from './support/ports.js';
+import { registerPortCases } from './support/ports.cases.js';
+
+registerPortCases();
 
 let idp: IdentityProvider;
 let pg: EphemeralPostgres;
@@ -346,115 +349,113 @@ beforeAll(async () => {
     })
   );
 
-  const reservations = await Promise.all(
-    Array.from({ length: 12 }, async () => {
-      const server = createServer();
-      await new Promise<void>((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(0, '127.0.0.1', resolve);
-      });
-      return { server, port: (server.address() as AddressInfo).port };
-    })
-  );
-  const ports = reservations.map((reservation) => reservation.port);
-  await Promise.all(
-    reservations.map(
-      ({ server }) =>
-        new Promise<void>((resolve, reject) => {
-          server.close((error) => (error ? reject(error) : resolve()));
-        })
-    )
-  );
   await entryChain.start();
   const rpcUrl = entryChain.url;
   const bin = buildAttestor(work);
-  for (const [i, id] of ids.entries()) {
-    const nodeKey = join(work, `${id}.key`);
-    const nodeDir = join(work, id);
-    mkdirSync(nodeDir);
-    writeFileSync(nodeKey, randomBytes(32).toString('hex'), { mode: 0o600 });
-    const peers = ids.filter((peer) => peer !== id);
-    launch(bin, [], {
-      PATH: process.env.PATH,
-      HOME: process.env.HOME,
-      ATTESTOR_NODE_ID: id,
-      ATTESTOR_REGION: `region-${i + 1}`,
-      ATTESTOR_LISTEN_ADDR: `127.0.0.1:${ports[i * 2]}`,
-      ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${ports[i * 2 + 1]}`,
-      ATTESTOR_PEERS: peers
-        .map((peer) => `${peer}=127.0.0.1:${ports[ids.indexOf(peer) * 2 + 1]}`)
-        .join(','),
-      ATTESTOR_PEER_PINS: peers.map((peer) => `${peer}=${pki.node(peer).pin}`).join(','),
-      ATTESTOR_NODE_KEY_FILE: nodeKey,
-      ATTESTOR_DATA_DIR: nodeDir,
-      ATTESTOR_CHAIN_ID: '125',
-      ATTESTOR_JWKS_URL: `${idp.url}/auth/v1/.well-known/jwks.json`,
-      ATTESTOR_JWT_ISSUER: `${idp.url}/auth/v1`,
-      ATTESTOR_JWT_AUDIENCE: 'authenticated',
-      ATTESTOR_POLICY_FILE: policyFile,
-      ATTESTOR_RPC_URL: rpcUrl,
-      ATTESTOR_TLS_CERT_FILE: pki.node(id).cert,
-      ATTESTOR_TLS_KEY_FILE: pki.node(id).key,
-      ATTESTOR_TLS_CA_FILE: pki.caFile,
-      ATTESTOR_OPERATOR_CA_FILE: pki.operatorCaFile,
-      ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: producerPublic,
-      ATTESTOR_AUTHORITY_ISSUER: `${idp.url}/auth/v1`,
-      ATTESTOR_AUTHORITY_TENANT: 'gateway-entry',
-      ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: inventoryPublic,
-      ATTESTOR_INVENTORY_FILE: inventoryFile,
-    });
+  for (const id of ids) {
+    mkdirSync(join(work, id));
+    writeFileSync(join(work, `${id}.key`), randomBytes(32).toString('hex'), { mode: 0o600 });
   }
-  gatewayEnv = {
-    ...process.env,
-    NODE_ENV: 'test',
-    LOG_LEVEL: 'info',
-    API_WORKERS: '1',
-    PORT: String(ports[11]),
-    DATABASE_URL: pg.url,
-    RPC_URLS: rpcUrl,
-    HYPERPAXEER_RPC_URL: rpcUrl,
-    SEQUENCER_RPC_URL: rpcUrl,
-    WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE: producerFile,
-    WALLET_IDENTITY_BINDING_TENANT: 'gateway-entry',
-    WALLET_CUSTODY_INVENTORY_FILE: inventoryFile,
-    WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE: inventoryPublic,
-    ATTESTOR_ENDPOINTS: ids.map((_, i) => `https://127.0.0.1:${ports[i * 2]}`).join(','),
-    ATTESTOR_QUORUM: '3',
-    ATTESTOR_CLIENT_CERT_FILE: pki.clientCert,
-    ATTESTOR_CLIENT_KEY_FILE: pki.clientKey,
-    ATTESTOR_CA_FILE: pki.caFile,
-  };
-  delete gatewayEnv.LAYER_X_DB_URI;
-  delete gatewayEnv.LAYERX_SYNC_INTERVAL_MS;
-  const started = launch(
-    process.execPath,
-    ['--import', 'tsx', fileURLToPath(new URL('../src/index.ts', import.meta.url))],
-    gatewayEnv
+  await startOnReservedPorts(
+    ids.length * 2 + 1,
+    async (reservations) => {
+      const ports = reservations.map((reservation) => reservation.port);
+      for (const [i, id] of ids.entries()) {
+        const nodeKey = join(work, `${id}.key`);
+        const nodeDir = join(work, id);
+        const peers = ids.filter((peer) => peer !== id);
+        await Promise.all([reservations[i * 2]!.release(), reservations[i * 2 + 1]!.release()]);
+        launch(bin, [], {
+          PATH: process.env.PATH,
+          HOME: process.env.HOME,
+          ATTESTOR_NODE_ID: id,
+          ATTESTOR_REGION: `region-${i + 1}`,
+          ATTESTOR_LISTEN_ADDR: `127.0.0.1:${ports[i * 2]}`,
+          ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${ports[i * 2 + 1]}`,
+          ATTESTOR_PEERS: peers
+            .map((peer) => `${peer}=127.0.0.1:${ports[ids.indexOf(peer) * 2 + 1]}`)
+            .join(','),
+          ATTESTOR_PEER_PINS: peers.map((peer) => `${peer}=${pki.node(peer).pin}`).join(','),
+          ATTESTOR_NODE_KEY_FILE: nodeKey,
+          ATTESTOR_DATA_DIR: nodeDir,
+          ATTESTOR_CHAIN_ID: '125',
+          ATTESTOR_JWKS_URL: `${idp.url}/auth/v1/.well-known/jwks.json`,
+          ATTESTOR_JWT_ISSUER: `${idp.url}/auth/v1`,
+          ATTESTOR_JWT_AUDIENCE: 'authenticated',
+          ATTESTOR_POLICY_FILE: policyFile,
+          ATTESTOR_RPC_URL: rpcUrl,
+          ATTESTOR_TLS_CERT_FILE: pki.node(id).cert,
+          ATTESTOR_TLS_KEY_FILE: pki.node(id).key,
+          ATTESTOR_TLS_CA_FILE: pki.caFile,
+          ATTESTOR_OPERATOR_CA_FILE: pki.operatorCaFile,
+          ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: producerPublic,
+          ATTESTOR_AUTHORITY_ISSUER: `${idp.url}/auth/v1`,
+          ATTESTOR_AUTHORITY_TENANT: 'gateway-entry',
+          ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: inventoryPublic,
+          ATTESTOR_INVENTORY_FILE: inventoryFile,
+        });
+      }
+      gatewayEnv = {
+        ...process.env,
+        NODE_ENV: 'test',
+        LOG_LEVEL: 'info',
+        API_WORKERS: '1',
+        PORT: String(ports[ids.length * 2]),
+        DATABASE_URL: pg.url,
+        RPC_URLS: rpcUrl,
+        HYPERPAXEER_RPC_URL: rpcUrl,
+        SEQUENCER_RPC_URL: rpcUrl,
+        WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE: producerFile,
+        WALLET_IDENTITY_BINDING_TENANT: 'gateway-entry',
+        WALLET_CUSTODY_INVENTORY_FILE: inventoryFile,
+        WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE: inventoryPublic,
+        ATTESTOR_ENDPOINTS: ids.map((_, i) => `https://127.0.0.1:${ports[i * 2]}`).join(','),
+        ATTESTOR_QUORUM: '3',
+        ATTESTOR_CLIENT_CERT_FILE: pki.clientCert,
+        ATTESTOR_CLIENT_KEY_FILE: pki.clientKey,
+        ATTESTOR_CA_FILE: pki.caFile,
+      };
+      delete gatewayEnv.LAYER_X_DB_URI;
+      delete gatewayEnv.LAYERX_SYNC_INTERVAL_MS;
+      await reservations[ids.length * 2]!.release();
+      const started = launch(
+        process.execPath,
+        ['--import', 'tsx', fileURLToPath(new URL('../src/index.ts', import.meta.url))],
+        gatewayEnv
+      );
+      gateway = started.process;
+      gatewayLogs = started.logs;
+      gatewayBase = `http://127.0.0.1:${ports[ids.length * 2]}`;
+      const deadline = Date.now() + 60_000;
+      for (;;) {
+        for (const child of children) assertProcessRunning(child.process, child.logs);
+        const response = await fetch(`${gatewayBase}/readyz`, {
+          signal: AbortSignal.timeout(5_000),
+        }).catch(() => null);
+        if (response) {
+          const body = await response.text();
+          for (const child of children) assertProcessRunning(child.process, child.logs);
+          if (
+            response.status === 200 &&
+            gatewayLogs.join('').includes('paxeer-wallet-api listening on')
+          )
+            break;
+          if (Date.now() >= deadline)
+            throw new Error(
+              `gateway not ready: ${body}\n${children.flatMap((child) => child.logs).join('')}`
+            );
+        }
+        if (Date.now() >= deadline)
+          throw new Error(`gateway never listened: ${gatewayLogs.join('')}`);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    },
+    async () => {
+      await Promise.all(children.map((child) => stopPortProcess(child.process)));
+      children.length = 0;
+    },
+    '::'
   );
-  gateway = started.process;
-  gatewayLogs = started.logs;
-  gatewayBase = `http://127.0.0.1:${ports[11]}`;
-  const deadline = Date.now() + 60_000;
-  for (;;) {
-    const failed = children.find(
-      (child) =>
-        child.process.exitCode !== null || child.process.signalCode !== null || !child.process.pid
-    );
-    if (failed) throw new Error(`gateway dependency exited: ${failed.logs.join('')}`);
-    const response = await fetch(`${gatewayBase}/readyz`, {
-      signal: AbortSignal.timeout(5_000),
-    }).catch(() => null);
-    if (response) {
-      const body = await response.text();
-      if (response.status === 200) break;
-      if (Date.now() >= deadline)
-        throw new Error(
-          `gateway not ready: ${body}\n${children.flatMap((child) => child.logs).join('')}`
-        );
-    }
-    if (Date.now() >= deadline) throw new Error(`gateway never listened: ${gatewayLogs.join('')}`);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
 }, 120_000);
 
 async function stopGatewayEntry() {

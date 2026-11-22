@@ -22,8 +22,11 @@ defmodule Indexer.Utils.EventNotificationsCleaner do
   end
 
   def init(args) do
-    Process.send(self(), :clean_up_event_notifications, [])
-    {:ok, args}
+    {:ok, args, {:continue, :clean_up_event_notifications}}
+  end
+
+  def handle_continue(:clean_up_event_notifications, state) do
+    handle_info(:clean_up_event_notifications, state)
   end
 
   def handle_info(:clean_up_event_notifications, state) do

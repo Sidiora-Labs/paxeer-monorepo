@@ -1,15 +1,8 @@
 [service.gas-station]
 kind = "repo"
-container = "docker/gas-station/Dockerfile"
+dockerfile = "docker/gas-station/Dockerfile"
 root = "."
-watch = [
-  "docker/gas-station/**",
-  "docker/common/**",
-  "services/interop/**",
-  "services/agent/**",
-  "services/platform/hosted/internal/**",
-  "services/human/**",
-]
+watch = ["docker/gas-station/**", "docker/common/**", "services/interop/**", "services/agent/**", "services/platform/hosted/internal/**", "services/human/**"]
 health = "/healthz"
 restart = "ALWAYS"
 replicas = 1

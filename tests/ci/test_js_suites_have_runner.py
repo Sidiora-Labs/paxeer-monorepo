@@ -331,10 +331,19 @@ def workflow_coverage(manifests):
         if target not in reached:
             continue
         if target == "programs-test":
-            prerequisites = re.search(
-                r"^programs-test:([^\n]+)", makefile, re.MULTILINE
+            prerequisites = next(
+                (
+                    line.partition(":")[2]
+                    for line in makefile.splitlines()
+                    if line.startswith("programs-test:")
+                    and not re.match(
+                        r"\s*(?:export\s+)?[A-Za-z_]\w*\s*=",
+                        line.partition(":")[2],
+                    )
+                ),
+                "",
             )
-            assert prerequisites and "programs-sdk-assemblyscript" in prerequisites[1].split()
+            assert "programs-sdk-assemblyscript" in prerequisites.split()
         recipe = re.search(
             r"^" + re.escape(declaration) + r"[^\n]*\n((?:\t[^\n]*\n)+)",
             makefile, re.MULTILINE,
@@ -413,6 +422,12 @@ def test_js_launchpad_and_wallet_runners_recognised():
         test_step = test_steps[0]
         command = expand_matrix(test_step["run"], row)
         directory = expand_matrix(test_step["working-directory"], row)
+        if row["package"] != "apps/launchpad/web":
+            assert directory == "apps/launchpad"
+            assert shlex.split(command) == [
+                "pnpm", "--filter", "./../../" + row["package"],
+                "--fail-if-no-match", "run", "test",
+            ]
         assert command_packages(command, directory, manifests) == {
             manifest_at(row["package"])
         }
@@ -476,10 +491,46 @@ def test_js_exclusion_list_entries_exist():
         assert name in packages, f"Stale exclusion (not a tracked test package): {name}"
         assert (ROOT / name).is_file(), name
         assert len(reason.split()) >= 8, f"Explain the external dependency for {name}"
-    perps = (ROOT / "apps/perps/tests/e2e-local-node.test.ts").read_text()
-    assert all(key in perps for key in (
-        "LOCAL_NODE_RPC", "LOCAL_NODE_KEY", "NEXT_PUBLIC_PERPS_GATEWAY_URL"
-    ))
     assert "apps/perps/package.json" in recorded
     assert "tests/integration/rpc_tests/package.json" in recorded
     assert "test:portable" in manifests["tools/codebase-map/package.json"]["scripts"]
+
+
+def test_js_perps_workspace_root_and_local_node_suites():
+    manifests = tracked_manifests()
+    package = "apps/perps/package.json"
+    command = "node --test --import tsx tests/*.test.ts"
+    assert manifests[package]["scripts"]["test"] == command
+    assert command_packages("pnpm test", "apps/perps", manifests) == {package}
+    assert not command_packages("pnpm run build", "apps/perps", manifests)
+    recorded = exclusions()
+    reason = recorded[package]
+    assert command in reason
+    local_suites = {
+        "local-market-config.test.ts": ("LOCAL_NODE_RPC",),
+        "local-spot-token-state.test.ts": ("LOCAL_NODE_RPC",),
+        "local-order-tick.test.ts": (
+            "LOCAL_NODE_RPC",
+            "LOCAL_NODE_KEY",
+            "NEXT_PUBLIC_PERPS_GATEWAY_URL",
+        ),
+        "local-fee-tier.test.ts": (
+            "LOCAL_NODE_RPC",
+            "LOCAL_NODE_KEY",
+            "NEXT_PUBLIC_PERPS_GATEWAY_URL",
+        ),
+    }
+    for filename, variables in local_suites.items():
+        assert filename in reason
+        source = (ROOT / "apps/perps/tests" / filename).read_text()
+        declaration = re.search(r"const ENV_NAMES = \[(.*?)\] as const;", source, re.S)
+        assert declaration, filename
+        assert tuple(re.findall(r'"([^"]+)"', declaration[1])) == variables
+        assert "if (!value) throw new Error(`${name} is not set`)" in source
+        for variable in variables:
+            assert variable in reason
+    wallet_workspace = yaml.safe_load(
+        (ROOT / "services/wallet/pnpm-workspace.yaml").read_text()
+    )
+    assert wallet_workspace["packages"] == ["gateway", "../../sdk/wallet", "demo"]
+    assert "apps/perps" not in recorded["services/wallet/package.json"]

@@ -1,0 +1,72 @@
+{
+  "data": {
+    "markets": [
+      {
+        "marketId": 0,
+        "symbol": "ETH",
+        "name": "Ethereum",
+        "oracleSymbol": "ETH",
+        "szDecimals": 3,
+        "pxDecimals": 2,
+        "tickSize": "10000000000000000",
+        "lotSize": "1000000000000000",
+        "tierClass": 0,
+        "maxLeverage": "20",
+        "enabled": true,
+        "createdAt": null,
+        "latestPrice": {
+          "price": "1800",
+          "onchainTimestamp": null
+        },
+        "fundingRate": {
+          "ratePerSecond": "0",
+          "rate24h": "0"
+        }
+      },
+      {
+        "marketId": 1,
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "oracleSymbol": "BTC",
+        "szDecimals": 3,
+        "pxDecimals": 2,
+        "tickSize": "10000000000000000",
+        "lotSize": "1000000000000000",
+        "tierClass": 0,
+        "maxLeverage": "20",
+        "enabled": true,
+        "createdAt": null,
+        "latestPrice": {
+          "price": "30000",
+          "onchainTimestamp": null
+        },
+        "fundingRate": {
+          "ratePerSecond": "0",
+          "rate24h": "0"
+        }
+      },
+      {
+        "marketId": 2,
+        "symbol": "XAU",
+        "name": "Gold",
+        "oracleSymbol": "XAU",
+        "szDecimals": 3,
+        "pxDecimals": 2,
+        "tickSize": "10000000000000000",
+        "lotSize": "1000000000000000",
+        "tierClass": 0,
+        "maxLeverage": "20",
+        "enabled": true,
+        "createdAt": null,
+        "latestPrice": {
+          "price": "2000",
+          "onchainTimestamp": null
+        },
+        "fundingRate": {
+          "ratePerSecond": "0",
+          "rate24h": "0"
+        }
+      }
+    ]
+  }
+}

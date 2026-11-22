@@ -55,8 +55,8 @@ export function mergeOutputTokens(catalogue: SwapToken[], launchpad: SwapToken[]
   return merged;
 }
 
-export function useOutputTokens(): SwapToken[] {
-  const query = useQuery<SwapToken[]>({
+export function useOutputTokenCatalogue() {
+  return useQuery<SwapToken[]>({
     queryKey: QUERY_KEY,
     queryFn: loadOutputTokens,
     // Token lists are semi-static — revalidate at most once per hour.
@@ -74,5 +74,9 @@ export function useOutputTokens(): SwapToken[] {
     },
     initialDataUpdatedAt: () => getCachedLaunchpadTokens()?.updatedAt ?? 0,
   });
+}
+
+export function useOutputTokens(): SwapToken[] {
+  const query = useOutputTokenCatalogue();
   return query.data ?? SWAP_TOKENS;
 }

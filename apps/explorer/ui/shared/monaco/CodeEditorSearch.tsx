@@ -1,5 +1,5 @@
 import type { HTMLChakraProps } from '@chakra-ui/react';
-import { Box } from '@chakra-ui/react';
+import { Box, chakra, Flex } from '@chakra-ui/react';
 import React from 'react';
 
 import type { File } from './types';
@@ -95,14 +95,16 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
     isActive && setActionBarRenderer(() => renderActionBar);
   }, [ isActive, renderActionBar, setActionBarRenderer ]);
 
-  const buttonProps: HTMLChakraProps<'div'> = {
-    boxSize: '20px',
-    p: '1px',
+  const buttonProps: HTMLChakraProps<'button'> = {
+    type: 'button',
+    boxSize: 5,
+    p: 0.25,
     cursor: 'pointer',
-    borderRadius: '3px',
-    borderWidth: '1px',
+    borderRadius: 'control',
+    borderWidth: 'var(--chakra-border-widths-1)',
     borderColor: 'transparent',
     color: 'text.primary',
+    _focusVisible: { outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-spacing-0\\.5)' },
   };
 
   const searchResultNum = (() => {
@@ -114,14 +116,14 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
 
     if (!totalResults) {
       return (
-        <Box px="8px" fontSize="13px" lineHeight="18px" mb="8px">
+        <Box px={ 2 } textStyle="sm" mb={ 2 } role="status">
           No results found. Review your settings for configured exclusions.
         </Box>
       );
     }
 
     return (
-      <Box px="8px" fontSize="13px" lineHeight="18px" mb="8px">
+      <Box px={ 2 } textStyle="sm" mb={ 2 } role="status">
         { totalResults } result{ totalResults > 1 ? 's' : '' } in { searchResults.length } file{ searchResults.length > 1 ? 's' : '' }
       </Box>
     );
@@ -129,7 +131,7 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
 
   const inputEndElement = (
     <>
-      <Box
+      <chakra.button
         { ...buttonProps }
         className="codicon codicon-case-sensitive"
         onClick={ handleMatchCaseChange }
@@ -137,8 +139,9 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
         _hover={{ bgColor: isMatchCase ? themeColors['custom.inputOption.activeBackground'] : themeColors['custom.inputOption.hoverBackground'] }}
         title="Match Case"
         aria-label="Match Case"
+        aria-pressed={ isMatchCase }
       />
-      <Box
+      <chakra.button
         { ...buttonProps }
         className="codicon codicon-whole-word"
         bgColor={ isMatchWholeWord ? themeColors['custom.inputOption.activeBackground'] : 'transparent' }
@@ -146,8 +149,9 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
         _hover={{ bgColor: isMatchWholeWord ? themeColors['custom.inputOption.activeBackground'] : themeColors['custom.inputOption.hoverBackground'] }}
         title="Match Whole Word"
         aria-label="Match Whole Word"
+        aria-pressed={ isMatchWholeWord }
       />
-      <Box
+      <chakra.button
         { ...buttonProps }
         className="codicon codicon-regex"
         bgColor={ isMatchRegex ? themeColors['custom.inputOption.activeBackground'] : 'transparent' }
@@ -155,47 +159,51 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
         _hover={{ bgColor: isMatchRegex ? themeColors['custom.inputOption.activeBackground'] : themeColors['custom.inputOption.hoverBackground'] }}
         title="Use Regular Expression"
         aria-label="Use Regular Expression"
+        aria-pressed={ isMatchRegex }
       />
     </>
   );
 
   return (
     <>
-      <InputGroup
-        px="8px"
+      <Box
+        px={ 2 }
         position="sticky"
-        top="35px"
+        top="calc(var(--chakra-spacing-8) + var(--chakra-spacing-3) / 4)" css={{ '@media (max-width: 834px)': { top: 'var(--chakra-sizes-touch-target)' } }}
         left="0"
         zIndex="2"
         bgColor={ themeColors['sideBar.background'] }
-        pb="8px"
-        boxShadow={ isInputStuck ? '0px 6px 3px 0px var(--chakra-colors-editor-search-shadow)' : 'none' }
-        endElement={ inputEndElement }
-        endElementProps={{ height: '26px', pl: '0', right: '10px', columnGap: '2px' }}
+        pb={ 2 }
+        boxShadow={ isInputStuck ? 'md' : 'none' }
       >
-        <Input
-          size="xs"
-          onChange={ handleSearchTermChange }
-          value={ searchTerm }
-          placeholder="Search"
-          color={ themeColors['input.foreground'] }
-          bgColor={ themeColors['input.background'] }
-          borderRadius="none"
-          height="26px"
-          fontSize="13px"
-          lineHeight="20px"
-          borderWidth="1px"
-          borderColor={ themeColors['input.background'] }
-          py="2px"
-          pl="4px"
-          pr="75px"
-          transitionDuration="0"
-          _focus={{
-            borderColor: themeColors.focusBorder,
-          }}
-        />
+        <InputGroup>
+          <Input
+            size="xs"
+            onChange={ handleSearchTermChange }
+            value={ searchTerm }
+            placeholder="Search"
+            aria-label="Search"
+            name="contract-code-search"
+            autoComplete="off"
+            spellCheck={ false }
+            color={ themeColors['input.foreground'] }
+            bgColor={ themeColors['input.background'] }
+            borderRadius="none"
+            height="auto"
+            textStyle="sm"
+            borderWidth="var(--chakra-border-widths-1)"
+            borderColor={ themeColors['input.background'] }
+            py={ 0.5 }
+            px={ 1 }
+            transitionDuration="0"
+            _focus={{
+              borderColor: themeColors.focusBorder,
+            }}
+          />
 
-      </InputGroup>
+        </InputGroup>
+        <Flex gap={ 1 } flexWrap="wrap">{ inputEndElement }</Flex>
+      </Box>
       { searchResultNum }
       <AccordionRoot
         key={ debouncedSearchTerm }

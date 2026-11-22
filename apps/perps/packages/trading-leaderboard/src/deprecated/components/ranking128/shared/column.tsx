@@ -34,16 +34,13 @@ export const useRankingColumns = (
           if (!isYou) {
             if (value === 1) {
               rankIcon = <FirstRankIcon />;
-              badgeImg =
-                "/assets/static/sdk/leaderboard/first_badge.png";
+              badgeImg = "/assets/static/sdk/leaderboard/first_badge.png";
             } else if (value === 2) {
               rankIcon = <SecondRankIcon />;
-              badgeImg =
-                "/assets/static/sdk/leaderboard/second_badge.png";
+              badgeImg = "/assets/static/sdk/leaderboard/second_badge.png";
             } else if (value === 3) {
               rankIcon = <ThirdRankIcon />;
-              badgeImg =
-                "/assets/static/sdk/leaderboard/third_badge.png";
+              badgeImg = "/assets/static/sdk/leaderboard/third_badge.png";
             }
           }
 

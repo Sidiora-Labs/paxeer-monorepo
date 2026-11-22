@@ -40,11 +40,17 @@ def test_gateway_manifest_example_matches_current_renderer():
 @pytest.mark.parametrize("check", [False, True])
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("same_public_key", [False, True])
+@pytest.mark.parametrize("window", ["disjoint", "overlapping", "identical"])
 def test_gateway_manifest_duplicate_key_id_refused_before_write(
-    tmp_path, monkeypatch, capsys, check, reverse, same_public_key
+    tmp_path, monkeypatch, capsys, check, reverse, same_public_key, window
 ):
     keys = example_keys()
     keys[1]["keyId"] = keys[0]["keyId"]
+    if window == "overlapping":
+        keys[1]["firstHeight"] = keys[0]["lastHeight"]
+    elif window == "identical":
+        keys[1]["firstHeight"] = keys[0]["firstHeight"]
+        keys[1]["lastHeight"] = keys[0]["lastHeight"]
     if same_public_key:
         keys[1]["publicKey"] = keys[0]["publicKey"]
     if reverse:
@@ -73,11 +79,17 @@ def test_gateway_manifest_duplicate_key_id_refused_before_write(
     assert json.loads(source.read_text()) == keys
 
 
-def test_gateway_manifest_distinct_ids_may_share_public_key(tmp_path, monkeypatch):
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("overlap", [False, True])
+def test_gateway_manifest_distinct_ids_may_share_public_key(tmp_path, monkeypatch, reverse, overlap):
     keys = example_keys()
     keys[1]["publicKey"] = keys[0]["publicKey"]
     source = tmp_path / "receipt-keys.json"
-    source.write_text(json.dumps(keys[::-1]))
+    if overlap:
+        keys[1]["firstHeight"] = keys[0]["lastHeight"]
+    if reverse:
+        keys.reverse()
+    source.write_text(json.dumps(keys))
     assert RENDERER.receipt_keys(source) == keys
     monkeypatch.setattr(RENDERER.os, "environ", example_environment())
     output = tmp_path / "config.json"
@@ -94,7 +106,7 @@ def test_gateway_manifest_distinct_ids_may_share_public_key(tmp_path, monkeypatc
 @pytest.mark.parametrize(
     "change, expected",
     [
-        ("overlap", "overlapping height ranges"),
+        ("duplicate", "repeats keyId"),
         ("reversed", "reversed height range"),
         ("zero", "nonzero"),
         ("boolean", "unsigned 64-bit integer"),
@@ -105,8 +117,8 @@ def test_gateway_manifest_distinct_ids_may_share_public_key(tmp_path, monkeypatc
 )
 def test_gateway_manifest_preserves_key_and_range_checks(tmp_path, change, expected):
     keys = copy.deepcopy(example_keys())
-    if change == "overlap":
-        keys[1]["firstHeight"] = keys[0]["lastHeight"]
+    if change == "duplicate":
+        keys[1]["keyId"] = keys[0]["keyId"]
     elif change == "reversed":
         keys[1]["firstHeight"] = keys[1]["lastHeight"] + 1
     elif change == "zero":
@@ -136,3 +148,5 @@ def test_gateway_manifest_readme_matches_manifest_and_live_interfaces():
         "eth_getBlockByNumber", "repeating an id makes that selection ambiguous",
     ):
         assert name in readme
+    assert "Distinct key ids may have overlapping inclusive height ranges" in readme
+    assert "The service and renderer preserve the file order" in readme

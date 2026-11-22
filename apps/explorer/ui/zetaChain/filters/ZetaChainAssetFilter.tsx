@@ -1,4 +1,4 @@
-import { Flex, Text, Spinner } from '@chakra-ui/react';
+import { chakra, Flex, Text, Spinner } from '@chakra-ui/react';
 import { isEqual } from 'es-toolkit';
 import React from 'react';
 
@@ -9,10 +9,10 @@ import { ZETA_CHAIN_CCTX_COIN_TYPE_FILTER, type ZetaChainCCTXFilterParams } from
 import config from 'configs/app';
 import useApiQuery from 'lib/api/useApiQuery';
 import useDebounce from 'lib/hooks/useDebounce';
-import { PopoverCloseTriggerWrapper } from 'toolkit/chakra/popover';
 import { Tag } from 'toolkit/chakra/tag';
 import { ClearButton } from 'toolkit/components/buttons/ClearButton';
 import { FilterInput } from 'toolkit/components/filters/FilterInput';
+import { PopoverCloseTriggerWrapper } from 'ui/marketplace/NativePopover';
 import * as TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import TableColumnFilter from 'ui/shared/filters/TableColumnFilter';
 import NativeTokenIcon from 'ui/shared/NativeTokenIcon';
@@ -131,6 +131,11 @@ const ZetaChainAssetFilter = ({ value = null, handleFilterChange }: Props) => {
     >
       <FilterInput
         placeholder="Search by token name or symbol"
+        name="token"
+        type="search"
+        minW={ 0 }
+        w="full"
+        inputProps={{ 'aria-label': 'Search by token name or symbol', autoComplete: 'off' }}
         initialValue={ searchTerm }
         onChange={ onSearchChange }
         loading={ tokensQuery.isLoading }
@@ -148,10 +153,10 @@ const ZetaChainAssetFilter = ({ value = null, handleFilterChange }: Props) => {
           <ClearButton onClick={ handleRemove }/>
         </Flex>
       ) }
-      { tokensQuery.isLoading && <Spinner display="block" mt={ 3 }/> }
+      { tokensQuery.isLoading && <Spinner role="status" aria-label="Loading tokens" display="block" mt={ 3 }/> }
       { tokensQuery.data && !searchTerm && (
         <>
-          <Text color="text.secondary" fontWeight="600" mt={ 3 }>Popular</Text>
+          <Text color="text.secondary" fontWeight="semibold" mt={ 3 }>Popular</Text>
           <Flex rowGap={ 3 } flexWrap="wrap" gap={ 3 } mb={ 2 }>
             { [ ZETA_NATIVE_TOKEN, ...filteredTokens.map(token => ({
               address_hash: token.zrc20_contract_address,
@@ -167,12 +172,19 @@ const ZetaChainAssetFilter = ({ value = null, handleFilterChange }: Props) => {
             } as TokenInfo)) ].map(token => (
               <PopoverCloseTriggerWrapper key={ token.address_hash }>
                 <Tag
+                  as="button"
+                  aria-pressed={ currentValue?.address_hash === token.address_hash }
                   data-id={ token.address_hash }
                   onClick={ onTokenClick(token) }
                   variant="select"
                 >
                   <Flex flexGrow={ 1 } alignItems="center">
-                    { token.address_hash === ZETA_NATIVE_TOKEN.address_hash ? <NativeTokenIcon boxSize={ 5 } mr={ 2 }/> : <TokenEntity.Icon token={ token }/> }
+                    { token.address_hash === ZETA_NATIVE_TOKEN.address_hash ? (
+                      <NativeTokenIcon
+                        boxSize={ 5 }
+                        mr={ 2 }
+                      />
+                    ) : <TokenEntity.Icon token={ token }/> }
                     { token.symbol || token.name || token.address_hash }
                   </Flex>
                 </Tag>
@@ -183,18 +195,30 @@ const ZetaChainAssetFilter = ({ value = null, handleFilterChange }: Props) => {
       ) }
       { searchTerm && tokensQuery.data && !filteredTokens.length && <Text>No tokens found</Text> }
       { searchTerm && tokensQuery.data && Boolean(filteredTokens.length) && (
-        <Flex display="flex" flexDir="column" rowGap={ 3 } maxH="250px" overflowY="scroll" mt={ 3 } ml="-4px">
+        <Flex
+          display="flex"
+          flexDir="column"
+          rowGap={ 3 }
+          maxH="calc(var(--chakra-spacing-1) * 62.5)"
+          overflowY="auto"
+          mt={ 3 }
+          ml="calc(var(--chakra-spacing-1) * -1)"
+        >
           { filteredTokens.map(token => (
             <PopoverCloseTriggerWrapper key={ token.zrc20_contract_address }>
-              <Flex
+              <chakra.button
+                type="button"
+                display="flex"
+                textAlign="start"
+                aria-pressed={ currentValue?.address_hash === token.zrc20_contract_address }
                 alignItems="center"
                 p={ 2 }
                 borderRadius="md"
                 cursor="pointer"
-                _hover={{ bg: 'gray.50' }}
+                _hover={{ bg: 'surface' }}
+                _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing' }}
                 onClick={ onTokenClick(token) }
               >
-                { /* FIXME: I'd use TokenEntity here, but it prevents onTokenClick callback from being called */ }
                 <TokenEntity.Icon token={{
                   address_hash: token.zrc20_contract_address,
                   symbol: token.symbol,
@@ -208,7 +232,7 @@ const ZetaChainAssetFilter = ({ value = null, handleFilterChange }: Props) => {
                   circulating_market_cap: null,
                 } as TokenInfo}/>
                 { token.symbol || token.name || token.zrc20_contract_address }
-              </Flex>
+              </chakra.button>
             </PopoverCloseTriggerWrapper>
           )) }
         </Flex>

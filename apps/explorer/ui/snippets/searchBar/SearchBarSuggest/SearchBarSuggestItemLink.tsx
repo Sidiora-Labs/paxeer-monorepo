@@ -9,18 +9,20 @@ const SearchBarSuggestItemLink = React.forwardRef<HTMLAnchorElement, Props>(({ c
   return (
     <Link
       ref={ ref }
+      minW={ 0 }
+      overflowWrap="anywhere"
       py={ 2 }
-      minH="44px"
       justifyContent="center"
       color="text.primary"
       px={{ base: 0, lg: 1 }}
+      minH={ 11 }
       display="flex"
       flexDir="column"
       alignItems="stretch"
       variant="plain"
       rowGap={ 1 }
       borderColor="hairline"
-      borderBottomWidth="1px"
+      borderBottomWidth="var(--chakra-border-widths-1)"
       _last={{
         borderBottomWidth: '0',
       }}

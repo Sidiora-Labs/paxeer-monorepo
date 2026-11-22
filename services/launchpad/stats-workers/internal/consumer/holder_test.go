@@ -261,7 +261,7 @@ func TestLegacyHoldingsQuarantine(t *testing.T) {
 		t.Fatal(err)
 	}
 	pool := fmt.Sprintf("0x%040x", 1)
-	for i, raw := range []string{"100", "-5", "malformed"} {
+	for i, raw := range []string{"100", "-5", "NaN"} {
 		if _, err = pg.Exec(ctx, "INSERT INTO stats.pool_holders(pool_address,holder_address,balance,pct_of_supply,last_updated) VALUES($1,$2,$3,'0',1)", pool, fmt.Sprintf("0x%040x", i+2), raw); err != nil {
 			t.Fatal(err)
 		}

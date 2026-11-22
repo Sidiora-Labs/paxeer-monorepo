@@ -6,13 +6,14 @@ const CopyWebpackPlugin = require('copy-webpack-plugin')
 const { ContextReplacementPlugin } = require('webpack')
 const glob = require('glob')
 const webpack = require('webpack')
+const staticDir = process.env.BLOCKSCOUT_STATIC_DIR || path.resolve(__dirname, '../priv/static')
 
 function transpileViewScript(file) {
   return {
     entry: file,
     output: {
       filename: file.replace('./js/view_specific/', ''),
-      path: path.resolve(__dirname, '../priv/static/js')
+      path: path.join(staticDir, 'js')
     },
     module: {
       rules: [
@@ -81,7 +82,7 @@ const appJs =
     },
     output: {
       filename: '[name].js',
-      path: path.resolve(__dirname, '../priv/static/js')
+      path: path.join(staticDir, 'js')
     },
     optimization: {
       minimizer: [new TerserJSPlugin(jsOptimizationParams), new CssMinimizerPlugin()],

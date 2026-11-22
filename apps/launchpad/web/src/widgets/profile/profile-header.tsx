@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Camera, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -60,37 +61,34 @@ export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, ban
 
   return (
     <header className={cn('rounded-lg bg-surface-1 pb-4', className)}>
-      <div data-profile-banner className="relative h-[100px] overflow-hidden bg-surface-2 md:h-[200px] xl:h-[240px]">
+      <div data-profile-banner className="relative h-25 overflow-hidden bg-surface-2 md:h-50 xl:h-60">
         {loading ? <Skeleton variant="block" className="size-full rounded-none" /> : showBanner ? (
-          <img src={bannerUrl as string} alt="" className="size-full object-cover" onError={() => setBannerFailed(true)} />
+          <img src={bannerUrl as string} alt="" width={1440} height={240} decoding="async" className="size-full object-cover" onError={() => setBannerFailed(true)} />
         ) : null}
         {isOwner && onEdit ? (
           <IconButton label="Change banner" icon={<Camera />} variant="on-media" onClick={() => onEdit('banner')} className="absolute right-3 top-3" />
         ) : null}
       </div>
-      <div className="flex items-start justify-between gap-3 px-4 md:px-5">
-        <div data-profile-avatar className="relative z-[1] -mt-7 shrink-0 rounded-pill md:-mt-12">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 md:px-5">
+        <div data-profile-avatar className="relative z-[1] -mt-7 flex shrink-0 rounded-pill md:-mt-12">
           <Avatar src={avatarUrl} name={avatarFallbackName(wallet, displayName)} size="2xl" loading={loading} className="max-md:size-14 max-md:text-base md:size-24 md:text-xl" />
         </div>
-        <div className="flex min-h-11 flex-wrap items-center justify-end gap-2 pt-3">
+        <div className="flex min-h-11 max-w-full flex-wrap items-center justify-end gap-2 pt-3">
           {isOwner && onEdit ? <Button variant="secondary" icon={<Pencil />} onClick={() => onEdit('displayName')}>Edit profile</Button> : null}
           {actions}
         </div>
       </div>
       <div className="flex flex-col gap-3 px-4 pt-2 md:px-5">
-        {loading ? (
-          <div className="flex flex-col gap-2">
-            <Skeleton width={180} height={24} />
-            <Skeleton width={120} height={14} />
-          </div>
-        ) : (
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <h1 className="truncate text-lg font-bold text-text" title={named ? name : wallet}>{name}</h1>
-            <ShortAddress address={wallet} head={4} tail={4} explorerHref={`https://paxscan.paxeer.app/address/${wallet}`} className="self-start text-xs text-text-faint" />
-          </div>
-        )}
+        <div className="flex min-w-0 flex-col gap-0.5 [&>*]:max-w-full">
+          <h1 className="truncate text-lg font-bold text-text" title={named ? name : wallet}>
+            {loading ? <><span className="sr-only">Profile</span><Skeleton width={surfaceSpacing(45)} className="h-[1lh]" /></> : name}
+          </h1>
+          <ShortAddress address={wallet} head={4} tail={4} explorerHref={`https://paxscan.paxeer.app/address/${wallet}`} className="self-start text-xs text-text-faint" />
+        </div>
         {stats}
-        {!loading && bio ? <p className="max-w-prose whitespace-pre-line text-sm text-text">{bio}</p> : null}
+        <div className="min-h-[var(--sl-leading-sm)]">
+          {loading ? <Skeleton className="max-w-prose h-[1lh] text-sm" /> : bio ? <p className="max-w-prose whitespace-pre-line text-sm text-text">{bio}</p> : null}
+        </div>
         {!loading && linkEntries.length > 0 ? (
           <ul className="flex flex-wrap gap-2" aria-label="Links">
             {linkEntries.map(key => (

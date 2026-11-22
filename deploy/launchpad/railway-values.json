@@ -1,8 +1,12 @@
 {
   "$comment": "Deployment data: launchpad values for the configured environment.",
   "RPC_URL": "https://api5.mainnet-beta.paxeer.network",
+  "NETWORK_RPC_URL": "https://api5.mainnet-beta.paxeer.network",
   "livestream": {
-    "LIVEPEER_API_URL": "https://livepeer.studio/api"
+    "LIVEPEER_API_URL": "https://livepeer.studio/api",
+    "RUNTIME_PROFILE": "container",
+    "LIVEPEER_PROVIDER_MODE": "available",
+    "LIVESTREAM_CONNECTED_ENABLED": "true"
   },
   "web": {
     "NEXT_PUBLIC_ACTION_ENVIRONMENT": "production",
@@ -28,5 +32,8 @@
     "WEB_CHARTS_UPSTREAM": "http://charts.railway.internal:8080",
     "WEB_GATEWAY_UPSTREAM": "http://gateway.railway.internal:8080",
     "WEB_SOCKETS_UPSTREAM": "http://api-sockets.railway.internal:8080"
+  },
+  "metadata": {
+    "METADATA_INGRESS": "mtls"
   }
 }

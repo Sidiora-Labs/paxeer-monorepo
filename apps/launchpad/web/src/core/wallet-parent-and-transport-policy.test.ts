@@ -117,7 +117,7 @@ async function walletParentConfigurationRejectsInvalidOriginsAndFeedsCspAndBridg
   );
   expect(walletParentOrigins()).toEqual(['https://other.example', 'https://wallet.example']);
   const { middleware } = await import('../middleware');
-  const policy = middleware(new NextRequest('https://launchpad.example/')).headers.get(
+  const policy = (await middleware(new NextRequest('https://launchpad.example/'))).headers.get(
     'Content-Security-Policy',
   )!;
   for (const directive of ['frame-ancestors', 'frame-src']) {

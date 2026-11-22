@@ -24,27 +24,18 @@ export function RenderPrivyTypeIcon({
   if (type === "email") {
     return (
       <img
-        src={`/assets/static/sdk/privy/email${
-          black ? "-black" : ""
-        }.svg`}
+        src={`/assets/static/sdk/privy/email${black ? "-black" : ""}.svg`}
         width={size}
       />
     );
   }
   if (type === "google_oauth") {
-    return (
-      <img
-        src="/assets/static/sdk/privy/google.svg"
-        width={size}
-      />
-    );
+    return <img src="/assets/static/sdk/privy/google.svg" width={size} />;
   }
   if (type === "twitter_oauth") {
     return (
       <img
-        src={`/assets/static/sdk/privy/twitter${
-          black ? "-black" : ""
-        }.svg`}
+        src={`/assets/static/sdk/privy/twitter${black ? "-black" : ""}.svg`}
         width={size}
       />
     );
@@ -67,9 +58,7 @@ export function RenderPrivyTypeIcon({
   }
   return (
     <img
-      src={`/assets/static/sdk/privy/email${
-        black ? "-black" : ""
-      }.svg`}
+      src={`/assets/static/sdk/privy/email${black ? "-black" : ""}.svg`}
       width={size}
     />
   );

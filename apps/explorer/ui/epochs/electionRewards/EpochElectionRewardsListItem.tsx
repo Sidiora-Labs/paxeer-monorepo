@@ -21,29 +21,32 @@ interface Props {
 
 const EpochElectionRewardsListItem = ({ data, isLoading, type }: Props) => {
   const section = useDisclosure();
+  const detailsId = React.useId();
 
   return (
     <Box
       py={ 3 }
-      borderBottomWidth="1px"
+      borderBottomWidth="1"
       borderColor="border.divider"
       fontSize="sm"
-      onClick={ isLoading || !data.count ? undefined : section.onToggle }
-      cursor={ isLoading || !data.count ? undefined : 'pointer' }
     >
-      <Flex my="3px" columnGap={ 3 } alignItems="center" flexWrap="wrap" rowGap={ 2 }>
+      <Flex my="var(--chakra-spacing-0\.5)" columnGap={ 3 } alignItems="center" flexWrap="wrap" rowGap={ 2 }
+      >
         { data.count ? (
           <Skeleton loading={ isLoading } display="flex" borderRadius="sm">
             <IconButton
               aria-label={ section.open ? 'Collapse section' : 'Expand section' }
+              onClick={ section.onToggle }
+              aria-expanded={ section.open }
+              aria-controls={ detailsId }
+              disabled={ isLoading }
               variant="link"
-              boxSize={ 6 }
             >
               <IconSvg
                 name="arrows/east-mini"
                 boxSize={ 6 }
                 transform={ section.open ? 'rotate(270deg)' : 'rotate(180deg)' }
-                transitionDuration="faster"
+                _motionSafe={{ transitionProperty: 'transform', transitionDuration: 'faster' }}
               />
             </IconButton>
           </Skeleton>
@@ -55,11 +58,11 @@ const EpochElectionRewardsListItem = ({ data, isLoading, type }: Props) => {
           token={ data.token }
           accuracy={ 0 }
           loading={ isLoading }
-          fontWeight={ 500 }
+          fontWeight="medium"
         />
       </Flex>
       { section.open && (
-        <Box mt={ 2 }>
+        <Box id={ detailsId } mt={ 2 }>
           <EpochElectionRewardDetailsMobile type={ type } token={ data.token }/>
         </Box>
       ) }

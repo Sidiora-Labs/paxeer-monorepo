@@ -18,12 +18,12 @@ interface Props {
 const ClustersDirectoryTable = ({ data, isLoading, top, isClusterDetailsLoading }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot>
+      <TableRoot aria-label="Name service clusters" aria-busy={ isLoading }>
         <TableHeaderSticky top={ top }>
           <TableRow>
             <TableColumnHeader width="40%">Cluster name</TableColumnHeader>
             <TableColumnHeader width="40%">Address</TableColumnHeader>
-            <TableColumnHeader width="180px">
+            <TableColumnHeader width="calc({spacing.40.5} + {spacing.4.5})">
               Joined
               <TimeFormatToggle/>
             </TableColumnHeader>

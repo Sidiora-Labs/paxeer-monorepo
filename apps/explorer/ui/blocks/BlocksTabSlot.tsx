@@ -13,6 +13,8 @@ import { Tooltip } from 'toolkit/chakra/tooltip';
 import { nbsp } from 'toolkit/utils/htmlEntities';
 import IconSvg from 'ui/shared/IconSvg';
 
+import { getNetworkUtilizationColor } from './networkUtilizationColors';
+
 const BlocksTabSlot = () => {
   const statsQuery = useApiQuery('general:stats', {
     queryOptions: {
@@ -23,14 +25,20 @@ const BlocksTabSlot = () => {
   const networkUtilization = getNetworkUtilizationParams(statsQuery.data?.network_utilization_percentage ?? 0);
 
   return (
-    <Flex alignItems="center" columnGap={ 8 } display={{ base: 'none', lg: 'flex' }}>
+    <Flex alignItems="center" columnGap={ 8 } flexWrap="wrap" minW={ 0 } display={{ base: 'none', lg: 'flex' }}>
       { statsQuery.data?.network_utilization_percentage !== undefined && (
         <Box>
           <Text as="span" fontSize="sm">
             Network utilization (last 50 blocks):{ nbsp }
           </Text>
           <Tooltip content={ `${ upperFirst(networkUtilization.load) } load` }>
-            <Skeleton display="inline-block" fontSize="sm" color={ networkUtilization.color } fontWeight={ 600 } loading={ statsQuery.isPlaceholderData }>
+            <Skeleton
+              display="inline-block"
+              fontSize="sm"
+              color={ getNetworkUtilizationColor(networkUtilization.load) }
+              fontWeight="semibold"
+              loading={ statsQuery.isPlaceholderData }
+            >
               <span>{ statsQuery.data.network_utilization_percentage.toFixed(2) }%</span>
             </Skeleton>
           </Tooltip>

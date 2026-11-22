@@ -76,6 +76,17 @@ func TestAuthenticatedWebSocketRejectsInvalidHandshakeAndSubscribe(t *testing.T)
 	const origin = "https://web.example"
 	srv, _ := newServer(t, ws.Options{PrivateStream: stream, AllowedOrigins: []string{origin}})
 	endpoint := "ws" + strings.TrimPrefix(srv.URL, "http") + "/v2/stream"
+	for _, origins := range [][]string{{""}, {" "}, {"*"}} {
+		hub := ws.NewHub(ws.Options{PrivateStream: stream, AllowedOrigins: origins})
+		req := httptest.NewRequest(http.MethodGet, "/v2/stream", nil)
+		req.Header.Set("Sec-WebSocket-Protocol", "sidiora.v2")
+		response := httptest.NewRecorder()
+		hub.HandleV2(response, req)
+		if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), "FORBIDDEN") {
+			t.Fatalf("empty origin admission: %d %s", response.Code, response.Body)
+		}
+	}
+
 	for _, check := range []struct {
 		name, path, requestOrigin string
 		protocols                 []string
@@ -224,7 +235,7 @@ func TestAuthenticatedWebSocketSnapshotAndSubscription(t *testing.T) {
 		{"invalid query encoding", "/v2/snapshots?topics=%zz", origin, 422},
 		{"invalid topic shape", "/v2/snapshots?topics=" + strings.Repeat("x", 257), origin, 422},
 		{"private authentication", "/v2/snapshots?topics=private.notifications.0x" + strings.Repeat("1", 40), origin, 401},
-		{"unknown topic", "/v2/snapshots?topics=market.price.0x" + strings.Repeat("3", 40), origin, 503},
+		{"topic without a frame", "/v2/snapshots?topics=market.price.0x" + strings.Repeat("3", 40), origin, 404},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req, err := http.NewRequest(http.MethodGet, srv.URL+tc.path, nil)

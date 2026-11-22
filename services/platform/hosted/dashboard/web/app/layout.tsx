@@ -1,11 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LayerX Developer",
-  description: "API keys, usage, protocol requests, webhook delivery and verified receipts",
+  other: { "text-scale": "scale" },
+  description:
+    "API keys, usage, protocol requests, webhook delivery and verified receipts",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+export const viewport: Viewport = { colorScheme: "light dark" };
+
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
 }

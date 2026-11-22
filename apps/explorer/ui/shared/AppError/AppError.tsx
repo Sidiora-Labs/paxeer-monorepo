@@ -93,17 +93,17 @@ const AppError = ({ error, className }: Props) => {
             <AppErrorIcon statusCode={ statusCode }/>
             <AppErrorTitle title={ title }/>
             <Text color="text.secondary" mt={ 3 }>{ text }</Text>
-            <Link
-              href={ route({ pathname: '/' }) }
+            <Button
               asChild
+              display="inline-flex"
+              mt={ 8 }
+              size="md"
+              variant="outline"
             >
-              <Button
-                mt={ 8 }
-                variant="outline"
-              >
+              <Link href={ route({ pathname: '/' }) } variant="plain">
                 Back to home
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             { statusCode === 404 && <AdBanner mt={ 12 }/> }
           </>
         );
@@ -112,7 +112,7 @@ const AppError = ({ error, className }: Props) => {
   })();
 
   return (
-    <Box className={ className } mt={{ base: '52px', lg: '104px' }} maxW="800px">
+    <Box className={ className } mt={{ base: 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))', lg: 'calc(var(--chakra-spacing-24) + var(--chakra-spacing-2))' }} maxW="var(--chakra-spacing-200)">
       { content }
     </Box>
   );

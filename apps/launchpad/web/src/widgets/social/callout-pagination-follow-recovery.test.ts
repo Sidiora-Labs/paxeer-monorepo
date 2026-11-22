@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { afterAll, afterEach, expect, test } from 'vitest';
+import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import type { Callout, CalloutListResponse, FeedCard, FeedPage } from '@/core/market/use-feed';
 
 // Committed loopback service fixtures exercise the SDK codecs and the mounted consumers.
@@ -27,6 +28,7 @@ for (const key of Object.getOwnPropertyNames(dom.window)) {
 globals.window = dom.window;
 globals.document = dom.window.document;
 globals.IS_REACT_ACT_ENVIRONMENT = true;
+applySurfaceTestStyle();
 
 const viewer = '0x1111111111111111111111111111111111111111';
 const subject = '0x2222222222222222222222222222222222222222';

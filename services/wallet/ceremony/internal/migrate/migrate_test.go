@@ -17,8 +17,23 @@ func TestDeliverStopsTheRunOnSignatureMismatch(t *testing.T) {
 func TestDeliverRefusesEnvelopeAddressMismatch(t *testing.T) {
 	migrationRecoveryTestEnvelopeMismatch(t)
 }
-func TestDeliverRefusesReplacementForExternalIdentity(t *testing.T) {
+func TestDeliverLeavesExternalIdentityUnchanged(t *testing.T) {
 	migrationRecoveryTestExternalIdentity(t)
+}
+
+func TestWaitingIdentityPlanPartitionsEligibleWallets(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "agent", "standard")
+	f.data.wallets[0].DID = ""
+	f.data.wallets[0].MainAccountID = ""
+	f.data.wallets[0].OriginalIdentityKeyID = ""
+	f.data.wallets[0].ProvisioningState = ""
+	plan := f.plan(t)
+	if len(plan.Eligible) != 3 || len(plan.Deliverable) != 1 || len(plan.WaitingIdentity) != 1 || len(plan.ExternalIdentity) != 1 {
+		t.Fatalf("plan partitions: %+v", plan)
+	}
+	if plan.WaitingIdentity[0].ID != f.data.wallets[0].ID || plan.ExternalIdentity[0].ID != f.data.wallets[1].ID || plan.Deliverable[0].ID != f.data.wallets[2].ID {
+		t.Fatalf("plan order changed: waiting=%v external=%v deliverable=%v", plan.WaitingIdentity[0].ID, plan.ExternalIdentity[0].ID, plan.Deliverable[0].ID)
+	}
 }
 
 func TestLoadOptionsRequiresProtectedSealingKey(t *testing.T) {

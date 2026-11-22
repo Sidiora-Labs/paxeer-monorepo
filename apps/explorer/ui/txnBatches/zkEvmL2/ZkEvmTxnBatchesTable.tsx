@@ -2,8 +2,9 @@ import React from 'react';
 
 import type { ZkEvmL2TxnBatchesItem } from 'types/api/zkEvmL2';
 
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import ZkEvmTxnBatchesTableItem from './ZkEvmTxnBatchesTableItem';
 
@@ -15,18 +16,18 @@ type Props = {
 
 const ZkEvmTxnBatchesTable = ({ items, top, isLoading }: Props) => {
   return (
-    <TableRoot minW="1100px">
+    <ActivityTable label="Transaction batches" minW="var(--chakra-sizes-6xl)">
       <TableHeaderSticky top={ top }>
         <TableRow>
-          <TableColumnHeader width="40%">Batch #</TableColumnHeader>
+          <TableColumnHeader width="40%" isNumeric>Batch #</TableColumnHeader>
           <TableColumnHeader width="60%">Status</TableColumnHeader>
-          <TableColumnHeader width="180px">
+          <TableColumnHeader width="var(--chakra-spacing-44)">
             Timestamp
             <TimeFormatToggle/>
           </TableColumnHeader>
-          <TableColumnHeader width="100px">Txn count</TableColumnHeader>
-          <TableColumnHeader width="230px">Verify tx hash</TableColumnHeader>
-          <TableColumnHeader width="230px">Sequence hash</TableColumnHeader>
+          <TableColumnHeader width="var(--chakra-spacing-24)" isNumeric>Txn count</TableColumnHeader>
+          <TableColumnHeader width="var(--chakra-spacing-56)">Verify tx hash</TableColumnHeader>
+          <TableColumnHeader width="var(--chakra-spacing-56)">Sequence hash</TableColumnHeader>
         </TableRow>
       </TableHeaderSticky>
       <TableBody>
@@ -38,7 +39,7 @@ const ZkEvmTxnBatchesTable = ({ items, top, isLoading }: Props) => {
           />
         )) }
       </TableBody>
-    </TableRoot>
+    </ActivityTable>
   );
 };
 

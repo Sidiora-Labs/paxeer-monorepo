@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -30,16 +31,19 @@ func statusHandler(deps StatusDeps) http.HandlerFunc {
 
 		indexerHead, err := deps.Store.IndexerHead(ctx)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "status failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "status failed")
 			return
 		}
 		consumerBlock, err := deps.Store.ConsumerBlock(ctx)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "status failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "status failed")
 			return
 		}
 		cursor, err := deps.Store.GetCursor(ctx)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "status failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "status failed")
 			return
 		}

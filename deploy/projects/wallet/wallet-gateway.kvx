@@ -2,13 +2,13 @@
 kind = "repo"
 dockerfile = "docker/wallet-gateway/Dockerfile"
 root = "."
-watch = "docker/wallet-gateway/**,docker/common/**,services/wallet/**,sdk/wallet/**"
+watch = ["docker/wallet-gateway/**", "docker/common/**", "services/wallet/**", "sdk/wallet/**"]
 health = "/healthz"
 restart = "ALWAYS"
 replicas = 1
 public = 1
 order = 10
-needs = "wallet-postgres"
+needs = ["wallet-postgres"]
 
 [vars.wallet-gateway]
 RAILWAY_GIT_COMMIT_SHA = "env:WALLET_WALLET_GATEWAY_RAILWAY_GIT_COMMIT_SHA"

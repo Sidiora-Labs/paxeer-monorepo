@@ -1,4 +1,4 @@
-import { Flex } from '@chakra-ui/react';
+import { Box, Flex } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TokenTransfer } from 'types/api/tokenTransfer';
@@ -6,9 +6,10 @@ import type { TokenTransfer } from 'types/api/tokenTransfer';
 import { route } from 'nextjs-routes';
 
 import { Link } from 'toolkit/chakra/link';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
+import breakpoints from 'toolkit/theme/foundations/breakpoints';
 import IconSvg from 'ui/shared/IconSvg';
 import TokenTransferSnippet from 'ui/shared/TokenTransferSnippet/TokenTransferSnippet';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 interface Props {
   data: Array<TokenTransfer>;
   txHash: string;
@@ -51,7 +52,32 @@ const TxDetailsTokenTransfers = ({ data, txHash, isOverflow }: Props) => {
                 rowGap={ 1 }
                 w="100%"
               >
-                { items.map((item, index) => <TokenTransferSnippet key={ index } data={ item }/>) }
+                { items.map((item, index) => (
+                  <Box
+                    key={ index }
+                    w="full"
+                    minW={ 0 }
+                    css={{
+                      '& [data-entity]': { flexWrap: 'wrap', maxW: 'full' },
+                      '& [data-entity-content]': { whiteSpace: 'normal', overflowWrap: 'anywhere' },
+                      '& > div > div:first-child': {
+                        minW: 0,
+                        maxW: 'full',
+                        gridTemplateColumns: 'minmax(0, 1fr)',
+                        rowGap: 2,
+                        '& > :last-child': { ml: 0 },
+                      },
+                      [`@container activity-details (min-width: ${ breakpoints.sm })`]: {
+                        '& > div > div:first-child': {
+                          gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+                          '& > :last-child': { ml: 3 },
+                        },
+                      },
+                    }}
+                  >
+                    <TokenTransferSnippet data={ item }/>
+                  </Box>
+                )) }
               </Flex>
               { isOverflow && (
                 <>

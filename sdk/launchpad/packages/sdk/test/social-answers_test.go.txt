@@ -1,0 +1,50 @@
+package app
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
+	"github.com/google/uuid"
+)
+
+func TestSDKSocialAnswers(t *testing.T) {
+	h := newDevHarness(t)
+	alice, bob := addr(0xa11ce), addr(0xb0b)
+	emit := func(operation, method, path, actor string, body any, status int, schema string) map[string]any {
+		result := h.do(method, path, actor, body, map[string]string{"Idempotency-Key": uuid.NewString()})
+		decoded := h.expect(result, status, schema)
+		var answer any
+		if len(result.body) != 0 {
+			if err := json.Unmarshal(result.body, &answer); err != nil {
+				t.Fatal(err)
+			}
+		}
+		record, err := json.Marshal(map[string]any{"operation": operation, "method": method, "path": path, "status": status, "body": answer})
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("SDK_SERVICE %s\n", record)
+		return decoded
+	}
+	comment := data(emit("IF_COMMENT_CREATE", "POST", "/v2/pools/"+h.pool+"/comments", alice, map[string]any{"body": "Pool research", "clientCommentId": uuid.NewString()}, 201, "CommentCreateResponse"))["comment"].(map[string]any)
+	id := comment["commentId"].(string)
+	emit("IF_COMMENTS_LIST", "GET", "/v2/pools/"+h.pool+"/comments?limit=1", "", nil, 200, "CommentsListResponse")
+	emit("IF_COMMENT_LIKE", "PUT", "/v2/comments/"+id+"/likes/me", bob, nil, 200, "CommentLikeResponse")
+	emit("IF_COMMENT_EDIT", "PATCH", "/v2/comments/"+id, alice, map[string]any{"body": "Updated research", "expectedRevision": "1"}, 200, "CommentEditResponse")
+	emit("IF_COMMENT_UNLIKE", "DELETE", "/v2/comments/"+id+"/likes/me", bob, nil, 204, "")
+	emit("IF_REPORT_CREATE", "POST", "/v2/reports", bob, map[string]any{"targetType": "comment", "targetId": id, "reason": "spam", "evidence": "Repeated content"}, 201, "ReportCreateResponse")
+	emit("IF_COMMENT_DELETE", "DELETE", "/v2/comments/"+id, alice, nil, 204, "")
+	emit("IF_CALLOUT_CREATE", "POST", "/v2/callouts", alice, map[string]any{"poolAddress": h.pool, "body": "Pool outlook", "direction": "neutral", "disclosure": "organic", "clientCalloutId": uuid.NewString()}, 201, "CalloutCreateResponse")
+	emit("IF_CALLOUT_LIST", "GET", "/v2/pools/"+h.pool+"/callouts?limit=1", "", nil, 200, "CalloutListResponse")
+	bounty := data(emit("IF_BOUNTY_CREATE", "POST", "/v2/bounties", alice, map[string]any{"title": "Pool research", "description": "Research the pool", "assetAddress": strings.ToLower(deployment.SettlementAddress), "budgetRaw": "5000000", "poolAddress": h.pool}, 201, "BountyCreateResponse"))["bounty"].(map[string]any)
+	bountyID := bounty["bountyId"].(string)
+	emit("IF_BOUNTY_LIST", "GET", "/v2/bounties?limit=1", alice, nil, 200, "BountyListResponse")
+	emit("IF_BOUNTY_GET", "GET", "/v2/bounties/"+bountyID, alice, nil, 200, "BountyGetResponse")
+	emit("IF_BOUNTY_SUBMISSIONS", "GET", "/v2/bounties/"+bountyID+"/submissions", alice, nil, 200, "BountySubmissionsResponse")
+	emit("IF_BOUNTIES_STATS", "GET", "/v2/bounties/stats", "", nil, 200, "BountiesStatsResponse")
+	emit("IF_BOUNTY_SUBMIT", "POST", "/v2/bounties/"+bountyID+"/submissions", bob, map[string]any{"body": "Pool analysis", "clientSubmissionId": uuid.NewString(), "evidenceUrls": []string{"https://example.org/research"}}, 404, "Error")
+	emit("IF_BOUNTY_ACCEPT", "POST", "/v2/bounties/"+uuid.NewString()+"/submissions/"+uuid.NewString()+":accept", alice, map[string]any{"awardRaw": "1", "expectedBountyRevision": "1"}, 404, "Error")
+}

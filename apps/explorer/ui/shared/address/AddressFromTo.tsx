@@ -31,6 +31,7 @@ const AddressFromTo = ({
   to,
   current,
   mode: modeProp,
+  truncation = 'constant',
   className, isLoading, tokenHash = '', tokenSymbol = '', noIcon }: Props) => {
   const mode = useBreakpointValue(
     {
@@ -90,8 +91,8 @@ const AddressFromTo = ({
             noIcon={ noIcon }
             tokenHash={ tokenHash }
             tokenSymbol={ tokenSymbol }
-            truncation="constant"
-            maxW="calc(100% - 28px)"
+            truncation={ truncation }
+            maxW="calc(100% - var(--chakra-spacing-7))"
             w="min-content"
             chainId={ fromChainId }
           />
@@ -105,10 +106,10 @@ const AddressFromTo = ({
             noIcon={ noIcon }
             tokenHash={ tokenHash }
             tokenSymbol={ tokenSymbol }
-            truncation="constant"
-            maxW="calc(100% - 28px)"
+            truncation={ truncation }
+            maxW="calc(100% - var(--chakra-spacing-7))"
             w="min-content"
-            ml="28px"
+            ml={ 7 }
             chainId={ toChainId }
           />
         ) }
@@ -122,7 +123,17 @@ const AddressFromTo = ({
     <Grid
       className={ className }
       alignItems="center"
-      gridTemplateColumns={ `minmax(auto, min-content) ${ direction ? 'max-content' : `${ iconSize }px` } minmax(auto, min-content)` }
+      gridTemplateColumns={ `minmax(0, min-content) ${ direction ? 'max-content' : `${ iconSize }px` } minmax(0, min-content)` }
+      css={{
+        '@media (max-width: 834px)': {
+          gridTemplateColumns: `minmax(0, max-content) ${ direction ? 'max-content' : `${ iconSize }px` } minmax(0, max-content)`,
+          '& > [data-entity]': { flexWrap: 'wrap' },
+          '& > [data-entity] [data-entity-link]': { flexBasis: 0, flexGrow: 1 },
+          '& > [data-entity] [data-entity-content] > span': {
+            display: 'block', maxW: 'full', overflow: 'hidden', textOverflow: 'ellipsis',
+          },
+        },
+      }}
     >
       <EntityFrom
         address={ from }
@@ -132,7 +143,7 @@ const AddressFromTo = ({
         noIcon={ noIcon }
         tokenHash={ tokenHash }
         tokenSymbol={ tokenSymbol }
-        truncation="constant"
+        truncation={ truncation }
         mr={ isOutgoing ? 4 : 2 }
         chainId={ fromChainId }
         w="auto"
@@ -154,7 +165,7 @@ const AddressFromTo = ({
           noIcon={ noIcon }
           tokenHash={ tokenHash }
           tokenSymbol={ tokenSymbol }
-          truncation="constant"
+          truncation={ truncation }
           ml={ 3 }
           chainId={ toChainId }
           w="auto"

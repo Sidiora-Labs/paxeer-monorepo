@@ -75,9 +75,9 @@ function useUserProfile(walletAddress: string) {
 
 /** Owner-only: the approved asset behind a v3 asset id, read through the gateway account asset route. */
 function useOwnedAssetUrl(walletAddress: string, assetId: string | null) {
-  const query = usePrivateAccountQuery('profile-asset', () => readAccountAsset(walletAddress, assetId as string), [assetId ?? ''], walletAddress);
+  const query = usePrivateAccountQuery('profile-asset', () => readAccountAsset(walletAddress, assetId as string), [assetId ?? ''], walletAddress, Boolean(assetId));
   const asset = assetId ? query.data : undefined;
-  return { url: asset?.state === 'approved' ? asset.publicUrl : null, pending: Boolean(assetId) && query.owner && query.isPending, owner: query.owner };
+  return { url: asset?.state === 'approved' ? asset.publicUrl : null, error: assetId ? query.error : null, refetch: () => { if (query.owner && assetId) void query.refetch(); } };
 }
 
 function useProfileMedia(walletAddress: string, profile: ProfileIdentity | null | undefined) {
@@ -88,6 +88,11 @@ function useProfileMedia(walletAddress: string, profile: ProfileIdentity | null 
   return {
     avatarUrl: avatarAsset.url ?? null,
     bannerUrl: bannerAsset.url ?? null,
+    error: avatarAsset.error ?? bannerAsset.error,
+    refresh() {
+      if (profile?.avatarAssetId) void avatarAsset.refetch();
+      if (profile?.bannerAssetId) void bannerAsset.refetch();
+    },
   };
 }
 
@@ -98,11 +103,11 @@ export function useProfileData(walletAddress: string) {
   const isOwner = !!auth.session && auth.session.session.wallet.toLowerCase() === walletAddress.toLowerCase();
   const profileQuery = useUserProfile(walletAddress);
   const media = useProfileMedia(walletAddress, profileQuery.data);
-  const refreshProfile = useCallback(() => { void profileQuery.refetch(); }, [profileQuery]);
+  const refreshProfile = useCallback(() => { void profileQuery.refetch(); media.refresh(); }, [profileQuery, media]);
   return {
     profile: profileQuery.data ?? null,
     profileLoading: profileQuery.isPending && isValidWallet,
-    profileError: profileQuery.error instanceof Error ? profileQuery.error.message : null,
+    profileError: profileQuery.error instanceof Error ? profileQuery.error.message : media.error instanceof Error ? media.error.message : null,
     refreshProfile,
     avatarUrl: media.avatarUrl,
     bannerUrl: media.bannerUrl,

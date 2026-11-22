@@ -10,6 +10,7 @@ import useInitialList from 'lib/hooks/useInitialList';
 import getNetworkValidatorTitle from 'lib/networks/getNetworkValidatorTitle';
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import BlocksTableItem from 'ui/blocks/BlocksTableItem';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
 import * as SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
@@ -48,52 +49,54 @@ const BlocksTable = ({ data, isLoading, top, page, showSocketInfo, socketInfoNum
 
   return (
     <AddressHighlightProvider>
-      <TableRoot variant="scan" css={ LIST_TABLE_STYLES } minWidth={ chainData ? '1100px' : '1070px' } fontWeight={ 500 }>
-        <TableHeaderSticky top={ top }>
-          <TableRow>
-            { chainData && <TableColumnHeader width="38px"/> }
-            <TableColumnHeader width="180px">
-              Block
-              <TimeFormatToggle/>
-            </TableColumnHeader>
-            <TableColumnHeader width="120px" isNumeric>Size, bytes</TableColumnHeader>
-            { !appConfig.UI.views.block.hiddenFields?.miner && (
-              <TableColumnHeader width={ `${ VALIDATOR_COL_WEIGHT / widthBase * 100 }%` } minW="160px">
-                { capitalize(getNetworkValidatorTitle()) }
+      <TableScrollArea label="Blocks">
+        <TableRoot aria-label="Blocks" variant="scan" css={ LIST_TABLE_STYLES } minWidth="full" fontWeight="medium">
+          <TableHeaderSticky top={ top }>
+            <TableRow>
+              { chainData && <TableColumnHeader width="var(--chakra-spacing-9)"/> }
+              <TableColumnHeader width="var(--chakra-spacing-40\.5)">
+                Block
+                <TimeFormatToggle/>
               </TableColumnHeader>
-            ) }
-            <TableColumnHeader width="64px" isNumeric>Txn</TableColumnHeader>
-            <TableColumnHeader width={ `${ GAS_COL_WEIGHT / widthBase * 100 }%` } isNumeric>Gas used</TableColumnHeader>
-            { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward &&
+              <TableColumnHeader width="var(--chakra-spacing-30)" isNumeric>Size, bytes</TableColumnHeader>
+              { !appConfig.UI.views.block.hiddenFields?.miner && (
+                <TableColumnHeader width={ `${ VALIDATOR_COL_WEIGHT / widthBase * 100 }%` } minW="var(--chakra-spacing-40)">
+                  { capitalize(getNetworkValidatorTitle()) }
+                </TableColumnHeader>
+              ) }
+              <TableColumnHeader width="var(--chakra-spacing-16)" isNumeric>Txn</TableColumnHeader>
+              <TableColumnHeader width={ `${ GAS_COL_WEIGHT / widthBase * 100 }%` } isNumeric>Gas used</TableColumnHeader>
+              { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward &&
               <TableColumnHeader width={ `${ REWARD_COL_WEIGHT / widthBase * 100 }%` } isNumeric>Reward { currency.symbol || 'ETH' }</TableColumnHeader> }
-            { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees &&
+              { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees &&
               <TableColumnHeader width={ `${ FEES_COL_WEIGHT / widthBase * 100 }%` } isNumeric>Burnt fees { currency.symbol || 'ETH' }</TableColumnHeader> }
-            { !isRollup && !appConfig.UI.views.block.hiddenFields?.base_fee &&
-              <TableColumnHeader width="150px" isNumeric>Base fee</TableColumnHeader> }
-          </TableRow>
-        </TableHeaderSticky>
-        <TableBody>
-          { showSocketInfo && (
-            <SocketNewItemsNotice.Desktop
-              showErrorAlert={ showSocketErrorAlert }
-              num={ socketInfoNum }
-              type="block"
-              isLoading={ isLoading }
-            />
-          ) }
-          { data.map((item, index) => (
-            <BlocksTableItem
-              key={ item.hash + (isLoading ? `${ index }_${ page }` : '') }
-              data={ item }
-              enableTimeIncrement={ page === 1 && !isLoading }
-              isLoading={ isLoading }
-              animation={ initialList.getAnimationProp(item) }
-              chainData={ chainData }
-              appConfig={ appConfig }
-            />
-          )) }
-        </TableBody>
-      </TableRoot>
+              { !isRollup && !appConfig.UI.views.block.hiddenFields?.base_fee &&
+              <TableColumnHeader width="var(--chakra-spacing-37\.5)" isNumeric>Base fee</TableColumnHeader> }
+            </TableRow>
+          </TableHeaderSticky>
+          <TableBody>
+            { showSocketInfo && (
+              <SocketNewItemsNotice.Desktop
+                showErrorAlert={ showSocketErrorAlert }
+                num={ socketInfoNum }
+                type="block"
+                isLoading={ isLoading }
+              />
+            ) }
+            { data.map((item, index) => (
+              <BlocksTableItem
+                key={ item.hash + (isLoading ? `${ index }_${ page }` : '') }
+                data={ item }
+                enableTimeIncrement={ page === 1 && !isLoading }
+                isLoading={ isLoading }
+                animation={ initialList.getAnimationProp(item) }
+                chainData={ chainData }
+                appConfig={ appConfig }
+              />
+            )) }
+          </TableBody>
+        </TableRoot>
+      </TableScrollArea>
     </AddressHighlightProvider>
   );
 };

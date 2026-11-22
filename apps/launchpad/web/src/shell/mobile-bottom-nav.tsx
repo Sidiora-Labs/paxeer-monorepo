@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { CircleEllipsis, CirclePlus, X, type LucideIcon } from 'lucide-react';
 import { isRouteActive, routeForPath } from '@/core/app-foundation/navigation';
-import { useDialogFocus } from '@/core/app-foundation/use-dialog-focus';
+import { ModalDialog } from '@/core/app-foundation/modal-dialog';
 import { useAccountSession } from '@/widgets/profile/use-account-session';
 import { IconButton } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,7 @@ export const BOTTOM_NAV_HEIGHT_PX = 56;
 export const BOTTOM_NAV_IDS = ['home', 'explore', 'create', 'bounties'] as const;
 
 function configured(id: string): NavItem {
-  const item = id === createItem.id ? createItem : navItems.find(entry => entry.id === id);
+  const item = id === createItem.id ? createItem : navItems.find((entry) => entry.id === id);
   if (!item) throw new Error(`Navigation item ${id} is not configured`);
   return item;
 }
@@ -46,22 +46,29 @@ export interface MoreSheetGroup {
  */
 export function moreSheetGroups(walletReady: boolean, sessionReady: boolean): MoreSheetGroup[] {
   const pinned = new Set<string>(BOTTOM_NAV_IDS);
-  const pick = (section: NavItem['section']) => navItems.filter(item => item.section === section && !pinned.has(item.id) && isNavItemEligible(item, walletReady, sessionReady));
+  const pick = (section: NavItem['section']) =>
+    navItems.filter(
+      (item) =>
+        item.section === section &&
+        !pinned.has(item.id) &&
+        isNavItemEligible(item, walletReady, sessionReady)
+    );
   const groups: MoreSheetGroup[] = [
     { id: 'browse', label: 'Browse', items: pick('main') },
     { id: 'account', label: 'Your account', items: pick('signed-in') },
     { id: 'resources', label: 'Resources', items: pick('bottom') },
   ];
-  return groups.filter(group => group.items.length > 0);
+  return groups.filter((group) => group.items.length > 0);
 }
 
 /** Icon overrides for the bottom bar: the reference draws create as an outlined circled plus, not a filled tile. */
 const barIcon: Partial<Record<string, LucideIcon>> = { create: CirclePlus };
 
-const targetClass = (active: boolean) => cn(
-  'flex min-h-touch-target-min w-full items-center justify-center rounded-sm transition-colors duration-fast active:bg-surface-active',
-  active ? 'text-accent' : 'text-text hover:text-text-muted',
-);
+const targetClass = (active: boolean) =>
+  cn(
+    'flex min-h-touch-target-min w-full items-center justify-center rounded-sm transition-colors duration-fast active:bg-surface-active',
+    active ? 'bg-accent-soft text-accent' : 'text-text hover:text-text-muted'
+  );
 
 export default function MobileBottomNav() {
   const pathname = usePathname() ?? '/';
@@ -72,20 +79,22 @@ export default function MobileBottomNav() {
   const [openedOn, setOpenedOn] = useState<string | null>(null);
   const open = openedOn !== null && openedOn === pathname;
   const close = useCallback(() => setOpenedOn(null), []);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(sheetRef, open);
 
   useEffect(() => {
     if (!open) return;
     const wide = window.matchMedia(`(min-width: ${BOTTOM_NAV_BREAKPOINT_PX}px)`);
-    const closeWhenWide = () => { if (wide.matches) close(); };
+    const closeWhenWide = () => {
+      if (wide.matches) close();
+    };
     closeWhenWide();
     wide.addEventListener('change', closeWhenWide);
     return () => wide.removeEventListener('change', closeWhenWide);
   }, [open, close]);
 
   const groups = moreSheetGroups(walletReady, !!session);
-  const moreActive = groups.some(group => group.items.some(item => isRouteActive(pathname, item.href)));
+  const moreActive = groups.some((group) =>
+    group.items.some((item) => isRouteActive(pathname, item.href))
+  );
   const targets = BOTTOM_NAV_IDS.map(configured);
 
   return (
@@ -93,15 +102,15 @@ export default function MobileBottomNav() {
       <nav
         aria-label="Mobile navigation"
         className="fixed inset-x-0 bottom-0 z-[var(--sl-z-rail)] bg-surface-1 md:hidden"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0rem)' }}
       >
-        <ul className="flex h-14 items-stretch px-2">
-          {targets.map(item => {
+        <ul className="flex min-h-bottom-nav items-stretch px-2">
+          {targets.map((item) => {
             const active = isRouteActive(pathname, item.href);
             const Icon = barIcon[item.id] ?? item.icon;
             return (
               <li key={item.id} className="flex min-w-0 flex-1 items-center">
-                <Link
+                <Link prefetch={false}
                   href={item.href}
                   aria-label={item.label}
                   aria-current={active ? 'page' : undefined}
@@ -122,61 +131,67 @@ export default function MobileBottomNav() {
               onClick={() => setOpenedOn(open ? null : pathname)}
               className={targetClass(moreActive)}
             >
-              <CircleEllipsis aria-hidden="true" className="size-6" strokeWidth={moreActive ? 2.25 : 2} />
+              <CircleEllipsis
+                aria-hidden="true"
+                className="size-6"
+                strokeWidth={moreActive ? 2.25 : 2}
+              />
             </button>
           </li>
         </ul>
       </nav>
 
       {open ? (
-        <div className="fixed inset-0 z-[var(--sl-z-modal)] md:hidden">
-          <button type="button" aria-label="Close menu" tabIndex={-1} onClick={close} className="absolute inset-0 bg-[var(--sl-tint-scrim)]" />
+        <ModalDialog
+          open={open}
+          onClose={close}
+          aria-label="More"
+          className="!inset-x-0 !bottom-0 !top-auto !m-0 !w-full !max-w-none flex-col rounded-t-lg bg-surface-2 md:hidden"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0rem)' }}
+        >
           <div
-            ref={sheetRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label="More"
-            onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}
-            className="absolute inset-x-0 bottom-0 flex max-h-[80dvh] flex-col rounded-t-lg bg-surface-2"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-          >
-            <div aria-hidden="true" className="mx-auto mt-2 h-1 w-8 shrink-0 rounded-pill bg-surface-3" />
-            <div className="flex shrink-0 items-center justify-between px-4 pt-1">
-              <h2 className="text-md font-bold text-text">More</h2>
-              <IconButton label="Close menu" icon={<X />} variant="ghost" size="md" onClick={close} />
-            </div>
-            <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-2 pb-3 pt-1">
-              {groups.map(group => (
-                <section key={group.id} aria-label={group.label} className="flex flex-col">
-                  {group.id === 'browse' ? null : <h3 className="px-3 pb-1 text-2xs font-semibold uppercase text-text-faint">{group.label}</h3>}
-                  <ul className="flex flex-col">
-                    {group.items.map(item => {
-                      const active = isRouteActive(pathname, item.href);
-                      const Icon = item.icon;
-                      return (
-                        <li key={item.id}>
-                          <Link
-                            href={item.href}
-                            aria-current={active ? 'page' : undefined}
-                            data-route-id={routeForPath(item.href)?.id}
-                            onClick={close}
-                            className={cn(
-                              'flex h-12 items-center gap-3 rounded-sm px-3 text-base font-semibold transition-colors duration-fast active:bg-surface-active',
-                              active ? 'bg-surface-3 text-accent' : 'text-text hover:bg-surface-hover',
-                            )}
-                          >
-                            <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
-                            <span className="truncate">{item.label}</span>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ))}
-            </div>
+            aria-hidden="true"
+            className="mx-auto mt-2 h-1 w-8 shrink-0 rounded-pill bg-surface-3"
+          />
+          <div className="flex shrink-0 items-center justify-between px-4 pt-1">
+            <h2 className="text-md font-bold text-text">More</h2>
+            <IconButton label="Close menu" icon={<X />} variant="ghost" size="md" onClick={close} />
           </div>
-        </div>
+          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-2 pb-3 pt-1">
+            {groups.map((group) => (
+              <section key={group.id} aria-label={group.label} className="flex flex-col">
+                {group.id === 'browse' ? null : (
+                  <h3 className="px-3 pb-1 text-2xs font-semibold uppercase text-text-faint">
+                    {group.label}
+                  </h3>
+                )}
+                <ul className="flex flex-col">
+                  {group.items.map((item) => {
+                    const active = isRouteActive(pathname, item.href);
+                    const Icon = item.icon;
+                    return (
+                      <li key={item.id}>
+                        <Link prefetch={false}
+                          href={item.href}
+                          aria-current={active ? 'page' : undefined}
+                          data-route-id={routeForPath(item.href)?.id}
+                          onClick={close}
+                          className={cn(
+                            'flex min-h-12 items-center py-2 gap-3 rounded-sm px-3 text-base font-semibold transition-colors duration-fast active:bg-surface-active',
+                            active ? 'bg-surface-3 text-accent' : 'text-text hover:bg-surface-hover'
+                          )}
+                        >
+                          <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
+        </ModalDialog>
       ) : null}
     </>
   );

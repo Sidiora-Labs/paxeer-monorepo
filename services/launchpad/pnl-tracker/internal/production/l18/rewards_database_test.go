@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"sort"
@@ -119,6 +120,7 @@ func rewardHistoryContains(list []string, s string) bool {
 // and the service's durable write responses are served over its real protocol.
 type rewardHistoryDatabase struct {
 	mu               sync.Mutex
+	plan             map[int64]string
 	catalog          rewardHistoryCatalog
 	manifest         production.RoleManifest
 	grants           map[string]map[string]bool
@@ -135,6 +137,7 @@ type rewardHistoryDatabase struct {
 	outbox           map[string]string
 	audit            map[string]string
 	queries          []string
+	queryArgs        [][]string
 	claimPages       []int
 }
 
@@ -201,6 +204,39 @@ func rewardHistoryBootstrap(t *testing.T) *rewardHistoryDatabase {
 		if m.RuntimeRole == "pnl_runtime" {
 			d.manifest = m
 		}
+	}
+	catalog, err := registry.ValidateOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemas := map[string]bool{d.manifest.Schema: true}
+	for _, grant := range d.manifest.Grants {
+		if grant.Schema != "migration_control" {
+			schemas[grant.Schema] = true
+		}
+	}
+	d.plan = map[int64]string{}
+	var include func(int64)
+	include = func(id int64) {
+		if d.plan[id] != "" {
+			return
+		}
+		manifest, ok := catalog[id]
+		if !ok {
+			t.Fatalf("unregistered dependency %d", id)
+		}
+		d.plan[id] = manifest.SHA256
+		for _, predecessor := range manifest.PredecessorIDs {
+			include(predecessor)
+		}
+	}
+	for _, manifest := range registry.Registrations {
+		if schemas[manifest.Schema] {
+			include(manifest.MigrationID)
+		}
+	}
+	if !reflect.DeepEqual(d.catalog.Applied, d.plan) {
+		t.Fatal("catalog differs from the runtime's complete registered dependency plan")
 	}
 	provisioning, err := d.manifest.ProvisionSQL()
 	if err != nil {
@@ -338,6 +374,7 @@ func (d *rewardHistoryDatabase) query(sql string, args []string) (rewardHistoryR
 	defer d.mu.Unlock()
 	sql = strings.Join(strings.Fields(sql), " ")
 	d.queries = append(d.queries, sql)
+	d.queryArgs = append(d.queryArgs, append([]string(nil), args...))
 	if d.transport != nil {
 		if result, handled, err := d.transport.query(sql, args); handled {
 			return result, err
@@ -393,6 +430,47 @@ func (d *rewardHistoryDatabase) query(sql string, args []string) (rewardHistoryR
 			return ok, fmt.Errorf("unavailable source checkpoint")
 		}
 		return rewardHistoryRows([]uint32{25, 16, 16}, []string{rewardHistoryHash(rewardHistoryUint(args[1])), "t", "t"}), nil
+	case strings.HasPrefix(sql, "SELECT c.nft_id::text,c.pool,c.creator,c.height,"):
+		if err := rewardHistoryRequire(sql, "c.nft_id>$1::numeric AND c.height<=$2", "b.chain_id=l.chain_id AND b.stream_id=$3", "b.height=l.height AND b.block_hash=l.block_hash AND b.fetch_complete AND b.required_decode_complete", "l.chain_id=125", "l.emitter=$4 AND l.topics->>0=$5 AND l.topics->>2=$6", "jsonb_array_length(l.topics)=4 AND l.height<=$2", "CASE WHEN l.topics->>3 ~ '^0x[0-9a-f]{64}$' THEN (l.topics->>3)::numeric END=c.nft_id", "l.emitter=$7 AND l.topics->>0=$8", "l.topics->>1='0x000000000000000000000000'||lower(substr(c.pool,3)) AND l.topics->>2=$6 AND l.height<=$2", "ORDER BY c.nft_id LIMIT 100"); err != nil {
+			return ok, err
+		}
+		if len(args) != 8 || args[2] != rewardHistoryStream || args[3] != NFT || args[4] != nft.Events["Transfer"].ID.Hex() || args[6] != Accumulator || args[7] != accumulator.Events["FeesClaimed"].ID.Hex() {
+			return ok, fmt.Errorf("unadmitted reward candidate interface")
+		}
+		after, _ := new(big.Int).SetString(args[0], 10)
+		height := rewardHistoryUint(args[1])
+		markets := append([]rewardHistoryMarket(nil), d.peers.Markets...)
+		sort.Slice(markets, func(i, j int) bool {
+			a, _ := new(big.Int).SetString(markets[i].ID, 10)
+			b, _ := new(big.Int).SetString(markets[j].ID, 10)
+			return a.Cmp(b) < 0
+		})
+		result := rewardHistoryRows([]uint32{25, 25, 25, 20, 25, 25, 25, 25})
+		for _, m := range markets {
+			id, _ := new(big.Int).SetString(m.ID, 10)
+			if id.Cmp(after) <= 0 || m.Height > height {
+				continue
+			}
+			candidate := false
+			for _, x := range d.peers.Transfers {
+				if x.NFTID == m.ID && addressTopic(x.Owner) == args[5] && x.Height <= height && x.BlockHash == rewardHistoryHash(x.Height) {
+					candidate = true
+				}
+			}
+			for _, x := range d.peers.Claims {
+				if addressTopic(x.Pool) == addressTopic(m.Pool) && addressTopic(x.Wallet) == args[5] && x.Height <= height && x.BlockHash == rewardHistoryHash(x.Height) {
+					candidate = true
+				}
+			}
+			if candidate {
+				result.rows = append(result.rows, rewardHistoryMarketRow(m))
+				if len(result.rows) == 100 {
+					break
+				}
+			}
+		}
+		result.tag = fmt.Sprintf("SELECT %d", len(result.rows))
+		return result, nil
 	case strings.Contains(sql, "FROM indexer.indexer_raw_logs_v1"):
 		if err := rewardHistoryRequire(sql, "b.stream_id=$1", "b.height=l.height", "b.block_hash=l.block_hash", "b.fetch_complete AND b.required_decode_complete", "l.chain_id=125", "l.topics->>0=$3"); err != nil {
 			return ok, err
@@ -622,6 +700,9 @@ func rewardHistorySignature(sql string) (params, fields []uint32) {
 	case strings.Contains(sql, "FROM indexer.indexer_block_completeness_v1"):
 		params = []uint32{25, 20}
 		fields = []uint32{25, 16, 16}
+	case strings.HasPrefix(sql, "SELECT c.nft_id::text,c.pool,c.creator,c.height,"):
+		params = []uint32{1700, 20, 25, 25, 25, 25, 25, 25}
+		fields = []uint32{25, 25, 25, 20, 25, 25, 25, 25}
 	case strings.Contains(sql, "FROM indexer.indexer_raw_logs_v1"):
 		if strings.Contains(sql, "SELECT l.topics->>2") {
 			params = []uint32{25, 25, 25, 25, 20}
@@ -899,22 +980,46 @@ func rewardHistoryPack(a abi.ABI, method string, value any) (string, error) {
 func (d *rewardHistoryDatabase) rpcResponse(w http.ResponseWriter, r *http.Request) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	var req struct {
+	type request struct {
 		ID     json.RawMessage   `json:"id"`
 		Method string            `json:"method"`
 		Params []json.RawMessage `json:"params"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var raw json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	result, err := d.rpcResult(req.Method, req.Params)
+	respond := func(req request) map[string]any {
+		result, err := d.rpcResult(req.Method, req.Params)
+		response := map[string]any{"jsonrpc": "2.0", "id": req.ID}
+		if err != nil {
+			response["error"] = map[string]any{"code": -32000, "message": err.Error()}
+		} else {
+			response["result"] = result
+		}
+		return response
+	}
 	w.Header().Set("Content-Type", "application/json")
-	if err != nil {
-		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "error": map[string]any{"code": -32000, "message": err.Error()}})
+	if len(raw) > 0 && raw[0] == '[' {
+		var requests []request
+		if err := json.Unmarshal(raw, &requests); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		responses := make([]map[string]any, len(requests))
+		for i, req := range requests {
+			responses[i] = respond(req)
+		}
+		_ = json.NewEncoder(w).Encode(responses)
 		return
 	}
-	_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+	var req request
+	if err := json.Unmarshal(raw, &req); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(respond(req))
 }
 func (d *rewardHistoryDatabase) rpcResult(method string, args []json.RawMessage) (any, error) {
 	switch method {

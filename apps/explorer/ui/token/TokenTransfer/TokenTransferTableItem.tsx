@@ -37,18 +37,19 @@ const TokenTransferTableItem = ({
     <TableRow alignItems="top" data-token-transfer-row>
       { chainData && (
         <TableCell>
-          <ChainIcon data={ chainData } isLoading={ isLoading } my="5px"/>
+          <ChainIcon data={ chainData } isLoading={ isLoading } my="1.25"/>
         </TableCell>
       ) }
       <TableCell>
-        <Flex flexDirection="column" alignItems="flex-start" mt="5px" rowGap={ 3 }>
+        <Flex flexDirection="column" alignItems="flex-start" mt="1.25" rowGap={ 3 } minW={ 0 } maxW="100%">
           { txHash ? (
             <TxEntity
               hash={ txHash }
               isLoading={ isLoading }
-              fontWeight={ 600 }
+              fontWeight="semibold"
               noIcon
-              truncation="constant_long"
+              truncation="dynamic"
+              maxW="100%"
             />
           ) : <Skeleton loading={ isLoading }>-</Skeleton> }
           <TimeWithTooltip
@@ -57,13 +58,13 @@ const TokenTransferTableItem = ({
             isLoading={ isLoading }
             display="inline-block"
             color="text.secondary"
-            fontWeight="400"
+            fontWeight="normal"
           />
         </Flex>
       </TableCell>
       <TableCell>
         { method ? (
-          <Box my="3px">
+          <Box my={ 'calc(var(--chakra-spacing-1) - var(--chakra-spacing-0\\.25))' }>
             <ScanMethodChip method={ method } isLoading={ isLoading }/>
           </Box>
         ) : null }
@@ -73,7 +74,8 @@ const TokenTransferTableItem = ({
           from={ from }
           to={ to }
           isLoading={ isLoading }
-          mt="5px"
+          mt="1.25"
+          truncation="dynamic"
           mode={{ lg: 'compact', xl: 'long' }}
           tokenHash={ token?.address_hash }
           tokenSymbol={ token?.symbol ?? undefined }
@@ -96,7 +98,11 @@ const TokenTransferTableItem = ({
       { token && (hasTokenTransferValue(token.type)) && (
         <TableCell isNumeric verticalAlign="top">
           { isConfidentialTokenType(token.type) ? (
-            <ConfidentialValue loading={ isLoading } mt="7px" wordBreak="break-all"/>
+            <ConfidentialValue
+              loading={ isLoading }
+              mt={ 'calc(var(--chakra-spacing-2) - var(--chakra-spacing-0\\.25))' }
+              wordBreak="break-all"
+            />
           ) : (
             <AssetValue
               amount={ total && 'value' in total ? total.value : null }
@@ -104,8 +110,8 @@ const TokenTransferTableItem = ({
               exchangeRate={ token?.exchange_rate }
               loading={ isLoading }
               layout="vertical"
-              mt="7px"
-              rowGap="10px"
+              mt={ 'calc(var(--chakra-spacing-2) - var(--chakra-spacing-0\\.25))' }
+              rowGap="2.5"
             />
           ) }
         </TableCell>

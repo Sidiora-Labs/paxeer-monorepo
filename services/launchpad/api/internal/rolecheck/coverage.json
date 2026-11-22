@@ -1,0 +1,234 @@
+{
+  "sources": [
+    {
+      "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go"
+    },
+    {
+      "file": "sdk/launchpad/shared/db/production/migrations.go",
+      "functions": [
+        "CheckReadiness",
+        "CatalogFingerprint",
+        "checkPrivilege",
+        "checkUnexpectedPrivileges"
+      ]
+    },
+    {
+      "file": "sdk/launchpad/shared/delivery/stream.go",
+      "functions": [
+        "claim",
+        "fail",
+        "markPublished",
+        "Stats"
+      ]
+    },
+    {
+      "file": "sdk/launchpad/shared/queue/queue.go",
+      "functions": [
+        "Assert"
+      ]
+    },
+    {
+      "file": "services/launchpad/api/internal/app/authority.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/broker/handoff.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+      "excluded_functions": [
+        "AppendProjectionTx"
+      ]
+    },
+    {
+      "file": "services/launchpad/api/internal/cache/adapter.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/store/accounting_readmodel.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/store/chain_reads.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/store/holder_rewards_readmodel.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/store/leaderboard_readmodel.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/store/leaderboard_realized.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/store/pool_registry.go"
+    },
+    {
+      "file": "services/launchpad/api/internal/store/store.go",
+      "functions": [
+        "beginLegacyRead"
+      ]
+    },
+    {
+      "file": "services/launchpad/discovery/alerts.go"
+    },
+    {
+      "file": "services/launchpad/discovery/callouts.go"
+    },
+    {
+      "file": "services/launchpad/discovery/feed.go"
+    },
+    {
+      "file": "services/launchpad/discovery/http.go"
+    },
+    {
+      "file": "services/launchpad/discovery/invitations.go"
+    },
+    {
+      "file": "services/launchpad/discovery/leaderboard.go"
+    },
+    {
+      "file": "services/launchpad/discovery/prices.go"
+    },
+    {
+      "file": "services/launchpad/discovery/runtime.go"
+    },
+    {
+      "file": "services/launchpad/discovery/squads.go"
+    },
+    {
+      "file": "services/launchpad/discovery/store.go"
+    },
+    {
+      "file": "services/launchpad/notifications/authorities.go"
+    },
+    {
+      "file": "services/launchpad/notifications/retention.go"
+    },
+    {
+      "file": "services/launchpad/notifications/runtime.go"
+    },
+    {
+      "file": "services/launchpad/notifications/store.go"
+    }
+  ],
+  "exclusions": [
+    {
+      "package": "services/launchpad/api/internal/app",
+      "paths": [
+        "dev_*.go"
+      ],
+      "reason": "Development registrations and RPC adapters use the development database and projection setup."
+    },
+    {
+      "package": "services/launchpad/api/internal/rest",
+      "paths": [
+        "dev_*.go"
+      ],
+      "reason": "Development handlers read and populate locally provisioned projections; connected handlers delegate SQL to store and broker."
+    },
+    {
+      "package": "services/launchpad/api/internal/store",
+      "paths": [
+        "development_*.go",
+        "deterministic.go",
+        "qualification_dataset.go",
+        "store.go:StatsBatch"
+      ],
+      "reason": "Development reads, the standalone deterministic reader and dataset measurements are not registered by the connected application."
+    },
+    {
+      "package": "services/launchpad/api/internal/broker",
+      "paths": [
+        "postgres_stream.go:AppendProjectionTx"
+      ],
+      "reason": "DevelopmentStream is the caller of this projection writer; connected streams read producer-committed projections."
+    },
+    {
+      "package": "services/launchpad/api/internal/internaltest",
+      "paths": [
+        "*.go"
+      ],
+      "reason": "Test infrastructure provisions databases and does not run in the API process."
+    },
+    {
+      "package": "services/launchpad/api/migrations",
+      "paths": [
+        "*.go",
+        "*.sql"
+      ],
+      "reason": "The API runtime does not apply migrations; the coordinator provisions its schemas."
+    },
+    {
+      "package": "sdk/launchpad/shared/auth",
+      "paths": [
+        "*.go"
+      ],
+      "reason": "The connected API uses the MTLS identity client; ledger and audit SQL executes in the identity service."
+    },
+    {
+      "package": "sdk/launchpad/shared/db",
+      "paths": [
+        "client.go:WithTransaction"
+      ],
+      "reason": "The API admits direct pools; the transaction-pooler-only set_config statement is outside this transport."
+    },
+    {
+      "package": "sdk/launchpad/shared/db/production",
+      "paths": [
+        "migrations.go:coordinator functions",
+        "online_indexes.go",
+        "readroute.go",
+        "numeric.go"
+      ],
+      "reason": "Only CheckReadiness and its catalog and privilege helpers are invoked by the API runtime."
+    },
+    {
+      "package": "sdk/launchpad/shared/db/production/coordinatortest",
+      "paths": [
+        "*.go"
+      ],
+      "reason": "Database bootstrap infrastructure provisions the test database."
+    },
+    {
+      "package": "sdk/launchpad/shared/delivery",
+      "paths": [
+        "archive.go",
+        "store.go",
+        "ordered_batch.go",
+        "shadow.go",
+        "partition.go",
+        "replay.go",
+        "webhook.go",
+        "stream_market.go",
+        "stream.go:AppendTx"
+      ],
+      "reason": "The API invokes StreamOutboxRelay; producer, archive and generic delivery stores run in their owning services."
+    },
+    {
+      "package": "sdk/launchpad/shared/delivery/natsdriver",
+      "paths": [
+        "epoch_journal.go"
+      ],
+      "reason": "The API consumer uses broker deliveries and does not instantiate the PostgreSQL epoch journal."
+    },
+    {
+      "package": "sdk/launchpad/shared/interfaces/v1",
+      "paths": [
+        "persistence.go"
+      ],
+      "reason": "The connected API uses v2 interface validation and does not instantiate the v1 persistence store."
+    },
+    {
+      "package": "services/launchpad/notifications",
+      "paths": [
+        "release_measurement.go"
+      ],
+      "reason": "Release measurements run independently of the connected HTTP runtime."
+    },
+    {
+      "package": "sdk/launchpad/shared/chain",
+      "paths": [
+        "client.go"
+      ],
+      "reason": "The API calls TransactionStatus through RPC; PostgreSQL source verification belongs to chain ingestion clients."
+    }
+  ]
+}

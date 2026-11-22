@@ -1,0 +1,27 @@
+{
+  "data": {
+    "bounty": {
+      "bountyId": "8e894db0-87e7-4d2a-9f1c-3a192a239ba0",
+      "title": "Make a chart",
+      "description": "Post a chart of the pool",
+      "creatorWallet": "0x4444444444444444444444444444444444444444",
+      "assetAddress": "0x85fcd13735f4309833a503ee804ea32395851479",
+      "budgetRaw": "25000000",
+      "poolAddress": "0x1111111111111111111111111111111111111111",
+      "state": "open"
+    }
+  },
+  "generatedAt": "2026-10-12T15:00:01.000Z",
+  "nextCursor": null,
+  "quality": "complete",
+  "revision": "7",
+  "watermark": {
+    "chainId": "125",
+    "height": "4200",
+    "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+    "projectionRevision": "7",
+    "integrity": "healthy",
+    "observedAt": "2026-10-12T15:00:00.000Z"
+  },
+  "requestId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01"
+}

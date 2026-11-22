@@ -87,7 +87,7 @@ const TokenInstancePageTitle = ({ isLoading, token, instance, hash }: Props) => 
             jointSymbol
             variant="subheading"
             w="auto"
-            maxW="400px"
+            maxW="96"
             chain={ multichainContext?.chain }
           />
         ) }
@@ -102,6 +102,10 @@ const TokenInstancePageTitle = ({ isLoading, token, instance, hash }: Props) => 
 
   return (
     <PageTitle
+      css={{
+        '& h1': { whiteSpace: 'normal', overflow: 'visible' },
+        '& [data-entity-identifier]': { flexWrap: 'nowrap' },
+      }}
       kind="TOKEN"
       title={ title }
       identifier={ hash }

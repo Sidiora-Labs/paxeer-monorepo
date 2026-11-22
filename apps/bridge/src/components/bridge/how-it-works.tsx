@@ -1,5 +1,3 @@
-import { ExternalLinkIcon, LockIcon, PenLineIcon, ShieldCheckIcon } from 'lucide-react';
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +6,7 @@ import { BRIDGE_CHAINS } from '@/lib/bridge/chains';
 import { LAYERX_BRIDGE_ADDRESS } from '@/lib/bridge/contracts';
 import { foreignAddressUrl, paxeerAddressUrl } from '@/lib/bridge/explorer';
 import { shortenAddress } from '@/lib/trading';
+import { ExternalLinkIcon, LockIcon, PenLineIcon, ShieldCheckIcon } from 'lucide-react';
 
 const STEPS = [
   {
@@ -31,29 +30,29 @@ export function HowItWorks({ explorerBase }: { explorerBase?: string }) {
   const precompileUrl = paxeerAddressUrl(LAYERX_BRIDGE_ADDRESS, explorerBase);
   return (
     <section id="how-it-works" aria-label="How the bridge works" className="flex w-full flex-col gap-4">
-      <h2 className="text-lg font-semibold tracking-tight">How it works</h2>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {STEPS.map((step, index) => (
-          <Card key={step.title} variant="tonal" className="gap-3 py-5">
+      <h2 className="text-title font-semibold tracking-tight">How it works</h2>
+      <div className="grid bridge-steps gap-3">
+        { STEPS.map((step, index) => (
+          <Card key={ step.title } variant="tonal" className="gap-3 py-5">
             <CardHeader className="px-5">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="grid size-8 place-items-center rounded-lg bg-container-high">
-                  <step.icon className="size-4" aria-hidden="true" />
+                  <step.icon className="size-4" aria-hidden="true"/>
                 </span>
-                <Badge variant="outline">Step {index + 1}</Badge>
+                <Badge variant="outline">Step { index + 1 }</Badge>
               </div>
-              <CardTitle className="text-[15px]">{step.title}</CardTitle>
+              <CardTitle className="text-title-sm">{ step.title }</CardTitle>
             </CardHeader>
             <CardContent className="px-5">
-              <CardDescription className="leading-relaxed">{step.body}</CardDescription>
+              <CardDescription className="leading-relaxed">{ step.body }</CardDescription>
             </CardContent>
           </Card>
-        ))}
+        )) }
       </div>
 
       <Card variant="outline" className="gap-4 py-5">
         <CardHeader className="px-5">
-          <CardTitle className="text-[15px]">Routes & contracts</CardTitle>
+          <CardTitle className="text-title-sm">Routes & contracts</CardTitle>
           <CardDescription>
             The Paxeer side is the layerxbridge precompile. Every foreign chain runs the same PaxeerXVault bytecode;
             a route opens when its vault is deployed and governance registers the chain.
@@ -61,48 +60,48 @@ export function HowItWorks({ explorerBase }: { explorerBase?: string }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-3 px-5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center gap-2">
               Paxeer bridge precompile
-              <Badge variant="tonal" className="font-mono text-[11px]">
-                {shortenAddress(LAYERX_BRIDGE_ADDRESS, 10, 6)}
+              <Badge variant="tonal" className="font-mono text-caption leading-(--text-sm--line-height)">
+                { shortenAddress(LAYERX_BRIDGE_ADDRESS, 10, 6) }
               </Badge>
             </span>
-            {precompileUrl ? (
+            { precompileUrl ? (
               <Button
                 variant="link"
                 size="sm"
-                render={<a href={precompileUrl} target="_blank" rel="noreferrer" />}
+                render={ <a href={ precompileUrl } target="_blank" rel="noreferrer"/> }
               >
-                Paxscan <ExternalLinkIcon />
+                Paxscan <ExternalLinkIcon/>
               </Button>
-            ) : <span className="text-xs text-muted-foreground">Explorer unavailable</span>}
+            ) : <span className="text-xs text-muted-foreground">Explorer unavailable</span> }
           </div>
-          <Separator />
+          <Separator/>
           <ul className="flex flex-col divide-y divide-border/60">
-            {BRIDGE_CHAINS.map((chain) => (
-              <li key={chain.key} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
-                <span className="flex items-center gap-2">
-                  <span className="font-medium">{chain.label}</span>
+            { BRIDGE_CHAINS.map((chain) => (
+              <li key={ chain.key } className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{ chain.label }</span>
                   <span className="text-xs text-muted-foreground">
-                    {chain.assets.map((a) => a.symbol).join(', ')} · {chain.finalityDepth.toLocaleString()}{' '}
+                    { chain.assets.map((a) => a.symbol).join(', ') } · { chain.finalityDepth.toLocaleString() }{ ' ' }
                     confirmations
                   </span>
                 </span>
-                {chain.vault ? (
+                { chain.vault ? (
                   <Button
                     variant="link"
                     size="sm"
-                    render={<a href={foreignAddressUrl(chain, chain.vault)} target="_blank" rel="noreferrer" />}
+                    render={ <a href={ foreignAddressUrl(chain, chain.vault) } target="_blank" rel="noreferrer"/> }
                   >
-                    Vault {shortenAddress(chain.vault)} <ExternalLinkIcon />
+                    Vault { shortenAddress(chain.vault) } <ExternalLinkIcon/>
                   </Button>
                 ) : (
                   <Badge variant="warning">
-                    {chain.kind === 'solana' ? 'Program pending' : 'Vault not deployed'}
+                    { chain.kind === 'solana' ? 'Program pending' : 'Vault not deployed' }
                   </Badge>
-                )}
+                ) }
               </li>
-            ))}
+            )) }
           </ul>
           <p className="text-xs leading-relaxed text-muted-foreground">
             A note on custody: this is an attested bridge, not a light-client bridge. Funds are held by the vaults

@@ -153,7 +153,7 @@ func TestRuntimeCARosterThirdShape(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(approved) != 30 || len(declared) != len(approved) {
+	if len(approved) != 31 || len(declared) != len(approved) {
 		t.Fatal("merged inventory lost identities")
 	}
 	fingerprints := map[string]bool{}
@@ -454,7 +454,7 @@ func TestSearchRetiredEndpoints(t *testing.T) {
 
 func TestRetirementRetainsAuthority(t *testing.T) {
 	rows, e := ReadServiceRoster(bytes.NewReader(runtimeContractRead(t, "ca-services.tsv")))
-	if e != nil || len(rows) != 30 {
+	if e != nil || len(rows) != 31 {
 		t.Fatal(e)
 	}
 	for _, row := range rows {

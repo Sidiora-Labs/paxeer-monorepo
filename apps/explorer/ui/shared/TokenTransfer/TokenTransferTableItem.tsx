@@ -48,7 +48,7 @@ const TokenTransferTableItem = ({
         <TableCell>
           {
             txHash ? (
-              <Box my="3px" textAlign="center">
+              <Box my={ 1 } textAlign="center">
                 <TxAdditionalInfo hash={ txHash } isLoading={ isLoading }/>
               </Box>
             ) : (
@@ -95,7 +95,7 @@ const TokenTransferTableItem = ({
             <TxEntity
               hash={ txHash }
               isLoading={ isLoading }
-              fontWeight={ 600 }
+              fontWeight="semibold"
               noIcon
               mt={ 1 }
               truncation="constant_long"
@@ -108,8 +108,8 @@ const TokenTransferTableItem = ({
             enableIncrement={ enableTimeIncrement }
             isLoading={ isLoading }
             color="text.secondary"
-            fontWeight="400"
-            mt="10px"
+            fontWeight="normal"
+            mt={ 2.5 }
             display="inline-block"
           />
         </TableCell>
@@ -126,7 +126,7 @@ const TokenTransferTableItem = ({
       </TableCell>
       <TableCell isNumeric verticalAlign="top">
         { token && isConfidentialTokenType(token.type) && (!total || !('value' in total) || total.value === null) ? (
-          <ConfidentialValue loading={ isLoading } mt="4px"/>
+          <ConfidentialValue loading={ isLoading } mt={ 1 }/>
         ) : (
           <AssetValue
             amount={ total && 'value' in total && total.value !== null ? total.value : null }
@@ -134,8 +134,8 @@ const TokenTransferTableItem = ({
             exchangeRate={ token?.exchange_rate }
             loading={ isLoading }
             layout="vertical"
-            mt="4px"
-            rowGap="10px"
+            mt={ 1 }
+            rowGap={ 2.5 }
           />
         ) }
       </TableCell>

@@ -10,6 +10,19 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
   setup :verify_on_exit!
   setup :set_mox_global
 
+  setup do
+    setting = Application.fetch_env(:explorer, :proxy)
+
+    on_exit(fn ->
+      case setting do
+        {:ok, value} -> Application.put_env(:explorer, :proxy, value)
+        :error -> Application.delete_env(:explorer, :proxy)
+      end
+    end)
+
+    :ok
+  end
+
   describe "proxy contracts features" do
     @proxy_abi [
       %{
@@ -146,7 +159,11 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
       proxy_contract_address = insert(:contract_address)
 
       smart_contract =
-        insert(:smart_contract, address_hash: proxy_contract_address.hash, abi: [], contract_code_md5: "123")
+        insert(:smart_contract,
+          address_hash: proxy_contract_address.hash,
+          abi: [],
+          contract_code_md5: Explorer.SmartContract.Helper.md5(proxy_contract_address.contract_code.bytes)
+        )
 
       assert Proxy.combine_proxy_implementation_abi(smart_contract) == []
     end
@@ -158,7 +175,11 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
       proxy_contract_address = insert(:contract_address)
 
       smart_contract =
-        insert(:smart_contract, address_hash: proxy_contract_address.hash, abi: @proxy_abi, contract_code_md5: "123")
+        insert(:smart_contract,
+          address_hash: proxy_contract_address.hash,
+          abi: @proxy_abi,
+          contract_code_md5: Explorer.SmartContract.Helper.md5(proxy_contract_address.contract_code.bytes)
+        )
 
       assert Proxy.combine_proxy_implementation_abi(smart_contract) == @proxy_abi
     end
@@ -167,7 +188,11 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
       proxy_contract_address = insert(:contract_address)
 
       proxy_smart_contract =
-        insert(:smart_contract, address_hash: proxy_contract_address.hash, abi: @proxy_abi, contract_code_md5: "123")
+        insert(:smart_contract,
+          address_hash: proxy_contract_address.hash,
+          abi: @proxy_abi,
+          contract_code_md5: Explorer.SmartContract.Helper.md5(proxy_contract_address.contract_code.bytes)
+        )
 
       implementation_contract_address = insert(:contract_address)
 
@@ -175,7 +200,7 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
         insert(:smart_contract,
           address_hash: implementation_contract_address.hash,
           abi: @implementation_abi,
-          contract_code_md5: "123",
+          contract_code_md5: Explorer.SmartContract.Helper.md5(implementation_contract_address.contract_code.bytes),
           name: "impl"
         )
 
@@ -208,7 +233,11 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
       proxy_contract_address = insert(:contract_address)
 
       smart_contract =
-        insert(:smart_contract, address_hash: proxy_contract_address.hash, abi: @proxy_abi, contract_code_md5: "123")
+        insert(:smart_contract,
+          address_hash: proxy_contract_address.hash,
+          abi: @proxy_abi,
+          contract_code_md5: Explorer.SmartContract.Helper.md5(proxy_contract_address.contract_code.bytes)
+        )
 
       EthereumJSONRPC.Mox
       |> TestHelper.mock_generic_proxy_requests()
@@ -220,14 +249,18 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
       proxy_contract_address = insert(:contract_address, contract_code: "0xDEADBEEF5c60da1bDEADBEEF")
 
       smart_contract =
-        insert(:smart_contract, address_hash: proxy_contract_address.hash, abi: @proxy_abi, contract_code_md5: "123")
+        insert(:smart_contract,
+          address_hash: proxy_contract_address.hash,
+          abi: @proxy_abi,
+          contract_code_md5: Explorer.SmartContract.Helper.md5(proxy_contract_address.contract_code.bytes)
+        )
 
       implementation_contract_address = insert(:contract_address)
 
       insert(:smart_contract,
         address_hash: implementation_contract_address.hash,
         abi: @implementation_abi,
-        contract_code_md5: "123"
+        contract_code_md5: Explorer.SmartContract.Helper.md5(implementation_contract_address.contract_code.bytes)
       )
 
       EthereumJSONRPC.Mox
@@ -242,14 +275,18 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
       proxy_contract_address = insert(:contract_address)
 
       smart_contract =
-        insert(:smart_contract, address_hash: proxy_contract_address.hash, abi: [], contract_code_md5: "123")
+        insert(:smart_contract,
+          address_hash: proxy_contract_address.hash,
+          abi: [],
+          contract_code_md5: Explorer.SmartContract.Helper.md5(proxy_contract_address.contract_code.bytes)
+        )
 
       implementation_contract_address = insert(:contract_address)
 
       insert(:smart_contract,
         address_hash: implementation_contract_address.hash,
         abi: @implementation_abi,
-        contract_code_md5: "123"
+        contract_code_md5: Explorer.SmartContract.Helper.md5(implementation_contract_address.contract_code.bytes)
       )
 
       EthereumJSONRPC.Mox
@@ -274,14 +311,18 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
     proxy_contract_address = insert(:contract_address)
 
     smart_contract =
-      insert(:smart_contract, address_hash: proxy_contract_address.hash, abi: [], contract_code_md5: "123")
+      insert(:smart_contract,
+        address_hash: proxy_contract_address.hash,
+        abi: [],
+        contract_code_md5: Explorer.SmartContract.Helper.md5(proxy_contract_address.contract_code.bytes)
+      )
 
     beacon_contract_address = insert(:contract_address)
 
     insert(:smart_contract,
       address_hash: beacon_contract_address.hash,
       abi: @beacon_abi,
-      contract_code_md5: "123"
+      contract_code_md5: Explorer.SmartContract.Helper.md5(beacon_contract_address.contract_code.bytes)
     )
 
     implementation_contract_address = insert(:contract_address)
@@ -289,7 +330,7 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
     insert(:smart_contract,
       address_hash: implementation_contract_address.hash,
       abi: @implementation_abi,
-      contract_code_md5: "123"
+      contract_code_md5: Explorer.SmartContract.Helper.md5(implementation_contract_address.contract_code.bytes)
     )
 
     EthereumJSONRPC.Mox

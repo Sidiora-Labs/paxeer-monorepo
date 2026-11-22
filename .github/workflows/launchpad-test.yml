@@ -40,7 +40,7 @@ jobs:
   launchpad-test:
     name: Test ${{ matrix.package }}
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -59,90 +59,6 @@ jobs:
     defaults:
       run:
         working-directory: apps/launchpad
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
-        with:
-          node-version: "22"
-          package-manager-cache: false
-      - name: Install the workspace package manager
-        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
-      - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install pinned Foundry for web fixtures
-        if: matrix.package == 'apps/launchpad/web'
-        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
-        with:
-          version: v1.8.1
-      - name: Set up Python for web fixture producers
-        if: matrix.package == 'apps/launchpad/web'
-        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
-        with:
-          python-version: '3.12'
-      - name: Set up Go for launchpad services
-        if: matrix.package == 'apps/launchpad/web'
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
-        with:
-          go-version-file: sdk/launchpad/shared/go.mod
-          cache: false
-      - name: Install the joined event broker
-        if: matrix.package == 'apps/launchpad/web'
-        run: |
-          go install github.com/nats-io/nats-server/v2@v2.11.6
-          echo "NATS_SERVER_BINARY=$(go env GOPATH)/bin/nats-server" >> "$GITHUB_ENV"
-      - name: Install local database and TLS tools
-        if: matrix.package == 'apps/launchpad/web'
-        run: sudo apt-get update && sudo apt-get install --yes postgresql postgresql-client redis-server openssl
-      - name: Allow the owned loopback issuer to bind standard HTTPS
-        if: matrix.package == 'apps/launchpad/web'
-        run: sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
-      - name: Install Chromium for the declared chart browser case
-        if: matrix.package == 'apps/launchpad/web'
-        working-directory: apps/launchpad/web
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Build SDK packages
-        run: pnpm run build:packages
-      - name: Prepare chain fixtures and run web Vitest
-        if: matrix.package == 'apps/launchpad/web'
-        working-directory: apps/launchpad/web
-        run: python3 scripts/prepare-test-environment.py -- pnpm exec vitest run
-      - name: Test package
-        if: matrix.package != 'apps/launchpad/web'
-        working-directory: .
-        run: pnpm --dir apps/launchpad --filter "./../../${{ matrix.package }}" --fail-if-no-match run test
-
-  launchpad-go-test:
-    name: Go test ${{ matrix.module }}
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - sdk/launchpad/shared
-          - sdk/launchpad/protocol
-          - services/launchpad/api
-          - services/launchpad/indexer
-          - services/launchpad/pnl-tracker
-          - services/launchpad/ranking-algo
-          - services/launchpad/stats-workers
-          - services/launchpad/trading-charts
-          - services/launchpad/gateway
-          - services/launchpad/livestream
-          - services/launchpad/metadata
-          - services/launchpad/social
-          - services/launchpad/user
-          - services/launchpad/discovery
-          - services/launchpad/notifications
-          - services/launchpad/security
-          - services/launchpad/security/control
-    defaults:
-      run:
-        working-directory: ${{ matrix.module }}
     env: &launchpad_go_env
       GOWORK: "off"
       GOTOOLCHAIN: go1.27.3
@@ -261,14 +177,134 @@ jobs:
           POSTGRES_DB: kindle_fixture
         ports: ["25432:5432"]
         options: >-
-          --health-cmd 'pg_isready -U kindle_fixture -d kindle_fixture' --health-interval 10s
+          --health-cmd "pg_isready -U kindle_fixture -d kindle_fixture" --health-interval 10s
           --health-timeout 5s --health-retries 5
       redis:
         image: redis:7
         ports: ["26379:6379"]
         options: >-
-          --health-cmd 'redis-cli ping' --health-interval 10s
+          --health-cmd "redis-cli ping" --health-interval 10s
           --health-timeout 5s --health-retries 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install the workspace package manager
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install pinned Foundry for web fixtures
+        if: matrix.package == 'apps/launchpad/web'
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Set up Python for web fixture producers
+        if: matrix.package == 'apps/launchpad/web'
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
+        with:
+          python-version: '3.12'
+      - name: Set up Go for launchpad services
+        if: >-
+          matrix.package == 'apps/launchpad/web' ||
+          contains(fromJSON('["sdk/launchpad/packages/candles-sdk", "sdk/launchpad/packages/indexer-sdk", "sdk/launchpad/packages/metadata-sdk", "sdk/launchpad/packages/ranking-algo-sdk", "sdk/launchpad/packages/sdk", "sdk/launchpad/packages/stats-sdk", "sdk/launchpad/packages/users-sdk"]'), matrix.package)
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.27.3"
+          cache: false
+      - name: Install the joined event broker
+        if: matrix.package == 'apps/launchpad/web'
+        run: |
+          go install github.com/nats-io/nats-server/v2@v2.11.6
+          echo "NATS_SERVER_BINARY=$(go env GOPATH)/bin/nats-server" >> "$GITHUB_ENV"
+      - name: Install local database and TLS tools
+        if: matrix.package == 'apps/launchpad/web'
+        run: bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes postgresql postgresql-client redis-server openssl
+      - name: Allow the owned loopback issuer to bind standard HTTPS
+        if: matrix.package == 'apps/launchpad/web'
+        run: sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
+      - name: Install Chromium for the declared chart browser case
+        if: matrix.package == 'apps/launchpad/web'
+        working-directory: apps/launchpad/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Install PostgreSQL for the candles producer
+        if: matrix.package == 'sdk/launchpad/packages/candles-sdk'
+        run: bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes postgresql
+      - name: Create the pool test database
+        if: >-
+          contains(fromJSON('["sdk/launchpad/packages/indexer-sdk", "sdk/launchpad/packages/metadata-sdk", "sdk/launchpad/packages/sdk", "sdk/launchpad/packages/stats-sdk", "sdk/launchpad/packages/users-sdk"]'), matrix.package)
+        env: &launchpad_package_database_env
+          PGPASSWORD: kindle_fixture_password
+        run: &launchpad_package_database_run |
+          psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --command "ALTER ROLE kindle_fixture CREATEDB"
+          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture kindle_test
+          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture launchpad_notifications
+          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture launchpad_pnl
+      - name: Start object storage fixture
+        if: >-
+          contains(fromJSON('["sdk/launchpad/packages/metadata-sdk", "sdk/launchpad/packages/users-sdk"]'), matrix.package)
+        run: &launchpad_package_storage_run |
+          mkdir -p "$RUNNER_TEMP/launchpad-fixture-bin" "$RUNNER_TEMP/launchpad-minio-data"
+          GOBIN="$RUNNER_TEMP/launchpad-fixture-bin" GOFLAGS= go install github.com/minio/minio@RELEASE.2025-04-22T22-12-26Z
+          echo "$RUNNER_TEMP/launchpad-fixture-bin" >> "$GITHUB_PATH"
+          MINIO_ROOT_USER="$SHARED_TEST_MINIO_ACCESS_KEY_ID" \
+            MINIO_ROOT_PASSWORD="$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
+            "$RUNNER_TEMP/launchpad-fixture-bin/minio" server "$RUNNER_TEMP/launchpad-minio-data" \
+            --address :9000 --console-address 127.0.0.1:9001 > "$RUNNER_TEMP/launchpad-minio.log" 2>&1 &
+          curl --fail --retry 30 --retry-connrefused --retry-delay 1 \
+            http://localhost:9000/minio/health/ready
+          curl --fail --aws-sigv4 "aws:amz:us-east-1:s3" \
+            --user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
+            --request PUT http://localhost:9000/launchpad-user-test
+      - name: Install the users scanner
+        if: matrix.package == 'sdk/launchpad/packages/users-sdk'
+        run: bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --no-install-recommends --yes clamav-daemon
+      - name: Build SDK packages
+        run: pnpm run build:packages
+      - name: Prepare chain fixtures and run web Vitest
+        if: matrix.package == 'apps/launchpad/web'
+        working-directory: apps/launchpad/web
+        run: python3 scripts/prepare-test-environment.py -- pnpm exec vitest run
+      - name: Test package
+        if: matrix.package != 'apps/launchpad/web'
+        working-directory: apps/launchpad
+        run: pnpm --filter "./../../${{ matrix.package }}" --fail-if-no-match run test
+
+  launchpad-go-test:
+    name: Go test ${{ matrix.module }}
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - sdk/launchpad/shared
+          - sdk/launchpad/protocol
+          - services/launchpad/api
+          - services/launchpad/indexer
+          - services/launchpad/pnl-tracker
+          - services/launchpad/ranking-algo
+          - services/launchpad/stats-workers
+          - services/launchpad/trading-charts
+          - services/launchpad/gateway
+          - services/launchpad/livestream
+          - services/launchpad/metadata
+          - services/launchpad/social
+          - services/launchpad/user
+          - services/launchpad/discovery
+          - services/launchpad/notifications
+          - services/launchpad/security
+          - services/launchpad/security/control
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    env: *launchpad_go_env
+    services: *launchpad_go_services
     steps:
       - &launchpad_go_checkout
         name: Check out source
@@ -278,10 +314,13 @@ jobs:
       - &launchpad_go_container_runtime
         name: Install and verify the container runtime
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes docker.io acl
-          sudo systemctl start docker
-          sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+          if ! docker version >/dev/null 2>&1; then
+            bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes docker.io acl
+            sudo systemctl start docker
+            if [ ! -r /var/run/docker.sock ] || [ ! -w /var/run/docker.sock ]; then
+              sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+            fi
+          fi
           docker version --format '{{.Server.Version}}'
       - &launchpad_go_setup_go
         name: Set up Go
@@ -305,13 +344,23 @@ jobs:
           cache: false
       - &launchpad_go_database
         name: Create the pool test database
+        env: *launchpad_package_database_env
+        run: *launchpad_package_database_run
+      - &launchpad_go_commit_timestamps
+        name: Enable database commit timestamps
         env:
           PGPASSWORD: kindle_fixture_password
         run: |
-          psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --command "ALTER ROLE kindle_fixture CREATEDB"
-          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture kindle_test
-          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture launchpad_notifications
-          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture launchpad_pnl
+          psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --command "ALTER SYSTEM SET track_commit_timestamp = on"
+          docker restart "${{ job.services.postgres.id }}"
+          for attempt in {1..30}; do
+            if pg_isready --host 127.0.0.1 --port 25432 --username kindle_fixture; then
+              test "$(psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --tuples-only --no-align --command 'SHOW track_commit_timestamp')" = on
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
       - &launchpad_go_chain
         name: Start the owned authorization chain
         run: |
@@ -325,10 +374,9 @@ jobs:
         name: Install fixture binaries
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes redis-server
+          bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --no-install-recommends --yes redis-server
           go install github.com/nats-io/nats-server/v2@v2.11.6
-          sudo apt-get install --no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon
+          bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon
           fixture_bin="$RUNNER_TEMP/launchpad-fixture-bin"
           mkdir -p "$fixture_bin"
           cd "$fixture_bin"
@@ -363,18 +411,7 @@ jobs:
           exit 1
       - &launchpad_go_storage
         name: Start object storage fixture
-        run: |
-          mkdir -p "$RUNNER_TEMP/launchpad-fixture-bin" "$RUNNER_TEMP/launchpad-minio-data"
-          GOBIN="$RUNNER_TEMP/launchpad-fixture-bin" GOFLAGS= go install github.com/minio/minio@RELEASE.2025-04-22T22-12-26Z
-          MINIO_ROOT_USER="$SHARED_TEST_MINIO_ACCESS_KEY_ID" \
-            MINIO_ROOT_PASSWORD="$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
-            "$RUNNER_TEMP/launchpad-fixture-bin/minio" server "$RUNNER_TEMP/launchpad-minio-data" \
-            --address :9000 --console-address 127.0.0.1:9001 > "$RUNNER_TEMP/launchpad-minio.log" 2>&1 &
-          curl --fail --retry 30 --retry-connrefused --retry-delay 1 \
-            http://localhost:9000/minio/health/ready
-          curl --fail --aws-sigv4 "aws:amz:us-east-1:s3" \
-            --user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
-            --request PUT http://localhost:9000/launchpad-user-test
+        run: *launchpad_package_storage_run
       - &launchpad_go_scanner
         name: Start malware scanner fixture
         run: |
@@ -449,10 +486,28 @@ jobs:
   launchpad-go-ci:
     name: Go CI
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
-    timeout-minutes: 360
+    timeout-minutes: 180
     strategy:
+      fail-fast: false
       matrix:
-        module: [sdk/launchpad/protocol]
+        module:
+          - sdk/launchpad/shared
+          - sdk/launchpad/protocol
+          - services/launchpad/api
+          - services/launchpad/indexer
+          - services/launchpad/pnl-tracker
+          - services/launchpad/ranking-algo
+          - services/launchpad/stats-workers
+          - services/launchpad/trading-charts
+          - services/launchpad/gateway
+          - services/launchpad/livestream
+          - services/launchpad/metadata
+          - services/launchpad/social
+          - services/launchpad/user
+          - services/launchpad/discovery
+          - services/launchpad/notifications
+          - services/launchpad/security
+          - services/launchpad/security/control
     env: *launchpad_go_env
     services: *launchpad_go_services
     steps:
@@ -462,20 +517,7 @@ jobs:
       - *launchpad_go_setup_node
       - *launchpad_go_setup_anvil
       - *launchpad_go_database
-      - name: Enable database commit timestamps
-        env:
-          PGPASSWORD: kindle_fixture_password
-        run: |
-          psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --command "ALTER SYSTEM SET track_commit_timestamp = on"
-          docker restart "${{ job.services.postgres.id }}"
-          for attempt in {1..30}; do
-            if pg_isready --host 127.0.0.1 --port 25432 --username kindle_fixture; then
-              test "$(psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --tuples-only --no-align --command 'SHOW track_commit_timestamp')" = on
-              exit 0
-            fi
-            sleep 1
-          done
-          exit 1
+      - *launchpad_go_commit_timestamps
       - *launchpad_go_chain
       - *launchpad_go_fixture_binaries
       - *launchpad_go_nats
@@ -485,8 +527,8 @@ jobs:
       - *launchpad_go_contracts
       - *launchpad_go_reward_schema
       - *launchpad_go_protocol_proofs
-      - name: Run all launchpad Go checks
-        run: make -C services/launchpad ci
+      - name: Run launchpad Go checks
+        run: make -C services/launchpad ci MODULES="$(realpath --relative-to=services/launchpad "${{ matrix.module }}")"
 
   launchpad-go-wiring:
     name: Check Go test wiring

@@ -6,18 +6,23 @@ import { routeParams } from 'nextjs/routes';
 
 import { useMultichainContext } from 'lib/contexts/multichain';
 import { Heading } from 'toolkit/chakra/heading';
-import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import ChainIcon from 'ui/shared/externalChains/ChainIcon';
 import IconSvg from 'ui/shared/IconSvg';
 
-const BlockCountdownIndex = () => {
+import { PageFilterInput } from './PageFilterInput';
+
+type Props = {
+  searchWidth?: string;
+};
+
+const BlockCountdownIndex = ({ searchWidth = 'var(--chakra-spacing-80)' }: Props) => {
   const router = useRouter();
   const multichainContext = useMultichainContext();
 
   const handleFormSubmit = React.useCallback((event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const formData = new FormData(event.target as HTMLFormElement);
+    const formData = new FormData(event.currentTarget);
     const searchTerm = formData.get('search_term');
     if (typeof searchTerm === 'string' && searchTerm) {
       const url = routeParams({ pathname: '/block/countdown/[height]', query: { height: searchTerm } }, multichainContext);
@@ -30,17 +35,18 @@ const BlockCountdownIndex = () => {
       <Box position="relative">
         <IconSvg
           name="block_countdown"
-          color={{ _light: 'gray.300', _dark: 'gray.600' }}
-          w={{ base: '160px', lg: '240px' }}
-          h={{ base: '123px', lg: '184px' }}
+          color="icon.secondary"
+          w={{ base: 'var(--chakra-spacing-40)', lg: 'calc(var(--chakra-spacing-1) * 60)' }}
+          h="auto"
+          aspectRatio={ 241 / 185 }
         />
         { multichainContext?.chain && (
           <ChainIcon
             data={ multichainContext.chain }
             position="absolute"
-            bottom={{ base: '15px', lg: '22px' }}
-            left={{ base: '105px', lg: '150px' }}
-            boxSize={{ lg: '60px' }}
+            bottom={{ base: 'var(--chakra-spacing-3\\.75)', lg: 'var(--chakra-spacing-5)' }}
+            left={{ base: 'var(--chakra-spacing-24)', lg: 'var(--chakra-spacing-37\\.5)' }}
+            boxSize={{ lg: 'var(--chakra-spacing-15)' }}
             bgColor="bg.primary"
             borderRadius="full"
           />
@@ -52,20 +58,20 @@ const BlockCountdownIndex = () => {
       >
         Block countdown
       </Heading>
-      <Box mt={ 2 }>
+      <Box mt={ 2 } textWrap="balance">
         The estimated time for a block to be created and added to the blockchain.
       </Box>
       <chakra.form
-        noValidate
         onSubmit={ handleFormSubmit }
-        w={{ base: '100%', lg: '360px' }}
+        w={{ base: '100%', lg: searchWidth }}
         mt={{ base: 3, lg: 6 }}
       >
-        <FilterInput
+        <PageFilterInput
           placeholder="Search by block number"
           size="sm"
           type="number"
           name="search_term"
+          inputProps={{ min: 0, step: 1, required: true }}
         />
       </chakra.form>
     </Center>

@@ -11,20 +11,20 @@ interface Props {
 const BlockCountdownTimerItem = ({ label, value }: Props) => {
   return (
     <Box
-      minW={{ base: '70px', lg: '100px' }}
+      minW={ 0 }
+      flex="1 1 0"
       textAlign="center"
-      overflow="hidden"
-      flex="1 1 auto"
+      overflowWrap="anywhere"
     >
       <TruncatedText
         text={ value }
         fontFamily="heading"
-        fontSize={{ base: '40px', lg: '48px' }}
-        lineHeight="48px"
-        fontWeight={ 600 }
+        fontSize={{ base: 'fluidDisplay', lg: '5xl' }}
+        lineHeight="var(--chakra-spacing-12)"
+        fontWeight="semibold"
         w="100%"
       />
-      <Box fontSize="sm" lineHeight="20px" mt={ 1 } color="text.secondary">{ label }</Box>
+      <Box textStyle="body" mt={ 1 } color="text.secondary">{ label }</Box>
     </Box>
   );
 };

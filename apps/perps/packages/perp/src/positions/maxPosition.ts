@@ -11,6 +11,7 @@ export function maxPositionNotional(inputs: {
   IMRFactor: number;
 }) {
   const { leverage, IMRFactor } = inputs;
+  if (IMRFactor === 0) return Infinity;
   return new Decimal(1)
     .div(new Decimal(leverage).mul(IMRFactor))
     .pow(1 / 0.8)

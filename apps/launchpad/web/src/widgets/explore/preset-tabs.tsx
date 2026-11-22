@@ -1,4 +1,5 @@
 'use client';
+import { launchpadMedia } from '@/app/presentation-tokens';
 import type { LucideIcon } from 'lucide-react';
 import { Activity, ChartColumn, ChevronDown, Coins, Flame, Rocket, Sparkles, Zap } from 'lucide-react';
 import type { RankingCategory } from '@/core/market/use-rankings';
@@ -84,8 +85,8 @@ export interface PresetTabsProps {
 }
 
 export function PresetTabs({ active, className }: PresetTabsProps) {
-  const medium = useMediaQuery('(min-width: 768px)');
-  const wide = useMediaQuery('(min-width: 1280px)');
+  const medium = useMediaQuery(launchpadMedia.medium);
+  const wide = useMediaQuery(launchpadMedia.extraLarge);
   const viewport = wide ? 'wide' : medium ? 'medium' : 'narrow';
   const activeIndex = Math.max(0, presets.findIndex(preset => preset.id === active));
   const activePreset = presets[activeIndex];
@@ -99,14 +100,14 @@ export function PresetTabs({ active, className }: PresetTabsProps) {
 
   return (
     <nav aria-label="Explore presets" className={cn('min-w-0', className)}>
-      <div className="inline-flex max-w-full items-center gap-0.5 rounded-md bg-surface-1 p-1">
-        <ul className="flex min-w-0 items-center gap-0.5">
+      <div className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-md bg-surface-1 p-1">
+        <ul className="flex min-w-0 flex-wrap items-center gap-0.5">
           {presets.map((preset, index) => {
             const Icon = preset.icon;
             const selected = preset.id === active;
             return (
               <li key={preset.id} className={cn('shrink-0', inlineClass[presetTier(index)])}>
-                <Link
+                <Link prefetch={false}
                   href={presetHref(preset)}
                   aria-current={selected ? 'page' : undefined}
                   title={preset.description}

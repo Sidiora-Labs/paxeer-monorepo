@@ -1,0 +1,341 @@
+[manifest]
+task = "22.44.107"
+surface = "Sidiora Launchpad coin, token and creation views"
+views = 9
+named_states = 10
+states = 19
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[presentation]
+coin = "Coin headers, chart controls, metadata, statistics and attribution use compact desktop dimensions and viewport column breakpoints."
+creation = "Creation fields use 14px text with a 20px line height, paired fields share two columns from 640px, and the desktop preview measures 224px or 240px."
+token = "The signed-out coin management view shares the main region without an additional viewport-height minimum."
+touch = "Interactive targets measure at least 44px in each dimension through a viewport width of 834px."
+preview = "The preview description retains 12px text and a 16px line height; the line height follows enlarged text proportionally."
+fields = "Multiline fields retain a 96px minimum and compensate padding for the control border; the image selection area retains a 224px minimum."
+scrollbar = "The document reserves a stable scrollbar gutter."
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison = "A part differs when a position, box dimension, font size or line height differs by more than one CSS pixel."
+
+[renders]
+count = 646
+with_content = 646
+findings = 0
+all_rendered = true
+all_modes = true
+result = "pass"
+
+[measured_views]
+views = 4
+renders = 136
+with_content = 136
+presentation_findings = 0
+geometry_captures = 20
+geometry_findings = 201
+
+[focused_states]
+renders = 10
+findings = 0
+result = "pass"
+
+[finding_counts.load]
+first = 0
+last = 0
+
+[finding_counts.sideways]
+first = 0
+last = 0
+
+[finding_counts.cut]
+first = 4
+last = 0
+
+[finding_counts.contrast]
+first = 0
+last = 0
+
+[finding_counts.touch]
+first = 0
+last = 0
+
+[finding_counts.focus]
+first = 0
+last = 0
+
+[finding_counts.shift]
+first = 113
+last = 0
+
+[finding_counts.motion]
+first = 0
+last = 0
+
+[finding_counts.scale]
+first = 226
+last = 0
+
+[finding_counts.geometry]
+first = 0
+last = 0
+
+[view.coin-address]
+differing_parts = [17, 16, 15, 16, 16]
+
+[part.coin-address.chain-revenue-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"chain-revenue-title\"]"
+cause = "The revenue section displays the unavailable-epochs message instead of epoch rows; its position follows the resolved rail content."
+
+[part.coin-address.coin-details-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Coin details\"]"
+cause = "The section displays the resolved address, name, onchain name and description with the trade panel; the reference also contains a pending metadata capture."
+
+[part.coin-address.creator-card-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"creator-card-title\"]"
+cause = "The resolved creator identity follows the pool information; its links and actions reserve 44px touch targets through 834px."
+
+[part.coin-address.description-card-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"description-card-title\"]"
+cause = "The description retains its 24px line height and follows the resolved creator and valuation sections within the narrower scrollbar space."
+
+[part.coin-address.first-heading]
+widths = [1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The resolved coin feed displays the sign-in invitation for its first callout; that invitation sets the width of the heading group."
+
+[part.coin-address.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the resolved coin rail and the unavailable-epochs message; the scrollbar gutter narrows it and mobile legal links reserve 44px targets."
+
+[part.coin-address.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The activity figures use the inline space after the stable scrollbar gutter, retain Manrope with its fallback face and follow the page content and mobile legal-link targets."
+
+[part.coin-address.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "The legal links retain 11px text with a 14px line height in Manrope with its fallback face, and reserve 44px touch targets through 834px; their position follows page content."
+
+[part.coin-address.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the available inline space by 15px."
+
+[part.coin-address.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region uses the width after the stable scrollbar gutter and contains the resolved coin rail, unavailable-epochs message and mobile touch targets."
+
+[part.coin-address.mc-ath-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"mc-ath-title\"]"
+cause = "The valuation strip follows the resolved creator identity and its mobile touch targets within the scrollbar gutter."
+
+[part.coin-address.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the width shared by the mobile destinations by 15px."
+
+[part.coin-address.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile destinations share the width remaining after the stable scrollbar gutter."
+
+[part.coin-address.pool-info-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"pool-info-title\"]"
+cause = "The resolved liquidity amount, valuations, addresses and relative age wrap within the rail; mobile address actions reserve 44px targets."
+
+[part.coin-address.price-chart-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Price chart\"]"
+cause = "The stable scrollbar gutter narrows the chart column; resolved coin identity and availability content determine its top position, and mobile chart controls reserve 44px targets."
+
+[part.coin-address.primary-control]
+widths = [390, 1280, 1920, 2560]
+selector = "#main-content button[aria-label=\"Share coin link\"]"
+cause = "The share action follows the resolved coin identity, relative age and availability notice; mobile actions reserve 44px targets and wrap within the scrollbar space."
+
+[part.coin-address.rail-holders-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"rail-holders-title\"]"
+cause = "The holders strip follows the resolved metadata and trading content within the scrollbar space."
+
+[part.coin-address.stats-and-audit-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Stats and audit\"]"
+cause = "The statistics retain desktop control sizes; mobile period and tab controls reserve 44px targets within the narrower scrollbar space."
+
+[view.create]
+differing_parts = [13, 9, 10, 10, 11]
+
+[part.create.create-costs-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"create-costs-title\"]"
+cause = "The costs section follows the mobile form targets and retains 44px controls; the scrollbar gutter narrows or recenters its column."
+
+[part.create.create-details-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"create-details-title\"]"
+cause = "The scrollbar gutter narrows or recenters the form; mobile fields, disclosures, information buttons and reward choices reserve 44px targets and wrap their labels."
+
+[part.create.create-media-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"create-media-title\"]"
+cause = "The image selection area retains its 224px minimum; the card follows the mobile form targets and shares the inline space after the scrollbar gutter."
+
+[part.create.create-preview-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"create-preview-title\"]"
+cause = "The preview follows the form on mobile and retains its 224px or 240px desktop width within the scrollbar-adjusted column."
+
+[part.create.first-heading]
+widths = [390, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The heading retains Manrope with its fallback face; the scrollbar gutter recenters the desktop form, and the adjacent mobile navigation action reserves a 44px touch target."
+
+[part.create.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the form, its mobile touch targets and preview; the scrollbar gutter narrows it and mobile legal links reserve 44px targets."
+
+[part.create.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The activity figures use the inline space after the stable scrollbar gutter, retain Manrope with its fallback face and follow the page content and mobile legal-link targets."
+
+[part.create.footer-navigation-first-link]
+widths = [390, 2560]
+selector = "footer nav a >> nth=0"
+cause = "The legal links retain 11px text with a 14px line height in Manrope with its fallback face, and reserve 44px touch targets through 834px; their position follows page content."
+
+[part.create.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the available inline space by 15px."
+
+[part.create.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the form, preview and mobile touch targets within the stable scrollbar gutter."
+
+[part.create.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the width shared by the mobile destinations by 15px."
+
+[part.create.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile destinations share the width remaining after the stable scrollbar gutter."
+
+[part.create.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content >> role=button[name=\"Connect wallet to create\"]"
+cause = "The creation action follows the form and costs, reserves a 44px mobile target and shares the scrollbar-adjusted column."
+
+[view.token]
+differing_parts = [8, 6, 7, 6, 7]
+
+[part.token.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The wallet gate retains its earlier panel padding and Manrope with its fallback face; the scrollbar gutter recenters it, while its 44px mobile action affects the centered group height."
+
+[part.token.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer uses the scrollbar-adjusted width; 44px mobile legal links move its top upward within the same page height."
+
+[part.token.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The activity figures use the inline space after the stable scrollbar gutter, retain Manrope with its fallback face and follow the page content and mobile legal-link targets."
+
+[part.token.footer-navigation-first-link]
+widths = [390, 1440, 2560]
+selector = "footer nav a >> nth=0"
+cause = "The legal links retain 11px text with a 14px line height in Manrope with its fallback face, and reserve 44px touch targets through 834px; their position follows page content."
+
+[part.token.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the available inline space by 15px."
+
+[part.token.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region shares its width with the stable scrollbar gutter and contains the mobile legal-link targets."
+
+[part.token.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the width shared by the mobile destinations by 15px."
+
+[part.token.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile destinations share the width remaining after the stable scrollbar gutter."
+
+[part.token.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The wallet action retains Manrope with its fallback face, recenters within the scrollbar-adjusted region and reserves a 44px mobile target."
+
+[view.tokens-tokenAddress-metadata]
+differing_parts = [9, 6, 6, 6, 7]
+
+[part.tokens-tokenAddress-metadata.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The heading retains Manrope with its fallback face; the stable scrollbar gutter narrows the mobile heading region and recenters the desktop content."
+
+[part.tokens-tokenAddress-metadata.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer uses the scrollbar-adjusted width; 44px mobile legal links move its top upward within the same page height."
+
+[part.tokens-tokenAddress-metadata.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The activity figures use the inline space after the stable scrollbar gutter, retain Manrope with its fallback face and follow the page content and mobile legal-link targets."
+
+[part.tokens-tokenAddress-metadata.footer-navigation-first-link]
+widths = [390, 2560]
+selector = "footer nav a >> nth=0"
+cause = "The legal links retain 11px text with a 14px line height in Manrope with its fallback face, and reserve 44px touch targets through 834px; their position follows page content."
+
+[part.tokens-tokenAddress-metadata.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the available inline space by 15px."
+
+[part.tokens-tokenAddress-metadata.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region shares its width with the stable scrollbar gutter and contains the mobile legal-link targets."
+
+[part.tokens-tokenAddress-metadata.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the width shared by the mobile destinations by 15px."
+
+[part.tokens-tokenAddress-metadata.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile destinations share the width remaining after the stable scrollbar gutter."
+
+[part.tokens-tokenAddress-metadata.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The current first control is the Back to coins link; the reference first control is the sign-in button. The link retains Manrope with its fallback face and reserves a 44px mobile target."

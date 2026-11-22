@@ -5,7 +5,7 @@ import type { TxBlob } from 'types/api/blobs';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import BlobDataType from 'ui/shared/blob/BlobDataType';
 import BlobEntity from 'ui/shared/entities/blob/BlobEntity';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 interface Props {
   data: TxBlob;

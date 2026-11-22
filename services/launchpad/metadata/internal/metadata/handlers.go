@@ -232,8 +232,8 @@ func (h *Handlers) buildOne(ctx context.Context, addr, base string) (types.Publi
 		out.Creator = strPtr(pool.Creator)
 	}
 	if hasMeta {
-		out.Name = textPtr(meta.Name)
-		out.Symbol = textPtr(meta.Symbol)
+		out.Name = coinTextPtr(meta.Name, 100)
+		out.Symbol = coinTextPtr(meta.Symbol, 16)
 		out.Description = textPtr(meta.Description)
 		out.Decimals = meta.Decimals
 		out.Socials = types.Socials{
@@ -332,8 +332,8 @@ func (h *Handlers) assemble(
 		out.Creator = strPtr(pool.Creator)
 	}
 	if meta, ok := metas[addr]; ok {
-		out.Name = textPtr(meta.Name)
-		out.Symbol = textPtr(meta.Symbol)
+		out.Name = coinTextPtr(meta.Name, 100)
+		out.Symbol = coinTextPtr(meta.Symbol, 16)
 		out.Description = textPtr(meta.Description)
 		out.Decimals = meta.Decimals
 		out.Socials = types.Socials{
@@ -550,7 +550,7 @@ func (h *Handlers) recordMetadata(ctx context.Context, addr, poolAddr, wallet st
 		if err != nil {
 			return err
 		}
-		params.Name, params.Symbol, params.Description = strToText(meta.Name), strToText(meta.Symbol), strToText(meta.Description)
+		params.Name, params.Symbol, params.Description = pgtype.Text{String: carriedCoinText(meta.Name, 100), Valid: true}, pgtype.Text{String: carriedCoinText(meta.Symbol, 16), Valid: true}, strToText(meta.Description)
 		params.Website, params.Twitter, params.Telegram, params.Discord = strToText(meta.Website), strToText(meta.Twitter), strToText(meta.Telegram), strToText(meta.Discord)
 		params.CustomTags = pgtype.Text{String: string(tagsJSON), Valid: true}
 		params.Decimals = defaultDecimals
@@ -558,6 +558,8 @@ func (h *Handlers) recordMetadata(ctx context.Context, addr, poolAddr, wallet st
 			params.Decimals = *meta.Decimals
 		}
 	}
+	params.Name.String = carriedCoinText(params.Name.String, 100)
+	params.Symbol.String = carriedCoinText(params.Symbol.String, 16)
 	return h.q.UpsertTokenMetadata(ctx, params)
 }
 

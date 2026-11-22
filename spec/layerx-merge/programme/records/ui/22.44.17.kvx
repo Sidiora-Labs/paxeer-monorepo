@@ -1,0 +1,339 @@
+[manifest]
+task = "22.44.17"
+surface = "Trading workspace affiliate, leaderboard, rewards and share views"
+
+[guide.css]
+id = "css"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.html]
+id = "html"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.color]
+id = "color"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.dark-mode]
+id = "dark-mode"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.responsive-design]
+id = "responsive-design"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.css-layout]
+id = "css-layout"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.size-aware-styling]
+id = "size-aware-styling"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.position-aware-tooltips]
+id = "position-aware-tooltips"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.scrollability-affordance-hints]
+id = "scrollability-affordance-hints"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.respect-os-text-scale]
+id = "respect-os-text-scale"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/ui-share"]
+
+[guide.responsive-table]
+id = "responsive-table"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/ui-share"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/perps/packages/affiliate"]
+
+[guide.validate-input-after-interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/ui-share"]
+
+[guide.select-menu-interaction]
+id = "select-menu-interaction"
+directories = ["apps/perps/packages/affiliate"]
+
+[guide.branded-select-styling]
+id = "branded-select-styling"
+directories = ["apps/perps/packages/affiliate"]
+
+[guide.persistent-toast-notifications]
+id = "persistent-toast-notifications"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/trading-leaderboard", "apps/perps/packages/trading-rewards", "apps/perps/packages/ui-share"]
+
+[guide.carousel]
+id = "carousel"
+directories = ["apps/perps/packages/trading-leaderboard", "apps/perps/packages/ui-share"]
+
+[guide.checkbox]
+id = "checkbox"
+directories = ["apps/perps/packages/affiliate", "apps/perps/packages/ui-share"]
+
+[guide.slider]
+id = "slider"
+directories = ["apps/perps/packages/affiliate"]
+
+[guide.expose-canvas-content-to-browser-features]
+id = "expose-canvas-content-to-browser-features"
+directories = ["apps/perps/packages/ui-share"]
+
+[view.affiliate-landing]
+route = "/?view=affiliate-landing"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.affiliate-home]
+route = "/?view=affiliate-home"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.affiliate]
+route = "/?view=affiliate"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.trader]
+route = "/?view=trader"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.multi-affiliate]
+route = "/?view=multi-affiliate"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.multi-affiliate-tab-referees]
+route = "/?view=multi-affiliate&tab=referees"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.multi-affiliate-tab-codes]
+route = "/?view=multi-affiliate&tab=codes"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.multi-trader]
+route = "/?view=multi-trader"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.leaderboard]
+route = "/?view=leaderboard"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.leaderboard-campaign]
+route = "/?view=leaderboard-campaign"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.leaderboard-legacy]
+route = "/?view=leaderboard-legacy"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.rewards]
+route = "/?view=rewards"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.rewards-epoch-paused]
+route = "/?view=rewards&epoch=Paused"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.rewards-epoch-ended]
+route = "/?view=rewards&epoch=Ended"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.share-desktop]
+route = "/?view=share-desktop"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.share-mobile]
+route = "/?view=share-mobile"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.dialog-create]
+route = "/?view=dialog-create"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.dialog-bind]
+route = "/?view=dialog-bind"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.dialog-fee]
+route = "/?view=dialog-fee"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.dialog-note]
+route = "/?view=dialog-note"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.dialog-edit-code]
+route = "/?view=dialog-edit-code"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.dialog-edit-rate]
+route = "/?view=dialog-edit-rate"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.dialog-share-desktop]
+route = "/?view=dialog-share-desktop"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"
+
+[view.dialog-share-mobile]
+route = "/?view=dialog-share-mobile"
+widths = [360, 390, 430, 768, 834, 844, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+interaction = "keyboard"

@@ -42,9 +42,9 @@ const UserProfileContentWallet = ({ onClose, className }: Props) => {
         <Flex
           alignItems="center"
           columnGap={ 2 }
-          bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+          bgColor="surface"
           px={ 2 }
-          py="10px"
+          py={ 'var(--chakra-spacing-2\\.5)' }
           borderRadius="base"
           justifyContent="space-between"
         >
@@ -53,11 +53,11 @@ const UserProfileContentWallet = ({ onClose, className }: Props) => {
             isLoading={ web3AccountWithDomain.isLoading }
             truncation="dynamic"
             fontSize="sm"
-            fontWeight={ 500 }
+            fontWeight="medium"
             noAltHash
             onClick={ handleAddressClick }
           />
-          { web3Wallet.isReconnecting ? <Spinner size="sm" m="2px" flexShrink={ 0 }/> : (
+          { web3Wallet.isReconnecting ? <Spinner size="sm" m={ 'var(--chakra-spacing-0\\.5)' } flexShrink={ 0 }/> : (
             <IconButton
               aria-label="Open wallet"
               variant="icon_secondary"
@@ -65,7 +65,7 @@ const UserProfileContentWallet = ({ onClose, className }: Props) => {
               onClick={ handleOpenWalletClick }
               loading={ web3Wallet.isOpen }
             >
-              <IconSvg name="gear"/>
+              <IconSvg aria-hidden={ true } name="gear"/>
             </IconButton>
           ) }
         </Flex>
@@ -87,7 +87,7 @@ const UserProfileContentWallet = ({ onClose, className }: Props) => {
 
   return (
     <Box className={ className }>
-      <Flex px={ 1 } mb="1" textStyle="xs" alignItems="center" fontWeight="500">
+      <Flex px={ 1 } mb="1" textStyle="xs" alignItems="center" fontWeight="medium">
         <span>Connected wallet</span>
         <Hint
           label={

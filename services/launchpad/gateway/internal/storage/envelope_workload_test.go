@@ -4,11 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +33,7 @@ func TestEnvelopeConcurrentUploadAndReadWorkload(t *testing.T) {
 	}
 	readDigest := sha256.Sum256(readBody)
 	var uploads, reads, metrics atomic.Int64
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server, caPath := envelopePlaybackServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/upload":
 			prefix := make([]byte, 32768)
@@ -96,10 +94,6 @@ func TestEnvelopeConcurrentUploadAndReadWorkload(t *testing.T) {
 		t.Fatal(err)
 	}
 	programHash := sha256.Sum256(program)
-	caPath := filepath.Join(t.TempDir(), "playback-root.pem")
-	if err := os.WriteFile(caPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0600); err != nil {
-		t.Fatal(err)
-	}
 	config.PlaybackBinary = EnvelopeFile{Path: "/usr/bin/ffmpeg", SHA256: hex.EncodeToString(programHash[:])}
 	config.PlaybackSeconds = 1
 	config.PlaybackTargetID = cdnServiceName

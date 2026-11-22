@@ -1,0 +1,39 @@
+{
+  "items": [
+    {
+      "block_number": 9006105,
+      "created_contract": null,
+      "error": null,
+      "from": {
+        "hash": "0x0000000000000000000000000000000000000002",
+        "implementations": null,
+        "is_contract": false,
+        "is_verified": null,
+        "name": null,
+        "private_tags": [],
+        "public_tags": [],
+        "watchlist_names": [],
+        "ens_domain_name": null
+      },
+      "gas_limit": "754278",
+      "index": 1,
+      "success": true,
+      "timestamp": "2023-05-15T20:14:00.000000Z",
+      "to": {
+        "hash": "0x0000000000000000000000000000000000000002",
+        "implementations": null,
+        "is_contract": false,
+        "is_verified": null,
+        "name": null,
+        "private_tags": [],
+        "public_tags": [],
+        "watchlist_names": [],
+        "ens_domain_name": null
+      },
+      "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000005",
+      "type": "staticcall",
+      "value": "22324344900000000"
+    }
+  ],
+  "next_page_params": null
+}

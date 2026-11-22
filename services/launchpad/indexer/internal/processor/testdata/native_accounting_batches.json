@@ -6945,6 +6945,24 @@
         "transactionIndex": "0x0",
         "type": "0x2"
       }
+    },
+    "eth_call [{\"from\":\"0x0000000000000000000000000000000000000000\",\"gas\":\"0x249f0\",\"input\":\"0x0902f1ac\",\"to\":\"0xce20da50f92d21d8bee497910c782e9aa25b6263\"},{\"blockHash\":\"0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b\"}]": {
+      "k": "eth_call [{\"from\":\"0x0000000000000000000000000000000000000000\",\"gas\":\"0x249f0\",\"input\":\"0x0902f1ac\",\"to\":\"0xce20da50f92d21d8bee497910c782e9aa25b6263\"},{\"blockHash\":\"0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b\"}]",
+      "result": "0x00000000000000000000000000000000000000000000000000000002540be400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000038d7ea4c68000",
+      "source": {
+        "reserves": "services/launchpad/stats-workers/internal/projectionstats/testdata/real_pool_125.json#reservesAt/33963716",
+        "reservesSHA256": "bcf80eac87c2a0e168d95a12ed68d9538c346a5a1c0d87074ad6ca52a10914cd",
+        "price": "contracts/launchpad/contracts/core/SidioraPool.sol#getPrice"
+      }
+    },
+    "eth_call [{\"from\":\"0x0000000000000000000000000000000000000000\",\"gas\":\"0x249f0\",\"input\":\"0x98d5fdca\",\"to\":\"0xce20da50f92d21d8bee497910c782e9aa25b6263\"},{\"blockHash\":\"0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b\"}]": {
+      "k": "eth_call [{\"from\":\"0x0000000000000000000000000000000000000000\",\"gas\":\"0x249f0\",\"input\":\"0x98d5fdca\",\"to\":\"0xce20da50f92d21d8bee497910c782e9aa25b6263\"},{\"blockHash\":\"0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b\"}]",
+      "result": "0x000000000000000000000000000000000000000000000000000009184e72a000",
+      "source": {
+        "reserves": "services/launchpad/stats-workers/internal/projectionstats/testdata/real_pool_125.json#reservesAt/33963716",
+        "reservesSHA256": "bcf80eac87c2a0e168d95a12ed68d9538c346a5a1c0d87074ad6ca52a10914cd",
+        "price": "contracts/launchpad/contracts/core/SidioraPool.sol#getPrice"
+      }
     }
   }
 }

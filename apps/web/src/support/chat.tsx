@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -23,10 +24,13 @@ import {
 } from "./conversation.ts";
 import { SUPPORT_TOPICS } from "./topics.ts";
 
-function useResolvedPlatform(platform: "mobile" | "desktop"): "mobile" | "desktop" {
+function useResolvedPlatform(
+  platform: "mobile" | "desktop",
+): "mobile" | "desktop" {
   const [resolved, setResolved] = useState<"mobile" | "desktop">(platform);
-  useEffect(() => {
-    const shell = document.querySelector<HTMLElement>("[data-shell]")?.dataset.shell;
+  useLayoutEffect(() => {
+    const shell =
+      document.querySelector<HTMLElement>("[data-shell]")?.dataset.shell;
     if (shell === "mobile" || shell === "desktop") {
       setResolved(shell);
     }
@@ -34,7 +38,9 @@ function useResolvedPlatform(platform: "mobile" | "desktop"): "mobile" | "deskto
   return resolved;
 }
 
-function TopicSuggestions({ session }: Readonly<{ session: SupportChatSession }>) {
+function TopicSuggestions({
+  session,
+}: Readonly<{ session: SupportChatSession }>) {
   return (
     <div
       role="group"
@@ -66,10 +72,12 @@ function EntryBubble({
   session: SupportChatSession;
   snapshot: SupportChatSnapshot;
 }>) {
-  const authorKey = entry.author === "you" ? "support.author.you" : "support.author.support";
-  const bubbleClass = entry.author === "you"
-    ? "self-end max-w-[85%] rounded-xl bg-surface-sunken px-4 py-2"
-    : "self-start max-w-[85%] rounded-xl border border-border bg-surface px-4 py-2";
+  const authorKey =
+    entry.author === "you" ? "support.author.you" : "support.author.support";
+  const bubbleClass =
+    entry.author === "you"
+      ? "human-support-bubble self-end rounded-xl bg-surface-sunken px-4 py-2"
+      : "human-support-bubble self-start rounded-xl border border-border bg-surface px-4 py-2";
   return (
     <li className="flex flex-col gap-2">
       <div className={bubbleClass}>
@@ -78,7 +86,9 @@ function EntryBubble({
           {entry.body}
         </p>
         {entry.delivery === "sending" ? (
-          <p className="text-xs text-foreground-secondary">{copyEntry("support.message.sending").message}</p>
+          <p className="text-xs text-foreground-secondary">
+            {copyEntry("support.message.sending").message}
+          </p>
         ) : null}
       </div>
       {entry.delivery === "failed" ? (
@@ -96,7 +106,12 @@ function EntryBubble({
         </InlineNotice>
       ) : null}
       {snapshot.awaitingFeedbackId === entry.message_id ? (
-        <div className="flex flex-wrap items-center gap-2" data-feedback-state={snapshot.feedbackDelivery.get(entry.message_id) ?? "idle"}>
+        <div
+          className="flex flex-wrap items-center gap-2"
+          data-feedback-state={
+            snapshot.feedbackDelivery.get(entry.message_id) ?? "idle"
+          }
+        >
           <span className="text-sm text-foreground-secondary">
             {copyEntry("support.feedback.question").message}
           </span>
@@ -156,11 +171,19 @@ export function SupportChat({
   traceId,
 }: Readonly<{ platform: "mobile" | "desktop"; traceId?: TraceId }>) {
   const accountId = useActiveAccountId();
-  return <SupportChatForAccount key={`${accountId ?? "session"}:${platform}:${traceId ?? ""}`} platform={platform}
-    {...(traceId === undefined ? {} : { traceId })} />;
+  return (
+    <SupportChatForAccount
+      key={`${accountId ?? "session"}:${platform}:${traceId ?? ""}`}
+      platform={platform}
+      {...(traceId === undefined ? {} : { traceId })}
+    />
+  );
 }
 
-function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobile" | "desktop"; traceId?: TraceId }>) {
+function SupportChatForAccount({
+  platform,
+  traceId,
+}: Readonly<{ platform: "mobile" | "desktop"; traceId?: TraceId }>) {
   const resolved = useResolvedPlatform(platform);
   const sessionRef = useRef<SupportChatSession | undefined>(undefined);
   sessionRef.current ??= new SupportChatSession({
@@ -168,7 +191,11 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
     ...(traceId === undefined ? {} : { traceId }),
   });
   const session = sessionRef.current;
-  const snapshot = useSyncExternalStore(session.subscribe, session.snapshot, session.snapshot);
+  const snapshot = useSyncExternalStore(
+    session.subscribe,
+    session.snapshot,
+    session.snapshot,
+  );
   const endRef = useRef<HTMLLIElement | null>(null);
 
   useEffect(() => {
@@ -177,7 +204,9 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
       session.setOnline(true);
       void session.retryFailed();
     };
-    const offline = () => { session.setOnline(false); };
+    const offline = () => {
+      session.setOnline(false);
+    };
     window.addEventListener("online", online);
     window.addEventListener("offline", offline);
     if (!navigator.onLine) {
@@ -195,9 +224,10 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
   }, [snapshot.entries.length]);
 
   const draftEmpty = snapshot.draft.trim().length === 0;
-  const containerClass = resolved === "mobile"
-    ? "flex min-h-dvh flex-col"
-    : "fixed bottom-6 right-6 z-40 flex max-h-[calc(100dvh-6rem)] w-96 max-w-[calc(100vw-3rem)] flex-col";
+  const containerClass =
+    resolved === "mobile"
+      ? "flex min-h-dvh flex-col"
+      : "human-support-shell-desktop";
 
   const composer = (
     <form
@@ -210,6 +240,9 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
       <KitTextField
         label={copyEntry("support.compose.label").message}
         className="flex-1"
+        name="message"
+        autoComplete="off"
+        spellCheck={false}
         maxLength={2000}
         value={snapshot.draft}
         onChange={(event) => {
@@ -221,7 +254,13 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
           type="submit"
           variant="primary"
           disabled
-          disabledReason={copyEntry(snapshot.sending ? "support.message.sending" : "support.compose.required").message}
+          disabledReason={
+            copyEntry(
+              snapshot.sending
+                ? "support.message.sending"
+                : "support.compose.required",
+            ).message
+          }
         >
           {copyEntry("support.send").message}
         </KitButton>
@@ -234,19 +273,28 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
   );
 
   return (
-    <div className={containerClass} data-support-shell={resolved}>
+    <div
+      key={snapshot.load === "loading" ? "loading" : "conversation"}
+      className={containerClass}
+      data-support-shell={resolved}
+    >
       <ScreenCard
         landmark="section"
         dataApplication="support"
+        className="human-support-card"
         title={copyEntry("support.title").message}
         description={copyEntry("support.summary").message}
       >
         <LiveRegion>{announcement(snapshot)}</LiveRegion>
         {snapshot.traceId === undefined ? null : (
           <InlineNotice tone="neutral" role="status">
-            <span className="font-semibold">{copyEntry("support.trace.attached").message}</span>{" "}
+            <span className="font-semibold">
+              {copyEntry("support.trace.attached").message}
+            </span>{" "}
             <span className="font-mono text-xs">
-              {formatCopy("error.technical.trace", { traceId: snapshot.traceId })}
+              {formatCopy("error.technical.trace", {
+                traceId: snapshot.traceId,
+              })}
             </span>
           </InlineNotice>
         )}
@@ -266,7 +314,9 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
             <KitButton
               variant="secondary"
               size="sm"
-              onClick={() => { void session.initialize(); }}
+              onClick={() => {
+                void session.initialize();
+              }}
             >
               {copyEntry("action.retry").message}
             </KitButton>
@@ -282,10 +332,15 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
             ) : (
               <ul
                 aria-label={copyEntry("support.history").message}
-                className="flex max-h-[50dvh] flex-1 flex-col gap-3 overflow-y-auto"
+                className="human-support-history flex flex-1 flex-col gap-3 overflow-y-auto"
               >
                 {snapshot.entries.map((entry) => (
-                  <EntryBubble key={entry.message_id} entry={entry} session={session} snapshot={snapshot} />
+                  <EntryBubble
+                    key={entry.message_id}
+                    entry={entry}
+                    session={session}
+                    snapshot={snapshot}
+                  />
                 ))}
                 <li ref={endRef} aria-hidden="true" />
               </ul>
@@ -313,9 +368,21 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
 }
 
 export function MobileSupportChat({ traceId }: Readonly<{ traceId?: string }>) {
-  return <SupportChat platform="mobile" {...(traceId === undefined ? {} : { traceId })} />;
+  return (
+    <SupportChat
+      platform="mobile"
+      {...(traceId === undefined ? {} : { traceId })}
+    />
+  );
 }
 
-export function DesktopSupportChat({ traceId }: Readonly<{ traceId?: string }>) {
-  return <SupportChat platform="desktop" {...(traceId === undefined ? {} : { traceId })} />;
+export function DesktopSupportChat({
+  traceId,
+}: Readonly<{ traceId?: string }>) {
+  return (
+    <SupportChat
+      platform="desktop"
+      {...(traceId === undefined ? {} : { traceId })}
+    />
+  );
 }

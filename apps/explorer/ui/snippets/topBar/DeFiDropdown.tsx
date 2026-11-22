@@ -42,10 +42,10 @@ const DeFiDropdown = () => {
             Blockscout{ space }
           </chakra.span>
           DeFi
-          <IconSvg name="arrows/east-mini" boxSize={ 4 } ml={ 1 } transform="rotate(-90deg)"/>
+          <IconSvg aria-hidden={ true } name="arrows/east-mini" boxSize={ 4 } ml={ 1 } transform="rotate(-90deg)"/>
         </Button>
       </PopoverTrigger>
-      <PopoverContent w="auto" minW={{ base: 'auto', lg: '132px' }}>
+      <PopoverContent w="auto" minW={{ base: 'auto', lg: 'calc(var(--chakra-spacing-30) + var(--chakra-spacing-3))' }}>
         <PopoverBody >
           <Flex flexDirection="column" gap={ 1 }>
             { items.map((item, index) => (
@@ -69,7 +69,7 @@ const DeFiDropdown = () => {
       asChild
     >
       <Button onClick={ items[0].onClick } size="2xs">
-        { items[0].icon && <IconSvg name={ items[0].icon } boxSize={ 3 } mr={{ base: 0, sm: 1 }}/> }
+        { items[0].icon && <IconSvg aria-hidden={ true } name={ items[0].icon } boxSize={ 3 } mr={{ base: 0, sm: 1 }}/> }
         <Box display={{ base: 'none', sm: 'inline' }}>
           { items[0].text }
         </Box>

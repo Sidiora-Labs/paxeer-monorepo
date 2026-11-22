@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ModalPanel } from './primitives';
 import { Fuel, Clock, AlertTriangle, Zap, X } from 'lucide-react';
 
 // ── Backdrop + Drawer shell ──────────────────────────────────────────────────
@@ -14,41 +14,18 @@ function ModalShell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  useEffect(() => {
-    const handle = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    if (open) window.addEventListener('keydown', handle);
-    return () => window.removeEventListener('keydown', handle);
-  }, [open, onClose]);
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-          />
-          <motion.div
-            key="sheet"
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-            className="relative w-full max-w-md bg-pax-card rounded-t-3xl p-5"
-            style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.5rem))' }}
-          >
-            <div className="w-10 h-1 rounded-full bg-white/10 absolute top-2.5 left-1/2 -translate-x-1/2" />
-            {children}
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
+  return open ? (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="absolute inset-0 bg-pax-scrim" onClick={onClose} />
+      <ModalPanel
+        onDismiss={onClose}
+        aria-label="Transaction"
+        className="relative w-full max-w-md bg-pax-card rounded-t-3xl p-5 safe-area-pb"
+      >
+        {children}
+      </ModalPanel>
+    </div>
+  ) : null;
 }
 
 // ── Insufficient Gas Modal ───────────────────────────────────────────────────
@@ -70,8 +47,8 @@ export function InsufficientGasModal({
   return (
     <ModalShell open={open} onClose={onClose}>
       <div className="flex flex-col items-center text-center gap-4 pt-4">
-        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-          <Fuel className="w-7 h-7 text-amber-400" />
+        <div className="w-14 h-14 rounded-2xl bg-pax-warning-muted flex items-center justify-center">
+          <Fuel className="w-7 h-7 text-pax-warning" />
         </div>
 
         <div className="space-y-1">
@@ -82,17 +59,19 @@ export function InsufficientGasModal({
         </div>
 
         {(requiredGas || availableBalance) && (
-          <div className="w-full glass-card  divide-white/[0.06]">
+          <div className="w-full glass-card  list-separated">
             {requiredGas && (
-              <div className="flex justify-between px-4 py-3">
-                <span className="text-sm text-pax-muted">Estimated fee</span>
-                <span className="text-sm font-medium">{requiredGas} PAX</span>
+              <div className="flex flex-wrap gap-2 justify-between px-4 py-3">
+                <span className="basis-32 flex-1 text-sm text-pax-muted">Estimated fee</span>
+                <span className="basis-32 flex-1 text-sm font-medium">{requiredGas} PAX</span>
               </div>
             )}
             {availableBalance && (
-              <div className="flex justify-between px-4 py-3">
-                <span className="text-sm text-pax-muted">Your balance</span>
-                <span className="text-sm font-medium text-red-400">{availableBalance} PAX</span>
+              <div className="flex flex-wrap gap-2 justify-between px-4 py-3">
+                <span className="basis-32 flex-1 text-sm text-pax-muted">Your balance</span>
+                <span className="basis-32 flex-1 text-sm font-medium text-pax-error">
+                  {availableBalance} PAX
+                </span>
               </div>
             )}
           </div>
@@ -101,8 +80,11 @@ export function InsufficientGasModal({
         <div className="w-full flex flex-col gap-2.5 mt-1">
           {onBuyPax && (
             <button
-              onClick={() => { onBuyPax(); onClose(); }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-pax-accent text-black font-semibold text-sm press-scale"
+              onClick={() => {
+                onBuyPax();
+                onClose();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-pax-accent text-pax-on-accent font-semibold text-sm press-scale"
             >
               <Zap className="w-4 h-4" />
               Buy PAX
@@ -110,7 +92,7 @@ export function InsufficientGasModal({
           )}
           <button
             onClick={onClose}
-            className="w-full py-3 rounded-2xl bg-white/5 text-sm font-medium text-pax-muted press-scale"
+            className="w-full py-3 rounded-2xl bg-pax-control text-sm font-medium text-pax-muted press-scale"
           >
             Cancel
           </button>
@@ -141,15 +123,13 @@ export function TxTimeoutModal({
   const elapsed = elapsedSeconds ?? 0;
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
-  const elapsedLabel = minutes > 0
-    ? `${minutes}m ${seconds}s`
-    : `${seconds}s`;
+  const elapsedLabel = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 
   return (
     <ModalShell open={open} onClose={onClose}>
       <div className="flex flex-col items-center text-center gap-4 pt-4">
-        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-          <Clock className="w-7 h-7 text-amber-400" />
+        <div className="w-14 h-14 rounded-2xl bg-pax-warning-muted flex items-center justify-center">
+          <Clock className="w-7 h-7 text-pax-warning" />
         </div>
 
         <div className="space-y-1">
@@ -160,16 +140,19 @@ export function TxTimeoutModal({
         </div>
 
         {txHash && (
-          <div className="w-full px-4 py-3 rounded-xl bg-white/[0.04] text-center">
-            <p className="text-[11px] font-mono text-pax-muted break-all">{txHash}</p>
+          <div className="w-full px-4 py-3 rounded-xl bg-pax-control text-center">
+            <p className="text-size-11 font-mono text-pax-muted break-all">{txHash}</p>
           </div>
         )}
 
         <div className="w-full flex flex-col gap-2.5 mt-1">
           {onSpeedUp && (
             <button
-              onClick={() => { onSpeedUp(); onClose(); }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-pax-accent text-black font-semibold text-sm press-scale"
+              onClick={() => {
+                onSpeedUp();
+                onClose();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-pax-accent text-pax-on-accent font-semibold text-sm press-scale"
             >
               <Zap className="w-4 h-4" />
               Speed Up (increase gas)
@@ -177,15 +160,18 @@ export function TxTimeoutModal({
           )}
           {onCancel && (
             <button
-              onClick={() => { onCancel(); onClose(); }}
-              className="w-full py-3.5 rounded-2xl bg-red-500/10 text-red-400 text-sm font-semibold press-scale  "
+              onClick={() => {
+                onCancel();
+                onClose();
+              }}
+              className="w-full py-3.5 rounded-2xl bg-pax-error-muted text-pax-error text-sm font-semibold press-scale  "
             >
               Cancel Transaction
             </button>
           )}
           <button
             onClick={onClose}
-            className="w-full py-3 rounded-2xl bg-white/5 text-sm font-medium text-pax-muted press-scale"
+            className="w-full py-3 rounded-2xl bg-pax-control text-sm font-medium text-pax-muted press-scale"
           >
             Wait longer
           </button>
@@ -215,7 +201,7 @@ export function RateLimitModal({
     if (!open) return;
     setCountdown(retryAfterSeconds);
     const interval = setInterval(() => {
-      setCountdown(prev => {
+      setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
           return 0;
@@ -229,8 +215,8 @@ export function RateLimitModal({
   return (
     <ModalShell open={open} onClose={onClose}>
       <div className="flex flex-col items-center text-center gap-4 pt-4">
-        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-          <AlertTriangle className="w-7 h-7 text-amber-400" />
+        <div className="w-14 h-14 rounded-2xl bg-pax-warning-muted flex items-center justify-center">
+          <AlertTriangle className="w-7 h-7 text-pax-warning" />
         </div>
 
         <div className="space-y-1">
@@ -242,27 +228,30 @@ export function RateLimitModal({
 
         {countdown > 0 ? (
           <div className="w-20 h-20 rounded-full   flex flex-col items-center justify-center">
-            <span className="text-2xl font-mono font-bold text-amber-400">{countdown}</span>
-            <span className="text-[10px] text-pax-muted">sec</span>
+            <span className="text-2xl font-mono font-bold text-pax-warning">{countdown}</span>
+            <span className="text-size-10 text-pax-muted">sec</span>
           </div>
         ) : (
-          <div className="w-14 h-14 rounded-2xl bg-green-500/10 flex items-center justify-center">
-            <Zap className="w-6 h-6 text-green-400" />
+          <div className="w-14 h-14 rounded-2xl bg-pax-success-muted flex items-center justify-center">
+            <Zap className="w-6 h-6 text-pax-success" />
           </div>
         )}
 
         <div className="w-full flex flex-col gap-2.5 mt-1">
           {countdown === 0 && onRetry && (
             <button
-              onClick={() => { onRetry(); onClose(); }}
-              className="w-full py-3.5 rounded-2xl bg-pax-accent text-black font-semibold text-sm press-scale"
+              onClick={() => {
+                onRetry();
+                onClose();
+              }}
+              className="w-full py-3.5 rounded-2xl bg-pax-accent text-pax-on-accent font-semibold text-sm press-scale"
             >
               Try Again
             </button>
           )}
           <button
             onClick={onClose}
-            className="w-full py-3 rounded-2xl bg-white/5 text-sm font-medium text-pax-muted press-scale"
+            className="w-full py-3 rounded-2xl bg-pax-control text-sm font-medium text-pax-muted press-scale"
           >
             Dismiss
           </button>
@@ -288,16 +277,14 @@ export function ContractRevertModal({
   txHash,
   onViewExplorer,
 }: ContractRevertModalProps) {
-  const shortHash = txHash
-    ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}`
-    : '';
+  const shortHash = txHash ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}` : '';
 
   return (
     <ModalShell open={open} onClose={onClose}>
       <div className="flex flex-col gap-4 pt-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center shrink-0">
-            <X className="w-6 h-6 text-red-400" />
+        <div className="pax-transaction-heading flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-pax-error-muted flex items-center justify-center shrink-0">
+            <X className="w-6 h-6 text-pax-error" />
           </div>
           <div>
             <h3 className="text-base font-bold">Transaction Failed</h3>
@@ -306,33 +293,36 @@ export function ContractRevertModal({
         </div>
 
         {revertReason && (
-          <div className="rounded-xl bg-red-500/8   px-4 py-3 space-y-1">
-            <p className="text-xs font-semibold text-red-400">Revert reason</p>
-            <p className="text-xs text-red-300/80 font-mono leading-relaxed break-all">
+          <div className="rounded-xl bg-pax-error-muted   px-4 py-3 space-y-1">
+            <p className="text-xs font-semibold text-pax-error">Revert reason</p>
+            <p className="text-xs text-pax-error font-mono leading-relaxed break-words">
               {revertReason}
             </p>
           </div>
         )}
 
         {txHash && (
-          <div className="px-4 py-3 rounded-xl bg-white/[0.04] flex items-center justify-between">
+          <div className="px-4 py-3 rounded-xl bg-pax-control flex items-center justify-between">
             <span className="text-xs text-pax-muted">Transaction</span>
-            <span className="text-xs font-mono text-white/60">{shortHash}</span>
+            <span className="text-xs font-mono text-pax-light">{shortHash}</span>
           </div>
         )}
 
         <div className="flex flex-col gap-2.5">
           {onViewExplorer && (
             <button
-              onClick={() => { onViewExplorer(); onClose(); }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white/[0.08] text-sm font-medium press-scale"
+              onClick={() => {
+                onViewExplorer();
+                onClose();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-pax-control text-sm font-medium press-scale"
             >
               View on PaxScan
             </button>
           )}
           <button
             onClick={onClose}
-            className="w-full py-3 rounded-2xl bg-white/5 text-sm font-medium text-pax-muted press-scale"
+            className="w-full py-3 rounded-2xl bg-pax-control text-sm font-medium text-pax-muted press-scale"
           >
             Close
           </button>

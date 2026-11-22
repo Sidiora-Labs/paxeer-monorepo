@@ -251,10 +251,126 @@ fn readiness(service: &mut Service, arguments: &[&str]) -> (u16, Value) {
 }
 
 fn assert_readiness((status, document): (u16, Value)) {
+    assert_eq!(document["version"], env!("CARGO_PKG_VERSION"));
     let ready = document["ready"]
         .as_bool()
         .unwrap_or_else(|| panic!("readiness must report ready: {document}"));
     assert_eq!(status, if ready { 200 } else { 503 }, "{document}");
+}
+
+fn start_redis(material: &Material, port: u16) -> Service {
+    let directory = &material.directory;
+    let config_path = directory.join("redis.conf");
+    fs::write(&config_path, format!(
+        "bind 127.0.0.1\nport 0\ntls-port {port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\nuser default off\nuser dashboard on >dashboard-secret ~* +@all\nsave \"\"\nappendonly no\ndir {}\n",
+        path(&directory.join("server.pem")),
+        path(&directory.join("server-key.pem")),
+        path(&directory.join("server.pem")),
+        path(directory),
+    )).unwrap_or_else(|error| panic!("redis config: {error}"));
+    let mut service = Service {
+        child: Command::new("redis-server")
+            .arg(config_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .unwrap_or_else(|error| panic!("redis-server must start: {error}")),
+    };
+    for _ in 0..100 {
+        if let Ok(Some(status)) = service.child.try_wait() {
+            panic!("redis-server exited before listening: {status}");
+        }
+        if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            return service;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    panic!("redis-server never listened on {port}");
+}
+
+#[test]
+fn health_identity_on_plain_and_tls_listeners_with_and_without_network() {
+    let material = material("health-identity");
+    let ca = path(&material.directory.join("server.pem"));
+    let redis_port = free_port();
+    let _redis = start_redis(&material, redis_port);
+    for ready in [false, true] {
+        for mode in ["plain", "tls"] {
+            for network in [
+                None,
+                Some("!".to_owned()),
+                Some(r#"network!"\label"#.to_owned()),
+                Some("~".repeat(64)),
+            ] {
+                let port = free_port();
+                let mut environment = environment(&material, port);
+                if ready {
+                    for (name, value) in &mut environment {
+                        if matches!(
+                            name.as_str(),
+                            "LAYERX_DASHBOARD_GATEWAY_REDIS_URL" | "LAYERX_WEBHOOKS_REDIS_URL"
+                        ) {
+                            *value = format!("rediss://localhost:{redis_port}");
+                        }
+                    }
+                }
+                if mode == "plain" {
+                    environment.retain(|(name, _)| {
+                        !LISTENER_CERTIFICATE_VARIABLES.contains(&name.as_str())
+                    });
+                }
+                environment.push(("LAYERX_DASHBOARD_LISTENER".to_owned(), mode.to_owned()));
+                if let Some(network) = &network {
+                    environment.push(("LAYERX_DASHBOARD_NETWORK_ID".to_owned(), network.clone()));
+                }
+                let mut service = start(&environment);
+                let url = format!(
+                    "{}://localhost:{port}/healthz",
+                    if mode == "tls" { "https" } else { "http" }
+                );
+                let (status, document) = readiness(&mut service, &["--cacert", &ca, &url]);
+                assert_eq!(status, if ready { 200 } else { 503 }, "{document}");
+                assert_eq!(document["ready"], ready);
+                assert_eq!(document["version"], env!("CARGO_PKG_VERSION"));
+                match network {
+                    Some(network) => assert_eq!(document["network_id"], network),
+                    None => assert!(document.get("network_id").is_none(), "{document}"),
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn invalid_network_labels_refuse_start_on_both_listeners() {
+    let material = material("network-refusal");
+    for mode in ["plain", "tls"] {
+        for network in [
+            "",
+            "has space",
+            " leading",
+            "trailing ",
+            "tab\tlabel",
+            "line\nlabel",
+            "\u{1f}",
+            "\u{7f}",
+            "réseau",
+            &"a".repeat(65),
+        ] {
+            let mut environment = environment(&material, free_port());
+            if mode == "plain" {
+                environment
+                    .retain(|(name, _)| !LISTENER_CERTIFICATE_VARIABLES.contains(&name.as_str()));
+            }
+            environment.push(("LAYERX_DASHBOARD_LISTENER".to_owned(), mode.to_owned()));
+            environment.push(("LAYERX_DASHBOARD_NETWORK_ID".to_owned(), network.to_owned()));
+            let output = command(&environment)
+                .output()
+                .unwrap_or_else(|error| panic!("layerx-dashboard must run: {error}"));
+            assert_eq!(output.status.code(), Some(2), "{mode}: {network:?}");
+            assert_eq!(String::from_utf8_lossy(&output.stderr).trim_end(), "layerx-dashboard: LAYERX_DASHBOARD_NETWORK_ID must be 1-64 printable ASCII bytes without spaces");
+        }
+    }
 }
 
 #[test]

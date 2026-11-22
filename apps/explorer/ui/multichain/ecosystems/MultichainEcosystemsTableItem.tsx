@@ -12,8 +12,8 @@ import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Stat } from 'toolkit/chakra/stat';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
-import { Tooltip } from 'toolkit/chakra/tooltip';
 import { TruncatedText } from 'toolkit/components/truncation/TruncatedText';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import ChainIcon from 'ui/shared/externalChains/ChainIcon';
 import IconSvg from 'ui/shared/IconSvg';
@@ -54,10 +54,10 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
             <ChainIcon data={ chainInfo } isLoading={ isLoading }/>
             <Link
               href={ chainInfo?.explorer_url }
-              fontWeight={ 700 }
+              fontWeight="bold"
               external
               loading={ isLoading }
-              maxW="calc(100% - 28px)"
+              maxW="calc(100% - var(--chakra-spacing-7))"
             >
               <TruncatedText text={ chainInfo?.name ?? 'Unknown chain' } loading={ isLoading }/>
             </Link>
@@ -68,8 +68,8 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
           </HStack>
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <HStack>
+      <TableCell isNumeric verticalAlign="middle">
+        <HStack flexDirection="row-reverse" justifyContent="flex-start">
           <Skeleton loading={ isLoading }>
             <span>{ activeAddresses.value.toLocaleString() }</span>
           </Skeleton>
@@ -85,8 +85,8 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
           ) : null }
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <HStack>
+      <TableCell isNumeric verticalAlign="middle">
+        <HStack flexDirection="row-reverse" justifyContent="flex-start">
           <Skeleton loading={ isLoading }>
             <span>{ newAddresses.value.toLocaleString() }</span>
           </Skeleton>
@@ -102,8 +102,8 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
           ) : null }
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <HStack>
+      <TableCell isNumeric verticalAlign="middle">
+        <HStack flexDirection="row-reverse" justifyContent="flex-start">
           <Skeleton loading={ isLoading }>
             <span>{ dailyTransactions.value.toLocaleString() }</span>
           </Skeleton>
@@ -119,18 +119,19 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
           ) : null }
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <HStack justifyContent="space-between">
+      <TableCell isNumeric verticalAlign="middle">
+        <HStack flexDirection="row-reverse" justifyContent="flex-start">
           <Skeleton loading={ isLoading }>
             <span>{ Number(data.tps ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) }</span>
           </Skeleton>
           { walletIcon ? (
             <Tooltip content="Add to wallet">
               <IconButton
+                aria-label={ `Add ${ chainInfo?.name || 'chain' } to wallet` }
                 onClick={ handleAddToWalletClick }
                 size="md"
                 variant="icon_background"
-                bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+                bgColor="surface"
                 loadingSkeleton={ isLoading }
               >
                 <IconSvg name={ walletIcon } boxSize={ 5 }/>

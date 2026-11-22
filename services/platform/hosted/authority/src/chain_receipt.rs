@@ -24,6 +24,7 @@ pub enum ReceiptSource {
     KeyMismatch,
 }
 
+#[derive(Clone)]
 pub struct ChainReceipts {
     host: String,
     address: SocketAddr,
@@ -170,8 +171,63 @@ impl ChainReceipts {
         Ok((bytes, height, hash))
     }
 
+    /// Reads signed node evidence using the pinned key's inclusive block-height range.
+    /// # Errors
+    /// Refuses a malformed receipt, an unpinned signer or an invalid signature.
+    pub fn node_receipt(
+        &self,
+        id: [u8; 32],
+        deadline: Instant,
+    ) -> Result<Option<ReceiptReply>, String> {
+        let Some(reply) = self.read_until(id, deadline)? else {
+            return Ok(None);
+        };
+        let (bytes, signing_key, height, _) = &reply;
+        let decoded = layerx_wire::receipt::decode(bytes).map_err(|_| "receipt decode failed")?;
+        let protocol = decoded.protocol().ok_or("receipt shape invalid")?;
+        let native = (1..=11).contains(&protocol.module_id());
+        let key = self
+            .keys
+            .iter()
+            .find(|key| {
+                key.public_key() == *signing_key
+                    && (key.first_batch_number()..=key.last_batch_number()).contains(height)
+                    && key.sequencer_id()
+                        == if native {
+                            sha2::Sha256::digest(signing_key).into()
+                        } else {
+                            protocol.context_hash()
+                        }
+            })
+            .ok_or("receipt signing key or height mismatch")?;
+        if !layerx_wire::limits::protocol_version_uses_occupancy(protocol.protocol_version())
+            || layerx_wire::receipt::encode(&decoded).map_err(|_| "receipt encoding invalid")?
+                != *bytes
+        {
+            return Err("receipt canonical encoding or protocol invalid".to_owned());
+        }
+        let unsigned = layerx_wire::receipt::encode_unsigned(&decoded)
+            .map_err(|_| "receipt encoding invalid")?;
+        let digest =
+            layerx_wire::hash::receipt_digest(&unsigned).map_err(|_| "receipt digest invalid")?;
+        let signature = protocol
+            .sequencer_signature()
+            .ok_or("receipt signature missing")?;
+        layerx_crypto::ed25519::verify_digest(&key.public_key(), &signature, &digest)
+            .map_err(|_| "receipt signature invalid")?;
+        Ok(Some(reply))
+    }
+
     fn read(&self, activity_id: [u8; 32]) -> Result<Option<ReceiptReply>, String> {
-        let raw = self.request_receipt(activity_id)?;
+        self.read_until(activity_id, Instant::now() + TIMEOUT)
+    }
+
+    fn read_until(
+        &self,
+        activity_id: [u8; 32],
+        deadline: Instant,
+    ) -> Result<Option<ReceiptReply>, String> {
+        let raw = self.request_receipt(activity_id, deadline)?;
         let document: serde_json::Value =
             serde_json::from_slice(&raw).map_err(|error| error.to_string())?;
         if document["jsonrpc"] != "2.0" || document["id"] != 1 || document.get("error").is_some() {
@@ -247,10 +303,7 @@ impl ChainReceipts {
         Ok(Some((bytes, signing_key, height, committed)))
     }
 
-    fn request_receipt(&self, activity_id: [u8; 32]) -> Result<Vec<u8>, String> {
-        let deadline = Instant::now()
-            .checked_add(TIMEOUT)
-            .ok_or("chain RPC deadline unavailable")?;
+    fn request_receipt(&self, activity_id: [u8; 32], deadline: Instant) -> Result<Vec<u8>, String> {
         let remaining = || {
             deadline
                 .checked_duration_since(Instant::now())

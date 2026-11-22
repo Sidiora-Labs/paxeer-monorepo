@@ -1,0 +1,38 @@
+[manifest]
+task = "22.44.47"
+surface = "Inference peer, WebAssembly playground and codebase map"
+route_count = 10
+view_count = 14
+named_state_count = 29
+rendered_view_count = 43
+matrix_renders = 1462
+render_result = "1462 of 1462 configurations render successfully with zero findings; pass."
+reviewed_screenshots = 430
+review_widths = [360, 768, 1440, 2560]
+review_landscape = "844x390"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+
+[presentation]
+motion = "Controls change state immediately when reduced motion is requested."
+editors = "WebAssembly text wraps within the editor at narrow widths; the file drop cue is centred."
+disclosures = "Peer disclosure fields share aligned edges, and focused output stays visible."
+downloads = "WebAssembly downloads preserve the converted bytes."
+status = "The codebase map announces snapshot loading as a status and makes the underlying application inert while help is open."
+focus = "Editors, peer output and the map graph show visible focus within the viewport."
+colours = "Each page uses its own light and dark colour tokens."
+output = "Successful conversion output keeps its text colour, and conversion errors use the error colour token."
+typography = "Fluid type follows the caption, small, body, heading and title token ranges."
+lifecycle = "Peer sessions close on pagehide and reconnect with the stored identity and measured manifest when pageshow restores a cached page."
+errors = "A codebase map that cannot be read displays its error message on the page."
+announcements = "Connection and error announcements reserve two text lines so device setup messages keep the following panels in place, including with enlarged text."
+
+[coverage]
+peer = "Device setup, manifest disclosure, validation, measurement errors, host offers and host deals."
+playground = "Parse and print pages and extensionless routes, empty and filled editors, conversion errors, skeleton selection, file drop and project destination."
+map = "System, package, file, symbol, import, route and delivery inventories, selections, file scopes, wave navigation, search results, empty search, help, empty snapshots and snapshot errors."
+inputs = "Room status uses the published host signal vectors without private identity bytes. Map snapshots use the recorded graph and Git fixtures with the snapshot producer. WebAssembly conversion uses the playground component."

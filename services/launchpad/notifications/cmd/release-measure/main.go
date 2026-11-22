@@ -113,7 +113,7 @@ func execute() (executeErr error) {
 
 func main() {
 	if err := execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "Release measurement failed; inspect the captured result when available.")
+		fmt.Fprintln(os.Stderr, "Release measurement failed:", err)
 		os.Exit(1)
 	}
 	fmt.Println("Lane measurement captured; qualification and shared serial release gates remain separate.")

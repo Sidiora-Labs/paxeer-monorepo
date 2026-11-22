@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -458,7 +459,7 @@ func runWithContext(parent context.Context, releaseDuration time.Duration) error
 	defer cancel()
 	db, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
-		return errors.New("actual database unavailable")
+		return fmt.Errorf("actual database unavailable: %w", err)
 	}
 	defer db.Close()
 	var commitAuthority string
@@ -467,16 +468,20 @@ func runWithContext(parent context.Context, releaseDuration time.Duration) error
 	}
 	rpc, err := ethclient.DialContext(ctx, os.Getenv("RPC_URL"))
 	if err != nil {
+		slog.Error("chart measurement RPC connection failed", "err", err)
 		return errors.New("actual canonical RPC unavailable")
 	}
 	defer rpc.Close()
 	chain, err := rpc.ChainID(ctx)
-	if err != nil || chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
+	if err != nil {
+		return fmt.Errorf("actual chain125 required: %w", err)
+	}
+	if chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
 		return errors.New("actual chain125 required")
 	}
 	nc, err := nats.Connect(os.Getenv("NATS_URL"), nats.NoReconnect(), nats.Timeout(3*time.Second))
 	if err != nil {
-		return errors.New("actual NATS unavailable")
+		return fmt.Errorf("actual NATS unavailable: %w", err)
 	}
 	defer nc.Close()
 	js, err := jetstream.New(nc)
@@ -501,7 +506,7 @@ func runWithContext(parent context.Context, releaseDuration time.Duration) error
 	}
 	objects, err := storage.New(ctx, storage.Config{Endpoint: os.Getenv("S3_ENDPOINT"), Region: os.Getenv("S3_REGION"), AccessKeyID: os.Getenv("S3_ACCESS_KEY_ID"), SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"), Bucket: os.Getenv("S3_BUCKET")})
 	if err != nil {
-		return errors.New("actual archive object provider unavailable")
+		return fmt.Errorf("actual archive object provider unavailable: %w", err)
 	}
 	reader := store.ArchiveReader{Objects: objects, Bucket: objects.Bucket(), Exact: st, BlockTime: func(ctx context.Context, height int64, expected string) (int64, error) {
 		bounded, stop := context.WithTimeout(ctx, 3*time.Second)

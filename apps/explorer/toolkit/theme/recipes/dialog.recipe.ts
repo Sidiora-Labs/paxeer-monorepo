@@ -12,11 +12,11 @@ export const recipe = defineSlotRecipe({
       h: '100dvh',
       zIndex: 'modal',
       _open: {
-        animationName: 'fade-in',
+        _motionSafe: { animationName: 'fade-in' },
         animationDuration: 'slow',
       },
       _closed: {
-        animationName: 'fade-out',
+        _motionSafe: { animationName: 'fade-out' },
         animationDuration: 'moderate',
       },
     },
@@ -61,7 +61,7 @@ export const recipe = defineSlotRecipe({
       display: 'flex',
       alignItems: 'center',
       columnGap: 2,
-      minH: '40px',
+      minH: 'var(--chakra-spacing-10)',
     },
     body: {
       flex: '1',
@@ -69,6 +69,7 @@ export const recipe = defineSlotRecipe({
     },
     footer: {
       display: 'flex',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'flex-start',
       gap: '6',
@@ -80,7 +81,7 @@ export const recipe = defineSlotRecipe({
       whiteSpace: 'nowrap',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
-      fontWeight: '600',
+      fontWeight: 'semibold',
     },
     description: {
       color: 'dialog.fg',
@@ -127,7 +128,7 @@ export const recipe = defineSlotRecipe({
           // source code has minH: 'auto', but I am not sure why
           // anyway it will override the minH from the "full" size variant
           // minH: 'auto',
-          maxH: 'calc(100% - 7.5rem)',
+          maxH: 'calc(100% - var(--chakra-spacing-30))',
         },
         body: {
           overflow: 'auto',
@@ -144,12 +145,12 @@ export const recipe = defineSlotRecipe({
     size: {
       sm: {
         content: {
-          maxW: '400px',
+          maxW: 'var(--chakra-spacing-100)',
         },
       },
       md: {
         content: {
-          maxW: '728px',
+          maxW: 'var(--chakra-spacing-182)',
         },
       },
       cover: {
@@ -175,32 +176,32 @@ export const recipe = defineSlotRecipe({
     motionPreset: {
       scale: {
         content: {
-          _open: { animationName: 'scale-in, fade-in' },
-          _closed: { animationName: 'scale-out, fade-out' },
+          _open: { _motionSafe: { animationName: 'scale-in, fade-in' } },
+          _closed: { _motionSafe: { animationName: 'scale-out, fade-out' } },
         },
       },
       'slide-in-bottom': {
         content: {
-          _open: { animationName: 'slide-from-bottom, fade-in' },
-          _closed: { animationName: 'slide-to-bottom, fade-out' },
+          _open: { _motionSafe: { animationName: 'slide-from-bottom, fade-in' } },
+          _closed: { _motionSafe: { animationName: 'slide-to-bottom, fade-out' } },
         },
       },
       'slide-in-top': {
         content: {
-          _open: { animationName: 'slide-from-top, fade-in' },
-          _closed: { animationName: 'slide-to-top, fade-out' },
+          _open: { _motionSafe: { animationName: 'slide-from-top, fade-in' } },
+          _closed: { _motionSafe: { animationName: 'slide-to-top, fade-out' } },
         },
       },
       'slide-in-left': {
         content: {
-          _open: { animationName: 'slide-from-left, fade-in' },
-          _closed: { animationName: 'slide-to-left, fade-out' },
+          _open: { _motionSafe: { animationName: 'slide-from-left, fade-in' } },
+          _closed: { _motionSafe: { animationName: 'slide-to-left, fade-out' } },
         },
       },
       'slide-in-right': {
         content: {
-          _open: { animationName: 'slide-from-right, fade-in' },
-          _closed: { animationName: 'slide-to-right, fade-out' },
+          _open: { _motionSafe: { animationName: 'slide-from-right, fade-in' } },
+          _closed: { _motionSafe: { animationName: 'slide-to-right, fade-out' } },
         },
       },
       none: {},

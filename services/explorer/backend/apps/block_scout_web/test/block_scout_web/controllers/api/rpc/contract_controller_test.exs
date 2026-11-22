@@ -867,6 +867,27 @@ defmodule BlockScoutWeb.API.RPC.ContractControllerTest do
   end
 
   describe "verify" do
+    setup do
+      previous = Application.get_env(:explorer, Explorer.ThirdPartyIntegrations.Sourcify)
+      previous_adapter = Application.get_env(:tesla, :adapter)
+
+      Application.put_env(
+        :explorer,
+        Explorer.ThirdPartyIntegrations.Sourcify,
+        Keyword.merge(previous, enabled: true, chain_id: "1")
+      )
+
+      Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
+
+      on_exit(fn ->
+        Application.put_env(:explorer, Explorer.ThirdPartyIntegrations.Sourcify, previous)
+        Application.put_env(:tesla, :adapter, previous_adapter)
+      end)
+
+      BlockScoutWeb.SourcifyServer.start("0xf26594F585De4EB0Ae9De865d9053FEe02ac6eF1")
+      :ok
+    end
+
     test "verify known on sourcify repo contract", %{conn: conn} do
       response = verify(conn)
 

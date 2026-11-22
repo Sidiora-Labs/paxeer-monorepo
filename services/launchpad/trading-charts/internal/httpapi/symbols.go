@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -14,7 +16,6 @@ import (
 	"strings"
 	"time"
 	"unicode"
-	"unicode/utf8"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -108,14 +109,23 @@ func boundedChartJSON(ctx context.Context, client *http.Client, endpoint string,
 		return ErrUnknownPool
 	}
 	if response.StatusCode != http.StatusOK {
-		return errors.New("chart upstream unavailable")
+		return fmt.Errorf("chart upstream unavailable: HTTP %d", response.StatusCode)
 	}
 	raw, err := io.ReadAll(io.LimitReader(response.Body, 16*1024*1024+1))
-	if err != nil || len(raw) > 16*1024*1024 {
+	if err != nil {
+		return fmt.Errorf("chart upstream read failed: %w", err)
+	}
+	if len(raw) > 16*1024*1024 {
 		return errors.New("chart upstream response too large")
 	}
-	if interfaces.ValidateJSON(schema, raw) != nil {
-		return errors.New("invalid frozen chart upstream response")
+	if schema == "PoolDetailResponse" {
+		raw, err = normalizePoolMetadataJSON(raw)
+		if err != nil {
+			return fmt.Errorf("invalid frozen chart upstream response: %w", err)
+		}
+	}
+	if err := interfaces.ValidateJSON(schema, raw); err != nil {
+		return fmt.Errorf("invalid frozen chart upstream response: %w", err)
 	}
 	return json.Unmarshal(raw, dst)
 }
@@ -170,6 +180,7 @@ func (h SymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil || ctx.Err() != nil {
+		slog.ErrorContext(ctx, "chart metadata resolution failed", "err", errors.Join(err, ctx.Err()))
 		historyError(w, 503, "DEPENDENCY_UNAVAILABLE", "verified metadata unavailable", true)
 		return
 	}
@@ -181,12 +192,9 @@ func (h SymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		historyError(w, 503, "INTEGRITY_QUARANTINED", "invalid vendor precision", false)
 		return
 	}
-	if !boundedMetadataText(token.Name, 160) || !boundedMetadataText(token.Symbol, 32) {
-		historyError(w, 503, "INTEGRITY_QUARANTINED", "invalid token metadata text", false)
-		return
-	}
+	token = normalizeTokenMetadata(token)
 	scope, err := json.Marshal([]any{"symbols-v2", "125", pool, token, precision, quoteDecimals})
-	if err != nil || token.Decimals == nil || token.SourcePosition == nil {
+	if err != nil || token.Decimals == nil || token.DecimalsQuality != qualityVerified || token.SourcePosition == nil || *token.Decimals < 0 || *token.Decimals > 255 {
 		historyError(w, 503, "INTEGRITY_QUARANTINED", "invalid verified token metadata", false)
 		return
 	}
@@ -204,16 +212,68 @@ func (h SymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	sharedhttp.WriteJSON(w, 200, map[string]any{fieldName: pool, "ticker": pool, "full_name": token.Symbol + "/USDL", fieldDescription: token.Name, fieldType: symbolTypeToken, "session": "24x7", "exchange": exchangeSidiora, "listed_exchange": exchangeSidiora, "timezone": "Etc/UTC", "has_intraday": true, "has_weekly_and_monthly": true, fieldSupportedResolutions: supportedResolutions(), "pricescale": scale, "priceScale": scale, "displayPrecision": precision, "minmov": 1, "currency_code": currencyUSDL, "has_empty_bars": false, fieldChainID: "125", "poolAddress": pool, "tokenAddress": token.Address, "baseDecimals": *token.Decimals, "quoteDecimals": quoteDecimals, "metadataRevision": token.MetadataRevision})
 }
-func boundedMetadataText(value string, max int) bool {
-	if value == "" || !utf8.ValidString(value) || utf8.RuneCountInString(value) > max {
-		return false
-	}
+func boundedMetadataText(value string, max int, address string) string {
+	text := make([]rune, 0, max)
 	for _, r := range value {
-		if unicode.IsControl(r) || r == '<' || r == '>' {
-			return false
+		if unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) || r == '<' || r == '>' {
+			continue
+		}
+		text = append(text, r)
+		if len(text) == max {
+			break
 		}
 	}
-	return true
+	if len(text) != 0 {
+		return string(text)
+	}
+	if poolAddressPattern.MatchString(address) {
+		return "0x" + address[2:6] + "..." + address[len(address)-4:]
+	}
+	return ""
+}
+
+func normalizeTokenMetadata(token interfaces.Token) interfaces.Token {
+	token.Name = boundedMetadataText(token.Name, 100, token.Address)
+	token.Symbol = boundedMetadataText(token.Symbol, 16, token.Address)
+	return token
+}
+
+func normalizePoolMetadataJSON(raw []byte) ([]byte, error) {
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return nil, err
+	}
+	var data, token map[string]json.RawMessage
+	if json.Unmarshal(document["data"], &data) != nil || json.Unmarshal(data["token"], &token) != nil {
+		return raw, nil
+	}
+	var address string
+	if json.Unmarshal(token["address"], &address) != nil {
+		return raw, nil
+	}
+	for field, max := range map[string]int{fieldName: 100, fieldSymbol: 16} {
+		var value any
+		if json.Unmarshal(token[field], &value) != nil {
+			continue
+		}
+		if text, ok := value.(string); ok {
+			encoded, err := json.Marshal(boundedMetadataText(text, max, address))
+			if err != nil {
+				return nil, err
+			}
+			token[field] = encoded
+		}
+	}
+	var err error
+	data["token"], err = json.Marshal(token)
+	if err != nil {
+		return nil, err
+	}
+	document["data"], err = json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(document)
 }
 
 // CanonicalPoolMetadataSource resolves a pool's token metadata from the
@@ -265,14 +325,17 @@ func (s CanonicalPoolMetadataSource) Resolve(ctx context.Context, pool string) (
 	blockHash := strings.ToLower(fact.Position.BlockHash)
 	address := common.HexToAddress(fact.Token)
 	values, err := s.Chain.CallAt(ctx, int64(height), blockHash, []ethereum.CallMsg{{To: &address, Data: []byte{0x06, 0xfd, 0xde, 0x03}}, {To: &address, Data: []byte{0x95, 0xd8, 0x9b, 0x41}}, {To: &address, Data: []byte{0x31, 0x3c, 0xe5, 0x67}}, {To: &address, Data: []byte{0x18, 0x16, 0x0d, 0xdd}}})
-	if err != nil || len(values) != 4 || len(values[2]) != 32 || len(values[3]) != 32 {
+	if err != nil {
+		return token, fmt.Errorf("pinned token metadata unavailable: %w", err)
+	}
+	if len(values) != 4 || len(values[2]) != 32 || len(values[3]) != 32 {
 		return token, errors.New("pinned token metadata unavailable")
 	}
-	name, err := decodeMetadataString(values[0], 160)
+	name, err := decodeMetadataString(values[0])
 	if err != nil {
 		return token, err
 	}
-	symbol, err := decodeMetadataString(values[1], 32)
+	symbol, err := decodeMetadataString(values[1])
 	if err != nil {
 		return token, err
 	}
@@ -285,20 +348,16 @@ func (s CanonicalPoolMetadataSource) Resolve(ctx context.Context, pool string) (
 	digest := sha256.Sum256(append(append(append([]byte(pool+":"+fact.Token+":"+blockHash), values[0]...), values[1]...), append(values[2], values[3]...)...))
 	revision := interfaces.UInt256(new(big.Int).SetBytes(digest[:]).String())
 	token = interfaces.Token{Address: strings.ToLower(fact.Token), Name: name, Symbol: symbol, Decimals: &decimals, DecimalsQuality: qualityVerified, MetadataRevision: revision, SourcePosition: &fact.Position, SupplyQuality: qualityVerified, TotalSupplyRaw: &total}
-	return token, nil
+	return normalizeTokenMetadata(token), nil
 }
-func decodeMetadataString(raw []byte, max int) (string, error) {
-	if len(raw) < 64 || len(raw) > 1024 {
+func decodeMetadataString(raw []byte) (string, error) {
+	if len(raw) < 64 {
 		return "", errors.New("invalid token ABI text")
 	}
 	offset := new(big.Int).SetBytes(raw[:32])
 	size := new(big.Int).SetBytes(raw[32:64])
-	if !offset.IsInt64() || offset.Int64() != 32 || !size.IsInt64() || size.Int64() < 1 || size.Int64() > int64(len(raw)-64) {
+	if !offset.IsInt64() || offset.Int64() != 32 || !size.IsInt64() || size.Int64() < 0 || size.Int64() > int64(len(raw)-64) {
 		return "", errors.New("invalid token ABI text bounds")
 	}
-	value := string(raw[64 : 64+int(size.Int64())])
-	if !boundedMetadataText(value, max) {
-		return "", errors.New("invalid token metadata text")
-	}
-	return value, nil
+	return string(raw[64 : 64+int(size.Int64())]), nil
 }

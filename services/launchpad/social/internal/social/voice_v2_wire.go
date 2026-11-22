@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -107,6 +108,7 @@ func writeV2VoiceError(w http.ResponseWriter, r *http.Request, e error) {
 	case http.StatusConflict:
 		code = "CONFLICT"
 	case http.StatusServiceUnavailable:
+		slog.ErrorContext(r.Context(), "social voice request failed", "method", r.Method, "path", r.URL.Path, "error", e)
 		code = dependencyUnavailableCode
 	}
 	requestID := r.Header.Get("X-Request-ID")

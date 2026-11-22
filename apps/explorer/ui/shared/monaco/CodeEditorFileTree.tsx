@@ -28,11 +28,11 @@ const CodeEditorFileTree = ({ tree, level = 0, onItemClick, isCollapsed, selecte
   }, []);
 
   const itemProps: Partial<AccordionItemProps> = {
-    borderWidth: '0px',
+    borderWidth: 0,
     cursor: 'pointer',
-    lineHeight: '22px',
+    textStyle: 'sm',
     _last: {
-      borderBottomWidth: '0px',
+      borderBottomWidth: 0,
     },
   };
   const themeColors = useThemeColors();
@@ -48,13 +48,11 @@ const CodeEditorFileTree = ({ tree, level = 0, onItemClick, isCollapsed, selecte
             return (
               <AccordionItem key={ index } value={ leaf.name } { ...itemProps }>
                 <AccordionItemTrigger
-                  pr="8px"
+                  pr={ 2 }
                   py="0"
-                  pl={ `${ 8 + 8 * level }px` }
+                  pl={ `calc(var(--chakra-spacing-2) * ${ level + 1 })` }
                   _hover={{ bgColor: themeColors['custom.list.hoverBackground'] }}
-                  fontSize="13px"
-                  lineHeight="22px"
-                  h="22px"
+                  textStyle="sm"
                   transitionDuration="0"
                   noIndicator
                 >
@@ -64,13 +62,13 @@ const CodeEditorFileTree = ({ tree, level = 0, onItemClick, isCollapsed, selecte
                     _groupExpanded={{
                       transform: 'rotate(0deg)',
                     }}
-                    boxSize="16px"
-                    mr="2px"
+                    boxSize={ 4 }
+                    mr={ 0.5 }
                   />
                   <IconSvg
                     name={ isExpanded ? 'monaco/folder-open' : 'monaco/folder' }
-                    boxSize="16px"
-                    mr="4px"
+                    boxSize={ 4 }
+                    mr={ 1 }
                   />
                   { leafName }
                 </AccordionItemTrigger>
@@ -89,12 +87,16 @@ const CodeEditorFileTree = ({ tree, level = 0, onItemClick, isCollapsed, selecte
           }
 
           return (
-            <AccordionItem
+            <chakra.button
+              type="button"
               key={ index }
-              value={ leaf.name }
-              { ...itemProps }
-              pl={ `${ 26 + (level * 8) }px` }
-              pr="8px"
+              textStyle="sm"
+              w="100%"
+              minW={ 0 }
+              textAlign="left"
+              aria-pressed={ selectedFile === leaf.file_path }
+              pl={ `calc(var(--chakra-spacing-7) + var(--chakra-spacing-2) * ${ level })` }
+              pr={ 2 }
               onClick={ onItemClick }
               data-file-path={ leaf.file_path }
               display="flex"
@@ -102,20 +104,27 @@ const CodeEditorFileTree = ({ tree, level = 0, onItemClick, isCollapsed, selecte
               alignItems="center"
               overflow="hidden"
               _hover={{
-                bgColor: selectedFile === leaf.file_path ? themeColors['list.inactiveSelectionBackground'] : themeColors['custom.list.hoverBackground'],
+                bgColor: selectedFile === leaf.file_path ?
+                  themeColors['list.inactiveSelectionBackground'] : themeColors['custom.list.hoverBackground'],
+              }}
+              _focusVisible={{
+                outline: 'var(--chakra-border-widths-2) solid',
+                outlineColor: 'focusRing',
+                outlineOffset: 'calc(-1 * var(--chakra-spacing-0\\.5))',
               }}
               bgColor={ selectedFile === leaf.file_path ? themeColors['list.inactiveSelectionBackground'] : 'none' }
             >
               { mainFile === leaf.file_path && (
                 <CodeEditorMainFileIndicator
                   position="absolute"
-                  top={ `${ (22 - 12) / 2 }px` }
-                  left={ `${ (26 - 12 - 2) + (level * 8) }px` }
+                  top="50%"
+                  transform="translateY(-50%)"
+                  left={ `calc(var(--chakra-spacing-3) + var(--chakra-spacing-2) * ${ level })` }
                 />
               ) }
-              <CodeEditorFileIcon fileName={ leaf.name } mr="4px"/>
+              <CodeEditorFileIcon fileName={ leaf.name } mr={ 1 }/>
               { leafName }
-            </AccordionItem>
+            </chakra.button>
           );
         })
       }

@@ -55,5 +55,5 @@ function resolveAnvilBinaryFailsWithoutCandidate() {
   }
 }
 
-test(resolveAnvilBinaryPrefersAnvilBin);
-test(resolveAnvilBinaryFailsWithoutCandidate);
+test(resolveAnvilBinaryPrefersAnvilBin.name, resolveAnvilBinaryPrefersAnvilBin);
+test(resolveAnvilBinaryFailsWithoutCandidate.name, resolveAnvilBinaryFailsWithoutCandidate);

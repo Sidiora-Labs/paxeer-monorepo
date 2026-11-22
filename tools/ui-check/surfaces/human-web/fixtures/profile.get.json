@@ -1,0 +1,10 @@
+{
+  "status": 200,
+  "body": {
+    "ok": true,
+    "result": {
+      "display_name": "Sample profile"
+    },
+    "trace": "trc_01j2h6f6gn9x0y1z2a3b4c5d6e"
+  }
+}

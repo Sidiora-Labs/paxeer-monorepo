@@ -1,5 +1,4 @@
-import { useClickAway } from '@uidotdev/usehooks';
-import { debounce } from 'es-toolkit';
+import { Box } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import type { FormEvent } from 'react';
 import React from 'react';
@@ -7,20 +6,19 @@ import React from 'react';
 import { route } from 'nextjs-routes';
 
 import config from 'configs/app';
-import useIsMobile from 'lib/hooks/useIsMobile';
 import * as mixpanel from 'lib/mixpanel/index';
 import { getRecentSearchKeywords, saveToRecentKeywords } from 'lib/recentSearchKeywords';
-import { Link } from 'toolkit/chakra/link';
-import { PopoverBody, PopoverContent, PopoverFooter, PopoverRoot, PopoverTrigger } from 'toolkit/chakra/popover';
+import { Button } from 'toolkit/chakra/button';
 import { useDisclosure } from 'toolkit/hooks/useDisclosure';
 import type { Category } from 'ui/shared/search/utils';
+import NativePopover from 'ui/snippets/overlays/NativePopover';
 
 import SearchBarBackdrop from './SearchBarBackdrop';
 import SearchBarInput from './SearchBarInput';
 import SearchBarRecentKeywords from './SearchBarRecentKeywords';
 import SearchBarSuggest from './SearchBarSuggest/SearchBarSuggest';
-import useSearchShortcut from './useSearchShortcut';
 import { useSearchAssistant } from './useSearchQuery';
+import useSearchShortcut from './useSearchShortcut';
 import useSearchWithClusters from './useSearchWithClusters';
 import { getSearchRedirectRoute, useSearchRedirect, useSearchRequestGuard } from './utils';
 
@@ -34,10 +32,10 @@ type Props = {
 
 const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
   const inputRef = React.useRef<HTMLFormElement>(null);
-  const menuWidth = React.useRef<number>(0);
+  const panelId = React.useId();
+  const anchorName = `--search-${ panelId.replace(/[^\w-]/g, '') }`;
 
   const { open, onClose, onOpen } = useDisclosure();
-  const isMobile = useIsMobile();
   const router = useRouter();
 
   const recentSearchKeywords = getRecentSearchKeywords();
@@ -112,24 +110,10 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
     onClose();
   }, [ searchGuard, onClose ]);
 
-  const handelHide = React.useCallback(() => {
-    handleDismiss();
-    inputRef.current?.querySelector('input')?.blur();
-  }, [ handleDismiss ]);
-
-  const handleOutsideClick = React.useCallback((event: Event) => {
-    const isFocusInInput = inputRef.current?.contains(event.target as Node);
-
-    if (!isFocusInInput) {
-      handelHide();
-    }
-  }, [ handelHide ]);
-
-  const menuRef = useClickAway<HTMLDivElement>(handleOutsideClick);
-
   const handleOpenChange = React.useCallback(({ open }: { open: boolean }) => {
-    open && onOpen();
-  }, [ onOpen ]);
+    if (open) onOpen();
+    else handleDismiss();
+  }, [ onOpen, handleDismiss ]);
 
   const handleClear = React.useCallback(() => {
     handleTermChange('');
@@ -147,123 +131,92 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
     onClose();
   }, [ searchGuard, router.pathname, searchTerm, onClose ]);
 
-  const handleBlur = React.useCallback((event: React.FocusEvent<HTMLFormElement>) => {
-    const isFocusInMenu = menuRef.current?.contains(event.relatedTarget);
-    const isFocusInInput = inputRef.current?.contains(event.relatedTarget);
-    if (!isFocusInMenu && !isFocusInInput) {
-      handleDismiss();
-    }
-
-  }, [ handleDismiss ]);
-
-  const menuPaddingX = isMobile && !isHeroBanner ? 24 : 0;
-  const calculateMenuWidth = React.useCallback(() => {
-    menuWidth.current = (inputRef.current?.getBoundingClientRect().width || 0) - menuPaddingX;
-  }, [ menuPaddingX ]);
-
-  // clear input on page change
+  const routePath = router.asPath?.split('?')?.[0];
   React.useEffect(() => {
     handleTermChange('');
-
-  }, [ router.asPath?.split('?')?.[0] ]);
-
-  React.useEffect(() => {
-    const inputEl = inputRef.current;
-    if (!inputEl) {
-      return;
-    }
-    calculateMenuWidth();
-
-    const resizeHandler = debounce(calculateMenuWidth, 200);
-    const resizeObserver = new ResizeObserver(resizeHandler);
-    if (inputRef.current) {
-      resizeObserver.observe(inputRef.current);
-    }
-
-    return function cleanup() {
-      resizeObserver.unobserve(inputEl);
-    };
-  }, [ calculateMenuWidth ]);
+  }, [ routePath, handleTermChange ]);
 
   const showAllResultsLink = searchTerm.trim().length > 0 && (
     (query.data && query.data.length >= 50) ||
     (zetaChainCCTXQuery.data && zetaChainCCTXQuery.data?.items.length > 10)
   );
 
+  const isSuggestOpen = open && (searchTerm.trim().length > 0 || recentSearchKeywords.length > 0);
+  const showAssistant = searchTerm.trim().length > 0 && config.features.assistant.isEnabled &&
+    Boolean(assistant.canAsk || assistant.answer || assistant.error);
+
   return (
     <>
-      <PopoverRoot
-        open={ open && (searchTerm.trim().length > 0 || recentSearchKeywords.length > 0) }
-        autoFocus={ false }
+      <SearchBarInput
+        ref={ inputRef }
+        onChange={ handleTermChange }
+        onSubmit={ handleSubmit }
+        onFocus={ handleFocus }
+        onHide={ handleDismiss }
+        onClear={ handleClear }
+        isHeroBanner={ isHeroBanner }
+        compact={ compact }
+        value={ searchTerm }
+        isSuggestOpen={ isSuggestOpen }
+        suggestionId={ panelId }
+        css={{ anchorName }}
+      />
+      <NativePopover
+        id={ panelId }
+        aria-label="Search suggestions"
+        open={ isSuggestOpen }
         onOpenChange={ handleOpenChange }
-        positioning={{ offset: isMobile && !isHeroBanner ? { mainAxis: 0, crossAxis: 12 } : { mainAxis: 8, crossAxis: 0 } }}
-        lazyMount
-        closeOnInteractOutside={ false }
+        anchorRef={ inputRef }
+        anchorName={ anchorName }
+        matchAnchorWidth
+        minW={ showAssistant ? 'min(calc(var(--chakra-spacing-80) * 2), calc(100dvw - var(--chakra-spacing-8)))' : undefined }
+        w={ isHeroBanner && !compact ? 'calc(var(--chakra-spacing-80) * 2)' : 'var(--chakra-spacing-80)' }
+        p={ 4 }
+        { ...(showAssistant ? {
+          css: {
+            '@supports (width: anchor-size(width))': { width: 'anchor-size(width)' },
+            '@supports (position-area: bottom)': {
+              positionAnchor: anchorName,
+              positionArea: 'bottom span-all',
+              justifySelf: 'anchor-center',
+              positionTryFallbacks: 'flip-block',
+              inset: 'auto',
+              margin: 0,
+              marginInline: 'var(--chakra-spacing-4)',
+              marginBlockStart: 'var(--chakra-spacing-2)',
+            },
+          },
+        } : {}) }
       >
-        <PopoverTrigger asChild>
-          <SearchBarInput
-            ref={ inputRef }
-            onChange={ handleTermChange }
-            onSubmit={ handleSubmit }
-            onFocus={ handleFocus }
-            onHide={ handelHide }
-            onBlur={ handleBlur }
-            onClear={ handleClear }
-            isHeroBanner={ isHeroBanner }
-            compact={ compact }
-            value={ searchTerm }
-            isSuggestOpen={ open }
-          />
-        </PopoverTrigger>
-        <PopoverContent
-          bg="raised"
-          color="text.primary"
-          borderColor="hairline"
-          borderRadius="8px"
-          boxShadow="none"
-          maxW={{ base: 'calc(100vw - 8px)', lg: 'unset' }}
-          minW={{ base: 'unset', lg: '640px' }}
-          w={ `${ menuWidth.current }px` }
-          ref={ menuRef }
-          overflow="hidden"
-          zIndex="modal"
-        >
-          <PopoverBody
-            px={ 4 }
-            color="text.primary"
-            maxH="50vh"
-            display="flex"
-            flexDirection="column"
-            overflowY="hidden"
-          >
-            { searchTerm.trim().length === 0 && recentSearchKeywords.length > 0 && (
-              <SearchBarRecentKeywords onClick={ handleTermChange } onClear={ handleDismiss }/>
-            ) }
-            { searchTerm.trim().length > 0 && (
-              <SearchBarSuggest
-                assistant={ assistant }
-                query={ query }
-                searchTerm={ debouncedSearchTerm }
-                onItemClick={ handleItemClick }
-                zetaChainCCTXQuery={ zetaChainCCTXQuery }
-                externalSearchItem={ externalSearchItem }
-                category={ category }
-              />
-            ) }
-          </PopoverBody>
-          { showAllResultsLink && (
-            <PopoverFooter pt={ 2 } borderTopWidth={ 1 } borderColor="hairline">
-              <Link
-                textStyle="sm"
-                onClick={ handleViewAllResultsClick }
-              >
-                View all results
-              </Link>
-            </PopoverFooter>
+        <Box color="text.primary" maxH="50dvh" minH={ 0 } display="flex" flexDirection="column" overflowY="auto">
+          { searchTerm.trim().length === 0 && recentSearchKeywords.length > 0 && (
+            <SearchBarRecentKeywords onClick={ handleTermChange } onClear={ handleDismiss }/>
           ) }
-        </PopoverContent>
-      </PopoverRoot>
-      <SearchBarBackdrop isOpen={ open }/>
+          { searchTerm.trim().length > 0 && (
+            <SearchBarSuggest
+              assistant={ assistant }
+              query={ query }
+              searchTerm={ debouncedSearchTerm }
+              onItemClick={ handleItemClick }
+              zetaChainCCTXQuery={ zetaChainCCTXQuery }
+              externalSearchItem={ externalSearchItem }
+              category={ category }
+            />
+          ) }
+        </Box>
+        { showAllResultsLink && (
+          <Box pt={ 2 } borderTopWidth="var(--chakra-border-widths-1)" borderColor="hairline">
+            <Button
+              variant="link"
+              textStyle="sm"
+              onClick={ handleViewAllResultsClick }
+            >
+              View all results
+            </Button>
+          </Box>
+        ) }
+      </NativePopover>
+      <SearchBarBackdrop isOpen={ isSuggestOpen }/>
     </>
   );
 };

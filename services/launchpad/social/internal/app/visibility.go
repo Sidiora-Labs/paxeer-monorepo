@@ -102,7 +102,7 @@ func (r *socialConnectedRuntime) applyVisibilityOverlay(ctx context.Context, tx 
 func (r *socialConnectedRuntime) messageVisibilityEvent(ctx context.Context, tx pgx.Tx, v safety.Visibility, applied int64) (string, error) {
 	var m fanout.DurableMessage
 	var kind string
-	err := tx.QueryRow(ctx, `SELECT m.id,m.conversation_id,m.sender,m.content,m.reply_to,m.sequence,m.revision,extract(epoch from m.created_at)::bigint,m.deleted_at IS NOT NULL,m.client_id,c.kind FROM chat.chat_messages m JOIN chat.chat_conversations c ON c.id=m.conversation_id WHERE m.id=$1 FOR UPDATE OF m,c`, v.TargetID).Scan(&m.ID, &m.ConversationID, &m.Sender, &m.Content, &m.ReplyTo, &m.Sequence, &m.Revision, &m.CreatedAt, &m.Deleted, &m.ClientID, &kind)
+	err := tx.QueryRow(ctx, `SELECT m.id,m.conversation_id,m.sender,m.content,m.reply_to,m.sequence,m.revision,floor(extract(epoch from m.created_at))::bigint,m.deleted_at IS NOT NULL,m.client_id,c.kind FROM chat.chat_messages m JOIN chat.chat_conversations c ON c.id=m.conversation_id WHERE m.id=$1 FOR UPDATE OF m,c`, v.TargetID).Scan(&m.ID, &m.ConversationID, &m.Sender, &m.Content, &m.ReplyTo, &m.Sequence, &m.Revision, &m.CreatedAt, &m.Deleted, &m.ClientID, &kind)
 	if err != nil {
 		return "", err
 	}

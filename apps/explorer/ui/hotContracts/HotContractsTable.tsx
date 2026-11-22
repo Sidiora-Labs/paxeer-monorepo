@@ -6,6 +6,7 @@ import { currencyUnits } from 'lib/units';
 import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
 import getNextSortValue from 'ui/shared/sort/getNextSortValue';
+import { ResponsiveTableRegion } from 'ui/token/ResponsiveTableRegion';
 
 import HotContractsTableItem from './HotContractsTableItem';
 import { SORT_SEQUENCE } from './utils';
@@ -26,39 +27,41 @@ const HotContractsTable = ({ items, isLoading, sort, setSorting, exchangeRate }:
   }, [ sort, setSorting ]);
 
   return (
-    <TableRoot minWidth="900px">
-      <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP }>
-        <TableRow>
-          <TableColumnHeader width="25%">Contract</TableColumnHeader>
-          <TableColumnHeaderSortable
-            width="25%"
-            isNumeric
-            sortField="transactions_count"
-            sortValue={ sort }
-            onSortToggle={ onSortToggle }
-            disabled={ isLoading }
-          >
-            Txn count
-          </TableColumnHeaderSortable>
-          <TableColumnHeaderSortable
-            width="25%"
-            isNumeric
-            sortField="total_gas_used"
-            sortValue={ sort }
-            onSortToggle={ onSortToggle }
-            disabled={ isLoading }
-          >
-            Gas used
-          </TableColumnHeaderSortable>
-          <TableColumnHeader width="25%" isNumeric>Balance { currencyUnits.ether }</TableColumnHeader>
-        </TableRow>
-      </TableHeaderSticky>
-      <TableBody>
-        { items?.map((item, index) => (
-          <HotContractsTableItem key={ index } isLoading={ isLoading } data={ item } exchangeRate={ exchangeRate }/>
-        )) }
-      </TableBody>
-    </TableRoot>
+    <ResponsiveTableRegion label="Hot contracts" minWidth="4xl">
+      <TableRoot minWidth="4xl">
+        <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP }>
+          <TableRow>
+            <TableColumnHeader width="25%">Contract</TableColumnHeader>
+            <TableColumnHeaderSortable
+              width="25%"
+              isNumeric
+              sortField="transactions_count"
+              sortValue={ sort }
+              onSortToggle={ onSortToggle }
+              disabled={ isLoading }
+            >
+              Txn count
+            </TableColumnHeaderSortable>
+            <TableColumnHeaderSortable
+              width="25%"
+              isNumeric
+              sortField="total_gas_used"
+              sortValue={ sort }
+              onSortToggle={ onSortToggle }
+              disabled={ isLoading }
+            >
+              Gas used
+            </TableColumnHeaderSortable>
+            <TableColumnHeader width="25%" isNumeric>Balance { currencyUnits.ether }</TableColumnHeader>
+          </TableRow>
+        </TableHeaderSticky>
+        <TableBody>
+          { items?.map((item, index) => (
+            <HotContractsTableItem key={ index } isLoading={ isLoading } data={ item } exchangeRate={ exchangeRate }/>
+          )) }
+        </TableBody>
+      </TableRoot>
+    </ResponsiveTableRegion>
   );
 };
 

@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -134,6 +135,7 @@ func PoolAddresses(raw string) ([]string, error) {
 
 // WriteReadError preserves stable domain causes through every market handler.
 func WriteReadError(w http.ResponseWriter, r *http.Request, err error) {
+	slog.ErrorContext(r.Context(), "API read unavailable", "path", r.URL.Path, "reason", err.Error(), "request_id", responseRequestID(w))
 	switch {
 	case errors.Is(err, ErrCacheFillSaturated):
 		WriteAPIError(w, r, 503, "CACHE_FILL_SATURATED")
@@ -151,6 +153,8 @@ type v2ErrorRule struct {
 	Message string
 }
 
+const topicNotStartedCode = "TOPIC_NOT_STARTED"
+
 var v2ErrorRules = map[string]v2ErrorRule{
 	literalQUERYINVALID:          {400, "Invalid request syntax"},
 	literalFIELDINVALID:          {422, "Field violates its declared type or range"},
@@ -166,6 +170,7 @@ var v2ErrorRules = map[string]v2ErrorRule{
 	literalINTEGRITYQUARANTINED:  {503, "Authoritative data is quarantined"},
 	literalCURSORINVALID:         {400, "Invalid cursor; restart pagination"},
 	literalNOTFOUND:              {404, "Resource not found"},
+	topicNotStartedCode:          {404, "Topic has no first frame"},
 	"AUTH_EXPIRED":               {401, "Credential expired or revoked"},
 	"SCOPE_DENIED":               {403, "Action is not permitted"},
 	"RATE_LIMITED":               {429, "Request budget exhausted"},
@@ -178,10 +183,10 @@ var v2ErrorRules = map[string]v2ErrorRule{
 // answered as non-retryable.
 var ErrDependencyNotConfigured = errors.New("dependency not configured")
 
-// WriteV2APIError writes the frozen v2 error envelope. 429 and 503 are
-// retryable (transient budget or dependency failures) and carry Retry-After.
+// WriteV2APIError writes the frozen v2 error envelope with retry hints for
+// transient failures and topics awaiting their first frame.
 func WriteV2APIError(w http.ResponseWriter, r *http.Request, status int, code string) {
-	writeV2Error(w, r, status, code, status == 429 || status == 503)
+	writeV2Error(w, r, status, code, status == 429 || status == 503 || code == topicNotStartedCode)
 }
 
 // WriteV2NotConfiguredError answers a route whose dependency is not
@@ -211,12 +216,16 @@ func writeV2Error(w http.ResponseWriter, r *http.Request, status int, code strin
 		w.Header().Set("Cache-Control", "no-store")
 	}
 	w.Header().Del("Retry-After")
-	retry := retryable && (rule.Status == 429 || rule.Status == 503)
+	retry := retryable && (rule.Status == 429 || rule.Status == 503 || code == topicNotStartedCode)
 	var ms *int
 	if retry {
 		value := 1000
 		ms = &value
 		w.Header().Set("Retry-After", "1")
+		if code == topicNotStartedCode {
+			value = 5000
+			w.Header().Set("Retry-After", "5")
+		}
 	}
 	w.WriteHeader(rule.Status)
 	_ = json.NewEncoder(w).Encode(APIError{Code: code, Message: rule.Message, RequestID: id, Retryable: retry, RetryAfterMS: ms, FieldErrors: []any{}})

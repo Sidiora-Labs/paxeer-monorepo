@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useId } from 'react';
 import Link from 'next/link';
 import { Heart, Trophy, Users } from 'lucide-react';
@@ -45,12 +46,12 @@ export function BountyCard({ bounty, creator, stats, valuationContext, href, now
       aria-labelledby={titleId}
       className={cn('group relative flex min-w-0 flex-col gap-3 rounded-lg bg-surface-1 p-3 transition-colors duration-fast hover:bg-surface-hover focus-within:bg-surface-hover', className)}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
-        {bounty.poolAddress ? <span className="relative z-10 min-w-0"><BountyTokenChip poolAddress={bounty.poolAddress} stats={stats} /></span> : null}
+        {bounty.poolAddress ? <span className="relative z-10 flex min-w-0 items-center"><BountyTokenChip poolAddress={bounty.poolAddress} stats={stats} /></span> : null}
       </div>
       <h3 id={titleId} className="line-clamp-2 text-md font-bold text-text">
-        <Link href={target} className="after:absolute after:inset-0 after:rounded-lg after:content-['']">
+        <Link prefetch={false} href={target} className="flex items-center focus-visible:bg-surface-3 focus-visible:underline after:absolute after:inset-0 after:rounded-lg after:content-['']">
           {bounty.title}
         </Link>
       </h3>
@@ -78,11 +79,10 @@ export function BountyCard({ bounty, creator, stats, valuationContext, href, now
 export function BountyCardSkeleton({ className }: { className?: string }) {
   return (
     <div aria-hidden="true" className={cn('flex flex-col gap-3 rounded-lg bg-surface-1 p-3', className)}>
-      <div className="flex items-center justify-between"><Skeleton variant="pill" width={56} height={20} /><Skeleton variant="pill" width={112} height={22} /></div>
-      <Skeleton width="80%" height={20} />
-      <Skeleton width="55%" height={20} />
-      <div className="flex items-center gap-2"><Skeleton variant="circle" width={24} height={24} /><Skeleton width={96} height={14} /></div>
-      <div className="flex items-center gap-2"><Skeleton width={72} height={24} /><Skeleton variant="pill" width={96} height={22} /></div>
+      <div className="flex items-center justify-between"><Skeleton variant="pill" width={surfaceSpacing(14)} height={surfaceSpacing(5)} /><Skeleton variant="pill" width={surfaceSpacing(28)} height={surfaceSpacing(5.5)} /></div>
+      <Skeleton width="80%" height={surfaceSpacing(11)} />
+      <div className="flex items-center gap-2"><Skeleton variant="circle" width={surfaceSpacing(6)} height={surfaceSpacing(6)} /><Skeleton width={surfaceSpacing(24)} height={surfaceSpacing(3.5)} /></div>
+      <div className="flex items-center gap-2"><Skeleton width={surfaceSpacing(18)} height={surfaceSpacing(6)} /><Skeleton variant="pill" width={surfaceSpacing(24)} height={surfaceSpacing(5.5)} /></div>
     </div>
   );
 }

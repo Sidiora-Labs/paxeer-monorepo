@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { Suspense } from 'react';
 import { Skeleton } from '@/ui/primitives';
 import ChainWizard from '@/widgets/create-chain/chain-wizard';
@@ -11,13 +12,13 @@ export function CreateChainPageFallback() {
       <span className="sr-only">Loading...</span>
       <div aria-hidden="true" className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4">
         <p className="text-base font-semibold text-text">Name your chain and token</p>
-        <Skeleton variant="block" height={44} />
-        <Skeleton variant="block" height={36} />
+        <Skeleton variant="block" height={surfaceSpacing(11)} />
+        <Skeleton variant="block" height={surfaceSpacing(9)} />
       </div>
     </div>
   );
 }
 
 export default function CreateChainModule() {
-  return <Suspense fallback={<CreateChainPageFallback />}><ChainWizard /></Suspense>;
+  return <div data-create-chain-route className="min-w-0"><Suspense fallback={<CreateChainPageFallback />}><ChainWizard /></Suspense></div>;
 }

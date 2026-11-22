@@ -81,7 +81,7 @@ const MultiLineText: FC<{
         window.open(
           props.docOpenOptions?.url,
           props.docOpenOptions?.target,
-          props.docOpenOptions?.features
+          props.docOpenOptions?.features,
         ),
       ]}
     >

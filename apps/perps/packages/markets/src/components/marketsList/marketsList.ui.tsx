@@ -57,7 +57,7 @@ export const MarketsList: FC<MarketsListProps> = (props) => {
       <DataTable
         classNames={{
           root: props.tableClassNames?.root,
-          body: props.tableClassNames?.body,
+          body: cn(loading && "oui-invisible", props.tableClassNames?.body),
           header: cn("oui-h-9", props.tableClassNames?.header),
           scroll: props.tableClassNames?.scroll,
           empty: isHiddenByLowVolumeFilter

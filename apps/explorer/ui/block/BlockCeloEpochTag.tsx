@@ -23,7 +23,13 @@ const BlockCeloEpochTagRegular = ({ blockQuery }: Props) => {
       key="epoch-tag-before-finalized"
       content="Displays the epoch this block belongs to before the epoch is finalized"
     >
-      <Link href={ route({ pathname: '/epochs/[number]', query: { number: String(blockQuery.data.celo.epoch_number) } }) }>
+      <Link
+        href={ route({ pathname: '/epochs/[number]', query: { number: String(blockQuery.data.celo.epoch_number) } }) }
+        display="inline-flex"
+        alignItems="center"
+        maxW="full"
+        _motionReduce={{ transitionProperty: 'none' }}
+      >
         <Tag variant="clickable">Epoch #{ blockQuery.data.celo.epoch_number }</Tag>
       </Link>
     </Tooltip>
@@ -40,13 +46,27 @@ const BlockCeloEpochTag = ({ blockQuery }: Props) => {
   }
 
   return (
-    <HStack gap={ 2 }>
+    <HStack gap={ 2 } flexWrap="wrap" minW={ 0 } maxW="full">
       <Tooltip
         key="epoch-tag"
         content="Displays the epoch finalized by this block"
       >
-        <Link href={ route({ pathname: '/epochs/[number]', query: { number: String(blockQuery.data.celo.l1_era_finalized_epoch_number) } }) }>
-          <Tag bgColor="celo" color="blackAlpha.800" variant="clickable"> Finalized epoch #{ blockQuery.data.celo.l1_era_finalized_epoch_number } </Tag>
+        <Link
+          href={ route({ pathname: '/epochs/[number]', query: { number: String(blockQuery.data.celo.l1_era_finalized_epoch_number) } }) }
+          display="inline-flex"
+          alignItems="center"
+          maxW="full"
+          _motionReduce={{ transitionProperty: 'none' }}
+        >
+          <Tag
+            bgColor="positiveSoft"
+            color="positive"
+            variant="clickable"
+            borderRadius="md"
+            css={{ '& > .chakra-tag__label': { whiteSpace: 'normal', overflowWrap: 'anywhere', overflow: 'visible' } }}
+          >
+            Finalized epoch #{ blockQuery.data.celo.l1_era_finalized_epoch_number }
+          </Tag>
         </Link>
       </Tooltip>
       <BlockCeloEpochTagRegular blockQuery={ blockQuery }/>

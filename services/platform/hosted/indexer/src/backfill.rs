@@ -12,6 +12,8 @@
 //! at the cutover the live cursor is written at exactly the cutover, so
 //! live ingestion resumes at `cutover + 1` with no overlap and no gap.
 
+use std::time::Duration;
+
 use serde_json::Value;
 
 use crate::blockscout::{rpc_blocks, BlockscoutRange};
@@ -35,6 +37,9 @@ pub struct Backfill<'a> {
     node: &'a PaxeerIngester,
     cutover: u64,
     range_blocks: u64,
+    readers: usize,
+    batch_blocks: usize,
+    retry_delay: Duration,
 }
 
 fn hash_of(value: &Value, what: &str) -> Result<String, IndexError> {
@@ -68,11 +73,33 @@ impl<'a> Backfill<'a> {
     /// most `range_blocks` heights per step.
     #[must_use]
     pub const fn new(node: &'a PaxeerIngester, cutover: u64, range_blocks: u64) -> Self {
+        Self::with_options(node, cutover, range_blocks, 1, 1)
+    }
+
+    /// Creates a backfill with bounded concurrent readers and batch size.
+    #[must_use]
+    pub const fn with_options(
+        node: &'a PaxeerIngester,
+        cutover: u64,
+        range_blocks: u64,
+        readers: usize,
+        batch_blocks: usize,
+    ) -> Self {
         Self {
             node,
             cutover,
             range_blocks,
+            readers: if readers == 0 { 1 } else { readers },
+            batch_blocks: if batch_blocks == 0 { 1 } else { batch_blocks },
+            retry_delay: Duration::from_millis(250),
         }
+    }
+
+    /// Sets the initial pause between source retries; each repeat doubles it.
+    #[must_use]
+    pub const fn with_retry_delay(mut self, delay: Duration) -> Self {
+        self.retry_delay = delay;
+        self
     }
 
     /// The next height to backfill, or `None` when the backfill has reached
@@ -155,14 +182,25 @@ impl<'a> Backfill<'a> {
         F: FnMut(u64, u64) -> Result<BlockscoutRange, IndexError>,
     {
         self.node.check_chain_id()?;
+        let mut repeats = 0;
         loop {
-            match self.step(store, &mut fetch)? {
-                BackfillOutcome::Advanced { from, to, filled } => {
+            let range = self.next_range(store)?;
+            match (self.step(store, &mut fetch), range) {
+                (Ok(BackfillOutcome::Advanced { from, to, filled }), _) => {
+                    repeats = 0;
                     eprintln!(
                         "layerx-indexer backfill committed {from}..={to} ({filled} from the node)"
                     );
                 }
-                BackfillOutcome::Finished { cutover } => return Ok(cutover),
+                (Ok(BackfillOutcome::Finished { cutover }), _) => return Ok(cutover),
+                (Err(IndexError::Source(_)), Some((from, to))) if repeats < 5 => {
+                    repeats += 1;
+                    eprintln!(
+                        "layerx-indexer backfill retry {from}..={to} repeat={repeats} class=source"
+                    );
+                    std::thread::sleep(self.retry_delay.saturating_mul(1 << (repeats - 1)));
+                }
+                (Err(error), _) => return Err(error),
             }
         }
     }
@@ -197,13 +235,22 @@ impl<'a> Backfill<'a> {
             )));
         }
         let cosmos = self.node.cosmos_range(from, to)?;
+        let heights: Vec<u64> = (from..=to).collect();
+        let node_blocks = self
+            .node
+            .blocks_with_receipts(&heights, self.batch_blocks, self.readers)?
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
         let is_pointer = |address: &str| store.is_pointer(address);
         let mut units: Vec<Unit> = Vec::new();
         let mut filled = 0;
         for height in from..=to {
-            let (block, receipts) = self.node.block_with_receipts(height)?.ok_or_else(|| {
-                IndexError::Source(format!("the node has no block {height} to verify or fill"))
-            })?;
+            let (block, receipts) = node_blocks
+                .get(&height)
+                .and_then(Option::as_ref)
+                .ok_or_else(|| {
+                    IndexError::Source(format!("the node has no block {height} to verify or fill"))
+                })?;
             if let Some(paxscan) = converted.remove(&height) {
                 let header = &block;
                 let node_hash = hash_of(header.get("hash").unwrap_or(&Value::Null), "hash")?;

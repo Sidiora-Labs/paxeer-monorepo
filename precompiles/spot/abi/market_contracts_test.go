@@ -148,8 +148,9 @@ func TestHookContracts(t *testing.T) {
 		{"hooks/perps/useMarketConfig.ts", "return { config, tiers };", "`{ config, tiers }`"},
 		{"hooks/spot/useSpotTokenState.ts", "state: query.isError ? null : (query.data ?? null),", "`{ state: SpotTokenState | null, error: string | null }`"},
 	} {
-		require.Contains(t, readContractFile(t, "apps/perps/src/"+pair.path), pair.source)
+		workspacePath := "apps/perps/packages/paxeer-backend/src/" + pair.path
+		require.Contains(t, readContractFile(t, workspacePath), pair.source)
 		require.Contains(t, page, pair.documentation)
-		require.Contains(t, page, "../apps/perps/src/"+pair.path)
+		require.Contains(t, page, "../"+workspacePath)
 	}
 }

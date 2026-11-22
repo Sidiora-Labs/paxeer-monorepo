@@ -90,11 +90,11 @@ const OLD_UI_URLS = [
   },
   {
     source: '/uncles',
-    destination: '/blocks?tab=uncles',
+    destination: '/blocks',
   },
   {
     source: '/reorgs',
-    destination: '/blocks?tab=reorgs',
+    destination: '/blocks',
   },
   {
     source: '/block/:height/transactions',
@@ -291,7 +291,7 @@ const ETHERSCAN_URLS = [
   },
   {
     source: '/blocks_forked',
-    destination: '/blocks?tab=reorgs',
+    destination: '/blocks',
   },
   {
     source: '/contractsVerified',

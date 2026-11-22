@@ -58,8 +58,8 @@ export function StrategyPicker({ value, onChange, disabled = false, className }:
   const selected = feeStrategies.find(strategy => strategy.value === value);
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <div className="flex items-center justify-between gap-3">
-        <p id={`${id}-label`} className="text-sm font-bold text-text">Send creator rewards to</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p id={`${id}-label`} className="flex-1 text-sm font-bold text-text">Send creator rewards to</p>
         <Button variant="ghost" size="sm" aria-expanded={more} onClick={() => setMore(open => !open)} disabled={disabled}>
           {more ? 'Fewer options' : 'More options'}
         </Button>
@@ -81,12 +81,12 @@ export function StrategyPicker({ value, onChange, disabled = false, className }:
               onClick={() => onChange(strategy.value)}
               onKeyDown={event => onKeyDown(event, index)}
               className={cn(
-                'inline-flex h-control-height-md items-center justify-center gap-2 rounded-sm px-3 text-sm font-bold transition-colors duration-fast',
+                'inline-flex min-h-control-height-md flex-wrap items-center justify-center gap-2 rounded-sm border border-control-edge px-3 text-sm font-bold transition-colors duration-fast',
                 checked ? 'bg-surface-3 text-text' : 'text-text-muted hover:bg-surface-hover hover:text-text',
                 disabled && 'cursor-not-allowed text-text-disabled hover:bg-transparent hover:text-text-disabled',
               )}
             >
-              <Icon aria-hidden="true" className={cn('size-icon-md', checked && !disabled ? 'text-accent' : undefined)} />
+              <Icon aria-hidden="true" className={cn('size-icon-md shrink-0', checked && !disabled ? 'text-accent' : undefined)} />
               {strategy.label}
             </button>
           );

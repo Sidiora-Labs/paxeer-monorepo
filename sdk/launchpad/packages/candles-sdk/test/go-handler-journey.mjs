@@ -70,6 +70,7 @@ export async function finding3GoHandlerJourney() {
     const config = await client.getConfig();
     assert.deepEqual(config, JSON.parse(transcript.exchanges[0].response.body));
     assert.deepEqual(config.supported_resolutions, ['1', '5', '15', '60', '240', '1D', 'D', '1W', 'W']);
+    assert.equal(config.supports_search, false);
     assert.equal(config.supports_time, true);
     assert.deepEqual(config.exchanges, [{ value: 'sidiora', name: 'Sidiora', desc: 'Sidiora Launchpad' }]);
 

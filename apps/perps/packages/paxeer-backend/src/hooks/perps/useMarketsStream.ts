@@ -1,34 +1,69 @@
 "use client";
-import { useEffect, useState } from "react";
-import { activePoll, type CancelTask } from "../../core/net/realtime";
-import { fetchJsonWithPolicy } from "../../core/net/fetch";
-import { feedFundingDeadline } from "../../core/feedFunding";
-import { MARKET_DATA_URL } from "../../core/feeds";
+import {
+  sequenceGuard,
+  isPageActive,
+  scheduleActive,
+  watchSocket,
+  notifyStreamResync,
+  type CancelTask,
+} from "@paxeer-network/paxeer-backend/core/net/realtime";
 
-// The deployed mint allowlist currently covers per-symbol sockets. Aggregate reads
-// use the SDK's authenticated REST contract at the documented five-second cadence.
+import { getStreamSocketOrigin } from "@paxeer-network/paxeer-backend/core/feeds";
+import { useEffect, useState } from "react";
+import { priceWindowChange } from "../../core/perps/priceWindow";
+import { parseFundingRateHourly } from "@paxeer-network/paxeer-backend/core/perps/fundingRate";
+
+/* ══════════════════════════════════════════════════════════════════════
+   Dedicated markets aggregate stream (`/ws/markets`).
+
+   This feed exposes two read-only topics:
+
+     · `markets@all`     → every market snapshot as an array, frames
+                           emitted whenever any field changes.
+     · `markets@totals`  → aggregate protocol stats (24h/7d/30d vol, OI,
+                           total trades).
+
+   One multiplexed WebSocket per browser tab — N React subscribers share
+   the same socket. Reconnect uses exponential backoff, and subscription
+   frames are replayed on every (re)open. Mirrors the pattern used by
+   `useSidPaxMarketStream.ts`.
+   ══════════════════════════════════════════════════════════════════════ */
+
+// The gateway permits the Hyperpax browser origin; no client secret is shipped.
+
+export const MARKETS_WS_URL = `${getStreamSocketOrigin()}/ws/markets`;
+
+// ── Public types ──────────────────────────────────────────────────────
+
+/**
+ * One row from the `markets@all` topic. `last_updated` is server wall-clock
+ * epoch milliseconds. Numeric fields are already decoded to JS numbers.
+ */
 export interface MarketSnapshot {
   symbol: string;
   symbol_full: string;
-  price: number;
-  index_price?: number;
-  next_funding_time?: number;
+  price: number | null;
+  index_price: number | null;
   /** 24h % change as a percentage number (e.g. 1.23 means +1.23%). */
-  change_24h: number;
+  change_24h: number | null;
   volume_24h: number;
   open_interest: number;
-  /** Realised 8h funding — a ratio (e.g. 0.0001 = 0.01%). */
-  funding_8h: number;
-  /** Estimated next funding rate — ratio. */
-  est_funding_rate: number;
+  /** 8 × the hourly funding rate at 18 decimals (1e18 = 1.0); null before the first settlement or when malformed. */
+  funding_8h: bigint | null;
+  /** The market's hourly funding rate (perp_funding_rate) at 18 decimals; null before the first settlement or when malformed. */
+  perp_funding_rate: bigint | null;
+  /** Last settled hourly funding rate at 18 decimals (1e18 = 1.0); null before the first settlement. */
+  last_funding_rate_hourly: bigint | null;
+  /** Next funding time in whole epoch milliseconds; null when unavailable. */
+  perp_next_funding_ms: number | null;
   volume_7d: number;
   volume_30d: number;
   trades_count: number;
-  last_updated: number;
-  price_updated_at: number;
+  last_updated: number | null;
+  price_updated_at: number | null;
   price_24h: number;
-  high_24h: number;
-  low_24h: number;
+  high_24h: number | null;
+  low_24h: number | null;
   amount_24h: number;
   reported_volume_24h: number;
   reported_open_interest: number;
@@ -50,126 +85,392 @@ export interface MarketsTotals {
 
 export type ConnectionState = "idle" | "connecting" | "open" | "closed";
 
-const state = {
-  markets: [] as MarketSnapshot[],
-  marketsBySymbol: new Map<string, MarketSnapshot>(),
-  totals: null as MarketsTotals | null,
-  connection: "idle" as ConnectionState,
-  subsMarkets: new Set<(rows: MarketSnapshot[]) => void>(),
-  subsTotals: new Set<(totals: MarketsTotals | null) => void>(),
-  subsConnection: new Set<(connection: ConnectionState) => void>(),
+// ── Internal singleton state ──────────────────────────────────────────
+
+interface StreamState {
+  ws: WebSocket | null;
+  markets: MarketSnapshot[];
+  marketsBySymbol: Map<string, MarketSnapshot>;
+  totals: MarketsTotals | null;
+  connection: ConnectionState;
+
+  subsMarkets: Set<(m: MarketSnapshot[]) => void>;
+  subsTotals: Set<(t: MarketsTotals | null) => void>;
+  subsConnection: Set<(c: ConnectionState) => void>;
+
+  reconnectTimer: CancelTask | null;
+  reconnectDelay: number;
+  pingTimer: ReturnType<typeof setInterval> | null;
+  /** Monotonic counter — bumped when either topic is (re)subscribed so we
+   *  can detect "we have sent the subscribe frame on this socket". */
+  socketEpoch: number;
+  /** Whether we've already sent the subscribe frames on the CURRENT open
+   *  socket. Reset to `false` on each reconnect. */
+  sentSubscribes: boolean;
+}
+
+const INITIAL_RECONNECT_DELAY = 500;
+const MAX_RECONNECT_DELAY = 60_000;
+const PING_INTERVAL = 25_000;
+
+const state: StreamState = {
+  ws: null,
+  markets: [],
+  marketsBySymbol: new Map(),
+  totals: null,
+  connection: "idle",
+  subsMarkets: new Set(),
+  subsTotals: new Set(),
+  subsConnection: new Set(),
+  reconnectTimer: null,
+  reconnectDelay: INITIAL_RECONNECT_DELAY,
+  pingTimer: null,
+  socketEpoch: 0,
+  sentSubscribes: false,
 };
-let stopPoll: CancelTask | null = null;
-let generation = 0;
-function setConnection(value: ConnectionState) {
-  if (state.connection === value) return;
-  state.connection = value;
-  state.subsConnection.forEach((cb) => cb(value));
-}
-function publishMarkets(rows: MarketSnapshot[]) {
-  state.markets = rows;
-  state.marketsBySymbol = new Map(rows.map((row) => [row.symbol, row]));
-  state.subsMarkets.forEach((cb) => cb(rows));
-}
-function ensureConnected(): void {
-  if (typeof window === "undefined" || stopPoll) return;
-  const current = ++generation;
-  setConnection("connecting");
-  stopPoll = activePoll(async () => {
+
+function setConnection(next: ConnectionState) {
+  if (next === "closed" || next === "idle") {
+    state.markets = [];
+    state.marketsBySymbol.clear();
+    state.totals = null;
+    state.subsTotals.forEach((cb) => cb(null));
+    state.subsMarkets.forEach((cb) => cb([]));
+  }
+  if (state.connection === next) return;
+  state.connection = next;
+  state.subsConnection.forEach((cb) => {
     try {
-      const body = await fetchJsonWithPolicy<{
-        markets: unknown[];
-        ts: number;
-      }>(`${MARKET_DATA_URL}/markets`);
-      if (current !== generation) return;
-      const rows = body.markets
-        .map(normalizeMarket)
-        .filter((row): row is MarketSnapshot => row !== null);
-      publishMarkets(rows);
-      setConnection("open");
-      if (state.subsTotals.size) {
-        const aggregate = await fetchJsonWithPolicy<{
-          totals: unknown;
-          ts: number;
-        }>(`${MARKET_DATA_URL}/totals`);
-        if (current !== generation) return;
-        state.totals = normalizeTotals(aggregate.totals, aggregate.ts);
-        state.subsTotals.forEach((cb) => cb(state.totals));
-      }
-    } catch (error) {
-      if (current === generation) {
-        publishMarkets([]);
-        state.totals = null;
-        state.subsTotals.forEach((cb) => cb(null));
-        setConnection("closed");
-      }
-      throw error;
+      cb(next);
+    } catch {
+      /* ignore */
     }
-  }, 5000);
+  });
 }
+
+function ensureConnected(): void {
+  if (typeof window === "undefined") return;
+  if (state.reconnectTimer) return;
+  if (
+    state.ws &&
+    (state.ws.readyState === WebSocket.OPEN ||
+      state.ws.readyState === WebSocket.CONNECTING)
+  ) {
+    // Socket is already live — nothing to do. Subscribe frames were sent
+    // either on open or on the previous subscribe path.
+    return;
+  }
+  connect();
+}
+
+function connect(): void {
+  if (process.env.NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER === "1") return;
+  if (!isPageActive()) {
+    scheduleReconnect();
+    return;
+  }
+  if (typeof window === "undefined") return;
+  setConnection("connecting");
+  state.socketEpoch += 1;
+  state.sentSubscribes = false;
+
+  let ws: WebSocket;
+  try {
+    ws = new WebSocket(MARKETS_WS_URL);
+  } catch {
+    scheduleReconnect();
+    return;
+  }
+  state.ws = ws;
+  watchSocket(
+    ws,
+    () => {
+      state.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    },
+    undefined,
+    true,
+  );
+
+  ws.addEventListener("open", () => {
+    notifyStreamResync(MARKETS_WS_URL);
+    setConnection("open");
+    sendSubscribes();
+    if (!state.pingTimer) {
+      state.pingTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ event: "ping" }));
+          } catch {
+            /* ignore */
+          }
+        }
+      }, PING_INTERVAL);
+    }
+  });
+
+  const acceptSequence = sequenceGuard();
+  ws.addEventListener("message", (ev) => {
+    let msg: unknown;
+    try {
+      msg = JSON.parse(ev.data);
+    } catch {
+      return;
+    }
+    if (!acceptSequence(msg)) {
+      ws.close(4000, "sequence-gap");
+      return;
+    }
+    if (!msg || typeof msg !== "object") return;
+
+    const topic = (msg as { topic?: string }).topic;
+    const data = (msg as { data?: unknown }).data;
+    const tsRaw = (msg as { ts?: number }).ts;
+    const ts = typeof tsRaw === "number" ? tsRaw : Date.now();
+
+    if (topic === "markets@all" && Array.isArray(data)) {
+      const rows = normalizeMarketsFrame(data);
+      state.markets = rows;
+      state.marketsBySymbol = new Map(rows.map((r) => [r.symbol, r]));
+      state.subsMarkets.forEach((cb) => {
+        try {
+          cb(rows);
+        } catch {
+          /* ignore */
+        }
+      });
+      return;
+    }
+
+    if (topic === "markets@totals" && data && typeof data === "object") {
+      const t = normalizeTotals(data, ts);
+      if (t) {
+        state.totals = t;
+        state.subsTotals.forEach((cb) => {
+          try {
+            cb(t);
+          } catch {
+            /* ignore */
+          }
+        });
+      }
+      return;
+    }
+
+    // Control frames: welcome / subscribed / unsubscribed / pong / error
+    // are informational only. Explicitly ignore.
+  });
+
+  const onClosed = () => {
+    if (state.pingTimer) {
+      clearInterval(state.pingTimer);
+      state.pingTimer = null;
+    }
+    if (state.ws === ws) state.ws = null;
+    state.sentSubscribes = false;
+    setConnection("closed");
+    scheduleReconnect();
+  };
+  ws.addEventListener("close", onClosed);
+  ws.addEventListener("error", () => {
+    // `close` will fire next — handle reconnect there so we don't
+    // double-schedule.
+  });
+}
+
+function sendSubscribes(): void {
+  const ws = state.ws;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (state.sentSubscribes) return;
+  try {
+    ws.send(JSON.stringify({ event: "subscribe", topic: "markets@all" }));
+    ws.send(JSON.stringify({ event: "subscribe", topic: "markets@totals" }));
+    state.sentSubscribes = true;
+  } catch {
+    // Socket closed mid-send — the reconnect handler will retry on the
+    // next `open`.
+  }
+}
+
+function scheduleReconnect(): void {
+  if (state.reconnectTimer) return;
+  // Only reconnect if at least one consumer is still listening.
+  if (
+    state.subsMarkets.size === 0 &&
+    state.subsTotals.size === 0 &&
+    state.subsConnection.size === 0
+  ) {
+    return;
+  }
+  const delay = state.reconnectDelay;
+  state.reconnectTimer = scheduleActive(
+    () => {
+      state.reconnectTimer = null;
+      state.reconnectDelay = Math.min(
+        MAX_RECONNECT_DELAY,
+        state.reconnectDelay * 2,
+      );
+      connect();
+    },
+    delay,
+    MARKETS_WS_URL,
+  );
+}
+
 function teardownIfIdle(): void {
   if (
-    state.subsMarkets.size ||
-    state.subsTotals.size ||
-    state.subsConnection.size
-  )
+    state.subsMarkets.size > 0 ||
+    state.subsTotals.size > 0 ||
+    state.subsConnection.size > 0
+  ) {
     return;
-  generation++;
-  stopPoll?.();
-  stopPoll = null;
-  state.markets = [];
-  state.marketsBySymbol.clear();
-  state.totals = null;
+  }
+  if (state.reconnectTimer) {
+    state.reconnectTimer();
+    state.reconnectTimer = null;
+  }
+  if (state.pingTimer) {
+    clearInterval(state.pingTimer);
+    state.pingTimer = null;
+  }
+  const ws = state.ws;
+  state.ws = null;
+  if (
+    ws &&
+    (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)
+  ) {
+    try {
+      ws.close(1000, "no-subscribers");
+    } catch {
+      /* ignore */
+    }
+  }
+  state.reconnectDelay = INITIAL_RECONNECT_DELAY;
   setConnection("idle");
 }
 
+// ── Normalisers ───────────────────────────────────────────────────────
+
 function num(v: unknown): number {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : 0;
+  // Omitted optional metrics retain the feed's unavailable zero value. Present
+  // values must be numbers or decimal strings; coercing null, booleans, arrays,
+  // empty strings or invalid text would turn corrupt data into a valid zero.
+  if (v === undefined) return 0;
+  if (
+    typeof v !== "number" &&
+    (typeof v !== "string" || !/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v))
+  )
+    return NaN;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
 }
 
-function normalizeMarket(raw: unknown): MarketSnapshot | null {
+/**
+ * A venue funding rate (`last_funding_rate_hourly`, `funding_8h` or
+ * `perp_funding_rate`) at 18 decimals. Absent (null or
+ * missing) is null, never zero; anything present that is not an exact
+ * decimal string throws.
+ */
+export function parseVenueFundingHourly(v: unknown): bigint | null {
+  if (v === null || v === undefined) return null;
+  return parseFundingRateHourly(v as string);
+}
+
+const FUNDING_WARN_INTERVAL_MS = 60_000;
+const fundingWarnedAt = new Map<string, number>();
+
+/**
+ * One market's venue funding field: a malformed value is that market's funding
+ * unavailable (null), with at most one console.warn per symbol and field per
+ * minute, so one bad row never drops the rest of a frame or ticker map.
+ */
+export function marketFundingHourly(
+  symbol: string,
+  field: string,
+  v: unknown,
+): bigint | null {
+  try {
+    return parseVenueFundingHourly(v);
+  } catch {
+    const key = `${symbol}\u0000${field}`;
+    const now = Date.now();
+    const last = fundingWarnedAt.get(key);
+    if (last === undefined || now - last >= FUNDING_WARN_INTERVAL_MS) {
+      fundingWarnedAt.set(key, now);
+      console.warn(
+        `perps: ${symbol} ${field} is not an exact decimal string (${String(v)}); its funding is shown as unavailable`,
+      );
+    }
+    return null;
+  }
+}
+
+export function normalizeMarket(raw: unknown): MarketSnapshot | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const symbol = typeof r.symbol === "string" ? r.symbol : null;
-  if (
-    !symbol ||
-    num(r.price) <= 0 ||
-    num(r.price_updated_at) <= 0 ||
-    Date.now() - num(r.price_updated_at) > 30_000
-  )
-    return null;
-  return {
+  if (!symbol) return null;
+  const rawPrice = r.price == null ? null : num(r.price);
+  const price = rawPrice !== null && rawPrice <= 0 ? null : rawPrice;
+  const price24h = r.price_24h == null ? 0 : num(r.price_24h);
+  if (!Number.isFinite(price24h)) return null;
+  const snapshot: MarketSnapshot = {
     symbol,
     symbol_full: typeof r.symbol_full === "string" ? r.symbol_full : symbol,
-    price: num(r.price),
-    index_price: num(r.perp_index_price ?? r.index_price) || undefined,
-    next_funding_time:
-      num(r.next_funding_time) ||
-      feedFundingDeadline(num(r.last_updated), num(r.perp_next_funding_ms)),
-    change_24h: num(r.change_24h),
+    price,
+    index_price: r.perp_index_price == null ? null : num(r.perp_index_price),
+    change_24h: priceWindowChange(price, price24h),
     volume_24h: num(r.volume_24h),
     open_interest: num(r.open_interest),
-    funding_8h: num(r.funding_8h),
-    est_funding_rate: num(r.est_funding_rate),
+    funding_8h: marketFundingHourly(symbol, "funding_8h", r.funding_8h),
+    perp_funding_rate: marketFundingHourly(
+      symbol,
+      "perp_funding_rate",
+      r.perp_funding_rate,
+    ),
+    last_funding_rate_hourly: marketFundingHourly(
+      symbol,
+      "last_funding_rate_hourly",
+      r.last_funding_rate_hourly,
+    ),
+    perp_next_funding_ms:
+      typeof r.perp_next_funding_ms === "number" &&
+      Number.isSafeInteger(r.perp_next_funding_ms) &&
+      r.perp_next_funding_ms > 0
+        ? r.perp_next_funding_ms
+        : null,
     volume_7d: num(r.volume_7d),
     volume_30d: num(r.volume_30d),
     trades_count: num(r.trades_count),
-    last_updated: num(r.last_updated),
-    price_updated_at: num(r.price_updated_at),
-    price_24h: num(r.price_24h),
-    high_24h: num(r.high_24h),
-    low_24h: num(r.low_24h),
-    amount_24h: num(r.amount_24h),
-    reported_volume_24h: num(r.reported_volume_24h ?? r.volume_24h),
-    reported_open_interest: num(r.reported_open_interest ?? r.open_interest),
+    last_updated: r.last_updated == null ? null : num(r.last_updated),
+    price_updated_at: r.last_updated == null ? null : num(r.last_updated),
+    price_24h: price24h > 0 ? price24h : 0,
+    high_24h: null,
+    low_24h: null,
+    amount_24h: num(r.perp_volume_24h_contracts),
+    reported_volume_24h: num(r.volume_24h),
+    reported_open_interest: num(r.open_interest),
   };
+  for (const [field, value] of Object.entries(snapshot)) {
+    if (
+      typeof value === "number" &&
+      (!Number.isFinite(value) || (field !== "change_24h" && value < 0))
+    )
+      return null;
+  }
+  return snapshot;
+}
+
+/** Every market of one markets@all frame; each row parses on its own, so a malformed row never drops its siblings. */
+export function normalizeMarketsFrame(data: unknown[]): MarketSnapshot[] {
+  return data
+    .map(normalizeMarket)
+    .filter((m): m is MarketSnapshot => m !== null);
 }
 
 function normalizeTotals(raw: unknown, ts: number): MarketsTotals | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  return {
+  const totals: MarketsTotals = {
     total_trades: num(r.total_trades),
     volume_24h: num(r.volume_24h),
     volume_7d: num(r.volume_7d),
@@ -177,6 +478,11 @@ function normalizeTotals(raw: unknown, ts: number): MarketsTotals | null {
     total_oi: num(r.total_oi),
     ts,
   };
+  return Object.values(totals).every(
+    (value) => Number.isFinite(value) && value >= 0,
+  )
+    ? totals
+    : null;
 }
 
 // ── React hooks ───────────────────────────────────────────────────────

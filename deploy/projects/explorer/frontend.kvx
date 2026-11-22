@@ -2,9 +2,7 @@
 
 [service.frontend]
 kind = "repo"
-repository = "https://github.com/Sidiora-Labs/paxeer-monorepo.git"
-branch = "main"
-container = "docker/explorer-frontend/Dockerfile"
+dockerfile = "docker/explorer-frontend/Dockerfile"
 root = "."
 watch = ["docker/explorer-frontend/**", "docker/common/**", "apps/explorer/**", "docs/explorer/ENVS.md"]
 health = "/explorer/api/healthz"
@@ -16,9 +14,12 @@ needs = ["backend"]
 
 [vars.frontend]
 ENVS_PRESET = "paxeer-x"
-GIT_COMMIT_SHA = "env:PAXEER_X_EXPLORER_FRONTEND_GIT_COMMIT_SHA"
-GIT_TAG = "env:PAXEER_X_EXPLORER_FRONTEND_GIT_TAG"
-NEXT_OPEN_TELEMETRY_ENABLED = "env:PAXEER_X_EXPLORER_FRONTEND_NEXT_OPEN_TELEMETRY_ENABLED"
+EXPLORER_INFERENCE_NODE_URL = "env:EXPLORER_FRONTEND_EXPLORER_INFERENCE_NODE_URL"
+EXPLORER_ASSISTANT_BASE_URL = "env:EXPLORER_FRONTEND_EXPLORER_ASSISTANT_BASE_URL"
+EXPLORER_ASSISTANT_API_KEY = "env:EXPLORER_FRONTEND_EXPLORER_ASSISTANT_API_KEY"
+GIT_COMMIT_SHA = "env:EXPLORER_FRONTEND_GIT_COMMIT_SHA"
+GIT_TAG = "env:EXPLORER_FRONTEND_GIT_TAG"
+NEXT_OPEN_TELEMETRY_ENABLED = "env:EXPLORER_FRONTEND_NEXT_OPEN_TELEMETRY_ENABLED"
 NEXT_PUBLIC_APP_HOST = "${{RAILWAY_PUBLIC_DOMAIN}}"
 NEXT_PUBLIC_API_HOST = "${{backend.RAILWAY_PUBLIC_DOMAIN}}"
 NEXT_PUBLIC_NETWORK_ID = "125"
@@ -26,9 +27,15 @@ NEXT_PUBLIC_NETWORK_NAME = "Paxeer X Network"
 PORT = "3000"
 
 [inputs.frontend]
+# Root of a public node without a path, as an HTTP or HTTPS URL.
+EXPLORER_FRONTEND_EXPLORER_INFERENCE_NODE_URL = "chain"
+# Assistant provider base address, as an HTTP or HTTPS URL.
+EXPLORER_FRONTEND_EXPLORER_ASSISTANT_BASE_URL = "provider"
+# Assistant provider API credential, as a secret string.
+EXPLORER_FRONTEND_EXPLORER_ASSISTANT_API_KEY = "provider"
 # Commit identifier used to label the built frontend; hexadecimal or tagged revision.
-PAXEER_X_EXPLORER_FRONTEND_GIT_COMMIT_SHA = "operator"
+EXPLORER_FRONTEND_GIT_COMMIT_SHA = "operator"
 # Release tag displayed by the frontend; a release tag string.
-PAXEER_X_EXPLORER_FRONTEND_GIT_TAG = "operator"
+EXPLORER_FRONTEND_GIT_TAG = "operator"
 # Build-time OpenTelemetry switch; the literal true or false.
-PAXEER_X_EXPLORER_FRONTEND_NEXT_OPEN_TELEMETRY_ENABLED = "operator"
+EXPLORER_FRONTEND_NEXT_OPEN_TELEMETRY_ENABLED = "operator"

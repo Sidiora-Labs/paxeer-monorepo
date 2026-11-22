@@ -24,20 +24,20 @@ const SolidityscanReportScore = ({ className, score }: Props) => {
           _light: `conic-gradient({colors.${ scoreColor._light }} 0, {colors.${ scoreColor._light }} ${ score }%, {colors.gray.100} 0, {colors.gray.100} 100%)`,
           _dark: `conic-gradient({colors.${ scoreColor._dark }} 0, {colors.${ scoreColor._dark }} ${ score }%, {colors.gray.700} 0, {colors.gray.700} 100%)`,
         }}
-        borderRadius="24px"
+        borderRadius="full"
         position="relative"
         mr={ 3 }
       >
-        <Center position="absolute" w="38px" h="38px" top="5px" right="5px" bg="popover.bg" borderRadius="20px">
+        <Center position="absolute" inset={ 1 } boxSize={ 10 } bg="popover.bg" borderRadius="full">
           <IconSvg name={ score < 80 ? 'score/score-not-ok' : 'score/score-ok' } boxSize={ 5 } color={ scoreColor }/>
         </Center>
       </Box>
       <Box>
         <Flex>
-          <Text color={ scoreColor } fontSize="lg" fontWeight={ 500 }>{ score }</Text>
-          <Text color={ yetAnotherGrayColor } fontSize="lg" fontWeight={ 500 } whiteSpace="pre"> / 100</Text>
+          <Text color={ scoreColor } fontSize="lg" fontWeight="medium">{ score }</Text>
+          <Text color={ yetAnotherGrayColor } fontSize="lg" fontWeight="medium" whiteSpace="pre"> / 100</Text>
         </Flex>
-        <Text color={ scoreColor } fontWeight={ 500 }>Security score is { scoreLevel }</Text>
+        <Text color={ scoreColor } fontWeight="medium">Security score is { scoreLevel }</Text>
       </Box>
     </Flex>
   );

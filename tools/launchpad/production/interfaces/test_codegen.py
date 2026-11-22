@@ -84,6 +84,44 @@ def file_bytes(root):
 
 
 class CodegenTests(unittest.TestCase):
+    def test_major_templates_and_manifest_digests(self):
+        self.assertEqual(
+            hashlib.sha256(cg.validator_template(1).read_bytes()).hexdigest(),
+            "ce8d79fe8b44163d19f5f9725397e93bccae21ec24eb34aefa25798216317ee0",
+        )
+        self.assertEqual(
+            hashlib.sha256(cg.frozen_v1_generator()).hexdigest(),
+            "9c86c1072975321e426a91d65dfd10123a3b9df6ca53c2a6dcc34a547abe3681",
+        )
+        for major in (2, 3):
+            with self.subTest(major=major), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                source = root / f"contracts/v{major}/schema-definitions.json"
+                source.parent.mkdir(parents=True)
+                source.write_text(json.dumps(DOC))
+                manifest = source.with_name("codegen-manifest.json")
+                argv = ["--root", directory, "--schema", str(source),
+                        "--manifest", str(manifest), "--major", str(major), "--no-format"]
+                self.assertEqual(cg.main(argv), 0)
+                record = json.loads(manifest.read_bytes())
+                self.assertEqual(cg.validator_template(major).name, "validator.compiled.go.txt")
+                self.assertEqual(record["validatorTemplateSha256"], hashlib.sha256(
+                    cg.validator_template(major).read_bytes()).hexdigest())
+                validator = root / f"sdk/launchpad/shared/interfaces/v{major}/validators.gen.go"
+                emitted = validator.read_text()
+                self.assertIn(f"package v{major}\n", emitted)
+                self.assertIn(f"if schemaMajor!={major}{{", emitted)
+                self.assertIn("func compileSchema(", emitted)
+                schema_line = next(line for line in emitted.splitlines()
+                                   if line.startswith("const schemaDocument = "))
+                frozen = cg.Generator(copy.deepcopy(DOC), format_output=False).emit()
+                frozen_validator = frozen["sdk/launchpad/shared/interfaces/v1/validators.gen.go"]
+                self.assertIn(schema_line, frozen_validator.splitlines())
+                self.assertNotIn("func compileSchema(", frozen_validator)
+                before = file_bytes(root)
+                self.assertEqual(cg.main(argv + ["--check"]), 0)
+                self.assertEqual(before, file_bytes(root))
+
     def test_deterministic_and_concrete(self):
         a = cg.Generator(copy.deepcopy(DOC), format_output=False).emit()
         b = cg.Generator(copy.deepcopy(DOC), format_output=False).emit()

@@ -33,12 +33,13 @@ export function SwapSettingsView({
     <div className="px-4 pt-4 pb-24">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-bold">Swap Settings</h2>
-        <button onClick={onClose} className="p-1.5 rounded-full bg-white/5 press-scale">
-          <SvgIcon
-            name="x"
-            className="w-4 h-4"
-            style={{ filter: 'brightness(0) invert(0.6)' }}
-          />
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close swap settings"
+          className="min-h-[var(--touch-target)] min-w-[var(--touch-target)] p-2 rounded-full bg-pax-control press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
+        >
+          <SvgIcon name="x" className="w-4 h-4" />
         </button>
       </div>
 
@@ -47,15 +48,16 @@ export function SwapSettingsView({
         <div className="flex gap-2">
           {PRESETS_BPS.map((bps) => (
             <button
+              type="button"
               key={bps}
               onClick={() => {
                 onChangeSlippageBps(bps);
                 onChangeCustomSlippage('');
               }}
-              className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all press-scale ${
+              className={`min-h-[var(--touch-target)] flex-1 py-2 rounded-xl text-xs font-medium transition-all press-scale focus-visible:ring-2 focus-visible:ring-pax-accent ${
                 slippageBps === bps && !customSlippage
                   ? 'bg-pax-accent/15 text-pax-accent'
-                  : 'bg-white/5 text-pax-muted'
+                  : 'bg-pax-control text-pax-muted'
               }`}
             >
               {bps / 100}%
@@ -63,9 +65,16 @@ export function SwapSettingsView({
           ))}
         </div>
         <div className="flex items-center gap-2">
+          <label htmlFor="swap-custom-slippage" className="sr-only">
+            Custom slippage percentage
+          </label>
           <input
+            id="swap-custom-slippage"
             type="text"
             inputMode="decimal"
+            name="custom-slippage"
+            autoComplete="off"
+            aria-label="Custom slippage percentage"
             value={customSlippage}
             onChange={(e) => {
               onChangeCustomSlippage(e.target.value);
@@ -73,13 +82,13 @@ export function SwapSettingsView({
               if (!isNaN(v) && v > 0 && v < 50) onChangeSlippageBps(Math.round(v * 100));
             }}
             placeholder="Custom %"
-            className="flex-1 px-3 py-2.5 rounded-xl bg-white/5   text-sm outline-none  placeholder:text-white/20"
+            className="flex-1 px-3 py-2.5 rounded-xl bg-pax-control   text-sm outline-none  placeholder:text-pax-muted"
           />
         </div>
         {slippageBps > HIGH_SLIP_THRESHOLD_BPS && (
           <div className="flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
-            <p className="text-[11px] text-amber-400/80">
+            <AlertTriangle className="w-3.5 h-3.5 text-pax-warning mt-0.5 shrink-0" />
+            <p className="text-size-11 text-pax-warning/80">
               High slippage may result in unfavorable rates
             </p>
           </div>
@@ -87,8 +96,9 @@ export function SwapSettingsView({
       </div>
 
       <button
+        type="button"
         onClick={onClose}
-        className="w-full mt-6 py-3.5 rounded-2xl bg-pax-accent text-black font-semibold text-sm press-scale"
+        className="min-h-[var(--touch-target)] w-full mt-6 py-3 rounded-2xl bg-pax-accent text-pax-on-accent font-semibold text-sm press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
       >
         Done
       </button>

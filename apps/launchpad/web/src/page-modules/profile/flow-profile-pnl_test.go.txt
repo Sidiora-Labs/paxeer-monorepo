@@ -1,0 +1,211 @@
+package l17
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/go-chi/chi/v5"
+)
+
+func TestProfileFlowAnswers(t *testing.T) {
+	ctx := context.Background()
+	r := phase2Repository(t)
+	owner := os.Getenv("PROFILE_FLOW_WALLET")
+	now := time.Now().UTC().Truncate(time.Second)
+	positions := phase2Positions(51, "1")
+	for i := range positions {
+		positions[i].Wallet = owner
+		positions[i].PositionID = "125:" + owner + ":" + strconv.Itoa(i)
+		positions[i].SourceWatermark.ObservedAt = now.Format("2006-01-02T15:04:05.000Z")
+	}
+	summary, e := r.CommitSnapshot(ctx, "profile-portfolio", Summary{Wallet: owner, Watermark: positions[0].SourceWatermark}, positions, now.Add(time.Hour))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = r.CommitHistory(ctx, owner, summary.SnapshotID, "profile-history", phase3History(summary, 51)); e != nil {
+		t.Fatal(e)
+	}
+	metadata := SnapshotHistoryMetadata{SourceEvent: "profile-range", Start: now.Add(-time.Hour), End: now, Quote: fixture().MarkPrice.QuoteAsset, Periods: []ReturnPeriod{{Start: now.Add(-time.Hour), End: now, OpeningEquityRaw: "1000000", ClosingEquityBeforeFlowRaw: "1250000", ExternalFlowAtEndRaw: "0", Complete: true}}}
+	tx, e := r.Pool.Begin(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = r.CommitHistoryMetadataTx(ctx, tx, owner, summary.SnapshotID, metadata); e != nil {
+		t.Fatal(e)
+	}
+	if e = tx.Commit(ctx); e != nil {
+		t.Fatal(e)
+	}
+	queued, e := r.CreateExportJob(ctx, owner, owner, summary.SnapshotID, "csv", "profile-export")
+	if e != nil {
+		t.Fatal(e)
+	}
+	directory := t.TempDir()
+	if e = os.Chmod(directory, 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e = (ExportWorker{Repository: r, Directory: directory, Owner: "profile-export"}).RunOnce(ctx); e != nil {
+		t.Fatal(e)
+	}
+	complete, e := r.ExportJob(ctx, queued.ID, owner, owner)
+	if e != nil || complete.State != "complete" {
+		t.Fatal(complete, e)
+	}
+	file, _, e := r.OpenExport(ctx, directory, complete.ID, owner, owner)
+	if e != nil {
+		t.Fatal(e)
+	}
+	csv, e := io.ReadAll(file)
+	_ = file.Close()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = r.Pool.Exec(ctx, SharesV3DDL); e != nil {
+		t.Fatal(e)
+	}
+	account, e := opaqueID()
+	if e != nil {
+		t.Fatal(e)
+	}
+	session, e := opaqueID()
+	if e != nil {
+		t.Fatal(e)
+	}
+	principal := auth.IdentityPrincipal{AccountID: account, SessionID: session, Wallet: owner, AuthEpoch: 1, ProofAt: now, AccessExpiresAt: now.Add(time.Hour)}
+	shares := &SharesV3{repository: r, key: []byte(strings.Repeat("p", 32)), realm: "private_fixture", release: strings.Repeat("a", 64), contract: strings.Repeat("b", 64), clock: time.Now}
+	preview, e := shares.Preview(ctx, principal, ShareSelectionV3{SnapshotID: summary.SnapshotID, Fields: []string{fieldHistoricalReturn, fieldRealizedPnlRaw}, ExpiresAt: now.Add(time.Hour)})
+	if e != nil {
+		t.Fatal(e)
+	}
+	pending, e := shares.Publish(ctx, principal, SharePublishV3{ID: preview.ID, Intent: preview.Intent}, "profile-share")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = (ShareWorkerV3{Repository: r, Owner: "profile-share", FontDir: filepath.Join("..", "..", "ogrender", "fonts")}).RunOnce(ctx); e != nil {
+		t.Fatal(e)
+	}
+	public, e := shares.Owner(ctx, principal, preview.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	service := Service{Repository: r, CursorKey: []byte(strings.Repeat("c", 32))}
+	router := chi.NewRouter()
+	service.RegisterHTTP(router)
+	router.Get("/v3/me/portfolio", service.PortfolioV3HTTP)
+	router.Get("/v3/wallets/{wallet}/portfolio", service.PublicPortfolioV3HTTP)
+	shares.RegisterHTTP(router)
+	var lock sync.Mutex
+	var requests []string
+	output := os.Getenv("PROFILE_FLOW_OUTPUT")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		lock.Lock()
+		requests = append(requests, request.Method+" "+request.URL.RequestURI())
+		raw, err := json.Marshal(requests)
+		if err == nil {
+			err = os.WriteFile(filepath.Join(output, "pnl-requests.pending"), raw, 0600)
+		}
+		if err == nil {
+			err = os.Rename(filepath.Join(output, "pnl-requests.pending"), filepath.Join(output, "pnl-requests.json"))
+		}
+		lock.Unlock()
+		if err != nil {
+			t.Error(err)
+		}
+		if request.URL.Query().Get("cursor") != "" {
+			if _, e := os.Stat(filepath.Join(output, "hold-pages")); e == nil {
+				for {
+					if _, e := os.Stat(filepath.Join(output, "release-pages")); e == nil {
+						break
+					}
+					select {
+					case <-request.Context().Done():
+						return
+					default:
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+			}
+			defer os.WriteFile(filepath.Join(output, "page-finished"), []byte("done"), 0600)
+		}
+		router.ServeHTTP(w, request)
+	}))
+	defer server.Close()
+	write := func(name string, value any) {
+		recorder := httptest.NewRecorder()
+		writeJSON(recorder, 200, value)
+		if e := os.WriteFile(filepath.Join(output, name+".json"), recorder.Body.Bytes(), 0600); e != nil {
+			t.Fatal(e)
+		}
+	}
+	write("queued", queued)
+	write("complete", complete)
+	write("preview", preview)
+	write("pending", pending)
+	write("public", public)
+	revoked, e := shares.Preview(ctx, principal, ShareSelectionV3{SnapshotID: summary.SnapshotID, Fields: []string{fieldRealizedPnlRaw}, ExpiresAt: now.Add(time.Hour)})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = shares.Publish(ctx, principal, SharePublishV3{ID: revoked.ID, Intent: revoked.Intent}, "profile-removed"); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = shares.Revoke(ctx, principal, revoked.ID); e != nil {
+		t.Fatal(e)
+	}
+	write("revoked", revoked)
+	for i := range positions {
+		positions[i].SourceWatermark.ProjectionRevision = "2"
+	}
+	unavailableSummary, e := r.CommitSnapshot(ctx, "profile-portfolio-without-history", Summary{Wallet: owner, Watermark: positions[0].SourceWatermark}, positions, now.Add(time.Hour))
+	if e != nil {
+		t.Fatal(e)
+	}
+	metadata.SourceEvent = "profile-range-without-history"
+	metadata.Periods = nil
+	tx, e = r.Pool.Begin(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = r.CommitHistoryMetadataTx(ctx, tx, owner, unavailableSummary.SnapshotID, metadata); e != nil {
+		t.Fatal(e)
+	}
+	if e = tx.Commit(ctx); e != nil {
+		t.Fatal(e)
+	}
+	unavailable, e := shares.Preview(ctx, principal, ShareSelectionV3{SnapshotID: unavailableSummary.SnapshotID, Fields: []string{fieldHistoricalReturn}, ExpiresAt: now.Add(time.Hour)})
+	if e != nil {
+		t.Fatal(e)
+	}
+	write("unavailable", unavailable)
+	other := os.Getenv("PROFILE_FLOW_OTHER_WALLET")
+	for i := range positions {
+		positions[i].Wallet = other
+		positions[i].PositionID = "125:" + other + ":" + strconv.Itoa(i)
+		positions[i].SourceWatermark.ProjectionRevision = "1"
+	}
+	if _, e = r.CommitSnapshot(ctx, "profile-other-wallet", Summary{Wallet: other, Watermark: positions[0].SourceWatermark}, positions, now.Add(time.Hour)); e != nil {
+		t.Fatal(e)
+	}
+	write("pnl-ready", map[string]any{"origin": server.URL, "wallet": owner, "snapshot": summary.SnapshotID, "csv": string(csv)})
+	deadline := time.Now().Add(6 * time.Minute)
+	for {
+		if _, e := os.Stat(filepath.Join(output, "stop")); e == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Profile response consumer did not close")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}

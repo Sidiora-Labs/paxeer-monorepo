@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/readpolicy"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/internal/testpostgres"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -268,12 +268,12 @@ func newMeasurementDatabase(t *testing.T) *pgxpool.Pool {
 	if dsn == "" {
 		t.Fatal("private PostgreSQL fixture required")
 	}
-	parsed, err := url.Parse(dsn)
-	if err != nil || parsed.Hostname() != "127.0.0.1" || parsed.Port() != "25432" || parsed.Path != "/kindle_fixture" {
+	parsed, err := testpostgres.ParseConfig(dsn)
+	if err != nil {
 		t.Fatal("isolated PostgreSQL fixture required")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
+	admin, err := pgxpool.NewWithConfig(ctx, parsed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,8 +290,9 @@ func newMeasurementDatabase(t *testing.T) *pgxpool.Pool {
 			t.Error(err)
 		}
 	})
-	parsed.Path = "/" + database
-	pool, err := pgxpool.New(ctx, parsed.String())
+	parsed = parsed.Copy()
+	parsed.ConnConfig.Database = database
+	pool, err := pgxpool.NewWithConfig(ctx, parsed)
 	if err != nil {
 		t.Fatal(err)
 	}

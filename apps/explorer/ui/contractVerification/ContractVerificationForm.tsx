@@ -30,6 +30,7 @@ import ContractVerificationStylusGitHubRepo from './methods/ContractVerification
 import ContractVerificationVyperContract from './methods/ContractVerificationVyperContract';
 import ContractVerificationVyperMultiPartFile from './methods/ContractVerificationVyperMultiPartFile';
 import ContractVerificationVyperStandardInput from './methods/ContractVerificationVyperStandardInput';
+import { verificationColumns } from './styles';
 import type { VerificationSubmission } from './useVerificationSubmission';
 import useVerificationSubmission from './useVerificationSubmission';
 import { getDefaultValues, METHOD_LABELS } from './utils';
@@ -131,10 +132,25 @@ const ContractVerificationForm = ({ method: methodFromQuery, config, hash }: Pro
     <FormProvider { ...formApi }>
       <chakra.form
         noValidate
+        autoComplete="off"
         onSubmit={ handleSubmit(onFormSubmit) }
         onChange={ handleFormChange }
+        css={{
+          '@layer base': {
+            '& [data-scope="select"][data-part="trigger"]': {
+              '@media (max-width: 834px)': {
+                minBlockSize: 'max(var(--select-trigger-height), var(--chakra-sizes-touch-target)) !important',
+              },
+            },
+          },
+        }}
       >
-        <Grid as="section" columnGap="30px" rowGap={{ base: 2, lg: 5 }} templateColumns={{ base: '1fr', lg: 'minmax(auto, 680px) minmax(0, 340px)' }}>
+        <Grid
+          as="section"
+          columnGap={ 7.5 }
+          rowGap={{ base: 2, lg: 5 }}
+          templateColumns={ verificationColumns }
+        >
           { !hash && <ContractVerificationFieldAddress/> }
           <ContractVerificationFieldLicenseType/>
           <ContractVerificationFieldMethod methods={ config.verification_options }/>

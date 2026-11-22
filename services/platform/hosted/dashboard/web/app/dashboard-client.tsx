@@ -1,0 +1,1512 @@
+"use client";
+
+import {
+  AppShell,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  List,
+  ListItem,
+  SkeletonRow,
+  Stat,
+  StatPair,
+} from "@layerx/ui";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+
+import {
+  decodeOverview,
+  decodeRequests,
+  decodeDeliveries,
+  decodeReceipt,
+  type Verification,
+  type KeyView,
+  type RequestRecord,
+  type Endpoint,
+  type Delivery,
+  type Payment,
+  type Overview,
+  type Receipt,
+} from "./data";
+
+import { DashboardDialog } from "./dashboard-dialog";
+
+import {
+  browserKeyState,
+  createDeveloperKey,
+  registrationProof,
+  sessionProof,
+  type BrowserKeyState,
+} from "./browser-key";
+
+const tabs = [
+  { value: "overview", label: "Overview" },
+  { value: "keys", label: "Keys" },
+  { value: "requests", label: "Logs" },
+  { value: "webhooks", label: "Webhooks" },
+  { value: "payments", label: "Payments" },
+];
+
+class DashboardReadError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Dashboard dependency returned ${status}`);
+    this.name = "DashboardReadError";
+    this.status = status;
+  }
+}
+
+type DashboardError = { title: string; description: string };
+
+function DashboardShell({
+  principal,
+  active,
+  onNavigate,
+  deadLetters,
+  notificationControl,
+  children,
+}: {
+  principal: string;
+  active: string;
+  onNavigate: (value: string) => void;
+  deadLetters?: number;
+  notificationControl?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <AppShell
+      className="dashboard-shell"
+      nav={[
+        { id: "home", label: "Overview" },
+        { id: "agents", label: "Keys" },
+        { id: "activity", label: "Logs", badge: deadLetters },
+        { id: "more", label: "Webhooks" },
+      ]}
+      activeNav={
+        active === "overview"
+          ? "home"
+          : active === "keys"
+            ? "agents"
+            : active === "requests"
+              ? "activity"
+              : "more"
+      }
+      onNavigate={(value) =>
+        onNavigate(
+          value === "home"
+            ? "overview"
+            : value === "agents"
+              ? "keys"
+              : value === "activity"
+                ? "requests"
+                : "webhooks",
+        )
+      }
+      title="Developer dashboard"
+      notificationControl={
+        <>
+          <h1 className="dashboard-mobile-heading">Developer dashboard</h1>
+          {notificationControl ?? (
+            <span className="dashboard-notification-space" aria-hidden="true" />
+          )}
+        </>
+      }
+      user={{ name: principal, initials: "DX" }}
+    >
+      {children}
+    </AppShell>
+  );
+}
+
+function DashboardIdentifier({ value, id }: { value: string; id?: string }) {
+  const element = useRef<HTMLSpanElement>(null);
+  const [visible, setVisible] = useState(value);
+
+  useLayoutEffect(() => {
+    const target = element.current;
+    if (!target) return;
+    const compact = window.matchMedia("(max-width: 834px)");
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Text measurement is unavailable");
+    const characters = Array.from(value);
+    const fit = () => {
+      context.font = getComputedStyle(target).font;
+      const width = target.getBoundingClientRect().width;
+      if (!compact.matches || context.measureText(value).width <= width) {
+        setVisible(value);
+        return;
+      }
+      let low = 0;
+      let high = characters.length;
+      let fitted = "…";
+      while (low <= high) {
+        const length = Math.floor((low + high) / 2);
+        const start = Math.ceil(length / 2);
+        const end = Math.floor(length / 2);
+        const candidate = `${characters.slice(0, start).join("")}…${end ? characters.slice(-end).join("") : ""}`;
+        if (context.measureText(candidate).width <= width) {
+          fitted = candidate;
+          low = length + 1;
+        } else high = length - 1;
+      }
+      setVisible(fitted);
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(target);
+    compact.addEventListener("change", fit);
+    let active = true;
+    void document.fonts.ready.then(() => {
+      if (active) fit();
+    });
+    fit();
+    return () => {
+      active = false;
+      observer.disconnect();
+      compact.removeEventListener("change", fit);
+    };
+  }, [value]);
+
+  return (
+    <span
+      ref={element}
+      id={id}
+      className="dashboard-identifier"
+      aria-label={value}
+    >
+      <span aria-hidden="true">{visible}</span>
+      <span className="sr-only">{value}</span>
+    </span>
+  );
+}
+
+function DashboardLoading() {
+  const placeholder = <span className="dashboard-number-skeleton">0</span>;
+  return (
+    <div className="dashboard-panel dashboard-loading" aria-busy="true">
+      <progress className="dashboard-progress" aria-label="Loading dashboard" />
+      <Card className="dashboard-card" aria-hidden="true">
+        <StatPair
+          className="dashboard-usage"
+          left={{ value: placeholder, label: "Requests used" }}
+          right={{ value: placeholder, label: "Requests remaining" }}
+        />
+      </Card>
+      <div className="dashboard-stats" aria-hidden="true">
+        <Card className="dashboard-card">
+          <Stat value={placeholder} label="Live API keys" />
+        </Card>
+        <Card className="dashboard-card">
+          <Stat value={placeholder} label="Webhook endpoints" />
+        </Card>
+        <Card className="dashboard-card">
+          <Stat value={placeholder} label="Verified test payments" />
+        </Card>
+      </div>
+      <Card className="dashboard-card" aria-hidden="true">
+        <h2>Recent protocol activity</h2>
+        <SkeletonRow />
+        <SkeletonRow />
+        <SkeletonRow />
+      </Card>
+    </div>
+  );
+}
+
+function DashboardTabs({
+  active,
+  onChange,
+}: {
+  active: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedTab = useRef<HTMLButtonElement | null>(null);
+  const tabList = useRef<HTMLDivElement | null>(null);
+  const [continuation, setContinuation] = useState({
+    start: false,
+    end: false,
+  });
+
+  useEffect(() => {
+    const list = tabList.current;
+    const first = list?.firstElementChild;
+    const last = list?.lastElementChild;
+    if (!list || !first || !last) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setContinuation((current) => {
+          const next = { ...current };
+          for (const entry of entries) {
+            if (entry.target === first)
+              next.start = entry.intersectionRatio < 1;
+            if (entry.target === last) next.end = entry.intersectionRatio < 1;
+          }
+          return next;
+        });
+      },
+      { root: list, threshold: 1, rootMargin: "1px" },
+    );
+    observer.observe(first);
+    observer.observe(last);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    selectedTab.current?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [active]);
+
+  return (
+    <div
+      className="dashboard-tab-strip"
+      data-more-start={continuation.start}
+      data-more-end={continuation.end}
+    >
+      <div
+        ref={tabList}
+        className="dashboard-tabs"
+        role="tablist"
+        aria-label="Dashboard section"
+      >
+        {tabs.map((tab, index) => (
+          <Button
+            key={tab.value}
+            ref={active === tab.value ? selectedTab : undefined}
+            id={`tab-${tab.value}`}
+            type="button"
+            role="tab"
+            variant="ghost"
+            aria-selected={active === tab.value}
+            tabIndex={active === tab.value ? 0 : -1}
+            onClick={() => onChange(tab.value)}
+            onKeyDown={(event) => {
+              let next: number;
+              const rtl =
+                getComputedStyle(event.currentTarget).direction === "rtl";
+              if (event.key === "ArrowRight")
+                next = (index + (rtl ? -1 : 1) + tabs.length) % tabs.length;
+              else if (event.key === "ArrowLeft")
+                next = (index + (rtl ? 1 : -1) + tabs.length) % tabs.length;
+              else if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = tabs.length - 1;
+              else return;
+              event.preventDefault();
+              onChange(tabs[next].value);
+              document.getElementById(`tab-${tabs[next].value}`)?.focus();
+            }}
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardCard({
+  title,
+  children,
+  className = "",
+}: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Card className={`dashboard-card ${className}`}>
+      <div className="dashboard-heading">
+        <h2>{title}</h2>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+const signInRequired = {
+  title: "Sign in required",
+  description: "A developer session is needed to read this dashboard.",
+};
+
+function verificationBadge(level: Verification) {
+  return (
+    <Badge
+      className="dashboard-badge"
+      size="sm"
+      variant={level === "unverified" ? "warning" : "success"}
+    >
+      {level}
+    </Badge>
+  );
+}
+
+async function read<T>(
+  path: string,
+  decode: (value: unknown) => T,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(`/v1/dashboard${path}`, {
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  if (!response.ok) throw new DashboardReadError(response.status);
+  return decode(await response.json());
+}
+
+export default function DashboardClient({
+  gatewayTenant,
+  gatewayOriginConfigured,
+}: {
+  gatewayTenant?: string;
+  gatewayOriginConfigured: boolean;
+}) {
+  const [active, setActive] = useState("overview");
+  const [overview, setOverview] = useState<Overview>();
+  const [requests, setRequests] = useState<RequestRecord[]>([]);
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [error, setError] = useState<DashboardError>();
+  const [receipt, setReceipt] = useState<Receipt>();
+  const [receiptActivity, setReceiptActivity] = useState<string>();
+  const receiptHeading = useRef<HTMLHeadingElement | null>(null);
+  const [needsSession, setNeedsSession] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const readController = useRef<AbortController | undefined>(undefined);
+  const previousNeedsSession = useRef(false);
+  const [heldBrowserKey, setHeldBrowserKey] = useState<BrowserKeyState>();
+
+  const readHeldBrowserKey = useCallback(async () => {
+    try {
+      setHeldBrowserKey(await browserKeyState());
+    } catch {
+      setHeldBrowserKey({ ed25519: false, hasKey: false });
+    }
+  }, []);
+
+  const clearPanels = useCallback(() => {
+    setOverview(undefined);
+    setRequests([]);
+    setDeliveries([]);
+    setReceipt(undefined);
+    setReceiptActivity(undefined);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    readController.current?.abort();
+    const controller = new AbortController();
+    readController.current = controller;
+    const signal = controller.signal;
+    try {
+      const [summary, requestLog, webhookLog] = await Promise.all([
+        read("/overview", decodeOverview, signal),
+        read("/requests?limit=100", decodeRequests, signal),
+        read("/webhook-deliveries?limit=100", decodeDeliveries, signal),
+      ]);
+      if (signal.aborted) return;
+      setNeedsSession(false);
+      setOverview(summary);
+      setRequests(requestLog);
+      setDeliveries(webhookLog);
+      setError(undefined);
+    } catch (cause) {
+      if (!signal.aborted && (cause as Error).name !== "AbortError") {
+        const readError =
+          cause instanceof DashboardReadError ? cause : undefined;
+        setError(
+          readError?.status === 401
+            ? signInRequired
+            : {
+                title: "Dashboard unavailable",
+                description: (cause as Error).message,
+              },
+        );
+        setNeedsSession(readError?.status === 401);
+        clearPanels();
+      }
+    }
+  }, [clearPanels]);
+
+  useEffect(() => {
+    void refresh();
+    return () => readController.current?.abort();
+  }, [refresh]);
+
+  useEffect(() => {
+    void readHeldBrowserKey();
+  }, [readHeldBrowserKey]);
+
+  useEffect(() => {
+    if (receipt) receiptHeading.current?.focus();
+  }, [receipt]);
+
+  useEffect(() => {
+    if (previousNeedsSession.current && !needsSession) {
+      void readHeldBrowserKey();
+      document.getElementById(`tab-${active}`)?.focus();
+    }
+    previousNeedsSession.current = needsSession;
+  }, [needsSession, active, readHeldBrowserKey]);
+
+  const onSignedIn = useCallback(async () => {
+    await readHeldBrowserKey();
+    await refresh();
+  }, [readHeldBrowserKey, refresh]);
+
+  const signOut = async () => {
+    readController.current?.abort();
+    setSigningOut(true);
+    try {
+      await sessionRequest("/session", {}, "DELETE");
+      clearPanels();
+      setError(undefined);
+      setNeedsSession(true);
+    } catch (cause) {
+      setError({
+        title: "Sign-out unavailable",
+        description: refusalWords(cause),
+      });
+    } finally {
+      setSigningOut(false);
+    }
+  };
+  const signOutControl =
+    !needsSession && overview ? (
+      <Button
+        type="button"
+        size="sm"
+        className="dashboard-session-control"
+        variant="secondary"
+        loading={signingOut}
+        onClick={() => void signOut()}
+      >
+        Sign out
+      </Button>
+    ) : undefined;
+
+  return (
+    <DashboardShell
+      notificationControl={signOutControl}
+      principal={overview?.principal ?? "Developer"}
+      active={active}
+      onNavigate={setActive}
+      deadLetters={overview?.dead_letters.length}
+    >
+      <div className="dashboard-content mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 md:p-6">
+        {!needsSession ? (
+          <DashboardTabs active={active} onChange={setActive} />
+        ) : null}
+        {needsSession ? (
+          <SignInView
+            gatewayTenant={gatewayTenant}
+            gatewayOriginConfigured={gatewayOriginConfigured}
+            onSignedIn={onSignedIn}
+          />
+        ) : null}
+        {error && !needsSession ? (
+          <Card className="dashboard-card">
+            <div className="flex flex-col items-center gap-2.5 rounded-lg bg-surface px-6 py-10 text-center">
+              <h2>{error.title}</h2>
+              <p
+                className="max-w-notification text-sm leading-relaxed"
+                role="alert"
+              >
+                {error.description}
+              </p>
+            </div>
+          </Card>
+        ) : null}
+        {!overview && !error && !needsSession ? <DashboardLoading /> : null}
+        {overview ? (
+          <div
+            id={`panel-${active}`}
+            className="dashboard-panel"
+            role="tabpanel"
+            aria-labelledby={`tab-${active}`}
+            tabIndex={0}
+            onFocus={(event) => {
+              if (event.target !== event.currentTarget) return;
+              const bounds = event.currentTarget.getBoundingClientRect();
+              if (
+                bounds.height <= window.innerHeight &&
+                (bounds.top < 0 || bounds.bottom > window.innerHeight)
+              ) {
+                event.currentTarget.scrollIntoView({
+                  block: "center",
+                  inline: "nearest",
+                });
+              }
+            }}
+          >
+            {overview && active === "overview" ? (
+              <OverviewPanel
+                value={overview}
+                onOpenKeys={() => setActive("keys")}
+              />
+            ) : null}
+            {overview && active === "keys" ? (
+              <KeysPanel
+                keys={overview.keys}
+                browserKey={heldBrowserKey}
+                onRefresh={refresh}
+              />
+            ) : null}
+            {overview && active === "requests" ? (
+              <RequestsPanel requests={requests} />
+            ) : null}
+            {overview && active === "webhooks" ? (
+              <WebhooksPanel
+                endpoints={overview.endpoints}
+                deliveries={deliveries}
+              />
+            ) : null}
+            {overview && active === "payments" ? (
+              <PaymentsPanel
+                payments={overview.payments}
+                receiptActivity={receiptActivity}
+                onReceipt={async (activity) => {
+                  setReceiptActivity(activity);
+                  setReceipt(undefined);
+                  try {
+                    const controller = new AbortController();
+                    readController.current?.abort();
+                    readController.current = controller;
+                    const value = await read(
+                      `/receipts/${encodeURIComponent(activity)}`,
+                      decodeReceipt,
+                      controller.signal,
+                    );
+                    if (controller.signal.aborted) return;
+                    if (value.activity_id !== activity)
+                      throw new Error("Receipt activity mismatch");
+                    setReceipt(value);
+                    setError(undefined);
+                  } catch (cause) {
+                    if ((cause as Error).name === "AbortError") return;
+                    setReceipt(undefined);
+                    const readError =
+                      cause instanceof DashboardReadError ? cause : undefined;
+                    if (readError?.status === 401) {
+                      clearPanels();
+                      setNeedsSession(true);
+                    }
+                    setError(
+                      readError?.status === 401
+                        ? signInRequired
+                        : {
+                            title: "Dashboard unavailable",
+                            description: (cause as Error).message,
+                          },
+                    );
+                  } finally {
+                    setReceiptActivity(undefined);
+                  }
+                }}
+              />
+            ) : null}
+            {receipt && active === "payments" ? (
+              <Card className="dashboard-card">
+                <h2 ref={receiptHeading} tabIndex={-1}>
+                  Verified receipt
+                </h2>
+                <List>
+                  <ListItem
+                    title={<DashboardIdentifier value={receipt.activity_id} />}
+                    subtitle={
+                      <DashboardIdentifier
+                        value={`${receipt.event} · ${receipt.receipt_digest}`}
+                      />
+                    }
+                    trailing={verificationBadge(receipt.verification)}
+                  />
+                </List>
+              </Card>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </DashboardShell>
+  );
+}
+
+class SignInFailure extends Error {}
+
+async function sessionRequest(
+  path: string,
+  body: object,
+  method = "POST",
+): Promise<void> {
+  let result: Response;
+  try {
+    result = await fetch(path, {
+      method,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new SignInFailure("connection_unavailable");
+  }
+  if (!result.ok) {
+    let reason = "sign_in_unavailable";
+    try {
+      const value = await result.json();
+      if (
+        typeof value.reason === "string" &&
+        /^[a-z][a-z0-9_]{0,95}$/.test(value.reason)
+      )
+        reason = value.reason;
+    } catch {
+      throw new SignInFailure(reason);
+    }
+    throw new SignInFailure(reason);
+  }
+}
+
+function refusalWords(cause: unknown): string {
+  const reason = cause instanceof Error ? cause.message : "sign_in_unavailable";
+  const messages: Record<string, string> = {
+    sign_in_not_configured:
+      "Key sign-in is not configured. Use a session token.",
+    session_proof_invalid: "The session proof was not accepted.",
+    registration_proof_invalid:
+      "The registration proof was not accepted. Check the gateway tenant.",
+    session_time_out_of_range:
+      "The proof time is outside the accepted range. Check this device’s clock.",
+    session_proof_replay:
+      "This proof was already used. Wait a second and sign in again.",
+    session_required: "The session token was not accepted.",
+    invalid_token: "Enter a valid session token.",
+    invalid_tenant: "Enter the tenant configured by your gateway operator.",
+    browser_key_storage_unavailable:
+      "Browser key storage is unavailable. Use a session token.",
+    browser_key_missing: "This browser has no developer key.",
+    gateway_not_configured: "Key management is not configured.",
+    gateway_unavailable: "The key gateway is unavailable. Try again.",
+    gateway_invalid_response: "The key gateway returned an invalid response.",
+    invalid_key_request: "The key request is invalid.",
+    invalid_quota: "Choose a quota within the allowed bounds.",
+    invalid_scopes: "Choose at least one valid scope.",
+    signer_not_owned: "This browser key is not authorized for the session.",
+    key_limit_reached: "The account has reached its key limit.",
+    idempotency_key_required: "A fresh operation key is required. Try again.",
+    idempotency_conflict: "That operation key was already used.",
+    rotation_conflict: "The key could not be rotated. Try again.",
+    persistence_unavailable: "Key storage is unavailable. Try again.",
+    not_found: "The key was not found.",
+    origin_refused: "This request origin was refused.",
+    json_required: "The key request must use JSON.",
+    body_too_large: "The key request is too large.",
+  };
+  if (messages[reason]) return messages[reason];
+  if (/^[a-z][a-z0-9_]{0,95}$/.test(reason)) {
+    const words = reason.replaceAll("_", " ");
+    return `${words[0].toUpperCase()}${words.slice(1)}.`;
+  }
+  return "Sign-in is unavailable. Please try again.";
+}
+
+async function copyDashboardText(value: string): Promise<void> {
+  if (
+    "featurePolicy" in document &&
+    typeof document.featurePolicy === "object" &&
+    document.featurePolicy !== null &&
+    "allowsFeature" in document.featurePolicy &&
+    typeof document.featurePolicy.allowsFeature === "function" &&
+    !document.featurePolicy.allowsFeature("clipboard-write")
+  ) {
+    throw new Error("clipboard_write_unavailable");
+  }
+  await navigator.clipboard.writeText(value);
+}
+
+function SignInView({
+  gatewayTenant,
+  gatewayOriginConfigured,
+  onSignedIn,
+}: {
+  gatewayTenant?: string;
+  gatewayOriginConfigured: boolean;
+  onSignedIn: () => Promise<void>;
+}) {
+  const [keyState, setKeyState] = useState<BrowserKeyState>();
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState<"create" | "key" | "token">();
+  const [tokenInvalid, setTokenInvalid] = useState(false);
+  const signInHeading = useRef<HTMLHeadingElement | null>(null);
+  const [message, setMessage] = useState("");
+  const [copied, setCopied] = useState(false);
+  const keySignInConfigured =
+    gatewayTenant !== undefined && gatewayOriginConfigured;
+
+  useEffect(() => {
+    signInHeading.current?.focus();
+    let active = true;
+    void browserKeyState()
+      .then((state) => {
+        if (active) setKeyState(state);
+      })
+      .catch(() => {
+        if (active) {
+          setKeyState({ ed25519: false, hasKey: false });
+          setMessage(
+            "Browser key storage is unavailable. Use a session token.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const withKey = async (create: boolean) => {
+    if (!gatewayTenant) return;
+    setBusy(create ? "create" : "key");
+    setMessage("");
+    try {
+      if (create) {
+        const publicKey = await createDeveloperKey();
+        setKeyState({ ed25519: true, hasKey: true, publicKey });
+      }
+      await sessionRequest(
+        "/session/registration",
+        await registrationProof(gatewayTenant),
+      );
+      await sessionRequest("/session", await sessionProof(gatewayTenant));
+      await onSignedIn();
+    } catch (cause) {
+      setMessage(refusalWords(cause));
+    } finally {
+      setBusy(undefined);
+    }
+  };
+
+  return (
+    <Card className="dashboard-card dashboard-sign-in">
+      <div className="dashboard-heading">
+        <h2 ref={signInHeading} tabIndex={-1}>
+          Sign in to your developer dashboard
+        </h2>
+      </div>
+      <form
+        className="dashboard-form"
+        aria-label="Session token sign-in"
+        method="post"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const sessionToken = token;
+          setToken("");
+          setTokenInvalid(false);
+          setBusy("token");
+          setMessage("");
+          void sessionRequest("/session", { token: sessionToken })
+            .then(onSignedIn)
+            .catch((cause) => setMessage(refusalWords(cause)))
+            .finally(() => setBusy(undefined));
+        }}
+      >
+        <div className="dashboard-field">
+          <label htmlFor="session-token">Session token</label>
+          <Input
+            id="session-token"
+            name="token"
+            type="password"
+            autoComplete="current-password"
+            enterKeyHint="go"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={token}
+            onChange={(event) => {
+              setToken(event.target.value);
+              if (event.target.validity.valid) setTokenInvalid(false);
+            }}
+            onBlur={(event) =>
+              setTokenInvalid(event.target.matches(":user-invalid"))
+            }
+            onInvalid={(event) => {
+              event.preventDefault();
+              setTokenInvalid(true);
+              setMessage("Session token is required.");
+            }}
+            error={tokenInvalid}
+            aria-invalid={tokenInvalid ? "true" : "false"}
+            aria-describedby={tokenInvalid ? "token-error" : undefined}
+            disabled={busy !== undefined}
+            maxLength={4096}
+            required
+          />
+          {tokenInvalid ? (
+            <p id="token-error" className="dashboard-field-error">
+              Enter a valid session token.
+            </p>
+          ) : null}
+        </div>
+        <Button
+          type="submit"
+          variant="primary"
+          className="dashboard-busy-control"
+          loading={busy === "token"}
+          disabled={busy !== undefined}
+        >
+          Sign in with a session token
+        </Button>
+      </form>
+      {keyState === undefined ? (
+        <div aria-busy="true">
+          <progress
+            className="dashboard-progress"
+            aria-label="Loading browser key"
+          />
+          <SkeletonRow />
+        </div>
+      ) : null}
+      {keyState?.ed25519 && keySignInConfigured ? (
+        <form
+          className="dashboard-form"
+          aria-label="Developer key sign-in"
+          method="post"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void withKey(!keyState.hasKey);
+          }}
+        >
+          <p>The private developer key stays in this browser.</p>
+          {keyState.publicKey ? (
+            <div className="dashboard-public-key">
+              <span>Public key</span>
+              <code>
+                <DashboardIdentifier value={keyState.publicKey} />
+              </code>
+              <Button
+                type="button"
+                size="sm"
+                className="dashboard-compact-control"
+                variant="secondary"
+                disabled={busy !== undefined}
+                onClick={async () => {
+                  try {
+                    await copyDashboardText(keyState.publicKey!);
+                    setCopied(true);
+                  } catch {
+                    setMessage("The public key could not be copied.");
+                  }
+                }}
+              >
+                Copy public key
+              </Button>
+              <span role="status">{copied ? "Public key copied" : ""}</span>
+            </div>
+          ) : null}
+          <Button
+            type="submit"
+            name="key-action"
+            value={keyState.hasKey ? "existing" : "create"}
+            className="dashboard-busy-control"
+            loading={busy === "create" || busy === "key"}
+            disabled={busy !== undefined}
+          >
+            {keyState.hasKey
+              ? "Sign in with the key this browser holds"
+              : "Create a developer key in this browser and sign in"}
+          </Button>
+        </form>
+      ) : keyState && !keySignInConfigured ? (
+        <p>Key sign-in is not configured.</p>
+      ) : keyState ? (
+        <p>
+          This browser does not support Ed25519 keys; sign in with a session
+          token.
+        </p>
+      ) : null}
+      <p role="alert">{message}</p>
+    </Card>
+  );
+}
+
+function OverviewPanel({
+  value,
+  onOpenKeys,
+}: {
+  value: Overview;
+  onOpenKeys: () => void;
+}) {
+  const hasActiveKey = value.keys.some((key) => !key.disabled);
+  return (
+    <>
+      <Card className="dashboard-card">
+        {hasActiveKey ? (
+          <StatPair
+            className="dashboard-usage"
+            left={{ value: value.usage.requests_used, label: "Requests used" }}
+            right={{
+              value: value.usage.requests_remaining,
+              label: "Requests remaining",
+            }}
+          />
+        ) : (
+          <div className="dashboard-no-quota">
+            <p>No active key holds a request quota.</p>
+            <Button type="button" variant="secondary" onClick={onOpenKeys}>
+              Open Keys
+            </Button>
+          </div>
+        )}
+      </Card>
+      <div className="dashboard-stats">
+        <Card className="dashboard-card">
+          <Stat value={value.usage.live_keys} label="Live API keys" />
+        </Card>
+        <Card className="dashboard-card">
+          <Stat value={value.endpoints.length} label="Webhook endpoints" />
+        </Card>
+        <Card className="dashboard-card">
+          <Stat
+            value={value.payments.filter((payment) => payment.settled).length}
+            label="Verified test payments"
+          />
+        </Card>
+      </div>
+      <DashboardCard title="Recent protocol activity">
+        {value.recent_requests.length === 0 ? (
+          <EmptyState title="No recent protocol activity" />
+        ) : (
+          <List>
+            {value.recent_requests.slice(0, 8).map((request) => (
+              <ListItem
+                key={`${request.at}-${request.operation_digest}`}
+                title={request.outcome}
+                subtitle={
+                  <DashboardIdentifier value={request.operation_digest} />
+                }
+                trailing={verificationBadge(request.verification)}
+                trailingCaption={new Date(request.at * 1000).toLocaleString()}
+              />
+            ))}
+          </List>
+        )}
+      </DashboardCard>
+    </>
+  );
+}
+
+type KeyAction = "issue" | "rotate" | "revoke";
+
+class KeyActionFailure extends Error {}
+
+const gatewayScopes = [
+  "activity:write",
+  "program:call",
+  "program:read",
+  "program:simulate",
+  "receipt:read",
+  "state:read",
+] as const;
+
+function operationKey(): string {
+  return crypto.randomUUID();
+}
+
+async function keyRequest(
+  path: string,
+  method: "POST" | "DELETE",
+  body: object,
+  idempotency?: string,
+): Promise<Record<string, unknown>> {
+  let result: Response;
+  try {
+    result = await fetch(path, {
+      method,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        ...(idempotency ? { "Idempotency-Key": idempotency } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new KeyActionFailure("gateway_unavailable");
+  }
+  let value: unknown;
+  try {
+    value = await result.json();
+  } catch {
+    throw new KeyActionFailure("gateway_invalid_response");
+  }
+  if (!result.ok) {
+    const reason =
+      value &&
+      typeof value === "object" &&
+      typeof (value as { reason?: unknown }).reason === "string"
+        ? (value as { reason: string }).reason
+        : "gateway_unavailable";
+    throw new KeyActionFailure(reason);
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new KeyActionFailure("gateway_invalid_response");
+  return value as Record<string, unknown>;
+}
+
+function KeysPanel({
+  keys,
+  browserKey,
+  onRefresh,
+}: {
+  keys: KeyView[];
+  browserKey?: BrowserKeyState;
+  onRefresh: () => Promise<void>;
+}) {
+  const [scopes, setScopes] = useState<string[]>(["receipt:read"]);
+  const [quotaRequests, setQuotaRequests] = useState("1000");
+  const [quotaWindowSeconds, setQuotaWindowSeconds] = useState("3600");
+  const [busy, setBusy] = useState<KeyAction>();
+  const [message, setMessage] = useState("");
+  const [secret, setSecret] = useState<string>();
+  const [copied, setCopied] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<string>();
+
+  const action = async (kind: KeyAction, path: string, body: object = {}) => {
+    setBusy(kind);
+    setMessage("");
+    try {
+      const result = await keyRequest(
+        path,
+        kind === "revoke" ? "DELETE" : "POST",
+        body,
+        kind === "revoke" ? undefined : operationKey(),
+      );
+      if (kind !== "revoke") {
+        const key = result.key;
+        const value =
+          key && typeof key === "object" && !Array.isArray(key)
+            ? (key as { secret?: unknown }).secret
+            : undefined;
+        if (typeof value !== "string" || value.length === 0)
+          throw new KeyActionFailure("gateway_invalid_response");
+        setSecret(value);
+        setCopied(false);
+      }
+      setRevokeTarget(undefined);
+      await onRefresh();
+    } catch (cause) {
+      setMessage(refusalWords(cause));
+    } finally {
+      setBusy(undefined);
+    }
+  };
+
+  const issue = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!browserKey?.publicKey) {
+      setMessage(refusalWords(new KeyActionFailure("browser_key_missing")));
+      return;
+    }
+    await action("issue", "/keys", {
+      signer_public_key: browserKey.publicKey,
+      scopes,
+      quota_requests: Number(quotaRequests),
+      quota_window_seconds: Number(quotaWindowSeconds),
+    });
+  };
+
+  return (
+    <>
+      <DashboardCard title="Issue a developer key">
+        <form
+          className="dashboard-form"
+          aria-label="Issue a developer key"
+          onSubmit={(event) => void issue(event)}
+        >
+          <p>A key in this browser signs the request when one is held.</p>
+          <div className="dashboard-field">
+            <label htmlFor="key-quota-requests">
+              Requests per quota window
+            </label>
+            <Input
+              id="key-quota-requests"
+              type="number"
+              min={1}
+              max={1000000}
+              value={quotaRequests}
+              onChange={(event) => setQuotaRequests(event.target.value)}
+              required
+            />
+          </div>
+          <div className="dashboard-field">
+            <label htmlFor="key-quota-window">Quota window in seconds</label>
+            <Input
+              id="key-quota-window"
+              type="number"
+              min={1}
+              max={2592000}
+              value={quotaWindowSeconds}
+              onChange={(event) => setQuotaWindowSeconds(event.target.value)}
+              required
+            />
+          </div>
+          <fieldset className="dashboard-scope-list">
+            <legend>Key scopes</legend>
+            {gatewayScopes.map((scope) => (
+              <label key={scope} className="dashboard-scope-option">
+                <input
+                  type="checkbox"
+                  checked={scopes.includes(scope)}
+                  onChange={(event) =>
+                    setScopes((current) =>
+                      event.target.checked
+                        ? [...new Set([...current, scope])]
+                        : current.filter((value) => value !== scope),
+                    )
+                  }
+                />
+                <span>{scope}</span>
+              </label>
+            ))}
+          </fieldset>
+          <Button
+            type="submit"
+            loading={busy === "issue"}
+            disabled={busy !== undefined || !browserKey?.publicKey}
+          >
+            Issue key
+          </Button>
+          {!browserKey?.publicKey ? (
+            <p>This browser has no developer key to sign issuance.</p>
+          ) : null}
+          <p role="alert">{message}</p>
+        </form>
+      </DashboardCard>
+      <DashboardCard
+        title="API keys and current quota windows"
+        className="dashboard-key-card"
+      >
+        {keys.length === 0 ? (
+          <EmptyState
+            title="No API keys"
+            description="Issue a principal-bound key through the gateway key management surface."
+          />
+        ) : (
+          <List className="dashboard-key-list">
+            {keys.map((key) => (
+              <ListItem
+                key={key.key_id}
+                title={<DashboardIdentifier value={key.key_id} />}
+                subtitle={`${key.used_in_window} of ${key.requests_per_window} requests used · ${key.window_seconds}s window`}
+                trailing={
+                  key.disabled ? (
+                    <Badge
+                      className="dashboard-badge"
+                      data-tone="destructive"
+                      variant="destructive"
+                    >
+                      revoked
+                    </Badge>
+                  ) : (
+                    <span className="dashboard-key-actions">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="dashboard-compact-control"
+                        variant="secondary"
+                        loading={busy === "rotate"}
+                        disabled={busy !== undefined}
+                        onClick={() =>
+                          void action(
+                            "rotate",
+                            `/keys/${encodeURIComponent(key.key_id)}/rotate`,
+                          )
+                        }
+                      >
+                        Rotate
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="dashboard-compact-control"
+                        variant="destructive"
+                        loading={
+                          busy === "revoke" && revokeTarget === key.key_id
+                        }
+                        disabled={busy !== undefined}
+                        onClick={() => setRevokeTarget(key.key_id)}
+                      >
+                        Revoke
+                      </Button>
+                    </span>
+                  )
+                }
+                trailingCaption={
+                  key.disabled
+                    ? undefined
+                    : `${key.remaining_in_window} remaining`
+                }
+              />
+            ))}
+          </List>
+        )}
+        <p role="alert">{message}</p>
+      </DashboardCard>
+      <DashboardDialog
+        open={secret !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setSecret(undefined);
+        }}
+        title="Your new key secret"
+        description="This secret is shown once and will not be shown again after this dialog closes. Store it in your password manager."
+        footer={
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => setSecret(undefined)}
+          >
+            Done
+          </Button>
+        }
+      >
+        <div className="dashboard-secret">
+          <code>{secret ? <DashboardIdentifier value={secret} /> : null}</code>
+          <Button
+            type="button"
+            size="sm"
+            className="dashboard-compact-control"
+            variant="secondary"
+            onClick={async () => {
+              try {
+                await copyDashboardText(secret!);
+                setCopied(true);
+              } catch {
+                setMessage("The key secret could not be copied.");
+              }
+            }}
+          >
+            Copy secret
+          </Button>
+          <span role="status">{copied ? "Key secret copied" : ""}</span>
+        </div>
+      </DashboardDialog>
+      <DashboardDialog
+        open={revokeTarget !== undefined}
+        onOpenChange={(open) => {
+          if (!open && busy === undefined) setRevokeTarget(undefined);
+        }}
+        title="Revoke this key?"
+        description="Revoking the key stops it from authenticating requests and cannot be undone."
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              autoFocus
+              disabled={busy !== undefined}
+              onClick={() => setRevokeTarget(undefined)}
+            >
+              Keep key
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              loading={busy === "revoke"}
+              disabled={busy !== undefined}
+              onClick={() =>
+                revokeTarget &&
+                void action(
+                  "revoke",
+                  `/keys/${encodeURIComponent(revokeTarget)}`,
+                )
+              }
+            >
+              Revoke key
+            </Button>
+          </>
+        }
+      />
+    </>
+  );
+}
+
+function RequestsPanel({ requests }: { requests: RequestRecord[] }) {
+  return (
+    <DashboardCard title="Principal-isolated request log">
+      {requests.length === 0 ? (
+        <EmptyState title="No requests" />
+      ) : (
+        <List>
+          {requests.map((request) => (
+            <ListItem
+              key={`${request.at}-${request.operation_digest}`}
+              title={request.outcome}
+              subtitle={
+                <DashboardIdentifier value={request.operation_digest} />
+              }
+              trailing={verificationBadge(request.verification)}
+              trailingCaption={new Date(request.at * 1000).toLocaleString()}
+            />
+          ))}
+        </List>
+      )}
+    </DashboardCard>
+  );
+}
+
+function WebhooksPanel({
+  endpoints,
+  deliveries,
+}: {
+  endpoints: Endpoint[];
+  deliveries: Delivery[];
+}) {
+  return (
+    <div className="dashboard-webhooks">
+      <DashboardCard title="Webhook endpoints">
+        {endpoints.length === 0 ? (
+          <EmptyState title="No webhook endpoints" />
+        ) : (
+          <List>
+            {endpoints.map((endpoint) => (
+              <ListItem
+                key={endpoint.endpoint}
+                title={<DashboardIdentifier value={endpoint.url} />}
+                subtitle={`${endpoint.pending} pending · ${endpoint.in_flight} in flight · ${endpoint.retrying} retrying`}
+                trailing={
+                  <Badge
+                    className="dashboard-badge"
+                    data-tone={endpoint.suspended ? "destructive" : "success"}
+                    variant={endpoint.suspended ? "destructive" : "success"}
+                  >
+                    {endpoint.suspended ? "suspended" : "active"}
+                  </Badge>
+                }
+                trailingCaption={`${endpoint.delivered_total} delivered / ${endpoint.dead_lettered_total} dead-lettered`}
+              />
+            ))}
+          </List>
+        )}
+      </DashboardCard>
+      <DashboardCard title="Delivery log">
+        {deliveries.length === 0 ? (
+          <EmptyState title="No deliveries" />
+        ) : (
+          <List>
+            {deliveries.map((delivery) => (
+              <ListItem
+                key={delivery.delivery}
+                title={<DashboardIdentifier value={delivery.event} />}
+                subtitle={
+                  <DashboardIdentifier
+                    value={`${delivery.endpoint} · ${delivery.delivery}`}
+                  />
+                }
+                trailing={verificationBadge(delivery.verification)}
+                trailingCaption={delivery.state.state}
+              />
+            ))}
+          </List>
+        )}
+      </DashboardCard>
+    </div>
+  );
+}
+
+function PaymentsPanel({
+  payments,
+  receiptActivity,
+  onReceipt,
+}: {
+  payments: Payment[];
+  receiptActivity?: string;
+  onReceipt: (activity: string) => Promise<void>;
+}) {
+  return (
+    <DashboardCard title="Real test payments and verified receipts">
+      {payments.length === 0 ? (
+        <EmptyState
+          title="No test payments"
+          description="Payments appear only after the canonical payment source and independent receipt authority agree."
+        />
+      ) : (
+        <List>
+          {payments.map((payment, index) => (
+            <ListItem
+              key={payment.event}
+              title={
+                <DashboardIdentifier
+                  value={`${payment.amount ?? "—"} ${payment.asset ?? ""}`}
+                />
+              }
+              subtitle={
+                <>
+                  <span className="dashboard-payment-details">
+                    <DashboardIdentifier
+                      id={`payment-event-${index}`}
+                      value={payment.event}
+                    />
+                    {payment.facts.map((fact, factIndex) => (
+                      <span key={`${fact.name}-${factIndex}`}>
+                        {` · ${fact.name}=`}
+                        <DashboardIdentifier value={fact.value} />
+                        {` [${fact.verification}]`}
+                      </span>
+                    ))}
+                    {" · receipt "}
+                    <DashboardIdentifier
+                      value={payment.receipt_digest ?? "not available"}
+                    />
+                    {" · "}
+                  </span>
+                  <span className="dashboard-fact-verification">
+                    all facts {payment.verification}
+                  </span>
+                </>
+              }
+              trailing={
+                <span className="dashboard-receipt-actions">
+                  {verificationBadge(payment.settlement_verification)}
+                  {payment.settled
+                    ? payment.facts
+                        .filter(
+                          (fact) =>
+                            fact.name === "activity_id" &&
+                            fact.verification !== "unverified" &&
+                            fact.receipt_digest === payment.receipt_digest,
+                        )
+                        .map((fact) => (
+                          <Button
+                            key={fact.value}
+                            type="button"
+                            className="dashboard-receipt-control"
+                            variant="ghost"
+                            aria-describedby={`payment-event-${index}`}
+                            loading={receiptActivity === fact.value}
+                            disabled={receiptActivity !== undefined}
+                            onClick={() => void onReceipt(fact.value)}
+                          >
+                            View receipt
+                          </Button>
+                        ))
+                    : null}
+                </span>
+              }
+              trailingCaption={
+                payment.settled
+                  ? "settlement receipt verified"
+                  : "settlement not verified"
+              }
+            />
+          ))}
+        </List>
+      )}
+    </DashboardCard>
+  );
+}

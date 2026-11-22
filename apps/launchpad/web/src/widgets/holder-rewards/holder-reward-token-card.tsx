@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import type { MouseEvent } from 'react';
 import Link from 'next/link';
 import { AtSign, Coins, ExternalLink, Globe, Send } from 'lucide-react';
@@ -91,8 +92,8 @@ export function TokenLinkIcons({ links, tokenAddress, className }: { links: Soci
  * external links stay separately focusable.
  */
 export default function HolderRewardTokenCard({
-  name,
-  symbol,
+  name: rawName,
+  symbol: rawSymbol,
   image,
   tokenAddress,
   href,
@@ -107,12 +108,14 @@ export default function HolderRewardTokenCard({
   loading = false,
   className,
 }: HolderRewardTokenCardProps) {
+  const name = displayCoinText(rawName, tokenAddress);
+  const symbol = displayCoinText(rawSymbol, tokenAddress);
   const cardBg = surface === 'canvas' ? 'bg-surface-1' : 'bg-surface-2';
   const top3 = rank !== undefined && rank >= 1 && rank <= 3;
 
   if (loading) {
     return (
-      <div aria-busy="true" className={cn('flex h-full min-h-[188px] min-w-0 flex-col gap-3 rounded-md p-4', cardBg, className)}>
+      <div aria-busy="true" className={cn('flex h-full min-h-47 min-w-0 flex-col gap-3 rounded-md p-4', cardBg, className)}>
         <span className="sr-only">Loading coin</span>
         <div aria-hidden="true" className="flex items-center gap-3">
           <span className="sl-skeleton size-avatar-lg rounded-sm" />
@@ -136,7 +139,7 @@ export default function HolderRewardTokenCard({
 
   const title = (
     <>
-      <span className="truncate" title={name}>{name}</span>
+      <span className="min-w-0 truncate" title={name}>{name}</span>
       <span className="sr-only">
         {distributedRaw ? `, ${rewardsText(distributedRaw)} distributed to holders` : ', rewards not available yet'}
         {mcapRaw ? `, market cap ${mcapText(mcapRaw)} USDL` : ', market cap not available yet'}
@@ -145,47 +148,47 @@ export default function HolderRewardTokenCard({
   );
 
   return (
-    <article className={cn('group relative flex h-full min-h-[188px] min-w-0 flex-col gap-3 rounded-md p-4 transition-colors duration-fast', cardBg, href && 'hover:bg-surface-hover', top3 && 'bg-rank-1-soft', className)}>
-      <div className="flex items-start gap-3">
+    <article className={cn('group relative flex h-full min-h-47 min-w-0 flex-col gap-3 rounded-md p-4 transition-colors duration-fast', cardBg, href && 'hover:bg-surface-hover', top3 && 'bg-rank-1-soft', className)}>
+      <div className="flex flex-wrap items-start gap-3">
         <Avatar src={image} name={name} size="lg" shape="square" decorative />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-24">
           <div className="flex items-center gap-1">
             {href ? (
-              <Link href={href} className="flex min-w-0 items-center text-base font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
+              <Link prefetch={false} href={href} className="flex min-w-0 flex-1 items-center text-base leading-[calc(var(--sl-leading-base)/var(--sl-text-base))] font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
                 {title}
               </Link>
             ) : (
-              <h3 className="flex min-w-0 items-center text-base font-semibold text-text">{title}</h3>
+              <h3 className="flex min-w-0 items-center text-base leading-[calc(var(--sl-leading-base)/var(--sl-text-base))] font-semibold text-text">{title}</h3>
             )}
             {tokenAddress ? <CopyAddress address={tokenAddress} variant="icon" className="relative z-10 shrink-0" /> : null}
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-faint">
-            {symbol ? <span className="truncate font-semibold uppercase" title={symbol}>${symbol}</span> : null}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))] text-text-faint">
+            {symbol ? <span className="truncate font-semibold" title={symbol}>${symbol}</span> : null}
             <AgeChip iso={createdAt} className="font-bold text-warning" />
             <TokenLinkIcons links={links} tokenAddress={tokenAddress} />
             {!strategyActive ? <StatusBadge status="neutral">Strategy changed</StatusBadge> : null}
           </div>
         </div>
-        {rank !== undefined ? <RankBadge rank={rank} className="shrink-0" /> : null}
+        {rank !== undefined ? <RankBadge rank={rank} className="-order-1 shrink-0" /> : null}
       </div>
       <dl className="flex flex-col gap-1">
         <div className="flex min-w-0 flex-col gap-1">
-          <dt className="text-2xs font-semibold uppercase tracking-[.1em] text-text-faint">Holder rewards</dt>
-          <dd data-numeric className={cn('truncate text-xl font-bold [font-variant-numeric:proportional-nums]', distributedRaw === null ? 'text-text-faint' : 'text-success')}>
+          <dt className="text-2xs leading-[calc(var(--sl-leading-2xs)/var(--sl-text-2xs))] font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Holder rewards</dt>
+          <dd data-numeric className={cn('min-w-0 text-xl leading-[calc(var(--sl-leading-xl)/var(--sl-text-xl))] font-bold tabular-nums', distributedRaw === null ? 'text-text-faint' : 'text-success')}>
             {distributedRaw === null ? <span aria-label="Not available yet">{'—'}</span> : <>{usdlAmountText(distributedRaw)}<span className="ml-1 text-xs font-semibold text-text-faint">USDL</span></>}
           </dd>
         </div>
-        <div className="flex min-w-0 items-baseline gap-1.5 text-xs">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))]">
           <dt className="text-text-faint">Market cap</dt>
-          <dd data-numeric className={cn('truncate text-sm font-bold tabular-nums', mcapRaw === null ? 'text-text-faint' : 'text-text')}>
+          <dd data-numeric className={cn('min-w-0 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold tabular-nums', mcapRaw === null ? 'text-text-faint' : 'text-text')}>
             {mcapRaw === null ? <span aria-label="Not available yet">{'—'}</span> : `${mcapText(mcapRaw)} USDL`}
           </dd>
         </div>
       </dl>
-      <div className="mt-auto flex items-center justify-between gap-2">
-        <dl className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap text-xs">
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
+        <dl className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))]">
           <dt className="text-text-faint">Holders paid</dt>
-          <dd data-numeric className={cn('truncate font-bold tabular-nums', holdersPaid === null ? 'text-text-faint' : 'text-text')}>
+          <dd data-numeric className={cn('min-w-0 font-bold tabular-nums', holdersPaid === null ? 'text-text-faint' : 'text-text')}>
             {holdersPaid === null ? <span aria-label="Not available yet">{'—'}</span> : holdersPaidText(holdersPaid)}
           </dd>
         </dl>

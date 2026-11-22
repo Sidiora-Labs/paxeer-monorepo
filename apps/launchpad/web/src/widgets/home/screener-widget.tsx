@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import { Button, CoinCard, EmptyState, ErrorState, LoadMore, SegmentedControl, Tooltip, UnavailableState, type CoinCardStat } from '@/ui/primitives';
 import { useExploreRows, type ExploreRow } from '@/widgets/explore/use-explore-rows';
 import type { RankingCategory } from '@/core/market/use-rankings';
+import { SourceNotice } from '@/ui/common/source-notice';
+import { WatchlistNotice } from '@/ui/common/watchlist-notice';
 import { useWatchlist } from '@/hooks/ui/use-watchlist';
 import { formatUsdl } from '@/utils/format';
 import { compactCount } from '@/page-modules/token/market-presentation';
@@ -76,6 +78,10 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
         </Tooltip>
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
+        <WatchlistNotice state={watchlist} />
+        {explore.stats.state === 'error' ? <SourceNotice label="Coin stats" state={explore.stats} onRetry={explore.retrySources} /> : null}
+        <SourceNotice label="Pool details" state={explore.listings} onRetry={explore.retrySources} />
+        <SourceNotice label="Coin details" state={explore.metadata} onRetry={explore.retrySources} />
         {panel.state === 'loading' ? (
           <div aria-busy="true" className={cn('flex gap-2', cards ? 'grid grid-cols-2' : 'flex-col')}>
             <span className="sr-only">Loading screener</span>
@@ -93,7 +99,7 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
           )
         ) : (
           <>
-            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Live stats" operation={explore.stats.operation} status={explore.stats.status} /> : null}
+            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Live stats" operation={explore.stats.operation} status={explore.stats.status} onRetry={explore.retrySources} /> : null}
             <ul className={cn('gap-2', cards ? 'grid grid-cols-2' : 'flex flex-col')}>
               {rows.map(row => {
                 const risk = screenerRisk(row);
@@ -103,6 +109,7 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
                       variant={cards ? 'grid' : 'screener'}
                       surface="surface-1"
                       image={row.image}
+                      tokenAddress={row.tokenAddress}
                       name={row.name}
                       symbol={row.symbol}
                       mcapRaw={row.mcapRaw}

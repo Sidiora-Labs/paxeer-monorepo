@@ -1,0 +1,13 @@
+.git
+.logs
+build
+docs
+explorer
+apps/perps
+apps/wallet
+apps/web
+**/node_modules
+**/target
+**/.next
+**/.env
+**/.env.*

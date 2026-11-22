@@ -138,6 +138,163 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   end
 
   describe "transaction counts" do
+    test "an existing total moves only by the block's submission difference", %{update: update} do
+      block = insert(:block)
+      second = %{update | hash: random_hash(), index: update.index + 1}
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      assert {:ok, _} = LastFetchedCounter.upsert(%{counter_type: "paxeer_x_price_update_total", value: 100})
+
+      assert {:ok, 2} = PriceFeed.replace_block_updates(block, [update, second])
+      assert Repo.aggregate(PriceUpdate, :count) == 2
+      assert PriceFeed.total_update_count() == 101
+
+      assert {:ok, 2} = PriceFeed.replace_block_updates(block, [update, second])
+      assert PriceFeed.total_update_count() == 101
+
+      assert {:ok, 0} = PriceFeed.replace_block_updates(block, [])
+      assert Repo.aggregate(PriceUpdate, :count) == 0
+      assert PriceFeed.total_update_count() == 99
+    end
+
+    test "a missing total is initialized from all stored submissions after replacement", %{update: update} do
+      previous = insert(:block)
+      block = insert(:block)
+      second = %{update | hash: random_hash(), index: update.index + 1}
+      assert {:ok, 2} = PriceFeed.replace_block_updates(previous, [update, second])
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [%{update | hash: random_hash()}])
+      assert LastFetchedCounter.delete("paxeer_x_price_update_total")
+      assert LastFetchedCounter.get("paxeer_x_price_update_total", nullable: true) == nil
+
+      assert {:ok, 0} = PriceFeed.replace_block_updates(block, [])
+      assert Repo.aggregate(PriceUpdate, :count) == 2
+      assert Decimal.equal?(LastFetchedCounter.get("paxeer_x_price_update_total"), 2)
+      assert PriceFeed.total_update_count() == 2
+    end
+
+    test "storing with an existing total issues one counter update and no submission count", %{update: update} do
+      block = insert(:block)
+      assert {:ok, _} = LastFetchedCounter.upsert(%{counter_type: "paxeer_x_price_update_total", value: 100})
+      reference = make_ref()
+
+      :ok =
+        :telemetry.attach(
+          reference,
+          [:explorer, :repo, :query],
+          &__MODULE__.observe_store_query/4,
+          {self(), reference}
+        )
+
+      try do
+        assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      after
+        :telemetry.detach(reference)
+      end
+
+      queries = store_queries(reference)
+      assert Enum.any?(queries, &String.contains?(&1, ~s(INSERT INTO "paxeer_x_price_updates")))
+      counter_queries = Enum.filter(queries, &String.contains?(&1, ~s("last_fetched_counters")))
+      assert [counter_update] = counter_queries
+      assert String.starts_with?(counter_update, ~s(UPDATE "last_fetched_counters"))
+
+      refute Enum.any?(queries, fn query ->
+               String.contains?(query, "paxeer_x_price_updates") and Regex.match?(~r/\bcount\s*\(/i, query)
+             end)
+
+      assert PriceFeed.total_update_count() == 101
+    end
+
+    test "concurrent stores initialize one total with both submission differences", %{update: update} do
+      {:ok, coordinator} = Repo.start_link(name: nil, pool: DBConnection.ConnectionPool, pool_size: 1)
+      previous_repo = Repo.put_dynamic_repo(coordinator)
+      reference = make_ref()
+      parent = self()
+      miner = insert(:address)
+      blocks = for number <- 6_350_001..6_350_003, do: insert(:block, number: number, miner: miner)
+      [previous, first, second] = blocks
+      block_hashes = Enum.map(blocks, & &1.hash)
+      block_numbers = Enum.map(blocks, & &1.number)
+
+      try do
+        assert {:ok, 1} = PriceFeed.replace_block_updates(previous, [update])
+        assert LastFetchedCounter.delete("paxeer_x_price_update_total")
+
+        workers =
+          for {block, count} <- [{first, 1}, {second, 2}] do
+            Task.async(fn ->
+              {:ok, connection} = Repo.start_link(name: nil, pool: DBConnection.ConnectionPool, pool_size: 1)
+              Repo.put_dynamic_repo(connection)
+
+              try do
+                %{rows: [[backend]]} = Repo.query!("SELECT pg_backend_pid()")
+                send(parent, {:counter_connection, reference, self(), backend})
+
+                receive do
+                  {:store, ^reference} -> :ok
+                after
+                  10_000 -> flunk("submission store was not released")
+                end
+
+                updates = for index <- 1..count, do: %{update | hash: random_hash(), index: index}
+                assert {:ok, ^count} = PriceFeed.replace_block_updates(block, updates)
+              after
+                Supervisor.stop(connection)
+              end
+            end)
+          end
+
+        worker_pids = Enum.map(workers, & &1.pid)
+
+        :ok =
+          :telemetry.attach(
+            reference,
+            [:explorer, :repo, :query],
+            &__MODULE__.observe_counter_seed/4,
+            {parent, reference, worker_pids}
+          )
+
+        try do
+          backends =
+            for worker <- workers do
+              pid = worker.pid
+              assert_receive {:counter_connection, ^reference, ^pid, backend}, 5_000
+              send(pid, {:store, reference})
+              backend
+            end
+
+          assert length(Enum.uniq(backends)) == 2
+
+          for pid <- worker_pids do
+            assert_receive {:counter_seed, ^reference, ^pid}, 5_000
+          end
+
+          for worker <- workers do
+            send(worker.pid, {:continue_counter_seed, reference})
+            Task.await(worker, 10_000)
+          end
+        after
+          Enum.each(workers, &Task.shutdown(&1, :brutal_kill))
+          :telemetry.detach(reference)
+        end
+
+        assert Repo.aggregate(PriceUpdate, :count) == 4
+        assert PriceFeed.total_update_count() == 4
+
+        assert [counter] =
+                 Repo.all(
+                   from(counter in LastFetchedCounter, where: counter.counter_type == "paxeer_x_price_update_total")
+                 )
+
+        assert Decimal.equal?(counter.value, 4)
+      after
+        Repo.delete_all(from(block in Block, where: block.hash in ^block_hashes))
+        Repo.delete_all(from(scanned in PriceFeedScannedBlock, where: scanned.block_number in ^block_numbers))
+        LastFetchedCounter.delete("paxeer_x_price_update_total")
+        Repo.delete!(miner)
+        Repo.put_dynamic_repo(previous_repo)
+        Supervisor.stop(coordinator)
+      end
+    end
+
     test "the day count includes consensus submissions within 24 hours regardless of execution status", %{
       update: update
     } do
@@ -197,7 +354,123 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
     end
   end
 
+  describe "cached day count" do
+    setup context do
+      config = Application.fetch_env!(:explorer, PriceFeed)
+
+      on_exit(fn ->
+        Application.put_env(:explorer, PriceFeed, config)
+        PriceFeed.clear_update_count_24h_cache()
+      end)
+
+      Application.put_env(
+        :explorer,
+        PriceFeed,
+        Keyword.put(config, :update_count_24h_cache_period, Map.get(context, :cache_period, 60_000))
+      )
+
+      PriceFeed.clear_update_count_24h_cache()
+      :ok
+    end
+
+    test "calls within the period reuse the count across processes", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      assert PriceFeed.update_count_24h() == 0
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      assert PriceFeed.update_count_24h() == 0
+      assert Task.async(fn -> PriceFeed.update_count_24h() end) |> Task.await() == 0
+    end
+
+    test "clearing the count includes newly stored submissions", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      assert PriceFeed.update_count_24h() == 0
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      assert :ok = PriceFeed.clear_update_count_24h_cache()
+      assert PriceFeed.update_count_24h() == 1
+    end
+
+    test "concurrent calls refresh the count once", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      reference = make_ref()
+
+      :ok =
+        :telemetry.attach(
+          reference,
+          [:explorer, :repo, :query],
+          &__MODULE__.observe_day_count_query/4,
+          {self(), reference}
+        )
+
+      try do
+        results = 1..8 |> Task.async_stream(fn _ -> PriceFeed.update_count_24h() end) |> Enum.to_list()
+        assert results == List.duplicate({:ok, 1}, 8)
+        assert_receive {:day_count_query, ^reference}
+        refute_received {:day_count_query, ^reference}
+      after
+        :telemetry.detach(reference)
+      end
+    end
+
+    @tag cache_period: 20
+    test "an expired count is replaced with the current count", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      assert PriceFeed.update_count_24h() == 0
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+      Process.sleep(30)
+      assert PriceFeed.update_count_24h() == 1
+
+      Application.put_env(:explorer, PriceFeed, update_count_24h_cache_period: 60_000)
+      assert {:ok, 0} = PriceFeed.replace_block_updates(block, [])
+      assert PriceFeed.update_count_24h() == 1
+    end
+
+    @tag cache_period: 0
+    test "a zero period counts every call even with a previously kept count", %{update: update} do
+      block = insert(:block, timestamp: DateTime.utc_now())
+      Application.put_env(:explorer, PriceFeed, update_count_24h_cache_period: 60_000)
+      assert PriceFeed.update_count_24h() == 0
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+
+      Application.put_env(:explorer, PriceFeed, update_count_24h_cache_period: 0)
+      assert PriceFeed.update_count_24h() == 1
+      assert {:ok, 0} = PriceFeed.replace_block_updates(block, [])
+      assert PriceFeed.update_count_24h() == 0
+    end
+  end
+
   defp random_hash, do: "0x" <> Base.encode16(:crypto.strong_rand_bytes(32), case: :lower)
+
+  def observe_day_count_query(_event, _measurements, metadata, {owner, reference}) do
+    if String.contains?(metadata.query, "paxeer_x_price_updates") and Regex.match?(~r/\bcount\s*\(/i, metadata.query) do
+      send(owner, {:day_count_query, reference})
+    end
+  end
+
+  def observe_store_query(_event, _measurements, metadata, {owner, reference}) do
+    if self() == owner, do: send(owner, {:store_query, reference, metadata.query})
+  end
+
+  def observe_counter_seed(_event, _measurements, metadata, {owner, reference, workers}) do
+    if self() in workers and String.contains?(metadata.query, "paxeer_x_price_updates") and
+         Regex.match?(~r/\bcount\s*\(/i, metadata.query) do
+      send(owner, {:counter_seed, reference, self()})
+
+      receive do
+        {:continue_counter_seed, ^reference} -> :ok
+      after
+        10_000 -> raise "counter initialization was not released"
+      end
+    end
+  end
+
+  defp store_queries(reference) do
+    receive do
+      {:store_query, ^reference, query} -> [query | store_queries(reference)]
+    after
+      0 -> []
+    end
+  end
 
   describe "reads" do
     test "latest_per_market and market_updates skip failed submissions and refused observations", %{update: update} do
@@ -372,6 +645,9 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
     end
 
     test "list_updates of one feeder reads the feeder index in page order" do
+      Repo.query!("SET LOCAL enable_hashjoin = off")
+      Repo.query!("SET LOCAL enable_sort = off")
+
       plan =
         explain(
           PriceFeed.list_updates_query(%PagingOptions{page_size: 50, key: {11, 2}}, feeder: cast_address(@feeder))

@@ -71,7 +71,7 @@ const ScanPagination = (props: ScanPaginationProps) => {
       <chakra.span
         textStyle="sm"
         color="text.secondary"
-        borderWidth="1px"
+        borderWidth="var(--chakra-border-widths-1)"
         borderStyle="solid"
         borderColor="border.divider"
         borderRadius="sm"

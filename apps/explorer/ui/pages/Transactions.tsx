@@ -46,6 +46,7 @@ const Transactions = () => {
       <TxsTabs
         listProps={ isMobile ? undefined : TAB_LIST_PROPS }
         tabsHeight={ TABS_HEIGHT }
+        css={{ '& [data-scope="tabs"][data-part="content"]': { pt: { base: 0, lg: 7 } } }}
       />
     </>
   );

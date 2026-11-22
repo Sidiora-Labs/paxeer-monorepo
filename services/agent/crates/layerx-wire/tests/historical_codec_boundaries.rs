@@ -152,10 +152,14 @@ fn wire_activity_hash_preserves_native_identity_and_accounts() {
     }
 
     let wallet = must(parse(WALLET_VECTORS));
+    let account_protocol = must(u16::try_from(must(
+        wallet.u64_at("account_protocol_version"),
+    )));
+    assert_eq!(account_protocol, 3);
     for case in must(wallet.array_at("accounts")) {
         let account = must(AccountId::parse(must(case.str_at("name"))));
         assert_eq!(
-            must(account_id_for_protocol(&account, 3)).as_slice(),
+            must(account_id_for_protocol(&account, account_protocol)).as_slice(),
             unprefixed_hex(case, "account_id")
         );
     }

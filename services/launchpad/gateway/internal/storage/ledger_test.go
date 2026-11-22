@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
-	redis "github.com/redis/go-redis/v9"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 	"strings"
 	"sync"
 	"testing"
@@ -12,7 +12,7 @@ import (
 
 func TestDurableLifecycle(t *testing.T) {
 	ctx := context.Background()
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	defer db.Close()
 	ns := "kd-fec98588ef6fe4334797a5de-" + time.Now().Format("150405000000000")
 	l, e := NewLedger(db, ns)
@@ -75,7 +75,7 @@ func TestApprovedKeyTraversal(t *testing.T) {
 
 func TestDurableExecutionSingleWinner(t *testing.T) {
 	ctx := context.Background()
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	defer db.Close()
 	ns := "kd-fec98588ef6fe4334797a5de-x" + time.Now().Format("150405000000000")
 	l, _ := NewLedger(db, ns)
@@ -123,7 +123,7 @@ func TestDurableExecutionSingleWinner(t *testing.T) {
 func TestDurableDuplicateAndOutOfOrderReceipts(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	defer db.Close()
 	ns := "l41-receipts-" + fmt.Sprint(time.Now().UnixNano())
 	ledger, e := NewLedger(db, ns)

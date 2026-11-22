@@ -43,21 +43,21 @@ const NavLink = ({ className, item, noIcon, onClick }: Props) => {
         minW={ 0 }
         _hover={{ bg: 'accent.soft' }}
         px={ 2 }
-        py="9px"
+        py="calc(var(--chakra-spacing-2) + var(--chakra-spacing-1) / 4)"
         textStyle="sm"
-        fontWeight={ 500 }
+        fontWeight="medium"
         borderRadius="base"
       >
         { !noIcon && <NavLinkIcon item={ item } mr={ 3 }/> }
         <chakra.span>
-          <chakra.span display="block" fontSize="14px">{ item.text }</chakra.span>
-          { !noIcon && <chakra.span display="block" fontSize="12px" color="text.muted">{ getNavItemDescription(item) }</chakra.span> }
+          <chakra.span display="block" fontSize="body">{ item.text }</chakra.span>
+          { !noIcon && <chakra.span display="block" fontSize="textXs" color="text.muted">{ getNavItemDescription(item) }</chakra.span> }
         </chakra.span>
         { isHighlighted && (
           <LightningLabel
             iconColor={ isActive ? 'link.navigation.bg.selected' : 'link.navigation.bg.group' }
             position={{ lg: 'static' }}
-            ml={{ lg: '2px' }}
+            ml={{ lg: 'var(--chakra-spacing-0\\.5)' }}
             isCollapsed={ false }
           />
         ) }

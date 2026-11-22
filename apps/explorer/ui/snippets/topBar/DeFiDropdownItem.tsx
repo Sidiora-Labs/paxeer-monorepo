@@ -14,7 +14,7 @@ type Props = {
 
 const DeFiDropdownItem = ({ item }: Props) => {
   return (
-    <Link
+    <Link minH="calc(var(--chakra-spacing-8) + var(--chakra-spacing-0\\.5))"
       href={ item.dappId ?
         route({
           pathname: item.isEssentialDapp ? '/essential-dapps/[id]' : '/apps/[id]',
@@ -24,11 +24,10 @@ const DeFiDropdownItem = ({ item }: Props) => {
       }
       external={ !item.dappId }
       w="100%"
-      h="34px"
       variant="menu"
       onClick={ item.onClick }
     >
-      { item.icon && <IconSvg name={ item.icon } boxSize={ 5 } mr={ 2 }/> }
+      { item.icon && <IconSvg aria-hidden={ true } name={ item.icon } boxSize={ 5 } mr={ 2 }/> }
       <Text as="span" fontSize="sm">{ item.text }</Text>
     </Link>
   );

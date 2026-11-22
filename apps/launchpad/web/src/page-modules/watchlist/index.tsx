@@ -13,11 +13,11 @@ export default function WatchlistModule() {
     const now = Date.now();
     return watchlist.rows.map((row, index) => buildExploreRow({ poolAddress: row.poolAddress, rank: index + 1, stats: row.stats, listing: row.listing, metadata: row.metadata, now }));
   }, [watchlist.rows]);
-  const notices = [<SourceNotice key="stats" label="Coin stats" state={watchlist.stats} />, <SourceNotice key="details" label="Coin details" state={watchlist.metadata} />];
+  const notices = [<SourceNotice key="listings" label="Pool details" state={watchlist.listings} onRetry={watchlist.retrySources} />, <SourceNotice key="stats" label="Coin stats" state={watchlist.stats} onRetry={watchlist.retrySources} />, <SourceNotice key="details" label="Coin details" state={watchlist.metadata} onRetry={watchlist.retrySources} />];
   const loading = watchlist.loading && watchlist.pools.length === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
+    <div aria-busy={watchlist.loading || undefined} className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-xl font-extrabold text-text">Watchlist</h1>
         <p className="text-sm text-text-muted" role="status">{watchlist.pools.length === 1 ? '1 starred coin' : `${watchlist.pools.length} starred coins`}</p>
@@ -25,7 +25,7 @@ export default function WatchlistModule() {
       {watchlist.isLocal ? (
         <NoticeBar tone="info">Sign in to keep your watchlist on every device</NoticeBar>
       ) : null}
-      {[watchlist.stats, watchlist.metadata].some(source => source.state === 'unsupported' || source.state === 'error') ? <div className="flex flex-col gap-2">{notices}</div> : null}
+      {[watchlist.stats, watchlist.listings, watchlist.metadata].some(source => source.state === 'unsupported' || source.state === 'error') ? <div className="flex flex-col gap-2">{notices}</div> : null}
       <ExploreView
         rows={rows}
         loading={loading}
@@ -38,7 +38,7 @@ export default function WatchlistModule() {
         sortResetKey="watchlist"
         sourceLabel="coins"
         caption="Starred coins"
-        empty={(
+        empty={watchlist.account.error ? null : (
           <EmptyState
             variant="panel"
             icon={Star}

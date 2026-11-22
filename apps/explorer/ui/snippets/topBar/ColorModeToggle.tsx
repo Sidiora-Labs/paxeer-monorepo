@@ -52,7 +52,7 @@ const ColorModeToggle = () => {
         aria-label={ label }
         onClick={ handleClick }
       >
-        <IconSvg name={ colorMode === 'dark' ? 'sun' : 'moon' }/>
+        <IconSvg aria-hidden={ true } name={ colorMode === 'dark' ? 'sun' : 'moon' }/>
       </IconButton>
     </Tooltip>
   );

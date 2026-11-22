@@ -542,6 +542,9 @@ export function MoveMoney() {
           {destinationChoice === OTHER_ACCOUNT_OPTION ? (
             <KitTextField
               label={copyEntry("move.destination.other.hint").message}
+              name="destination_account"
+              autoComplete="off"
+              spellCheck={false}
               value={otherAccount}
               onChange={(event) => {
                 setOtherAccount(event.target.value);
@@ -560,7 +563,9 @@ export function MoveMoney() {
         <div className="flex flex-col gap-2">
           <KitTextField
             label={formatCopy("move.amount.hint", { currency: MOVE_CURRENCY })}
+            name="move_amount"
             inputMode="numeric"
+            autoComplete="off"
             value={amountText}
             error={amountInvalid}
             aria-invalid={amountInvalid}

@@ -14,13 +14,7 @@ import {
   positions as positionsPerp,
 } from "@paxeer-network/perp";
 import { MarginMode, OrderSide } from "@paxeer-network/types";
-import {
-  modal,
-  SliderMarks,
-  toast,
-  useScreen,
-  Text,
-} from "@paxeer-network/ui";
+import { modal, SliderMarks, toast, useScreen, Text } from "@paxeer-network/ui";
 import { zero } from "@paxeer-network/utils";
 
 type UseLeverageScriptOptions = {

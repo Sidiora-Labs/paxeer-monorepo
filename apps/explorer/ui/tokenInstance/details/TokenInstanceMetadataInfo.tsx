@@ -37,7 +37,7 @@ const Item = ({ data, isLoading }: ItemProps) => {
           textStyle="sm"
           loading={ isLoading }
         >
-          <TruncatedText text={ data.value } w="calc(100% - 16px)" loading={ isLoading }/>
+          <TruncatedText text={ data.value } w="calc(100% - var(--chakra-sizes-4))" loading={ isLoading }/>
         </Link>
       );
     }
@@ -47,7 +47,7 @@ const Item = ({ data, isLoading }: ItemProps) => {
 
   return (
     <GridItem
-      bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+      bgColor="bg.surface"
       borderRadius="md"
       px={ 4 }
       py={ 2 }
@@ -60,7 +60,7 @@ const Item = ({ data, isLoading }: ItemProps) => {
         textStyle="xs"
         w="100%"
         color="text.secondary"
-        fontWeight={ 500 }
+        fontWeight="medium"
         mb={ 1 }
         loading={ isLoading }
       />
@@ -83,7 +83,7 @@ const TokenInstanceMetadataInfo = ({ data, isLoading: isLoadingProp }: Props) =>
 
   return (
     <>
-      <DetailedInfo.ItemDivider/>
+      <DetailedInfo.ItemDivider colSpan={ 1 }/>
       { metadata?.name && (
         <>
           <DetailedInfo.ItemLabel
@@ -128,8 +128,8 @@ const TokenInstanceMetadataInfo = ({ data, isLoading: isLoadingProp }: Props) =>
           >
             Attributes
           </DetailedInfo.ItemLabel>
-          <DetailedInfo.ItemValue>
-            <Grid gap={ 2 } templateColumns="repeat(auto-fill,minmax(160px, 1fr))" w="100%" whiteSpace="normal">
+          <DetailedInfo.ItemValue overflowX="auto" role="region" aria-label="NFT attributes" tabIndex={ 0 }>
+            <Grid gap={ 2 } templateColumns="repeat(auto-fill,minmax(var(--chakra-sizes-40), 1fr))" w="100%" whiteSpace="normal">
               { metadata.attributes
                 .filter((attribute) => attribute.value)
                 .map((attribute, index) => <Item key={ index } data={ attribute } isLoading={ isLoading }/>) }

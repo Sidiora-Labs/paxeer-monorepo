@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createElement, type ReactElement } from 'react';
 import { createServer, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -144,7 +145,7 @@ describe('live page structure', () => {
     expect(markup).toContain('alice');
     expect(markup).toContain('Broadcast 1');
     expect(markup).toContain('src="https://cdn.example.net/alpha.png"');
-    expect(markup).not.toMatch(BORDER);
+    expect(assertControlEdges(markup)).not.toMatch(BORDER);
   });
 
   it('ranks rows by viewers and by market cap, shows four cards and links to the show-all grid', async () => {
@@ -170,7 +171,7 @@ describe('live page structure', () => {
     expect(markup.match(/aria-label="Show stream \d of 4/g)).toHaveLength(4);
     expect(markup.match(/aria-current="true"/g)).toHaveLength(1);
     expect(markup).toContain('Next stream: Broadcast 1');
-    expect(markup).not.toMatch(BORDER);
+    expect(assertControlEdges(markup)).not.toMatch(BORDER);
     expect(hero.stepIndex(0, -1, 6)).toBe(5);
     expect(hero.stepIndex(5, 1, 6)).toBe(0);
     expect(hero.activeSlideIndex(featured, uuid(4))).toBe(2);
@@ -190,7 +191,7 @@ describe('live page structure', () => {
     expect(full).toContain('Most viewers');
     expect(full).toContain('Highest market cap');
     expect(full).not.toContain('No live streams');
-    expect(full).not.toMatch(BORDER);
+    expect(assertControlEdges(full)).not.toMatch(BORDER);
     const empty = render(createElement(page.default), client => client.setQueryData(queryKeys.liveDirectory(), { ...data, entries: [] }));
     expect(empty).toContain('No live streams right now');
     expect(empty).not.toContain('<video');
@@ -243,7 +244,7 @@ describe('live page structure', () => {
     expect(markup).not.toContain('data-stream-id');
     expect(markup).not.toMatch(/\$\d/);
     expect(markup).not.toMatch(/\d viewers?</);
-    expect(markup).not.toMatch(BORDER);
+    expect(assertControlEdges(markup)).not.toMatch(BORDER);
     // Developer detail stays an attribute outside production; it is never body text.
     expect(markup).not.toContain('IF_STREAM_LIST');
     expect(markup).not.toMatch(/>[^<]*IF_STREAM_LIST/);
@@ -271,10 +272,10 @@ describe('live page structure', () => {
     const featured = directory.rankByViewers(await liveEntries());
     const markup = render(createElement(hero.HeroCarousel, { entries: featured, creatorLabel: (w: string) => w.slice(2, 10) }));
     expect(markup).toContain('data-live-hero-frame');
-    expect(markup).toContain('max-w-[1000px]');
+    expect(markup).toContain('max-w-250');
     expect(markup).toContain('lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]');
     expect(markup).not.toContain('Open coin');
-    expect(markup).not.toMatch(BORDER);
+    expect(assertControlEdges(markup)).not.toMatch(BORDER);
   });
 
   it('names degraded enrichment sources in plain words, without operation ids or codes', () => {

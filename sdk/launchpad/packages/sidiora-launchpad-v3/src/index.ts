@@ -54,3 +54,24 @@ export function deploymentFromManifest(manifest: {
     usdl: manifest._meta.usdl as Address,
   });
 }
+
+export function deploymentFromDocument(document: {
+  chainId: number;
+  roles: {
+    SidioraFactory: { address: string };
+    Router: { address: string };
+    Quoter: { address: string };
+    ProtocolConfig: { address: string };
+    USDL: { address: string };
+  };
+}): Readonly<LaunchpadDeployment> {
+  if (document.chainId !== 125) throw new Error('Deployment document requires chain 125');
+  return validateDeployment({
+    chainId: 125,
+    factory: document.roles.SidioraFactory.address as Address,
+    router: document.roles.Router.address as Address,
+    quoter: document.roles.Quoter.address as Address,
+    protocolConfig: document.roles.ProtocolConfig.address as Address,
+    usdl: document.roles.USDL.address as Address,
+  });
+}

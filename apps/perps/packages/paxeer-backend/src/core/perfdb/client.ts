@@ -7,17 +7,19 @@ import { fetchWithPolicy as fetch } from "@paxeer-network/paxeer-backend/core/ne
 // a fuller version (subscriptions, batching, etc.).
 // ─────────────────────────────────────────────────────────────────────
 
-import { gqlEndpoint, type GraphQLEndpoint } from "@paxeer-network/paxeer-backend/core/graphql/client";
+import {
+  gqlEndpoint,
+  type GraphQLEndpoint,
+} from "@paxeer-network/paxeer-backend/core/graphql/client";
+import { gatewayUrls } from "@paxeer-network/paxeer-backend/core/network/gateway";
 
-export const PERFDB_URL =
-  process.env.NEXT_PUBLIC_PERFDB_URL ??
-  "https://api-production-5335.up.railway.app";
+export const PERFDB_URL = gatewayUrls().perfdbOrigin;
 
 export const PERFDB_REST_URL = PERFDB_URL;
 
 export const PERFDB_WS_URL = PERFDB_URL.replace(/^https/, "wss").replace(
   /^http/,
-  "ws"
+  "ws",
 );
 
 const JWT_KEY = "perfdb_jwt";
@@ -50,7 +52,7 @@ export function getAuthHeaders(): Record<string, string> {
 
 export async function perfdbQuery<T>(
   document: string,
-  variables?: Record<string, unknown>
+  variables?: Record<string, unknown>,
 ): Promise<T> {
   const res = await fetch(`${PERFDB_URL}/graphql`, {
     method: "POST",
@@ -66,7 +68,7 @@ export async function perfdbQuery<T>(
 
 export async function perfdbQueryAuth<T>(
   document: string,
-  variables?: Record<string, unknown>
+  variables?: Record<string, unknown>,
 ): Promise<T> {
   const res = await fetch(`${PERFDB_URL}/graphql`, {
     method: "POST",
@@ -85,7 +87,7 @@ export async function perfdbQueryAuth<T>(
 
 export async function perfdbRest<T>(
   path: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<T> {
   const res = await fetch(`${PERFDB_URL}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -97,7 +99,7 @@ export async function perfdbRest<T>(
 
 export async function perfdbRestAuth<T>(
   path: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

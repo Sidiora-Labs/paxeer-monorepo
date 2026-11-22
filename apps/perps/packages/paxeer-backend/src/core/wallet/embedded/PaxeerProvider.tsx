@@ -23,7 +23,11 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { PaxeerWallet, type OAuthProvider, type PublicWallet } from "./sdk";
-import { getAuthRedirectUrl, getPaxeerWallet, resolvePaxeerConfig } from "./client";
+import {
+  getAuthRedirectUrl,
+  getPaxeerWallet,
+  resolvePaxeerConfig,
+} from "./client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,11 +133,15 @@ export function PaxeerProvider({ children }: PaxeerProviderProps) {
 
   const signInWithEmail = useCallback(
     async (email: string): Promise<{ ok: boolean; error?: string }> => {
-      if (!wallet) return { ok: false, error: "Embedded wallet not configured" };
+      if (!wallet)
+        return { ok: false, error: "Embedded wallet not configured" };
       setAuthBusy(true);
       setAuthError(null);
       try {
-        const { error } = await wallet.signInWithEmail(email, getAuthRedirectUrl());
+        const { error } = await wallet.signInWithEmail(
+          email,
+          getAuthRedirectUrl(),
+        );
         if (error) {
           setAuthError(error.message);
           return { ok: false, error: error.message };
@@ -209,7 +217,9 @@ export function PaxeerProvider({ children }: PaxeerProviderProps) {
     ],
   );
 
-  return <PaxeerContext.Provider value={value}>{children}</PaxeerContext.Provider>;
+  return (
+    <PaxeerContext.Provider value={value}>{children}</PaxeerContext.Provider>
+  );
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────

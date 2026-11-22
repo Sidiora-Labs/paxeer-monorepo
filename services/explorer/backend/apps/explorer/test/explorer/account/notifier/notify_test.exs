@@ -11,6 +11,24 @@ defmodule Explorer.Account.Notifier.NotifyTest do
   alias Explorer.Repo
 
   setup do
+    settings =
+      for {application, key} <- [
+            {:explorer, Explorer.Account},
+            {:explorer, Explorer.Mailer},
+            {:ueberauth, Ueberauth}
+          ] do
+        {application, key, Application.fetch_env(application, key)}
+      end
+
+    on_exit(fn ->
+      for {application, key, setting} <- settings do
+        case setting do
+          {:ok, value} -> Application.put_env(application, key, value)
+          :error -> Application.delete_env(application, key)
+        end
+      end
+    end)
+
     Application.put_env(:explorer, Explorer.Account,
       sendgrid: [
         sender: "noreply@blockscout.com",

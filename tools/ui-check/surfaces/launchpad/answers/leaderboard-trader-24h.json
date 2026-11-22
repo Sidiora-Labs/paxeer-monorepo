@@ -1,0 +1,39 @@
+{
+  "data": {
+    "snapshot": {
+      "snapshotId": "7b6f2b4e-3c1d-4e2f-9a8b-1c2d3e4f5a6b",
+      "category": "trader",
+      "window": "24h",
+      "methodologyVersion": "pnl-v1",
+      "watermark": {
+        "chainId": "125",
+        "height": "4200",
+        "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+        "projectionRevision": "7",
+        "integrity": "healthy",
+        "observedAt": "2026-10-12T15:00:00.000Z"
+      },
+      "entries": [
+        {
+          "rank": 1,
+          "wallet": "0x4444444444444444444444444444444444444444",
+          "metricRaw": "1000000",
+          "quality": "complete"
+        }
+      ]
+    }
+  },
+  "generatedAt": "2026-10-12T15:00:01.000Z",
+  "nextCursor": null,
+  "quality": "complete",
+  "revision": "7",
+  "watermark": {
+    "chainId": "125",
+    "height": "4200",
+    "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+    "projectionRevision": "7",
+    "integrity": "healthy",
+    "observedAt": "2026-10-12T15:00:00.000Z"
+  },
+  "requestId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01"
+}

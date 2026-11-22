@@ -2,13 +2,26 @@
 
 import React from 'react';
 
+import type { TxsSocketType } from './socket/types';
+
+import config from 'configs/app';
+import { MultichainContext } from 'lib/contexts/multichain';
+import { SettingsContextProvider } from 'lib/contexts/settings';
+import { chainA } from 'mocks/multichain/chains';
 import * as txMock from 'mocks/txs/tx';
 import { TableBody, TableCell, TableRoot, TableRow } from 'toolkit/chakra/table';
 import { render } from 'ui/shared/layout/testWrapper';
+import { Desktop } from 'ui/shared/SocketNewItemsNotice';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, waitFor } from 'vitest/lib';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+vi.mock('./socket/useTxsSocketTypeAll', () => ({ 'default': vi.fn() }));
+vi.mock('./socket/useTxsSocketTypeAddress', () => ({ 'default': vi.fn() }));
+
+import useTxsSocketTypeAddress from './socket/useTxsSocketTypeAddress';
+import useNewTxsSocketTypeAll from './socket/useTxsSocketTypeAll';
 import TxsTable from './TxsTable';
 
 const noop = () => undefined;
@@ -28,10 +41,79 @@ const renderTable = () => render(
   />,
 );
 
+function tableStyleValues(table: HTMLTableElement, property = 'min-width') {
+  const values: Array<{ media: string; value: string }> = [];
+
+  function readRules(rules: CSSRuleList, media = '') {
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSStyleRule) {
+        const value = rule.style.getPropertyValue(property);
+        if (value && table.matches(rule.selectorText)) {
+          values.push({ media, value });
+        }
+      }
+      if ('cssRules' in rule) {
+        readRules((rule as CSSGroupingRule).cssRules, rule instanceof CSSMediaRule ? rule.conditionText : media);
+      }
+    }
+  }
+
+  for (const sheet of Array.from(document.styleSheets)) {
+    readRules(sheet.cssRules);
+  }
+
+  return values;
+}
+
 describe('TxsTable', () => {
   beforeEach(() => {
+    vi.mocked(useNewTxsSocketTypeAll).mockReturnValue({ num: 3, showErrorAlert: false });
+    vi.mocked(useTxsSocketTypeAddress).mockReturnValue({ num: 3, showErrorAlert: false });
     fetchMock.resetMocks();
     fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
+  });
+
+  it.each([
+    { sortable: false, sticky: false },
+    { sortable: true, sticky: false },
+    { sortable: false, sticky: true },
+    { sortable: true, sticky: true },
+  ])('keeps the age switch inline and all headers aligned with options %j', async function ageHeaderStaysInline({ sortable, sticky }) {
+    const { container } = render(
+      <SettingsContextProvider>
+        <TxsTable txs={ txs } sort="default" onSortToggle={ sortable ? noop : undefined } top={ 0 } showBlockInfo stickyHeader={ sticky }/>
+      </SettingsContextProvider>,
+    );
+    const toggle = container.querySelector('button[aria-label="Toggle time format"]') as HTMLButtonElement;
+    const ageHeader = toggle.closest('th') as HTMLTableCellElement;
+    const row = ageHeader.firstElementChild as HTMLElement;
+    const headers = Array.from(container.querySelectorAll('thead th'));
+
+    expect(row.textContent).toBe('Age');
+    expect(row.contains(toggle)).toBe(true);
+    expect(getComputedStyle(row).display).toBe('flex');
+    expect(getComputedStyle(row).flexDirection).toBe('row');
+    expect(getComputedStyle(row).flexWrap).toBe('nowrap');
+    expect(getComputedStyle(row).alignItems).toBe('center');
+    for (const header of headers) {
+      expect(getComputedStyle(header).whiteSpace).toBe('nowrap');
+      expect(getComputedStyle(header).verticalAlign).toBe('middle');
+    }
+    expect(headers.some((header) => header.textContent === 'Block')).toBe(true);
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(row.textContent).toBe('AgeLocal');
+      expect(toggle.getAttribute('data-selected')).toBe('true');
+    });
+    expect(getComputedStyle(row).flexWrap).toBe('nowrap');
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(row.textContent).toBe('Age');
+    });
   });
 
   it('heads the table with the scan columns in order', () => {
@@ -39,6 +121,217 @@ describe('TxsTable', () => {
 
     expect(Array.from(container.querySelectorAll('thead th')).map((cell) => cell.textContent))
       .toEqual([ '', 'Transaction hash', 'Action', 'Block', 'Age', 'From / To', 'Amount ETH', 'Txn fee ETH' ]);
+  });
+
+  it('reserves room for a price update action with a three digit market count', function priceUpdateActionWidth() {
+    const { container } = renderTable();
+    const headers = Array.from(container.querySelectorAll('thead th'));
+
+    expect(getComputedStyle(headers[2]).width).toBe('14rem');
+  });
+
+  it('reserves counterparty space from the hash amount and fee columns and preserves the other widths', function priceUpdateCounterpartyWidth() {
+    const { container } = renderTable();
+    const headers = Array.from(container.querySelectorAll('thead th'));
+
+    expect(getComputedStyle(headers[5]).width).toBe('');
+    expect(getComputedStyle(container.querySelector('table')!).minWidth).toBe('76rem');
+    expect([ 0, 1, 3, 4, 6, 7 ].map((index) => getComputedStyle(headers[index]).width))
+      .toEqual([
+        'var(--chakra-spacing-12)', 'var(--chakra-spacing-40)', 'var(--chakra-spacing-28)', 'var(--chakra-spacing-32)',
+        'var(--chakra-spacing-28)', '7.5rem',
+      ]);
+  });
+
+  it.each([
+    { block: true, value: true, fee: true, fixed: 56.5 },
+    { block: false, value: true, fee: true, fixed: 49.5 },
+    { block: true, value: false, fee: true, fixed: 49.5 },
+    { block: true, value: true, fee: false, fixed: 49 },
+    { block: false, value: false, fee: true, fixed: 42.5 },
+    { block: false, value: true, fee: false, fixed: 42 },
+    { block: true, value: false, fee: false, fixed: 42 },
+    { block: false, value: false, fee: false, fixed: 35 },
+  ])('gives the remaining width to counterparties with visible columns %j', function counterpartyWidthWithOptionalColumns({ block, value, fee, fixed }) {
+    const hiddenFields = config.UI.views.tx.hiddenFields!;
+    const previous = { ...hiddenFields };
+
+    try {
+      hiddenFields.value = !value;
+      hiddenFields.tx_fee = !fee;
+
+      for (const chain of [ undefined, chainA ]) {
+        for (const sortable of [ false, true ]) {
+          const { container, unmount } = render(
+            <MultichainContext.Provider value={ chain ? { chain } : null }>
+              <TxsTable txs={ txs } sort="default" onSortToggle={ sortable ? noop : undefined } top={ 0 } showBlockInfo={ block } stickyHeader={ false }/>
+            </MultichainContext.Provider>,
+          );
+          const headers = Array.from(container.querySelectorAll('thead th'));
+          const counterparty = headers.find((header) => header.textContent === 'From / To')!;
+          const table = container.querySelector('table')!;
+          const chainColumns = Number(Boolean(chain));
+          const minWidth = `${ fixed + chainColumns * 2 + 19.5 }rem`;
+
+          expect(getComputedStyle(counterparty).width).toBe('');
+          expect(getComputedStyle(table).minWidth).toBe(minWidth);
+          expect(tableStyleValues(table)).toEqual([
+            { media: '', value: minWidth },
+            { media: 'screen and (min-width: 62.5rem)', value: minWidth },
+          ]);
+          expect(getComputedStyle(headers[1 + chainColumns]).width).toBe('var(--chakra-spacing-40)');
+          expect(getComputedStyle(headers[2 + chainColumns]).width).toBe('14rem');
+          expect(headers.map((header) => getComputedStyle(header).width)).toEqual([
+            'var(--chakra-spacing-12)',
+            ...(chain ? [ 'var(--chakra-spacing-8)' ] : []),
+            'var(--chakra-spacing-40)', '14rem',
+            ...(block ? [ 'var(--chakra-spacing-28)' ] : []),
+            'var(--chakra-spacing-32)', '',
+            ...(value ? [ 'var(--chakra-spacing-28)' ] : []),
+            ...(fee ? [ '7.5rem' ] : []),
+          ]);
+          expect(headers).toHaveLength(5 + chainColumns + Number(block) + Number(value) + Number(fee));
+          unmount();
+        }
+      }
+    } finally {
+      Object.assign(hiddenFields, previous);
+    }
+  });
+
+  it.each([
+    { block: true, value: true, fee: true },
+    { block: false, value: true, fee: true },
+    { block: true, value: false, fee: true },
+    { block: true, value: true, fee: false },
+    { block: false, value: false, fee: true },
+    { block: false, value: true, fee: false },
+    { block: true, value: false, fee: false },
+    { block: false, value: false, fee: false },
+  ])('spans exactly the visible columns with a single notice cell for %j', function noticeSpansVisibleColumns({ block, value, fee }) {
+    const hiddenFields = config.UI.views.tx.hiddenFields!;
+    const previous = { ...hiddenFields };
+    const socketTypes: Array<TxsSocketType> = [ 'txs_home', 'txs_validated', 'txs_pending', 'address_txs' ];
+
+    try {
+      hiddenFields.value = !value;
+      hiddenFields.tx_fee = !fee;
+
+      for (const chain of [ undefined, chainA ]) {
+        for (const sortable of [ false, true ]) {
+          for (const socketType of socketTypes) {
+            const { container, unmount } = render(
+              <MultichainContext.Provider value={ chain ? { chain } : null }>
+                <TxsTable
+                  txs={ [ txMock.priceUpdate ] }
+                  sort="default"
+                  onSortToggle={ sortable ? noop : undefined }
+                  top={ 0 }
+                  showBlockInfo={ block }
+                  stickyHeader={ false }
+                  socketType={ socketType }
+                />
+              </MultichainContext.Provider>,
+            );
+            const headers = container.querySelectorAll('thead th');
+            const rows = container.querySelectorAll('tbody tr');
+            const notice = rows[0] as HTMLTableRowElement;
+
+            expect(headers).toHaveLength(5 + Number(Boolean(chain)) + Number(block) + Number(value) + Number(fee));
+            expect(rows).toHaveLength(2);
+            expect(notice.cells).toHaveLength(1);
+            expect(notice.cells[0].colSpan).toBe(headers.length);
+            expect(notice.textContent).toContain('3 more transactions');
+            expect(rows[1].textContent).toContain('Price update');
+            expect(getComputedStyle(notice.cells[0]).padding).toBe('var(--chakra-spacing-0)');
+            if (chain && socketType === 'txs_home') {
+              expect(notice.querySelector('a')?.getAttribute('href')).toBe(`/txs?tab=txs_local&chain_id=${ chain.id }`);
+            }
+            unmount();
+          }
+        }
+      }
+    } finally {
+      Object.assign(hiddenFields, previous);
+    }
+  });
+
+  it.each([
+    { num: 0, showErrorAlert: false, isLoading: false },
+    { num: 3, showErrorAlert: false, isLoading: false },
+    { num: 3, showErrorAlert: true, isLoading: false },
+    { num: 0, showErrorAlert: false, isLoading: true },
+  ])('preserves the desktop notice appearance and span in state %j', function noticePreservesDesktopAppearance(state) {
+    vi.mocked(useNewTxsSocketTypeAll).mockReturnValue(state);
+    vi.mocked(useTxsSocketTypeAddress).mockReturnValue(state);
+
+    for (const socketType of [ 'txs_home', 'txs_validated', 'txs_pending', 'address_txs' ] as const) {
+      const { container, unmount } = render(
+        <TxsTable txs={ [] } sort="default" top={ 0 } showBlockInfo stickyHeader={ false } socketType={ socketType } isLoading={ state.isLoading }/>,
+      );
+      const { container: reference, unmount: unmountReference } = render(
+        <TableRoot><TableBody><Desktop { ...state }/></TableBody></TableRoot>,
+      );
+      const row = container.querySelector('tbody tr') as HTMLTableRowElement;
+      const cell = row.cells[0];
+      const content = cell.firstElementChild!;
+      const referenceContent = reference.querySelector('td')!.firstElementChild!;
+      const properties = [ 'border-radius', 'height', 'max-width', 'width', 'margin-inline', 'margin-block' ];
+
+      expect(row.cells).toHaveLength(1);
+      expect(cell.colSpan).toBe(container.querySelectorAll('thead th').length);
+      expect(getComputedStyle(cell).padding).toBe('var(--chakra-spacing-0)');
+      expect(content.className).toBe(referenceContent.className);
+      expect(properties.map((property) => getComputedStyle(content).getPropertyValue(property)))
+        .toEqual(properties.map((property) => getComputedStyle(referenceContent).getPropertyValue(property)));
+      expect(content.textContent).toBe(referenceContent.textContent);
+      unmountReference();
+      unmount();
+    }
+  });
+
+  it('keeps the table fixed and full width for price updates only', function priceUpdateTableLayout() {
+    const { container } = render(
+      <TxsTable txs={ [ txMock.priceUpdate ] } sort="default" top={ 0 } showBlockInfo stickyHeader={ false }/>,
+    );
+    const table = container.querySelector('table')!;
+    const headers = table.querySelectorAll('thead th');
+
+    expect(tableStyleValues(table, 'table-layout')).toEqual([ { media: '', value: 'fixed' } ]);
+    expect(tableStyleValues(table, 'width')).toEqual([ { media: '', value: 'var(--chakra-sizes-full)' } ]);
+    expect(getComputedStyle(table).minWidth).toBe('76rem');
+    expect(getComputedStyle(headers[5]).width).toBe('');
+    expect(getComputedStyle(headers[0]).position).toBe('sticky');
+    expect(getComputedStyle(headers[0]).left).toBe('var(--chakra-spacing-0)');
+  });
+
+  it('keeps both ends of each counterparty address and the price feed link', function counterpartyAddressText() {
+    const ordinary = { ...txMock.base, from: { ...txMock.base.from, ens_domain_name: null } };
+    const { container } = render(
+      <TxsTable txs={ [ txMock.priceUpdate, ordinary ] } sort="default" top={ 0 } showBlockInfo stickyHeader={ false }/>,
+    );
+    const cells = Array.from(container.querySelectorAll('tbody tr')).map((row) => row.querySelectorAll('td')[5]);
+
+    expect(Array.from(cells[0].querySelectorAll('[data-entity-content]')).map((content) => content.textContent)).toEqual([ '0x7c...9f01' ]);
+    expect(cells[0].querySelector('a[href="/feed"]')?.textContent).toBe('Price feed');
+    expect(Array.from(cells[1].querySelectorAll('[data-entity-content]')).map((content) => content.textContent))
+      .toEqual([ '0x04...84B9', '0xd7...5859' ]);
+  });
+
+  it.each([ 18, 999 ])('carries the full price update action in the title when clipped with %i markets', function priceUpdateActionTitle(count) {
+    const { container } = render(
+      <TxsTable
+        txs={ [ { ...txMock.priceUpdate, price_update: { ...txMock.priceUpdate.price_update, observation_count: count } } ] }
+        sort="default"
+        top={ 0 }
+        showBlockInfo
+        stickyHeader={ false }
+      />,
+    );
+    const cell = container.querySelectorAll('tbody tr td')[2];
+
+    expect(cell.textContent).toBe(`Price update · ${ count } markets`);
+    expect(cell.getAttribute('title')).toBe(cell.textContent);
   });
 
   it('takes the scan table styling from the table recipe', () => {

@@ -30,7 +30,7 @@ const MultichainTokenTransfersLocal = ({ query, typeFilter, onTokenTypesChange }
 
   const actionBar = isMobile && (
     <ActionBar mt={ -6 }>
-      <PopoverFilter contentProps={{ w: '200px' }} appliedFiltersNum={ typeFilter.length }>
+      <PopoverFilter contentProps={{ w: 'calc(var(--chakra-spacing-1) * 50)' }} appliedFiltersNum={ typeFilter.length }>
         <TokenTypeFilter<TokenType>
           onChange={ onTokenTypesChange }
           defaultValue={ typeFilter }

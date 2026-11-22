@@ -29,7 +29,9 @@ function loadFromStorage(): Set<string> {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set();
     return new Set(
-      parsed.filter((v): v is string => typeof v === "string").map((v) => v.toUpperCase()),
+      parsed
+        .filter((v): v is string => typeof v === "string")
+        .map((v) => v.toUpperCase()),
     );
   } catch {
     return new Set();
@@ -53,7 +55,11 @@ function ensureLoaded(): void {
 
 function emit(): void {
   _subscribers.forEach((cb) => {
-    try { cb(_favorites); } catch { /* ignore */ }
+    try {
+      cb(_favorites);
+    } catch {
+      /* ignore */
+    }
   });
 }
 

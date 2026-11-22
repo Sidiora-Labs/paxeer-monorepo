@@ -2,8 +2,8 @@ import React from 'react';
 
 import type { UserOp } from 'types/api/userOps';
 
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import RawInputData from 'ui/shared/RawInputData';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import UserOpCallDataSwitch from './UserOpCallDataSwitch';
 

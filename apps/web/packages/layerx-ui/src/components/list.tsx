@@ -7,7 +7,10 @@ import { cn } from "../lib/utils";
 /* ------------------------------------------------------------------ List */
 
 /** Vertical stack of rows with hairline dividers between them. */
-export function List({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function List({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn("flex flex-col divide-y divide-border/70", className)}
@@ -50,7 +53,10 @@ export function IconTile({
 
 /* -------------------------------------------------------------- ListItem */
 
-export interface ListItemProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
+export interface ListItemProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  "title"
+> {
   /** Avatar, IconTile, flag, or any leading node. */
   leading?: React.ReactNode;
   title: React.ReactNode;
@@ -92,26 +98,38 @@ export function ListItem({
       }
       className={cn(
         "flex w-full items-center gap-3 py-3.5 text-left",
-        interactive && "cursor-pointer transition-colors hover:bg-surface-sunken/40 -mx-2 px-2 rounded-md",
+        interactive &&
+          "cursor-pointer transition-colors hover:bg-surface-sunken/40 -mx-2 px-2 rounded-md outline-none focus:ring-2 focus:ring-accent-strong focus:ring-offset-2",
         className,
       )}
       {...props}
     >
       {leading}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-[15px] font-semibold text-foreground">{title}</span>
+        <span className="truncate text-body-sm font-semibold text-foreground">
+          {title}
+        </span>
         {subtitle && (
-          <span className="truncate text-[13px] text-muted-foreground">{subtitle}</span>
+          <span className="truncate text-label text-muted-foreground">
+            {subtitle}
+          </span>
         )}
       </span>
       {(trailing || navigates) && (
-        <span className="flex shrink-0 flex-col items-end gap-0.5">
-          <span className="flex items-center gap-1.5">
+        <span className="flex min-w-0 max-w-full shrink-0 flex-col items-end gap-0.5">
+          <span className="flex max-w-full flex-wrap items-center justify-end gap-1.5 text-right tabular-nums">
             {trailing}
-            {navigates && <ChevronRight className="size-4 text-faint-foreground" aria-hidden />}
+            {navigates && (
+              <ChevronRight
+                className="size-4 text-faint-foreground"
+                aria-hidden
+              />
+            )}
           </span>
           {trailingCaption && (
-            <span className="text-xs text-faint-foreground">{trailingCaption}</span>
+            <span className="max-w-full text-right text-xs text-faint-foreground">
+              {trailingCaption}
+            </span>
           )}
         </span>
       )}
@@ -133,7 +151,7 @@ export function SectionHeader({
 }) {
   return (
     <div className={cn("flex items-center justify-between gap-3", className)}>
-      <h3 className="text-[17px] font-bold text-foreground">{title}</h3>
+      <h3 className="text-title-sm font-bold text-foreground">{title}</h3>
       {action}
     </div>
   );
@@ -149,7 +167,7 @@ export function ViewAllChip({
     <button
       type="button"
       className={cn(
-        "inline-flex h-8 items-center rounded-full bg-surface border border-border px-3.5 text-[13px] font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
+        "inline-flex min-h-8 items-center rounded-full bg-surface border border-border-strong px-3.5 text-label font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
         className,
       )}
       {...props}

@@ -22,10 +22,10 @@ defmodule Indexer.InteropRelayExportTransportTest do
       CREATE TEMP TABLE op_interop_messages (
         sender_address_hash bytea, target_address_hash bytea, nonce bigint NOT NULL,
         init_chain_id integer NOT NULL, init_transaction_hash bytea, block_number bigint,
-        timestamp timestamp, relay_chain_id integer NOT NULL, relay_transaction_hash bytea,
+        timestamp timestamp(6), relay_chain_id integer NOT NULL, relay_transaction_hash bytea,
         payload bytea, failed boolean, transfer_token_address_hash bytea,
         transfer_from_address_hash bytea, transfer_to_address_hash bytea, transfer_amount numeric,
-        sent_to_multichain boolean, inserted_at timestamp NOT NULL, updated_at timestamp NOT NULL,
+        sent_to_multichain boolean, inserted_at timestamp(6) NOT NULL, updated_at timestamp(6) NOT NULL,
         PRIMARY KEY (nonce, init_chain_id)
       )
       """,
@@ -442,4 +442,3 @@ defmodule Indexer.InteropRelayExportTransportTest do
   defp hash(number), do: hex(<<number::256>>)
   defp address(number), do: hex(<<number::160>>)
 end
-

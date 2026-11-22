@@ -59,6 +59,22 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
 
   const { colorMode } = useColorMode();
 
+  if (isLoading) {
+    return (
+      <TableRow aria-busy="true">
+        <TableCell>
+          <Flex alignItems="center">
+            <Skeleton loading boxSize="20px" mr={ 2 } flexShrink={ 0 }/>
+            <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
+          </Flex>
+        </TableCell>
+        <TableCell verticalAlign="middle"><Skeleton loading h="1lh" w="100%"/></TableCell>
+        <TableCell verticalAlign="middle" isNumeric><Skeleton loading h="1lh" w={ 12 } ml="auto" maxW="100%"/></TableCell>
+        <TableCell verticalAlign="middle"><Skeleton loading h="1lh" w={ 10 } maxW="100%"/></TableCell>
+      </TableRow>
+    );
+  }
+
   const content = (() => {
     switch (data.type) {
       case 'token': {
@@ -72,7 +88,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                 <TokenEntity.Icon token={{ ...data, type: data.token_type }} isLoading={ isLoading }/>
                 <Link
                   href={ route({ pathname: '/token/[hash]', query: { hash: data.address_hash } }) }
-                  fontWeight={ 700 }
+                  fontWeight="bold"
                   wordBreak="break-all"
                   overflow="hidden"
                   loading={ isLoading }
@@ -87,21 +103,21 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                   />
                 </Link>
                 { data.certified && <ContractCertifiedLabel iconSize={ 4 } boxSize={ 4 } ml={ 1 }/> }
-                { data.is_verified_via_admin_panel && !data.certified && <IconSvg name="certified" boxSize={ 4 } ml={ 1 } color="green.500"/> }
+                { data.is_verified_via_admin_panel && !data.certified && <IconSvg name="certified" boxSize={ 4 } ml={ 1 } color="positive"/> }
                 { data.reputation && <TokenEntity.Reputation value={ data.reputation }/> }
               </Flex>
             </TableCell>
             <TableCell verticalAlign="middle">
               <Skeleton loading={ isLoading } whiteSpace="nowrap" overflow="hidden" display="flex" alignItems="center">
-                <Box overflow="hidden" whiteSpace="nowrap" w={ data.is_smart_contract_verified ? 'calc(100%-28px)' : 'unset' }>
+                <Box overflow="hidden" whiteSpace="nowrap" w={ data.is_smart_contract_verified ? 'calc(100% - var(--chakra-sizes-7))' : 'unset' }>
                   <HashStringShortenDynamic hash={ hash }/>
                 </Box>
-                { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="14px" color="green.500" ml={ 1 } flexShrink={ 0 }/> }
+                { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="3.5" color="positive" ml={ 1 } flexShrink={ 0 }/> }
               </Skeleton>
             </TableCell>
             <TableCell verticalAlign="middle" isNumeric>
               <Skeleton loading={ isLoading } whiteSpace="nowrap" overflow="hidden">
-                <Text overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis" fontWeight={ 700 }>
+                <Text overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis" fontWeight="bold">
                   { data.token_type === 'ERC-20' && data.exchange_rate && `$${ Number(data.exchange_rate).toLocaleString() }` }
                   { data.token_type !== 'ERC-20' && data.total_supply && `Items ${ Number(data.total_supply).toLocaleString() }` }
                 </Text>
@@ -143,7 +159,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     asProp={ shouldHighlightHash ? 'mark' : 'span' }
                     address={{ ...address, hash }}
                     textStyle="sm"
-                    fontWeight={ 700 }
+                    fontWeight="bold"
                   />
                 </AddressEntity.Link>
                 <AddressEntity.Copy address={{ ...address, hash }}/>
@@ -190,7 +206,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                 <IconSvg name="publictags" boxSize={ 6 } mr={ 2 } color="icon.primary"/>
                 <Link
                   href={ route({ pathname: '/address/[hash]', query: { hash: data.address_hash } }) }
-                  fontWeight={ 700 }
+                  fontWeight="bold"
                   wordBreak="break-all"
                   loading={ isLoading }
                   onClick={ handleLinkClick }
@@ -201,10 +217,10 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
             </TableCell>
             <TableCell verticalAlign="middle">
               <Flex alignItems="center" overflow="hidden">
-                <Box overflow="hidden" whiteSpace="nowrap" w={ data.is_smart_contract_verified ? 'calc(100%-28px)' : 'unset' }>
+                <Box overflow="hidden" whiteSpace="nowrap" w={ data.is_smart_contract_verified ? 'calc(100% - var(--chakra-sizes-7))' : 'unset' }>
                   <HashStringShortenDynamic hash={ hash }/>
                 </Box>
-                { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="14px" color="green.500" ml={ 1 } flexShrink={ 0 }/> }
+                { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="3.5" color="positive" ml={ 1 } flexShrink={ 0 }/> }
               </Flex>
             </TableCell>
             <TableCell/>
@@ -230,7 +246,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     route({ pathname: '/apps', query: { selectedAppId: data.app.id } }) :
                     route({ pathname: '/apps/[id]', query: { id: data.app.id } })
                   }
-                  fontWeight={ 700 }
+                  fontWeight="bold"
                   wordBreak="break-all"
                   loading={ isLoading }
                   onClick={ handleLinkClick }
@@ -273,7 +289,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     asProp={ shouldHighlightHash ? 'span' : 'mark' }
                     number={ Number(data.block_number) }
                     textStyle="sm"
-                    fontWeight={ 700 }
+                    fontWeight="bold"
                     isLoading={ isLoading }
                   />
                 </BlockEntity.Link>
@@ -319,7 +335,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     asProp="mark"
                     hash={ data.hash }
                     textStyle="sm"
-                    fontWeight={ 700 }
+                    fontWeight="bold"
                   />
                 </TxEntity.Link>
                 <Badge colorPalette="green" ml={ 2 } flexShrink={ 0 }>Price update</Badge>
@@ -347,7 +363,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     asProp="mark"
                     hash={ data.transaction_hash }
                     textStyle="sm"
-                    fontWeight={ 700 }
+                    fontWeight="bold"
                   />
                 </TxEntity.Link>
               </TxEntity.Container>
@@ -375,7 +391,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     asProp={ data.cctx.index === searchTerm ? 'mark' : 'span' }
                     hash={ data.cctx.index }
                     textStyle="sm"
-                    fontWeight={ 700 }
+                    fontWeight="bold"
                   />
                 </TxEntity.Link>
               </TxEntity.Container>
@@ -402,7 +418,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     asProp="mark"
                     id={ data.tac_operation.operation_id }
                     textStyle="sm"
-                    fontWeight={ 700 }
+                    fontWeight="bold"
                     mr={ 2 }
                   />
                 </OperationEntity.Link>
@@ -430,7 +446,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                   asProp="mark"
                   hash={ data.blob_hash }
                   textStyle="sm"
-                  fontWeight={ 700 }
+                  fontWeight="bold"
                 />
               </BlobEntity.Link>
             </BlobEntity.Container>
@@ -453,7 +469,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     asProp="mark"
                     hash={ data.user_operation_hash }
                     textStyle="sm"
-                    fontWeight={ 700 }
+                    fontWeight="bold"
                   />
                 </UserOpEntity.Link>
               </UserOpEntity.Container>
@@ -479,7 +495,7 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
                     route({ pathname: '/address/[hash]', query: { hash: data.address_hash } }) :
                     route({ pathname: '/name-services/domains/[name]', query: { name: data.ens_info.name } })
                   }
-                  fontWeight={ 700 }
+                  fontWeight="bold"
                   wordBreak="break-all"
                   loading={ isLoading }
                   onClick={ handleLinkClick }
@@ -498,11 +514,11 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
             <TableCell>
               <Flex alignItems="center" overflow="hidden">
                 { hash && (
-                  <Box overflow="hidden" whiteSpace="nowrap" w={ data.is_smart_contract_verified ? 'calc(100%-28px)' : 'unset' }>
+                  <Box overflow="hidden" whiteSpace="nowrap" w={ data.is_smart_contract_verified ? 'calc(100% - var(--chakra-sizes-7))' : 'unset' }>
                     <HashStringShortenDynamic hash={ hash }/>
                   </Box>
                 ) }
-                { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="14px" color="green.500" ml={ 1 } flexShrink={ 0 }/> }
+                { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="3.5" color="positive" ml={ 1 } flexShrink={ 0 }/> }
               </Flex>
             </TableCell>
             <TableCell>

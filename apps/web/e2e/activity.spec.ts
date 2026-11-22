@@ -108,7 +108,7 @@ const mockActivityDetail: ActivityEntryDetail = {
     {
       class: "layerx-receipt",
       evidence_id: "rcpt_001",
-      verification: "checkpoint-finalised",
+      verification: "committed",
     },
   ],
   stages: [
@@ -126,7 +126,7 @@ const mockActivityDetail: ActivityEntryDetail = {
         {
           class: "checkpoint-proof",
           evidence_id: "chkpt_001",
-          verification: "checkpoint-finalised",
+          verification: "committed",
         },
       ],
     },
@@ -416,7 +416,7 @@ test("receiptBacked identifies receipt-verified evidence", () => {
     receiptBacked({
       class: "layerx-receipt",
       evidence_id: "rcpt_001",
-      verification: "checkpoint-finalised",
+      verification: "committed",
     }),
     true,
   );
@@ -432,7 +432,7 @@ test("receiptBacked identifies receipt-verified evidence", () => {
     receiptBacked({
       class: "checkpoint-proof",
       evidence_id: "chkpt_001",
-      verification: "checkpoint-finalised",
+      verification: "committed",
     }),
     false,
   );
@@ -483,7 +483,7 @@ test("explorerPath resolves native receipts and refuses unresolved evidence and 
 });
 
 test("verificationLabel returns localized label for verification levels", () => {
-  const levels = ["unverified", "receipt-verified", "checkpoint-finalised"] as const;
+  const levels = ["unverified", "receipt-verified", "committed"] as const;
   for (const level of levels) {
     const label = verificationLabel(level);
     assert.equal(typeof label, "string");
@@ -506,11 +506,11 @@ test("entryVerification returns the highest verification level from evidence", (
     {
       class: "checkpoint-proof" as const,
       evidence_id: "chkpt_1",
-      verification: "checkpoint-finalised" as const,
+      verification: "committed" as const,
     },
     { class: "layerx-receipt" as const, evidence_id: "rcpt_2", verification: "receipt-verified" as const },
   ];
-  assert.equal(entryVerification(evidence), "checkpoint-finalised");
+  assert.equal(entryVerification(evidence), "committed");
   assert.equal(entryVerification([]), "unverified");
 });
 

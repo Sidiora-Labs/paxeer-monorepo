@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
 import { Users } from 'lucide-react';
@@ -28,13 +29,16 @@ const qualityNotes = { complete: null, partial: 'Still counting', unavailable: '
  */
 export function TradersBoard({ period, className }: TradersBoardProps) {
   const window: LeaderboardWindow = periodWindows[period];
-  const board = useLeaderboard('trader', window, leaderboardLimit);
+  const [page, setPage] = useState<{ window: LeaderboardWindow; cursor?: string }>({ window });
+  const cursor = page.window === window ? page.cursor : undefined;
+  const board = useLeaderboard('trader', window, leaderboardLimit, cursor);
   const wallets = board.state === 'ready' ? board.data.data.snapshot.entries.map(entry => entry.wallet) : [];
   const { identities } = useWalletIdentities(wallets);
   const account = useAccount();
   const viewer = account.address?.toLowerCase() ?? null;
   const client = useQueryClient();
   const retry = () => { void client.invalidateQueries({ queryKey: queryKeys.leaderboard('trader', window, leaderboardLimit) }); };
+  const empty = board.state === 'ready' && board.data.data.snapshot.entries.length === 0;
 
   return (
     <section aria-labelledby="traders-board-title" className={cn('rounded-lg bg-surface-1 p-3 sm:p-4', className)}>
@@ -43,42 +47,46 @@ export function TradersBoard({ period, className }: TradersBoardProps) {
         description={`${periodLabels[period]}, ranked by profit`}
         loading={board.state === 'loading'}
       />
-      <div className="mt-3">
-        {board.state === 'loading' ? <RankRowSkeleton count={8} /> : null}
-        {board.state === 'unsupported' ? (
-          <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} message="Trader rankings are coming soon" onRetry={retry} />
-        ) : null}
-        {board.state === 'error' ? <ErrorState title="Couldn't load the leaderboard" message="Something went wrong, try again" onRetry={board.retry} /> : null}
-        {board.state === 'ready' && board.data.data.snapshot.entries.length === 0 ? (
+      <div className="relative mt-3 grid min-w-0">
+        <div aria-hidden={!empty || undefined} inert={!empty || undefined} className={cn('col-start-1 row-start-1 min-w-0', !empty && 'absolute invisible')}>
           <EmptyState icon={Users} title="No traders yet" body={`Top traders from the ${periodLabels[period].toLowerCase()} show up here once people trade`} action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} />
-        ) : null}
-        {board.state === 'ready' && board.data.data.snapshot.entries.length > 0 ? (
-          <>
-            <ol className="flex flex-col gap-0.5" aria-label={`Top traders, ${periodLabels[period].toLowerCase()}`}>
-              {board.data.data.snapshot.entries.map(entry => {
-                const wallet = entry.wallet.toLowerCase();
-                const identity = identities[wallet];
-                const metric = entry.quality === 'unavailable' ? null : entry.metricSigned ?? entry.metricRaw;
-                return (
-                  <RankRow
-                    key={wallet}
-                    rank={entry.rank}
-                    wallet={wallet}
-                    identity={identity}
-                    metricSigned={metric}
-                    qualityNote={qualityNotes[entry.quality]}
-                    self={viewer === wallet}
-                    actions={<FollowButton wallet={wallet} handle={identity?.displayName ?? null} variant="icon" />}
-                  />
-                );
-              })}
-            </ol>
-            <p className="mt-3 font-mono text-2xs text-text-faint">
-              Updated {relativeAge(board.data.generatedAt)} ago
-            </p>
-          </>
-        ) : null}
+        </div>
+        <div className="col-start-1 row-start-1 min-w-0">
+          {board.state === 'loading' ? <RankRowSkeleton count={1} /> : null}
+          {board.state === 'unsupported' ? (
+            <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} message="Trader rankings are coming soon" onRetry={retry} />
+          ) : null}
+          {board.state === 'error' ? <ErrorState title="Couldn't load the leaderboard" message="Something went wrong, try again" onRetry={board.retry} /> : null}
+          {board.state === 'ready' && board.data.data.snapshot.entries.length > 0 ? (
+            <>
+              <ol className="flex flex-col gap-0.5" aria-label={`Top traders, ${periodLabels[period].toLowerCase()}`}>
+                {board.data.data.snapshot.entries.map(entry => {
+                  const wallet = entry.wallet.toLowerCase();
+                  const identity = identities[wallet];
+                  const metric = entry.quality === 'unavailable' ? null : entry.metricSigned ?? entry.metricRaw;
+                  return (
+                    <RankRow
+                      key={wallet}
+                      rank={entry.rank}
+                      wallet={wallet}
+                      identity={identity}
+                      metricSigned={metric}
+                      qualityNote={qualityNotes[entry.quality]}
+                      self={viewer === wallet}
+                      actions={<FollowButton wallet={wallet} handle={identity?.displayName ?? null} variant="icon" />}
+                    />
+                  );
+                })}
+              </ol>
+              <p className="mt-3 font-mono text-2xs text-text-faint">
+                Updated {relativeAge(board.data.generatedAt)} ago
+              </p>
+            </>
+          ) : null}
+        </div>
       </div>
+      {board.state === 'ready' && board.data.nextCursor ? <Button variant="secondary" size="sm" onClick={() => setPage({ window, cursor: board.data.nextCursor ?? undefined })}>Next page</Button> : null}
+      {cursor ? <Button variant="ghost" size="sm" onClick={() => setPage({ window })}>First page</Button> : null}
     </section>
   );
 }

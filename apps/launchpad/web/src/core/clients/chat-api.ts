@@ -1,5 +1,5 @@
 import { gatewayUrl, socialWriteUrl } from '@/core/sdk-config';
-import { accountSession } from '@/widgets/profile/account-transport';
+import { accountSession, assertAccount, requireAccount } from '@/widgets/profile/account-transport';
 
 export type SendState = 'submitting' | 'persisted' | 'delivered' | 'rejected' | 'uncertain';
 export interface PoolMessage {
@@ -25,13 +25,16 @@ function bearer(): string {
   return token;
 }
 export async function chatRequest(path: string, init: RequestInit = {}): Promise<unknown> {
+  const scope = requireAccount();
+  const signal = AbortSignal.any([scope.signal, AbortSignal.timeout(8000), ...(init.signal ? [init.signal] : [])]);
   const headers = new Headers(init.headers); headers.set('Accept', 'application/json'); headers.set('Authorization', `Bearer ${bearer()}`);
-  const response = await fetch(socialWriteUrl(path), { ...init, credentials: 'omit', cache: 'no-store', redirect: 'error', headers });
+  const response = await fetch(socialWriteUrl(path), { ...init, signal, credentials: 'omit', cache: 'no-store', redirect: 'error', headers });
   const value: unknown = await response.json().catch(() => { throw new ChatError(response.status, `Chat request failed (${response.status})`); });
   if (!response.ok) {
     const error = value as { code?: string; error?: string; next_cursor?: string };
     throw new ChatError(response.status, error.code ?? error.error ?? `Chat request failed (${response.status})`, error.next_cursor);
   }
+  assertAccount(scope);
   return value;
 }
 function record(value: unknown): Record<string, unknown> {
@@ -83,6 +86,8 @@ export async function streamFilterDigest(topics: readonly string[]): Promise<str
  * after 30 seconds.
  */
 export async function issueChatTicket(topics: string[], signal: AbortSignal): Promise<ChatTicket> {
+  const scope = requireAccount();
+  signal = AbortSignal.any([signal, scope.signal, AbortSignal.timeout(8000)]);
   const filterDigest = await streamFilterDigest(topics);
   const token = bearer();
   const response = await fetch(gatewayUrl('/v2/stream/tickets'), { method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error', signal, headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ schemaMajor: 2, topics, filterDigest, origin: window.location.origin, endpoint: '/v2/stream' }) });
@@ -94,6 +99,7 @@ export async function issueChatTicket(topics: string[], signal: AbortSignal): Pr
   const envelope = record(raw), data = record(envelope.data);
   const expiresAt = text(data.expiresAt, 'ticket expiry'), ticket = text(data.ticket, 'ticket');
   if (!/^[0-9a-f]{64}$/.test(ticket) || data.subprotocol !== 'sidiora.v2' || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now() || Date.parse(expiresAt) > Date.now() + 60_000) throw new Error('Invalid chat upgrade ticket');
+  assertAccount(scope);
   return { ticket, expiresAt, subprotocol: 'sidiora.v2' };
 }
 

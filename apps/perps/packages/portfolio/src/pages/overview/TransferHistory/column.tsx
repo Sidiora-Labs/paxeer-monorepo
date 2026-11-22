@@ -6,13 +6,17 @@ import { Flex, TokenIcon, Text, toast, Badge } from "@paxeer-network/ui";
 import type { Column } from "@paxeer-network/ui";
 import { capitalizeString } from "@paxeer-network/utils";
 
+const EMPTY_SUB_ACCOUNTS: NonNullable<
+  ReturnType<typeof useAccount>["state"]["subAccounts"]
+> = [];
+
 export const useColumns = () => {
   const { t } = useTranslation();
   const onCopy = () => {
     toast.success(t("common.copy.copied"));
   };
   const { state } = useAccount();
-  const sub = state.subAccounts ?? [];
+  const sub = state.subAccounts ?? EMPTY_SUB_ACCOUNTS;
   const columns = React.useMemo<Column<API.TransferHistoryRow>[]>(() => {
     return [
       {

@@ -17,18 +17,28 @@ function contrastRatio(foreground: string, background: string): number {
     (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
 }
 
-function lightMutedLabelsMeetThreeToOneContrast() {
-  expect(contrastRatio(LIGHT_ROLES.textMuted, LIGHT_ROLES.surface)).toBeGreaterThanOrEqual(3);
+function lightMutedLabelsMeetTextContrast() {
+  expect(contrastRatio(LIGHT_ROLES.textMuted, LIGHT_ROLES.surface)).toBeGreaterThanOrEqual(4.5);
 }
 
-function darkMutedLabelsMeetThreeToOneContrast() {
-  expect(contrastRatio(DARK_ROLES.textMuted, DARK_ROLES.surface)).toBeGreaterThanOrEqual(3);
+function darkMutedLabelsMeetTextContrast() {
+  expect(contrastRatio(DARK_ROLES.textMuted, DARK_ROLES.surface)).toBeGreaterThanOrEqual(4.5);
 }
 
 function formerLightMutedLabelFailsThreeToOneContrast() {
   expect(contrastRatio('#8A91A0', LIGHT_ROLES.surface)).toBeLessThan(3);
 }
 
-test(lightMutedLabelsMeetThreeToOneContrast, lightMutedLabelsMeetThreeToOneContrast);
-test(darkMutedLabelsMeetThreeToOneContrast, darkMutedLabelsMeetThreeToOneContrast);
+function semanticStatusTextAndButtonLabelsMeetTextContrast() {
+  for (const palette of [ LIGHT_ROLES, DARK_ROLES ]) {
+    for (const foreground of [ palette.textMuted, palette.positive, palette.negative, palette.warning ]) {
+      expect(contrastRatio(foreground, palette.surface)).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrastRatio(palette.onAccent, palette.accent)).toBeGreaterThanOrEqual(4.5);
+  }
+}
+
+test(semanticStatusTextAndButtonLabelsMeetTextContrast, semanticStatusTextAndButtonLabelsMeetTextContrast);
+test(lightMutedLabelsMeetTextContrast, lightMutedLabelsMeetTextContrast);
+test(darkMutedLabelsMeetTextContrast, darkMutedLabelsMeetTextContrast);
 test(formerLightMutedLabelFailsThreeToOneContrast, formerLightMutedLabelFailsThreeToOneContrast);

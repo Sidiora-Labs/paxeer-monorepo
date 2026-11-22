@@ -35,12 +35,17 @@ export const useScanQRCodeScript = () => {
   };
 
   useEffect(() => {
+    const dismiss = () => setShowScanTooltip(false);
     if (showScanTooltip) {
+      document.addEventListener("pointerdown", dismiss, { once: true });
+      document.addEventListener("keydown", dismiss, { once: true });
       timerRef.current = setTimeout(() => {
         setShowScanTooltip(false);
       }, 8000);
     }
     return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", dismiss);
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }

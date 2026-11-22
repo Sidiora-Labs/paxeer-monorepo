@@ -48,12 +48,12 @@ const ZetaChainCCTxsTable = ({
 
   return (
     <AddressHighlightProvider>
-      <TableRoot minWidth="950px">
+      <TableRoot minWidth="calc(var(--chakra-spacing-1) * 237.5)">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            <TableColumnHeader width="300px">
+            <TableColumnHeader width="var(--chakra-spacing-75)">
               <Flex alignItems="center" columnGap={ 2 }>
-                <chakra.span lineHeight="24px" verticalAlign="middle">
+                <chakra.span lineHeight="h2" verticalAlign="middle">
                   CCTx hash
                 </chakra.span>
                 <ZetaChainFilterByColumn
@@ -66,8 +66,8 @@ const ZetaChainCCTxsTable = ({
                 <TimeFormatToggle ml={ 0 }/>
               </Flex>
             </TableColumnHeader>
-            <TableColumnHeader width="105px">
-              <chakra.span mr={ 2 } lineHeight="24px" verticalAlign="middle">
+            <TableColumnHeader width="calc(var(--chakra-spacing-1) * 26.25)">
+              <chakra.span mr={ 2 } lineHeight="h2" verticalAlign="middle">
                 Status
               </chakra.span>
               { showStatusFilter && (
@@ -80,8 +80,8 @@ const ZetaChainCCTxsTable = ({
                 />
               ) }
             </TableColumnHeader>
-            <TableColumnHeader width="200px">
-              <chakra.span mr={ 2 } lineHeight="24px" verticalAlign="middle">
+            <TableColumnHeader width="calc(var(--chakra-spacing-1) * 50)">
+              <chakra.span mr={ 2 } lineHeight="h2" verticalAlign="middle">
                 Sender
               </chakra.span>
               <ZetaChainFilterByColumn
@@ -92,8 +92,8 @@ const ZetaChainCCTxsTable = ({
                 isLoading={ isPlaceholderData }
               />
             </TableColumnHeader>
-            <TableColumnHeader width="165px">
-              <chakra.span mr={ 2 } lineHeight="24px" verticalAlign="middle">
+            <TableColumnHeader width="calc(var(--chakra-spacing-1) * 41.25)">
+              <chakra.span mr={ 2 } lineHeight="h2" verticalAlign="middle">
                 Receiver
               </chakra.span>
               <ZetaChainFilterByColumn
@@ -105,7 +105,7 @@ const ZetaChainCCTxsTable = ({
               />
             </TableColumnHeader>
             <TableColumnHeader width="100%" isNumeric>
-              <chakra.span mr={ 2 } lineHeight="24px" verticalAlign="middle">
+              <chakra.span mr={ 2 } lineHeight="h2" verticalAlign="middle">
                 Value
               </chakra.span>
               <ZetaChainFilterByColumn

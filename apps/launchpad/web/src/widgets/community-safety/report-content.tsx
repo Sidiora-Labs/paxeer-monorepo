@@ -61,7 +61,7 @@ export function ReportContent({ client, targetType, targetId, onLocalMute, onLoc
                 </div>
                 <div className="flex flex-col gap-1.5">
                     <label htmlFor={`${id}-description`} className="text-sm font-bold text-text">Details</label>
-                    <textarea id={`${id}-description`} name="description" maxLength={4000} rows={4} className={cn(fieldClass, 'min-h-24 resize-y py-2 leading-5')} placeholder="What happened? (optional)" />
+                    <textarea id={`${id}-description`} name="description" maxLength={4000} rows={4} className={cn(fieldClass, 'min-h-24 resize-y py-2 leading-[var(--sl-leading-base)]')} placeholder="What happened? (optional)" />
                 </div>
                 <div className="flex justify-end">
                     <Button type="submit" variant="primary" size="md" loading={busy}>Send report</Button>

@@ -1,18 +1,17 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { themeStyleSheet } from '@/theme/styles';
 import { describe, expect, it } from 'vitest';
 
-const EMOJI =
-  /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
-const DISALLOWED_VISUAL =
-  /(purple|violet|fuchsia|drop-shadow|radial-gradient|glow)/i;
+const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+const DISALLOWED_VISUAL = /(purple|violet|fuchsia|drop-shadow|radial-gradient|glow)/i;
 
 function productionComponents(): string[] {
   return execFileSync(
     'find',
     ['src', '-type', 'f', '(', '-name', '*.tsx', '-o', '-name', '*.ts', ')'],
-    { encoding: 'utf8' },
+    { encoding: 'utf8' }
   )
     .trim()
     .split('\n')
@@ -25,7 +24,7 @@ function renderedTextAndClasses(file: string): string[] {
     readFileSync(file, 'utf8'),
     ts.ScriptTarget.Latest,
     true,
-    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
   );
   const values: string[] = [];
   const visit = (node: ts.Node) => {
@@ -50,14 +49,10 @@ describe('professional visual system', () => {
     const violations: string[] = [];
     for (const file of productionComponents()) {
       for (const value of renderedTextAndClasses(file)) {
-        const hasBorderClass = value.split(/\s+/).some((token) =>
-          /(?:^|:)border(?:-|$)|(?:^|:)divide-[xy](?:-|$)/.test(token),
-        );
-        if (
-          hasBorderClass ||
-          DISALLOWED_VISUAL.test(value) ||
-          EMOJI.test(value)
-        ) {
+        const hasBorderClass = value
+          .split(/\s+/)
+          .some((token) => /(?:^|:)border(?:-|$)|(?:^|:)divide-[xy](?:-|$)/.test(token));
+        if (hasBorderClass || DISALLOWED_VISUAL.test(value) || EMOJI.test(value)) {
           violations.push(file);
           break;
         }
@@ -81,7 +76,7 @@ describe('professional visual system', () => {
       '--elevation-sheet',
       '--safe-area-top',
     ]) {
-      expect(css).toContain(token);
+      expect(css + themeStyleSheet()).toContain(token);
     }
     expect(css).not.toMatch(/\bborder\s*:\s*(?!none\b)/);
     expect(css).not.toMatch(/\bborder-(?:top|right|bottom|left)\s*:\s*(?!none\b)/);

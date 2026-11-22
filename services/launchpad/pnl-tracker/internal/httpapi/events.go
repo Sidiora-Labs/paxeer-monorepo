@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -53,6 +54,7 @@ func logEvent(svc *referral.Service) http.HandlerFunc {
 				sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid event type")
 				return
 			}
+			slog.ErrorContext(r.Context(), "event log failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "event log failed")
 			return
 		}
@@ -65,6 +67,7 @@ func sharerStats(svc *referral.Service) http.HandlerFunc {
 		address := strings.ToLower(chi.URLParam(r, "address"))
 		stats, err := svc.Stats(r.Context(), address)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "sharer stats failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "sharer stats failed")
 			return
 		}

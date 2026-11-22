@@ -14,8 +14,10 @@ import { OrderStatus } from "@paxeer-network/types";
 import { toast } from "@paxeer-network/ui";
 import { getOrderExecutionReportMsg } from "./getOrderExecutionReportMsg";
 
-export const PAXEER_NETWORK_ORDER_SOUND_ALERT_KEY = "paxeerNetwork_order_sound_alert";
-export const PAXEER_NETWORK_ORDER_SOUND_OPTION_KEY = "paxeerNetwork_order_sound_option";
+export const PAXEER_NETWORK_ORDER_SOUND_ALERT_KEY =
+  "paxeerNetwork_order_sound_alert";
+export const PAXEER_NETWORK_ORDER_SOUND_OPTION_KEY =
+  "paxeerNetwork_order_sound_option";
 
 export const useExecutionReport = () => {
   const ee = useEventEmitter();

@@ -83,7 +83,7 @@ describe('LatestTxsItem', () => {
     expect(labels.indexOf('tx-value')).toBe(hashIndex + 2);
   });
 
-  it('shows a price update with its feed link, market count, feeder, the price feed and dashes for value and fee', () => {
+  it('shows a price update with its feed link, market count in the value cell, feeder, price feed and fee dash', () => {
     const { container } = renderRow(txMock.priceUpdateItem);
 
     const row = container.querySelector(`[data-latest-tx="${ txMock.priceUpdateItem.hash }"]`) as HTMLElement;
@@ -93,13 +93,55 @@ describe('LatestTxsItem', () => {
 
     expect(row.querySelector(`a[href="/feed/update/${ txMock.priceUpdateItem.hash }"]`)).not.toBeNull();
     expect(row.querySelector(`a[href="/tx/${ txMock.priceUpdateItem.hash }"]`)).toBeNull();
-    expect(tags.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Price update · 2 markets');
+    expect(tags.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Price update');
     expect(Array.from(parties.querySelectorAll('a[href^="/address/"]')).map((link) => link.getAttribute('href')))
       .toEqual([ `/address/${ txMock.priceUpdateItem.from.hash }` ]);
     expect(parties.querySelector('a[href="/feed"]')?.textContent).toBe('Price feed');
-    expect(value.textContent).toBe('—Fee —');
+    expect(tags.querySelector('[data-scan-method]')?.textContent).toBe('Price update');
+    expect(value.firstElementChild?.textContent).toBe('2 markets');
+    expect(window.getComputedStyle(value.firstElementChild as HTMLElement).whiteSpace).toBe('nowrap');
+    expect(value.lastElementChild?.textContent).toBe('Fee —');
+    expect(value.textContent).toBe('2 marketsFee —');
     expect(row.querySelector('button[aria-label="Transaction info"]')).toBeNull();
   });
+
+  function shows_one_market_in_the_value_cell() {
+    const tx: PriceUpdateItem = {
+      ...txMock.priceUpdateItem,
+      price_update: { ...txMock.priceUpdateItem.price_update, observation_count: 1 },
+    };
+    const { container } = renderRow(tx);
+    const tags = container.querySelector('[data-label="tx-tags"]') as HTMLElement;
+    const value = container.querySelector('[data-label="tx-value"]') as HTMLElement;
+
+    expect(tags.querySelector('[data-scan-method]')?.textContent).toBe('Price update');
+    expect(value.firstElementChild?.textContent).toBe('1 market');
+    expect(value.lastElementChild?.textContent).toBe('Fee —');
+    expect(value.textContent).toBe('1 marketFee —');
+  }
+
+  test(shows_one_market_in_the_value_cell.name, shows_one_market_in_the_value_cell);
+
+  function wraps_the_tags_beside_the_time_without_shrinking_kind_or_status() {
+    const tx: PriceUpdateItem = { ...txMock.priceUpdateItem, status: 'error', result: 'failed' };
+    const { container } = renderRow(tx);
+    const tags = container.querySelector('[data-label="tx-tags"]') as HTMLElement;
+    const line = tags.parentElement as HTMLElement;
+    const time = line.firstElementChild as HTMLElement;
+    const kind = tags.querySelector('[data-scan-method]') as HTMLElement;
+    const status = tags.querySelector('[data-status="error"]') as HTMLElement;
+
+    expect(window.getComputedStyle(line).flexWrap).toBe('wrap');
+    expect(window.getComputedStyle(line).overflow).not.toBe('hidden');
+    expect(window.getComputedStyle(tags).flexWrap).toBe('wrap');
+    expect(window.getComputedStyle(time).flexShrink).toBe('0');
+    expect(window.getComputedStyle(kind.parentElement as HTMLElement).flexShrink).toBe('0');
+    expect(window.getComputedStyle(status).flexShrink).toBe('0');
+    expect(kind.textContent).toBe('Price update');
+    expect(status.textContent).toBe('Failed');
+  }
+
+  test(wraps_the_tags_beside_the_time_without_shrinking_kind_or_status.name, wraps_the_tags_beside_the_time_without_shrinking_kind_or_status);
 
   function shows_a_failed_price_update_with_its_status() {
     const tx: PriceUpdateItem = { ...txMock.priceUpdateItem, status: 'error', result: 'failed' };
@@ -113,7 +155,7 @@ describe('LatestTxsItem', () => {
 
     expect(status).not.toBeNull();
     expect(status?.textContent).toBe('Failed');
-    expect(tags.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Price update · 2 markets');
+    expect(tags.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Price update');
     expect(lines).toHaveLength(2);
     expect(lines[0].firstElementChild?.textContent).toBe('From');
     expect(lines[0].querySelector(`a[href="/address/${ tx.from.hash }"]`)).not.toBeNull();
@@ -122,7 +164,7 @@ describe('LatestTxsItem', () => {
     expect(row.querySelector('button[aria-label="Transaction info"]')).toBeNull();
   }
 
-  test(shows_a_failed_price_update_with_its_status);
+  test(shows_a_failed_price_update_with_its_status.name, shows_a_failed_price_update_with_its_status);
 
   function shows_watchlist_tags_on_a_price_update() {
     const tx = {
@@ -135,12 +177,12 @@ describe('LatestTxsItem', () => {
     const tags = row.querySelector('[data-label="tx-tags"]') as HTMLElement;
 
     expect(tags.textContent).toContain(watchlistName.display_name);
-    expect(tags.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Price update · 2 markets');
+    expect(tags.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Price update');
     expect(tags.querySelector('[data-status="error"]')).toBeNull();
     expect(row.querySelector(`a[href="/address/${ tx.from.hash }"]`)).not.toBeNull();
   }
 
-  test(shows_watchlist_tags_on_a_price_update);
+  test(shows_watchlist_tags_on_a_price_update.name, shows_watchlist_tags_on_a_price_update);
 
   function shows_the_info_popover_on_an_evm_row() {
     const { container } = renderRow(txMock.base);
@@ -148,7 +190,10 @@ describe('LatestTxsItem', () => {
     const row = container.querySelector(`[data-latest-tx="${ txMock.base.hash }"]`) as HTMLElement;
 
     expect(row.querySelector('button[aria-label="Transaction info"]')).not.toBeNull();
+    const kind = row.querySelector('[data-label="tx-tags"] > *') as HTMLElement;
+    expect(kind.textContent).toBe('Contract call');
+    expect(window.getComputedStyle(kind).flexShrink).toBe('0');
   }
 
-  test(shows_the_info_popover_on_an_evm_row);
+  test(shows_the_info_popover_on_an_evm_row.name, shows_the_info_popover_on_an_evm_row);
 });

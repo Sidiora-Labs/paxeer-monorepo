@@ -13,8 +13,10 @@ import {
 } from '@paxeer/wallet';
 import { StatusLadder } from '@/account/StatusLadder';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ModalPanel } from '@/components/ui/primitives';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import { transferObservationsRepository } from '@/platform/storage/repositories';
+import { motionDurations, motionEase } from '@/theme/motion';
 import {
   resolveTransferOrigin,
   saveTransferObservation,
@@ -43,20 +45,20 @@ const draw = {
     opacity: 1,
     transition: {
       pathLength: {
-        delay: i * 0.2,
+        delay: i * motionDurations.normal,
         type: 'spring',
-        duration: 1.5,
+        duration: motionDurations.shimmer,
         bounce: 0.2,
-        ease: [0.22, 1, 0.36, 1],
+        ease: motionEase,
       },
-      opacity: { delay: i * 0.2, duration: 0.3 },
+      opacity: { delay: i * motionDurations.normal, duration: motionDurations.quick },
     },
   }),
 };
 
-function AnimatedCheckmark({ size = 80 }: { size?: number }) {
+function AnimatedCheckmark() {
   return (
-    <motion.svg animate="visible" height={size} initial="hidden" viewBox="0 0 100 100" width={size}>
+    <motion.svg animate="visible" className="h-20 w-20" initial="hidden" viewBox="0 0 100 100">
       <title>Success</title>
       <motion.circle
         custom={0}
@@ -248,24 +250,31 @@ export function TransferSuccessResult({
   const shortHash = txHash.length > 16 ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}` : txHash;
 
   return (
-    <div
+    <ModalPanel
+      onDismiss={() =>
+        onDone(completed || observation.truth === 'reverted' || observation.truth === 'replaced')
+      }
+      aria-label="Transfer status"
       data-transfer-hash={transfer.hash}
       data-transfer-chain={transfer.chainId}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-pax-bg/95 backdrop-blur-sm px-6"
+      className="pax-result-panel fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-pax-bg backdrop-blur-sm px-6 py-6"
     >
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 'var(--space-5)' }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-sm flex flex-col items-center"
+        transition={{ duration: motionDurations.settle, ease: motionEase }}
+        className="my-auto w-full max-w-sm flex flex-col items-center"
       >
         {/* Animated icon */}
-        <div className="relative flex items-center justify-center h-[100px] w-[100px] mb-5">
+        <div className="relative flex items-center justify-center size-[var(--size-success-mark)] mb-5">
           <motion.div
             animate={{ opacity: [0, 0.8, 0.6] }}
-            className={`absolute inset-0 rounded-full blur-2xl ${completed ? 'bg-emerald-500/10' : 'bg-white/5'}`}
+            className={`absolute inset-0 rounded-full blur-2xl ${completed ? 'bg-pax-success-muted' : 'bg-pax-control'}`}
             initial={{ opacity: 0 }}
-            transition={{ duration: 1.5, times: [0, 0.5, 1] }}
+            transition={{
+              duration: motionDurations.shimmer,
+              times: [0, motionDurations.settle / motionDurations.shimmer, 1],
+            }}
           />
           <AnimatePresence mode="wait">
             {phase === 'completed' ? (
@@ -273,7 +282,7 @@ export function TransferSuccessResult({
                 key="check"
                 initial={{ opacity: 0, scale: 0.5, rotate: -90 }}
                 animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
+                transition={{ duration: motionDurations.settle, ease: motionEase }}
               >
                 <AnimatedCheckmark />
               </motion.div>
@@ -281,14 +290,16 @@ export function TransferSuccessResult({
               <motion.div
                 key="spinner"
                 exit={{ opacity: 0, scale: 0.5, rotate: 180 }}
-                transition={{ duration: 0.4 }}
+                transition={{ duration: motionDurations.fade }}
                 className="relative"
               >
                 <motion.div
                   animate={{ rotate: 360 }}
                   className="absolute inset-0 rounded-full  "
                   style={{}}
-                  transition={{ rotate: { duration: 2, repeat: Infinity, ease: 'linear' } }}
+                  transition={{
+                    rotate: { duration: motionDurations.scan, repeat: Infinity, ease: 'linear' },
+                  }}
                 />
                 <div className="rounded-full bg-pax-card p-4">
                   <span aria-hidden="true" className="text-2xl">
@@ -307,10 +318,10 @@ export function TransferSuccessResult({
           <motion.h2
             key={transfer.hash}
             data-truth={observation.truth}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 'var(--space-2-5)' }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.4 }}
+            exit={{ opacity: 0, y: 'calc(-1 * var(--space-2-5))' }}
+            transition={{ duration: motionDurations.fade }}
             className="text-lg font-bold mb-1"
           >
             {completed
@@ -324,11 +335,11 @@ export function TransferSuccessResult({
         <AnimatePresence mode="wait">
           <motion.p
             key={phase}
-            initial={{ opacity: 0, y: 5 }}
+            initial={{ opacity: 0, y: 'var(--space-1)' }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.3 }}
-            className={`text-xs mb-5 ${observation.truth === 'reverted' ? 'text-red-400' : 'text-emerald-400'}`}
+            exit={{ opacity: 0, y: 'calc(-1 * var(--space-1))' }}
+            transition={{ duration: motionDurations.quick }}
+            className={`text-xs mb-5 ${observation.truth === 'reverted' ? 'text-pax-error' : 'text-pax-success'}`}
           >
             {shortHash}
           </motion.p>
@@ -337,21 +348,23 @@ export function TransferSuccessResult({
         <div className="w-full mb-4">
           <StatusLadder steps={observation.steps} />
           {observation.lastVerified && observation.steps.length === 0 && (
-            <p data-retained-evidence className="mt-2 text-[11px] text-pax-muted">
+            <p data-retained-evidence className="mt-2 text-size-11 text-pax-muted">
               Saved evidence for block {observation.lastVerified.blockNumber}; current status
               requires revalidation.
             </p>
           )}
           {observation.replacementHash && (
-            <p className="mt-2 text-[11px] break-all">Replacement: {observation.replacementHash}</p>
+            <p className="mt-2 text-size-11 break-all">
+              Replacement: {observation.replacementHash}
+            </p>
           )}
           {submissionWarning && (
-            <p role="alert" className="mt-2 text-[11px] text-pax-muted">
+            <p role="alert" className="mt-2 text-size-11 text-pax-muted">
               {submissionWarning}
             </p>
           )}
           {error && (
-            <p role="alert" className="mt-2 text-[11px] text-pax-muted">
+            <p role="alert" className="mt-2 text-size-11 text-pax-muted">
               {error}
             </p>
           )}
@@ -361,56 +374,50 @@ export function TransferSuccessResult({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
+          transition={{ delay: motionDurations.normal, duration: motionDurations.settle }}
           className="w-full"
         >
           <motion.div
-            animate={{ gap: phase === 'completed' ? '0px' : '8px' }}
+            animate={{ gap: phase === 'completed' ? 'var(--space-0)' : 'var(--space-2)' }}
             className="flex flex-col"
-            transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+            transition={{ duration: motionDurations.settle, ease: motionEase }}
           >
             {/* From */}
             <div
-              className={`glass-card p-3 transition-all duration-300 ${phase === 'completed' ? 'rounded-b-none ' : ''}`}
+              className={`glass-card p-3 transition-all duration-normal ${phase === 'completed' ? 'rounded-b-none ' : ''}`}
             >
-              <span className="flex items-center gap-1 text-[10px] text-pax-muted mb-1">
+              <span className="flex items-center gap-1 text-size-10 text-pax-muted mb-1">
                 <SvgIcon name="arrow-up" className="w-3 h-3" /> From
               </span>
               <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-medium text-sm text-pax-accent">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-pax-control font-medium text-sm text-pax-accent">
                   {fromSymbol[0]}
                 </span>
                 <div className="flex flex-col">
-                  <motion.span
-                    animate={{ opacity: phase === 'completed' ? 1 : 0.5 }}
-                    className="text-sm font-medium"
-                  >
+                  <motion.span animate={{ opacity: 1 }} className="text-sm font-medium">
                     {fromAmount} {fromSymbol}
                   </motion.span>
-                  <span className="text-[10px] text-pax-muted">{fromLabel}</span>
+                  <span className="text-size-10 text-pax-muted">{fromLabel}</span>
                 </div>
               </div>
             </div>
 
             {/* To */}
             <div
-              className={`glass-card p-3 transition-all duration-300 ${phase === 'completed' ? 'rounded-t-none ' : ''}`}
+              className={`glass-card p-3 transition-all duration-normal ${phase === 'completed' ? 'rounded-t-none ' : ''}`}
             >
-              <span className="flex items-center gap-1 text-[10px] text-pax-muted mb-1">
+              <span className="flex items-center gap-1 text-size-10 text-pax-muted mb-1">
                 <SvgIcon name="arrow-down" className="w-3 h-3" /> To
               </span>
               <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-medium text-sm text-pax-accent">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-pax-control font-medium text-sm text-pax-accent">
                   {(toSymbol || fromSymbol)[0]}
                 </span>
                 <div className="flex flex-col">
-                  <motion.span
-                    animate={{ opacity: phase === 'completed' ? 1 : 0.5 }}
-                    className="text-sm font-medium"
-                  >
+                  <motion.span animate={{ opacity: 1 }} className="text-sm font-medium">
                     {toAmount || fromAmount} {toSymbol || fromSymbol}
                   </motion.span>
-                  <span className="text-[10px] text-pax-muted">{toLabel}</span>
+                  <span className="text-size-10 text-pax-muted">{toLabel}</span>
                 </div>
               </div>
             </div>
@@ -420,10 +427,10 @@ export function TransferSuccessResult({
         <AnimatePresence>
           {
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 'var(--space-2-5)' }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.4 }}
-              className="flex gap-3 mt-6"
+              transition={{ delay: motionDurations.quick, duration: motionDurations.fade }}
+              className="flex flex-wrap justify-center gap-3 mt-6 w-full"
             >
               {(onExplorerView || explorerUrl) && (
                 <a
@@ -438,14 +445,9 @@ export function TransferSuccessResult({
                         }
                       : undefined
                   }
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
+                  className="flex flex-none items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-pax-control text-xs font-medium press-scale"
                 >
-                  <SvgIcon
-                    name="external-link"
-                    className="w-4 h-4"
-                    style={{ filter: 'brightness(0) invert(1)' }}
-                  />{' '}
-                  Explorer
+                  <SvgIcon name="external-link" className="w-4 h-4" /> Explorer
                 </a>
               )}
               <button
@@ -456,7 +458,7 @@ export function TransferSuccessResult({
                       observation.truth === 'replaced'
                   )
                 }
-                className="px-6 py-2.5 rounded-xl bg-pax-accent text-black text-xs font-semibold press-scale"
+                className="flex-none px-6 py-2.5 rounded-xl bg-pax-accent text-pax-on-accent text-xs font-semibold press-scale"
               >
                 {completed ? 'Done' : 'Close'}
               </button>
@@ -464,6 +466,6 @@ export function TransferSuccessResult({
           }
         </AnimatePresence>
       </motion.div>
-    </div>
+    </ModalPanel>
   );
 }

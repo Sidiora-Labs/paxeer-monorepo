@@ -24,6 +24,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/capabilities"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -273,6 +274,33 @@ func (d *developmentAuthority) head(ctx context.Context) (committedHead, error) 
 	return committedHead{Number: strconv.FormatUint(height, 10), Hash: block.Hash.Hex()}, nil
 }
 
+func (d *developmentAuthority) acceptsHead(ctx context.Context, hash common.Hash) (bool, error) {
+	if d.unavailable != nil || d.reader == nil || d.rpc == nil || d.store == nil {
+		return false, errors.New("network authority unavailable")
+	}
+	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	header, err := recentAuthorityHeader(bounded, d.reader, hash)
+	if err != nil || header == nil {
+		return false, err
+	}
+	height, err := d.store.DevelopmentIndexerCursor(bounded, deployment.ChainID)
+	if err != nil {
+		return false, err
+	}
+	if header.Number.Uint64() > height {
+		return false, nil
+	}
+	_, canonical, err := d.reader.ReportedHeaderByNumber(bounded, header.Number)
+	if errors.Is(err, ethereum.NotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return canonical == hash, nil
+}
+
 // document assembles the authority envelope with the production builders and
 // validates it against the shared v2 contract.
 func (d *developmentAuthority) document(ctx context.Context) ([]byte, error) {
@@ -298,7 +326,7 @@ func (d *developmentAuthority) envelope(attestation deployment.ActivationAttesta
 	if err != nil {
 		return nil, err
 	}
-	raw, err := json.Marshal(authorityEnvelope{2, export, projectAttestation(attestation), head})
+	raw, err := json.Marshal(authorityEnvelope{SchemaVersion: 2, SerialExport: export, Attestation: projectAttestation(attestation), CommittedHead: head})
 	if err != nil {
 		return nil, err
 	}
@@ -320,11 +348,9 @@ func (d *developmentAuthority) report(route string, err error) {
 	}
 }
 
-// developmentPreflightOrigin keeps the production rule (the trusted Origin must
-// be "https://"+Host) and additionally accepts a same-origin rewrite through a
-// trusted proxy: when the peer address is inside TRUSTED_PROXY_CIDRS, the first
-// X-Forwarded-Proto/X-Forwarded-Host values stand in for the scheme and Host.
-func developmentPreflightOrigin(r *http.Request, origins map[string]bool, proxies []string) bool {
+// preflightOrigin accepts a trusted same-origin request or a rewrite through
+// a trusted proxy using the first forwarded scheme and host.
+func preflightOrigin(r *http.Request, origins map[string]bool, proxies []string) bool {
 	origin, err := broker.TrustedHTTPOrigin(r, origins, proxies)
 	if err != nil {
 		return false
@@ -399,7 +425,7 @@ func (d *developmentAuthority) Register(r chi.Router, admission *rest.Admission)
 				rest.WriteV2APIError(w, r, 400, "QUERY_INVALID")
 				return
 			}
-			if !developmentPreflightOrigin(r, d.origins, d.proxies) {
+			if !preflightOrigin(r, d.origins, d.proxies) {
 				rest.WriteV2APIError(w, r, 403, "SCOPE_DENIED")
 				return
 			}
@@ -415,13 +441,13 @@ func (d *developmentAuthority) Register(r chi.Router, admission *rest.Admission)
 				rest.WriteV2APIError(w, r, 422, "FIELD_INVALID")
 				return
 			}
-			head, err := d.head(r.Context())
+			accepted, err := d.acceptsHead(r.Context(), input.BlockHash)
 			if err != nil {
 				d.report("preflight", err)
 				rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 				return
 			}
-			if input.BlockHash != common.HexToHash(head.Hash) {
+			if !accepted {
 				rest.WriteV2APIError(w, r, 409, "REVISION_CONFLICT")
 				return
 			}

@@ -21,7 +21,7 @@ const UserProfilePopover = ({ children, isAutoConnectDisabled }: Props) => {
       <PopoverTrigger>
         { children }
       </PopoverTrigger>
-      <PopoverContent w="280px">
+      <PopoverContent w="calc(var(--chakra-spacing-65) + var(--chakra-spacing-5))">
         <PopoverBody
           css={{
             '& .dynamic-login-button': {

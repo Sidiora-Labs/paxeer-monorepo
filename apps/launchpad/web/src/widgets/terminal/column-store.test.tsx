@@ -2,14 +2,27 @@
 import React, { act } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { columnLimits, defaultColumns, layoutColumns, parseColumns, resetTerminalColumns, terminalColumnsStorageKey, useTerminalColumns, type TerminalColumns } from './column-store';
+import {
+  columnLimits,
+  defaultColumns,
+  layoutColumns,
+  parseColumns,
+  resetTerminalColumns,
+  terminalColumnsStorageKey,
+  useTerminalColumns,
+  type TerminalColumns,
+} from './column-store';
 
-beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
+beforeAll(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 let latest: TerminalColumns | null = null;
 function Probe() {
   latest = useTerminalColumns();
-  return <output>{`${latest.leftWidth}|${latest.rightWidth}|${latest.leftCollapsed}|${latest.rightCollapsed}`}</output>;
+  return (
+    <output>{`${latest.leftWidth}|${latest.rightWidth}|${latest.leftCollapsed}|${latest.rightCollapsed}`}</output>
+  );
 }
 
 let mounted: { root: Root; container: HTMLDivElement } | null = null;
@@ -27,7 +40,12 @@ beforeEach(() => {
   act(() => resetTerminalColumns());
 });
 afterEach(() => {
-  if (mounted) { const { root, container } = mounted; act(() => root.unmount()); container.remove(); mounted = null; }
+  if (mounted) {
+    const { root, container } = mounted;
+    act(() => root.unmount());
+    container.remove();
+    mounted = null;
+  }
   latest = null;
 });
 
@@ -38,8 +56,20 @@ describe('parseColumns', () => {
     expect(parseColumns('[1,2]')).toEqual(defaultColumns);
   });
   it('clamps widths to the column minimums and the side maximum', () => {
-    expect(parseColumns(JSON.stringify({ leftWidth: 10, rightWidth: 9000, leftCollapsed: true, rightCollapsed: 'yes' }))).toEqual({
-      leftWidth: columnLimits.leftMin, rightWidth: columnLimits.sideMax, leftCollapsed: true, rightCollapsed: false,
+    expect(
+      parseColumns(
+        JSON.stringify({
+          leftWidth: 10,
+          rightWidth: 9000,
+          leftCollapsed: true,
+          rightCollapsed: 'yes',
+        })
+      )
+    ).toEqual({
+      leftWidth: columnLimits.leftMin,
+      rightWidth: columnLimits.sideMax,
+      leftCollapsed: true,
+      rightCollapsed: false,
     });
   });
 });
@@ -51,7 +81,12 @@ describe('useTerminalColumns', () => {
     act(() => latest?.setLeftWidth(400));
     act(() => latest?.toggleRight());
     expect(container.textContent).toBe('400|312|false|true');
-    expect(JSON.parse(window.localStorage.getItem(terminalColumnsStorageKey) ?? '{}')).toEqual({ leftWidth: 400, rightWidth: 312, leftCollapsed: false, rightCollapsed: true });
+    expect(JSON.parse(window.localStorage.getItem(terminalColumnsStorageKey) ?? '{}')).toEqual({
+      leftWidth: 400,
+      rightWidth: 312,
+      leftCollapsed: false,
+      rightCollapsed: true,
+    });
     act(() => latest?.setRightWidth(100));
     expect(container.textContent).toBe('400|280|false|true');
     act(() => resetTerminalColumns());
@@ -59,8 +94,18 @@ describe('useTerminalColumns', () => {
   });
   it('picks up a change written by another tab', () => {
     const container = mount();
-    window.localStorage.setItem(terminalColumnsStorageKey, JSON.stringify({ leftWidth: 320, rightWidth: 360, leftCollapsed: true, rightCollapsed: false }));
-    act(() => { window.dispatchEvent(new StorageEvent('storage', { key: terminalColumnsStorageKey })); });
+    window.localStorage.setItem(
+      terminalColumnsStorageKey,
+      JSON.stringify({
+        leftWidth: 320,
+        rightWidth: 360,
+        leftCollapsed: true,
+        rightCollapsed: false,
+      })
+    );
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', { key: terminalColumnsStorageKey }));
+    });
     expect(container.textContent).toBe('320|360|true|false');
   });
 });
@@ -79,6 +124,9 @@ describe('layoutColumns', () => {
     const layout = layoutColumns(1150, left, right);
     expect(layout.right.width).toBe(280);
     expect(layout.left.width).toBe(1150 - 16 - 560 - 280);
+    const narrow = layoutColumns(1070, left, right);
+    expect(narrow.left.width).toBe(240);
+    expect(narrow.right).toMatchObject({ mode: 'collapsed', width: 24, autoCollapsed: true });
   });
   it('collapses the right column for this render when even the minimums do not fit', () => {
     const layout = layoutColumns(968, left, right);

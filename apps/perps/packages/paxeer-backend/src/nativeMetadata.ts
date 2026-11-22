@@ -4,6 +4,7 @@ import {
   getMarketCategory,
 } from "./core/perps/config";
 import { paxeerChain } from "./core/chain";
+import { PERPS_SPENDER } from "./core/network/approvals";
 import { getNativeSnapshot } from "./runtime";
 export const toNativeSymbol = (symbol: string) =>
   symbol
@@ -26,14 +27,14 @@ export function nativeSymbols() {
     quote_min: 0.000001,
     quote_max: Number.MAX_SAFE_INTEGER,
     min_notional: 0.000001,
-    base_imr: 1 / market.maxLeverage,
+    base_imr: 1 / (market.maxLeverage ?? 20),
     base_mmr: undefined,
-    imr_factor: undefined,
+    imr_factor: 0,
     interest_rate: undefined,
     cap_funding: undefined,
     floor_funding: undefined,
     liquidation_fee: undefined,
-    max_leverage: market.maxLeverage,
+    max_leverage: market.maxLeverage ?? 20,
     funding_period: 8,
     category: getMarketCategory(market.marketId),
     is_rwa: ["stocks", "indices", "commodities"].includes(
@@ -48,14 +49,11 @@ export function nativeMarketRows() {
   return nativeSymbols().map((info) => {
     const row = snapshots.get(toNativeSymbol(info.symbol));
     const price = row?.price ?? undefined;
-    const open =
-      row && Number.isFinite(row.change_24h)
-        ? price / (1 + row.change_24h / 100)
-        : undefined;
+    const open = row?.price_24h > 0 ? row.price_24h : undefined;
     return {
       ...info,
       mark_price: price,
-      index_price: row?.index_price ?? price,
+      index_price: row?.index_price ?? undefined,
       last_price: price,
       "24h_open": open,
       "24h_close": price,
@@ -65,13 +63,14 @@ export function nativeMarketRows() {
       "24h_volume": row?.amount_24h ?? undefined,
       "24h_amount": row?.volume_24h ?? undefined,
       open_interest:
-        row?.open_interest !== undefined && price
-          ? row.open_interest / price
+        row?.open_interest != null && row?.index_price > 0
+          ? row.open_interest / row.index_price
           : undefined,
       est_funding_rate: row?.est_funding_rate ?? undefined,
       last_funding_rate: row?.funding_8h ?? undefined,
-      next_funding_time: row?.next_funding_time,
-      timestamp: row?.timestamp,
+      last_funding_rate_hourly: row?.last_funding_rate_hourly ?? null,
+      next_funding_time: row?.perp_next_funding_ms ?? null,
+      timestamp: row?.price_updated_at ?? undefined,
     };
   });
 }
@@ -90,8 +89,9 @@ export function nativeChains() {
         chain_namespace: "EVM",
         currency_symbol: "PAX",
         currency_decimal: 18,
+        vault_address: PERPS_SPENDER,
       },
-      token_infos: Object.values(COLLATERAL_TOKENS).map((token) => ({
+      token_infos: [COLLATERAL_TOKENS.usdl].map((token) => ({
         ...token,
         chain_id: paxeerChain.id,
         is_native: false,
@@ -102,7 +102,7 @@ export function nativeChains() {
   ];
 }
 export function nativeTokens() {
-  return Object.values(COLLATERAL_TOKENS).map((token) => ({
+  return [COLLATERAL_TOKENS.usdl].map((token) => ({
     token: token.symbol,
     symbol: token.symbol,
     decimals: token.decimals,

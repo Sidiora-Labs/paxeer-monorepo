@@ -65,7 +65,7 @@ export function planNativeOrder(
   if (
     !Number.isFinite(leverage) ||
     leverage < 1 ||
-    leverage > market.maxLeverage
+    leverage > (market.maxLeverage ?? 20)
   )
     throw new Error("Leverage exceeds this Paxeer market's limit.");
   const price = new Decimal(
@@ -99,4 +99,96 @@ export function planNativeOrder(
     triggerPrice: parseUnits(trigger.toFixed(18), 18),
     limitPrice: parseUnits(price.toFixed(18), 18),
   };
+}
+
+const WAD = 10n ** 18n;
+const USDL_SCALE = 10n ** 12n;
+const PPM = 1_000_000n;
+
+export class NativeInsufficientBalanceError extends Error {
+  constructor() {
+    super("Insufficient balance to place this order");
+    this.name = "NativeInsufficientBalanceError";
+  }
+}
+
+function collateralUnits(value: string | number | null | undefined): bigint {
+  const amount = new Decimal(value ?? 0);
+  if (!amount.isFinite() || amount.isNegative())
+    throw new RangeError("Collateral must be finite and nonnegative.");
+  return BigInt(amount.mul(1_000_000).floor().toFixed(0));
+}
+
+function fundingRates(leverage: number, takerBps: number) {
+  if (!Number.isFinite(leverage) || leverage < 1)
+    throw new RangeError("Leverage must be at least one.");
+  const ppm = new Decimal(takerBps).mul(100);
+  if (
+    !ppm.isFinite() ||
+    !ppm.isInteger() ||
+    ppm.lt(0) ||
+    ppm.gte(PPM.toString())
+  )
+    throw new RangeError("Taker rate must be a nonnegative rate below one.");
+  return {
+    leverage: parseUnits(new Decimal(leverage).toFixed(18), 18),
+    takerPpm: BigInt(ppm.toFixed(0)),
+  };
+}
+
+function ceilDiv(value: bigint, divisor: bigint): bigint {
+  return (value + divisor - 1n) / divisor;
+}
+
+export function nativeOrderFunding(
+  plan: Pick<ReturnType<typeof planNativeOrder>, "sizeUsd">,
+  freeMargin: number | null,
+  walletBalance: string | undefined,
+  leverage: number,
+  takerBps: number,
+) {
+  const rates = fundingRates(leverage, takerBps);
+  const initialMargin = (plan.sizeUsd * WAD) / rates.leverage;
+  const fee = ceilDiv(plan.sizeUsd * rates.takerPpm, PPM);
+  const requiredAmount = ceilDiv(initialMargin + fee, USDL_SCALE);
+  const margin = collateralUnits(freeMargin);
+  const wallet = collateralUnits(walletBalance);
+  const source =
+    margin >= requiredAmount
+      ? "margin"
+      : wallet >= requiredAmount
+        ? "wallet"
+        : margin + wallet >= requiredAmount
+          ? "split"
+          : "insufficient";
+  return {
+    source,
+    requiredAmount,
+    depositAmount: source === "split" ? requiredAmount - margin : 0n,
+  };
+}
+
+export function nativeOrderCapacity(
+  freeMargin: number | null,
+  walletBalance: string | undefined,
+  leverage: number,
+  takerBps: number,
+  price: number,
+) {
+  const rates = fundingRates(leverage, takerBps);
+  const available =
+    collateralUnits(freeMargin) + collateralUnits(walletBalance);
+  const freeCollateral = new Decimal(available.toString())
+    .div(1_000_000)
+    .toNumber();
+  if (!Number.isFinite(price) || price <= 0 || available === 0n)
+    return { freeCollateral, maxQty: 0 };
+  const notional =
+    (available * USDL_SCALE * rates.leverage * PPM) /
+    (WAD * PPM + rates.leverage * rates.takerPpm);
+  const quantity = new Decimal(notional.toString())
+    .div(WAD.toString())
+    .div(price)
+    .toDecimalPlaces(8, Decimal.ROUND_DOWN);
+  return { freeCollateral, maxQty: quantity.toNumber() };
 }

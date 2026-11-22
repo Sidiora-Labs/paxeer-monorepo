@@ -5,7 +5,7 @@ defmodule Explorer.Repair.ProductionDatabaseTlsTest do
   alias Explorer.Repo
 
   @config_dir Path.expand("../../config", __DIR__)
-  @fixtures Path.join(@config_dir, "repair_22_33_471/fixtures")
+  @fixtures Path.join(@config_dir, "database_tls/fixtures")
   @ca_env "DATABASE_SSL_CA_CERT_FILE"
   @repos [
     Explorer.Repo,
@@ -33,11 +33,15 @@ defmodule Explorer.Repair.ProductionDatabaseTlsTest do
     Explorer.Repo.Neon
   ]
 
-  setup do
+  setup_all do
+    %{certificates: Explorer.Test.TLSCertificates.create!()}
+  end
+
+  setup %{certificates: certificates} do
     {:ok, _} = Application.ensure_all_started(:ssl)
     ca_env = System.get_env(@ca_env)
     repo_config = Application.fetch_env!(:explorer, Repo)
-    System.put_env(@ca_env, Path.join(@fixtures, "trusted-ca.pem"))
+    System.put_env(@ca_env, Path.join(certificates, "trusted-ca.pem"))
 
     on_exit(fn ->
       if ca_env, do: System.put_env(@ca_env, ca_env), else: System.delete_env(@ca_env)
@@ -62,7 +66,9 @@ defmodule Explorer.Repair.ProductionDatabaseTlsTest do
     end
   end
 
-  test "production-database-peer-verification: runtime CA selection overrides the build configuration" do
+  test "production-database-peer-verification: runtime CA selection overrides the build configuration", %{
+    certificates: certificates
+  } do
     System.delete_env(@ca_env)
     build_config = Config.Reader.read!(Path.join(@config_dir, "prod.exs"))
 
@@ -71,7 +77,7 @@ defmodule Explorer.Repair.ProductionDatabaseTlsTest do
       refute Keyword.has_key?(build_config[:explorer][repo] || [], :ssl_opts)
     end
 
-    ca_path = Path.join(@fixtures, "trusted-ca.pem")
+    ca_path = Path.join(certificates, "trusted-ca.pem")
     System.put_env(@ca_env, ca_path)
     runtime_config = Config.Reader.read!(Path.join(@config_dir, "runtime/prod.exs"), imports: :disabled)
     merged = Config.Reader.merge(build_config, runtime_config)
@@ -84,8 +90,10 @@ defmodule Explorer.Repair.ProductionDatabaseTlsTest do
     end
   end
 
-  test "production-database-peer-verification: a trusted TLS database stores and returns a recorded block schema" do
-    {port, ref} = tls_database("trusted-server")
+  test "production-database-peer-verification: a trusted TLS database stores and returns a recorded block schema", %{
+    certificates: certificates
+  } do
+    {port, ref} = tls_database(certificates, "trusted-server")
     opts = connection_opts(port, Repo)
     {:ok, tls_repo} = Repo.start_link(opts ++ [name: nil, pool: DBConnection.ConnectionPool, pool_size: 1])
     old_dynamic_repo = Repo.put_dynamic_repo(tls_repo)
@@ -124,16 +132,20 @@ defmodule Explorer.Repair.ProductionDatabaseTlsTest do
     end
   end
 
-  test "production-database-peer-verification: an untrusted database is rejected before startup data" do
-    {port, ref} = tls_database("untrusted-server")
+  test "production-database-peer-verification: an untrusted database is rejected before startup data", %{
+    certificates: certificates
+  } do
+    {port, ref} = tls_database(certificates, "untrusted-server")
     opts = connection_opts(port, Repo.Replica1)
     assert {:error, %DBConnection.ConnectionError{message: message}} = connect(opts)
     assert message =~ "unknown_ca"
     refute_receive {:forwarded, ^ref, _}, 100
   end
 
-  test "production-database-peer-verification: a trusted certificate for another hostname is rejected" do
-    {port, ref} = tls_database("wrong-host-server")
+  test "production-database-peer-verification: a trusted certificate for another hostname is rejected", %{
+    certificates: certificates
+  } do
+    {port, ref} = tls_database(certificates, "wrong-host-server")
     opts = connection_opts(port, Repo.Account)
     assert {:error, %DBConnection.ConnectionError{message: message}} = connect(opts)
     assert message =~ "hostname_check_failed"
@@ -156,7 +168,7 @@ defmodule Explorer.Repair.ProductionDatabaseTlsTest do
 
   # This peer terminates real PostgreSQL TLS and forwards the PostgreSQL stream
   # unchanged to the disposable database provisioned by the declared gate.
-  defp tls_database(certificate) do
+  defp tls_database(certificates, certificate) do
     {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false, ip: {127, 0, 0, 1}, reuseaddr: true])
     {:ok, {_, port}} = :inet.sockname(listener)
     parent = self()
@@ -170,8 +182,8 @@ defmodule Explorer.Repair.ProductionDatabaseTlsTest do
         :ok = :gen_tcp.send(socket, "S")
 
         server_opts = [
-          certfile: String.to_charlist(Path.join(@fixtures, certificate <> ".pem")),
-          keyfile: String.to_charlist(Path.join(@fixtures, certificate <> "-key.pem")),
+          certfile: String.to_charlist(Path.join(certificates, certificate <> ".pem")),
+          keyfile: String.to_charlist(Path.join(certificates, certificate <> "-key.pem")),
           active: false
         ]
 

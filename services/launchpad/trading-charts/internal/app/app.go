@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	sharedchain "github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -339,7 +340,7 @@ func archiveBlockTime(ctx context.Context, rpc *ethclient.Client, height int64, 
 	}
 	block, err := (chainread.Reader{RPC: rpc}).Block(ctx, height)
 	if err != nil {
-		return 0, errors.New("charts: archive block timestamp unavailable")
+		return 0, fmt.Errorf("charts: archive block timestamp unavailable: %w", err)
 	}
 	if !strings.EqualFold(block.Hash, expected) {
 		return 0, errors.New("charts: archive block authority mismatch")
@@ -454,10 +455,9 @@ func Run(parent context.Context) error {
 				return
 			}
 			defer release()
-			if e := app.accounting.Run(ctx, app.transport); !errors.Is(e, context.Canceled) {
-				logger.Error("accounting consumer failed", slog.Any("err", e))
-				failRuntime()
-			}
+			runAccountingConsumer(ctx, func(ctx context.Context) error {
+				return app.accounting.Run(ctx, app.transport)
+			}, failRuntime, logger, waitAccountingConsumer, accountingSystemClock())
 		}()
 	} else if err := app.Consumer.Start(ctx); err != nil {
 		return fmt.Errorf("app: start consumer: %w", err)
@@ -523,14 +523,23 @@ func Run(parent context.Context) error {
 		// An internal provider failure drains current work without a signal
 		// propagation delay, so the service can release its listener promptly.
 		shutdownCtx, stop := context.WithTimeout(context.Background(), sharedprocess.DefaultTimeout)
-		shutErr = errors.Join(srv.Shutdown(shutdownCtx), app.tracker.Drain(shutdownCtx))
+		shutErr = errors.Join(ErrInternalFailure, srv.Shutdown(shutdownCtx), app.tracker.Drain(shutdownCtx))
 		stop()
 	}
 
 	cancel()
 
 	select {
+	case <-internalFailure:
+		shutErr = errors.Join(ErrInternalFailure, shutErr)
+	default:
+	}
+
+	select {
 	case err := <-serveErr:
+		if errors.Is(shutErr, ErrInternalFailure) {
+			return errors.Join(err, shutErr)
+		}
 		return err
 	default:
 		return shutErr
@@ -595,6 +604,12 @@ type chartOutboxConfig struct {
 func (c chartOutboxConfig) validate(policy delivery.Policy) error {
 	if !policy.Subjects[c.Subject] {
 		return errors.New("charts: chart outbox subject is not admitted")
+	}
+	if !policy.Subjects[accounting.MarketSubject] {
+		return errors.New("charts: invalid store configuration: policy.Subjects must enable " + accounting.MarketSubject)
+	}
+	if !policy.EventTypes[accounting.MarketSubject] {
+		return errors.New("charts: invalid store configuration: policy.EventTypes must enable " + accounting.MarketSubject)
 	}
 	return c.validateBounds()
 }
@@ -691,6 +706,7 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		defer cancel()
 		bars, e := engine.ReadSeries(bounded, exact, pool, interval, from, to, dense)
 		if e != nil && !errors.Is(e, engine.ErrNoData) {
+			slog.ErrorContext(bounded, "canonical chart series read failed", "err", e)
 			http.Error(w, "canonical series unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -723,6 +739,7 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		defer cancel()
 		deleted, err := exact.DeleteRetainedRange(bounded, request.Pool, request.Interval, request.From, request.To)
 		if err != nil {
+			slog.ErrorContext(bounded, "chart retention rejected", "err", err)
 			http.Error(w, "retention authority rejected range", http.StatusConflict)
 			return
 		}
@@ -768,6 +785,7 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		defer cancel()
 		report, err := engine.ReconstructArchive(bounded, exact, *archive, request.RunID, request.Pool, request.From, request.To, request.Manifests)
 		if err != nil {
+			slog.ErrorContext(bounded, "chart archive reconstruction failed", "err", err)
 			http.Error(w, "archive reconstruction failed", http.StatusServiceUnavailable)
 			return
 		}

@@ -35,11 +35,21 @@ impl CommittedHeader {
     /// # Errors
     /// Returns an error when the committed header cannot be read or verified.
     pub fn open(rpc_url: &str) -> AuthorityResult<Self> {
+        Self::open_at(rpc_url, None)
+    }
+
+    /// # Errors
+    /// Refuses heights beyond the node head or inconsistent committed material.
+    pub fn open_at(rpc_url: &str, requested: Option<u64>) -> AuthorityResult<Self> {
         let endpoint = SequencerEndpoint::new(rpc_url, &[]).map_err(|_| AuthorityError)?;
         if endpoint.chain_id().map_err(|_| AuthorityError)? != EXPECTED_CHAIN_ID {
             return Err(AuthorityError);
         }
-        let height = endpoint.block_number().map_err(|_| AuthorityError)?;
+        let head = endpoint.block_number().map_err(|_| AuthorityError)?;
+        let height = requested.unwrap_or(head);
+        if height > head {
+            return Err(AuthorityError);
+        }
         let block = endpoint
             .block_by_number(height)
             .map_err(|_| AuthorityError)?
@@ -159,6 +169,45 @@ impl CommittedHeader {
         json!({"height": self.height, "block_hash": hex::encode(&self.block_hash),
             "app_hash": hex::encode(&self.app_hash), "state_height": self.state_height})
     }
+}
+
+/// Checks transaction position, execution status and the node's committed block binding.
+/// # Errors
+/// Refuses a receipt whose landing or committed coordinates disagree.
+pub fn node_landing(
+    rpc_url: &str,
+    id: [u8; 32],
+    bytes: &[u8],
+    receipt_height: u64,
+    block_number: u64,
+    block_hash: [u8; 32],
+) -> AuthorityResult<()> {
+    let finality = CommittedHeader::open_at(rpc_url, Some(block_number))?;
+    let endpoint = SequencerEndpoint::new(rpc_url, &[]).map_err(|_| AuthorityError)?;
+    let landing = endpoint
+        .transaction_receipt(&id)
+        .map_err(|_| AuthorityError)?
+        .ok_or(AuthorityError)?;
+    let block = endpoint
+        .block_by_number(block_number)
+        .map_err(|_| AuthorityError)?
+        .ok_or(AuthorityError)?;
+    let decoded = layerx_wire::receipt::decode(bytes).map_err(|_| AuthorityError)?;
+    let receipt = decoded.protocol().ok_or(AuthorityError)?;
+    let index = usize::try_from(landing.transaction_index).map_err(|_| AuthorityError)?;
+    if finality.block_hash != block_hash
+        || block.hash != block_hash
+        || block.number != block_number
+        || landing.block_number != block_number
+        || block_number < receipt_height
+        || landing.status != (receipt.result_code() == 0)
+        || block.transactions.get(index).is_none_or(|transaction| {
+            layerx_crypto::evm_transaction::transaction_hash(transaction) != id
+        })
+    {
+        return Err(AuthorityError);
+    }
+    finality.unchanged()
 }
 
 /// # Errors

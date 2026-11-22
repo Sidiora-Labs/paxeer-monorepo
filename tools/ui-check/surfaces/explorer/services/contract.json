@@ -1,0 +1,61 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "symbol",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "additional_sources": [],
+  "can_be_visualized_via_sol2uml": true,
+  "compiler_settings": {
+    "compilationTarget": {
+      "simple_storage.sol": "Storage"
+    },
+    "evmVersion": "london",
+    "libraries": {},
+    "metadata": {
+      "bytecodeHash": "ipfs"
+    },
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "remappings": []
+  },
+  "compiler_version": "v0.8.7+commit.e28d00a7",
+  "constructor_args": null,
+  "creation_bytecode": "0x6080604052348",
+  "deployed_bytecode": "0x60806040",
+  "evm_version": "london",
+  "external_libraries": [],
+  "file_path": "simple_storage.sol",
+  "is_verified": true,
+  "name": "Storage",
+  "optimization_enabled": false,
+  "optimization_runs": 200,
+  "source_code": "// SPDX-License-Identifier: GPL-3.0 \n pragma solidity >=0.7.0 <0.9.0;      \n           contract Storage {\n //2112313123; \nuint256 number; \n function store(uint256 num) public {\nnumber = num;\n}\n function retrieve() public view returns (uint256)\n {\nreturn number;\n}\n}",
+  "verified_at": "2023-02-21T14:39:16.906760Z",
+  "license_type": "mit"
+}

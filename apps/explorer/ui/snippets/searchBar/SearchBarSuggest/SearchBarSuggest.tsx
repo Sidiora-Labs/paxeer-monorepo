@@ -23,7 +23,6 @@ import type { ApiCategory, Category, ItemsCategoriesMap } from 'ui/shared/search
 import { getItemCategory, searchCategories } from 'ui/shared/search/utils';
 
 import type { useSearchAssistant } from '../useSearchQuery';
-
 import SearchBarSuggestApp from './SearchBarSuggestApp';
 import SearchBarSuggestBlockCountdown from './SearchBarSuggestBlockCountdown';
 import SearchBarSuggestItem from './SearchBarSuggestItem';
@@ -38,7 +37,6 @@ const PROMPT_CATEGORY: Partial<Record<Category, ApiCategory>> = {
 const PROMPT_LABELS: Partial<Record<Category, string>> = {
   transaction: 'TRANSACTIONS', address: 'ADDRESSES', block: 'BLOCKS', token: 'TOKENS', app: 'APPS',
 };
-
 interface Props {
   assistant?: ReturnType<typeof useSearchAssistant>;
   query: UseQueryResult<Array<QuickSearchResultItem>, ResourceError<unknown>>;
@@ -59,12 +57,16 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
   const categoriesRefs = React.useRef(new Map<Category, HTMLParagraphElement>());
 
   const [ currentTab, setCurrentTab ] = React.useState<Category | undefined>(undefined);
+  const showAssistant = config.features.assistant.isEnabled && assistant && Boolean(assistant.canAsk || assistant.answer || assistant.error);
 
   const visibleCategories = React.useMemo(() => {
     const categories = category ? searchCategories.filter((cat) => cat.id === category) : searchCategories;
+    const mapped = categories.map(cat => ({ ...cat, title: PROMPT_LABELS[PROMPT_CATEGORY[cat.id] ?? cat.id] ?? cat.title.toUpperCase() }));
+    if (!config.features.marketplace.isEnabled) {
+      return mapped;
+    }
     const rank = (id: Category) => PROMPT_ORDER.includes(id) ? PROMPT_ORDER.indexOf(id) : PROMPT_ORDER.length;
-    return categories.map(cat => ({ ...cat, title: PROMPT_LABELS[PROMPT_CATEGORY[cat.id] ?? cat.id] ?? cat.title.toUpperCase() }))
-      .sort((a, b) => rank(a.id) - rank(b.id));
+    return mapped.sort((a, b) => rank(a.id) - rank(b.id));
   }, [ category ]);
 
   const handleScroll = React.useCallback(() => {
@@ -148,7 +150,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
   const handleTabsValueChange = React.useCallback(({ value }: { value: string }) => {
     setCurrentTab(value as Category);
     const container = scrollContainerRef.current;
-    const targetElement = document.querySelector(`[data-scroll-target="cat_${ value }"]`);
+    const targetElement = container?.querySelector(`[data-scroll-target="cat_${ value }"]`);
 
     if (container && targetElement) {
       const containerRect = container.getBoundingClientRect();
@@ -157,7 +159,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
 
       container.scrollTo({
         top: scrollTop,
-        behavior: 'smooth',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
       });
     }
   }, []);
@@ -179,7 +181,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
 
   const content = (() => {
     if (query.isPending || marketplaceApps.isPlaceholderData || (config.features.zetachain.isEnabled && zetaChainCCTXQuery.isPending)) {
-      return <ContentLoader text="We are searching, please wait... " fontSize="sm" maxW="250px"/>;
+      return <ContentLoader text="We are searching, please wait... " fontSize="sm" maxW={ 'var(--chakra-spacing-62\\.5)' }/>;
     }
 
     if (query.isError) {
@@ -190,10 +192,16 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
 
     if (resultCategories.length === 0 && !externalSearchItem) {
       if (regexp.BLOCK_HEIGHT.test(searchTerm)) {
-        return <SearchBarSuggestBlockCountdown blockHeight={ searchTerm } isMultichain={ Boolean(multichainConfig()) } onClick={ onItemClick }/>;
+        return (
+          <SearchBarSuggestBlockCountdown
+            blockHeight={ searchTerm }
+            isMultichain={ Boolean(multichainConfig()) }
+            onClick={ onItemClick }
+          />
+        );
       }
 
-      return <Text>No results found.</Text>;
+      return showAssistant ? null : <Text>No results found.</Text>;
     }
 
     return (
@@ -209,8 +217,9 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
             pb={ 5 }
             w="100%"
             overflowX="hidden"
-            minH="52px"
-            h="52px"
+            minH="calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))"
+            h="auto"
+            flexShrink={ 0 }
             listProps={{
               overflowX: 'auto',
               mb: 0,
@@ -219,10 +228,20 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
             }}
           />
         ) }
-        <Flex flexDirection="column" overflowY="auto" ref={ scrollContainerRef } onScroll={ debouncedHandleScroll }>
+        <Flex
+          containerType="inline-size"
+          containerName="search-results"
+          minH={ 0 }
+          minW={ 0 }
+          overscrollBehavior="contain"
+          flexDirection="column"
+          overflowY="auto"
+          ref={ scrollContainerRef }
+          onScroll={ debouncedHandleScroll }
+        >
           { resultCategories.map((cat, index) => {
             return (
-              <Box key={ cat.id } data-scroll-target={ `cat_${ cat.id }` }>
+              <Box key={ cat.id } flexShrink={ 0 } data-scroll-target={ `cat_${ cat.id }` }>
                 <Text
                   textStyle="label"
                   role="heading"
@@ -250,11 +269,25 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
                     addressFormat={ settingsContext?.addressFormat }
                   />
                 )) }
-                { cat.id === 'app' && itemsGroups[cat.id]?.map((item, index) =>
-                  <SearchBarSuggestApp key={ index } data={ item } isMobile={ isMobile } searchTerm={ searchTerm } onClick={ onItemClick }/>,
+                { cat.id === 'app' && itemsGroups[cat.id]?.map((item, index) => (
+                  <SearchBarSuggestApp
+                    key={ index }
+                    data={ item }
+                    isMobile={ isMobile }
+                    searchTerm={ searchTerm }
+                    onClick={ onItemClick }
+                  />
+                ),
                 ) }
-                { cat.id === 'zetaChainCCTX' && itemsGroups[cat.id]?.map((item, index) =>
-                  <SearchBarSuggestZetaChainCCTX key={ index } data={ item } isMobile={ isMobile } searchTerm={ searchTerm } onClick={ onItemClick }/>,
+                { cat.id === 'zetaChainCCTX' && itemsGroups[cat.id]?.map((item, index) => (
+                  <SearchBarSuggestZetaChainCCTX
+                    key={ index }
+                    data={ item }
+                    isMobile={ isMobile }
+                    searchTerm={ searchTerm }
+                    onClick={ onItemClick }
+                  />
+                ),
                 ) }
               </Box>
             );
@@ -267,8 +300,16 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
 
   return (
     <>
-      { config.features.assistant.isEnabled && assistant && (assistant.canAsk || assistant.answer || assistant.error) && (
-        <Box bgColor="raised" color="text.primary" borderColor="hairline" borderBottomWidth="1px" pb={ 3 } mb={ 3 }>
+      { showAssistant && assistant && (
+        <Box
+          flexShrink={ 0 }
+          bgColor="raised"
+          color="text.primary"
+          borderColor="hairline"
+          borderBottomWidth="var(--chakra-border-widths-1)"
+          pb={ 3 }
+          mb={ 3 }
+        >
           <Text textStyle="label" role="heading" aria-level={ 3 } mb={ 2 }>ASK</Text>
           <Button
             type="button"
@@ -278,17 +319,18 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
             justifyContent="flex-start"
             whiteSpace="normal"
             height="auto"
-            minH="44px"
+            minH={ 11 }
+            px={ 0 }
             textAlign="left"
             disabled={ assistant.pending }
             onClick={ assistant.ask }
           >
             { assistant.pending ? 'Asking…' : `Ask: ${ assistant.question }` }
           </Button>
-          <Box role="status" aria-live="polite" overflowY="auto" maxH="30vh">
+          <Box role="status" aria-live="polite">
             { assistant.answer && (
               <>
-                <Text whiteSpace="pre-wrap" overflowWrap="anywhere">{ assistant.answer.answer }</Text>
+                <Text whiteSpace="pre-wrap" overflowWrap="anywhere" maxW="72ch">{ assistant.answer.answer }</Text>
                 <Text color="text.muted" textStyle="xs" mt={ 2 }>
                   model output, not chain data · { assistant.answer.model }
                 </Text>
@@ -299,7 +341,13 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
         </Box>
       ) }
       { !isMobile && (
-        <Box pb={ 4 } mb={ 5 } borderColor="hairline" borderBottomWidth="1px" _empty={{ display: 'none' }}>
+        <Box
+          pb={ 4 }
+          mb={ 5 }
+          borderColor="hairline"
+          borderBottomWidth="var(--chakra-border-widths-1)"
+          _empty={{ display: 'none' }}
+        >
           <TextAd textStyle={{ lg: 'sm' }}/>
         </Box>
       ) }

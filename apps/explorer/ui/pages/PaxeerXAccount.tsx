@@ -1,4 +1,5 @@
 import { Box, chakra, Flex, Grid, Text } from '@chakra-ui/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import React from 'react';
 
@@ -7,7 +8,8 @@ import type { PaxeerXCapabilities } from 'types/api/paxeerX';
 import { route } from 'nextjs/routes';
 
 import config from 'configs/app';
-import useApiQuery from 'lib/api/useApiQuery';
+import useApiQuery, { getResourceKey } from 'lib/api/useApiQuery';
+import { useMultichainContext } from 'lib/contexts/multichain';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { Button } from 'toolkit/chakra/button';
 import { Link } from 'toolkit/chakra/link';
@@ -54,7 +56,7 @@ const DetailsCard = ({ title, children }: CardProps) => (
   <Box
     data-account-card={ title }
     bg="bg.surface"
-    borderWidth="1px"
+    borderWidth="1"
     borderStyle="solid"
     borderColor="border.divider"
     borderRadius="md"
@@ -62,8 +64,9 @@ const DetailsCard = ({ title, children }: CardProps) => (
     px={ 4 }
     py={ 4 }
     minW={ 0 }
+    css={{ '& [data-detailed-info] > [data-detailed-info-value]': { borderTopWidth: { base: 0, lg: '1' } } }}
   >
-    <chakra.h2 textStyle="sm" fontWeight="600" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
+    <chakra.h2 textStyle="sm" fontWeight="semibold" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
     <DetailedInfo.Container
       templateColumns="minmax(0, 1fr)"
       columnGap={ 0 }
@@ -77,6 +80,8 @@ const DetailsCard = ({ title, children }: CardProps) => (
 
 const PaxeerXAccountPageContent = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const chainId = useMultichainContext()?.chain.id;
   const hash = getQueryParamString(router.query.hash);
   const tab = getQueryParamString(router.query.tab);
   const cursor = getQueryParamString(router.query.cursor);
@@ -114,9 +119,13 @@ const PaxeerXAccountPageContent = () => {
   React.useEffect(() => {
     const pageCursor = accountQuery.data?.page_cursor;
     if (!cursor && !malformedCursor && pageCursor && !accountQuery.isPlaceholderData) {
+      queryClient.setQueryData(
+        getResourceKey('general:paxeer_x_unified_account', { pathParams: { hash }, queryParams: { cursor: pageCursor }, chainId }),
+        accountQuery.data,
+      );
       router.replace({ pathname: router.pathname, query: { ...router.query, cursor: pageCursor } }, undefined, { shallow: true });
     }
-  }, [ accountQuery.data?.page_cursor, accountQuery.isPlaceholderData, cursor, malformedCursor, router ]);
+  }, [ accountQuery.data, accountQuery.isPlaceholderData, chainId, cursor, hash, malformedCursor, queryClient, router ]);
 
   React.useEffect(() => {
     try {
@@ -160,7 +169,7 @@ const PaxeerXAccountPageContent = () => {
     navigate(undefined);
   }, [ navigate ]);
 
-  const isLoading = !malformedCursor && (accountQuery.isPlaceholderData || accountQuery.isPending || accountQuery.isFetching);
+  const isLoading = !malformedCursor && (accountQuery.isPlaceholderData || accountQuery.isPending);
   const capabilities = capabilitiesQuery.data;
   const data = accountQuery.data;
 

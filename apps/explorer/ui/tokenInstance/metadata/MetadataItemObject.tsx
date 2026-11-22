@@ -41,7 +41,7 @@ const MetadataItemObject = ({ name, value, level }: Props) => {
         textAlign="left"
         _expanded={{
           borderColor: 'border.divider',
-          borderBottomWidth: '1px',
+          borderBottomWidth: '1',
         }}
         indicatorPlacement="start"
       >

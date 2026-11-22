@@ -15,7 +15,8 @@ import (
 
 // Reader is satisfied by the frozen go-ethereum ethclient read methods. All
 // state reads are hash pinned; it deliberately offers no signing/write methods.
-// The serial integrator must supply a transport with bounded response sizes.
+// The integrator must supply a transport with bounded response sizes.
+// Policies allowing parallel reads require a reader safe for concurrent use.
 type Reader interface {
 	ChainID(context.Context) (*big.Int, error)
 	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
@@ -34,6 +35,9 @@ type ReportedHeaderReader interface {
 }
 
 func headerIdentity(ctx context.Context, r Reader, block common.Hash) (*types.Header, error) {
+	if ctx.Err() != nil {
+		return nil, Issue{Code: valueBlockIdentityUnverified}
+	}
 	if block == (common.Hash{}) {
 		return nil, Issue{Code: valueBlockIdentityUnverified}
 	}
@@ -58,10 +62,12 @@ type Policy struct {
 	Now     time.Time
 	MaxAge  time.Duration
 	Timeout time.Duration
+	// ConcurrentReads bounds reads per attestation to at most sixteen; zero and one are serial.
+	ConcurrentReads int
 }
 
 func (p Policy) validate() error {
-	if p.Now.IsZero() || p.MaxAge <= 0 || p.MaxAge > time.Hour || p.Timeout <= 0 || p.Timeout > time.Minute {
+	if p.Now.IsZero() || p.MaxAge <= 0 || p.MaxAge > time.Hour || p.Timeout <= 0 || p.Timeout > time.Minute || p.ConcurrentReads < 0 || p.ConcurrentReads > 16 {
 		return Issue{Code: "attestation_policy_invalid"}
 	}
 	return nil
@@ -97,6 +103,9 @@ type ActivationAttestation struct {
 
 func selector(name string) []byte { return crypto.Keccak256([]byte(name))[:4] }
 func callWord(ctx context.Context, r Reader, address common.Address, name string, block common.Hash) ([]byte, error) {
+	if ctx.Err() != nil {
+		return nil, Issue{Code: "identity_read_failed"}
+	}
 	b, e := r.CallContractAtHash(ctx, ethereum.CallMsg{To: &address, Data: selector(name)}, block)
 	if e != nil || len(b) != 32 {
 		return nil, Issue{Code: "identity_read_failed"}
@@ -122,9 +131,12 @@ func implementationAt(ctx context.Context, r Reader, address common.Address, nam
 	return wordAddress(b)
 }
 func codeHash(ctx context.Context, r Reader, a common.Address, block common.Hash) (string, error) {
+	if ctx.Err() != nil {
+		return "", Issue{Code: valueCodeReadFailed}
+	}
 	b, e := r.CodeAtHash(ctx, a, block)
 	if e != nil || len(b) == 0 || len(b) > 128<<10 {
-		return "", Issue{Code: "code_read_failed"}
+		return "", Issue{Code: valueCodeReadFailed}
 	}
 	return crypto.Keccak256Hash(b).Hex(), nil
 }
@@ -143,6 +155,9 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 	}
 	ctx, cancel := context.WithTimeout(ctx, p.Timeout)
 	defer cancel()
+	if ctx.Err() != nil {
+		return ActivationAttestation{}, Issue{Code: "chain_read_failed"}
+	}
 	chain, err := r.ChainID(ctx)
 	if err != nil {
 		return ActivationAttestation{}, Issue{Code: "chain_read_failed"}
@@ -172,87 +187,37 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	for _, name := range names {
-		role := m.Roles[name]
-		id := Identity{Role: name, Address: role.Address}
-		add := func(code string) { id.Issues = append(id.Issues, Issue{code, name}) }
-		addr := common.HexToAddress(role.Address)
-		if role.Kind == valuePrecompile {
-			// Precompile code is not EVM bytecode: the identity is the fixed address.
-			if !validAddress(role.Address) || addr != common.HexToAddress(LaunchpadPrecompileAddress) {
-				add(valueIdentityUnverified)
-			}
-		} else {
-			id.RuntimeHash, err = codeHash(ctx, r, addr, block)
-			if err != nil {
-				add("code_read_failed")
-			} else if !role.AcceptsRuntimeHash(id.RuntimeHash) {
-				add("unknown_runtime_hash")
-			}
-		}
-		var impl common.Address
-		switch role.Kind {
-		case valueErc1967, valueBeaconProxy:
-			slot := ImplementationSlot
-			if role.Kind == valueBeaconProxy {
-				slot = BeaconSlot
-			}
-			var b []byte
-			b, err = r.StorageAtHash(ctx, addr, slot, block)
-			if err == nil {
-				impl, err = wordAddress(b)
-			}
-			if err != nil || impl == (common.Address{}) {
-				add(valueIdentityUnverified)
-			} else if role.Kind == valueBeaconProxy {
-				id.BeaconAddress = impl.Hex()
-				if impl != common.HexToAddress(role.BeaconAddress) {
-					add("beacon_mismatch")
-				}
-				beaconHash, e := codeHash(ctx, r, impl, block)
-				known := false
-				for _, candidate := range m.Roles {
-					if candidate.Kind == valueBeacon && common.HexToAddress(candidate.Address) == impl && equalHash(candidate.RuntimeHash, beaconHash) {
-						known = true
-					}
-				}
-				if e != nil || !known {
-					add("beacon_identity_unverified")
-				}
-				impl, err = implementationAt(ctx, r, impl, "implementation()", block)
-				if err != nil {
-					add(valueIdentityUnverified)
-				}
-			}
-		case valueBeacon:
-			impl, err = implementationAt(ctx, r, addr, "implementation()", block)
-			if err != nil {
-				add(valueIdentityUnverified)
-			}
-		}
-		if hasImplementation(role.Kind) {
-			id.ImplementationAddress = impl.Hex()
-			if impl != common.HexToAddress(role.ImplementationAddress) {
-				add("implementation_mismatch")
-			}
-			if impl != (common.Address{}) {
-				id.ImplementationHash, err = codeHash(ctx, r, impl, block)
-				if err != nil {
-					add("implementation_read_failed")
-				} else if !equalHash(id.ImplementationHash, role.ImplementationHash) {
-					add("unknown_implementation_hash")
-				}
-			}
-		}
-		id.Verified = len(id.Issues) == 0
-		a.Identities[name] = id
-		a.Issues = append(a.Issues, id.Issues...)
+	identities := make([]Identity, len(names))
+	reads := make([]func(), len(names))
+	for i, name := range names {
+		reads[i] = func() { identities[i] = attestIdentity(ctx, r, m, name, block) }
+	}
+	runAttestationReads(ctx, p.ConcurrentReads, reads)
+	for i, name := range names {
+		a.Identities[name] = identities[i]
+		a.Issues = append(a.Issues, identities[i].Issues...)
 	}
 	// Do not decode getters for contracts whose runtime and implementation failed.
-	if a.Identities[valuePoolBeacon].Verified {
+	governance := a.Identities[valuePoolBeacon].Verified
+	configuration := a.Identities[valueProtocolConfig].Verified && a.Identities[valueUSDL].Verified
+	getters := []attestationGetter{}
+	if governance {
 		addr := common.HexToAddress(m.Roles[valuePoolBeacon].Address)
-		owner, e1 := implementationAt(ctx, r, addr, "owner()", block)
-		pending, e2 := implementationAt(ctx, r, addr, "pendingOwner()", block)
+		getters = append(getters, attestationGetter{address: addr, signature: "owner()"}, attestationGetter{address: addr, signature: "pendingOwner()"})
+	}
+	policySignatures := []string{"minFeeBps()", "maxFeeBps()", "baseFeeBps()", "protocolFeeBps()", "virtualUsdlDefault()", "virtualTokenDefault()", "feeDecayRate()", "volatilityWeight()", "concentrationWeight()"}
+	policyStart := len(getters)
+	if configuration {
+		cfg := common.HexToAddress(m.Roles[valueProtocolConfig].Address)
+		for _, signature := range policySignatures {
+			getters = append(getters, attestationGetter{address: cfg, signature: signature})
+		}
+		getters = append(getters, attestationGetter{address: cfg, signature: "creationFee()"}, attestationGetter{address: cfg, signature: "usdlAddress()"}, attestationGetter{address: common.HexToAddress(m.Roles[valueUSDL].Address), signature: "decimals()"})
+	}
+	words := readAttestationGetters(ctx, r, block, p.ConcurrentReads, getters)
+	if governance {
+		owner, e1 := words[0].address()
+		pending, e2 := words[1].address()
 		if e1 != nil || e2 != nil {
 			a.Issues = append(a.Issues, Issue{"governance_read_failed", valuePoolBeacon})
 		} else {
@@ -263,20 +228,20 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 			}
 		}
 	}
-	if a.Identities[valueProtocolConfig].Verified && a.Identities[valueUSDL].Verified {
-		cfg := common.HexToAddress(m.Roles[valueProtocolConfig].Address)
+	if configuration {
 		a.PolicyValues = map[string]string{}
-		for _, signature := range []string{"minFeeBps()", "maxFeeBps()", "baseFeeBps()", "protocolFeeBps()", "virtualUsdlDefault()", "virtualTokenDefault()", "feeDecayRate()", "volatilityWeight()", "concentrationWeight()"} {
-			value, readErr := callWord(ctx, r, cfg, signature, block)
+		for i, signature := range policySignatures {
+			value, readErr := words[policyStart+i].value, words[policyStart+i].err
 			if readErr != nil {
 				a.Issues = append(a.Issues, Issue{Code: "configuration_policy_read_failed", Role: valueProtocolConfig})
 			} else {
 				a.PolicyValues[signature] = new(big.Int).SetBytes(value).String()
 			}
 		}
-		fee, e1 := callWord(ctx, r, cfg, "creationFee()", block)
-		usdl, e2 := implementationAt(ctx, r, cfg, "usdlAddress()", block)
-		dec, e3 := callWord(ctx, r, common.HexToAddress(m.Roles[valueUSDL].Address), "decimals()", block)
+		creationStart := policyStart + len(policySignatures)
+		fee, e1 := words[creationStart].value, words[creationStart].err
+		usdl, e2 := words[creationStart+1].address()
+		dec, e3 := words[creationStart+2].value, words[creationStart+2].err
 		if e1 != nil || e2 != nil || e3 != nil {
 			a.Issues = append(a.Issues, Issue{"creation_policy_read_failed", valueProtocolConfig})
 		} else {

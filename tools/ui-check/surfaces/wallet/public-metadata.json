@@ -1,0 +1,8 @@
+{
+  "token_address": "0x000000000000000000000000000000000000000a",
+  "name": "Surface Test Asset With A Long Descriptive Name",
+  "symbol": "TESTLONG",
+  "decimals": 6,
+  "description": "Surface test asset",
+  "pool_address": null
+}

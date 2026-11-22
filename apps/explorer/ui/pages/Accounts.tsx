@@ -27,21 +27,22 @@ const ROWS_OPTIONS = [ 25, API_PAGE_SIZE ];
 const BALANCE_ACCURACY = 3;
 
 const Accounts = () => {
+  const placeholderData = React.useMemo(() => generateListStub<'general:addresses'>(
+    TOP_ADDRESS,
+    50,
+    {
+      next_page_params: {
+        fetched_coin_balance: '42',
+        hash: '0x99f0ec06548b086e46cb0019c78d0b9b9f36cd53',
+        items_count: 50,
+      },
+      total_supply: '0',
+    },
+  ), []);
   const { isError, isPlaceholderData, data, pagination } = useQueryWithPages({
     resourceName: 'general:addresses',
     options: {
-      placeholderData: generateListStub<'general:addresses'>(
-        TOP_ADDRESS,
-        50,
-        {
-          next_page_params: {
-            fetched_coin_balance: '42',
-            hash: '0x99f0ec06548b086e46cb0019c78d0b9b9f36cd53',
-            items_count: 50,
-          },
-          total_supply: '0',
-        },
-      ),
+      placeholderData,
     },
   });
 
@@ -139,8 +140,10 @@ const Accounts = () => {
         title={ title }
         note={ note }
         actions={ actions }
-        pagination={ <Pagination { ...pagination }/> }
+        pagination={ <Pagination { ...pagination } reserveSpace/> }
         showRows={ showRows }
+        keepActionsInline
+        isLoading={ isPlaceholderData }
       >
         <DataListDisplay
           isError={ isError }

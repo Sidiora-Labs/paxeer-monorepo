@@ -1,4 +1,8 @@
-import { DeviceEventEmitter, NativeModules } from 'react-native';
+import {
+  DeviceEventEmitter,
+  NativeModules,
+  Platform,
+} from 'react-native';
 import type { CredentialStore } from '../runtime/session.ts';
 interface SecureModule {
   get(key: string): Promise<string | null>;
@@ -7,6 +11,7 @@ interface SecureModule {
   clear(): Promise<void>;
   unlock(): Promise<boolean>;
   configuration(): Promise<unknown>;
+  consumeNotificationLink(): Promise<string | null>;
   pushPermission(): Promise<'granted' | 'denied' | 'not-determined'>;
   requestPushPermission(): Promise<'granted' | 'denied'>;
   nativePushRegistration(): Promise<{
@@ -16,12 +21,17 @@ interface SecureModule {
     provider: 'apns' | 'fcm';
   }>;
   cookieRequest(
+    requestId: string,
     url: string,
     method: string,
     headers: Record<string, string>,
     body: string | null,
-  ): Promise<{ status: number; headers: Record<string, string>; body: string }>;
-  cancelCookieRequests(): Promise<void>;
+  ): Promise<{
+    status: number;
+    headers: Record<string, string>;
+    body: string;
+  }>;
+  cancelCookieRequest(requestId: string): Promise<void>;
   requestId(): Promise<string>;
   readPublicSnapshot(key: string): Promise<string | null>;
   writePublicSnapshot(key: string, value: string): Promise<void>;
@@ -127,13 +137,16 @@ export async function protectedCookieFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   if (init.signal?.aborted) throw new Error('Request cancelled');
+  const requestId = await module().requestId();
+  init.signal?.throwIfAborted();
   const headers = Object.fromEntries(new Headers(init.headers).entries());
   const cancel = () => {
-    void module().cancelCookieRequests();
+    void module().cancelCookieRequest(requestId);
   };
   init.signal?.addEventListener('abort', cancel, { once: true });
   try {
     const result = await module().cookieRequest(
+      requestId,
       url,
       init.method ?? 'GET',
       headers,
@@ -147,6 +160,11 @@ export async function protectedCookieFetch(
   } finally {
     init.signal?.removeEventListener('abort', cancel);
   }
+}
+
+export function consumeNotificationLink(): Promise<string | null> {
+  if (Platform.OS !== 'ios') return Promise.resolve(null);
+  return module().consumeNotificationLink();
 }
 
 export const nativePush = {

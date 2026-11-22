@@ -35,9 +35,9 @@ export function CupRulesDisclosure({ cup, className }: CupRulesDisclosureProps) 
       </dl>
       {cup.prizeLadder.length > 0 ? (
         <table className="mt-3 w-full text-sm">
-          <caption className="mb-1 text-left text-2xs font-bold uppercase tracking-[0.04em] text-text-faint">Prize ladder</caption>
+          <caption className="mb-1 text-left text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Prize ladder</caption>
           <thead>
-            <tr className="text-left text-2xs uppercase tracking-[0.04em] text-text-faint">
+            <tr className="text-left text-2xs uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
               <th scope="col" className="h-9 font-bold">Rank</th>
               <th scope="col" className="h-9 text-right font-bold">Prize</th>
             </tr>

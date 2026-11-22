@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
-import { Text, requireNativeComponent, type ViewProps } from 'react-native';
+import { requireNativeComponent, type ViewProps } from 'react-native';
 import {
   Button,
+  Text,
   Card,
   ErrorNotice,
   ListPage,
   ResourceStatus,
+  PageControls,
+  usePagination,
   useResource,
   useRetainedInput,
-  ui,
+  useSurface,
   type Runtime,
 } from '../navigation.tsx';
-const NativeVideo = requireNativeComponent<ViewProps & { source: string }>(
-  'SidioraVideoView',
-);
+import { pageResourceKey } from '../runtime/flow-state.ts';
+const NativeVideo = requireNativeComponent<
+  ViewProps & { source: string }
+>('SidioraVideoView');
 function managedURL(runtime: Runtime, value: string) {
   const url = new URL(value);
   if (
@@ -26,18 +30,28 @@ function managedURL(runtime: Runtime, value: string) {
   return url.toString();
 }
 export function Live({ runtime }: { runtime: Runtime }) {
-  const state = useResource(runtime, 'live', (s) =>
-      runtime.services.streams(s),
+  const { ui } = useSurface();
+  const page = usePagination('live');
+  const state = useResource(
+      runtime,
+      pageResourceKey('live', page.cursor),
+      (s) => runtime.services.streams(s, page.cursor),
     ),
-    [playback, setPlayback] = useRetainedInput(runtime, 'live', 'playback'),
+    [playback, setPlayback] = useRetainedInput(
+      runtime,
+      'live',
+      'playback',
+    ),
     [error, setError] = useState<string>();
   const items =
-    state.data?.data.items.map(({ streamId, title, status, playbackUrl }) => ({
-      streamId,
-      title,
-      status,
-      playbackUrl,
-    })) ?? [];
+    state.data?.data.items.map(
+      ({ streamId, title, status, playbackUrl }) => ({
+        streamId,
+        title,
+        status,
+        playbackUrl,
+      }),
+    ) ?? [];
   return (
     <ListPage
       runtime={runtime}
@@ -48,15 +62,24 @@ export function Live({ runtime }: { runtime: Runtime }) {
       header={
         <>
           <ResourceStatus {...state} />
-          {error && <ErrorNotice message={error} />}{' '}
+          <PageControls
+            page={page}
+            nextCursor={state.data?.nextCursor}
+            loading={state.loading}
+            offline={state.offline}
+          />
+          {error && <ErrorNotice message={error} />}
           {playback && (
             <Card>
               <NativeVideo
                 source={playback}
-                style={{ width: '100%', height: 240 }}
+                style={ui.video}
                 accessibilityLabel="Managed livestream player"
               />
-              <Button label="Close playback" onPress={() => setPlayback('')} />
+              <Button
+                label="Close playback"
+                onPress={() => setPlayback('')}
+              />
             </Card>
           )}
         </>

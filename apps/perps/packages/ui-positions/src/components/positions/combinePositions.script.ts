@@ -15,6 +15,9 @@ import { calculatePositions } from "./calculatePositions";
 import { useSubAccountQuery } from "./hooks/useSubAccountQuery";
 import { useSubAccountTPSL } from "./hooks/useSubAccountTPSL";
 
+const EMPTY_POSITIONS: API.PositionExt[] = [];
+const EMPTY_ACCOUNT_INFO: API.AccountInfo[] = [];
+
 export enum AccountType {
   ALL = "All accounts",
   MAIN = "Main accounts",
@@ -44,11 +47,14 @@ export const useCombinePositionsScript = (props: PositionsProps) => {
   });
 
   const {
-    data: newPositions = [],
+    data: newPositions = EMPTY_POSITIONS,
     isLoading: isPositionLoading,
     mutate: mutatePositions,
   } = usePrivateQuery<API.PositionExt[]>("/v1/client/aggregate/positions", {
-    errorRetryCount: 3,
+    errorRetryCount: 0,
+    revalidateIfStale: false,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
   });
 
   // Get unique sub-account IDs
@@ -68,11 +74,13 @@ export const useCombinePositionsScript = (props: PositionsProps) => {
   }, [newPositions, state.mainAccountId]);
 
   // need to get sub account info to calculate portfolio and positions
-  const { data: accountInfo = [], isLoading: isAccountInfoLoading } =
-    useSubAccountQuery<API.AccountInfo[]>("/v1/client/info", {
-      accountId: allAccountIds,
-      revalidateOnFocus: false,
-    });
+  const {
+    data: accountInfo = EMPTY_ACCOUNT_INFO,
+    isLoading: isAccountInfoLoading,
+  } = useSubAccountQuery<API.AccountInfo[]>("/v1/client/info", {
+    accountId: allAccountIds,
+    revalidateOnFocus: false,
+  });
 
   const { tpslOrders, mutateTPSLOrders } = useSubAccountTPSL(subAccountIds);
 
@@ -91,7 +99,7 @@ export const useCombinePositionsScript = (props: PositionsProps) => {
     );
   }, [mainAccountPositions, subAccountPositions]);
 
-  const dataSource = useDataTap(allPositions) ?? [];
+  const dataSource = useDataTap(allPositions) ?? EMPTY_POSITIONS;
 
   const filtered = useMemo(() => {
     if (!selectedAccount || selectedAccount === AccountType.ALL) {

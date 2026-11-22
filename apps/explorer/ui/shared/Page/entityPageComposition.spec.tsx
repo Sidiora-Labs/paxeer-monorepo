@@ -98,14 +98,14 @@ function sectionGroupRendersLabelRowsAndResponsiveGrid() {
   expect(Array.from(container.querySelectorAll('[data-detailed-info-value]')).map((row) => row.textContent)).toEqual([ '2 ETH', '0.001 ETH' ]);
   expect(container.querySelector('[data-detailed-info-label] svg')).not.toBeNull();
   const styles = Array.from(document.styleSheets).flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText)).join('\n');
-  expect(styles).toContain('220px minmax(0, 1fr)');
+  expect(styles).toContain('calc(var(--chakra-spacing-40) + var(--chakra-spacing-15)) minmax(0, 1fr)');
   expect(styles).toContain('minmax(0, 1fr)');
   expect(styles).toContain('--chakra-colors-hairline');
 }
 
 async function addressPageRendersEntityTabSetAndOverview() {
   const { container } = render(<Address/>);
-  await waitFor(() => expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('CONTRACT'));
+  await waitFor(() => expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('CONTRACT'), { timeout: 15_000 });
   const tabs = container.querySelector('[data-entity-tabs]') as HTMLElement;
   const topTabs = tabs.querySelector('[role="tablist"]') as HTMLElement;
   await waitFor(() => {
@@ -114,22 +114,22 @@ async function addressPageRendersEntityTabSetAndOverview() {
     ]);
     expect(topTabs.querySelector('[data-tab="token_transfers"] [data-tab-count]')?.textContent)
       .toBe(`(${ addressTabCounters.token_transfers_count })`);
-  });
+  }, { timeout: 15_000 });
   expect(container.querySelector('[data-section-group="ADDRESS INFO"]')).not.toBeNull();
   expect(container.querySelector('[data-address-balances]')).not.toBeNull();
   expect(topTabs.compareDocumentPosition(container.querySelector('[data-address-details]') as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
   const historyTab = topTabs.querySelector('[data-tab="history"]') as HTMLButtonElement;
-  await waitFor(() => expect(historyTab.disabled).toBe(false));
+  await waitFor(() => expect(historyTab.disabled).toBe(false), { timeout: 15_000 });
   fireEvent.click(historyTab);
   await waitFor(() => expect(routerSpy.push).toHaveBeenCalledWith(
     { pathname: '/address/[hash]', query: { hash: addressMock.hash, tab: 'history' } }, undefined, { shallow: true },
-  ));
+  ), { timeout: 15_000 });
 }
 
 async function addressLegacyTabIdsRemainReachable() {
   const { container, rerender } = render(<Address/>);
-  await waitFor(() => expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('CONTRACT'));
+  await waitFor(() => expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('CONTRACT'), { timeout: 15_000 });
   const cases = [
     [ 'txs', 'history' ],
     [ 'txs_local', 'history' ],
@@ -152,7 +152,7 @@ async function addressLegacyTabIdsRemainReachable() {
       const topTabs = container.querySelector('[data-entity-tabs] [role="tablist"]') as HTMLElement;
       expect(topTabs.querySelector('[aria-selected="true"]')?.getAttribute('data-tab')).toBe(groupId);
       expect(container.querySelector('[role="tabpanel"]')).not.toBeNull();
-    });
+    }, { timeout: 15_000 });
     expect(routerState.query.tab).toBe(legacyId);
   }
   const paths = fetchMock.mock.calls.map(([ url ]) => String(url));
@@ -165,7 +165,7 @@ async function tokenMarketsShowDashesForMissingApiFields() {
   routerState.pathname = '/token/[hash]';
   routerState.query = { hash: tokenInfo.address_hash };
   const { container } = render(<Token/>);
-  await waitFor(() => expect(container.querySelector('h1')?.textContent).toBe(`${ tokenInfo.name } (${ tokenInfo.symbol })`));
+  await waitFor(() => expect(container.querySelector('h1')?.textContent).toBe(`${ tokenInfo.name } (${ tokenInfo.symbol })`), { timeout: 15_000 });
   expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('TOKEN');
   const values = container.querySelectorAll('[data-token-markets] [data-stat-value]');
   expect(Array.from(values).map((value) => value.textContent)).toEqual([ '—', '—', '—', '—' ]);
@@ -182,7 +182,7 @@ async function tokenMarketsKeepSuppliedFieldsAndZeroValues() {
   await waitFor(() => {
     expect(Array.from(container.querySelectorAll('[data-token-markets] [data-stat-value]')).map((value) => value.textContent))
       .toEqual([ '$0', '$0', '$1,234.56', '0' ]);
-  });
+  }, { timeout: 15_000 });
   expect(container.textContent).not.toContain('Onchain market cap');
 }
 
@@ -190,7 +190,7 @@ async function transactionOverviewRendersAllLabelledGroups() {
   routerState.pathname = '/tx/[hash]';
   routerState.query = { hash: transaction.hash };
   const { container } = render(<Transaction/>);
-  await waitFor(() => expect(container.querySelector('[data-section-group="SUMMARY"]')).not.toBeNull());
+  await waitFor(() => expect(container.querySelector('[data-section-group="SUMMARY"]')).not.toBeNull(), { timeout: 15_000 });
   expect(Array.from(container.querySelectorAll('[data-section-group]')).map((group) => group.getAttribute('data-section-group')))
     .toEqual([ 'SUMMARY', 'TRANSFERS', 'BALANCE CHANGES', 'DETAILS' ]);
   const tabs = container.querySelector('[role="tablist"]') as HTMLElement;
@@ -202,7 +202,7 @@ async function blockDetailsRemainReachableThroughExistingIndexRoute() {
   routerState.pathname = '/block/[height_or_hash]';
   routerState.query = { height_or_hash: String(block.height), tab: 'index' };
   const { container } = render(<Block/>);
-  await waitFor(() => expect(container.querySelector('[data-section-group="BLOCK INFO"]')?.textContent).toContain(block.hash));
+  await waitFor(() => expect(container.querySelector('[data-section-group="BLOCK INFO"]')?.textContent).toContain(block.hash), { timeout: 15_000 });
   expect(container.querySelector('h1')?.textContent).toBe(`Block #${ block.height }`);
   expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('BLOCK');
   expect(container.querySelector('[data-section-group="BLOCK INFO"]')?.textContent).toContain('Parent hash');

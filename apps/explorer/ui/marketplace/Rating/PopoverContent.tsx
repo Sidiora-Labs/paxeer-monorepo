@@ -69,12 +69,18 @@ const PopoverContent = ({ appId, userRating, source }: Props) => {
 
   return (
     <>
-      <Flex alignItems="center" h="30px">
+      <Flex alignItems="center" minH="calc(var(--chakra-spacing-1) * 7.5)">
         { ratingValue && (
           // FIXME use non-navigation icon
-          <IconSvg name="navigation/verified_contracts" color="green.400" boxSize="30px" mr={ 1 } ml="-5px"/>
+          <IconSvg
+            name="navigation/verified_contracts"
+            color="positive"
+            boxSize="calc(var(--chakra-spacing-1) * 7.5)"
+            mr={ 1 }
+            ml="calc(calc(var(--chakra-spacing-1) * 1.25) * -1)"
+          />
         ) }
-        <Text fontWeight="500" textStyle="xs" color="text.secondary">
+        <Text fontWeight="medium" textStyle="xs" color="text.secondary">
           { ratingValue ? 'App is already rated by you' : 'How was your experience?' }
         </Text>
       </Flex>
@@ -82,7 +88,7 @@ const PopoverContent = ({ appId, userRating, source }: Props) => {
         defaultValue={ ratingValue }
         onValueChange={ handleValueChange }
         label={ ratingDescriptions }
-        h="32px"
+        h="var(--chakra-spacing-8)"
       />
     </>
   );

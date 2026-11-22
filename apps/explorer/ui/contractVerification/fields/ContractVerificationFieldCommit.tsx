@@ -6,7 +6,7 @@ import type { FormFields } from '../types';
 
 import delay from 'lib/delay';
 import useFetch from 'lib/hooks/useFetch';
-import { Link } from 'toolkit/chakra/link';
+import { Button } from 'toolkit/chakra/button';
 import { FormFieldText } from 'toolkit/components/forms/fields/FormFieldText';
 
 import ContractVerificationFormRow from '../ContractVerificationFormRow';
@@ -108,7 +108,7 @@ const ContractVerificationFieldCommit = ({ latestCommitHash }: Props) => {
           <span >We have found the latest commit hash for the repository: </span>
           <Code color="text.secondary">{ latestCommitHash.slice(0, 7) }</Code>
           <span>. If you want to use it, </span>
-          <Link onClick={ handleUseLatestCommitClick }>click here</Link>
+          <Button type="button" variant="link" onClick={ handleUseLatestCommitClick }>click here</Button>
           <span>.</span>
         </div>
       ) : null }

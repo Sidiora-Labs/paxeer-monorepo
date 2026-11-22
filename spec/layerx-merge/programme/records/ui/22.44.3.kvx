@@ -1,0 +1,224 @@
+[manifest]
+task = "22.44.3"
+surface = "Explorer shared layout, list, entity, filter, pagination, value, alert and error components"
+paths = ["apps/explorer/ui/shared"]
+patterns = ["page layout and grids", "tables and lists", "dialogs and popovers", "menus and tooltips", "tabs and accordions", "forms and validation", "selects and comboboxes", "toasts, alerts and loading states", "scroll areas and sticky parts", "theme modes", "icons and dimensioned images", "font scale and motion"]
+tokens = "Shared components use the explorer spacing, typography, shape, colour, shadow and motion roles from the surface theme."
+layout = "Shared containers and action bars follow their parent width, lists preserve readable rows at narrow widths, and scroll regions keep their content available."
+controls = "Filters, pagination and popovers retain accessible names, focus treatment and dismissal behaviour. Shared copy, info, tag-overflow, filter, previous/next, time-toggle and error-action controls use the touch-target size role."
+text = "Page headings wrap at spaces and within long identifiers without a line clamp. Labels, values and long entity names wrap or truncate within their container while numeric values use the number text style."
+motion = "Loading and asynchronous shared states use the surface motion roles and remain usable when reduced motion is requested."
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/shared/layout", "apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/entities"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/shared/forms", "apps/explorer/ui/shared/filters", "apps/explorer/ui/shared/pagination"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/ui/shared/layout", "apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/entities", "apps/explorer/ui/shared/filters"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/entities"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.popover]
+id = "declarative-dialog-popover-control"
+directories = ["apps/explorer/ui/shared", "apps/explorer/ui/shared/filters", "apps/explorer/ui/shared/EntityTags"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.tooltip]
+id = "interest-triggered-tooltips"
+directories = ["apps/explorer/ui/shared", "apps/explorer/ui/shared/EntityTags"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/explorer/ui/shared/layout"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/ui/shared/layout", "apps/explorer/ui/shared/entities"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/explorer/ui/shared/fallbacks", "apps/explorer/ui/shared/AppError"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/ui/shared/layout", "apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/entities"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/shared"]
+
+[guide.dark_mode_toggle]
+id = "dark-mode-toggle"
+directories = ["apps/explorer/ui/shared"]
+
+[view.layout]
+route = "/explorer/search-results?q=Paxeer"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+variant_widths = [360]
+
+[view.list]
+route = "/explorer/blocks"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+variant_widths = [360]
+
+[view.entity]
+route = "/explorer/address/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+variant_widths = [360]
+
+[view.filters]
+route = "/explorer/address/[hash]?tab=tokens"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+variant_widths = [360]
+
+[view.states]
+route = "/explorer/404"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+variant_widths = [360]
+
+[view.transaction]
+route = "/explorer/tx/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+variant_widths = [360]
+
+
+[view.search_loading]
+route = "/explorer/search-results?q=Paxeer"
+widths = [360, 768]
+schemes = ["light", "dark"]
+modes = ["loading"]
+
+[view.list_loading]
+route = "/explorer/blocks"
+widths = [360, 768]
+schemes = ["light", "dark"]
+modes = ["loading"]
+
+[layout.search_contract_label]
+route = "/explorer/search-results?q=Paxeer"
+widths = [360]
+schemes = ["light", "dark"]
+modes = ["double-text"]
+content = "The contract description in a search-result row extends beyond its container and is clipped."
+
+[layout.block_values]
+route = "/explorer/blocks"
+widths = [360]
+schemes = ["light", "dark"]
+modes = ["double-text"]
+content = "Gas-used and burnt-fee values extend beyond their mobile rows."
+
+[layout.transaction_tags]
+route = "/explorer/tx/[hash]"
+widths = [360]
+schemes = ["light", "dark"]
+modes = ["double-text"]
+content = "The recipient tag row extends beyond the viewport, and the timestamp text extends beyond its container."
+
+[layout.address_holdings]
+route = "/explorer/address/[hash]"
+widths = [768]
+schemes = ["light", "dark"]
+modes = ["default"]
+content = "The token-holdings selector and adjacent action extend beyond the viewport."
+
+[layout.address_text_scale]
+route = "/explorer/address/[hash]"
+widths = [360]
+schemes = ["light", "dark"]
+modes = ["double-text"]
+content = "The token-holdings controls extend beyond the viewport."
+
+[control.header]
+routes = ["/explorer/search-results?q=Paxeer", "/explorer/blocks", "/explorer/tx/[hash]", "/explorer/address/[hash]", "/explorer/address/[hash]?tab=tokens", "/explorer/404"]
+widths = [360, 768]
+schemes = ["light", "dark"]
+modes = ["default"]
+content = "Header search and menu buttons measure 40 by 44 CSS pixels."
+
+[control.detail_hints]
+routes = ["/explorer/tx/[hash]", "/explorer/address/[hash]"]
+widths = [360, 768]
+schemes = ["light", "dark"]
+modes = ["default"]
+content = "Detail hint controls measure 20 CSS pixels wide."
+
+[control.transaction_time]
+route = "/explorer/tx/[hash]"
+widths = [360, 768]
+schemes = ["light", "dark"]
+modes = ["default"]
+content = "The detail timestamp selector measures 20 by 20 CSS pixels."
+
+[control.detail_tabs]
+routes = ["/explorer/tx/[hash]", "/explorer/address/[hash]", "/explorer/address/[hash]?tab=tokens"]
+widths = [360, 768]
+schemes = ["light", "dark"]
+modes = ["default"]
+content = "Detail tab controls measure 32 CSS pixels high."

@@ -9,6 +9,7 @@ export type StreamViewerQuality="verified"|"unavailable"|"stale";
 export type StreamStatus='created'|'starting'|'live'|'ending'|'ended'|'failed'|'suspended';
 export interface StreamPublic{id:string;poolAddress:string;creatorWallet:string;title:string;playbackUrl:string|null;playbackId:string|null;thumbnailUrl:string|null;isLive:boolean;viewerCount:number|null;startedAt:number|null;endedAt:number|null;createdAt:number|null;revision?:string;generatedAt?:string;viewerQuality?:StreamViewerQuality;status?:StreamStatus}
 export interface StreamDirectoryEntry extends StreamPublic{revision:string;generatedAt:string;viewerQuality:StreamViewerQuality;status:StreamStatus}
+export interface InitialPoolStreams { poolAddress: string; streams: StreamPublic[] | null }
 export interface CreateStreamResponse{id:string;streamKey:string;rtmpUrl:string;playbackUrl:string;playbackId:string}
 interface AuthBody{wallet:string;signature:string;message:string;nonce?:string;expiresAt?:string}
 const address=/^0x[0-9a-fA-F]{40}$/;
@@ -143,3 +144,9 @@ export interface KeyRotation{oldStreamId:string;newStreamId:string|null;status:'
 export async function getKeyRotation(streamId:string,accessToken:string):Promise<KeyRotation>{if(!uuid.test(streamId))throw new Error('Invalid stream identity');const raw=await read(`/v2/streams/${streamId}/key-rotation`,{headers:sessionHeaders(accessToken)});if(!raw||typeof raw!=='object')throw new Error('Key rotation unavailable');const v=raw as Record<string,unknown>;if(v.oldStreamId!==streamId||(v.newStreamId!==null&&(typeof v.newStreamId!=='string'||!uuid.test(v.newStreamId)))||!['revoking','provisioning','ready'].includes(String(v.status))||typeof v.revision!=='string'||!/^[1-9][0-9]{0,18}$/.test(v.revision))throw new Error('Key rotation unavailable');return {oldStreamId:streamId,newStreamId:v.newStreamId as string|null,status:v.status as KeyRotation['status'],revision:v.revision};}
 
 export async function getPrivatePlayback(streamId:string,accessToken:string):Promise<StreamPublic>{if(!uuid.test(streamId))throw new Error('Invalid stream identity');return parseStream(await read(`/v2/streams/${streamId}/private-playback`,{headers:sessionHeaders(accessToken)}));}
+
+export async function getPlaybackStream(streamId:string,accessToken?:string):Promise<StreamPublic|null>{
+ const stream=await getStream(streamId);
+ if(stream?.status!=='suspended'||!accessToken)return stream;
+ try{return await getPrivatePlayback(streamId,accessToken)}catch(error){if(error instanceof LivestreamApiError&&error.status===403)return stream;throw error}
+}

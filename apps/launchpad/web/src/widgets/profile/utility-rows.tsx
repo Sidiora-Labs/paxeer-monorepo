@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Coins, History } from 'lucide-react';
@@ -85,7 +86,7 @@ function CashbackRow({ wallet }: { wallet: string }) {
   }
   const state = loadable({ status: query.status, data: query.data, error: query.error, refetch: query.refetch }, cashbackOperation);
   if (state.state === 'loading') {
-    return <UtilityRow icon={icon} title={title} caption={<Skeleton width={160} height={12} label="cashback balance" />} action={<Button size="sm" variant="primary" disabled>Claim</Button>} />;
+    return <UtilityRow icon={icon} title={title} caption={<Skeleton width={surfaceSpacing(40)} height={surfaceSpacing(3)} label="cashback balance" />} action={<Button size="sm" variant="primary" disabled>Claim</Button>} />;
   }
   if (state.state === 'unsupported') {
     return <UtilityRow icon={icon} title={title} caption={<UnavailableState variant="inline" title="Cashback" operation={state.operation} status={state.status} className="text-xs" />} action={<Button size="sm" variant="secondary" onClick={() => { void query.refetch(); }}>Try again</Button>} />;
@@ -182,7 +183,7 @@ function CalloutHistoryRow({ wallet }: { wallet: string }) {
           {state.data.map(callout => (
             <li key={callout.ID} className="flex items-center justify-between gap-3 rounded-sm bg-surface-3 px-3 py-2 text-sm">
               {/^0x[0-9a-fA-F]{40}$/.test(callout.PoolAddress)
-                ? <Link href={poolPath(125, callout.PoolAddress)} className="truncate font-mono text-text hover:text-accent">{shortAddress(callout.PoolAddress)}</Link>
+                ? <Link prefetch={false} href={poolPath(125, callout.PoolAddress)} className="truncate font-mono text-text hover:text-accent">{shortAddress(callout.PoolAddress)}</Link>
                 : <span className="truncate font-mono text-text-muted">{callout.PoolAddress}</span>}
               <span className="shrink-0 text-xs text-text-muted">{callout.Direction} · {relativeAge(callout.CreatedAt, now)} ago</span>
             </li>

@@ -31,13 +31,13 @@ const MetadataItemArray = ({ name, value, level }: Props) => {
         textAlign="left"
         _expanded={{
           borderColor: 'border.divider',
-          borderBottomWidth: '1px',
+          borderBottomWidth: '1',
         }}
         indicatorPlacement="start"
       >
         <MetadataAccordionItemTitle name={ name }/>
       </AccordionItemTrigger>
-      <AccordionItemContent p={ 0 } ml={{ base: 6, lg: level === 0 ? '126px' : 6 }}>
+      <AccordionItemContent p={ 0 } ml={{ base: 6, lg: level === 0 ? 32 : 6 }}>
         { value.map((item, index) => {
           const content = (() => {
             switch (typeof item) {
@@ -53,8 +53,8 @@ const MetadataItemArray = ({ name, value, level }: Props) => {
                   } else {
                     return Object.entries(item).map(([ name, value ], index) => {
                       return (
-                        <Flex key={ index } columnGap={ 3 }>
-                          <MetadataAccordionItemTitle name={ name } fontWeight={ 400 } w={{ base: '90px' }}/>
+                        <Flex key={ index } columnGap={ 3 } minW={ 0 }>
+                          <MetadataAccordionItemTitle name={ name } fontWeight="normal" w={{ base: 24 }}/>
                           <MetadataItemPrimitive
                             value={ typeof value === 'object' ? JSON.stringify(value, undefined, 2) : value }
                             level={ level }
@@ -77,7 +77,7 @@ const MetadataItemArray = ({ name, value, level }: Props) => {
             <Flex
               key={ index }
               py={ 2 }
-              _notFirst={{ borderColor: 'border.divider', borderTopWidth: '1px' }}
+              _notFirst={{ borderColor: 'border.divider', borderTopWidth: '1' }}
               flexDir="column"
               rowGap={ 2 }
             >

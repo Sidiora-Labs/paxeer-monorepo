@@ -1,6 +1,6 @@
-# Paxeer 7.0.1 release files
+# Paxeer 7.0.2 release files
 
-This index covers the files used to prepare and operate release `paxeer-network/v7.0.1` and the governance upgrade `v7.0`. The current release version comes from `tools/release/version.json`; release 7.0.1 keeps plan `v7.0`. Paxeer uses EVM chain ID 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when their blocks commit. Commands run from the repository root unless a page says otherwise. Deployment values belong in the operator’s private configuration.
+This index covers the files used to prepare and operate release `paxeer-network/v7.0.2` and the governance upgrade `v7.0`. The current release version comes from `tools/release/version.json`; release 7.0.2 keeps plan `v7.0`. Paxeer uses EVM chain ID 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when their blocks commit. Commands run from the repository root unless a page says otherwise. Deployment values belong in the operator’s private configuration.
 
 ## Files
 
@@ -14,6 +14,7 @@ This index covers the files used to prepare and operate release `paxeer-network/
 | [7.0.0-upgrade-plan.md](7.0.0-upgrade-plan.md) | Release coordinators and validators | Schedule the height, roles, go/no-go decisions and service return. |
 | [7.0.0-release-notes.md](7.0.0-release-notes.md) | Operators, developers and users | Read activation behavior, supported interfaces and client changes. |
 | [7.0.1-release-notes.md](7.0.1-release-notes.md) | Operators, developers and users | Read the 7.0.1 behavior changes. |
+| [7.0.2-release-notes.md](7.0.2-release-notes.md) | Operators, developers and users | Read the 7.0.2 behavior changes. |
 | [7.0.0-readiness-matrix.md](7.0.0-readiness-matrix.md) | Release maintainers | Find build and test entry points, release identities and operational checks. |
 | [7.0.0-candidate-report.md](7.0.0-candidate-report.md) | Release maintainers | Find activation, receipt, retirement, parity and artifact checks. |
 | [7.0.0-readiness-checklist.md](7.0.0-readiness-checklist.md) | Release coordinators and operators | Check release, governance, host and service readiness and acceptance. |
@@ -38,7 +39,7 @@ Use the page for each deployed component before preparing its configuration. Req
 | [variables/app-inference-peer.md](variables/app-inference-peer.md) | Inference peer operators | Configure required and optional inputs, defaults and feature dependencies. |
 | [variables/app-launchpad.md](variables/app-launchpad.md) | Launchpad application operators | Configure required and optional inputs, defaults and feature dependencies. |
 | [variables/app-names.md](variables/app-names.md) | Paxeer Names shell operators | Configure required and optional inputs, defaults and feature dependencies. |
-| [variables/app-perps.md](variables/app-perps.md) | Perps application operators | Configure required and optional inputs, defaults and feature dependencies. |
+| [variables/app-perps.md](variables/app-perps.md) | Paxeer Xtrades application operators | Configure the workspace settings, defaults and feature dependencies. |
 | [variables/app-wallet.md](variables/app-wallet.md) | Wallet application operators | Configure required and optional inputs, defaults and feature dependencies. |
 | [variables/app-web.md](variables/app-web.md) | Web application operators | Configure required and optional inputs, defaults and feature dependencies. |
 | [variables/chain-node.md](variables/chain-node.md) | Chain node operators | Configure required and optional inputs, defaults and feature dependencies. |
@@ -72,7 +73,7 @@ Fill a private copy of the example for the selected component and supply it thro
 | [../../apps/inference-peer/.env.example](../../apps/inference-peer/.env.example) | Inference-peer application operators | Supply application and build inputs for the selected deployment. |
 | [../../apps/launchpad/.env.example](../../apps/launchpad/.env.example) | Launchpad application operators | Supply application and build inputs for the selected deployment. |
 | [../../apps/names/.env.example](../../apps/names/.env.example) | Names application operators | Supply application and build inputs for the selected deployment. |
-| [../../apps/perps/.env.example](../../apps/perps/.env.example) | Perps application operators | Supply application and build inputs for the selected deployment. |
+| [../../apps/perps/apps/web/.env.example](../../apps/perps/apps/web/.env.example) | Paxeer Xtrades application operators | Supply the workspace settings used by the web application. |
 | [../../apps/wallet/.env.example](../../apps/wallet/.env.example) | Wallet application operators | Supply application and build inputs for the selected deployment. |
 | [../../apps/web/.env.example](../../apps/web/.env.example) | Web application operators | Supply application and build inputs for the selected deployment. |
 | [../../tools/ops/.env.example](../../tools/ops/.env.example) | Operations teams | Supply keyring migration inputs. |

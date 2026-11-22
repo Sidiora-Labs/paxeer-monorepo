@@ -3,6 +3,7 @@ defmodule Explorer.Repair.MissingBlockRangeReplacementTest do
 
   import Ecto.Query
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias EthereumJSONRPC.Block
   alias Explorer.Migrator.{MigrationStatus, SanitizeMissingBlockRanges}
   alias Explorer.Repo
@@ -12,6 +13,8 @@ defmodule Explorer.Repair.MissingBlockRangeReplacementTest do
   @fixture Path.expand("../../../ethereum_jsonrpc/test/support/fixture/paxeer_x/consecutive_blocks.json", __DIR__)
 
   setup do
+    owner = Sandbox.start_owner!(Repo, shared: true, sandbox: false)
+    on_exit(fn -> Sandbox.stop_owner(owner) end)
     original_repo = Repo.get_dynamic_repo()
     schema = "repair_2231398_#{System.unique_integer([:positive])}"
     Repo.query!("CREATE SCHEMA #{schema}")

@@ -5,9 +5,10 @@ interface Props {
   children: React.ReactNode;
   className?: string;
   animation?: string;
+  'aria-busy'?: React.AriaAttributes['aria-busy'];
 }
 
-const ListItemMobile = ({ children, className, animation }: Props) => {
+const ListItemMobile = ({ children, className, animation, ...rest }: Props) => {
   return (
     <Flex
       animation={ animation }
@@ -27,8 +28,7 @@ const ListItemMobile = ({ children, className, animation }: Props) => {
         borderBottomWidth: '1px',
       }}
       className={ className }
-      fontSize="13px"
-      lineHeight="18px"
+      { ...rest }
     >
       { children }
     </Flex>

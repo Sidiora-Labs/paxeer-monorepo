@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -25,6 +26,8 @@ import (
 )
 
 const V2BodyLimit = 32 << 10
+
+const metadataSourceCreator = "creator"
 
 type V2Social struct {
 	Label string `json:"label"`
@@ -414,7 +417,7 @@ func (s *ProductionStore) readV2(ctx context.Context, q v2Reader, token string) 
 		return z, ErrUnrepresentable
 	}
 	z.ChainID = 125
-	z.Source = "creator"
+	z.Source = metadataSourceCreator
 	z.ModerationStatus = metadataVisibilityAllowed
 	if blocked {
 		z.ModerationStatus = "blocked"
@@ -509,6 +512,7 @@ func v2Failure(w http.ResponseWriter, e error) {
 	case errors.Is(e, ErrConflict):
 		v2Error(w, 409, "conflict")
 	default:
+		LogFailure(slog.Default(), "metadata request unavailable", e)
 		v2Error(w, 503, metadataUnavailableQuality)
 	}
 }
@@ -642,6 +646,20 @@ func (h V2ContractHandlers) identity(ctx context.Context, tx pgx.Tx, token strin
 	}
 	return v, nil
 }
+func (h V2ContractHandlers) readCanonicalDocument(ctx context.Context, tx pgx.Tx, identity V2CanonicalIdentity) (V2Data, error) {
+	data, e := h.Store.readV2(ctx, tx, identity.Token.Address)
+	if errors.Is(e, ErrMissing) {
+		var blocked bool
+		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+h.Store.table("documents")+" WHERE pool=$1 AND blocked)", identity.PoolAddress).Scan(&blocked); e != nil {
+			return V2Data{}, e
+		}
+		if blocked {
+			return V2Data{}, ErrForbidden
+		}
+		return V2Data{ChainID: 125, PoolAddress: identity.PoolAddress, TokenAddress: identity.Token.Address, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, Source: metadataSourceCreator, ModerationStatus: metadataVisibilityAllowed}, nil
+	}
+	return data, e
+}
 func (h V2ContractHandlers) get(w http.ResponseWriter, r *http.Request) {
 	if h.Store == nil || h.Store.Verifier == nil || h.Canonical == nil {
 		v2Error(w, 503, metadataUnavailableQuality)
@@ -659,19 +677,8 @@ func (h V2ContractHandlers) get(w http.ResponseWriter, r *http.Request) {
 		v2Failure(w, e)
 		return
 	}
-	data, e := h.Store.readV2(r.Context(), tx, token)
-	if errors.Is(e, ErrMissing) {
-		var blocked bool
-		if e = tx.QueryRow(r.Context(), "SELECT EXISTS(SELECT 1 FROM "+h.Store.table("documents")+" WHERE pool=$1 AND blocked)", identity.PoolAddress).Scan(&blocked); e != nil {
-			v2Failure(w, e)
-			return
-		}
-		if blocked {
-			v2Failure(w, ErrForbidden)
-			return
-		}
-		data = V2Data{ChainID: 125, PoolAddress: identity.PoolAddress, TokenAddress: identity.Token.Address, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, ModerationStatus: metadataVisibilityAllowed}
-	} else if e != nil {
+	data, e := h.readCanonicalDocument(r.Context(), tx, identity)
+	if e != nil {
 		v2Failure(w, e)
 		return
 	}

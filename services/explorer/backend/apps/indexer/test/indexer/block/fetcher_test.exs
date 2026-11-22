@@ -15,6 +15,7 @@ defmodule Indexer.Block.FetcherTest do
 
   alias Explorer.Chain
   alias Explorer.Chain.{Address, Log, Transaction, Wei}
+  alias Explorer.Chain.Address.CoinBalance
   # alias Explorer.TestHelper
   alias Indexer.Block.Fetcher
   alias Indexer.BufferedTask
@@ -59,6 +60,8 @@ defmodule Indexer.Block.FetcherTest do
 
   describe "import_range/2" do
     setup %{json_rpc_named_arguments: json_rpc_named_arguments} do
+      Repo.delete_all(from(balance in CoinBalance, where: is_nil(balance.value_fetched_at)))
+
       CoinBalanceCatchup.Supervisor.Case.start_supervised!(
         json_rpc_named_arguments: json_rpc_named_arguments,
         poll: false
@@ -87,6 +90,8 @@ defmodule Indexer.Block.FetcherTest do
           task_supervisor: Indexer.TaskSupervisor
         }
       )
+
+      Enum.each([InternalTransaction, CoinBalanceCatchup], &wait_for_tasks/1)
 
       Application.put_env(:indexer, Indexer.Fetcher.Celo.EpochBlockOperations.Supervisor, disabled?: true)
 
@@ -1087,31 +1092,26 @@ defmodule Indexer.Block.FetcherTest do
   end
 
   defp wait_until(timeout, producer) do
-    parent = self()
-    ref = make_ref()
-
-    spawn(fn -> do_wait_until(parent, ref, producer) end)
-
-    receive do
-      {^ref, :ok} -> :ok
-    after
-      timeout -> exit(:timeout)
-    end
+    deadline = System.monotonic_time(:millisecond) + timeout
+    do_wait_until(deadline, producer)
   end
 
-  defp do_wait_until(parent, ref, producer) do
+  defp do_wait_until(deadline, producer) do
     if producer.() do
-      send(parent, {ref, :ok})
+      :ok
     else
-      :timer.sleep(100)
-      do_wait_until(parent, ref, producer)
+      remaining = deadline - System.monotonic_time(:millisecond)
+      if remaining <= 0, do: exit(:timeout)
+      Process.sleep(min(100, remaining))
+      do_wait_until(deadline, producer)
     end
   end
 
   defp wait_for_tasks(buffered_task) do
     wait_until(:timer.seconds(10), fn ->
       counts = BufferedTask.debug_count(buffered_task)
-      counts.buffer == 0 and counts.tasks == 0
+      state = GenServer.call(buffered_task, :state)
+      state.init_task in [:complete, :delay] and counts.buffer == 0 and counts.tasks == 0
     end)
   end
 

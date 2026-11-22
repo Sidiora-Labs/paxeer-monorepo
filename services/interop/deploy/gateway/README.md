@@ -108,9 +108,9 @@ repeating an id makes that selection ambiguous. The renderer refuses repeated
 ids before writing the manifest. Different ids may share a public key, and
 every distinct public key still appears in the advertised signer set.
 
-The service and renderer reject overlapping ranges, including ranges assigned
-to different keys. At startup the service fetches `px_getReceiptKeys` using
-the configured endpoint and requires every local pin's id, public key and
+Distinct key ids may have overlapping inclusive height ranges, including primary
+and standby sequencer keys. The service and renderer preserve the file order.
+At startup the service fetches `px_getReceiptKeys` using the configured endpoint and requires every local pin's id, public key and
 height bounds to match a published entry. This check does not require every
 published key to be pinned. Deploy the complete signer set needed for current
 and retained receipts, and render `x402_supported` from that same file. The

@@ -15,7 +15,7 @@ import TextSeparator from 'ui/shared/TextSeparator';
 import GetGasButton from './GetGasButton';
 import TopBarCoinPrice from './TopBarCoinPrice';
 
-const TopBarStats = ({ showGasInfo = true }: { showGasInfo?: boolean }) => {
+const TopBarStats = ({ showGasInfo = true, noWrap = false }: { showGasInfo?: boolean; noWrap?: boolean }) => {
   const isMobile = useIsMobile();
 
   const { data, isPlaceholderData, isError, refetch, dataUpdatedAt } = useApiQuery('general:stats', {
@@ -58,14 +58,16 @@ const TopBarStats = ({ showGasInfo = true }: { showGasInfo?: boolean }) => {
 
   return (
     <Flex
-      alignItems="center"
-      fontWeight={ 500 }
-      flexWrap="wrap"
+      alignItems={ noWrap ? 'flex-start' : 'center' }
+      flexDirection={ noWrap ? 'column' : undefined }
+      fontWeight="medium"
+      flexWrap={ noWrap ? 'nowrap' : 'wrap' }
       columnGap={ 3 }
-      rowGap={ 1 }
+      rowGap={ noWrap ? 0 : 1 }
     >
       { hasNativeCoinPrice && nativeSymbol && (
         <TopBarCoinPrice
+          noWrap={ noWrap }
           symbol={ nativeSymbol }
           price={ data?.coin_price }
           change={ data?.coin_price_change_percentage }
@@ -74,6 +76,7 @@ const TopBarStats = ({ showGasInfo = true }: { showGasInfo?: boolean }) => {
       ) }
       { hasSecondaryCoinPrice && secondarySymbol && (
         <TopBarCoinPrice
+          noWrap={ noWrap }
           symbol={ secondarySymbol }
           price={ data?.secondary_coin_price }
           change={ data?.secondary_coin_price_change_percentage }
@@ -85,7 +88,11 @@ const TopBarStats = ({ showGasInfo = true }: { showGasInfo?: boolean }) => {
         <>
           <Skeleton loading={ isPlaceholderData } whiteSpace="pre-wrap">
             <chakra.span color="text.secondary">Gas: </chakra.span>
-            <GasInfoTooltip data={ data } dataUpdatedAt={ dataUpdatedAt } placement={ !data?.coin_price ? 'bottom-start' : undefined }>
+            <GasInfoTooltip
+              data={ data }
+              dataUpdatedAt={ dataUpdatedAt }
+              placement={ !data?.coin_price ? 'bottom-start' : undefined }
+            >
               <Link color="accent">
                 <GasPrice data={ data.gas_prices?.average ?? null }/>
               </Link>

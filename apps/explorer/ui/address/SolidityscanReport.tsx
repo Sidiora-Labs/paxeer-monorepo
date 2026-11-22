@@ -44,15 +44,23 @@ const SolidityscanReport = ({ hash }: Props) => {
       />
       <PopoverContent w={{ base: '100vw', lg: '328px' }}>
         <PopoverBody textStyle="sm">
-          <Box mb={ 5 } lineHeight="25px">
+          <Box mb={ 5 } textStyle="body">
             Contract analyzed for 240+ vulnerability patterns by
-            <Icon as={ solidityScanIcon } mr={ 1 } ml="6px" w="23px" h="20px" display="inline-block" verticalAlign="middle"/>
-            <Text fontWeight={ 600 } display="inline-block">SolidityScan</Text>
+            <Icon
+              as={ solidityScanIcon }
+              mr={ 1 }
+              ml="{spacing.1.5}"
+              w="calc({spacing.5} + {spacing.0.5} + {spacing.0.25})"
+              h="{spacing.5}"
+              display="inline-block"
+              verticalAlign="middle"
+            />
+            <Text fontWeight="semibold" display="inline-block">SolidityScan</Text>
           </Box>
           <SolidityscanReportScore score={ score } mb={ 5 }/>
           { vulnerabilities && vulnerabilitiesCount > 0 && (
             <Box mb={ 5 }>
-              <Text py="7px" color="text.secondary" textStyle="xs" fontWeight={ 500 }>Vulnerabilities distribution</Text>
+              <Text py="calc({spacing.1.5} + {spacing.0.25})" color="text.secondary" textStyle="xs" fontWeight="medium">Vulnerabilities distribution</Text>
               <SolidityscanReportDetails vulnerabilities={ vulnerabilities } vulnerabilitiesCount={ vulnerabilitiesCount }/>
             </Box>
           ) }

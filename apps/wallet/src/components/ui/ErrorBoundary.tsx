@@ -45,24 +45,22 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="flex flex-col items-center justify-center text-center py-16 px-6 gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center">
-            <AlertTriangle className="w-7 h-7 text-red-400" />
+        <div className="flex flex-col items-center justify-center text-center py-16 px-4 gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-pax-error-muted flex items-center justify-center">
+            <AlertTriangle className="w-7 h-7 text-pax-error" />
           </div>
           <div className="space-y-1">
-            <p className="text-base font-semibold text-white/80">
-              Something broke
-            </p>
-            <p className="text-sm text-pax-muted max-w-[260px] leading-relaxed">
+            <p className="text-base font-semibold text-pax-light">Something broke</p>
+            <p className="text-sm text-pax-muted max-w-size-260 leading-relaxed">
               The screen could not be displayed. Retry, or share reference{' '}
               {this.state.correlationId} with support.
             </p>
           </div>
           <button
             onClick={this.handleReset}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.08] text-sm font-medium press-scale hover:bg-white/[0.12] transition-colors"
+            className="flex flex-none items-center whitespace-nowrap gap-2 px-5 py-2.5 rounded-xl bg-pax-control text-sm font-medium press-scale hover:bg-pax-control transition-colors"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4 shrink-0" />
             Reload
           </button>
         </div>

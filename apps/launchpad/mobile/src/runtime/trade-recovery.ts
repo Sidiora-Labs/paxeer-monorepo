@@ -1,3 +1,4 @@
+import { replacementOutcome } from './wallet-flow.ts';
 import { createPublicClient, http, type Address, type Hash } from 'viem';
 import { decodeContract } from '../../../../../sdk/launchpad/packages/sdk/src/validate.ts';
 import type { TransactionRequest } from '../../../../../sdk/launchpad/packages/sdk/src/types.gen.ts';
@@ -141,4 +142,60 @@ export async function verifyTradeRecovery(
       'Trade receipt is not canonical or has a different identity',
     );
   return receipt.status === 'success' ? 'confirmed' : 'reverted';
+}
+
+export async function verifyTradeReplacement(
+  rpcURL: string,
+  identity: TradeIdentity,
+  transactionHash: string,
+  signal: AbortSignal,
+): Promise<
+  'pending' | 'confirmed' | 'reverted' | 'cancelled' | 'replaced_action'
+> {
+  if (!/^0x[0-9a-f]{64}$/i.test(transactionHash))
+    throw new Error('Invalid replacement transaction hash');
+  identity = decodeTradeIdentity(identity);
+  const client = chainClient(rpcURL, signal),
+    hash = transactionHash as Hash;
+  if ((await client.getChainId()) !== Number(identity.request.chainId))
+    throw new Error('Wrong replacement chain');
+  const transaction = await client.getTransaction({ hash });
+  const transactionChainId = transaction.chainId;
+  if (
+    typeof transactionChainId !== 'number' ||
+    transactionChainId !== Number(identity.request.chainId)
+  )
+    throw new Error(
+      'Replacement transaction chain identity unavailable or mismatched',
+    );
+  const action = replacementOutcome(identity, {
+    ...transaction,
+    chainId: transactionChainId,
+  });
+  if (action === 'same_action')
+    return verifyTradeRecovery(rpcURL, identity, transactionHash, signal);
+  const receipt = await client.getTransactionReceipt({ hash });
+  const block = await client.getBlock({
+    blockNumber: receipt.blockNumber,
+  });
+  signal.throwIfAborted();
+  const same = (a: string | null, b: string | null) =>
+    a?.toLowerCase() === b?.toLowerCase();
+  if (
+    !same(transaction.hash, hash) ||
+    !same(receipt.transactionHash, hash) ||
+    !same(receipt.from, identity.request.from) ||
+    !same(receipt.to, transaction.to) ||
+    block.hash !== receipt.blockHash ||
+    block.number !== receipt.blockNumber ||
+    transaction.blockHash !== receipt.blockHash ||
+    transaction.blockNumber !== receipt.blockNumber ||
+    transaction.transactionIndex !== receipt.transactionIndex ||
+    !same(block.transactions[receipt.transactionIndex] ?? null, hash) ||
+    !['success', 'reverted'].includes(receipt.status)
+  )
+    throw new Error(
+      'Replacement receipt is not canonical or has a different identity',
+    );
+  return receipt.status === 'reverted' ? 'reverted' : action;
 }

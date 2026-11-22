@@ -25,13 +25,19 @@ const UserProfileButton = ({ selected, email, ...rest }: Props) => {
       return accountWithDomain.address ? (
         <HStack gap={ 2 }>
           <UserIdenticon address={ accountWithDomain.address } isAutoConnectDisabled={ isAutoConnectDisabled }/>
-          <Box display={{ base: 'none', md: 'block' }} maxW="200px" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+          <Box
+            display={{ base: 'none', md: 'block' }}
+            maxW="calc(var(--chakra-spacing-40) + var(--chakra-spacing-10))"
+            overflow="hidden"
+            textOverflow="ellipsis"
+            whiteSpace="nowrap"
+          >
             { accountWithDomain.domain || shortenString(accountWithDomain.address) }
           </Box>
         </HStack>
       ) : (
         <HStack gap={ 2 }>
-          <IconSvg name="profile" boxSize={ 5 }/>
+          <IconSvg aria-hidden={ true } name="profile" boxSize={ 5 }/>
           <Box display={{ base: 'none', md: 'block' }}>{ email ? getUserHandle(email) : 'My profile' }</Box>
         </HStack>
       );
@@ -45,7 +51,7 @@ const UserProfileButton = ({ selected, email, ...rest }: Props) => {
       px={{ base: 2.5, lg: 3 }}
       selected={ selected }
       highlighted={ isAutoConnectDisabled }
-      fontWeight={ selected ? 700 : undefined }
+      fontWeight={ selected ? 'bold' : undefined }
       loading={ isLoading }
       { ...rest }
     >

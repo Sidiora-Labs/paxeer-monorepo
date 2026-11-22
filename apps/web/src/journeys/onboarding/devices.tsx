@@ -7,7 +7,12 @@ import { formatCopy } from "../../../copy/format";
 import { humanApi, type Session } from "../../api";
 import { DeviceSessionList } from "../../kit/device-list";
 import { ScreenCard, StateEmpty } from "../../kit/surface";
-import { ErrorSurface, errorPresentation, LoadingSurface, OfflineSurface } from "../../states";
+import {
+  ErrorSurface,
+  errorPresentation,
+  LoadingSurface,
+  OfflineSurface,
+} from "../../states";
 
 type DeviceListState =
   | Readonly<{ name: "loading" }>
@@ -47,14 +52,24 @@ export function DeviceList() {
   }
   if (state.name === "error") {
     if (!navigator.onLine) {
-      return <OfflineSurface onRetry={() => { void load(); }} />;
+      return (
+        <OfflineSurface
+          onRetry={() => {
+            void load();
+          }}
+        />
+      );
     }
     return (
       <ErrorSurface
         error={errorPresentation(state.error)}
         route="/app/settings/devices"
-        onRetry={() => { void load(); }}
-        onReload={() => { window.location.reload(); }}
+        onRetry={() => {
+          void load();
+        }}
+        onReload={() => {
+          window.location.reload();
+        }}
       />
     );
   }
@@ -78,15 +93,21 @@ export function DeviceList() {
             subtitle: (
               <>
                 {session.device.platform} ·{" "}
-                <time dateTime={session.opened_at}>
-                  {formatCopy("device.opened", { when: time(session.opened_at) })}
+                <time className="max-w-full" dateTime={session.opened_at}>
+                  {formatCopy("device.opened", {
+                    when: time(session.opened_at),
+                  })}
                 </time>
               </>
             ),
-            trailing: session.current ? copyEntry("device.current").message : undefined,
+            trailing: session.current
+              ? copyEntry("device.current").message
+              : undefined,
             trailingCaption: (
-              <time dateTime={session.last_active_at}>
-                {formatCopy("device.last_active", { when: time(session.last_active_at) })}
+              <time className="max-w-full" dateTime={session.last_active_at}>
+                {formatCopy("device.last_active", {
+                  when: time(session.last_active_at),
+                })}
               </time>
             ),
             current: session.current,

@@ -631,13 +631,13 @@ fn receipt_key_contract_example_loads_strictly() {
     let mut inverted = value.clone();
     inverted["paxeer"]["receipt_keys"][0]["first_height"] = json!(2000);
     assert!(load_config(&directory, &inverted).is_err());
-    let mut overlap = value;
-    let duplicate = overlap["paxeer"]["receipt_keys"][0].clone();
-    overlap["paxeer"]["receipt_keys"]
+    let mut repeated_id = value;
+    let duplicate = repeated_id["paxeer"]["receipt_keys"][0].clone();
+    repeated_id["paxeer"]["receipt_keys"]
         .as_array_mut()
         .or_panic("expected Some value")
         .push(duplicate);
-    assert!(load_config(&directory, &overlap).is_err());
+    assert!(load_config(&directory, &repeated_id).is_err());
 }
 
 // This consumer has exactly the corrected published parameter and result types.

@@ -5,12 +5,14 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { navStructure } from './nav'
 import { Icon } from './Icon'
+import { useLightDismiss } from './useLightDismiss'
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname().replace(/\/$/, '') || '/'
   const dialog = useRef<HTMLDialogElement>(null)
+  useLightDismiss(dialog)
   useEffect(() => {
-    if (open) dialog.current?.showModal()
+    if (open && !dialog.current?.open) dialog.current?.showModal()
     else dialog.current?.close()
   }, [open])
   const navigation = <>
@@ -20,6 +22,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   </>
   return <>
     <aside className="docs-sidebar">{navigation}</aside>
-    <dialog ref={dialog} id="mobile-docs-navigation" aria-label="Documentation navigation" className="mobile-navigation" onCancel={onClose} onClose={onClose} onClick={event => { if (event.target === event.currentTarget) onClose() }}><div className="mobile-navigation-content"><div className="mobile-navigation-top"><span>Paxeer X Docs</span><button className="icon-button" onClick={onClose} aria-label="Close navigation"><Icon name="close" /></button></div>{navigation}</div></dialog>
+    <dialog ref={dialog} id="mobile-docs-navigation" aria-label="Documentation navigation" className="mobile-navigation" onCancel={onClose} onClose={onClose}><div className="mobile-navigation-content"><div className="mobile-navigation-top"><span>Paxeer X Docs</span><button type="button" autoFocus className="icon-button" onClick={onClose} aria-label="Close navigation"><Icon name="close" /></button></div>{navigation}</div></dialog>
   </>
 }

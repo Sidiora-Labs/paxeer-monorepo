@@ -61,8 +61,8 @@ const OptimisticL2DisputeGames = () => {
     return (
       <Skeleton loading={ countersQuery.isPlaceholderData || isPlaceholderData } display="flex" flexWrap="wrap">
         Dispute game index
-        <Text fontWeight={ 600 } whiteSpace="pre"> #{ data.items[0].index } </Text>to
-        <Text fontWeight={ 600 } whiteSpace="pre"> #{ data.items[data.items.length - 1].index } </Text>
+        <Text fontWeight="semibold" whiteSpace="pre"> #{ data.items[0].index } </Text>to
+        <Text fontWeight="semibold" whiteSpace="pre"> #{ data.items[data.items.length - 1].index } </Text>
         (total of { countersQuery.data?.toLocaleString() } games)
       </Skeleton>
     );

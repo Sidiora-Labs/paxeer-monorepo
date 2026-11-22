@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   useLocalStorage,
   useOrderbookStream,
@@ -35,57 +35,37 @@ export const useOrderBookScript = (props: {
   const { symbol, height } = props;
   const symbolInfo = useSymbolsInfo()[symbol];
 
-  const [cellHeight, setCellHeight] = useState(DEFAULT_CELL_HEIGHT);
-
-  const [level, setLevel] = useState(10);
   const { base, quote, quote_dp } = getBasicSymbolInfo(symbolInfo);
-  // const counter = useRef(0);
-
-  const [data, { onDepthChange, isLoading, onItemClick, depth, allDepths }] =
-    useOrderbookStream(symbol, undefined, { level });
-
-  // useEffect(() => {
-  //   counter.current = 0;
-  // }, [symbol]);
-
-  const pendingOrders = usePendingOrderStream(symbol);
-
   const { isMobile } = useScreen();
-
   const [showBuySellRatio, setShowBuySellRatio] = useLocalStorage(
     ORDERBOOK_SHOW_BUY_SELL_RATIO_KEY,
     true,
   );
-
-  useEffect(() => {
-    if (height) {
-      // Calculate available space considering BuySellRatioBar height
-      const availableSpace =
-        SPACE +
-        (showBuySellRatio
-          ? isMobile
-            ? BUY_SELL_RATIO_BAR_HEIGHT_MOBILE
-            : BUY_SELL_RATIO_BAR_HEIGHT_DESKTOP
-          : 0);
-
-      //   setCellHeight(height.content / level);
-      const level = Math.floor(
-        (height - availableSpace) / ((DEFAULT_CELL_HEIGHT + 1) * 2),
-      );
-
-      const cellsHeight = (DEFAULT_CELL_HEIGHT + 1) * 2 * level;
-
-      const restSpace = height - availableSpace - cellsHeight;
-
-      if (restSpace > 10) {
-        setCellHeight(DEFAULT_CELL_HEIGHT + restSpace / level / 2);
-      } else {
-        setCellHeight(DEFAULT_CELL_HEIGHT);
-      }
-
-      setLevel(level);
-    }
-  }, [height, showBuySellRatio]);
+  const { cellHeight, level } = useMemo(() => {
+    if (!height) return { cellHeight: DEFAULT_CELL_HEIGHT, level: 10 };
+    const availableSpace =
+      SPACE +
+      (showBuySellRatio
+        ? isMobile
+          ? BUY_SELL_RATIO_BAR_HEIGHT_MOBILE
+          : BUY_SELL_RATIO_BAR_HEIGHT_DESKTOP
+        : 0);
+    const level = Math.floor(
+      (height - availableSpace) / ((DEFAULT_CELL_HEIGHT + 1) * 2),
+    );
+    const cellsHeight = (DEFAULT_CELL_HEIGHT + 1) * 2 * level;
+    const restSpace = height - availableSpace - cellsHeight;
+    return {
+      level,
+      cellHeight:
+        restSpace > 10
+          ? DEFAULT_CELL_HEIGHT + restSpace / level / 2
+          : DEFAULT_CELL_HEIGHT,
+    };
+  }, [height, showBuySellRatio, isMobile]);
+  const [data, { onDepthChange, isLoading, onItemClick, depth, allDepths }] =
+    useOrderbookStream(symbol, undefined, { level });
+  const pendingOrders = usePendingOrderStream(symbol);
 
   const selDepth = useMemo(() => {
     if (typeof depth === "undefined" || typeof quote_dp === "undefined") {

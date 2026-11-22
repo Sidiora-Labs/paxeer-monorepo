@@ -37,18 +37,31 @@ defmodule Explorer.Migrator.HeavyDbIndexOperation.CreateLogsAddressHashBlockNumb
 
       insert(:db_migration_status, migration_name: "heavy_indexes_create_logs_block_hash_index", status: "completed")
 
-      Process.sleep(150)
-
-      assert MigrationStatus.get_status(migration_name) == "started"
-
-      Process.sleep(200)
-
-      assert MigrationStatus.get_status(migration_name) == "completed"
+      assert :ok = wait_for_status(migration_name, "started")
+      assert :ok = wait_for_status(migration_name, "completed")
 
       assert Helper.db_index_exists_and_valid?(index_name) == %{exists?: true, valid?: true}
 
       assert BackgroundMigrations.get_heavy_indexes_create_logs_address_hash_block_number_desc_index_desc_index_finished() ==
                true
+    end
+  end
+
+  defp wait_for_status(migration_name, expected_status, timeout \\ 10_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+    wait_for_status(migration_name, expected_status, deadline, timeout)
+  end
+
+  defp wait_for_status(migration_name, expected_status, deadline, timeout) do
+    if MigrationStatus.get_status(migration_name) == expected_status do
+      :ok
+    else
+      if System.monotonic_time(:millisecond) >= deadline do
+        flunk("migration #{migration_name} did not reach #{expected_status} within #{timeout} ms")
+      else
+        Process.sleep(50)
+        wait_for_status(migration_name, expected_status, deadline, timeout)
+      end
     end
   end
 end

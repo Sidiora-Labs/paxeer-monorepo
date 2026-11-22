@@ -35,7 +35,7 @@ const TokensBridgedChainsFilter = ({ onChange, defaultValue }: Props) => {
   return (
     <>
       <Flex justifyContent="space-between" textStyle="sm">
-        <Text fontWeight={ 600 } color="text.secondary">Show bridged tokens from</Text>
+        <Text fontWeight="semibold" color="text.secondary">Show bridged tokens from</Text>
         <Button
           variant="link"
           onClick={ handleReset }

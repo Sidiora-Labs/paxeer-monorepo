@@ -1,0 +1,27 @@
+[
+  {
+    "method": "status",
+    "params": []
+  },
+  {
+    "method": "commit",
+    "params": {
+      "height": "1000"
+    }
+  },
+  {
+    "method": "block",
+    "params": {
+      "height": "1000"
+    }
+  },
+  {
+    "method": "abci_query",
+    "params": {
+      "path": "/store/sequencer/key",
+      "data": "0x03",
+      "height": "999",
+      "prove": true
+    }
+  }
+]

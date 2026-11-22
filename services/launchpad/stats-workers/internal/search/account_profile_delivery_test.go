@@ -24,7 +24,8 @@ func TestAccountProfileDeliveryTracksPublicConsentAndDeletion(t *testing.T) {
 CREATE TABLE users.account_state(account_id uuid PRIMARY KEY,wallet text NOT NULL,profile jsonb NOT NULL,revision bigint NOT NULL,updated_at timestamptz NOT NULL,deleted boolean NOT NULL);
 CREATE TABLE users.identity_wallet_links(account_id uuid NOT NULL,wallet text NOT NULL,chain_id integer NOT NULL,state text NOT NULL,visibility text NOT NULL);
 CREATE VIEW users.account_public_search_v2 AS SELECT a.wallet,a.profile->>'displayName' AS display_name,a.revision,a.updated_at,EXISTS(SELECT 1 FROM users.identity_wallet_links l WHERE l.account_id=a.account_id AND l.wallet=a.wallet AND l.chain_id=125 AND l.state='verified' AND l.visibility='public_optin') AND NOT a.deleted AS public,a.deleted FROM users.account_state a;
-CREATE TABLE users.account_outbox(event_id uuid PRIMARY KEY,account_id uuid NOT NULL,kind text NOT NULL,payload jsonb NOT NULL,revision bigint NOT NULL);`
+CREATE TABLE users.account_outbox(event_id uuid PRIMARY KEY,account_id uuid NOT NULL,kind text NOT NULL,payload jsonb NOT NULL,revision bigint NOT NULL);
+CREATE VIEW users.account_search_events_v2 AS SELECT o.event_id,o.kind,o.payload,o.revision AS source_revision,a.wallet,COALESCE(a.profile->>'displayName','') AS display_name,a.revision,a.deleted,a.updated_at,v.public FROM users.account_outbox o JOIN users.account_state a USING(account_id) JOIN users.account_public_search_v2 v ON v.wallet=a.wallet;`
 	if _, err := pool.Exec(ctx, ddl); err != nil {
 		t.Fatal(err)
 	}

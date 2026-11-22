@@ -19,7 +19,6 @@ import {
   DrawerBody,
   DrawerFooter,
 } from 'toolkit/chakra/drawer';
-import { Link } from 'toolkit/chakra/link';
 import { useDisclosure } from 'toolkit/hooks/useDisclosure';
 import IconSvg from 'ui/shared/IconSvg';
 import SearchBarInput from 'ui/snippets/searchBar/SearchBarInput';
@@ -27,8 +26,8 @@ import SearchBarInput from 'ui/snippets/searchBar/SearchBarInput';
 import SearchBarRecentKeywords from './SearchBarRecentKeywords';
 import SearchBarSuggest from './SearchBarSuggest/SearchBarSuggest';
 import useQuickSearchQuery from './useQuickSearchQuery';
-import useSearchShortcut from './useSearchShortcut';
 import { useSearchAssistant } from './useSearchQuery';
+import useSearchShortcut from './useSearchShortcut';
 import { getSearchRedirectRoute, useSearchRedirect, useSearchRequestGuard } from './utils';
 
 const paxeerXFeature = config.features.paxeerXLists;
@@ -124,12 +123,6 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
     navigateToResults(false);
   }, [ navigateToResults ]);
 
-  const onTriggerClick = React.useCallback((event: React.MouseEvent) => {
-    onOpen();
-    event.preventDefault();
-    event.stopPropagation();
-  }, [ onOpen ]);
-
   const handleItemClick = React.useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
     searchGuard.discard();
     onClose();
@@ -146,52 +139,32 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
     inputRef.current?.querySelector('input')?.focus();
   }, [ handleTermChange ]);
 
-  const handleOverlayClick = React.useCallback((event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onTriggerClick(event);
-  }, [ onTriggerClick ]);
-
-  let trigger: React.ReactNode | null = null;
-  if (isHeroBanner) {
-    trigger = (
-      <Box position="relative" width="100%">
-        <SearchBarInput
-          isHeroBanner={ isHeroBanner }
-          readOnly={ true }
-        />
-        <Box
-          onClick={ handleOverlayClick }
-          aria-label="Search"
-          cursor="pointer"
-          zIndex={ 1 }
-          position="absolute"
-          top={ 0 }
-          left={ 0 }
-          right={ 0 }
-          bottom={ 0 }
-        />
-      </Box>
-    );
-  } else {
-    trigger = (
-      <Button
-        aria-label="Search"
-        variant="header"
-        flexShrink={ 0 }
-        p={ 0 }
-      >
-        <IconSvg
-          name="search"
-          boxSize={ 6 }
-          flexShrink={ 0 }
-        />
-      </Button>
-    );
-  }
+  const trigger = (
+    <Button
+      aria-label="Search"
+      variant="header"
+      textStyle={ isHeroBanner ? 'body' : 'md' }
+      flexShrink={ 0 }
+      p={ 0 }
+      w={ isHeroBanner ? '100%' : 'auto' }
+      minW={ 10 }
+      minH={ isHeroBanner ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 0 }
+      justifyContent={ isHeroBanner ? 'flex-start' : 'center' }
+      bg={ isHeroBanner ? 'raised' : 'transparent' }
+      borderColor="border.strong"
+      borderRadius="control"
+      textAlign="start"
+      whiteSpace="nowrap"
+      overflow="visible"
+      h={ isHeroBanner ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 10 }
+    >
+      <IconSvg aria-hidden={ true } name="search" boxSize={ isHeroBanner ? 5 : 6 } ml={ isHeroBanner ? 2 : 0 } flexShrink={ 0 }/>
+      { isHeroBanner && <Box as="span" textStyle="body" color="text.muted">Search or ask…</Box> }
+    </Button>
+  );
 
   return (
-    <Box ref={ triggerRef } w={ isHeroBanner ? '640px' : 'auto' } maxW="100%">
+    <Box ref={ triggerRef } w={ isHeroBanner ? 'calc(var(--chakra-spacing-80) * 2)' : 'auto' } maxW="100%">
       <DrawerRoot
         placement="bottom"
         open={ open }
@@ -203,12 +176,12 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
         <DrawerTrigger asChild>
           { trigger }
         </DrawerTrigger>
-        <DrawerContent h="75vh" overflowY="hidden" bg="raised" color="text.primary" borderColor="hairline">
-          <DrawerHeader>
+        <DrawerContent h="75dvh" maxH="100dvh" overflowY="hidden" bg="raised" color="text.primary" borderColor="hairline">
+          <DrawerHeader mb={ 0 }>
             <DrawerTitle>Search</DrawerTitle>
-            <DrawerCloseTrigger/>
+            <DrawerCloseTrigger top={ 4 } insetEnd={ 3 }/>
           </DrawerHeader>
-          <DrawerBody overflow="hidden" display="flex" flexDirection="column">
+          <DrawerBody minH={ 0 } overflow="auto" display="flex" flexDirection="column">
             <SearchBarInput
               ref={ setSearchForm }
               onChange={ handleTermChange }
@@ -233,19 +206,20 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
           </DrawerBody>
           { (query.data && query.data?.length > 0) && (
             <DrawerFooter
-              borderTop="1px solid"
+              borderTopWidth="var(--chakra-border-widths-1)"
               borderColor="hairline"
               pt={ 3 }
               px={ 5 }
               pb={ 5 }
               justifyContent="center"
             >
-              <Link
+              <Button
+                variant="link"
                 onClick={ handleViewAllResultsClick }
                 textStyle="sm"
               >
                 View all results
-              </Link>
+              </Button>
             </DrawerFooter>
           ) }
         </DrawerContent>

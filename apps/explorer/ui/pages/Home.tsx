@@ -33,7 +33,7 @@ const Home = () => {
 
   return (
     <HomeRpcDataContextProvider>
-      <Box as="main">
+      <Box minW={ 0 }>
         <TickerStrip/>
         <HeroBanner/>
         <Stats/>
@@ -41,7 +41,7 @@ const Home = () => {
         <Grid
           data-label="home-lists"
           mt={ 8 }
-          templateColumns={{ base: '1fr', lg: 'repeat(2, minmax(0, 1fr))' }}
+          templateColumns={{ base: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }}
           columnGap={{ base: 0, lg: 6 }}
           rowGap={ 8 }
           alignItems="start"

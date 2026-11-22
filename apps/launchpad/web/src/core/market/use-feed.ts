@@ -4,7 +4,7 @@ import type { OperationInput, V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { marketAddress } from '@/page-modules/token/market-session';
-import { useOperations } from './operations';
+import { useGatewayOperations, useOperations } from './operations';
 import { loadable, type Loadable } from './unsupported';
 
 export type FeedPage = V2ContractTypes['ConnectedDiscoveryFeedPage'];
@@ -31,9 +31,9 @@ export function useFeed(order: FeedOrder = 'relevance', cursor: string | null = 
   return loadable(query, 'IF_CONNECTED_FEED');
 }
 
-/** IF_CALLOUT_LIST `GET /v2/pools/{p}/callouts`: allowlisted but unimplemented; the real 404 becomes Unsupported. */
+/** IF_CALLOUT_LIST `GET /v2/pools/{p}/callouts` on the social gateway. */
 export function usePoolCallouts(poolAddress: string | null | undefined, cursor: string | null = null): Loadable<CalloutListResponse> {
-  const operations = useOperations();
+  const operations = useGatewayOperations();
   const pool = poolAddress && /^0x[0-9a-fA-F]{40}$/.test(poolAddress) ? poolAddress.toLowerCase() : null;
   const query = useQuery({
     queryKey: queryKeys.poolCallouts(pool ?? '', cursor),

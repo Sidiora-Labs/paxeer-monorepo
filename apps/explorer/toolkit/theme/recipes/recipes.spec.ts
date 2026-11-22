@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { radii } from '../foundations/borders';
 import shadows from '../foundations/shadows';
+import sizes from '../foundations/sizes';
 import { BADGE_PILL_METRICS, recipe as badgeRecipe } from './badge.recipe';
 import { recipe as buttonRecipe } from './button.recipe';
 import type { PillMetrics } from './pillSizing';
-import { pillHeight, pillLineBox, pillSize, pillSpacing, productLineBox } from './pillSizing';
+import { pillHeight, pillLineBox, pillPixels, pillSize, pillSpacing, productLineBox } from './pillSizing';
 import { recipe as statRecipe } from './stat.recipe';
 import { recipe as tableRecipe } from './table.recipe';
 import { recipe as tabsRecipe } from './tabs.recipe';
@@ -213,7 +214,7 @@ describe('the pill and chip sizing', () => {
   it('reserves the outlined chip border inside the height every chip size carries', () => {
     const outlined = (tagRecipe.variants?.variant.outlined as unknown as Record<string, Declarations>).root;
 
-    expect(outlined.borderWidth).toBe('1px');
+    expect(outlined.borderWidth).toBe('var(--chakra-border-widths-1)');
 
     for (const [ , metrics ] of TAG_SIZES) {
       expect(metrics.borderWidth).toBe(1);
@@ -227,7 +228,28 @@ describe('the pill and chip sizing', () => {
     expect(trigger.minH).toBe('var(--tabs-height)');
     expect(trigger.minW).toBe('auto');
     expect(trigger.whiteSpace).toBe('nowrap');
-    expect(trigger.borderWidth).toBe('1px');
+    expect(trigger.borderWidth).toBe('var(--chakra-border-widths-1)');
+  });
+
+  it.each([
+    { size: 'sm', height: 32 },
+    { size: 'md', height: 40 },
+  ] as const)('keeps the pill touch target at least as tall as the $size tab height', ({ size, height }) => {
+    const declarations = tabsRecipe.variants?.size[size] as unknown as Record<string, Declarations>;
+    const strip = String(declarations.root['--tabs-height']).replace('sizes.', '');
+    const touchTarget = pillPixels(sizes.touchTarget.value);
+
+    expect(pillSize(strip)).toBe(height);
+    expect(touchTarget).toBe(44);
+    expect(touchTarget).toBeGreaterThanOrEqual(pillSize(strip));
+  });
+
+  it('keeps free tab sizing independent of a fixed desktop minimum', () => {
+    const trigger = (tabsRecipe.base as unknown as Record<string, Declarations>).trigger;
+
+    expect(tabsRecipe.variants?.size.free).toEqual({});
+    expect(trigger.minH).toBeUndefined();
+    expect(pillPixels(sizes.touchTarget.value)).toBe(44);
   });
 
   it('runs the pill tab strip at a height that holds its line box, its padding and its border', () => {

@@ -133,8 +133,9 @@ type Pages struct {
 	tmpl     *template.Template
 }
 
-// NewPages checks the gateway URL, the explorer transaction base and the
-// client the pages read through, and parses the page templates.
+// NewPages checks the gateway URL, the optional explorer transaction base and
+// the client the pages read through, and parses the page templates. An empty
+// explorer base leaves transaction hashes as plain text.
 func NewPages(gatewayURL, explorerTxBase string, client *http.Client) (*Pages, error) {
 	if client == nil {
 		return nil, errors.New("portal_http_client_required")

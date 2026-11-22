@@ -40,10 +40,10 @@ const NavLink = ({ item, onClick, isCollapsed, isDisabled }: Props) => {
         href={ isInternalLink ? route(item.nextRoute) : item.url }
         external={ !isInternalLink }
         { ...styleProps.itemProps }
-        w={{ base: '100%', lg: isExpanded ? '100%' : '60px', xl: isCollapsed ? '60px' : '100%' }}
+        w={{ base: '100%', lg: isExpanded ? '100%' : 'var(--chakra-spacing-15)', xl: isCollapsed ? 'var(--chakra-spacing-15)' : '100%' }}
         display="flex"
         position="relative"
-        px={{ base: 2, lg: isExpanded ? 2 : '15px', xl: isCollapsed ? '15px' : 2 }}
+        px={{ base: 2, lg: isExpanded ? 2 : 'var(--chakra-spacing-3\\.75)', xl: isCollapsed ? 'var(--chakra-spacing-3\\.75)' : 2 }}
         aria-label={ `${ item.text } link` }
         whiteSpace="nowrap"
         onClick={ onClick }

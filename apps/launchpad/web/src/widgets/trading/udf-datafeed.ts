@@ -1,7 +1,10 @@
+import { displayCoinText } from '@/utils/coin-text';
+import { launchpadGeometry, launchpadMarkColors } from '@/app/presentation-tokens';
 import { dataApiUrl } from '@/core/sdk-config';
 import { CHART_UDF_ROUTES, chartsOrigin } from '@/core/charts-udf';
 import { unsupportedStatuses } from '@/core/market/unsupported';
 import { reportUserFacingError } from '@/core/user-facing-error';
+import { beforeFirstFrameTransport } from '@/core/realtime/topic-snapshot';
 import { getPublicClient } from '@/core/wallet-sdk/client';
 import { decodeV2Contract, type V2ContractTypes } from '@kindle/sdk';
 import { parseAbi, type Address } from 'viem';
@@ -165,7 +168,7 @@ export function chartSymbolInfo(value: unknown, poolAddress: string, mode: Chart
   const pricescale = info.pricescale;
   if (typeof pricescale !== 'number' || !Number.isSafeInteger(pricescale) || pricescale < 10 || !/^10*$/.test(String(pricescale))) throw new Error('Invalid chart symbol pricescale');
   if (info.minmov !== 1 || info.currency_code !== 'USDL' || info.timezone !== 'Etc/UTC') throw new Error('Invalid chart symbol quote or timezone');
-  const description = text('description', 160);
+  const description = displayCoinText(text('description', 160), typeof info.tokenAddress === 'string' ? info.tokenAddress : pool);
   text('full_name', 64);
   return {
     name: pool,
@@ -261,6 +264,7 @@ const replayBindingListeners = new Set<() => void>();
 export function chartReplayListenerCount(): number { return replayBindingListeners.size; }
 export function registerChartReplayTransport(binding: ChartReplayBinding): () => void {
   binding.signal.throwIfAborted();
+  binding = { ...binding, transport: beforeFirstFrameTransport(binding.transport) };
   chartReplayBinding = binding;
   replayBindingListeners.forEach(listener => listener());
   const release = () => {
@@ -386,7 +390,7 @@ export type TradingViewChartMark = { id: string; time: number; color: { border: 
 export type ChartMarkDecoration = { name: string; label: string; imageUrl: string | null };
 export type ChartMarkPalette = { buy: string; sell: string; label: string };
 export type ChartMarkPresentation = { enabled: boolean; palette?: ChartMarkPalette; decorate?: (marker: ConfirmedChartMarker) => ChartMarkDecoration };
-const defaultMarkPalette: ChartMarkPalette = { buy: '#8BFFC5', sell: '#FF6367', label: '#020611' };
+const defaultMarkPalette: ChartMarkPalette = launchpadMarkColors;
 
 export function exactChartRatio(numerator: string, denominator: string): string {
   if (!/^(0|[1-9][0-9]*)$/.test(numerator) || !/^[1-9][0-9]*$/.test(denominator) || numerator.length > 1024 || denominator.length > 1024) throw new Error('Invalid exact chart ratio');
@@ -448,7 +452,7 @@ export function tradingViewChartMark(marker: ConfirmedChartMarker, presentation:
   const color = marker.side === 'buy' ? palette.buy : palette.sell;
   const label = decoration?.label.slice(0, 2) || (marker.side === 'buy' ? 'B' : 'S');
   const actor = decoration ? `${decoration.name} ${marker.actor}` : marker.actor;
-  const mark: TradingViewChartMark = { id: marker.id, time: marker.time, color: { border: color, background: color }, label, labelFontColor: palette.label, minSize: 18, borderWidth: 0, hoveredBorderWidth: 2, text: `${marker.side} · tokens (raw): ${marker.tokenAmountRaw} · USDL (raw): ${marker.usdlAmountRaw} · execution price: ${marker.executionPrice} · transaction: ${marker.transactionHash} · actor: ${actor} (${marker.actorBasis})` };
+  const mark: TradingViewChartMark = { id: marker.id, time: marker.time, color: { border: color, background: color }, label, labelFontColor: palette.label, ...launchpadGeometry.marker, text: `${marker.side} · tokens (raw): ${marker.tokenAmountRaw} · USDL (raw): ${marker.usdlAmountRaw} · execution price: ${marker.executionPrice} · transaction: ${marker.transactionHash} · actor: ${actor} (${marker.actorBasis})` };
   if (decoration?.imageUrl) { mark.imageUrl = decoration.imageUrl; mark.showLabelWhenImageLoaded = false; }
   return mark;
 }

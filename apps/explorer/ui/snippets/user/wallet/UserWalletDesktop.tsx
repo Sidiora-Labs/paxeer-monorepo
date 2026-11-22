@@ -50,7 +50,12 @@ const UserWalletDesktop = ({ buttonSize, buttonVariant = 'header' }: Props) => {
   }, [ walletMenu, web3Wallet ]);
 
   return (
-    <PopoverRoot positioning={{ placement: 'bottom-end' }} lazyMount open={ walletMenu.open } onOpenChange={ handleOpenChange }>
+    <PopoverRoot
+      positioning={{ placement: 'bottom-end' }}
+      lazyMount
+      open={ walletMenu.open }
+      onOpenChange={ handleOpenChange }
+    >
       <PopoverTrigger>
         <UserWalletButton
           size={ buttonSize }
@@ -62,7 +67,9 @@ const UserWalletDesktop = ({ buttonSize, buttonVariant = 'header' }: Props) => {
         />
       </PopoverTrigger>
       { web3AccountWithDomain.address && walletMenu.open && (
-        <PopoverContent w="235px">
+        <PopoverContent
+          w="calc(var(--chakra-spacing-40) + var(--chakra-spacing-16) + var(--chakra-spacing-2) + var(--chakra-spacing-1) / 1.3333333333333333)"
+        >
           <PopoverBody>
             <UserWalletMenuContent
               address={ web3AccountWithDomain.address }

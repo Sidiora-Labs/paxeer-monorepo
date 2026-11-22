@@ -17,8 +17,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@paxeer/wallet": ["../../../sdk/wallet/src/index.ts"],
-      "@paxeer/wallet/react": ["../../../sdk/wallet/src/react.ts"]
+      "@paxeer/wallet": ["../../../sdk/wallet/dist/index"],
+      "@paxeer/wallet/react": ["../../../sdk/wallet/dist/react"]
     },
     "plugins": [{ "name": "next" }]
   },

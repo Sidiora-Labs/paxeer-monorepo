@@ -1,0 +1,90 @@
+[manifest]
+task = "22.44.23"
+surface = "Sidiora native launchpad application"
+paths = ["apps/launchpad/mobile/src"]
+patterns = ["scrolling page layout", "virtualized lists", "navigation buttons", "forms", "validation alerts", "loading indicators", "system colour scheme", "system text scale", "managed video"]
+tokens = "src/surface.ts defines spacing, typography, colour roles, control sizes, radii and scroll timing for every screen."
+layout = "Screens share one scrolling area with wrapping navigation and account controls, a bounded tablet content width, safe area framing and keyboard avoidance."
+controls = "Controls retain their accessible names and expose focus, hover, pressed, selected, disabled and asynchronous loading states."
+text = "Text follows the system scale and native balanced line breaking, long labels wrap, and raw numeric values use right-aligned tabular figures."
+motion = "Loading indicators respect the system reduced motion setting."
+
+[guide.native]
+id = "decision.3588"
+directories = ["apps/launchpad/mobile/src", "apps/launchpad/mobile/src/screens"]
+application = "Phone and tablet layouts share tokens, both system colour schemes, scalable text and touch targets of at least 48 points."
+
+[guide.identity]
+id = "decision.3589"
+directories = ["apps/launchpad/mobile/src", "apps/launchpad/mobile/src/screens"]
+application = "Native screens retain their routes, data flows, labels and mint-green accent."
+
+[view.discovery]
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["pools", "search", "empty", "loading", "error"]
+
+[view.token]
+route = "/token/:address"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["pool detail", "quote", "approval", "loading", "error"]
+
+[view.portfolio]
+route = "/portfolio"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["positions", "empty", "loading", "error"]
+
+[view.watchlists]
+route = "/watchlists"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["watched pools", "empty", "loading", "error"]
+
+[view.profile]
+route = "/profile/:address"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["owned profile", "public profile", "loading", "error"]
+
+[view.notifications]
+route = "/notifications"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["inbox", "preferences", "empty", "loading", "error"]
+
+[view.chat]
+route = "/chat"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["conversations", "messages", "empty", "loading", "error"]
+
+[view.live]
+route = "/live"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["streams", "playback", "empty", "loading", "error"]
+
+[view.configuration]
+route = "application startup"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["opening", "unavailable"]
+
+[view.private]
+route = "private account routes"
+widths = [360, 390, 430, 768, 834, 1024]
+landscape = "844x390"
+schemes = ["light", "dark"]
+states = ["signed out", "locally locked"]

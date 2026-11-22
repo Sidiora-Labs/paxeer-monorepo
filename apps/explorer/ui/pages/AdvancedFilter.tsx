@@ -22,7 +22,7 @@ import getValuesArrayFromQuery from 'lib/getValuesArrayFromQuery';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { ADVANCED_FILTER_ITEM } from 'stubs/advancedFilter';
 import { generateListStub } from 'stubs/utils';
-import { Link } from 'toolkit/chakra/link';
+import { Button } from 'toolkit/chakra/button';
 import { TableBody, TableCell, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import { Tag } from 'toolkit/chakra/tag';
 import ColumnsButton from 'ui/advancedFilter/ColumnsButton';
@@ -146,11 +146,11 @@ const AdvancedFilter = () => {
 
   const content = (
     <AddressHighlightProvider>
-      <Box maxW="100%" display="grid" overflowX="scroll" whiteSpace="nowrap">
-        <TableRoot tableLayout="fixed" minWidth="950px" w="100%">
+      <Box maxW="100%" minW={ 0 } overflowX="auto" whiteSpace="nowrap" tabIndex={ 0 } role="region" aria-label="Filtered transactions">
+        <TableRoot aria-label="Filtered transactions" tableLayout="fixed" minWidth="var(--chakra-spacing-200)" w="100%">
           <TableHeaderSticky>
             <TableRow>
-              { multichainContext?.chain && <TableColumnHeader width="38px"/> }
+              { multichainContext?.chain && <TableColumnHeader width="var(--chakra-spacing-9)"/> }
               { columnsToShow.map(column => {
                 return (
                   <TableColumnHeader
@@ -162,7 +162,7 @@ const AdvancedFilter = () => {
                     whiteSpace="normal"
                   >
                     { Boolean(column.name) && (
-                      <chakra.span mr={ 2 } lineHeight="24px" verticalAlign="middle">
+                      <chakra.span mr={ 2 } lineHeight="h2" verticalAlign="middle">
                         { column.id === 'age' ? 'Timestamp' : column.name }
                       </chakra.span>
                     ) }
@@ -229,7 +229,7 @@ const AdvancedFilter = () => {
   );
 
   const actionBar = (
-    <ActionBar mt={ -6 }>
+    <ActionBar mt={ -6 } w="100%" mx={ 0 } px={ 0 }>
       <ExportCSV filters={ filters }/>
       <ColumnsButton columns={ columns } onChange={ setColumns }/>
       <Pagination ml="auto" { ...pagination }/>
@@ -242,13 +242,13 @@ const AdvancedFilter = () => {
         title="Advanced filter"
         withTextAd
       />
-      <Flex mb={ 4 } justifyContent="space-between" alignItems="start">
-        <Text fontSize="lg" mr={ 3 } lineHeight="24px" w="100px">Filtered by:</Text>
+      <Flex mb={ 4 } justifyContent="space-between" alignItems="start" flexWrap="wrap" gap={ 3 }>
+        <Text fontSize="lg" mr={ 3 } lineHeight="h2" w="var(--chakra-spacing-24)">Filtered by:</Text>
         { filterTags.length !== 0 && (
-          <Link onClick={ clearAllFilters } display="flex" alignItems="center" justifyContent="end" gap={ 2 } fontSize="sm" w="150px">
+          <Button type="button" variant="link" onClick={ clearAllFilters } gap={ 2 } textStyle="sm">
             <IconSvg name="repeat" boxSize={ 5 }/>
             Reset filters
-          </Link>
+          </Button>
         ) }
       </Flex>
       <HStack gap={ 2 } flexWrap="wrap" mb={ 6 }>

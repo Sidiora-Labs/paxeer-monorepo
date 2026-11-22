@@ -69,7 +69,7 @@ def test_wallet_gas_station_definition_matches_rollout_and_image() -> None:
     rollout = ROLLOUT.read_text(encoding="utf-8")
 
     assert service["kind"] == "repo"
-    assert service["container"] == "docker/gas-station/Dockerfile"
+    assert service["dockerfile"] == "docker/gas-station/Dockerfile"
     assert service["root"] == "."
     assert DOCKERFILE.is_file()
     assert _paths_cover(service["watch"], "docker/gas-station/Dockerfile")

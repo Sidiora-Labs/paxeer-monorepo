@@ -54,7 +54,12 @@
       "deepmerge": "npm:@stackline/deepmerge@1.1.0"
     },
     "patchedDependencies": {
-      "metro@0.84.4": "patches/metro@0.84.4.patch"
+      "metro@0.84.4": "patches/metro@0.84.4.patch",
+      "@eslint/eslintrc@3.3.7": "patches/@eslint__eslintrc@3.3.7.patch",
+      "@eslint/config-array@0.21.2": "patches/@eslint__config-array@0.21.2.patch",
+      "eslint-plugin-import@2.32.0": "patches/eslint-plugin-import@2.32.0.patch",
+      "eslint-plugin-jsx-a11y@6.10.2": "patches/eslint-plugin-jsx-a11y@6.10.2.patch",
+      "eslint-plugin-react@7.37.5": "patches/eslint-plugin-react@7.37.5.patch"
     }
   },
   "dependencies": {

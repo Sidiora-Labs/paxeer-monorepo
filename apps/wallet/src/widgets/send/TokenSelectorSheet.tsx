@@ -9,12 +9,10 @@
  */
 
 import { SvgIcon } from '@/components/ui/SvgIcon';
+import { Dialog } from '@/components/ui/primitives';
 import { TokenIcon } from './TokenIcon';
 import type { SendableToken } from './useSendableTokens';
 import { Loader2 } from 'lucide-react';
-
-const ACCENT_FILTER =
-  'brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(7388%) hue-rotate(222deg) brightness(98%) contrast(101%)';
 
 export interface TokenSelectorSheetProps {
   open: boolean;
@@ -39,16 +37,17 @@ export function TokenSelectorSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative w-full max-w-md bg-pax-card rounded-t-3xl p-5 pb-8 animate-slide-up">
+    <Dialog open={open} onClose={onClose} title="Select Token" variant="sheet">
+      <div className="space-y-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-bold">Select Token</h3>
-          <button onClick={onClose} className="p-1.5 rounded-full bg-white/5 press-scale">
-            <SvgIcon name="x" className="w-4 h-4" style={{ filter: 'brightness(0) invert(0.6)' }} />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close token selector"
+            className="min-h-[var(--touch-target)] min-w-[var(--touch-target)] p-2 rounded-full bg-pax-control press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
+          >
+            <SvgIcon name="x" className="w-4 h-4" />
           </button>
         </div>
         <div className="space-y-1 max-h-72 overflow-y-auto">
@@ -67,36 +66,31 @@ export function TokenSelectorSheet({
               const sel = isSameToken(selected, t);
               return (
                 <button
+                  type="button"
                   key={t.address || 'native'}
                   onClick={() => {
                     onSelect(t);
                     onClose();
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all press-scale ${
-                    sel ? 'bg-pax-accent/10' : 'bg-white/5 hover:bg-white/8'
+                  className={`min-h-[var(--touch-target)] w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all press-scale focus-visible:ring-2 focus-visible:ring-pax-accent ${
+                    sel ? 'bg-pax-accent/10' : 'bg-pax-control hover:bg-pax-overlay'
                   }`}
                 >
                   <TokenIcon token={t} />
                   <div className="flex-1 text-left min-w-0">
                     <p className="text-sm font-medium">{t.symbol}</p>
-                    <p className="text-[11px] text-pax-muted truncate">{t.name}</p>
+                    <p className="text-size-11 text-pax-muted truncate">{t.name}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs font-medium">{t.balance}</p>
                   </div>
-                  {sel && (
-                    <SvgIcon
-                      name="check"
-                      className="w-4 h-4"
-                      style={{ filter: ACCENT_FILTER }}
-                    />
-                  )}
+                  {sel && <SvgIcon name="check" className="w-4 h-4" />}
                 </button>
               );
             })
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

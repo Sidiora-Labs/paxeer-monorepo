@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import type { MouseEvent, ReactNode } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
@@ -16,6 +17,7 @@ export interface CoinCardStat {
 
 export interface CoinCardProps {
   image: string | null;
+  tokenAddress?: string | null;
   name: string;
   symbol: string;
   /** Raw market cap in the quote asset scale; null when stats are unavailable. */
@@ -41,8 +43,9 @@ export interface CoinCardProps {
 
 export function CoinCard({
   image,
-  name,
-  symbol,
+  tokenAddress,
+  name: rawName,
+  symbol: rawSymbol,
   mcapRaw,
   mcapDecimals = 6,
   percentChange,
@@ -59,9 +62,14 @@ export function CoinCard({
   loading = false,
   className,
 }: CoinCardProps) {
+  const name = displayCoinText(rawName, tokenAddress);
+  const symbol = displayCoinText(rawSymbol, tokenAddress);
   const cardBg = surface === 'canvas' ? 'bg-surface-1' : 'bg-surface-2';
   const top3 = rank !== undefined && rank >= 1 && rank <= 3;
-  const mcap = mcapRaw === null ? null : formatUsdl(mcapRaw, { decimals: mcapDecimals, compact: true, unit: false });
+  const mcap =
+    mcapRaw === null
+      ? null
+      : formatUsdl(mcapRaw, { decimals: mcapDecimals, compact: true, unit: false });
   const parentSurface = surface === 'canvas' ? 1 : 2;
 
   function onStar(event: MouseEvent<HTMLButtonElement>) {
@@ -72,10 +80,23 @@ export function CoinCard({
 
   if (loading) {
     return (
-      <div aria-busy="true" className={cn('rounded-md p-4', cardBg, variant === 'screener' ? 'h-screener-card' : 'min-w-token-card-min-width', className)}>
+      <div
+        aria-busy="true"
+        className={cn(
+          'rounded-md p-4',
+          cardBg,
+          variant === 'screener' ? 'min-h-screener-card' : 'min-w-0',
+          className
+        )}
+      >
         <span className="sr-only">Loading coin</span>
         <div aria-hidden="true" className="flex items-center gap-3">
-          <span className={cn('sl-skeleton rounded-sm', variant === 'screener' ? 'size-avatar-lg' : 'size-avatar-xl')} />
+          <span
+            className={cn(
+              'sl-skeleton rounded-sm',
+              variant === 'screener' ? 'size-avatar-lg' : 'size-avatar-xl'
+            )}
+          />
           <div className="flex flex-1 flex-col gap-2">
             <span className="sl-skeleton h-3 w-2/3" />
             <span className="sl-skeleton h-3 w-1/3" />
@@ -93,7 +114,7 @@ export function CoinCard({
       aria-label={starred ? `Remove ${name} from watchlist` : `Add ${name} to watchlist`}
       className={cn(
         'relative z-10 inline-flex size-control-height-sm shrink-0 items-center justify-center rounded-sm transition-colors duration-fast hover:bg-surface-hover',
-        starred ? 'text-accent' : 'text-text-faint hover:text-text',
+        starred ? 'text-accent' : 'text-text-faint hover:text-text'
       )}
     >
       <Star aria-hidden="true" className={cn('size-icon-sm', starred && 'fill-current')} />
@@ -120,31 +141,63 @@ export function CoinCard({
 
   if (variant === 'screener') {
     return (
-      <article className={cn('group relative flex h-screener-card items-center gap-3 rounded-md px-3 transition-colors duration-fast hover:bg-surface-hover', cardBg, top3 && 'bg-rank-1-soft', className)}>
+      <article
+        className={cn(
+          'group relative flex min-h-screener-card flex-wrap items-center py-3 gap-3 rounded-md px-3 transition-colors duration-fast hover:bg-surface-hover',
+          cardBg,
+          top3 && 'bg-rank-1-soft',
+          className
+        )}
+      >
         {rank !== undefined ? <RankBadge rank={rank} /> : null}
         {avatar}
         <div className="min-w-0 flex-1">
-          <Link href={href} className="block truncate text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
-            <span className="truncate" title={name}>{name}</span>
+          <Link prefetch={false}
+            href={href}
+            className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
+          >
+            <span className="block truncate" title={name}>
+              {name}
+            </span>
             {hiddenSummary}
           </Link>
           <div className="flex items-center gap-2 text-xs text-text-faint">
-            <span className="truncate font-bold uppercase" title={symbol}>${symbol}</span>
-            <AgeChip iso={createdAt} />
+            <span className="truncate font-bold" title={symbol}>
+              ${symbol}
+            </span>
+            <AgeChip iso={createdAt} className="shrink-0 whitespace-nowrap" />
           </div>
           {footerStats && footerStats.length > 0 ? (
             <dl className="mt-1 flex flex-wrap gap-x-3 text-2xs text-text-faint">
-              {footerStats.map(stat => (
+              {footerStats.map((stat) => (
                 <div key={stat.label} className="flex items-center gap-1">
                   <dt>{stat.label}</dt>
-                  <dd data-numeric className={cn('tabular-nums', stat.value === null || stat.value === undefined ? 'text-text-faint' : 'text-text')}>{stat.value ?? '—'}</dd>
+                  <dd
+                    data-numeric
+                    className={cn(
+                      'tabular-nums',
+                      stat.value === null || stat.value === undefined
+                        ? 'text-text-faint'
+                        : 'text-text'
+                    )}
+                  >
+                    {stat.value ?? '—'}
+                  </dd>
                 </div>
               ))}
             </dl>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <span data-numeric className={cn('text-num-sm font-bold tabular-nums', mcap ? 'text-text' : 'text-text-faint')}>{mcap ? `${mcap} MC` : '—'}</span>
+          <span
+            data-numeric
+            className={cn(
+              'text-num-sm font-bold tabular-nums',
+              mcap ? 'text-text' : 'text-text-faint'
+            )}
+          >
+            {mcap ? `${mcap} MC` : '—'}
+          </span>
           <PercentPill value={percentChange} variant="text" />
         </div>
         {star}
@@ -153,38 +206,75 @@ export function CoinCard({
   }
 
   return (
-    <article className={cn('group relative flex min-w-token-card-min-width flex-col gap-3 rounded-md p-4 transition-colors duration-fast hover:bg-surface-hover', cardBg, top3 && 'bg-rank-1-soft', className)}>
+    <article
+      className={cn(
+        'group relative flex min-w-0 max-w-full flex-col gap-3 rounded-md p-4 transition-colors duration-fast hover:bg-surface-hover',
+        cardBg,
+        top3 && 'bg-rank-1-soft',
+        className
+      )}
+    >
       <div className="flex items-start gap-3">
         {avatar}
         <div className="min-w-0 flex-1">
-          <Link href={href} className="block truncate text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']" title={name}>
-            {name}
+          <Link prefetch={false}
+            href={href}
+            className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
+            title={name}
+          >
+            <span className="block truncate">{name}</span>
             {hiddenSummary}
           </Link>
           <div className="flex items-center gap-2 text-xs text-text-faint">
-            <span className="truncate font-bold uppercase" title={symbol}>${symbol}</span>
-            <AgeChip iso={createdAt} />
+            <span className="truncate font-bold" title={symbol}>
+              ${symbol}
+            </span>
+            <AgeChip iso={createdAt} className="shrink-0 whitespace-nowrap" />
           </div>
         </div>
         {rank !== undefined ? <RankBadge rank={rank} /> : null}
         {star}
       </div>
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col">
-          <span className="text-2xs font-bold uppercase tracking-[.04em] text-text-faint">Market cap</span>
-          <span data-numeric className={cn('text-num-md font-bold tabular-nums', mcap ? 'text-text' : 'text-text-faint')}>{mcap ? `${mcap} USDL` : '—'}</span>
+          <span className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
+            Market cap
+          </span>
+          <span
+            data-numeric
+            className={cn(
+              'text-num-md font-bold tabular-nums',
+              mcap ? 'text-text' : 'text-text-faint'
+            )}
+          >
+            {mcap ? `${mcap} USDL` : '—'}
+          </span>
         </div>
         <div className="flex items-center gap-2">
-          {sparkline && sparkline.length > 1 ? <Sparkline data={sparkline} width={64} height={24} decorative /> : null}
+          {sparkline && sparkline.length > 1 ? (
+            <Sparkline
+              data={sparkline}
+              className="w-[var(--sl-chart-mini-width)] h-[var(--sl-chart-mini-height)]"
+              decorative
+            />
+          ) : null}
           <PercentPill value={percentChange} arrow />
         </div>
       </div>
       {footerStats && footerStats.length > 0 ? (
-        <dl className="grid grid-cols-3 gap-2">
-          {footerStats.map(stat => (
+        <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-card-stat-min-width)),1fr))] gap-2">
+          {footerStats.map((stat) => (
             <div key={stat.label} className="min-w-0">
               <dt className="truncate text-2xs text-text-faint">{stat.label}</dt>
-              <dd data-numeric className={cn('truncate text-num-sm tabular-nums', stat.value === null || stat.value === undefined ? 'text-text-faint' : 'text-text')}>{stat.value ?? '—'}</dd>
+              <dd
+                data-numeric
+                className={cn(
+                  'text-right text-num-sm tabular-nums',
+                  stat.value === null || stat.value === undefined ? 'text-text-faint' : 'text-text'
+                )}
+              >
+                {stat.value ?? '—'}
+              </dd>
             </div>
           ))}
         </dl>

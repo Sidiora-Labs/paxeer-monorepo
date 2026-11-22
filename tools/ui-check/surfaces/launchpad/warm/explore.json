@@ -1,0 +1,18 @@
+[
+  "/explore",
+  "/explore?preset=breakout",
+  "/explore?render=empty",
+  "/explore?render=error",
+  "/explore?render=loading",
+  "/explore?preset=mcap",
+  "/explore?preset=new",
+  "/explore?preset=trending",
+  "/explore?preset=unusual",
+  "/explore?preset=volume",
+  "/search",
+  "/search?q=science&render=empty",
+  "/search?q=science&render=error",
+  "/search?q=science&render=loading",
+  "/watchlist",
+  "/search?q=science"
+]

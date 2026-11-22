@@ -16,7 +16,7 @@ import (
 )
 
 var recordFields = []string{
-	"market_id", "symbol", "symbol_full", "price", "change_24h", "volume_24h", "open_interest", "funding_8h", "last_funding_rate_hourly",
+	"market_id", "symbol", "symbol_full", "price", "change_24h", "price_24h", "volume_24h", "open_interest", "funding_8h", "last_funding_rate_hourly",
 	"volume_7d", "volume_30d", "trades_count", "last_updated",
 	"perp_mark_price", "perp_index_price", "perp_basis_bps", "perp_funding_rate", "perp_next_funding_ms",
 	"perp_long_short_ratio", "perp_liq_volume_24h", "perp_oi_contracts", "perp_oi_usd",
@@ -153,7 +153,7 @@ func TestMarketsREST(t *testing.T) {
 		if got := field[int64](t, eth, "trades_count"); got != 6 {
 			t.Fatalf("ETH trades_count %d", got)
 		}
-		for _, name := range []string{"price", "change_24h", "funding_8h", "last_funding_rate_hourly", "last_updated", "perp_mark_price",
+		for _, name := range []string{"price", "change_24h", "price_24h", "funding_8h", "last_funding_rate_hourly", "last_updated", "perp_mark_price",
 			"perp_index_price", "perp_basis_bps", "perp_funding_rate", "perp_long_short_ratio"} {
 			wantNull(t, eth, name)
 		}

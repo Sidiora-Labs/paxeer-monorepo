@@ -1982,7 +1982,7 @@ paxeer_x_url_list = fn env_var ->
     |> Enum.reject(&(&1 == ""))
 
   if paxeer_x_price_feed_enabled? and
-       (urls == [] or
+       ((urls == [] and env_var == "PAXEER_X_COMETBFT_RPC_URLS") or
           Enum.any?(urls, &(URI.parse(&1).scheme not in ["http", "https"] or URI.parse(&1).host in [nil, ""]))) do
     raise ArgumentError, "PAXEER_X_PRICE_FEED_ENABLED=true requires #{env_var} to be a comma list of http(s) URLs"
   end
@@ -1997,6 +1997,13 @@ if paxeer_x_price_feed_enabled? and
   raise ArgumentError, "PAXEER_X_PRICE_FEED_ENABLED=true requires PAXEER_X_PRICE_FEED_START_BLOCK"
 end
 
+paxeer_x_price_feed_replay_concurrency =
+  ConfigHelper.parse_integer_env_var("PAXEER_X_PRICE_FEED_REPLAY_CONCURRENCY", 4)
+
+if paxeer_x_price_feed_replay_concurrency < 1 do
+  raise ArgumentError, "PAXEER_X_PRICE_FEED_REPLAY_CONCURRENCY must be at least 1"
+end
+
 config :indexer, Indexer.Fetcher.PaxeerX.PriceUpdates.Supervisor, disabled?: not paxeer_x_price_feed_enabled?
 
 config :indexer, Indexer.Fetcher.PaxeerX.PriceUpdates,
@@ -2004,6 +2011,7 @@ config :indexer, Indexer.Fetcher.PaxeerX.PriceUpdates,
   cometbft_rpc_urls: paxeer_x_url_list.("PAXEER_X_COMETBFT_RPC_URLS"),
   start_block: paxeer_x_price_feed_start_block,
   concurrency: ConfigHelper.parse_integer_env_var("PAXEER_X_PRICE_FEED_CONCURRENCY", 4),
+  acceptance_backfill_concurrency: paxeer_x_price_feed_replay_concurrency,
   markets_refresh_seconds: ConfigHelper.parse_integer_env_var("PAXEER_X_PRICE_FEED_MARKETS_REFRESH_SECONDS", 300),
   precompile:
     System.get_env("PAXEER_X_PRICE_FEED_PRECOMPILE", "0x0000000000000000000000000000000000001020")

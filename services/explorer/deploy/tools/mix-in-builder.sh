@@ -36,23 +36,72 @@ readonly DATABASE_PROBE_HOST='localhost'
 CONTAINER_SCRIPT=$(
   cat <<'CONTAINER_SCRIPT_END'
 set -e
+for compiler in solc vyper; do
+  store="/opt/explorer-compilers/${compiler}_compilers"
+  [ -d "$store" ] || { echo "Missing compiler store: $compiler" >&2; exit 1; }
+  directory="apps/explorer/priv/${compiler}_compilers"
+  mkdir -p "$directory"
+  ln -sfn "$store" "$directory/bundled"
+done
+
+failed_tests_recorded() {
+  elixir -e '
+    {paths, 0} = System.cmd("find", [System.fetch_env!("MIX_BUILD_PATH"),
+      "-type", "f", "-name", ".mix_test_failures", "-newer", hd(System.argv()), "-print0"])
+
+    failed? =
+      paths
+      |> String.split(<<0>>, trim: true)
+      |> Enum.any?(fn path ->
+        case ExUnit.Filters.failure_info(path) do
+          {_files, test_ids} -> MapSet.size(test_ids) > 0
+          :all -> false
+        end
+      end)
+
+    System.halt(if failed?, do: 0, else: 1)
+  ' "$1"
+}
+
+run_mix_with_retry() {
+  if [ "${MIX_IN_BUILDER_RETRY_FAILED:-0}" != '1' ]; then
+    exec mix "$@"
+  fi
+
+  failure_marker=$(mktemp)
+  mix_status=0
+  mix "$@" || mix_status=$?
+  if [ "$mix_status" -ne 0 ] && failed_tests_recorded "$failure_marker"; then
+    rm -f "$failure_marker"
+    echo 'mix-in-builder: retrying failed tests once with mix test --failed' >&2
+    shift
+    exec mix test --failed "$@"
+  fi
+
+  rm -f "$failure_marker"
+  return "$mix_status"
+}
+
 compiler_binaries_available() {
   command -v node >/dev/null 2>&1 &&
     node -e "require.resolve('solc', {paths: ['./apps/explorer/priv']})" >/dev/null 2>&1 &&
     command -v vyper >/dev/null 2>&1
 }
 if [ "${1:-}" = 'test' ] && ! compiler_binaries_available; then
-  echo 'mix-in-builder: compiler tools unavailable; excluding compiler-tagged tests' >&2
-  set -- "$@" --exclude compiler
+  echo 'mix-in-builder: required compiler tools are unavailable' >&2
+  exit 1
 fi
 if [ "${MIX_IN_BUILDER_BROWSER_DRIVER:-0}" = "1" ] && ! command -v chromedriver >/dev/null 2>&1; then
   apk add --no-cache chromium-chromedriver >&2
+fi
+if [ "${MIX_IN_BUILDER_WEB_ASSETS:-0}" = "1" ]; then
+  build-web-assets
 fi
 if [ "${1:-}" = 'test' ]; then
   mix ecto.create --quiet
   mix ecto.migrate
 fi
-exec mix "$@"
+run_mix_with_retry "$@"
 CONTAINER_SCRIPT_END
 )
 readonly CONTAINER_SCRIPT
@@ -67,11 +116,13 @@ mix_env=${MIX_ENV:-test}
 build_path=${MIX_BUILD_PATH:-/build}
 chain_type=${CHAIN_TYPE:-paxeer_x}
 jsonrpc_variant=${ETHEREUM_JSONRPC_VARIANT:-paxeer_x}
+chain_id=${CHAIN_ID:-125}
 pguser=${PGUSER:-postgres}
 pgpassword=${PGPASSWORD:-postgres}
 
 reuse_db=0
 check_only=0
+retry_failed=0
 sidecar_started=0
 database_container=''
 redis_container=''
@@ -90,7 +141,7 @@ usage() {
   cat >&2 <<'USAGE'
 Usage: services/explorer/deploy/tools/mix-in-builder.sh [options] <mix args>
 
-Runs one mix command against services/explorer/backend inside the pinned Elixir builder
+Runs mix against services/explorer/backend inside the pinned Elixir builder
 image, with disposable PostgreSQL and Redis sidecars and a named build volume.
 
   services/explorer/deploy/tools/mix-in-builder.sh compile
@@ -102,6 +153,9 @@ Options come before the mix arguments; -- ends them.
   --reuse-db      reuse the PostgreSQL and Redis sidecars a previous --reuse-db
                   invocation left running, and leave it running at exit, so a
                   suite can be run twice against one database
+  --retry-failed  test only: retry recorded failed tests once with mix test
+                  --failed and the original arguments in the same container
+                  and database; return the retry exit code
   --image <ref>   builder image reference to run instead of the default
   --check         resolve the container runtime, the builder image and the
                   mounts, print the command that would run, and exit without
@@ -168,6 +222,19 @@ database_container_name() {
   fi
 }
 
+web_assets_needed() {
+  [ "${1:-}" = 'test' ] || return 1
+  shift
+  path_arguments=0
+  for argument in "$@"; do
+    case $argument in
+      *block_scout_web*) return 0 ;;
+      apps/* | test/* | *_test.exs | *_test.exs:*) path_arguments=$((path_arguments + 1)) ;;
+    esac
+  done
+  [ "$path_arguments" -eq 0 ]
+}
+
 browser_driver_needed() {
   case ${MIX_IN_BUILDER_BROWSER_DRIVER:-} in
     1) return 0 ;;
@@ -218,7 +285,11 @@ image_input_digest() {
   command -v sha256sum >/dev/null 2>&1 || die 'sha256sum is not on PATH'
 
   {
-    cat "$dockerfile" "$backend_dir/mix.exs" "$backend_dir/mix.lock"
+    for input in "$repo_root"/docker/explorer-elixir-builder/*; do
+      printf '%s\n' "${input#"$repo_root"/}"
+      cat "$input"
+    done
+    cat "$backend_dir/mix.exs" "$backend_dir/mix.lock"
     for manifest in "$backend_dir"/apps/*/mix.exs; do
       printf '%s\n' "${manifest#"$backend_dir"/}"
       cat "$manifest"
@@ -360,17 +431,22 @@ mix_in_container() {
     --volume "$backend_dir/.formatter.exs:$CONTAINER_WORKDIR/.formatter.exs" \
     --volume "$backend_dir/.credo.exs:$CONTAINER_WORKDIR/.credo.exs" \
     --volume "$repo_root/precompiles:/precompiles:ro" \
+    --volume "$repo_root/docker/explorer-elixir-builder/compilers.tsv:/opt/explorer-compilers/compilers.tsv:ro" \
     --volume "$build_volume:$build_path" \
     --env MIX_ENV="$mix_env" \
     --env MIX_BUILD_PATH="$build_path" \
     --env MIX_HOME="$MIX_HOME_IN_IMAGE" \
     --env CHAIN_TYPE="$chain_type" \
     --env ETHEREUM_JSONRPC_VARIANT="$jsonrpc_variant" \
+    --env CHAIN_ID="$chain_id" \
     --env PAXEER_PRECOMPILES_DIR=/precompiles \
     --env PGUSER="$pguser" \
     --env PGPASSWORD="$pgpassword" \
     --env ACCOUNT_REDIS_URL=redis://127.0.0.1:6379 \
     --env MIX_IN_BUILDER_BROWSER_DRIVER="$browser_driver" \
+    --env MIX_IN_BUILDER_WEB_ASSETS="$web_assets" \
+    --env MIX_IN_BUILDER_RETRY_FAILED="$retry_failed" \
+    --env BLOCKSCOUT_STATIC_DIR="$build_path/web-assets/$mix_env/static" \
     --workdir "$CONTAINER_WORKDIR" \
     "$image" \
     sh -c "$CONTAINER_SCRIPT" mix-in-builder "$@"
@@ -459,6 +535,12 @@ run_mix_command() {
     browser_driver=0
   fi
 
+  if web_assets_needed "$@"; then
+    web_assets=1
+  else
+    web_assets=0
+  fi
+
   ensure_runtime
   ensure_mounts
 
@@ -507,6 +589,10 @@ while [ "$#" -gt 0 ]; do
       reuse_db=1
       shift
       ;;
+    --retry-failed)
+      retry_failed=1
+      shift
+      ;;
     --image)
       [ "$#" -ge 2 ] || die '--image needs an image reference'
       image=$2
@@ -536,6 +622,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ "$#" -gt 0 ] || [ "$check_only" -eq 1 ] || die 'no mix arguments given; try --help'
+[ "$retry_failed" -eq 0 ] || [ "${1:-}" = 'test' ] || die '--retry-failed is only supported for the test command'
 
 first_test_app=''
 if [ "${1:-}" = 'test' ]; then

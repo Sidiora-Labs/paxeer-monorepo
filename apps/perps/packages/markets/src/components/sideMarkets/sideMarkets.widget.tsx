@@ -4,11 +4,7 @@ import { MarketsProvider, MarketsProviderProps } from "../marketsProvider";
 import { useSideMarketsScript } from "./sideMarkets.script";
 import type { SideMarketsProps } from "./sideMarkets.ui";
 
-const LazySideMarkets = React.lazy(() =>
-  import("./sideMarkets.ui").then((mod) => {
-    return { default: mod.SideMarkets };
-  }),
-);
+import { SideMarkets } from "./sideMarkets.ui";
 
 export type SideMarketsWidgetProps = MarketsProviderProps &
   Partial<Pick<SideMarketsProps, "className">> & {
@@ -22,7 +18,7 @@ export const SideMarketsWidget: React.FC<SideMarketsWidgetProps> = (props) => {
   return (
     <MarketsProvider {...pick(["symbol", "onSymbolChange"], props)}>
       <React.Suspense fallback={null}>
-        <LazySideMarkets {...state} className={props.className} />
+        <SideMarkets {...state} className={props.className} />
       </React.Suspense>
     </MarketsProvider>
   );

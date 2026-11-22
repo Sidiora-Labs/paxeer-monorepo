@@ -88,7 +88,7 @@ describe('PaxeerXFeedMarket live updates', () => {
       await waitFor(() => {
         expect(updateHashes(container)).toEqual(initial);
       });
-      expect(container.querySelector('[role="alert"]')?.textContent).toContain('Connection lost');
+      expect(container.querySelector('[role="alert"]')).toBeNull();
 
       const updateReads = () => fetchMock.mock.calls.filter(([ url ]) => String(url).includes('/markets/0/updates')).length;
       expect(updateReads()).toBe(1);
@@ -114,12 +114,30 @@ describe('PaxeerXFeedMarket live updates', () => {
         expect(container.querySelector('[role="alert"]')).toBeNull();
       });
       expect(updateReads()).toBe(2);
-
       await new Promise((resolve) => {
         setTimeout(resolve, 5_500);
       });
       expect(updateReads()).toBe(2);
     } finally {
+      await socket.close();
+    }
+  });
+
+  it('shows the connection notice above market updates after a channel error', async function feedMarketShowsNoticeAfterChannelError() {
+    const socket = await createTestSocket();
+    const { container, unmount } = render(<SocketProvider url={ socket.url }><PaxeerXFeedMarket/></SocketProvider>);
+    try {
+      await socket.join(TOPIC);
+      await waitFor(() => expect(updateHashes(container)).toEqual(feedMock.marketUpdates.map((item) => item.update_hash)));
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      socket.send(TOPIC, 'phx_error', {});
+      await waitFor(() => {
+        const alert = container.querySelector('[role="alert"]');
+        expect(alert?.textContent).toContain('Connection lost');
+        expect(alert?.compareDocumentPosition(container.querySelector('table')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+    } finally {
+      unmount();
       await socket.close();
     }
   });

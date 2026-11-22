@@ -12,17 +12,23 @@ interface Props extends FeaturedNetwork {
   isMobile?: boolean;
 }
 
-const NetworkMenuLink = ({ title, icon, isActive: isActiveProp, isMobile, url, invertIconInDarkMode }: Props) => {
+const NetworkMenuLink = ({ title, icon, isActive: isActiveProp, url, invertIconInDarkMode }: Props) => {
   const darkModeFilter = { filter: 'brightness(0) invert(1)' };
   const style = useColorModeValue({}, invertIconInDarkMode ? darkModeFilter : {});
 
   const iconEl = icon ? (
-    <Image w="20px" h="20px" src={ icon } alt={ `${ title } network icon` } style={ style }/>
+    <Image
+      w="var(--chakra-spacing-5)"
+      h="var(--chakra-spacing-5)"
+      src={ icon }
+      alt={ `${ title } network icon` }
+      style={ style }
+    />
   ) : (
-    <IconSvg
+    <IconSvg aria-hidden={ true }
       name="networks/icon-placeholder"
-      boxSize="20px"
-      color={{ base: 'blackAlpha.100', _dark: 'whiteAlpha.300' }}
+      boxSize="var(--chakra-spacing-5)"
+      color="icon.secondary"
     />
   );
 
@@ -49,7 +55,7 @@ const NetworkMenuLink = ({ title, icon, isActive: isActiveProp, isMobile, url, i
         target="_blank"
         rel="noopener noreferrer"
         px={ 2 }
-        py="5px"
+        py={ 2 }
         opacity={ isActive ? 0.6 : 1 }
         alignItems="center"
         cursor="pointer"
@@ -62,14 +68,14 @@ const NetworkMenuLink = ({ title, icon, isActive: isActiveProp, isMobile, url, i
           marginLeft={ 2 }
           color="inherit"
           fontSize="sm"
-          lineHeight={ isMobile ? '20px' : '24px' }
+          lineHeight="body"
         >
           { title }
         </Text>
         { isActive && (
-          <IconSvg
+          <IconSvg aria-hidden={ true }
             name="check"
-            boxSize="20px"
+            boxSize="var(--chakra-spacing-5)"
             marginLeft="auto"
           />
         ) }

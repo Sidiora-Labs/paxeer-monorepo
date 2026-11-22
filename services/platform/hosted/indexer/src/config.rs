@@ -20,6 +20,8 @@ const DEFAULT_POLL_MS: u64 = 1_000;
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const DEFAULT_MAX_UNITS_PER_STEP: u64 = 64;
 const DEFAULT_BACKFILL_RANGE_BLOCKS: u64 = 1_000;
+pub(crate) const DEFAULT_BACKFILL_BATCH_BLOCKS: u64 = 50;
+pub(crate) const DEFAULT_BACKFILL_READERS: u64 = 8;
 
 /// Where the Paxeer half reads from.
 #[derive(Clone, Debug)]
@@ -30,6 +32,10 @@ pub struct PaxeerSource {
     pub chain_id: Option<u64>,
     pub encoding: AttributeEncoding,
     pub policy: FollowPolicy,
+    /// Maximum block or receipt calls per batch, for live steps and backfill.
+    pub batch_blocks: usize,
+    /// Maximum concurrent batch readers, for live steps and backfill.
+    pub readers: usize,
 }
 
 /// The whole service configuration.
@@ -54,6 +60,10 @@ pub struct BackfillConfig {
     pub cutover: u64,
     /// Heights read from paxscan per step.
     pub range_blocks: u64,
+    /// Maximum number of block or receipt calls in one JSON-RPC batch.
+    pub batch_blocks: u64,
+    /// Number of backfill batches read concurrently.
+    pub readers: u64,
     /// The paxscan Postgres URL (`PAXSCAN_DATABASE_PUBLIC_URL`).
     pub paxscan_url: String,
     pub paxscan_tls: PaxscanTls,
@@ -65,6 +75,8 @@ impl std::fmt::Debug for BackfillConfig {
             .debug_struct("BackfillConfig")
             .field("cutover", &self.cutover)
             .field("range_blocks", &self.range_blocks)
+            .field("batch_blocks", &self.batch_blocks)
+            .field("readers", &self.readers)
             .field("paxscan_url", &"<redacted>")
             .field("paxscan_tls", &self.paxscan_tls)
             .finish()
@@ -89,6 +101,7 @@ impl BackfillConfig {
             "LAYERX_INDEXER_BACKFILL_RANGE_BLOCKS",
             DEFAULT_BACKFILL_RANGE_BLOCKS,
         )?;
+        let (batch_blocks, readers) = read_limits(lookup)?;
         let mut rest = args.iter();
         while let Some(argument) = rest.next() {
             let (name, inline) = match argument.split_once('=') {
@@ -143,9 +156,51 @@ impl BackfillConfig {
         Ok(Self {
             cutover,
             range_blocks: range_blocks.max(1),
+            batch_blocks,
+            readers,
             paxscan_url,
             paxscan_tls,
         })
+    }
+}
+
+fn read_limits<F>(lookup: &F) -> Result<(u64, u64), IndexError>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let batch_blocks = bounded_number(
+        lookup,
+        "LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS",
+        DEFAULT_BACKFILL_BATCH_BLOCKS,
+        1,
+        200,
+    )?;
+    let readers = bounded_number(
+        lookup,
+        "LAYERX_INDEXER_BACKFILL_READERS",
+        DEFAULT_BACKFILL_READERS,
+        1,
+        32,
+    )?;
+    Ok((batch_blocks, readers))
+}
+fn bounded_number<F>(
+    lookup: &F,
+    name: &str,
+    default: u64,
+    minimum: u64,
+    maximum: u64,
+) -> Result<u64, IndexError>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let value = number(lookup, name, default)?;
+    if (minimum..=maximum).contains(&value) {
+        Ok(value)
+    } else {
+        Err(IndexError::Config(format!(
+            "{name} must be between {minimum} and {maximum}"
+        )))
     }
 }
 
@@ -257,6 +312,7 @@ impl Config {
             finality_depth: fixed_depth.unwrap_or(default_depth),
             max_units_per_step,
         };
+        let (batch_blocks, readers) = read_limits(lookup)?;
         let encoding = match lookup("LAYERX_INDEXER_COMET_ATTRIBUTES").as_deref() {
             None | Some("base64") => AttributeEncoding::Base64,
             Some("plain") => AttributeEncoding::Plain,
@@ -276,6 +332,10 @@ impl Config {
                     chain_id: optional_number(lookup, "LAYERX_INDEXER_EVM_CHAIN_ID")?,
                     encoding,
                     policy: policy(0),
+                    batch_blocks: usize::try_from(batch_blocks)
+                        .map_err(|_| IndexError::Config("batch size exceeds usize".to_owned()))?,
+                    readers: usize::try_from(readers)
+                        .map_err(|_| IndexError::Config("readers exceed usize".to_owned()))?,
                 })
             })
             .transpose()?;
@@ -505,5 +565,108 @@ mod tests {
             .get(name)
             .map(|value| (*value).to_owned()))
         .is_err());
+    }
+
+    #[test]
+    fn live_batch_configuration_uses_backfill_defaults_and_bounds() {
+        let mut values: BTreeMap<&str, &str> = [
+            ("LAYERX_INDEXER_DB", "/tmp/indexer.sqlite"),
+            ("LAYERX_INDEXER_EVM_URL", "http://127.0.0.1:8545"),
+        ]
+        .into_iter()
+        .collect();
+        let source = |values: &BTreeMap<&str, &str>| {
+            Config::from_lookup(&|name| values.get(name).map(|value| (*value).to_owned()))
+                .unwrap_or_else(|error| panic!("{error}"))
+                .paxeer
+                .unwrap_or_else(|| panic!("EVM source"))
+        };
+        let defaults = source(&values);
+        assert_eq!(defaults.batch_blocks, 50);
+        assert_eq!(defaults.readers, 8);
+        assert_eq!(defaults.policy.max_units_per_step, 64);
+        for (batch_blocks, readers) in [("1", "32"), ("200", "1")] {
+            values.insert("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", batch_blocks);
+            values.insert("LAYERX_INDEXER_BACKFILL_READERS", readers);
+            let configured = source(&values);
+            assert_eq!(configured.batch_blocks.to_string(), batch_blocks);
+            assert_eq!(configured.readers.to_string(), readers);
+        }
+        for (name, value) in [
+            ("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "0"),
+            ("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "201"),
+            ("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "many"),
+            ("LAYERX_INDEXER_BACKFILL_READERS", "0"),
+            ("LAYERX_INDEXER_BACKFILL_READERS", "33"),
+            ("LAYERX_INDEXER_BACKFILL_READERS", "many"),
+        ] {
+            values.insert("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "50");
+            values.insert("LAYERX_INDEXER_BACKFILL_READERS", "8");
+            values.insert(name, value);
+            let result =
+                Config::from_lookup(&|name| values.get(name).map(|value| (*value).to_owned()));
+            assert!(
+                matches!(result, Err(IndexError::Config(message)) if message.contains(name)),
+                "{name}={value} must be refused"
+            );
+        }
+    }
+    #[test]
+    fn backfill_batch_configuration_defaults_bounds_and_refusals() {
+        let mut values: BTreeMap<&str, &str> = [
+            (
+                "PAXSCAN_DATABASE_PUBLIC_URL",
+                "postgres://localhost/paxscan",
+            ),
+            (
+                "LAYERX_INDEXER_PAXSCAN_CERT_SHA256",
+                "abababababababababababababababababababababababababababababababab",
+            ),
+        ]
+        .into_iter()
+        .collect();
+        let defaults = BackfillConfig::from_args(&["--cutover-height=10".to_owned()], &|name| {
+            values.get(name).map(|value| (*value).to_owned())
+        })
+        .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(defaults.batch_blocks, 50);
+        assert_eq!(defaults.readers, 8);
+
+        values.insert("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "1");
+        values.insert("LAYERX_INDEXER_BACKFILL_READERS", "32");
+        let bounds = BackfillConfig::from_args(&["--cutover-height=10".to_owned()], &|name| {
+            values.get(name).map(|value| (*value).to_owned())
+        })
+        .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(bounds.batch_blocks, 1);
+        assert_eq!(bounds.readers, 32);
+
+        values.insert("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "200");
+        values.insert("LAYERX_INDEXER_BACKFILL_READERS", "1");
+        let bounds = BackfillConfig::from_args(&["--cutover-height=10".to_owned()], &|name| {
+            values.get(name).map(|value| (*value).to_owned())
+        })
+        .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(bounds.batch_blocks, 200);
+        assert_eq!(bounds.readers, 1);
+
+        for (name, value) in [
+            ("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "0"),
+            ("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "201"),
+            ("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "many"),
+            ("LAYERX_INDEXER_BACKFILL_READERS", "0"),
+            ("LAYERX_INDEXER_BACKFILL_READERS", "33"),
+            ("LAYERX_INDEXER_BACKFILL_READERS", "many"),
+        ] {
+            values.insert("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS", "50");
+            values.insert("LAYERX_INDEXER_BACKFILL_READERS", "8");
+            values.insert(name, value);
+            let error = BackfillConfig::from_args(&["--cutover-height=10".to_owned()], &|name| {
+                values.get(name).map(|value| (*value).to_owned())
+            })
+            .err()
+            .unwrap_or_else(|| panic!("{name}={value} must be refused"));
+            assert!(error.to_string().contains(name), "{error}");
+        }
     }
 }

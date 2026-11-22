@@ -17,7 +17,6 @@ import { Skeleton } from 'toolkit/chakra/skeleton';
 import { copy } from 'toolkit/utils/htmlEntities';
 import type { IconName } from 'ui/shared/IconSvg';
 import IconSvg from 'ui/shared/IconSvg';
-import { CONTENT_MAX_WIDTH } from 'ui/shared/layout/utils';
 import NetworkAddToWallet from 'ui/shared/NetworkAddToWallet';
 import NetworkLogo from 'ui/snippets/networkLogo/NetworkLogo';
 
@@ -107,12 +106,13 @@ const Footer = () => {
   }, [ linksData, fixedLinkGroups ]);
 
   const handleBackToTop = React.useCallback(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
   }, []);
 
   const containerProps: HTMLChakraProps<'div'> = {
     as: 'footer',
-    borderTopWidth: '1px',
+    overflowWrap: 'anywhere',
+    borderTopWidth: 'var(--chakra-border-widths-1)',
     borderTopColor: 'border.divider',
     bgColor: 'bg.primary',
   };
@@ -120,8 +120,8 @@ const Footer = () => {
   const contentProps: HTMLChakraProps<'div'> = {
     px: { base: 4, lg: 6 },
     py: { base: 4, lg: 5 },
-    maxW: `${ CONTENT_MAX_WIDTH }px`,
-    m: '0 auto',
+    maxW: config.UI.maxContentWidth ? 'calc(var(--chakra-spacing-80) * 4)' : 'none',
+    mx: 'auto',
   };
 
   const columnsProps: GridProps = {
@@ -158,22 +158,29 @@ const Footer = () => {
           flexWrap="wrap"
           mb={ 4 }
         >
-          <Flex data-label="footer-social" alignItems="center" columnGap={ 4 } rowGap={ 2 } flexWrap="wrap" _empty={{ display: 'none' }}>
+          <Flex
+            data-label="footer-social"
+            alignItems="center"
+            columnGap={ 4 }
+            rowGap={ 2 }
+            flexWrap="wrap"
+            _empty={{ display: 'none' }}
+          >
             { config.UI.navigation.otherLinks.map((link) => (
               <FooterLinkItem key={ link.text } text={ link.text } url={ link.url } icon={ getSocialIcon(link.url) }/>
             )) }
           </Flex>
           <Button data-label="back-to-top" variant="link" size="sm" onClick={ handleBackToTop } textStyle="xs">
             Back to Top
-            <IconSvg name="arrows/east-mini" boxSize={ 5 } transform="rotate(90deg)"/>
+            <IconSvg aria-hidden={ true } name="arrows/east-mini" boxSize={ 5 } transform="rotate(90deg)"/>
           </Button>
         </Flex>
 
         <Flex align="center" justify="space-between" gap={ 4 } flexWrap="wrap" mb={ 4 }>
           <Flex data-label="footer-brand" align="center" gap={ 4 } flexWrap="wrap" w="100%">
             <NetworkLogo display="inline-block"/>
-            <Text textStyle="sm" fontWeight={ 500 } color="heading">{ config.chain.name }</Text>
-            <Text maxW="360px" textStyle="xs" color="text.secondary">
+            <Text textStyle="sm" fontWeight="medium" color="heading">{ config.chain.name }</Text>
+            <Text maxW="calc(var(--chakra-spacing-80) + var(--chakra-spacing-10))" textStyle="xs" color="text.secondary" textWrap="balance">
               The block explorer for { config.chain.name }: search blocks, transactions, addresses, tokens
               and kernel activity across the network.
             </Text>
@@ -189,7 +196,13 @@ const Footer = () => {
         </Flex>
         <Grid { ...columnsProps } data-label="footer-columns">
           { linkColumns.map((groups, index) => (
-            <Box key={ index } data-label="footer-column" borderTopWidth="1px" borderColor="hairline" pt={ 3 }>
+            <Box
+              key={ index }
+              data-label="footer-column"
+              borderTopWidth="var(--chakra-border-widths-1)"
+              borderColor="hairline"
+              pt={ 3 }
+            >
               { groups.map(({ group, isExternal }) => (
                 <Box key={ group.title } _notFirst={{ mt: 4 }}>
                   <Skeleton as="h2" textStyle="label" color="text.muted" mb={ 2 } loading={ isLinksLoading }>{ group.title }</Skeleton>
@@ -197,7 +210,15 @@ const Footer = () => {
                     { group.links.map((link) => isExternal ? (
                       <FooterLinkItem { ...link } key={ link.text } isLoading={ isLinksLoading }/>
                     ) : (
-                      <Link key={ link.text } href={ link.url } display="flex" alignItems="center" minH="28px" variant="subtle" textStyle="small">
+                      <Link
+                        key={ link.text }
+                        href={ link.url }
+                        display="flex"
+                        alignItems="center"
+                        minH={ 7 }
+                        variant="subtle"
+                        textStyle="small"
+                      >
                         { link.text }
                       </Link>
                     )) }
@@ -212,7 +233,7 @@ const Footer = () => {
           data-label="footer-bottom"
           mt={ 4 }
           pt={ 4 }
-          borderTopWidth="1px"
+          borderTopWidth="var(--chakra-border-widths-1)"
           borderTopColor="border.divider"
           alignItems="center"
           justifyContent="space-between"

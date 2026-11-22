@@ -448,7 +448,8 @@ defmodule Indexer.Block.Catchup.BoundIntervalSupervisorTest do
         {:ok, []}
       end)
 
-      MissingRangesCollector.start_link([])
+      collector = start_supervised!({MissingRangesCollector, []})
+      :sys.get_state(collector)
       CoinBalanceCatchup.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
       ContractCode.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
       InternalTransaction.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
@@ -540,7 +541,8 @@ defmodule Indexer.Block.Catchup.BoundIntervalSupervisorTest do
       end)
 
       Application.put_env(:indexer, :block_ranges, "0..0")
-      MissingRangesCollector.start_link([])
+      collector = start_supervised!({MissingRangesCollector, []})
+      :sys.get_state(collector)
       CoinBalanceCatchup.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
       InternalTransaction.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
       ContractCode.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
@@ -558,8 +560,6 @@ defmodule Indexer.Block.Catchup.BoundIntervalSupervisorTest do
 
       # from `setup :state`
       assert_received :catchup_index
-
-      Process.sleep(50)
 
       assert {:noreply,
               %Catchup.BoundIntervalSupervisor{fetcher: %Catchup.Fetcher{}, task: %Task{pid: pid, ref: ref}} =

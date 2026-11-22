@@ -563,7 +563,7 @@ defmodule ConfigHelper do
   """
   @spec parse_json_rpc_transport() :: :http | :ipc
   def parse_json_rpc_transport do
-    case safe_get_env("ETHEREUM_JSONRPC_TRANSPORT", "http") do
+    case System.get_env("ETHEREUM_JSONRPC_TRANSPORT", "http") do
       "http" ->
         :http
 

@@ -20,7 +20,7 @@ export const recipe = defineRecipe({
         backgroundClip: 'padding-box',
         cursor: 'default',
         color: 'transparent',
-        borderWidth: '0px',
+        borderWidth: 'var(--chakra-border-widths-0)',
         pointerEvents: 'none',
         userSelect: 'none',
         '& > *': {
@@ -31,8 +31,8 @@ export const recipe = defineRecipe({
     variant: {
       pulse: {
         background: 'bg.emphasized',
-        animation: 'pulse',
-        animationDuration: 'var(--duration, 1.2s)',
+        _motionSafe: { animation: 'pulse' },
+        animationDuration: 'var(--duration, var(--chakra-durations-pulse))',
       },
       shine: {
         opacity: 0.5,
@@ -41,7 +41,6 @@ export const recipe = defineRecipe({
         '--start-color': 'colors.skeleton.bg.start',
         '--end-color': 'colors.skeleton.bg.end',
         position: 'relative',
-        overflow: 'hidden',
         backgroundColor: 'var(--start-color)',
         animation: 'none',
         '&::after': {
@@ -51,11 +50,12 @@ export const recipe = defineRecipe({
           left: '0',
           width: '100%',
           pointerEvents: 'none',
-          willChange: 'transform',
-          transform: 'translateX(-100%)',
+          borderRadius: 'inherit',
+          backgroundSize: '300% 100%',
+          backgroundPosition: '100% 0',
           backgroundImage:
-            'linear-gradient(90deg, transparent 0%, transparent 32%, var(--end-color) 46%, var(--end-color) 54%, transparent 68%, transparent 100%)',
-          animation: 'skeletonShimmer var(--duration, 2s) linear infinite',
+            'linear-gradient(90deg, transparent 0%, transparent 44%, var(--end-color) 48.6667%, var(--end-color) 51.3333%, transparent 56%, transparent 100%)',
+          _motionSafe: { animation: 'skeletonShimmer var(--duration, var(--chakra-durations-shimmer)) linear infinite' },
         },
         _motionReduce: {
           '&::after': {
