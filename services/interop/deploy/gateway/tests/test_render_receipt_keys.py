@@ -1,6 +1,8 @@
+import ast
 import importlib.util
 import json
 import pathlib
+import shlex
 import subprocess
 import sys
 
@@ -143,3 +145,47 @@ def test_single_key_argument_is_refused(tmp_path, mode):
     assert refused.returncode == 2, refused.stderr
     assert "unrecognized arguments: --sequencer-public-key-file" in refused.stderr
     assert not output.exists()
+
+
+def test_hosted_renderer_options_are_declared():
+    parser_source = ast.parse(RENDERER.read_text())
+    declared = {
+        argument.value
+        for call in ast.walk(parser_source)
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Attribute)
+        and isinstance(call.func.value, ast.Name)
+        and call.func.value.id == "parser"
+        and call.func.attr == "add_argument"
+        for argument in call.args
+        if isinstance(argument, ast.Constant)
+        and isinstance(argument.value, str)
+        and argument.value.startswith("--")
+    }
+    assert declared
+    root = RENDERER.parents[4]
+    scripts = sorted((root / "services/platform/hosted/tests").glob("beta-*.sh"))
+    assert len(scripts) == 3
+    renderer_path = "/services/interop/deploy/gateway/render.py"
+    calls = 0
+    for script in scripts:
+        lines = script.read_text().replace("\\\n", " ").splitlines()
+        for line in lines:
+            if renderer_path not in line or line.lstrip().startswith("#"):
+                continue
+            command = shlex.split(line, comments=True)
+            for index, word in enumerate(command):
+                if not word.endswith(renderer_path):
+                    continue
+                arguments = command[index + 1:]
+                if "||" in arguments:
+                    arguments = arguments[:arguments.index("||")]
+                options = {
+                    argument.split("=", 1)[0]
+                    for argument in arguments
+                    if argument.startswith("--")
+                }
+                assert options, script.name
+                assert options <= declared, (script.name, sorted(options - declared))
+                calls += 1
+    assert calls > 0
