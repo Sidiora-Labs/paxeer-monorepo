@@ -204,7 +204,7 @@ impl Fixture {
                 .unwrap_or_else(|error| panic!("{}: {error:?}", "TLS peer configuration")),
         );
         // This dependency peer exercises the production Redis client's AUTH/PING
-        // transport. It has no application storage or receipt production role.
+        // and audit-read transport. It has no application storage or receipt production role.
         let store = Peer::start(Arc::clone(&tls), |stream| {
             let mut reader = BufReader::new(stream);
             assert_eq!(
@@ -224,15 +224,25 @@ impl Fixture {
                 .flush()
                 .unwrap_or_else(|error| panic!("{}: {error:?}", "AUTH flush"));
             while let Some(command) = resp(&mut reader) {
-                assert_eq!(command, ["PING"]);
+                let response: &[u8] = match command
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<Vec<_>>()
+                    .as_slice()
+                {
+                    ["PING"] => b"+PONG\r\n",
+                    ["GET", "gateway:audit:principal-index:cursor"] => b"$-1\r\n",
+                    ["XRANGE", "gateway:audit", "(0-0", "+", "COUNT", "256"] => b"*0\r\n",
+                    _ => panic!("unrecorded store command: {command:?}"),
+                };
                 reader
                     .get_mut()
-                    .write_all(b"+PONG\r\n")
-                    .unwrap_or_else(|error| panic!("{}: {error:?}", "PING response"));
+                    .write_all(response)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "store response"));
                 reader
                     .get_mut()
                     .flush()
-                    .unwrap_or_else(|error| panic!("{}: {error:?}", "PING flush"));
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "store flush"));
             }
             false
         });
@@ -549,7 +559,8 @@ impl Gateway {
             json!({
                 "durable_store":{"state":"ready","reason":"ready"},
                 "paxeer_chain":{"state":"ready","reason":"ready"},
-                "consensus":{"state":"ready","reason":"ready"}
+                "consensus":{"state":"ready","reason":"ready"},
+                "indexer":{"state":"unavailable","reason":"not_configured"}
             })
         );
         let observed = value["observed_at_ms"]

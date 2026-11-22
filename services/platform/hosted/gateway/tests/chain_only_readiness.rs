@@ -49,7 +49,7 @@ impl Fixture {
         command("openssl", &["x509", "-in", path(&pem), "-outform", "DER", "-out", path(&der)]);
         command("openssl", &["pkcs8", "-topk8", "-nocrypt", "-in", path(&key), "-outform", "DER", "-out", path(&key_der)]);
         let redis_port = free_port();
-        fs::write(directory.join("users.acl"), "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(directory.join("users.acl"), "user default off ~* &* +@all\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.join("redis.conf");
         fs::write(
             &config,
@@ -225,7 +225,38 @@ fn chain_only_readiness_omits_kernel_backends() {
         http::json(200, &json!({"jsonrpc": "2.0", "id": call["id"], "result": {"sync_info": {"catching_up": false}}}))
     });
     let store = layerx_indexer::store::Store::open_in_memory().unwrap_or_else(|error| panic!("{}: {error:?}", "real indexer database"));
-    let indexer = Listener::start(Arc::clone(&fixture.tls), move |request| layerx_indexer::api::route(&store, &request.method, &request.path));
+    store
+        .start_source("paxeer")
+        .unwrap_or_else(|error| panic!("indexer source session: {error}"));
+    store
+        .commit(
+            &layerx_indexer::store::Unit {
+                chain: "paxeer".to_owned(),
+                position: 1,
+                hash: "paxeer-1".to_owned(),
+                parent: "paxeer-0".to_owned(),
+                link: "paxeer-1".to_owned(),
+                boundary: 1,
+                ..Default::default()
+            },
+            1,
+        )
+        .unwrap_or_else(|error| panic!("indexer committed cursor: {error}"));
+    store
+        .record_source_head("paxeer", Some(1))
+        .unwrap_or_else(|error| panic!("indexer source head: {error}"));
+    store
+        .record_source_success("paxeer", Some(1), Some(1))
+        .unwrap_or_else(|error| panic!("indexer source success: {error}"));
+    let readiness = layerx_indexer::api::Readiness {
+        sources: vec!["paxeer"],
+        stall_after_secs: 30,
+        max_units_per_step: 1,
+        ..Default::default()
+    };
+    let indexer = Listener::start(Arc::clone(&fixture.tls), move |request| {
+        layerx_indexer::api::route_with(&store, &readiness, &request.method, &request.path)
+    });
     let port = free_port();
     let mut environment = fixture.environment(port);
     environment.extend([
