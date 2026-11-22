@@ -1,7 +1,7 @@
 {
   "adapters": [
     {
-      "conformance_sha256": "fa0f81cd359feeca5d9df78e4fe73aac58249540dc795e171b36f8a733f2f692",
+      "conformance_sha256": "d4a99ee8151a031bf9030a96fa1ded86c4840380585fd648a0774c76d5e906a6",
       "conformance_suite": "layerx-x402-conformance-v1",
       "conformance_vectors": 27,
       "evidence_policy": "layerx-receipt",
@@ -21,7 +21,7 @@
       "version": "1.0.0"
     },
     {
-      "conformance_sha256": "2a1aaa7d7b24b1fc150a222f94aab28fe5e9db22299cb1d1cb8f5ac3c03dca80",
+      "conformance_sha256": "edc3f435c6c3d3584dc2da2e4debb786120f648b4afea9a44f2c5e3157544b60",
       "conformance_suite": "layerx-ucp-conformance-v1",
       "conformance_vectors": 29,
       "evidence_policy": "layerx-receipt",
@@ -41,13 +41,13 @@
       "version": "1"
     },
     {
-      "conformance_sha256": "b8ab8eaa5885aa5e47da7bf91de0b4ece329bc3104e069e722603d8b3dbc93e8",
+      "conformance_sha256": "8bddd83d3633ead57275ccbb34137ff087cdbcb239468b9a56b9735044968cc6",
       "conformance_suite": "layerx-fiat-conformance-v1",
       "conformance_vectors": 31,
       "evidence_policy": "external-settlement+layerx-receipt",
       "id": "fiat",
       "specification": "layerx-fiat-settlement",
-      "specification_sha256": "78f39be4ad25d685a5ca633ddf0e896010ca207d07903fbc277e1af98c7287ea",
+      "specification_sha256": "01c617be5517102f4bb24ee8c91cbf404d2485d92f7ccba1b2eef85e28ea8273",
       "version": "1"
     }
   ],
@@ -90,19 +90,19 @@
   ],
   "transports": [
     {
-      "conformance_sha256": "199c7351f47083cb9c99f92768a5edcd5a31207245fea2d63b0a749426759131",
+      "conformance_sha256": "e7f81231067302b8d210365ccece5645ef7189f2b0bec0fd558ad4cb0a96427f",
       "id": "http",
       "specification_sha256": "4f0298aaa23ac75de0eb49b1e96e6e67a5b910d7527b3a71c63e426b3bf5bdfb",
       "version": "2"
     },
     {
-      "conformance_sha256": "32d731fd55bcb7e1a9ee8a95809db2cc19d9bf0652eb9ddd80f77dba47194999",
+      "conformance_sha256": "524ffba117a3df2bc40fe60110fb885adc7c09edc3f46dc0969d712051f25d2f",
       "id": "mcp",
       "specification_sha256": "4f1e0bb50c60e3fe384142f589cd6323b8a9ec4432335ef29053d1220f9e2146",
       "version": "2"
     },
     {
-      "conformance_sha256": "8a869441bb66ac99af142e84036db333cae9c61f54b98ab9a3f873e980c3ce9c",
+      "conformance_sha256": "603071ce48e6dc75986eb41401f3b7e2d3d75d57417de8e6cc7d0d911688db9c",
       "id": "a2a",
       "specification_sha256": "bbf078363a2fc4eeeb8f6e9b66cf36033f5acfc3984c0e8f427143368979d878",
       "version": "2"

@@ -75,7 +75,7 @@ def test_platform_ai_evaluator_definition() -> None:
     assert service["replicas"] == 1
     assert service["volume"] == "/var/lib/layerx/ai-evaluator"
     assert service["order"] == 12
-    assert service["needs"] == ["router"]
+    assert service["needs"] == ["gateway"]
     assert "public" not in service
 
     watch = [str(pattern) for pattern in service["watch"]]

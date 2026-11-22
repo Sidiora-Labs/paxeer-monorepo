@@ -16282,6 +16282,60 @@ value = "One. Task 22.39.1080 changes the crate under services/platform/hosted/p
 basis = "Gotcha 4788."
 affects = []
 
+[decision.3862]
+title = "Every loader and renderer of receipt keys in the interop workspace takes the rule of the node module: a key id is unique and ranges of distinct key ids may overlap"
+value = "One. Task 22.39.1081 changes files under services/interop/crates/layerx-interop-service, services/interop/crates/layerx-bridge-relayer, services/interop/deploy/gateway and services/interop/deploy/mirror. No file outside these four paths changes. Two. The rule. Each of the four places of parts three to five of gotcha 4789 refuses a list that is empty, a list in which an entry holds a reversed range and a list in which a key id appears twice. Key ids are compared by their bytes, so two spellings of one id count as one id. Entries with distinct key ids are admitted whatever their ranges are, equal ranges and containing ranges included. The refusal of overlapping ranges and its text leave all four places. Three. The two Rust functions gain the refusal of a key id that appears twice. Its text is the choice of the participant in the style of the other refusals of the file. Four. Order. A place that sorts the entries today keeps the sort by first height and orders entries with an equal first height by key id, so that the loaded order does not depend on the order of the file. A place that returns the entries in the order of the file today keeps that order and no longer asks for ascending windows. Five. The function check_receipt_keys of the interop service, the example files, the pins of the example manifest, every other region of the self test and every other check of an entry stay as they are. Cases that read them are outside this task. Six. Cases. The module tests of services/interop/crates/layerx-interop-service/src/config.rs: lists of distinct key ids with overlapping, equal and containing ranges load in either file order with one loaded order. A list with one key id twice is refused with disjoint ranges and with overlapping ranges. The reversed range and the empty list stay refused, and the unsorted list of disjoint ranges loads sorted as before. The case receipt_keys_are_loaded_as_height_windows of services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs: distinct ids load with overlapping windows and in an order that does not ascend, and a list with one id twice is refused also with disjoint windows. The gateway renderer: the receipt key region of the self test and the cases of services/interop/deploy/gateway/tests/test_render_receipt_keys.py, services/interop/deploy/gateway/tests/test_manifest_conformance.py and services/interop/deploy/gateway/tests/test_receipt_key_rotation.py follow the rule. The change named overlap leaves the lists of refused changes, and lists with overlapping ranges of distinct ids get cases that expect acceptance. The case test_gateway_rotation_keeps_receipt_window_validation keeps its name and its other refused changes. The mirror renderer: the recorder services/interop/deploy/mirror/testdata/receipt_key_policy/record.py keeps every policy name. Both renderers accept the policy named overlap, and the case TestMirrorRenderingKeyPolicy expects acceptance for it and refusal for the two duplicate policies as before. Seven. Records. After the last change of a file that a record names, each recorder runs again and writes its record. No record is edited by hand. Eight. Document. The sentence of services/interop/deploy/gateway/README.md on overlapping ranges states the rule of point two. Every phrase of that file that a case reads stays. Nine. Target: every command of the verification passes. These are the module tests of the interop loader, the case file of the relayer, the selected cases of the three pytest files and both Go packages of the mirror deployment. Task 22.39.1081."
+basis = "Gotcha 4789."
+affects = []
+
+[decision.3863]
+title = "The api module of the launchpad gains cases up to a total of 86.0 of 100 in the coverage gate"
+value = "One. Task 22.39.1082 adds cases to the api module until the total that the script tools/launchpad/coverage-gate.sh computes for the module reads 86.0 of 100 or more. Two. Decision 3857 point one holds in every part: the choice of the packages and of the cases is the choice of the participant, a new case proves a behaviour that the code has through the fixtures that its package already uses and asserts a result, a case that calls code without an expectation is not the form, no source outside case files and their test data changes, no statement leaves a source file, no case leaves, no case gains a skip, and the script, the Makefile and the values of the gate stay as they are. Three. A package without a case file may gain one where its code can be proven in the form of point two. Four. Target: the lint target passes for the module, and the target cover-check passes for the module with the value 86.0 for DEFAULT_MIN. Task 22.39.1082."
+basis = "Gotcha 4790. Decision 3857."
+affects = []
+
+[decision.3864]
+title = "The example manifest of the gateway deployment is the output of its renderer, and the sequenced vector file of the ucp adapter exists once, in the suite directory"
+value = "One. Task 22.39.1083 changes the example manifest services/interop/deploy/gateway/config.example.json, the case file services/interop/deploy/gateway/manifest_conformance_test.go, the region of the self test of services/interop/deploy/gateway/render.py that asserts the vector counts of the transport suites, case files and test data of the crate under services/interop/crates/layerx-ucp, the document services/interop/specs/conformance/ucp/README.md, the file tools/qualification/audit_repairs/test_ucp_transaction_binding.py and the records of the mirror deployment that name a changed file. Every other region of the renderer, every JSON file of a suite directory, the specification documents, the example trust inputs and the example receipt keys stay as they are. Two. The example manifest equals what the function render returns for the example trust inputs, the example receipt keys and the network id eip155-125 over the final tree, in the form in which the renderer writes a manifest. It is written through the renderer or its functions, not by hand. Three. The file sequenced-order.json exists once, as services/interop/specs/conformance/ucp/sequenced-order.json. The file services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs takes it in by the path form by which services/interop/crates/layerx-ucp/tests/conformance_vectors.rs takes the other files of the suite directory in. The copy services/interop/crates/layerx-ucp/tests/fixtures/sequenced-order.json and its directory leave the tree. Four. Readers follow point three. In tools/qualification/audit_repairs/test_ucp_transaction_binding.py the assertion on the text of the sequenced case file names the path form of the suite directory, and the constant CONSUMER names the suite file or leaves together with the comparison that uses it. The set of case names of that file stays as it is, and no record of the audit changes. The document services/interop/specs/conformance/ucp/README.md describes the read from the suite directory. Five. The self test asserts for the suite of each transport the count that its suite directory holds, 8, 11 and 14 by the present files, or the count that the function first_party_suite derives. The form is the choice of the participant. Six. The entry of part seven of gotcha 4791 leaves the phrase list of the case TestGatewayManifestReadme. The document services/interop/deploy/gateway/README.md and the templates of the deployment stay as they are. Seven. Records. After the last change of a file that a record of the mirror deployment names, each recorder whose input changed runs again and writes its record. No record is edited by hand. A record whose inputs did not change stays as it is. Eight. Target: every command of the verification passes. Task 22.39.1083."
+basis = "Gotcha 4791."
+affects = []
+
+[decision.3865]
+title = "The store doubles of the interop service cases take the keys and arguments that the scripts of the hosted gateway store pass"
+value = "One. Task 22.39.1084 changes case files and test data of the crate under services/interop/crates/layerx-interop-service only. No product file changes, and the file services/platform/hosted/gateway/src/store.rs stays as it is. Two. Each branch of a double requires the count of keys that the function of the store passes for its script and reads each key and each argument at the position at which the script reads it. Three. Where a script uses a key or an argument that the double did not know, the double gets the behaviour of the script for it as far as a case can observe it. Four. The further scripts that the doubles serve are compared with their scripts in the same way and follow where they differ. Five. No case leaves and no case gains a skip form. An expectation of a case changes only where the script defines another result than the double returned before, and the final message names each such expectation. Six. Target: the five case files of the verification pass. Task 22.39.1084."
+basis = "Gotcha 4792."
+affects = []
+
+[decision.3866]
+title = "The cases of the bridge relayer prove behaviour without reading contract documents, and the function collect returns signatures in ascending order of the signer"
+value = "One. Task 22.39.1085 changes the crate under services/interop/crates/layerx-bridge-relayer only. No document changes. Two. The file services/interop/crates/layerx-bridge-relayer/tests/destination_policy_and_consumers.rs no longer takes the two contract documents in. The constants CONTRACT and TRANSPORT_CONTRACT, the helper published_config and every lookup of document text leave. Every assertion on behaviour of the code stays as it is, and the four cases of part one of gotcha 4793 keep their names. Three. The example configuration of the case receipt_key_contract_example_loads_strictly comes from a test data file of the crate under services/interop/crates/layerx-bridge-relayer/tests/fixtures: a complete configuration of the relayer in the form that RelayerConfig::load accepts, with one receipt key that has a sequencer id of 32 bytes of the value 0x6b, the first height 1000, the last height 1999 and the public key that verifies the recorded receipt of the case V1-erc20-approve. The recorded case names its key in the member pinnedKey. The variations of the case stay as they are. Four. The function collect returns the signatures in ascending order of the signer address that the file name of each entry claims, independent of the order of the directory read. The checks and the bounds of an entry stay as they are. The callers and the selection of signatures stay as they are. Five. One new case publishes shares of several signers for one digest, once in ascending and once in descending order of the signer address, and expects from collect the same ascending list both times. The case stands in services/interop/crates/layerx-bridge-relayer/tests/loops.rs or as a unit case of the module cosign. Six. The participant runs the whole case file services/interop/crates/layerx-bridge-relayer/tests/destination_policy_and_consumers.rs by hand once after the change and names the result of each of its cases in the final message. The verification runs the two cases of part four of gotcha 4793 that need no Node process. Seven. Target: every command of the verification passes. Task 22.39.1085."
+basis = "Gotcha 4793."
+affects = []
+
+[decision.3867]
+title = "A case that reads a document keeps the lookups whose text the document holds, and no document changes for a case"
+value = "One. Task 22.39.1086 changes case files of the crates under services/interop/crates/layerx-mirror, services/interop/crates/layerx-portable and services/interop/crates/layerx-x402 and the file services/interop/tests/portable_receipt_verification.rs only. No document changes and no product file changes. Two. An assertion that looks up a heading, a row of a table or a sentence in a document stays where the document holds that text and leaves where it does not. A lookup on joined text is judged on the joined text. Three. Every assertion on behaviour of the code stays as it is, among them the comparison of the fenced example of docs/interop/PORTABILITY.md with an exported receipt. Four. A case that keeps at least one assertion keeps its name. A case in which no assertion stays leaves as a whole. Five. The rule holds for services/interop/tests/portable_receipt_verification.rs as for services/interop/crates/layerx-portable/tests/portable_v1_instructions.rs. Whether a manifest names that file is outside this task. Six. The final message lists each assertion that left with the text it looked up. Seven. Target: every command of the verification passes. Task 22.39.1086."
+basis = "Gotcha 4794."
+affects = []
+
+[decision.3868]
+title = "The interop gateway file table and definition hold the inputs that the service reads, the definition names the rollout service gateway and the port 9443, and the hosted script passes the renderer the receipt keys file"
+value = "One. The five rows of gotcha 4795 part two leave the file table docker/interop-gateway/files.tsv. The nine other rows stay with their names, paths and roles. Two. The five variables leave the section vars.interop of deploy/projects/interop/interop.kvx, and their five rows leave the section inputs.interop with their comment lines. The five names and their owner override names leave services/interop/.env.example, the env example of the hosting platform in the directory services/interop/deploy/gateway and docs/release/variables/service-interop.md. The document docs/release/7.0.0-variables.md describes the release 7.0.0 and stays, and the fixtures under tools/bringup/tests/fixtures stay. Three. The section vars.interop gains the line PORT with the value 9443, and its listen line takes the form of the listen line of the ramp definition deploy/projects/platform/ramp.kvx. The operator input INTEROP_INTEROP_LAYERX_INTEROP_LISTEN leaves the section inputs.interop with its comment line. The case tools/deploy/tests/projects/test_interop_interop.py allows the name PORT in the way the faucet case does, and it asserts the value of the line PORT and that the listen line names the port through the variable PORT. Four. The key needs of the section service.interop names gateway in place of router, in step with the rollout manifest, and the case asserts the set gateway, redis-internal and sequencer-primary. Five. The function interop_runtime_render passes the option receipt-keys-file with the file receipt-keys.json of the directory that SECRETS_DIR names, in place of the option sequencer-public-key-file. Every other line of the script stays. The case file services/interop/deploy/gateway/tests/test_render_receipt_keys.py gains a case that reads the three scripts of gotcha 4795 part seven and asserts that every option a script passes to the renderer is one that the parser declares. Six. Scope: no source of the service changes, no case leaves, no case gains a skip, the definitions of other services stay, and no document beyond the ones of point two changes. Seven. Target: the verification of task 22.39.1087 passes. The definition case, the folder case, the env template case and the renderer cases pass, the file table and the three files of point two hold none of the five names, and no script of gotcha 4795 part seven holds the option sequencer-public-key-file. Task 22.39.1087."
+basis = "Gotcha 4795."
+affects = []
+
+[decision.3869]
+title = "The file tests/testnets.rs leaves the mirror crate, and its three cases keep running under the target of the binary and the target verifier_documentation"
+value = "One. The file services/interop/crates/layerx-mirror/tests/testnets.rs leaves. Two. No other file of the crate changes. The cases of gotcha 4796 part one keep running under the target of the binary and under the target verifier_documentation, no case leaves and no case gains a skip. Three. Target: the verification of task 22.39.1088 passes. The target of the binary and the targets verifier_documentation and verifier_schema pass, and the file does not exist. Task 22.39.1088."
+basis = "Gotcha 4796."
+affects = []
+
+[decision.3870]
+title = "The four platform definition cases name the rollout service gateway, and the watch list of the core boundary definition names every source that its image file copies"
+value = "One. Each of the four case lines of gotcha 4797 part two names gateway in place of router. No definition changes for this point. Two. The key watch of deploy/projects/platform/core-boundary.kvx gains a pattern for the directory include/layerx in the form of its pattern for the directory programs, and the three file paths of gotcha 4797 part three, each with a leading slash as the patterns of the list have. The image file stays. Three. Scope: no other line of a case file changes, no case leaves, no case gains a skip, and the other case files under tools/deploy/tests/projects are not part of this task. Four. Target: the verification of task 22.39.1089 passes. The cases of the five case files of gotcha 4797 pass. Task 22.39.1089."
+basis = "Gotcha 4797. Gotcha 4795."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45942,6 +45996,87 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1089]
+title = "Name the rollout service gateway in four platform definition cases and add the sources that the core boundary image file copies to the watch list of its definition"
+reqs = ["22998.1"]
+touches = ["tools/deploy/tests/projects/test_platform_ai_evaluator.py", "tools/deploy/tests/projects/test_platform_faucet.py", "tools/deploy/tests/projects/test_platform_human_web.py", "tools/deploy/tests/projects/test_platform_testnet_control.py", "deploy/projects/platform/core-boundary.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_ai_evaluator.py tools/deploy/tests/projects/test_platform_faucet.py tools/deploy/tests/projects/test_platform_human_web.py tools/deploy/tests/projects/test_platform_testnet_control.py tools/deploy/tests/projects/test_platform_core_boundary.py"
+do_1 = "do_1 Gotcha 4797, decision 3870, gotcha 4795 part six. Read the four case lines, the key needs of the four definitions under deploy/projects/platform, the case test_core_boundary_container_sources_are_watched in tools/deploy/tests/projects/test_platform_core_boundary.py, the COPY lines of docker/platform-core/Dockerfile and the key watch of deploy/projects/platform/core-boundary.kvx."
+symbols = []
+
+[capability.22.39.1088]
+title = "Remove the file tests/testnets.rs of the mirror crate, whose three cases run under the target of the binary and the target verifier_documentation"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-mirror"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --bin layerx-mirror-verify --test verifier_documentation --test verifier_schema && test ! -e services/interop/crates/layerx-mirror/tests/testnets.rs"
+do_1 = "do_1 Gotcha 4796, decision 3869. Read services/interop/crates/layerx-mirror/tests/verifier_documentation.rs, services/interop/crates/layerx-mirror/tests/testnets.rs and the test module at the end of services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs."
+symbols = []
+
+[capability.22.39.1087]
+title = "Bring the interop gateway file table, the interop definition and the hosted renderer call in step with the inputs that the service reads and with the rollout names"
+reqs = ["22998.1"]
+touches = ["docker/interop-gateway", "deploy/projects/interop", "tools/deploy/tests/projects/test_interop_interop.py", "services/interop/.env.example", "services/interop/deploy/gateway", "docs/release/variables/service-interop.md", "services/platform/hosted/tests"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_interop.py tools/deploy/tests/projects/test_interop_folder.py services/interop/deploy/gateway/tests/test_env_template.py services/interop/deploy/gateway/tests/test_render_receipt_keys.py && test $(grep -c INTEROP_AUTHORITY_TOKEN docker/interop-gateway/files.tsv) -eq 0 && test $(grep -c INTEROP_SEQUENCER_ docker/interop-gateway/files.tsv) -eq 0 && test $(cat services/interop/.env.example services/interop/deploy/gateway/*.env.example docs/release/variables/service-interop.md | grep -c -e INTEROP_AUTHORITY_TOKEN -e INTEROP_SEQUENCER_PUBLIC_KEY -e INTEROP_SEQUENCER_ID -e INTEROP_SEQUENCER_FIRST_BATCH -e INTEROP_SEQUENCER_LAST_BATCH) -eq 0 && test $(cat services/platform/hosted/tests/beta-*.sh | grep -c sequencer-public-key-file) -eq 0"
+do_1 = "do_1 Gotcha 4795, decision 3868. Read the loader docker/common/env-files.sh, the file table docker/interop-gateway/files.tsv, the configuration source services/interop/crates/layerx-interop-service/src/config.rs, the support file services/interop/crates/layerx-interop-service/tests/support/active_inputs.rs, the definition deploy/projects/interop/interop.kvx with its case tools/deploy/tests/projects/test_interop_interop.py, the folder case tools/deploy/tests/projects/test_interop_folder.py, the function load of tools/deploy/platform-project.py, the rollout manifest deploy/rollout.kvx, the ramp definition deploy/projects/platform/ramp.kvx, the parser of services/interop/deploy/gateway/render.py and the function interop_runtime_render of the script under services/platform/hosted/tests."
+symbols = []
+
+[capability.22.39.1086]
+title = "Keep in the document cases of the mirror, portable and x402 crates the lookups whose text the documents hold"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-mirror", "services/interop/crates/layerx-portable", "services/interop/crates/layerx-x402", "services/interop/tests/portable_receipt_verification.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --test testnets --test verifier_documentation --test verifier_schema && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-portable --test portable_format_and_digest_claims --test portable_v1_instructions && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test x402_transport_documentation"
+do_1 = "do_1 Gotcha 4794, decision 3867. Read the cases that gotcha 4794 names with the documents they read. For each lookup of the files services/interop/crates/layerx-mirror/tests/verifier_documentation/cases.rs, services/interop/crates/layerx-portable/tests/portable_format_and_digest_claims.rs, services/interop/crates/layerx-portable/tests/portable_v1_instructions.rs, services/interop/tests/portable_receipt_verification.rs and services/interop/crates/layerx-x402/tests/x402_transport_documentation.rs note whether the document holds the text."
+symbols = []
+
+[capability.22.39.1085]
+title = "Take the contract documents out of the cases of the bridge relayer and give the function collect of the cosign directory a fixed order"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-bridge-relayer"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --lib --test loops && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test destination_policy_and_consumers -- --exact receipt_key_contract_example_loads_strictly receipt_error_contract_preserves_real_refusal_categories"
+do_1 = "do_1 Gotcha 4793, decision 3866. Read the four cases of services/interop/crates/layerx-bridge-relayer/tests/destination_policy_and_consumers.rs with the helpers published_config and load_config, the file services/bridge/deploy/relayer-solana.example.json with the case of services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs that loads it, the recorded case V1-erc20-approve in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, the functions own_shares and collect of services/interop/crates/layerx-bridge-relayer/src/cosign.rs with their callers, and the case the_attestation_view_is_a_snapshot of services/interop/crates/layerx-bridge-relayer/tests/loops.rs."
+symbols = []
+
+[capability.22.39.1084]
+title = "Let the store doubles of the interop service cases take the keys and arguments of the hosted gateway store scripts"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-interop-service"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --test active_startup_and_settlement --test http_replay_recovery --test mounted_payment_routes --test private_network --test relay_settlement_recovery"
+do_1 = "do_1 Gotcha 4792, decision 3865. Read in services/platform/hosted/gateway/src/store.rs the functions issue_key_outcome, reserve, consume_read and complete_inner with their four scripts, and note for each script the keys and the arguments by position. Read the doubles in services/interop/crates/layerx-interop-service/tests/support/settlement_fixture.rs and services/interop/crates/layerx-interop-service/tests/mounted_payment_routes.rs and the cases that use them."
+symbols = []
+
+[capability.22.39.1083]
+title = "Render the example manifest of the gateway deployment again and keep one copy of the sequenced vector file of the ucp adapter"
+reqs = ["22998.1"]
+touches = ["services/interop/deploy/gateway", "services/interop/deploy/mirror", "services/interop/crates/layerx-ucp", "services/interop/specs/conformance/ucp/README.md", "tools/qualification/audit_repairs/test_ucp_transaction_binding.py"]
+tests = []
+verification_contract = "python3 services/interop/deploy/gateway/render.py --self-test && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py && python3 -m pytest -q services/interop/deploy/gateway/tests/test_render_receipt_keys.py && python3 -m pytest -q services/interop/deploy/gateway/tests/test_receipt_key_rotation.py -k window && python3 -m pytest -q tools/qualification/audit_repairs/test_ucp_transaction_binding.py && go test -count=1 ./services/interop/deploy/gateway/ ./services/interop/deploy/mirror/ ./services/interop/deploy/mirror/tests/ && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-ucp --test sequenced_vectors --test ucp_producer_checkout --test conformance_vectors && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --test plain_listener --test sequencer_start"
+do_1 = "do_1 Gotcha 4791, decision 3864. Read the functions first_party_suite, derived, render and self_test of services/interop/deploy/gateway/render.py, the cases of services/interop/deploy/gateway/tests/test_manifest_conformance.py and services/interop/deploy/gateway/manifest_conformance_test.go that read the example, the files services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs, services/interop/crates/layerx-ucp/tests/conformance_vectors.rs and services/interop/crates/layerx-ucp/tests/ucp_producer_checkout.rs, the file tools/qualification/audit_repairs/test_ucp_transaction_binding.py and the recorder services/interop/deploy/mirror/testdata/receipt_key_policy/record.py. Search the tree for every further reader of the example manifest, of the two copies of the vector file and of the renderer."
+symbols = []
+
+[capability.22.39.1082]
+title = "Add cases to the api module until the total of the coverage gate for the module reads 86.0 of 100 or more"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && DEFAULT_MIN=86.0 GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=api"
+do_1 = "do_1 Gotcha 4790, decision 3863, decision 3857 point one, gotcha 4784 part one. Read the targets cover and cover-check in services/launchpad/Makefile, the script tools/launchpad/coverage-gate.sh and the function run_tests in tests/ci/data/launchpad_go_tests.py. Run make -C services/launchpad cover-check MODULES=api by hand once before any change and note the total that the script prints for the module. The profile lies under services/launchpad/.cover, and the cover tool lists from it the functions with the share of their statements that the cases reach."
+symbols = []
+
+[capability.22.39.1081]
+title = "Give every loader and renderer of receipt keys in the interop workspace the rule of the node module"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-interop-service", "services/interop/crates/layerx-bridge-relayer", "services/interop/deploy/gateway", "services/interop/deploy/mirror"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --lib config::tests && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test operator_config && python3 -m pytest -q services/interop/deploy/gateway/tests/test_render_receipt_keys.py && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py -k key && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py -k readme && python3 -m pytest -q services/interop/deploy/gateway/tests/test_receipt_key_rotation.py -k window && go test -count=1 ./services/interop/deploy/mirror/ ./services/interop/deploy/mirror/tests/"
+do_1 = "do_1 Gotcha 4789, decision 3862. Read the type ReceiptKeys with its function Validate in modules/sequencer/keeper/receipt_keys.go, the function select_receipt_key of services/agent/crates/layerx-proof/src/receipt.rs and the type ReceiptKeyList of services/platform/hosted/gateway/src/lib.rs. Then read the four places with their cases: parse_receipt_keys of services/interop/crates/layerx-interop-service/src/config.rs, receipt_keys of services/interop/crates/layerx-bridge-relayer/src/config.rs, receipt_keys of services/interop/deploy/gateway/render.py and checkpoint_policy of services/interop/deploy/mirror/render-config.py, and read both recorders. Search the four paths of the task for every further wording of the rule on overlapping ranges."
+symbols = []
 
 [capability.22.39.1080]
 title = "Let the node boundary relay the four read methods of the px family that the node client calls"
@@ -211021,9 +211156,101 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1083]
+title = "Render the example manifest of the gateway deployment again and keep one copy of the sequenced vector file of the ucp adapter"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1081"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1083"]
+interfaces = []
+do_1 = "do_1 Gotcha 4791, decision 3864. Read the functions first_party_suite, derived, render and self_test of services/interop/deploy/gateway/render.py, the cases of services/interop/deploy/gateway/tests/test_manifest_conformance.py and services/interop/deploy/gateway/manifest_conformance_test.go that read the example, the files services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs, services/interop/crates/layerx-ucp/tests/conformance_vectors.rs and services/interop/crates/layerx-ucp/tests/ucp_producer_checkout.rs, the file tools/qualification/audit_repairs/test_ucp_transaction_binding.py and the recorder services/interop/deploy/mirror/testdata/receipt_key_policy/record.py. Search the tree for every further reader of the example manifest, of the two copies of the vector file and of the renderer."
+do_2 = "do_2 Bring the crate under services/interop/crates/layerx-ucp, the file tools/qualification/audit_repairs/test_ucp_transaction_binding.py and the document services/interop/specs/conformance/ucp/README.md into the form of points three and four. Give the self test the form of point five and take the entry of point six out of the list. Write the example manifest last, as point two says, because the renderer derives over the final tree."
+do_3 = "do_3 Run the recorders as point seven says and confirm that each record holds the digest of the final form of every file it names."
+do_4 = "do_4 Points one to eight hold. The final message names each value of the example that changed by its member path, the command or function that wrote the file, each file that changed or left, every further reader found and the result of each command of the verification. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/deploy/gateway", "services/interop/deploy/mirror", "services/interop/crates/layerx-ucp", "services/interop/specs/conformance/ucp/README.md", "tools/qualification/audit_repairs/test_ucp_transaction_binding.py"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-ucp --tests"
+verify_cmd = "python3 services/interop/deploy/gateway/render.py --self-test && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py && python3 -m pytest -q services/interop/deploy/gateway/tests/test_render_receipt_keys.py && python3 -m pytest -q services/interop/deploy/gateway/tests/test_receipt_key_rotation.py -k window && python3 -m pytest -q tools/qualification/audit_repairs/test_ucp_transaction_binding.py && go test -count=1 ./services/interop/deploy/gateway/ ./services/interop/deploy/mirror/ ./services/interop/deploy/mirror/tests/ && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-ucp --test sequenced_vectors --test ucp_producer_checkout --test conformance_vectors && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --test plain_listener --test sequencer_start"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1082]
+title = "Add cases to the api module until the total of the coverage gate for the module reads 86.0 of 100 or more"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1082"]
+interfaces = []
+do_1 = "do_1 Gotcha 4790, decision 3863, decision 3857 point one, gotcha 4784 part one. Read the targets cover and cover-check in services/launchpad/Makefile, the script tools/launchpad/coverage-gate.sh and the function run_tests in tests/ci/data/launchpad_go_tests.py. Run make -C services/launchpad cover-check MODULES=api by hand once before any change and note the total that the script prints for the module. The profile lies under services/launchpad/.cover, and the cover tool lists from it the functions with the share of their statements that the cases reach."
+do_2 = "do_2 Add cases under decision 3863 point two until the script reads 86.0 of 100 or more for the module. The task changes case files and test data only. Begin with the packages that hold the largest number of statements that no case reaches. Measure a single package through the go tool with a profile while you work and the whole module through the gate at the end."
+do_3 = "do_3 Points one to four hold. The final message names the total before and after and the packages that gained cases. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && DEFAULT_MIN=86.0 GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=api"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1081]
+title = "Give every loader and renderer of receipt keys in the interop workspace the rule of the node module"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1081"]
+interfaces = []
+do_1 = "do_1 Gotcha 4789, decision 3862. Read the type ReceiptKeys with its function Validate in modules/sequencer/keeper/receipt_keys.go, the function select_receipt_key of services/agent/crates/layerx-proof/src/receipt.rs and the type ReceiptKeyList of services/platform/hosted/gateway/src/lib.rs. Then read the four places with their cases: parse_receipt_keys of services/interop/crates/layerx-interop-service/src/config.rs, receipt_keys of services/interop/crates/layerx-bridge-relayer/src/config.rs, receipt_keys of services/interop/deploy/gateway/render.py and checkpoint_policy of services/interop/deploy/mirror/render-config.py, and read both recorders. Search the four paths of the task for every further wording of the rule on overlapping ranges."
+do_2 = "do_2 Give the four places the form of points two to five of the decision, bring the cases into the form of point six and the sentence of the document into the form of point eight."
+do_3 = "do_3 Run both recorders as point seven says and confirm that each record holds the digest of the final form of every file it names."
+do_4 = "do_4 Points one to nine hold. The final message names the four functions after the change with their refusals, each changed or new case with its file, each further wording found in do_1, the two records with the command that wrote each, and the result of each command of the verification. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/layerx-interop-service", "services/interop/crates/layerx-bridge-relayer", "services/interop/deploy/gateway", "services/interop/deploy/mirror"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --bin layerx-interop-gateway && cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --lib config::tests && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test operator_config && python3 -m pytest -q services/interop/deploy/gateway/tests/test_render_receipt_keys.py && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py -k key && python3 -m pytest -q services/interop/deploy/gateway/tests/test_manifest_conformance.py -k readme && python3 -m pytest -q services/interop/deploy/gateway/tests/test_receipt_key_rotation.py -k window && go test -count=1 ./services/interop/deploy/mirror/ ./services/interop/deploy/mirror/tests/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1079]
 title = "Let the authority cases of the launchpad gateway take the port of an authority process directly before its start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -211143,7 +211370,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1073]
 title = "Let the baseline file of the launchpad Go case runner hold no entry and let the cases that read it follow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1066", "22.39.1067", "22.39.1068", "22.39.1069", "22.39.1070", "22.39.1071", "22.39.1072"]
@@ -229379,9 +229606,130 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1088]
+title = "Remove the file tests/testnets.rs of the mirror crate, whose three cases run under the target of the binary and the target verifier_documentation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1088"]
+interfaces = []
+do_1 = "do_1 Gotcha 4796, decision 3869. Read services/interop/crates/layerx-mirror/tests/verifier_documentation.rs, services/interop/crates/layerx-mirror/tests/testnets.rs and the test module at the end of services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs."
+do_2 = "do_2 Remove the file services/interop/crates/layerx-mirror/tests/testnets.rs under decision 3869 point one. No other file changes."
+do_3 = "do_3 Points two and three hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/layerx-mirror"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --bin layerx-mirror-verify --test verifier_documentation --test verifier_schema && test ! -e services/interop/crates/layerx-mirror/tests/testnets.rs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1086]
+title = "Keep in the document cases of the mirror, portable and x402 crates the lookups whose text the documents hold"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1081"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1086"]
+interfaces = []
+do_1 = "do_1 Gotcha 4794, decision 3867. Read the cases that gotcha 4794 names with the documents they read. For each lookup of the files services/interop/crates/layerx-mirror/tests/verifier_documentation/cases.rs, services/interop/crates/layerx-portable/tests/portable_format_and_digest_claims.rs, services/interop/crates/layerx-portable/tests/portable_v1_instructions.rs, services/interop/tests/portable_receipt_verification.rs and services/interop/crates/layerx-x402/tests/x402_transport_documentation.rs note whether the document holds the text."
+do_2 = "do_2 Give the case files the form of points two to five. Change no document."
+do_3 = "do_3 Points one to seven hold. The final message lists each assertion that left with the text it looked up, each case that changed with the count of lookups that stay and the result of each command of the verification. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/layerx-mirror", "services/interop/crates/layerx-portable", "services/interop/crates/layerx-x402", "services/interop/tests/portable_receipt_verification.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror -p layerx-portable -p layerx-x402 --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --test testnets --test verifier_documentation --test verifier_schema && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-portable --test portable_format_and_digest_claims --test portable_v1_instructions && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test x402_transport_documentation"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1085]
+title = "Take the contract documents out of the cases of the bridge relayer and give the function collect of the cosign directory a fixed order"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1081"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1085"]
+interfaces = []
+do_1 = "do_1 Gotcha 4793, decision 3866. Read the four cases of services/interop/crates/layerx-bridge-relayer/tests/destination_policy_and_consumers.rs with the helpers published_config and load_config, the file services/bridge/deploy/relayer-solana.example.json with the case of services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs that loads it, the recorded case V1-erc20-approve in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, the functions own_shares and collect of services/interop/crates/layerx-bridge-relayer/src/cosign.rs with their callers, and the case the_attestation_view_is_a_snapshot of services/interop/crates/layerx-bridge-relayer/tests/loops.rs."
+do_2 = "do_2 Give the case file the form of points two and three and add the test data file. Give collect the form of point four and add the case of point five."
+do_3 = "do_3 Run the whole case file services/interop/crates/layerx-bridge-relayer/tests/destination_policy_and_consumers.rs by hand as point six says."
+do_4 = "do_4 Points one to seven hold. The final message names each lookup that left with its case, the test data file, the form of collect after the change, the new case with its file, the result of each case of the run by hand and the result of each command of the verification. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/layerx-bridge-relayer"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --lib --test loops && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --test destination_policy_and_consumers -- --exact receipt_key_contract_example_loads_strictly receipt_error_contract_preserves_real_refusal_categories"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1084]
+title = "Let the store doubles of the interop service cases take the keys and arguments of the hosted gateway store scripts"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1081"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1084"]
+interfaces = []
+do_1 = "do_1 Gotcha 4792, decision 3865. Read in services/platform/hosted/gateway/src/store.rs the functions issue_key_outcome, reserve, consume_read and complete_inner with their four scripts, and note for each script the keys and the arguments by position. Read the doubles in services/interop/crates/layerx-interop-service/tests/support/settlement_fixture.rs and services/interop/crates/layerx-interop-service/tests/mounted_payment_routes.rs and the cases that use them."
+do_2 = "do_2 Give the doubles the form of points two to four. Change no product file."
+do_3 = "do_3 Points one to six hold. The final message names for each script the keys and the arguments that the doubles take after the change, each expectation that changed under point five with its reason and the result of the verification. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/layerx-interop-service"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --test active_startup_and_settlement --test http_replay_recovery --test mounted_payment_routes --test private_network --test relay_settlement_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1080]
 title = "Let the node boundary relay the four read methods of the px family that the node client calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -402888,6 +403236,66 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.1089]
+title = "Name the rollout service gateway in four platform definition cases and add the sources that the core boundary image file copies to the watch list of its definition"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1089"]
+interfaces = []
+do_1 = "do_1 Gotcha 4797, decision 3870, gotcha 4795 part six. Read the four case lines, the key needs of the four definitions under deploy/projects/platform, the case test_core_boundary_container_sources_are_watched in tools/deploy/tests/projects/test_platform_core_boundary.py, the COPY lines of docker/platform-core/Dockerfile and the key watch of deploy/projects/platform/core-boundary.kvx."
+do_2 = "do_2 Change the four case lines under decision 3870 point one and the key watch under point two. No other file changes."
+do_3 = "do_3 Points three and four hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/tests/projects/test_platform_ai_evaluator.py", "tools/deploy/tests/projects/test_platform_faucet.py", "tools/deploy/tests/projects/test_platform_human_web.py", "tools/deploy/tests/projects/test_platform_testnet_control.py", "deploy/projects/platform/core-boundary.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_ai_evaluator.py tools/deploy/tests/projects/test_platform_faucet.py tools/deploy/tests/projects/test_platform_human_web.py tools/deploy/tests/projects/test_platform_testnet_control.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_ai_evaluator.py tools/deploy/tests/projects/test_platform_faucet.py tools/deploy/tests/projects/test_platform_human_web.py tools/deploy/tests/projects/test_platform_testnet_control.py tools/deploy/tests/projects/test_platform_core_boundary.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1087]
+title = "Bring the interop gateway file table, the interop definition and the hosted renderer call in step with the inputs that the service reads and with the rollout names"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1087"]
+interfaces = []
+do_1 = "do_1 Gotcha 4795, decision 3868. Read the loader docker/common/env-files.sh, the file table docker/interop-gateway/files.tsv, the configuration source services/interop/crates/layerx-interop-service/src/config.rs, the support file services/interop/crates/layerx-interop-service/tests/support/active_inputs.rs, the definition deploy/projects/interop/interop.kvx with its case tools/deploy/tests/projects/test_interop_interop.py, the folder case tools/deploy/tests/projects/test_interop_folder.py, the function load of tools/deploy/platform-project.py, the rollout manifest deploy/rollout.kvx, the ramp definition deploy/projects/platform/ramp.kvx, the parser of services/interop/deploy/gateway/render.py and the function interop_runtime_render of the script under services/platform/hosted/tests."
+do_2 = "do_2 Make the changes of decision 3868 points one to five. Remove the five rows from the file table, the five variables and the six input rows with their comment lines from the definition, and the ten lines from each of the three files of point two. Add the line PORT and the listen form of point three, name gateway in the key needs, and bring the case tools/deploy/tests/projects/test_interop_interop.py in step with points three and four. Change the option in interop_runtime_render under point five and add the case of point five to services/interop/deploy/gateway/tests/test_render_receipt_keys.py. How the case finds the options that a script passes is the choice of the participant."
+do_3 = "do_3 Points six and seven hold. The final message names every file that changed. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/interop-gateway", "deploy/projects/interop", "tools/deploy/tests/projects/test_interop_interop.py", "services/interop/.env.example", "services/interop/deploy/gateway", "docs/release/variables/service-interop.md", "services/platform/hosted/tests"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_interop_interop.py services/interop/deploy/gateway/tests/test_render_receipt_keys.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_interop.py tools/deploy/tests/projects/test_interop_folder.py services/interop/deploy/gateway/tests/test_env_template.py services/interop/deploy/gateway/tests/test_render_receipt_keys.py && test $(grep -c INTEROP_AUTHORITY_TOKEN docker/interop-gateway/files.tsv) -eq 0 && test $(grep -c INTEROP_SEQUENCER_ docker/interop-gateway/files.tsv) -eq 0 && test $(cat services/interop/.env.example services/interop/deploy/gateway/*.env.example docs/release/variables/service-interop.md | grep -c -e INTEROP_AUTHORITY_TOKEN -e INTEROP_SEQUENCER_PUBLIC_KEY -e INTEROP_SEQUENCER_ID -e INTEROP_SEQUENCER_FIRST_BATCH -e INTEROP_SEQUENCER_LAST_BATCH) -eq 0 && test $(cat services/platform/hosted/tests/beta-*.sh | grep -c sequencer-public-key-file) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.960]
 title = "Let every install step of the launchpad test workflow read the package index and fetch again before it ends its job"

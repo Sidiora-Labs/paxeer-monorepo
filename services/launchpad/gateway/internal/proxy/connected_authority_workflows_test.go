@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -81,14 +82,24 @@ func authorityWorkflowBuildAuthority(t *testing.T, owner string) string {
 	return binary
 }
 
-func authorityWorkflowProcess(t *testing.T, cmd *exec.Cmd) func() {
+const authorityWorkflowAddressInUseExitCode = 98
+
+type authorityWorkflowProcessState struct {
+	done   chan struct{}
+	err    error
+	output *lockedBuffer
+	stop   func()
+}
+
+func authorityWorkflowStartProcess(t *testing.T, cmd *exec.Cmd) *authorityWorkflowProcessState {
 	t.Helper()
 	output := &lockedBuffer{}
 	cmd.Stdout = output
 	cmd.Stderr = output
 	authorityWorkflowMust(t, cmd.Start())
 	done := make(chan struct{})
-	go func() { _ = cmd.Wait(); close(done) }()
+	process := &authorityWorkflowProcessState{done: done, output: output}
+	go func() { process.err = cmd.Wait(); close(done) }()
 	var once sync.Once
 	stop := func() {
 		once.Do(func() {
@@ -108,7 +119,62 @@ func authorityWorkflowProcess(t *testing.T, cmd *exec.Cmd) func() {
 			t.Logf("%s output: %s", filepath.Base(cmd.Path), output.String())
 		}
 	})
-	return stop
+	process.stop = stop
+	return process
+}
+
+func authorityWorkflowProcess(t *testing.T, cmd *exec.Cmd) func() {
+	t.Helper()
+	return authorityWorkflowStartProcess(t, cmd).stop
+}
+
+func (p *authorityWorkflowProcessState) ready(client *http.Client, endpoint string) ([]byte, error) {
+	deadline := time.Now().Add(45 * time.Second)
+	for {
+		select {
+		case <-p.done:
+			if p.err == nil {
+				return nil, fmt.Errorf("authority exited before readiness\n%s", p.output.String())
+			}
+			return nil, fmt.Errorf("authority exited before readiness: %w\n%s", p.err, p.output.String())
+		default:
+		}
+		resp, err := client.Get(endpoint)
+		if err == nil {
+			raw, readErr := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if readErr == nil && resp.StatusCode == 200 {
+				return raw, nil
+			}
+		}
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("real authority not ready at %s: %v\n%s", endpoint, err, p.output.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func authorityWorkflowStartAuthority(t *testing.T, client *http.Client, binary, configFile string, cfg map[string]any) (string, []byte, func()) {
+	t.Helper()
+	for attempt := 0; attempt < 3; attempt++ {
+		port := internaltest.FreePorts(t, 1)[0]
+		endpoint := fmt.Sprintf("https://127.0.0.1:%d", port)
+		cfg["Listen"] = fmt.Sprintf("127.0.0.1:%d", port)
+		raw, err := json.Marshal(cfg)
+		authorityWorkflowMust(t, err)
+		authorityWorkflowMust(t, os.WriteFile(configFile, raw, 0600))
+		process := authorityWorkflowStartProcess(t, exec.Command(binary, configFile))
+		ready, err := process.ready(client, endpoint+"/health/ready")
+		if err == nil {
+			return endpoint, ready, process.stop
+		}
+		process.stop()
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != authorityWorkflowAddressInUseExitCode || attempt == 2 {
+			t.Fatal(err)
+		}
+	}
+	panic("authority start attempts exhausted")
 }
 
 func authorityWorkflowReady(t *testing.T, client *http.Client, endpoint string) []byte {
@@ -212,22 +278,19 @@ CREATE VIEW users.identity_outbox AS SELECT * FROM gateway_identity.identity_out
 	_, err = e.identity.Pool.Exec(ctx, "CREATE FUNCTION users.consume_account_deletion_reauth"+ddl)
 	authorityWorkflowMust(t, err)
 	leaf := e.pki.Leaf("user-authority", "user.railway.internal")
-	port := internaltest.FreePorts(t, 1)[0]
-	endpoint := fmt.Sprintf("https://127.0.0.1:%d", port)
-	audit := filepath.Join(t.TempDir(), "request-headers.jsonl")
-	cfg := map[string]any{"DSN": authorityWorkflowDSN(t, e.identity.Pool.Config().ConnString(), "gateway_identity"), "RPC": e2eChain(t), "Listen": fmt.Sprintf("127.0.0.1:%d", port), "Cert": leaf.CertFile, "Key": leaf.KeyFile, "CA": e.pki.CAFile, "GatewayPin": e.gatewayClient.SHA256, "GatewayPublicKey": base64.StdEncoding.EncodeToString(e.gatewayKey.Private.Public().(ed25519.PublicKey)), "Identity": authorityWorkflowIdentityConfig(e, "social"), "Objects": objects, "Version": version, "HeaderAudit": audit}
-	configFile := filepath.Join(t.TempDir(), "configuration.json")
-	raw, err := json.Marshal(cfg)
-	authorityWorkflowMust(t, err)
-	authorityWorkflowMust(t, os.WriteFile(configFile, raw, 0600))
+	rpc := e2eChain(t)
 	binary := authorityWorkflowBuildAuthority(t, "user")
+	audit := filepath.Join(t.TempDir(), "request-headers.jsonl")
+	cfg := map[string]any{"DSN": authorityWorkflowDSN(t, e.identity.Pool.Config().ConnString(), "gateway_identity"), "RPC": rpc, "Cert": leaf.CertFile, "Key": leaf.KeyFile, "CA": e.pki.CAFile, "GatewayPin": e.gatewayClient.SHA256, "GatewayPublicKey": base64.StdEncoding.EncodeToString(e.gatewayKey.Private.Public().(ed25519.PublicKey)), "Identity": authorityWorkflowIdentityConfig(e, "social"), "Objects": objects, "Version": version, "HeaderAudit": audit}
+	configFile := filepath.Join(t.TempDir(), "configuration.json")
 	client := authorityWorkflowPrivateClient(t, e)
+	endpoint, _, stop := authorityWorkflowStartAuthority(t, client, binary, configFile, cfg)
 	start := func() func() {
-		stop := authorityWorkflowProcess(t, exec.Command(binary, configFile))
-		authorityWorkflowReady(t, client, endpoint+"/health/ready")
-		return stop
+		process := authorityWorkflowStartProcess(t, exec.Command(binary, configFile))
+		_, err := process.ready(client, endpoint+"/health/ready")
+		authorityWorkflowMust(t, err)
+		return process.stop
 	}
-	stop := start()
 	proxy, err := NewConnected(ConnectedDeps{Name: "user", URL: endpoint, Routes: UserConnectedRoutes(), Identity: e.authorityForGateway, SigningKey: e.gatewayKey.Private, TLS: e.gatewayClientTLS()})
 	authorityWorkflowMust(t, err)
 	t.Cleanup(proxy.client.CloseIdleConnections)
@@ -494,12 +557,13 @@ func authorityWorkflowVault(t *testing.T) (string, string, string) {
 	t.Cleanup(transport.CloseIdleConnections)
 	client := &http.Client{Transport: transport, Timeout: time.Second}
 	authorityWorkflowReady(t, client, endpoint+"/v1/sys/health")
+	setupClient := &http.Client{Transport: transport, Timeout: 30 * time.Second}
 	for _, setup := range []struct{ path, body string }{{"/v1/sys/mounts/transit", `{"type":"transit"}`}, {"/v1/transit/keys/repair48", `{"type":"aes256-gcm96"}`}} {
 		req, err := http.NewRequest("POST", endpoint+setup.path, strings.NewReader(setup.body))
 		authorityWorkflowMust(t, err)
 		req.Header.Set("X-Vault-Token", token)
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
+		resp, err := setupClient.Do(req)
 		authorityWorkflowMust(t, err)
 		raw, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
@@ -525,17 +589,12 @@ func TestIngestResponse(t *testing.T) {
 	_, err = db.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) SELECT token_address,pool_address,creator,$1,optical,nft_id,created_block,$2,tx_hash,0,0,created_at,'{}','{}' FROM indexer.pools WHERE pool_address=$3`, "0x"+strings.Repeat("f0", 20), "0x"+strings.Repeat("de", 32), poolAddress)
 	authorityWorkflowMust(t, err)
 	leaf := e.pki.Leaf("livestream-authority", "livestream.railway.internal")
-	port := internaltest.FreePorts(t, 1)[0]
-	endpoint := fmt.Sprintf("https://127.0.0.1:%d", port)
-	streamKey := strings.ReplaceAll(uuid.NewString(), "-", "")
-	cfg := map[string]any{"DSN": authorityWorkflowDSN(t, e.database.AdminDSN, "livestream"), "RPC": e2eChain(t), "Listen": fmt.Sprintf("127.0.0.1:%d", port), "Cert": leaf.CertFile, "Key": leaf.KeyFile, "CA": e.pki.CAFile, "GatewayPin": e.gatewayClient.SHA256, "GatewayPublicKey": base64.StdEncoding.EncodeToString(e.gatewayKey.Private.Public().(ed25519.PublicKey)), "Identity": authorityWorkflowIdentityConfig(e, "livestream"), "Wallet": owner.wallet, "Pool": poolAddress, "VaultURL": vaultURL, "VaultCA": vaultCA, "VaultToken": vaultToken, "StreamKey": streamKey}
-	file := filepath.Join(t.TempDir(), "configuration.json")
-	raw, err := json.Marshal(cfg)
-	authorityWorkflowMust(t, err)
-	authorityWorkflowMust(t, os.WriteFile(file, raw, 0600))
+	rpc := e2eChain(t)
 	binary := authorityWorkflowBuildAuthority(t, "livestream")
-	authorityWorkflowProcess(t, exec.Command(binary, file))
-	ready := authorityWorkflowReady(t, authorityWorkflowPrivateClient(t, e), endpoint+"/health/ready")
+	streamKey := strings.ReplaceAll(uuid.NewString(), "-", "")
+	cfg := map[string]any{"DSN": authorityWorkflowDSN(t, e.database.AdminDSN, "livestream"), "RPC": rpc, "Cert": leaf.CertFile, "Key": leaf.KeyFile, "CA": e.pki.CAFile, "GatewayPin": e.gatewayClient.SHA256, "GatewayPublicKey": base64.StdEncoding.EncodeToString(e.gatewayKey.Private.Public().(ed25519.PublicKey)), "Identity": authorityWorkflowIdentityConfig(e, "livestream"), "Wallet": owner.wallet, "Pool": poolAddress, "VaultURL": vaultURL, "VaultCA": vaultCA, "VaultToken": vaultToken, "StreamKey": streamKey}
+	file := filepath.Join(t.TempDir(), "configuration.json")
+	endpoint, ready, _ := authorityWorkflowStartAuthority(t, authorityWorkflowPrivateClient(t, e), binary, file, cfg)
 	var operation struct{ StreamID string }
 	authorityWorkflowMust(t, json.Unmarshal(ready, &operation))
 	proxy, err := NewConnected(ConnectedDeps{Name: "livestream", URL: endpoint, Routes: LivestreamConnectedRoutes(), Identity: e.authorityForGateway, SigningKey: e.gatewayKey.Private, TLS: e.gatewayClientTLS()})
@@ -580,7 +639,7 @@ func TestIngestResponse(t *testing.T) {
 				t.Fatal("invalid private producer response admitted")
 			}
 		}
-		resp, raw = e2eSend(t, nil, "GET", edge.URL+"/v2/streams/"+operation.StreamID, nil, nil)
+		resp, raw := e2eSend(t, nil, "GET", edge.URL+"/v2/streams/"+operation.StreamID, nil, nil)
 		if resp.StatusCode != 200 || bytes.Contains(raw, []byte(streamKey)) || containsSecret(raw) {
 			t.Fatalf("public stream disclosed private credential: %d %s", resp.StatusCode, raw)
 		}
