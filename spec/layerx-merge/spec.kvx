@@ -404175,7 +404175,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1129]
 title = "Bring the licence case, the relocation case of the vendored tree under tools and the client transports case to the present tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404205,7 +404205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1128]
 title = "Bring the bridge attestor, perps wake and dependency policy case files to the present image file, shell case and dependency configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404235,7 +404235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1127]
 title = "Bring three agent case files of the qualification directory and the pins fixture to the present Makefile, fuel suite and agent sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404265,7 +404265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1126]
 title = "Bring the dashboard, hosted endpoint and platform documentation case files and the reference page of the human API to the present sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404295,7 +404295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1125]
 title = "Bring four wallet case files of the qualification directory to the present documents, image file, workflow and demo sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404355,7 +404355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1123]
 title = "Bring the version pins of three case files, the hosted fact of the gateway readme row and the image retirement case to the present files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
