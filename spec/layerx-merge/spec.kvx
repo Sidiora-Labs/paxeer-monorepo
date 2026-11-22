@@ -404295,7 +404295,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1135]
 title = "Give the journal and activation cases of the topology operator a connected plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404325,7 +404325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1134]
 title = "Bring the source inventory case in step with the pattern form of the launchpad workspace file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404385,7 +404385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1132]
 title = "Bring three document cases of the launchpad in step with the phrases of the present documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
