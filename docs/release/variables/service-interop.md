@@ -57,7 +57,6 @@ The environment examples list required inputs with empty values when the source 
 | `GAS_STATION_RELAYER_KEY_ENV` | Environment variable name containing the sponsor secret | None | No | `docker/gas-station/init.sh` |
 | `GAS_STATION_SPREAD_BPS` | Quote spread in basis points | None | No | `docker/gas-station/init.sh` |
 | `GAS_STATION_TOKEN` | Fee token contract identity | None | No | `docker/gas-station/init.sh` |
-| `INTEROP_AUTHORITY_TOKEN` | Base64 file content decoded to /run/layerx/authority/token | None | Yes | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
 | `INTEROP_CLIENT_CA_DER` | Base64 file content decoded to /run/layerx/trust/ca.crt.der | None | No | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
 | `INTEROP_CLIENT_P12` | Base64 file content decoded to /run/layerx/client/client.p12 | None | Yes | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
 | `INTEROP_CLIENT_PASSWORD` | Base64 file content decoded to /run/layerx/client/password | None | Yes | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
@@ -65,10 +64,6 @@ The environment examples list required inputs with empty values when the source 
 | `INTEROP_MODULE_REGISTRY` | Base64 file content decoded to /run/layerx/interop/registry.json | None | No | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
 | `INTEROP_REDIS_PASSWORD` | Base64 file content decoded to /run/layerx/redis/password | None | Yes | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
 | `INTEROP_REDIS_USERNAME` | Base64 file content decoded to /run/layerx/redis/username | None | Yes | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
-| `INTEROP_SEQUENCER_FIRST_BATCH` | Base64 file content decoded to /run/layerx/authority/sequencer-first-batch | None | No | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
-| `INTEROP_SEQUENCER_ID` | Base64 file content decoded to /run/layerx/authority/sequencer-id | None | No | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
-| `INTEROP_SEQUENCER_LAST_BATCH` | Base64 file content decoded to /run/layerx/authority/sequencer-last-batch | None | No | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
-| `INTEROP_SEQUENCER_PUBLIC_KEY` | Base64 file content decoded to /run/layerx/authority/sequencer-public-key | None | No | `docker/common/env-files.sh`; `docker/interop-gateway/files.tsv` |
 | `LAYERX_BRIDGE_APPROVED_MEMBERSHIP` | Approved attestor membership JSON file | None | No | `docker/bridge-relayer/entrypoint.sh` |
 | `LAYERX_BRIDGE_ATTESTOR_INDEX` | Positive local attestor index | None | No | `docker/bridge-relayer/entrypoint.sh` |
 | `LAYERX_BRIDGE_ATTESTOR_KEY_FILE` | Local attestor secret file path matched to the index | None | Path to secret | `docker/bridge-relayer/entrypoint.sh` |
@@ -924,7 +919,6 @@ The environment examples list required inputs with empty values when the source 
 | `LAYERX_FILES_OWNER_BRIDGE_SIGNER_PAXEER_SUBMITTER_KEY` | Owner override for the decoded BRIDGE_SIGNER_PAXEER_SUBMITTER_KEY file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_OWNER_BRIDGE_SIGNER_POLYGON_SUBMITTER_KEY` | Owner override for the decoded BRIDGE_SIGNER_POLYGON_SUBMITTER_KEY file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_OWNER_BRIDGE_SIGNER_SOLANA_FEE_PAYER_KEYPAIR` | Owner override for the decoded BRIDGE_SIGNER_SOLANA_FEE_PAYER_KEYPAIR file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
-| `LAYERX_FILES_OWNER_INTEROP_AUTHORITY_TOKEN` | Owner override for the decoded INTEROP_AUTHORITY_TOKEN file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_OWNER_INTEROP_CLIENT_CA_DER` | Owner override for the decoded INTEROP_CLIENT_CA_DER file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_OWNER_INTEROP_CLIENT_P12` | Owner override for the decoded INTEROP_CLIENT_P12 file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_OWNER_INTEROP_CLIENT_PASSWORD` | Owner override for the decoded INTEROP_CLIENT_PASSWORD file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
@@ -932,10 +926,6 @@ The environment examples list required inputs with empty values when the source 
 | `LAYERX_FILES_OWNER_INTEROP_MODULE_REGISTRY` | Owner override for the decoded INTEROP_MODULE_REGISTRY file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_OWNER_INTEROP_REDIS_PASSWORD` | Owner override for the decoded INTEROP_REDIS_PASSWORD file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_OWNER_INTEROP_REDIS_USERNAME` | Owner override for the decoded INTEROP_REDIS_USERNAME file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
-| `LAYERX_FILES_OWNER_INTEROP_SEQUENCER_FIRST_BATCH` | Owner override for the decoded INTEROP_SEQUENCER_FIRST_BATCH file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
-| `LAYERX_FILES_OWNER_INTEROP_SEQUENCER_ID` | Owner override for the decoded INTEROP_SEQUENCER_ID file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
-| `LAYERX_FILES_OWNER_INTEROP_SEQUENCER_LAST_BATCH` | Owner override for the decoded INTEROP_SEQUENCER_LAST_BATCH file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
-| `LAYERX_FILES_OWNER_INTEROP_SEQUENCER_PUBLIC_KEY` | Owner override for the decoded INTEROP_SEQUENCER_PUBLIC_KEY file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_OWNER_SEARCH_FRONT_UPSTREAMS` | Owner override for the decoded SEARCH_FRONT_UPSTREAMS file; applied when the entrypoint runs as root | LAYERX_FILES_OWNER | No | `docker/common/env-files.sh` |
 | `LAYERX_FILES_TABLE` | Container file-materialization table | /etc/layerx/files.tsv | No | `docker/common/env-files.sh` |
 | `LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK` | Enable the Railway private HTTP endpoint form with 1; otherwise 0 | 0 | No | `services/interop/crates/layerx-interop-service/src/config.rs` |
