@@ -122,7 +122,7 @@ MOVED_SAMPLE_FILES = (
     "verify-receipt-rust/Cargo.toml",
     "verify-receipt-rust/src/main.rs",
 )
-NPM_BASELINE_SHA256 = "a733ff574a1ef96698f6cd3a73cc3df76567d8aab8586ac615afb258c154c661"
+NPM_BASELINE_SHA256 = "c9bb1ef3b8b4ebb2cef73e5f460e63e5c0fbbd1fd30dd9b95c9579739a627c0b"
 FENCED_CODE = re.compile(r"^(`{3,}|~{3,})[^\n]*\n.*?^\1[ \t]*$", re.M | re.S)
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)(?:\s+[^)]*)?\)")
 REFERENCE_LINK = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)", re.M)
