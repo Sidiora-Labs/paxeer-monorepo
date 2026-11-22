@@ -229899,7 +229899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1099]
 title = "Bring two cases of the hosted contracts case file of the gateway in step with the served schema document, the relay of the node namespaces and the product scope of the source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229929,7 +229929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1098]
 title = "Serve the indexer double of the chain only readiness case of the gateway with one ready source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229959,7 +229959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1097]
 title = "Read the eight node origins of the gateway manifest in the egress case file and assert the egress rule that admits them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229989,7 +229989,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1096]
 title = "State the sync path lookups, the start with an explorer binding document and the registration answer without a token in the unified service paths cases of the gateway as the source returns them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
