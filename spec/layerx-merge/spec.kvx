@@ -229809,7 +229809,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1102]
 title = "State in the description of the gateway schema document that it does not declare the node method namespaces, and bring the command line fixture copy and the expected method list in step with the document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229839,7 +229839,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1101]
 title = "Give the producer client of the payment events support case of the gateway a trigger double for the readiness read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229869,7 +229869,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1100]
 title = "Answer the reads of the audit index in the store double of the committed evidence support file of the gateway cases and add the indexer entry to its backends map"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
