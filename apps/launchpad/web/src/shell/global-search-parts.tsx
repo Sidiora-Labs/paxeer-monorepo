@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { ClipboardPaste, Search, User, Wallet, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -180,6 +181,7 @@ export function CoinRow({
   logo,
   mcapRaw,
   address,
+  tokenAddress,
   kind,
   disabled,
   onSelect,
@@ -191,11 +193,14 @@ export function CoinRow({
   logo: string | null;
   mcapRaw: string | null | undefined;
   address: string | undefined;
+  tokenAddress?: string | null;
   kind: 'pool' | 'token';
   disabled?: boolean;
   onSelect: () => void;
 }) {
-  const title = symbol || name || (address ? shortAddress(address) : 'Unnamed');
+  name = displayCoinText(name, tokenAddress ?? address);
+  symbol = displayCoinText(symbol, tokenAddress ?? address);
+  const title = symbol || name;
   return (
     <button
       id={id}
@@ -210,9 +215,9 @@ export function CoinRow({
       <Avatar src={logo} name={title} size="sm" shape="square" decorative />
       <span className="min-w-0 flex-1 basis-24">
         <span className="flex flex-wrap items-baseline gap-1.5">
-          <span className="truncate text-sm font-bold text-text">{name || title}</span>
+          <span className="min-w-0 truncate text-sm font-bold text-text" title={name}>{name || title}</span>
           {symbol ? (
-            <span className="min-w-0 truncate text-xs text-text-muted">${symbol}</span>
+            <span className="min-w-0 truncate text-xs text-text-muted" title={symbol}>${symbol}</span>
           ) : null}
         </span>
         <span className="block truncate text-2xs text-text-faint">
@@ -380,7 +385,7 @@ export function PaletteStatus({
 export function recentToSelect(item: RecentItem): SelectArgs {
   return {
     poolAddress: item.address,
-    tokenAddress: undefined,
+    tokenAddress: item.tokenAddress,
     name: item.name,
     symbol: item.symbol,
     logo: item.logo,

@@ -221,7 +221,9 @@ func assertComposedInventoryLifecycle(t *testing.T, root string, database coordi
 	if raw, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("compile service entrypoint: %v: %s", err, raw)
 	}
-	client := &http.Client{Timeout: time.Second}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Timeout: time.Second, Transport: transport}
 	get := func(path string) (int, []byte, error) {
 		response, err := client.Get("http://127.0.0.1:" + environment["PORT"] + path)
 		if err != nil {
@@ -242,6 +244,17 @@ func assertComposedInventoryLifecycle(t *testing.T, root string, database coordi
 				t.Fatal(err)
 			}
 			defer log.Close()
+			var stopRequested time.Time
+			defer func() {
+				if t.Failed() {
+					raw, _ := os.ReadFile(log.Name())
+					if stopRequested.IsZero() {
+						t.Logf("entrypoint round=%d before shutdown output:\n%s", restart+1, raw)
+					} else {
+						t.Logf("entrypoint round=%d shutdown_elapsed=%s output:\n%s", restart+1, time.Since(stopRequested), raw)
+					}
+				}
+			}()
 			process.Stdout, process.Stderr = log, log
 			if err = process.Start(); err != nil {
 				t.Fatal(err)
@@ -290,6 +303,8 @@ func assertComposedInventoryLifecycle(t *testing.T, root string, database coordi
 			} else if !bytes.Equal(first, raw) {
 				t.Fatal("persisted position changed across restart", string(raw))
 			}
+			transport.CloseIdleConnections()
+			stopRequested = time.Now()
 			if restart == 1 {
 				if err = js.DeleteConsumer(ctx, stream, "pnl_inventory"); err != nil {
 					t.Fatal(err)
@@ -300,6 +315,7 @@ func assertComposedInventoryLifecycle(t *testing.T, root string, database coordi
 			select {
 			case err = <-done:
 				exited = true
+				t.Logf("entrypoint round=%d shutdown_elapsed=%s result=%v", restart+1, time.Since(stopRequested), err)
 				if restart == 1 {
 					var exit *exec.ExitError
 					if !errors.As(err, &exit) || exit.ExitCode() != 1 {

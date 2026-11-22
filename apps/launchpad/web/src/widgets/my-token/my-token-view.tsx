@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useState, useEffect, useMemo } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
@@ -117,17 +118,19 @@ function CreatorPoolButton({
   onSelect: () => void;
 }) {
   const metadata = useCreatorPoolMetadata(creator, poolAddress);
+  const symbol = metadata.data ? displayCoinText(metadata.data.symbol, metadata.data.tokenAddress) : poolAddress;
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`min-h-touch-target-min whitespace-nowrap rounded-lg px-3 py-2 text-2xs font-bold transition ${
+      title={symbol}
+      className={`min-h-touch-target-min min-w-0 max-w-48 truncate rounded-lg px-3 py-2 text-2xs font-bold transition ${
         selected
           ? 'bg-info-soft text-info'
           : 'bg-surface-2 text-text-faint hover:bg-surface-hover hover:text-text'
       }`}
     >
-      {metadata.data?.symbol || poolAddress}
+      {symbol}
     </button>
   );
 }
@@ -137,6 +140,8 @@ export function CreatorPoolInfo({ creator, poolAddress }: {
   poolAddress: Address;
 }) {
   const metadata = useCreatorPoolMetadata(creator, poolAddress);
+  const name = metadata.data ? displayCoinText(metadata.data.name, metadata.data.tokenAddress) : '—';
+  const symbol = metadata.data ? displayCoinText(metadata.data.symbol, metadata.data.tokenAddress) : '—';
   return (
     <div className="rounded-lg bg-surface-2 p-4">
       <h3 className="text-sm font-bold mb-2">Coin info</h3>
@@ -148,9 +153,9 @@ export function CreatorPoolInfo({ creator, poolAddress }: {
         <span className="text-text-faint">Token address</span>
         <span className="truncate">{metadata.data?.tokenAddress ?? '—'}</span>
         <span className="text-text-faint">Name</span>
-        <span>{metadata.data?.name ?? '—'}</span>
+        <span className="min-w-0 truncate" title={name}>{name}</span>
         <span className="text-text-faint">Ticker</span>
-        <span>{metadata.data?.symbol ?? '—'}</span>
+        <span className="min-w-0 truncate" title={symbol}>{symbol}</span>
       </div>
       <Button variant="link" size="sm" href={poolPath(125, poolAddress)}>View coin</Button>
       {metadata.data ? <Button variant="link" size="sm" href={`/tokens/${metadata.data.tokenAddress}/metadata`}>Edit coin details</Button> : null}

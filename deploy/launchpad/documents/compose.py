@@ -120,7 +120,12 @@ def _compose_service(service: str, values: Path, entry: dict[str, Any]) -> tuple
     ):
         raise ComposeError(f"{service}: invalid documentSources contract")
     contract_documents = {name for name in entry.get("required", []) if name.endswith("_DOCUMENT")} | set(sources)
-    if not contract_documents:
+    optional = set(entry.get("optional", {}))
+    optional_documents = {
+        name for name in optional if name.endswith("_DOCUMENT")
+        and name[:-len("_DOCUMENT")] + "_SHA256" in optional
+    }
+    if not contract_documents and not optional_documents:
         raise ComposeError(f"{service}: contract has no document variables")
     from common import DocumentError, FileDocument, documents as common_documents
 
@@ -139,7 +144,7 @@ def _compose_service(service: str, values: Path, entry: dict[str, Any]) -> tuple
     # have no producer and are deliberately left for that module. Once the
     # module is present, every contract document is mandatory.
     required = contract_documents if module is not None else {name for name in ("DB_BUDGET_DOCUMENT", "EXPECTED_SCHEMA_DOCUMENT") if name in contract_documents}
-    unknown = sorted(set(supplied) - contract_documents - set(sources.values()))
+    unknown = sorted(set(supplied) - contract_documents - optional_documents - set(sources.values()))
     if unknown:
         raise ComposeError(f"{service}: document {unknown[0]} is not required by the contract")
     _validate_document_sources(service, supplied, sources)

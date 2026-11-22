@@ -36,11 +36,12 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
   };
 
   return (
-    <ListItemMobile rowGap={ 3 } py={ 4 } fontSize="small" lineHeight="small" alignItems="stretch" containerType="inline-size">
+    <ListItemMobile rowGap={ 3 } py={ 4 } fontSize="body" lineHeight="small" alignItems="stretch" containerType="inline-size">
       <HStack justifyContent="space-between" fontWeight="semibold" flexWrap="wrap" minW={ 0 }>
         <HStack maxW="full" minW={ 0 } flex="1 1 var(--chakra-spacing-30)">
           <ChainIcon data={ chainInfo } isLoading={ isLoading }/>
           <Link
+            data-touch-inline
             href={ chainInfo?.explorer_url }
             external
             loading={ isLoading }
@@ -62,7 +63,7 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
         columnGap={ 2 }
         rowGap={ 3 }
         css={{
-          [ `@container (min-width: ${ spacing['80'].value })` ]: {
+          [ `@container (min-width: ${ spacing['75'].value })` ]: {
             gridTemplateColumns: 'calc(var(--chakra-spacing-1) * 35) minmax(0, 1fr)',
             '& > [data-metric-value]': {
               flexDirection: 'row-reverse',

@@ -1,0 +1,4345 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 68,
+        "width": 191.09375,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 180,
+        "width": 343,
+        "height": 74,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 375,
+        "height": 849,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1138,
+        "width": 44,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1367,
+        "width": 73,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1552,
+        "width": 54,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 375,
+        "height": 56,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 68,
+        "width": 343,
+        "height": 186,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 44,
+        "top": 181,
+        "width": 97,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 81,
+        "width": 191.09375,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 237.5,
+        "width": 1217,
+        "height": 45,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 844,
+        "width": 1265,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 1002,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 437.65625,
+        "top": 1002,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 851.328125,
+        "top": 1002,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 24,
+        "width": 1217,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 81,
+        "width": 1217,
+        "height": 202,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 36,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 36,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 64,
+        "top": 251,
+        "width": 91,
+        "height": 18,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 81,
+        "width": 191.09375,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 237.5,
+        "width": 1232,
+        "height": 45,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 844,
+        "width": 1425,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 1002,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 515.15625,
+        "top": 1002,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 933.828125,
+        "top": 1002,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 24,
+        "width": 1232,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 81,
+        "width": 1232,
+        "height": 202,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 36,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 36,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 136.5,
+        "top": 251,
+        "width": 91,
+        "height": 18,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 81,
+        "width": 191.09375,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 237.5,
+        "width": 1232,
+        "height": 45,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 844,
+        "width": 1905,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 1002,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 755.15625,
+        "top": 1002,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1173.828125,
+        "top": 1002,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 24,
+        "width": 1232,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 81,
+        "width": 1232,
+        "height": 202,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 36,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 36,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 376.5,
+        "top": 251,
+        "width": 91,
+        "height": 18,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 81,
+        "width": 191.09375,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 237.5,
+        "width": 1232,
+        "height": 45,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 844,
+        "width": 2545,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 1002,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 1075.15625,
+        "top": 1002,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1493.828125,
+        "top": 1002,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 24,
+        "width": 1232,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 81,
+        "width": 1232,
+        "height": 202,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 36,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 36,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/search-results",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 696.5,
+        "top": 251,
+        "width": 91,
+        "height": 18,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 68,
+        "width": 207.8125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "first-row",
+      "selector": "main tbody tr:visible, main div:has(> .chakra-skeleton:text-is(\"Txn hash\")):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 192,
+        "width": 343,
+        "height": 296,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 375,
+        "height": 849,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1138,
+        "width": 44,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1367,
+        "width": 73,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1552,
+        "width": 54,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 375,
+        "height": 56,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 68,
+        "width": 343,
+        "height": 800,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 124,
+        "width": 44,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 81,
+        "width": 207.8125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "first-row",
+      "selector": "main tbody tr:visible, main div:has(> .chakra-skeleton:text-is(\"Txn hash\")):visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 226,
+        "width": 1217,
+        "height": 76.5,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1265,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 437.65625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 851.328125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1265,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 81,
+        "width": 1217,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 137,
+        "width": 86,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 81,
+        "width": 207.8125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "first-row",
+      "selector": "main tbody tr:visible, main div:has(> .chakra-skeleton:text-is(\"Txn hash\")):visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 226,
+        "width": 1232,
+        "height": 66.5,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1425,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 515.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 933.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1425,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 137,
+        "width": 86,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 81,
+        "width": 207.8125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "first-row",
+      "selector": "main tbody tr:visible, main div:has(> .chakra-skeleton:text-is(\"Txn hash\")):visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 226,
+        "width": 1232,
+        "height": 66.5,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1905,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 755.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1173.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1905,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 137,
+        "width": 86,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 81,
+        "width": 207.8125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "first-row",
+      "selector": "main tbody tr:visible, main div:has(> .chakra-skeleton:text-is(\"Txn hash\")):visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 226,
+        "width": 1232,
+        "height": 66.5,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 2545,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 1075.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1493.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2545,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token-transfers",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 137,
+        "width": 86,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 134,
+        "width": 302.40625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 906,
+        "width": 375,
+        "height": 849,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1144,
+        "width": 44,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1373,
+        "width": 73,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1558,
+        "width": 54,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 375,
+        "height": 56,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 68,
+        "width": 343,
+        "height": 806,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "markets-card",
+      "selector": "[data-section-group=\"MARKETS\"]",
+      "values": {
+        "left": 16,
+        "top": 458,
+        "width": 343,
+        "height": 416,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 263,
+        "top": 176,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 390,
+      "part": "statistic-card",
+      "selector": "main [data-stat-tile] >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 482,
+        "width": 343,
+        "height": 86,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 70,
+        "top": 109,
+        "width": 302.40625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1265,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 437.65625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 851.328125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1265,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 81,
+        "width": 1217,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "markets-card",
+      "selector": "[data-section-group=\"MARKETS\"]",
+      "values": {
+        "left": 24,
+        "top": 323,
+        "width": 1217,
+        "height": 110,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 330,
+        "top": 159,
+        "width": 20,
+        "height": 20,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1280,
+      "part": "statistic-card",
+      "selector": "main [data-stat-tile] >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 347,
+        "width": 292.25,
+        "height": 86,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 142.5,
+        "top": 109,
+        "width": 302.40625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1425,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 515.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 933.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1425,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "markets-card",
+      "selector": "[data-section-group=\"MARKETS\"]",
+      "values": {
+        "left": 96.5,
+        "top": 323,
+        "width": 1232,
+        "height": 110,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 402.5,
+        "top": 159,
+        "width": 20,
+        "height": 20,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1440,
+      "part": "statistic-card",
+      "selector": "main [data-stat-tile] >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 347,
+        "width": 296,
+        "height": 86,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 382.5,
+        "top": 109,
+        "width": 302.40625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1905,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 755.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1173.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1905,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "markets-card",
+      "selector": "[data-section-group=\"MARKETS\"]",
+      "values": {
+        "left": 336.5,
+        "top": 323,
+        "width": 1232,
+        "height": 110,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 642.5,
+        "top": 159,
+        "width": 20,
+        "height": 20,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 1920,
+      "part": "statistic-card",
+      "selector": "main [data-stat-tile] >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 347,
+        "width": 296,
+        "height": 86,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 702.5,
+        "top": 109,
+        "width": 302.40625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 2545,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 1075.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1493.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2545,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "markets-card",
+      "selector": "[data-section-group=\"MARKETS\"]",
+      "values": {
+        "left": 656.5,
+        "top": 323,
+        "width": 1232,
+        "height": 110,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 962.5,
+        "top": 159,
+        "width": 20,
+        "height": 20,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]",
+      "width": 2560,
+      "part": "statistic-card",
+      "selector": "main [data-stat-tile] >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 347,
+        "width": 296,
+        "height": 86,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 134,
+        "width": 343,
+        "height": 64,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 17,
+        "top": 1890,
+        "width": 341,
+        "height": 168,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 2160,
+        "width": 375,
+        "height": 849,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 2398,
+        "width": 44,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 2627,
+        "width": 73,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 2812,
+        "width": 54,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 375,
+        "height": 56,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 68,
+        "width": 343,
+        "height": 2060,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "media-card",
+      "selector": "[data-token-card=\"Media\"]",
+      "values": {
+        "left": 16,
+        "top": 368,
+        "width": 343,
+        "height": 316,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "metadata-card",
+      "selector": "[data-token-card=\"Metadata\"]",
+      "values": {
+        "left": 16,
+        "top": 1149,
+        "width": 343,
+        "height": 572,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "other-information-card",
+      "selector": "[data-token-card=\"Other info\"]",
+      "values": {
+        "left": 16,
+        "top": 1067,
+        "width": 343,
+        "height": 66,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "overview-card",
+      "selector": "[data-token-card=\"Overview\"]",
+      "values": {
+        "left": 16,
+        "top": 700,
+        "width": 343,
+        "height": 351,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 263,
+        "top": 208,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 390,
+      "part": "transfers-card",
+      "selector": "main [data-scan-table-card]",
+      "values": {
+        "left": 16,
+        "top": 1813,
+        "width": 343,
+        "height": 315,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 70,
+        "top": 109,
+        "width": 509.765625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 25,
+        "top": 1072.5,
+        "width": 1215,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 1288,
+        "width": 1265,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 1446,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 437.65625,
+        "top": 1446,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 851.328125,
+        "top": 1446,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1265,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 81,
+        "width": 1217,
+        "height": 1175,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "media-card",
+      "selector": "[data-token-card=\"Media\"]",
+      "values": {
+        "left": 24,
+        "top": 253,
+        "width": 395,
+        "height": 316,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "metadata-card",
+      "selector": "[data-token-card=\"Metadata\"]",
+      "values": {
+        "left": 24,
+        "top": 633,
+        "width": 1217,
+        "height": 270,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "other-information-card",
+      "selector": "[data-token-card=\"Other info\"]",
+      "values": {
+        "left": 846,
+        "top": 253,
+        "width": 395,
+        "height": 66,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "overview-card",
+      "selector": "[data-token-card=\"Overview\"]",
+      "values": {
+        "left": 435,
+        "top": 253,
+        "width": 395,
+        "height": 364,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 330,
+        "top": 159,
+        "width": 20,
+        "height": 20,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1280,
+      "part": "transfers-card",
+      "selector": "main [data-scan-table-card]",
+      "values": {
+        "left": 24,
+        "top": 983,
+        "width": 1217,
+        "height": 273,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 142.5,
+        "top": 109,
+        "width": 509.765625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 97.5,
+        "top": 1072.5,
+        "width": 1230,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 1286,
+        "width": 1425,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 1444,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 515.15625,
+        "top": 1444,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 933.828125,
+        "top": 1444,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1425,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 81,
+        "width": 1232,
+        "height": 1173,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "media-card",
+      "selector": "[data-token-card=\"Media\"]",
+      "values": {
+        "left": 96.5,
+        "top": 253,
+        "width": 400,
+        "height": 316,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "metadata-card",
+      "selector": "[data-token-card=\"Metadata\"]",
+      "values": {
+        "left": 96.5,
+        "top": 633,
+        "width": 1232,
+        "height": 270,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "other-information-card",
+      "selector": "[data-token-card=\"Other info\"]",
+      "values": {
+        "left": 928.5,
+        "top": 253,
+        "width": 400,
+        "height": 66,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "overview-card",
+      "selector": "[data-token-card=\"Overview\"]",
+      "values": {
+        "left": 512.5,
+        "top": 253,
+        "width": 400,
+        "height": 364,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 402.5,
+        "top": 159,
+        "width": 20,
+        "height": 20,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1440,
+      "part": "transfers-card",
+      "selector": "main [data-scan-table-card]",
+      "values": {
+        "left": 96.5,
+        "top": 983,
+        "width": 1232,
+        "height": 271,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 382.5,
+        "top": 109,
+        "width": 509.765625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 337.5,
+        "top": 1072.5,
+        "width": 1230,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 1286,
+        "width": 1905,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 1444,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 755.15625,
+        "top": 1444,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1173.828125,
+        "top": 1444,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1905,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 81,
+        "width": 1232,
+        "height": 1173,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "media-card",
+      "selector": "[data-token-card=\"Media\"]",
+      "values": {
+        "left": 336.5,
+        "top": 253,
+        "width": 400,
+        "height": 316,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "metadata-card",
+      "selector": "[data-token-card=\"Metadata\"]",
+      "values": {
+        "left": 336.5,
+        "top": 633,
+        "width": 1232,
+        "height": 270,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "other-information-card",
+      "selector": "[data-token-card=\"Other info\"]",
+      "values": {
+        "left": 1168.5,
+        "top": 253,
+        "width": 400,
+        "height": 66,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "overview-card",
+      "selector": "[data-token-card=\"Overview\"]",
+      "values": {
+        "left": 752.5,
+        "top": 253,
+        "width": 400,
+        "height": 364,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 642.5,
+        "top": 159,
+        "width": 20,
+        "height": 20,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 1920,
+      "part": "transfers-card",
+      "selector": "main [data-scan-table-card]",
+      "values": {
+        "left": 336.5,
+        "top": 983,
+        "width": 1232,
+        "height": 271,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 702.5,
+        "top": 109,
+        "width": 509.765625,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 657.5,
+        "top": 1072.5,
+        "width": 1230,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 1286,
+        "width": 2545,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 1444,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 1075.15625,
+        "top": 1444,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1493.828125,
+        "top": 1444,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2545,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 81,
+        "width": 1232,
+        "height": 1173,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "media-card",
+      "selector": "[data-token-card=\"Media\"]",
+      "values": {
+        "left": 656.5,
+        "top": 253,
+        "width": 400,
+        "height": 316,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "metadata-card",
+      "selector": "[data-token-card=\"Metadata\"]",
+      "values": {
+        "left": 656.5,
+        "top": 633,
+        "width": 1232,
+        "height": 270,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "other-information-card",
+      "selector": "[data-token-card=\"Other info\"]",
+      "values": {
+        "left": 1488.5,
+        "top": 253,
+        "width": 400,
+        "height": 66,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "overview-card",
+      "selector": "[data-token-card=\"Overview\"]",
+      "values": {
+        "left": 1072.5,
+        "top": 253,
+        "width": 400,
+        "height": 364,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 962.5,
+        "top": 159,
+        "width": 20,
+        "height": 20,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/token/[hash]/instance/[id]",
+      "width": 2560,
+      "part": "transfers-card",
+      "selector": "main [data-scan-table-card]",
+      "values": {
+        "left": 656.5,
+        "top": 983,
+        "width": 1232,
+        "height": 271,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 68,
+        "width": 95.328125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 344,
+        "width": 343,
+        "height": 188,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 375,
+        "height": 849,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1138,
+        "width": 44,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1367,
+        "width": 73,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 1552,
+        "width": 54,
+        "height": 44,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 375,
+        "height": 56,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "list-card",
+      "selector": "main [data-list-page]",
+      "values": {
+        "left": 16,
+        "top": 184,
+        "width": 343,
+        "height": 424,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 68,
+        "width": 343,
+        "height": 800,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 315,
+        "top": 5.5,
+        "width": 44,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 16,
+        "top": 124,
+        "width": 51,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 81,
+        "width": 95.328125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 273.5,
+        "width": 1217,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1265,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 437.65625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 851.328125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1265,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "list-card",
+      "selector": "main [data-list-page]",
+      "values": {
+        "left": 24,
+        "top": 185,
+        "width": 1217,
+        "height": 197,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 81,
+        "width": 1217,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 208.25,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 137,
+        "width": 51,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 81,
+        "width": 95.328125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 273.5,
+        "width": 1232,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1425,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 515.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 933.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1425,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "list-card",
+      "selector": "main [data-list-page]",
+      "values": {
+        "left": 96.5,
+        "top": 185,
+        "width": 1232,
+        "height": 197,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 310.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 96.5,
+        "top": 137,
+        "width": 51,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 81,
+        "width": 95.328125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 273.5,
+        "width": 1232,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 1905,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 755.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1173.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1905,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "list-card",
+      "selector": "main [data-list-page]",
+      "values": {
+        "left": 336.5,
+        "top": 185,
+        "width": 1232,
+        "height": 197,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 550.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 336.5,
+        "top": 137,
+        "width": 51,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "main :is(h1,h2,h3):visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 81,
+        "width": 95.328125,
+        "height": 32,
+        "fontSize": 28,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "first-row",
+      "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 273.5,
+        "width": 1232,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 901,
+        "width": 2545,
+        "height": 339,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "footer-column-1-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 1059,
+        "width": 40,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "footer-column-2-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
+      "values": {
+        "left": 1075.15625,
+        "top": 1059,
+        "width": 73,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "footer-column-3-first-link",
+      "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
+      "values": {
+        "left": 1493.828125,
+        "top": 1059,
+        "width": 54,
+        "height": 28,
+        "fontSize": 13,
+        "lineHeight": 18
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "header",
+      "selector": "header:visible >> nth=0",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2545,
+        "height": 57,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "list-card",
+      "selector": "main [data-list-page]",
+      "values": {
+        "left": 656.5,
+        "top": 185,
+        "width": 1232,
+        "height": 197,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "main",
+      "selector": "main:visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 81,
+        "width": 1232,
+        "height": 788,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Main navigation\"]:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 12,
+        "width": 408,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "navigation-first-item",
+      "selector": "nav[aria-label=\"Main navigation\"] li:visible, button[aria-label=\"Menu button\"]:visible >> nth=0",
+      "values": {
+        "left": 870.75,
+        "top": 12,
+        "width": 88,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "/tokens",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "main :is(button,a,input,select):visible >> nth=0",
+      "values": {
+        "left": 656.5,
+        "top": 137,
+        "width": 51,
+        "height": 32,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    }
+  ]
+}

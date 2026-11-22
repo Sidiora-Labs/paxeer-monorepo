@@ -1,18 +1,15 @@
 'use client';
 import { useMemo } from 'react';
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query';
-import { HttpError, type V2ContractTypes } from '@kindle/sdk';
-import { PoolNotFoundError, type PoolSnapshot } from '@/core/market/pool-resolver';
+import type { PoolSnapshot } from '@/core/market/pool-resolver';
 import { queryKeys } from '@/core/query-keys';
 import type { HoldersPage } from '@/core/market/holders-reader';
 import type { InitialPoolStreams } from '@/core/clients/livestream-api';
 import type { InitialChainRevenue } from '@/widgets/holder-rewards/chain-revenue-reader';
 import TokenMarketLayout from '@/widgets/trading/token-market-layout';
+import { snapshotError, type CoinSnapshotFailure } from './snapshot-failure';
 
-export type CoinSnapshotFailure =
-  | { kind: 'not-found' }
-  | { kind: 'http'; status: number; envelope?: V2ContractTypes['Error']; code: string }
-  | { kind: 'error'; name: string; message: string };
+export type { CoinSnapshotFailure } from './snapshot-failure';
 export interface CoinInitialSnapshot {
   data: PoolSnapshot | null;
   failure: CoinSnapshotFailure | null;
@@ -23,11 +20,6 @@ export interface CoinInitialSnapshot {
 }
 interface TokenModuleProps { poolAddress: string; initialSnapshot?: CoinInitialSnapshot; }
 
-function snapshotError(failure: CoinSnapshotFailure, poolAddress: string): Error {
-  return failure.kind === 'not-found' ? new PoolNotFoundError(poolAddress)
-    : failure.kind === 'http' ? new HttpError(failure.status, failure.envelope, failure.code)
-      : Object.assign(new Error(failure.message), { name: failure.name });
-}
 /** Coin page module; the layout resolves the pool or token address through usePoolSnapshot. */
 export default function TokenModule({ poolAddress, initialSnapshot }: TokenModuleProps) {
   const state = useMemo(() => {

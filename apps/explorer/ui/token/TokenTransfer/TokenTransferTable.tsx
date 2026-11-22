@@ -25,6 +25,8 @@ interface Props {
   instance?: TokenInstance;
 }
 
+const TABLE_MIN_WIDTH = 'calc(var(--chakra-spacing-200) + var(--chakra-spacing-37\\.5))';
+
 const TokenTransferTable = ({ data, top, showSocketInfo, showSocketErrorAlert, socketInfoNum, tokenId, isLoading, token, instance }: Props) => {
   const multichainContext = useMultichainContext();
   const chainData = multichainContext?.chain;
@@ -32,17 +34,20 @@ const TokenTransferTable = ({ data, top, showSocketInfo, showSocketErrorAlert, s
 
   return (
     <AddressHighlightProvider>
-      <ResponsiveTableRegion label="Token transfers" minWidth="4xl">
-        <TableRoot variant="scan" minW="4xl" data-token-transfer-table>
+      <ResponsiveTableRegion label="Token transfers" minWidth={ TABLE_MIN_WIDTH }>
+        <TableRoot variant="scan" minW={ TABLE_MIN_WIDTH } data-token-transfer-table>
           <TableHeaderSticky top={ top }>
             <TableRow>
-              { chainData && <TableColumnHeader width="9"/> }
-              <TableColumnHeader width="72">
+              { chainData && <TableColumnHeader width={ 'calc(var(--chakra-spacing-9) + var(--chakra-spacing-0\\.5))' }/> }
+              <TableColumnHeader width="calc(var(--chakra-spacing-65) + var(--chakra-spacing-5))">
                 Txn hash
                 <TimeFormatToggle/>
               </TableColumnHeader>
-              <TableColumnHeader width="48">Method</TableColumnHeader>
-              <TableColumnHeader width={{ lg: '56', xl: '96' }}>From/To</TableColumnHeader>
+              <TableColumnHeader width="calc(var(--chakra-spacing-40) + var(--chakra-spacing-10))">Method</TableColumnHeader>
+              <TableColumnHeader width={{
+                lg: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-15))',
+                xl: 'calc(var(--chakra-spacing-100) - var(--chakra-spacing-5))',
+              }}>From/To</TableColumnHeader>
               { (NFT_TOKEN_TYPE_IDS.includes(tokenType)) &&
               <TableColumnHeader width={ hasTokenIds(tokenType) ? '50%' : '100%' }>Token ID</TableColumnHeader>
               }

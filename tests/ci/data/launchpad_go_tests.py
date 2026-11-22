@@ -182,6 +182,9 @@ SERVICE_PACKAGES = {
     },
     'security/control': {
         'github.com/Sidiora-Technologies/KindleLaunch/security/control',
+        'github.com/Sidiora-Technologies/KindleLaunch/security/control/cmd/launchpad-operator',
+        'github.com/Sidiora-Technologies/KindleLaunch/security/control/enrolment',
+        'github.com/Sidiora-Technologies/KindleLaunch/security/control/enrolment/enrolmenttest',
     },
 }
 REMAINING_PACKAGES = set().union(*SERVICE_PACKAGES.values())

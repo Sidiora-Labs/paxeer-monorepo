@@ -704,7 +704,7 @@ func (p *searchGenerationPath) create(n int) search.IndexedDocument {
 		Symbol string `json:"symbol"`
 	}{"Canonical Café", "COIN"}
 	p.deliver("creation", fact)
-	p.deliver("visibility", search.Change{Version: 2, Kind: "visibility", Revision: 1, PoolAddress: fact.Pool, Public: true})
+	p.deliver("visibility", search.Change{Version: 2, Kind: "visibility", Revision: 2, PoolAddress: fact.Pool, Public: true})
 	return p.document(fact.Pool)
 }
 func (p *searchGenerationPath) document(pool string) search.IndexedDocument {
@@ -850,7 +850,7 @@ func TestSearchGenerationRestartCursorContinuityAndVisibilityWithdrawal(t *testi
 	}
 	query.Set("cursor", *second.Next)
 	searchGenerationIDs(t, p.get(query, 200), 3)
-	p.deliver("visibility", search.Change{Version: 2, Kind: "visibility", Revision: 2, PoolAddress: searchGenerationAddress(2), Public: false, Tombstone: true})
+	p.deliver("visibility", search.Change{Version: 2, Kind: "visibility", Revision: 3, PoolAddress: searchGenerationAddress(2), Public: false, Tombstone: true})
 	p.get(query, 400)
 	searchGenerationIDs(t, p.get(searchGenerationQuery("coin", "pool", 25), 200), 1, 3)
 	hidden := p.get(searchGenerationQuery(searchGenerationAddress(2), "pool", 25), 200)

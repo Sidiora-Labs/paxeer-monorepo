@@ -233,3 +233,43 @@ in memory. `NewRuntime` uses the PostgreSQL identity views and control tables.
 
 Image admission is described in the [supply-chain notes](../supplychain/README.md).
 The [livestream guide](../../livestream/PROGRESS.md) describes media dependencies.
+
+## Operator command
+
+Build or run `./cmd/launchpad-operator` from this module. Arguments are positional:
+
+- `enrol ACTOR WALLET ROLE SCOPES` provisions an operator; SCOPES is a comma-separated list. It prints one TOTP provisioning URI containing the base32 secret, SHA1 algorithm, six digits and a thirty-second period. Import it into the operator's authenticator.
+- `revoke ACTOR` revokes enrolment and all current sessions for the actor.
+- `show` reads the gateway's four capability routes and prints admission, quota, expiry and revision for each capability.
+- `reduce ACTOR CAPABILITY LIMIT HOURS REASON` applies a reduction using one operator. A zero limit disables admission. Positive reductions must narrow the existing quota and active interval.
+- `raise REQUESTER APPROVER CAPABILITY LIMIT HOURS REASON` applies a positive limit with distinct operators. LIMIT is at least one; HOURS is from one through twenty-four. Quote a reason containing spaces as one argument. Reductions use the same hour range.
+
+Settings are read only from the environment:
+
+| Setting | Purpose |
+| --- | --- |
+| `OPERATOR_DATABASE_URL` | Database connection with the `operator_runtime` role for opening and closing sessions. |
+| `OPERATOR_REGISTRAR_DATABASE_URL` | Database connection with the `operator_registrar` role for enrolment and revocation. |
+| `OPERATOR_FACTOR_KEY` | A 64-character hexadecimal encryption key for enrolment and session authentication. |
+| `OPERATOR_GATEWAY_URL` | Gateway origin using HTTPS, or HTTP for a loopback address. |
+
+Only settings used by a subcommand are required: enrol needs the registrar
+connection and factor key; revoke needs the registrar connection; show needs the
+gateway; reduce and raise need the runtime connection, factor key and gateway.
+Database login principals must assume their corresponding runtime capability role.
+Capability mutations require operators enrolled with the `infrastructure` role
+and exact `platform` scope. Other enrolment roles are `finance`, `moderator` and
+`support`; they do not grant capability authority. The capabilities are
+`pool_creation`, `quote`, `socket` and `paid_features`.
+
+Supply one-time codes on standard input, one line per operator: requester first,
+then approver for raise, or just the actor for reduce. A raise opens the requester
+session, reads the current capability revision, proposes a fresh `cap_change`
+action bound to the capability digest, opens the approver session, approves the
+action, and posts the capability as the requester with the approval reference.
+Its effective time is the proposal time and its expiry is the requested number
+of hours later. Both sessions remain open through the capability write and are
+closed on success or refusal. The command then prints the gateway's admission.
+Route refusals report HTTP status and the route's error code. Session credentials
+and one-time codes are not printed; the enrolment URI is the sole secret-bearing
+output.

@@ -189,6 +189,9 @@ describe('DetailedInfo', () => {
       expect(declarationsOf(item)).toContain('padding-block:var(--chakra-spacing-1)');
       expect(declarationsOf(item)).toContain('align-items:flex-start');
     }
+    const sharedDeclarations = content.map((element) => declarationsOf(element).split(';')
+      .filter((value) => value && !value.startsWith('min-height:')));
+    expect(sharedDeclarations[0]).toEqual(sharedDeclarations[1]);
     for (const label of labels) {
       expect(label.querySelector('.chakra-skeleton')?.hasAttribute('data-loading')).toBe(isLoading);
     }

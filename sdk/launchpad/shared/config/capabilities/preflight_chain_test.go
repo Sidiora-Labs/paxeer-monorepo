@@ -654,6 +654,11 @@ func assertRecordedPreflightDrift(t *testing.T, native bool) {
 			if unchanged, err := c.engine.RevalidateAt(c.ctx, previous, unchangedRequest); err != nil || !unchanged.Supported || unchanged.ObservedRevisionSHA256 != previous.ObservedRevisionSHA256 {
 				t.Fatalf("moving to an unchanged committed state invalidated the disclosure: %+v %v", unchanged, err)
 			}
+			fresh, err := NewPreflightEngine(c.reader, c.engine.manifest, c.engine.poolRuntime.Hex(), c.engine.revision.SerialInterfaceSHA256, c.engine.maxAge, c.engine.timeout)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c.engine = fresh
 			override := func(address common.Address, signature string, value []byte, args ...any) {
 				t.Helper()
 				key := preflightFixtureKey(address, preflightFixtureCall(t, signature, args...), next)

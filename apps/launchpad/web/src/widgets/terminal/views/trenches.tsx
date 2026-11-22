@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Globe, Link as LinkIcon, MessageCircle, Send, Sprout, Users } from 'lucide-react';
@@ -92,6 +93,7 @@ interface PairRowProps {
 }
 
 function PairRow({ row, metadata, timeframe }: PairRowProps) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   const change = windowChange(row, timeframe);
   const socials = pairSocials(metadata);
   const marketCap = row.mcapRaw === null
@@ -104,7 +106,7 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
       <Avatar src={row.image} name={row.symbol} size="md" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="flex min-w-0 items-baseline gap-1.5 text-sm">
-          <span className="truncate font-bold text-text">{row.symbol}</span>
+          <span className="min-w-0 truncate font-bold text-text" title={row.symbol}>{row.symbol}</span>
           <span className="truncate text-xs text-text-muted" title={row.name}>{row.name}</span>
         </p>
         <div className="flex min-w-0 items-center gap-2 text-xs text-text-faint">

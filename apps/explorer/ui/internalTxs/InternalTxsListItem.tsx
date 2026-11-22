@@ -76,7 +76,7 @@ const InternalTxsListItem = ({
         current={ currentAddress }
         isLoading={ isLoading }
         w="100%"
-        css={{ '& [data-entity]': { flexWrap: 'wrap', minW: 0, maxW: 'full' } }}
+        css={{ '& [data-entity]': { minW: 0, maxW: 'full' } }}
       />
       <HStack gap={ 3 }>
         <Skeleton loading={ isLoading } fontSize="sm" fontWeight="medium">Value { currencyUnits.ether }</Skeleton>

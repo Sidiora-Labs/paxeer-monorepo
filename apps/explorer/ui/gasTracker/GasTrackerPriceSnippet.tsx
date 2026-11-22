@@ -22,7 +22,7 @@ const GasTrackerPriceSnippet = ({ data, type, isLoading }: Props) => (
   <Box as="li" listStyleType="none" minW={ 0 }>
     <ScanStatCard
       label={ GAS_PRICE_TITLES[type] }
-      value={ data.price === null && data.fiat_price === null ? '—' : <GasPrice data={ data } textStyle="statValue"/> }
+      value={ data.price === null && data.fiat_price === null ? '—' : <GasPrice data={ data }/> }
       secondary={ data.price !== null && data.fiat_price !== null ? <GasPrice data={ data } unitMode="secondary"/> : undefined }
       isLoading={ isLoading }
     />

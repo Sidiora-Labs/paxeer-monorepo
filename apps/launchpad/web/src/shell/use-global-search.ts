@@ -24,6 +24,7 @@ export interface HotCoin {
 }
 
 export interface RecentItem {
+  tokenAddress?: string;
   address: string;
   name: string;
   symbol: string;
@@ -48,8 +49,9 @@ function checkedRecent(value: unknown): RecentItem[] {
     const row = item as RecentItem;
     const address = normalizeAddress(row.address);
     if (identities.has(address) || !['name', 'symbol', 'marketCap'].every(key => typeof (row as unknown as Record<string, unknown>)[key] === 'string' && ((row as unknown as Record<string, string>)[key]).length <= 256) || row.logo !== null && (typeof row.logo !== 'string' || row.logo.length > 2048) || !Number.isSafeInteger(row.ts) || row.ts < 0 || row.ts > Date.now()) throw new TypeError('Invalid recent search');
+    if (row.tokenAddress !== undefined && (typeof row.tokenAddress !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(row.tokenAddress))) throw new TypeError('Invalid recent coin address');
     identities.add(address);
-    return { address, name: row.name, symbol: row.symbol, logo: null, marketCap: row.marketCap, ts: row.ts };
+    return { address, tokenAddress: row.tokenAddress?.toLowerCase(), name: row.name, symbol: row.symbol, logo: null, marketCap: row.marketCap, ts: row.ts };
   });
 }
 export function loadRecent(): RecentItem[] {

@@ -75,8 +75,14 @@ const globalCss: SystemConfig['globalCss'] = {
     },
   },
   '[data-touch-inline]': {
+    '--touch-line-size': '1lh',
     '@media (max-width: 834px)': {
       marginBlock: 'calc((var(--touch-line-size) - var(--chakra-sizes-touch-target)) / 2)',
+    },
+  },
+  '[data-entity-link]': {
+    '@media (max-width: 834px)': {
+      marginBlock: 'calc((1lh - var(--chakra-sizes-touch-target)) / 2)',
     },
   },
   ':focus-visible': {

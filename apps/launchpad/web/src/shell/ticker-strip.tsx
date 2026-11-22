@@ -88,7 +88,7 @@ function ChipLink({ chip, hidden }: { chip: TickerChip; hidden: boolean }) {
       className="flex min-h-6 shrink-0 items-center gap-1.5 rounded-pill bg-surface-1 pl-0.5 pr-2 text-xs transition-colors duration-fast hover:bg-surface-hover"
     >
       <Avatar src={chip.image} name={chip.label} size="xs" shape={chip.avatarShape} decorative />
-      <span className="max-w-48 truncate font-bold text-text">{chip.label}</span>
+      <span className="max-w-48 truncate font-bold text-text" title={chip.label}>{chip.label}</span>
       {chip.value ? (
         <span data-numeric className={cn('font-bold tabular-nums', toneClass[chip.tone])}>
           {chip.value}

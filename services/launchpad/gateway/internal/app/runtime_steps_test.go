@@ -324,3 +324,234 @@ func TestRuntimeStepRecoveryCancellation(t *testing.T) {
 		t.Fatal("shutdown error changed step or runtime failure")
 	}
 }
+
+func TestRuntimeStepConsumerFetchReadiness(t *testing.T) {
+	for _, step := range []runtimeStep{runtimeIdentityConsumer, runtimeAuditConsumer} {
+		t.Run(step.name(), func(t *testing.T) {
+			r := &gatewayConnectedRuntime{checkDependencies: func(context.Context) error { return nil }}
+			failure := errors.New("consumer fetch unavailable")
+			fetches, runs, handled := 0, 0, 0
+			fetching := make(chan struct{})
+			returned := make(chan struct{})
+			run := r.consumerStep(step, func(ctx context.Context) ([]*natsdriver.Message, error) {
+				fetches++
+				switch fetches {
+				case 1:
+					return []*natsdriver.Message{{Sequence: 1}}, failure
+				case 2:
+					return nil, nil
+				default:
+					close(fetching)
+					<-ctx.Done()
+					return nil, ctx.Err()
+				}
+			}, func(context.Context, *natsdriver.Message) error {
+				handled++
+				return nil
+			})
+			clock := startRuntimeRecovery(t, r, step, true, func(ctx context.Context) error {
+				runs++
+				err := run(ctx)
+				if runs == 2 {
+					close(returned)
+				}
+				return err
+			})
+			failed := clock.tick(t, runtimeStepPeriod)
+			if got := r.ready(context.Background()); got != failure {
+				t.Fatalf("failed fetch readiness=%v, want %v", got, failure)
+			}
+			if fetches != 1 || runs != 1 || handled != 0 {
+				t.Fatalf("failed fetch: fetches=%d runs=%d handled=%d", fetches, runs, handled)
+			}
+			close(failed.next)
+			select {
+			case <-fetching:
+			case <-time.After(3 * time.Second):
+				t.Fatal("consumer did not fetch again after an empty fetch")
+			}
+			if got := r.ready(context.Background()); got != nil {
+				t.Fatalf("empty fetch readiness=%v", got)
+			}
+			if r.steps[step].Load() != nil || r.failure.Load() != nil || fetches != 3 || runs != 2 || handled != 0 {
+				t.Fatalf("empty fetch: fetches=%d runs=%d handled=%d step=%v failure=%v", fetches, runs, handled, r.steps[step].Load(), r.failure.Load())
+			}
+			select {
+			case <-returned:
+				t.Fatal("consumer returned after an empty fetch")
+			default:
+			}
+		})
+	}
+}
+
+func TestRuntimeStepConsumerFetchMessages(t *testing.T) {
+	for _, step := range []runtimeStep{runtimeIdentityConsumer, runtimeAuditConsumer} {
+		t.Run(step.name(), func(t *testing.T) {
+			r := &gatewayConnectedRuntime{checkDependencies: func(context.Context) error { return nil }}
+			r.recordStep(step, errors.New("consumer fetch unavailable"))
+			messages := []*natsdriver.Message{{Sequence: 1}, {Sequence: 2}, {Sequence: 3}}
+			failure := errors.New("next fetch unavailable")
+			fetches, handled := 0, 0
+			ctx := context.Background()
+			run := r.consumerStep(step, func(got context.Context) ([]*natsdriver.Message, error) {
+				if got != ctx {
+					t.Fatal("fetch context changed")
+				}
+				fetches++
+				if fetches == 1 {
+					return messages, nil
+				}
+				return nil, failure
+			}, func(got context.Context, message *natsdriver.Message) error {
+				if got != ctx || handled >= len(messages) || message != messages[handled] {
+					t.Fatalf("message %d delivered out of order or with a different context", handled)
+				}
+				if r.steps[step].Load() != nil || r.ready(ctx) != nil {
+					t.Fatal("fetch did not record a pass before handling its messages")
+				}
+				handled++
+				return nil
+			})
+			if err := run(ctx); err != failure {
+				t.Fatalf("fetch error=%v, want %v", err, failure)
+			}
+			if fetches != 2 || handled != len(messages) {
+				t.Fatalf("fetches=%d handled=%d", fetches, handled)
+			}
+		})
+	}
+}
+
+func TestRuntimeStepConsumerFetchHandlerError(t *testing.T) {
+	for _, step := range []runtimeStep{runtimeIdentityConsumer, runtimeAuditConsumer} {
+		t.Run(step.name(), func(t *testing.T) {
+			r := &gatewayConnectedRuntime{checkDependencies: func(context.Context) error { return nil }}
+			failure := errors.New("transaction unavailable")
+			fetches, handled := 0, 0
+			messages := []*natsdriver.Message{{Sequence: 1}, {Sequence: 2}, {Sequence: 3}}
+			run := r.consumerStep(step, func(context.Context) ([]*natsdriver.Message, error) {
+				fetches++
+				return messages, nil
+			}, func(context.Context, *natsdriver.Message) error {
+				handled++
+				if handled == 2 {
+					return failure
+				}
+				return nil
+			})
+			var returned error
+			clock := startRuntimeRecovery(t, r, step, true, func(ctx context.Context) error {
+				returned = run(ctx)
+				return returned
+			})
+			clock.tick(t, runtimeStepPeriod)
+			if !errors.Is(returned, failure) || returned.Error() != "natsdriver: transactional consume: "+failure.Error() {
+				t.Fatalf("handler error=%v", returned)
+			}
+			stored := r.steps[step].Load()
+			if stored == nil || *stored != returned || r.ready(context.Background()) != returned {
+				t.Fatalf("handler error not stored: step=%v ready=%v", stored, r.ready(context.Background()))
+			}
+			if fetches != 1 || handled != 2 {
+				t.Fatalf("handler error: fetches=%d handled=%d", fetches, handled)
+			}
+		})
+	}
+}
+
+func TestRuntimeStepConsumerFetchPermanentErrors(t *testing.T) {
+	for _, step := range []runtimeStep{runtimeIdentityConsumer, runtimeAuditConsumer} {
+		for _, failure := range []error{
+			delivery.ErrAuthorization, nats.ErrAuthorization, nats.ErrPermissionViolation, sharedauth.ErrScopeDenied,
+			delivery.ErrIntegrity, sharedauth.ErrReplayMismatch, &delivery.IntegrityFailure{Class: delivery.PartitionBinding},
+			delivery.ErrSchema, natsdriver.ErrClosed,
+		} {
+			t.Run(step.name()+"/"+failure.Error(), func(t *testing.T) {
+				r := &gatewayConnectedRuntime{checkDependencies: func(context.Context) error { return nil }}
+				fetches := 0
+				fetching := make(chan struct{})
+				run := r.consumerStep(step, func(ctx context.Context) ([]*natsdriver.Message, error) {
+					fetches++
+					switch fetches {
+					case 1:
+						return nil, failure
+					case 2:
+						return nil, nil
+					default:
+						close(fetching)
+						<-ctx.Done()
+						return nil, ctx.Err()
+					}
+				}, func(context.Context, *natsdriver.Message) error {
+					return errors.New("empty fetch must not deliver a message")
+				})
+				clock := startRuntimeRecovery(t, r, step, true, run)
+				failed := clock.tick(t, runtimeStepPeriod)
+				if got := r.ready(context.Background()); got != failure {
+					t.Fatalf("permanent fetch error readiness=%v, want %v", got, failure)
+				}
+				close(failed.next)
+				select {
+				case <-fetching:
+				case <-time.After(3 * time.Second):
+					t.Fatal("consumer did not fetch again after an empty fetch")
+				}
+				if fetches != 3 || r.steps[step].Load() != nil {
+					t.Fatalf("empty fetch: fetches=%d step=%v", fetches, r.steps[step].Load())
+				}
+				if got := r.ready(context.Background()); got != failure {
+					t.Fatalf("permanent fetch error lost after empty fetch: %v", got)
+				}
+			})
+		}
+	}
+}
+
+func TestRuntimeStepConsumerFetchCancellation(t *testing.T) {
+	for _, step := range []runtimeStep{runtimeIdentityConsumer, runtimeAuditConsumer} {
+		for _, when := range []string{"before fetch", "empty fetch", "before first message", "between messages", "during fetch"} {
+			t.Run(step.name()+"/"+when, func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				if when == "before fetch" {
+					cancel()
+				}
+				r := &gatewayConnectedRuntime{}
+				fetches, handled := 0, 0
+				run := r.consumerStep(step, func(context.Context) ([]*natsdriver.Message, error) {
+					fetches++
+					if when == "between messages" {
+						return []*natsdriver.Message{{Sequence: 1}, {Sequence: 2}, {Sequence: 3}}, nil
+					}
+					cancel()
+					switch when {
+					case "before first message":
+						return []*natsdriver.Message{{Sequence: 1}}, nil
+					case "during fetch":
+						return nil, ctx.Err()
+					default:
+						return nil, nil
+					}
+				}, func(context.Context, *natsdriver.Message) error {
+					handled++
+					cancel()
+					return nil
+				})
+				if err := run(ctx); err != context.Canceled {
+					t.Fatalf("canceled consumer error=%v", err)
+				}
+				wantFetches, wantHandled := 1, 0
+				if when == "before fetch" {
+					wantFetches = 0
+				}
+				if when == "between messages" {
+					wantHandled = 1
+				}
+				if fetches != wantFetches || handled != wantHandled {
+					t.Fatalf("canceled consumer: fetches=%d handled=%d, want %d and %d", fetches, handled, wantFetches, wantHandled)
+				}
+			})
+		}
+	}
+}

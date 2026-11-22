@@ -692,7 +692,7 @@
         },
         {
           "path": "sdk/launchpad/shared/config/capabilities/catalog_test.go",
-          "sha256": "253565cd5dd3aef66467047c5852f38e43bafbcf0b14e4187fdd7482fa4d980d",
+          "sha256": "bce10bfb4673b4076acd00ac9c90286e580ebcdad9dba0081cb43b2f446d900e",
           "declarations": [
             {
               "name": "TestFrozenIDsAndPrerequisitesMatchBaseline",
@@ -700,31 +700,35 @@
             },
             {
               "name": "TestCoreIndependentOfOptionalOracle",
-              "line": 62
+              "line": 89
+            },
+            {
+              "name": "TestCreationReleaseRequiresMatchingDeployment",
+              "line": 107
             },
             {
               "name": "TestMissingQuoterOnlyBlocksDependentFamily",
-              "line": 80
+              "line": 120
             },
             {
               "name": "TestQuoteCapabilityAndRevision",
-              "line": 100
+              "line": 140
             },
             {
               "name": "TestSellRealLiquidityAndExactUint256Bounds",
-              "line": 119
+              "line": 159
             },
             {
               "name": "TestFamilyStalenessAndGovernanceRevocation",
-              "line": 130
+              "line": 170
             },
             {
               "name": "TestSupportSourceProvenance",
-              "line": 154
+              "line": 194
             },
             {
               "name": "TestSettlementRevocationDisablesOnlyAffectedFamilies",
-              "line": 168
+              "line": 208
             }
           ],
           "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/config/capabilities",
@@ -819,27 +823,27 @@
         },
         {
           "path": "sdk/launchpad/shared/config/capabilities/preflight_pool_identity_test.go",
-          "sha256": "bce803115f35cf0b6fc9ee1026c6c86b2aaf1f21ca1fe71878a8692a361f5fd4",
+          "sha256": "b0ab618721033d96b88e3c2dec29ae8e19d85bce5fd31cab4e12bde3be9a67a5",
           "declarations": [
             {
-              "name": "TestRepair_38_NativeCostSpender",
-              "line": 388
+              "name": "TestPreflightPoolNativeCostSpender",
+              "line": 418
             },
             {
-              "name": "TestRepair_38_NativePoolIdentity",
-              "line": 434
+              "name": "TestPreflightPoolNativePoolIdentity",
+              "line": 464
             },
             {
-              "name": "TestRepair_38_DeploymentAuthority",
-              "line": 484
+              "name": "TestPreflightPoolDeploymentAuthority",
+              "line": 514
             },
             {
-              "name": "TestRepair_38_HistoricalPoolIdentity",
-              "line": 521
+              "name": "TestPreflightPoolHistoricalPoolIdentity",
+              "line": 551
             },
             {
-              "name": "TestRepair_38_NativeIdentityRefusals",
-              "line": 554
+              "name": "TestPreflightPoolNativeIdentityRefusals",
+              "line": 584
             }
           ],
           "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/config/capabilities",
@@ -848,22 +852,22 @@
         },
         {
           "path": "sdk/launchpad/shared/config/capabilities/preflight_epoch_drift_test.go",
-          "sha256": "858e6f667f322c43b66d6e9c5e0ca53e13ce78f3acbac279abefa36ec97b2d88",
+          "sha256": "2c249a84d17f48dc565e1f93465e9dd0dbf7fbafe0517148334c1ab4da67ba13",
           "declarations": [
             {
-              "name": "TestRepairM_950_HistoricalSolidityManifest",
+              "name": "TestPreflightEpochHistoricalSolidityManifest",
               "line": 9
             },
             {
-              "name": "TestRepairM_950_HistoricalDrift",
+              "name": "TestPreflightEpochHistoricalDrift",
               "line": 46
             },
             {
-              "name": "TestRepairM_950_CurrentNativeDrift",
+              "name": "TestPreflightEpochCurrentNativeDrift",
               "line": 50
             },
             {
-              "name": "TestRepairM_950_CurrentNativeCreation",
+              "name": "TestPreflightEpochCurrentNativeCreation",
               "line": 54
             }
           ],
@@ -2715,19 +2719,19 @@
         },
         {
           "path": "services/launchpad/api/internal/app/dev_authority_contract_test.go",
-          "sha256": "a00eeb48207793cdc11d1fb3659a0e525683533ebf5048dd22d0c80e77271a74",
+          "sha256": "3ccaa1e435c7514ec87b6ed21943d49cd44bfb11633f33090531e4a99c719588",
           "declarations": [
             {
               "name": "TestDevelopmentAuthorityEligibleEnvelopeMatchesContract",
-              "line": 91
+              "line": 93
             },
             {
               "name": "TestAttestationProjectionCoversBuilderFields",
-              "line": 228
+              "line": 253
             },
             {
               "name": "TestDevelopmentAuthorityLiveEligibleDocument",
-              "line": 255
+              "line": 280
             }
           ],
           "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",

@@ -11,6 +11,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/internaltest/chainfixture"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -24,7 +25,10 @@ func TestMarketHintScanRejectsAlteredRecordedBlockAndReceipt(t *testing.T) {
 		{"hash", "eth_getBlockByNumber", func(m map[string]json.RawMessage) { m["hash"], _ = json.Marshal(common.Hash{}) }},
 		{"timestamp", "eth_getBlockByNumber", func(m map[string]json.RawMessage) { m["timestamp"] = json.RawMessage(`"0x0"`) }},
 		{"transaction body", "eth_getBlockByNumber", func(m map[string]json.RawMessage) { m["transactions"] = json.RawMessage(`[{}]`) }},
-		{"transaction count", "eth_getBlockByNumber", func(m map[string]json.RawMessage) { m["transactions"], _ = json.Marshal(make([]any, 4097)) }},
+		{"transaction count", "eth_getBlockByNumber", func(m map[string]json.RawMessage) {
+			b := chainfixture.NewContentBlock(t, 4097, 0, nil)
+			m["transactions"], _ = json.Marshal(b.Transactions)
+		}},
 		{"transaction hash", "eth_getBlockByNumber", func(m map[string]json.RawMessage) {
 			var txs []map[string]json.RawMessage
 			_ = json.Unmarshal(m["transactions"], &txs)
@@ -34,7 +38,20 @@ func TestMarketHintScanRejectsAlteredRecordedBlockAndReceipt(t *testing.T) {
 		{"receipt height", "eth_getBlockReceipts", func(m map[string]json.RawMessage) { m["blockNumber"] = json.RawMessage(`"0x1"`) }},
 		{"receipt block", "eth_getBlockReceipts", func(m map[string]json.RawMessage) { m["blockHash"], _ = json.Marshal(common.HexToHash("0x1")) }},
 		{"receipt bloom", "eth_getBlockReceipts", func(m map[string]json.RawMessage) { m["logsBloom"], _ = json.Marshal("0x" + strings.Repeat("0", 512)) }},
-		{"receipt logs", "eth_getBlockReceipts", func(m map[string]json.RawMessage) { m["logs"], _ = json.Marshal(make([]any, 4097)) }},
+		{"receipt logs", "eth_getBlockReceipts", func(m map[string]json.RawMessage) {
+			var original []*types.Log
+			if err := json.Unmarshal(m["logs"], &original); err != nil || len(original) == 0 {
+				t.Fatalf("receipt logs: %v", err)
+			}
+			logs := make([]*types.Log, 4097)
+			for i := range logs {
+				log := *original[i%len(original)]
+				log.Index = uint(i)
+				logs[i] = &log
+			}
+			m["logs"], _ = json.Marshal(logs)
+			m["logsBloom"], _ = json.Marshal(types.CreateBloom(&types.Receipt{Logs: logs}))
+		}},
 		{"log coordinates", "eth_getBlockReceipts", func(m map[string]json.RawMessage) {
 			var logs []map[string]json.RawMessage
 			_ = json.Unmarshal(m["logs"], &logs)
@@ -44,6 +61,20 @@ func TestMarketHintScanRejectsAlteredRecordedBlockAndReceipt(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := chainfixture.New(t)
+			if tc.name == "transaction count" {
+				b := chainfixture.NewContentBlock(t, 4097, 0, nil)
+				client, err := ethclient.DialContext(ctx, b.Serve(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer client.Close()
+				s := recoveringQualifiedSource{client: client, blockIdentity: receipt.BlockIdentityReported}
+				_, blocks, err := s.marketAddresses(ctx, b.Header.Number.Uint64(), b.Header.Number.Uint64())
+				if err != nil || len(blocks) != 1 || blocks[b.Header.Number.Uint64()].TransactionCount != 4097 {
+					t.Fatalf("transaction content: %v", err)
+				}
+				return
+			}
 			f.Mutate = func(key string, raw json.RawMessage) json.RawMessage {
 				if !strings.HasPrefix(key, tc.method+" ") {
 					return raw
@@ -81,7 +112,12 @@ func TestMarketHintScanRejectsAlteredRecordedBlockAndReceipt(t *testing.T) {
 			}
 			defer client.Close()
 			s := recoveringQualifiedSource{client: client, blockIdentity: receipt.BlockIdentityReported}
-			if _, _, err = s.marketAddresses(ctx, 33963716, 33963716); err == nil {
+			_, blocks, err := s.marketAddresses(ctx, 33963716, 33963716)
+			if tc.name == "receipt logs" {
+				if err != nil || len(blocks) != 1 {
+					t.Fatalf("receipt log content: %v", err)
+				}
+			} else if err == nil {
 				t.Fatal("altered source hints accepted")
 			}
 		})

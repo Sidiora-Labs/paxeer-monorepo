@@ -54,6 +54,7 @@ func TestRuntimeDocumentBindsEverySubscription(t *testing.T) {
 			extra(d, "metadata", "metadata.updated")
 			d.Phase2.SearchSources["metadata"] = canonicalsearch.SourceRelation{Schema: "metadata", View: "events_v1"}
 		}},
+		{"social event", "authorized social policy event", func(d *statsRuntimeDocument) { extra(d, "social_policy", "unknown.event") }},
 		{"account event", "authorized account search event", func(d *statsRuntimeDocument) { extra(d, "account_profile", "unknown.event") }},
 		{"unsupported kind", "unsupported search subscription", func(d *statsRuntimeDocument) { extra(d, "unknown", "unknown.event") }},
 		{"required subscriptions", "creation and invalidation", func(d *statsRuntimeDocument) {
@@ -79,7 +80,7 @@ func TestRuntimeDocumentBindsEverySubscription(t *testing.T) {
 			}
 		})
 	}
-	for _, kind := range []string{"metadata", "lifecycle", "metrics", "visibility", "profile_deletion", "preferences", "account_profile"} {
+	for _, kind := range []string{"metadata", "lifecycle", "metrics", "visibility", "profile_deletion", "preferences", "account_profile", "social_policy"} {
 		t.Run(kind, func(t *testing.T) {
 			raw, err := json.Marshal(base)
 			if err != nil {
@@ -89,8 +90,14 @@ func TestRuntimeDocumentBindsEverySubscription(t *testing.T) {
 			if err = json.Unmarshal(raw, &d); err != nil {
 				t.Fatal(err)
 			}
-			extra(&d, kind, "profile.updated")
-			d.Phase2.SearchSources[kind] = canonicalsearch.SourceRelation{Schema: "metadata", View: "events_v2"}
+			event := "profile.updated"
+			if kind == "social_policy" {
+				event = "social.policy.changed.v2"
+			}
+			extra(&d, kind, event)
+			if kind != "social_policy" {
+				d.Phase2.SearchSources[kind] = canonicalsearch.SourceRelation{Schema: "metadata", View: "events_v2"}
+			}
 			if err = d.validate(); err != nil {
 				t.Fatalf("authorized source rejected: %v", err)
 			}

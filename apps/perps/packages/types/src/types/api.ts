@@ -56,6 +56,8 @@ export declare namespace API {
     sum_unitary_funding: number;
     est_funding_rate: number;
     last_funding_rate: number;
+    /** Last settled hourly fraction at 18 decimals; null when unavailable. */
+    last_funding_rate_hourly?: bigint | null;
     next_funding_time: number;
     open_interest: string;
     "24h_open": number;

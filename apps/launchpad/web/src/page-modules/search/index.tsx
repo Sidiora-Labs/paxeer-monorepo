@@ -54,7 +54,7 @@ export function SearchView({ initialQuery }: { initialQuery: string }) {
   const openCoin = useCallback((args: SelectArgs) => {
     let pool: string;
     try { pool = normalizeAddress(args.poolAddress ?? ''); } catch { return; }
-    try { addToRecent({ address: pool, name: args.name, symbol: args.symbol, logo: args.logo, marketCap: args.marketCap, ts: Date.now() }); } catch { /* recent views are optional */ }
+    try { addToRecent({ address: pool, tokenAddress: args.tokenAddress, name: args.name, symbol: args.symbol, logo: args.logo, marketCap: args.marketCap, ts: Date.now() }); } catch { /* recent views are optional */ }
     router.push('/coin/' + pool);
   }, [router]);
   const openProfile = useCallback((wallet: string) => {
@@ -111,7 +111,7 @@ export function SearchView({ initialQuery }: { initialQuery: string }) {
                 <ResultGroup label="Trending coins">
                   {hotCoins.slice(0, 6).map(coin => {
                     const id = optionId(`hot:${coin.poolAddress}`);
-                    return <CoinRow key={coin.poolAddress} id={id} active={activeId === id} name={coin.name || ''} symbol={coin.symbol || ''} logo={coin.logo || null}
+                    return <CoinRow key={coin.poolAddress} id={id} active={activeId === id} tokenAddress={coin.tokenAddress} name={coin.name || ''} symbol={coin.symbol || ''} logo={coin.logo || null}
                       mcapRaw={coin.marketCap && coin.marketCap !== '0' ? coin.marketCap : null} address={coin.poolAddress} kind="pool" onSelect={() => openCoin(hotToSelect(coin))} />;
                   })}
                 </ResultGroup>
@@ -125,7 +125,7 @@ export function SearchView({ initialQuery }: { initialQuery: string }) {
                   const id = optionId(`coin:${row.identity}`);
                   const mcap = row.pool_address ? marketCapRaw(mcapByPool.get(row.pool_address)) : null;
                   const address = row.kind === 'pool' ? row.pool_address : row.token_address;
-                  return <CoinRow key={row.identity} id={id} active={activeId === id} name={row.name} symbol={row.symbol} logo={row.images.logo} mcapRaw={mcap} address={address} kind={row.kind} disabled={!row.pool_address}
+                  return <CoinRow key={row.identity} id={id} active={activeId === id} tokenAddress={row.token_address} name={row.name} symbol={row.symbol} logo={row.images.logo} mcapRaw={mcap} address={address} kind={row.kind} disabled={!row.pool_address}
                     onSelect={() => openCoin(resultToSelect(row, mcap))} />;
                 }) : !searching && !error ? <p className="px-3 pb-2 text-xs text-text-faint">{`No coins match "${trimmed}"`}</p> : null}
               </ResultGroup>

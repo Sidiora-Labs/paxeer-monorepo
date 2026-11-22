@@ -137,6 +137,8 @@ def _policy(root: dict[str, Any]) -> dict[str, dict[str, bool]]:
     if not isinstance(subjects, dict) or not isinstance(event_types, dict):
         raise ValueError("charts: policy must contain Subjects and EventTypes objects")
     for name, values in (("policy.Subjects", subjects), ("policy.EventTypes", event_types)):
+        if values.get("accounting.market.v1") is not True:
+            raise ValueError(f"charts: {name} must enable accounting.market.v1")
         if not values or any(not isinstance(key, str) or not key or not isinstance(value, bool) or not value for key, value in values.items()):
             raise ValueError(f"charts: {name} must contain enabled boolean entries")
     return {"Subjects": dict(subjects), "EventTypes": dict(event_types)}

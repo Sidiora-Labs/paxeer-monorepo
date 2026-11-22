@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -93,6 +94,20 @@ func TestRuntimeDocumentsCommandWritesBoundCurrentDocuments(t *testing.T) {
 		}
 		if name == "receipt.json" && !strings.Contains(string(body), hash.Hex()) {
 			t.Fatal("receipt document lost recorded anchor")
+		}
+		if name == "receipt.json" {
+			var options struct{ Production receipt.RPCOptions }
+			if err := json.Unmarshal(body, &options); err != nil {
+				t.Fatal(err)
+			}
+			factory := deployment.Current().Roles["SidioraFactory"]
+			if len(options.Production.Discovery) != 2 {
+				t.Fatalf("discovery templates %+v", options.Production.Discovery)
+			}
+			pool := options.Production.Discovery[0]
+			if pool.Role != "SidioraPool" || pool.Kind != "surface" || pool.RuntimeHash != factory.RuntimeHash || pool.StagedRuntimeHash != factory.StagedRuntimeHash || pool.StagedUpgrade != factory.StagedUpgrade {
+				t.Fatalf("pool template does not carry the factory identity: %+v", pool)
+			}
 		}
 	}
 	for _, tc := range []struct {

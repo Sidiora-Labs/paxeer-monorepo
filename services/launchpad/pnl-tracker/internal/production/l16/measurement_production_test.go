@@ -29,6 +29,9 @@ func measurementRequired(t *testing.T, name string) string {
 }
 
 func TestPhase4InventoryMeasurementAgainstActualProviders(t *testing.T) {
+	if os.Getenv("L16_MEASUREMENT_PLAN") == "" {
+		t.Skip("L16_MEASUREMENT_PLAN not set: operator inventory measurement input required")
+	}
 	planPath := measurementRequired(t, "L16_MEASUREMENT_PLAN")
 	planHash := measurementRequired(t, "L16_MEASUREMENT_PLAN_SHA256")
 	raw, err := measurementReadFile(InventoryMeasurementFile{Path: planPath, SHA256: planHash}, "")

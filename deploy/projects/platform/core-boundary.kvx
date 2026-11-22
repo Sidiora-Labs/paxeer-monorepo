@@ -2,7 +2,7 @@
 kind = "repo"
 dockerfile = "docker/platform-core/Dockerfile"
 root = "/"
-watch = ["/docker/platform-core/**", "/docker/common/**", "/services/**", "/programs/**"]
+watch = ["/docker/platform-core/**", "/docker/common/**", "/services/**", "/programs/**", "/include/layerx/**", "/spec/layerx-merge/contracts/address-table.md", "/tools/platform/cli/src/wallet_gateway.rs", "/tools/paxeer-x/route-catalogue.json"]
 # The treasury signer and supervisor use host Unix sockets; funding uses the host's loopback RPC.
 target = "other"
 # Liveness is served by the admin TLS listener on port 9444.

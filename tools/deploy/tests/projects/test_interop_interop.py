@@ -120,7 +120,10 @@ def test_interop_definition_matches_sources() -> None:
     assert service["replicas"] == 1
     assert service["public"] == 1
     assert service["order"] == 11
-    assert set(service["needs"]) == {"router", "redis-internal", "sequencer-primary"}
+    assert set(service["needs"]) == {"gateway", "redis-internal", "sequencer-primary"}
+
+    assert variables["PORT"] == "9443"
+    assert variables["LAYERX_INTEROP_LISTEN"] == "[::]:${{PORT}}"
 
     source_names = _source_env_names()
     source_text = CONFIG_SOURCE.read_text()
@@ -152,7 +155,7 @@ def test_interop_definition_matches_sources() -> None:
     )
     assert "role=${LAYERX_ROLE:-}" in ENTRYPOINT.read_text()
     assert "LAYERX_ROLE" not in variables
-    expected_names = source_names | file_names | {"LAYERX_FILES_TABLE"}
+    expected_names = source_names | file_names | {"LAYERX_FILES_TABLE", "PORT"}
     declared = set(variables)
     assert expected_names <= declared
     assert declared <= expected_names

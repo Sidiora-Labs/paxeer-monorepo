@@ -71,13 +71,17 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
 
   return (
     <Center h="100%" alignItems={{ base: 'flex-start', lg: 'center' }}>
-      <Flex flexDir="column" w="fit-content" maxW={{ base: '100%', lg: 'var(--chakra-spacing-182)', xl: 'var(--chakra-spacing-200)' }}>
-        <Flex gap={ 8 } alignItems="flex-start" justifyContent="space-between" w="100%" flexWrap="wrap">
-          <Box flex="1 1 max-content" minW={ 0 } maxW="full">
+      <Flex flexDir="column" w={{ base: 'full', lg: 'fit-content' }}
+        maxW={{ base: '100%', lg: 'calc(var(--chakra-spacing-1) * 175)', xl: 'calc(var(--chakra-spacing-1) * 250)' }}>
+        <Flex gap={ 8 } alignItems="flex-start" justifyContent={{ base: 'space-between', lg: 'flex-start' }} w="100%" flexWrap="wrap">
+          <Box minW={ 0 }
+            maxW={{ base: 'calc(100% - var(--chakra-spacing-16) - var(--chakra-border-widths-1) - var(--chakra-spacing-8))',
+              lg: 'calc(100% - var(--chakra-spacing-30) - var(--chakra-spacing-1\\.25) - var(--chakra-spacing-8))' }}>
             <Heading
               level="1"
+              pb={{ base: 'calc(var(--chakra-spacing-1) * 1.5)', lg: 'calc(var(--chakra-spacing-2) - var(--chakra-border-widths-1))' }}
             >
-              { `Block #${ height }` }
+              <Box as="span" display="inline-block" maxW="full" overflowWrap="anywhere">{ `Block #${ height }` }</Box>
             </Heading>
             <Box mt={ 2 } color="text.secondary">
               <Box fontWeight="semibold">Estimated target date</Box>
@@ -97,7 +101,7 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
               </Link>
               <Button
                 variant="plain"
-                px={ 2 }
+                px="calc(var(--chakra-spacing-2) - var(--chakra-border-widths-1))"
                 size="sm"
                 fontWeight="normal"
                 color="link.primary"
@@ -117,9 +121,9 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
           <Box position="relative" flexShrink={ 0 }>
             <IconSvg
               name="block"
-              w={{ base: 'var(--chakra-spacing-16)', lg: 'var(--chakra-spacing-30)' }}
-              h="auto"
-              aspectRatio={ 1 }
+              w={{ base: 'calc(var(--chakra-spacing-16) + var(--chakra-border-widths-1))',
+                lg: 'calc(var(--chakra-spacing-30) + var(--chakra-spacing-1\\.25))' }}
+              h={{ base: 'calc(var(--chakra-spacing-1) * 18.75)', lg: 'calc(var(--chakra-spacing-1) * 35)' }}
               color="icon.secondary"
               flexShrink={ 0 }
             />
@@ -142,7 +146,7 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
             onFinish={ handleTimerFinish }
           />
         ) }
-        <Grid gridTemplateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-65)), 1fr))" columnGap={ 2 } mt={ 2 }>
+        <Grid gridTemplateColumns="repeat(2, minmax(0, 1fr))" columnGap={ 2 } mt={ 2 }>
           <StatsWidget label="Remaining blocks" value={ data.result.RemainingBlock } icon="apps"/>
           <StatsWidget label="Current block" value={ data.result.CurrentBlock } icon="block"/>
         </Grid>

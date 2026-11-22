@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import React from 'react';
 
 import { useMultichainContext } from 'lib/contexts/multichain';
+import styles from 'pages/visualize/sol2uml.module.css';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import ChainIcon from 'ui/shared/externalChains/ChainIcon';
 import PageTitle from 'ui/shared/Page/PageTitle';
@@ -25,7 +26,7 @@ const Sol2Uml = () => {
   return (
     <>
       <PageTitle title="Solidity UML diagram"/>
-      <Flex mb={ 10 } flexWrap="wrap" columnGap={ 1 }>
+      <Flex className={ styles.contractSummary } mb={ 10 } flexWrap="wrap" columnGap={ 1 }>
         <span>For contract</span>
         <AddressEntity
           address={{ hash: addressHash, is_contract: true }}

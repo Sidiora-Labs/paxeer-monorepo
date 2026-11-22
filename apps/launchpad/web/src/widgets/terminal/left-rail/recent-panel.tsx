@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Trash2 } from 'lucide-react';
@@ -18,6 +19,7 @@ export function pageCount(total: number, size = recentPageSize): number {
 }
 
 function RecentPairRow({ row, active, loadingPrice }: { row: RecentRow; active: boolean; loadingPrice: boolean }) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   return (
     <li data-pool={row.poolAddress} className={cn('relative grid min-h-9 grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-control-height-sm)] [@media(max-width:834px)]:grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-touch-target-min)] items-center gap-1 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}>
       <div className="flex min-w-0 items-center gap-1.5">
@@ -25,7 +27,7 @@ function RecentPairRow({ row, active, loadingPrice }: { row: RecentRow; active: 
         <Link prefetch={false}
           href={row.href}
           aria-current={active ? 'page' : undefined}
-          title={row.name}
+          title={row.symbol}
           className="min-w-0 flex-1 truncate text-xs font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
         >
           {row.symbol}

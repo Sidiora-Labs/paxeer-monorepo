@@ -233,8 +233,8 @@ func TestBrokerRecoveryTerminalWorkerFailureRequiresRestart(t *testing.T) {
 	runtime := brokerRecoveryRuntime(t, broker)
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
-	terminal := errors.New("terminal social worker exit")
-	runtime.worker(func(context.Context) error { return terminal })
+	terminal := fmt.Errorf("terminal social worker exit: %w", delivery.ErrIntegrity)
+	runtime.worker(runtimeJobChat, func(context.Context) error { return terminal })
 	runtime.wg.Wait()
 	if err := runtime.ready(ctx); !errors.Is(err, terminal) {
 		t.Fatalf("worker exit was not terminal: %v", err)

@@ -184,7 +184,6 @@ func TestGatewayManifestReadme(t *testing.T) {
 		"px_getReceiptKeys", "complete signer set", "eth_sendRawTransaction",
 		"pax_sequencerReceipt", "eth_getBlockByNumber", "Every `keyId` must be unique",
 		"does not establish that the conformance suites passed", "consensus commit proof",
-		"authority-token and single-key mounts still present in that template are retired",
 		"--network-id eip155-125", "--receipt-keys-file", "env -i",
 	} {
 		if !strings.Contains(readme, required) {

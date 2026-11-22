@@ -237,7 +237,7 @@ def test_listener_and_health_match_web_deployment():
 def test_dependencies_use_rollout_names_and_order():
     service = definition()["service"]["human-web"]
     rollout = tomllib.loads((ROOT / "deploy/rollout.kvx").read_text())["service"]
-    assert set(service["needs"]) == {"human", "router"}
+    assert set(service["needs"]) == {"human", "gateway"}
     assert len(service["needs"]) == len(set(service["needs"]))
     for name in service["needs"]:
         if name in rollout:

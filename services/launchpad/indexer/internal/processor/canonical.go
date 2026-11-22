@@ -181,9 +181,14 @@ func (p *Processor) processQualifiedCanonicalBatch(ctx context.Context, b store.
 	var reserves []reserveSnapshot
 	if p.deps.LegacyProjection {
 		var err error
-		if reserves, err = p.readSwapReserves(ctx, fills); err != nil {
+		if reserves, err = p.readCreationReserves(ctx, receipts); err != nil {
 			return err
 		}
+		swaps, err := p.readSwapReserves(ctx, fills)
+		if err != nil {
+			return err
+		}
+		reserves = append(reserves, swaps...)
 	}
 	return commit(ctx, b, func(ctx context.Context, canonical store.CanonicalTx) ([]store.OutboxIntent, error) {
 		if err := receipt.ValidateBindings(ctx, b, receipts); err != nil {

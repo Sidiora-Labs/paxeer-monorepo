@@ -1,6 +1,7 @@
 import { SdkClient, decodeV2Contract, SnapshotStreamV2, browserStreamTransportV2, type StreamTransportV2, type StreamStateV2, type V2ContractTypes } from '@kindle/sdk';
 import type { RankingsResponse, RankingSnapshot } from '../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 import { orderedTrades, freshness } from './market-presentation';
+import { beforeFirstFrameTransport } from '@/core/realtime/topic-snapshot';
 
 // The live token-page session rides the v2 stream contract core/api serves:
 // GET /v2/snapshots on the api origin and WS /v2/stream on the stream origin.
@@ -96,7 +97,7 @@ export class MarketSession {
   readonly poolAddress: string;
   constructor(client: SdkClient, poolAddress: string) {
     this.poolAddress = marketAddress(poolAddress);
-    const native = browserStreamTransportV2(client, { applicationOrigin: applicationOrigin(), snapshotPath: '/v2/snapshots' }, false);
+    const native = beforeFirstFrameTransport(browserStreamTransportV2(client, { applicationOrigin: applicationOrigin(), snapshotPath: '/v2/snapshots' }, false));
     const transport: StreamTransportV2 = {
       ...native,
       connect: input => native.connect({ ...input, receive: value => {

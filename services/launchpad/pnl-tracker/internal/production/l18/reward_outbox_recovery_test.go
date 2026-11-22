@@ -222,6 +222,20 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	if err = nc.Flush(); err != nil {
 		t.Fatal(err)
 	}
+	for _, subjects := range []map[string]bool{
+		{"fee.claimed": false},
+		{"fee.claimed": false, "community.updated": true},
+	} {
+		excludedPolicy := delivery.Policy{Subjects: subjects, EventTypes: policy.EventTypes}
+		excludedStore, err := delivery.NewStoreWithEpochGuard(l.pool, l.schema, excludedPolicy, l.epochGuard)
+		if err != nil {
+			t.Fatal(err)
+		}
+		leases, err := excludedStore.Claim(ctx, "excluded-worker", 1, time.Second)
+		if err != nil || len(leases) != 0 {
+			t.Fatalf("excluded subject claimed=%v: %v", leases, err)
+		}
+	}
 	leases, err := store.Claim(ctx, "before-crash", 1, time.Second)
 	if err != nil || len(leases) != 1 {
 		t.Fatalf("committed handoff=%v: %v", leases, err)

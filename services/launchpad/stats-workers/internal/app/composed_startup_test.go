@@ -213,8 +213,12 @@ func TestComposedStatsContainerStartupAndRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	selected := brokerprovision.Document{}
+	searchStreams := map[string]bool{document.Consumers[0].Stream: true, document.Phase2.OutputStream: true}
+	for _, sub := range document.Phase2.SearchConsumers {
+		searchStreams[sub.Consumer.Stream] = true
+	}
 	for _, stream := range provision.Streams {
-		if stream.Name == document.Consumers[0].Stream || stream.Name == document.Phase2.OutputStream {
+		if searchStreams[stream.Name] {
 			selected.Streams = append(selected.Streams, stream)
 		}
 	}
@@ -228,7 +232,7 @@ func TestComposedStatsContainerStartupAndRecovery(t *testing.T) {
 			}
 		}
 	}
-	if len(selected.Streams) != 2 || len(selected.Durables) != 3 {
+	if len(selected.Streams) != 3 || len(selected.Durables) != 4 {
 		t.Fatal("statistics broker resources must be present in the fleet document")
 	}
 	raw, err = json.Marshal(selected)

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -40,6 +41,27 @@ func productionRuntimeConfig(t *testing.T) (config.Config, statsRuntimeDocument)
 	t.Helper()
 	dsn, pool := internaltest.NewPostgresWithDSN(t)
 	internaltest.EnsureMetadataSchema(t, pool)
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE SCHEMA stats_search"); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"200001", "200002"} {
+		raw, err := os.ReadFile(filepath.Join("../../../../../migrations", id+".sql"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
 	redisURL := internaltest.NewRedisURL(t)
 	d := readDelivery(t, filepath.Join("testdata", "delivery.production.json"))
 	suffix := strings.ReplaceAll(time.Now().UTC().Format("150405.000000000"), ".", "")
@@ -150,7 +172,8 @@ func productionRuntimeConfig(t *testing.T) (config.Config, statsRuntimeDocument)
 func TestProductionRuntimeWiresDurableWorkers(t *testing.T) {
 	cfg, d := productionRuntimeConfig(t)
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	var output bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&output, nil))
 	app, err := newWithRuntimePool(ctx, cfg, logger, func(ctx context.Context, c *config.Config, opts shareddb.PoolOptions) (*pgxpool.Pool, error) {
 		return shareddb.NewPool(ctx, c.DatabaseURL, opts)
 	})
@@ -158,6 +181,9 @@ func TestProductionRuntimeWiresDurableWorkers(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
+	if strings.Count(output.String(), "initialized search authority") != 1 || !strings.Contains(output.String(), "rows=0") {
+		t.Fatal("search authority initialization count", output.String())
+	}
 	if app.accounting == nil || app.nats == nil || app.rpc == nil || len(app.transports) != len(d.Consumers)+len(d.Phase2.SearchConsumers) || len(app.jobs) < 12 {
 		t.Fatalf("runtime dependencies: accounting=%t transports=%d jobs=%d", app.accounting != nil, len(app.transports), len(app.jobs))
 	}

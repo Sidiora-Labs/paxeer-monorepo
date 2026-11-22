@@ -35,7 +35,15 @@ interface CardProps {
 }
 
 const DetailsCard = ({ title, children }: CardProps) => (
-  <Box data-token-card={ title }>
+  <Box
+    data-token-card={ title }
+    css={{
+      '& [data-detailed-info]': {
+        '@media (max-width: 999px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
+        '& > [data-detailed-info-value]': { borderTopWidth: { base: 0, lg: 'var(--chakra-border-widths-1)' } },
+      },
+    }}
+  >
     <DetailedInfo.Group label={ title }>{ children }</DetailedInfo.Group>
   </Box>
 );
@@ -73,6 +81,8 @@ const TokenDetails = ({ tokenQuery }: Props) => {
 
     return (
       <Link
+        data-touch-inline
+        css={{ '--touch-line-size': '1lh' }}
         href={ route(chainSlug ?
           { pathname: '/chain/[chain_slug]/token/[hash]', query: { hash: hash || '', tab, chain_slug: chainSlug } } :
           { pathname: '/token/[hash]', query: { hash: hash || '', tab } }) }
@@ -179,7 +189,7 @@ const TokenDetails = ({ tokenQuery }: Props) => {
 
       { (type !== 'ERC-20' && config.UI.views.nft.marketplaces.length === 0 && appActionData) && (
         <ScanKeyValue label="Dapp" hint="Link to the dapp">
-          <AppActionButton data={ appActionData } height="var(--chakra-spacing-7\\.5)" source="NFT collection"/>
+          <AppActionButton data={ appActionData } height={ 'var(--chakra-spacing-7\\.5)' } source="NFT collection"/>
         </ScanKeyValue>
       ) }
 

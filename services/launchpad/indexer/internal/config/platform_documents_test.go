@@ -1,9 +1,10 @@
-package config
+package config_test
 
 import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,6 +14,11 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/config"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/runtimedocs"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 )
 
 type platformDocument struct {
@@ -167,8 +173,61 @@ func TestPlatformDocumentsComposeAndLoad(t *testing.T) {
 	platformValues(t, root, values)
 	documents := composePlatformDocuments(t, root, values, t.TempDir())
 	setPlatformEnvironment(t, documents, "")
-	if _, err := Load(); err != nil {
+	cfg, err := config.Load()
+	if err != nil {
 		t.Fatalf("Load composed platform documents: %v", err)
+	}
+	assertPlatformReceiptDiscovery(t, root, cfg)
+}
+
+func assertPlatformReceiptDiscovery(t *testing.T, root string, cfg config.Config) {
+	t.Helper()
+	var document struct {
+		Realm      string
+		Production receipt.RPCOptions
+	}
+	if err := config.ReadBoundDocument(cfg.ReceiptConfigFile, cfg.ReceiptConfigSHA256, &document); err != nil {
+		t.Fatalf("read composed receipt: %v", err)
+	}
+	if document.Realm != "production" || document.Production.Anchor == nil {
+		t.Fatal("receipt realm and anchor are required")
+	}
+	reviewed, err := os.ReadFile(filepath.Join(root, "sdk/launchpad/protocol/catalog/reviewed.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifact, err := os.ReadFile(filepath.Join(root, "contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var compiled struct{ DeployedBytecode string }
+	if err = json.Unmarshal(artifact, &compiled); err != nil {
+		t.Fatal(err)
+	}
+	code, err := hex.DecodeString(strings.TrimPrefix(compiled.DeployedBytecode, "0x"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	options, _, err := runtimedocs.ReceiptOptions(runtimedocs.Inputs{
+		Manifest: deployment.Current(), ReviewedCatalog: reviewed,
+		ERC20RuntimeCode: code, Anchor: *document.Production.Anchor,
+	})
+	if err != nil {
+		t.Fatalf("build receipt options: %v", err)
+	}
+	if !reflect.DeepEqual(document.Production.Discovery, options.Discovery) {
+		t.Fatalf("composed discovery differs from builder: got %+v, want %+v", document.Production.Discovery, options.Discovery)
+	}
+	fixture, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/documents/fixtures/indexer-discovery.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expected struct{ Discovery []receipt.RPCDiscovery }
+	if err = json.Unmarshal(fixture, &expected); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(expected.Discovery, options.Discovery) {
+		t.Fatalf("discovery fixture differs from builder: got %+v, want %+v", expected.Discovery, options.Discovery)
 	}
 }
 
@@ -180,7 +239,7 @@ func TestPlatformDocumentsRejectChangedDocument(t *testing.T) {
 	for variable := range documents {
 		t.Run(variable, func(t *testing.T) {
 			setPlatformEnvironment(t, documents, variable)
-			if _, err := Load(); err == nil {
+			if _, err := config.Load(); err == nil {
 				t.Fatalf("Load accepted changed %s", variable)
 			}
 		})
@@ -246,13 +305,14 @@ func TestPlatformDocumentsFileFormComposeAndRead(t *testing.T) {
 		t.Setenv(prefix+"_SHA256", composed[prefix+"_SHA256"])
 	}
 	for load := 0; load < 2; load++ {
-		cfg, loadErr := Load()
+		cfg, loadErr := config.Load()
 		if loadErr != nil {
 			t.Fatalf("Load composed file documents: %v", loadErr)
 		}
 		if cfg.ReceiptConfigDocument != "" || cfg.LifecycleConfigDocument != "" {
 			t.Fatal("file documents loaded as inline documents")
 		}
+		assertPlatformReceiptDiscovery(t, root, cfg)
 		for _, binding := range []struct{ name, path, digest string }{
 			{"receipt", cfg.ReceiptConfigFile, cfg.ReceiptConfigSHA256},
 			{"lifecycle", cfg.LifecycleConfigFile, cfg.LifecycleConfigSHA256},
@@ -261,7 +321,7 @@ func TestPlatformDocumentsFileFormComposeAndRead(t *testing.T) {
 			if err = json.Unmarshal(fileBytes[binding.name], &want); err != nil {
 				t.Fatal(err)
 			}
-			if err = ReadBoundDocument(binding.path, binding.digest, &got); err != nil {
+			if err = config.ReadBoundDocument(binding.path, binding.digest, &got); err != nil {
 				t.Fatalf("ReadBoundDocument %s: %v", binding.name, err)
 			}
 			if !reflect.DeepEqual(got, want) {
@@ -278,7 +338,7 @@ func TestPlatformDocumentsFileFormComposeAndRead(t *testing.T) {
 				t.Fatal(err)
 			}
 			var got map[string]any
-			if err := ReadBoundDocument(path, composed[prefix+"_SHA256"], &got); err == nil || err.Error() != "runtime_document_binding_mismatch" {
+			if err := config.ReadBoundDocument(path, composed[prefix+"_SHA256"], &got); err == nil || err.Error() != "runtime_document_binding_mismatch" {
 				t.Fatalf("changed %s file: %v", name, err)
 			}
 			if err := os.WriteFile(path, fileBytes[name], 0o600); err != nil {
@@ -287,7 +347,7 @@ func TestPlatformDocumentsFileFormComposeAndRead(t *testing.T) {
 		})
 		t.Run(name+"BothForms", func(t *testing.T) {
 			t.Setenv(prefix+"_DOCUMENT", base64.StdEncoding.EncodeToString(fileBytes[name]))
-			if _, err := Load(); err == nil || !strings.Contains(err.Error(), prefix+"_FILE and "+prefix+"_DOCUMENT are both set") {
+			if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), prefix+"_FILE and "+prefix+"_DOCUMENT are both set") {
 				t.Fatalf("both %s forms: %v", name, err)
 			}
 		})
