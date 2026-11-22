@@ -83,7 +83,7 @@ const UserProfileButton = ({ profileQuery, size, variant, onClick, isPending, ..
       disableOnMobile
     >
       <span>
-        <Button minH="touchTarget" minW="touchTarget"
+        <Button
           ref={ ref }
           size={ size }
           variant={ variant }

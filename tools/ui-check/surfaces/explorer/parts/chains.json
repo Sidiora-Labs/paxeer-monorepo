@@ -1,0 +1,1653 @@
+{
+  "name": "Paxscan explorer chains",
+  "directory": "../../../../../apps/explorer",
+  "build": "node ../../tools/ui-check/surfaces/explorer/build.mjs",
+  "buildMs": 1800000,
+  "start": "node ../../tools/ui-check/surfaces/explorer/start.mjs",
+  "address": "http://localhost:4173",
+  "readyPath": "/__surface_ready",
+  "readyMs": 60000,
+  "views": [
+    {
+      "name": "/cc/tx/[hash]",
+      "path": "/explorer/cc/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/accounts/label/[slug]",
+      "path": "/explorer/chain/paxeer/accounts/label/example",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/accounts/label/example",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/accounts/label/example.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/advanced-filter",
+      "path": "/explorer/chain/paxeer/advanced-filter",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/advanced-filter",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/advanced-filter.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/block/[height_or_hash]",
+      "path": "/explorer/chain/paxeer/block/8988736",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/block/8988736",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/block/8988736.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/block/countdown/[height]",
+      "path": "/explorer/chain/paxeer/block/countdown/9000000",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/block/countdown/9000000",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/block/countdown/9000000.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/block/countdown",
+      "path": "/explorer/chain/paxeer/block/countdown",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/block/countdown",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/block/countdown.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/csv-export",
+      "path": "/explorer/chain/paxeer/csv-export",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/csv-export",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/csv-export.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/op/[hash]",
+      "path": "/explorer/chain/paxeer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/token/[hash]",
+      "path": "/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/token/0x0000000000000000000000000000000000000002.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/token/[hash]/instance/[id]",
+      "path": "/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002/instance/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002/instance/1",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/token/0x0000000000000000000000000000000000000002/instance/1.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/tx/[hash]",
+      "path": "/explorer/chain/paxeer/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/visualize/sol2uml",
+      "path": "/explorer/chain/paxeer/visualize/sol2uml",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/visualize/sol2uml",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/visualize/sol2uml.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chains/[id]",
+      "path": "/explorer/chains/1",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/chains",
+      "path": "/explorer/chains",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/cross-chain-tx/[id]",
+      "path": "/explorer/cross-chain-tx/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/cross-chain-tx/1",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/cross-chain-tx/1.json",
+          "status": 404
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/coin-balance-history-by-day?*",
+      "file": "answers/empty-array.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/coin-balance-history-by-day",
+      "file": "answers/empty-array.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts/verification/config?*",
+      "file": "answers/contract-config.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/internal-transactions?*",
+      "file": "answers/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts/verification/config",
+      "file": "answers/contract-config.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/internal-transactions",
+      "file": "answers/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/transfers-count?*",
+      "file": "answers/object.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/transfers-count",
+      "file": "answers/object.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/internal-transactions?*",
+      "file": "answers/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/internal-transactions",
+      "file": "answers/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/coin-balance-history?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/coin-balance-history",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets/*/updates?*",
+      "file": "answers/market-updates.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets/*/updates",
+      "file": "answers/market-updates.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*/internal-transactions?*",
+      "file": "answers/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/token-transfers?*",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*/internal-transactions",
+      "file": "answers/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/token-transfers",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/transfers?*",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/state-changes?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/blocks-validated?*",
+      "file": "answers/blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/transfers",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/state-changes",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/blocks-validated",
+      "file": "answers/blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/token-transfers?*",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/nft/collections?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/archive/receipts/*?*",
+      "file": "answers/receipt.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/holders?*",
+      "file": "answers/token-holders.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats/charts/transactions?*",
+      "file": "answers/chart-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/indexing-status?*",
+      "file": "answers/indexing.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/archive/receipts?*",
+      "file": "answers/receipts.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/token-transfers",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/nft/collections",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/archive/receipts/*",
+      "file": "answers/receipt.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/token-balances?*",
+      "file": "answers/address-tokens.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/holders",
+      "file": "answers/token-holders.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats/charts/transactions",
+      "file": "answers/chart-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/indexing-status",
+      "file": "answers/indexing.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/archive/receipts",
+      "file": "answers/receipts.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts/counters?*",
+      "file": "answers/object.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters/methods?*",
+      "file": "answers/empty-array.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/token-balances",
+      "file": "answers/address-tokens.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/tabs-counters?*",
+      "file": "answers/address-tabs.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts/counters",
+      "file": "answers/object.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters/methods",
+      "file": "answers/empty-array.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/tabs-counters",
+      "file": "answers/address-tabs.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/signature?*",
+      "file": "answers/transaction-signature.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/raw-trace?*",
+      "file": "answers/raw-trace.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/transactions?*",
+      "file": "answers/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/transactions?*",
+      "file": "answers/home-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/config/backend-version?*",
+      "file": "answers/version.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/signature",
+      "file": "answers/transaction-signature.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/raw-trace",
+      "file": "answers/raw-trace.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/transactions",
+      "file": "answers/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/updates/*?*",
+      "file": "answers/price-update.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/transactions",
+      "file": "answers/home-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/config/backend-version",
+      "file": "answers/version.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/internal-transactions?*",
+      "file": "answers/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search/check-redirect?*",
+      "file": "answers/search-redirect.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/capabilities?*",
+      "file": "answers/capabilities.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets?*",
+      "file": "answers/markets.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/updates/*",
+      "file": "answers/price-update.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/internal-transactions",
+      "file": "answers/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search/check-redirect",
+      "file": "answers/search-redirect.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/capabilities",
+      "file": "answers/capabilities.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets",
+      "file": "answers/markets.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters/csv?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*/transactions?*",
+      "file": "answers/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/status?*",
+      "file": "answers/tx-status.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters/csv",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats/charts/market?*",
+      "file": "answers/chart-market.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*/transactions",
+      "file": "answers/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/status",
+      "file": "answers/tx-status.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/counters?*",
+      "file": "answers/address-counters.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats/charts/market",
+      "file": "answers/chart-market.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/stats?*",
+      "file": "answers/transactions-stats.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/counters",
+      "file": "answers/address-counters.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/logs?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/unified?*",
+      "file": "answers/unified-account.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*?*",
+      "file": "answers/token-instance.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/stats",
+      "file": "answers/transactions-stats.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/logs",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/unified",
+      "file": "answers/unified-account.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/tokens?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/transfers?*",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances?*",
+      "file": "answers/token-instances.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*",
+      "file": "answers/token-instance.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/blocks?*",
+      "file": "answers/home-blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/tokens",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/transfers",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances",
+      "file": "answers/token-instances.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/counters?*",
+      "file": "answers/token-counters.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/blocks",
+      "file": "answers/home-blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/token-transfers?*",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/counters",
+      "file": "answers/token-counters.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/logs?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/holders?*",
+      "file": "answers/token-holders.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/token-transfers",
+      "file": "answers/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/logs",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/holders",
+      "file": "answers/token-holders.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/nft?*",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/nft",
+      "file": "answers/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*?*",
+      "file": "answers/transaction.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions?*",
+      "file": "answers/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search/quick?*",
+      "file": "answers/search-quick.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*",
+      "file": "answers/transaction.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions",
+      "file": "answers/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search/quick",
+      "file": "answers/search-quick.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/?*",
+      "file": "answers/addresses.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*?*",
+      "file": "answers/address.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/",
+      "file": "answers/addresses.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses?*",
+      "file": "answers/addresses.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*",
+      "file": "answers/address.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses",
+      "file": "answers/addresses.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/media/token.svg",
+      "file": "answers/token.svg",
+      "headers": {
+        "content-type": "image/svg+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*?*",
+      "file": "answers/block.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*?*",
+      "file": "answers/token.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/config?*",
+      "file": "answers/config.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks?*",
+      "file": "answers/blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens?*",
+      "file": "answers/tokens.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search?*",
+      "file": "answers/search.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*",
+      "file": "answers/block.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*",
+      "file": "answers/token.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/config",
+      "file": "answers/config.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks",
+      "file": "answers/blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens",
+      "file": "answers/tokens.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search",
+      "file": "answers/search.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats?*",
+      "file": "answers/stats.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats",
+      "file": "answers/stats.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/openapi.yaml",
+      "file": "answers/openapi.yaml",
+      "headers": {
+        "content-type": "application/yaml",
+        "access-control-allow-origin": "http://localhost:4173"
+      }
+    },
+    {
+      "method": "HEAD",
+      "pattern": "https://explorer.example.test/openapi.yaml",
+      "file": "answers/openapi.yaml",
+      "headers": {
+        "content-type": "application/yaml",
+        "access-control-allow-origin": "http://localhost:4173"
+      }
+    },
+    {
+      "method": "OPTIONS",
+      "pattern": "https://explorer.example.test/api/*",
+      "file": "answers/empty.txt",
+      "headers": {
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET,POST,OPTIONS",
+        "access-control-allow-headers": "content-type,updated-gas-oracle,show-scam-tokens,api-v2-temp-token"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://fonts.googleapis.com/*",
+      "file": "answers/fonts.css",
+      "headers": {
+        "content-type": "text/css"
+      }
+    }
+  ],
+  "typeScale": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    16,
+    18,
+    20,
+    24,
+    28,
+    30,
+    32,
+    36,
+    40,
+    48,
+    60,
+    72,
+    96,
+    128
+  ],
+  "outputs": [
+    ".next/server",
+    ".next/static"
+  ]
+}

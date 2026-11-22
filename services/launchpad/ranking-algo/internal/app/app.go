@@ -19,8 +19,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
@@ -52,6 +55,8 @@ const (
 	rateLimitWindow = 60 * time.Second
 	productionEnv   = "production"
 	metricsPath     = "/metrics"
+	healthLivePath  = "/health/live"
+	healthReadyPath = "/health/ready"
 )
 
 // App is a fully-wired, ready-to-run ranking-algo service.
@@ -182,6 +187,7 @@ func Run(parent context.Context) error {
 		return err
 	}
 	logger := sharedlog.New("ranking-algo", cfg.LogLevel)
+	slog.SetDefault(logger)
 	logger.Info("starting ranking-algo service")
 
 	ctx, cancel := context.WithCancel(parent)
@@ -266,7 +272,7 @@ func Run(parent context.Context) error {
 
 func healthOnlyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" {
+		if r.URL.Path != healthLivePath && r.URL.Path != healthReadyPath {
 			http.NotFound(w, r)
 			return
 		}
@@ -317,7 +323,7 @@ func runtimeHandler(tracker *sharedprocess.Tracker, next http.Handler, metrics *
 	})
 	tracked := tracker.Middleware(observed)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == metricsPath {
+		if r.URL.Path == "/health" || r.URL.Path == healthLivePath || r.URL.Path == healthReadyPath || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -341,6 +347,7 @@ type nativeRankingRuntime struct {
 	ctx                         context.Context
 	stop                        context.CancelFunc
 	client                      *http.Client
+	evidenceClient              *http.Client
 	logger                      *slog.Logger
 	workers                     sync.WaitGroup
 	refreshMu                   sync.Mutex
@@ -352,6 +359,7 @@ type nativeRankingRuntime struct {
 type rankingVisibilityClient struct {
 	endpoint string
 	client   *http.Client
+	now      func() time.Time
 }
 
 func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (store.RankingVisibility, error) {
@@ -364,6 +372,7 @@ func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (st
 	}
 	response, err := c.client.Do(request)
 	if err != nil {
+		slog.Error("ranking visibility request failed", "error", err)
 		return out, err
 	}
 	defer func() {
@@ -372,13 +381,21 @@ func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (st
 		}
 	}()
 	if response.StatusCode != 200 {
+		slog.Error("ranking visibility response unavailable", "status", response.StatusCode)
 		return out, ranker.ErrUnavailable
 	}
 	raw, err := io.ReadAll(io.LimitReader(response.Body, 64<<20+1))
 	if err != nil || len(raw) > 64<<20 {
+		slog.Error("ranking visibility body unavailable", "error", err, "oversized", len(raw) > 64<<20)
 		return out, ranker.ErrUnavailable
 	}
 	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() {
+		slog.Error("ranking visibility document invalid or incomplete")
+		return out, ranker.ErrUnavailable
+	}
+	now := c.now()
+	if out.ObservedAt.After(now.Add(store.RankingVisibilityClockAllowance)) || now.Sub(out.ObservedAt) > 60*time.Second {
+		slog.Error("ranking visibility observation outside freshness window")
 		return out, ranker.ErrUnavailable
 	}
 	return out, nil
@@ -423,6 +440,23 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	if b.Version != 2 || b.GatewayDNS == "" || len(b.GatewayCertSHA256) != 64 || b.VisibilityDNS == "" || len(b.VisibilityCertSHA256) != 64 || b.MaxAttempts < 1 || b.MaxAttempts > 100 || b.MaximumReads < 1 || b.MaximumReads > 64 || cfg.TickInterval() != 30*time.Second || cfg.NewTickInterval() != 10*time.Second {
 		return nil, errors.New("ranking runtime binding unavailable")
 	}
+	evidenceEndpoint, err := url.Parse(b.EvidenceEndpoint)
+	if err != nil || (evidenceEndpoint.Scheme != "http" && evidenceEndpoint.Scheme != "https") || evidenceEndpoint.Hostname() == "" || evidenceEndpoint.User != nil || strings.ContainsAny(b.EvidenceEndpoint, "?#") || strings.IndexFunc(b.EvidenceEndpoint, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 || evidenceEndpoint.EscapedPath() != "/internal/ranking-evidence" {
+		return nil, errors.New("ranking runtime binding evidenceEndpoint unavailable")
+	}
+	if port := evidenceEndpoint.Port(); port != "" {
+		number, parseErr := strconv.Atoi(port)
+		if parseErr != nil || number < 1 || number > 65535 {
+			return nil, errors.New("ranking runtime binding evidenceEndpoint unavailable")
+		}
+	} else if strings.HasSuffix(evidenceEndpoint.Host, ":") {
+		return nil, errors.New("ranking runtime binding evidenceEndpoint unavailable")
+	}
+	native.evidenceClient = &http.Client{Transport: &http.Transport{Proxy: nil, MaxIdleConns: 4, MaxIdleConnsPerHost: 4, ResponseHeaderTimeout: 2 * time.Second}, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	evidence, err := store.NewHTTPCanonicalEvidence(b.EvidenceEndpoint, native.evidenceClient)
+	if err != nil {
+		return nil, fmt.Errorf("ranking runtime binding evidenceEndpoint: %w", err)
+	}
 	provider, err := sharedsecrets.NewChecked(sharedsecrets.Options{Provider: sharedsecrets.ProviderType(cfg.SecretsProvider), CacheTTL: 0})
 	if err != nil {
 		return nil, err
@@ -434,7 +468,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		}
 		value, err := provider.GetRequired(ctx, ref)
 		if err != nil {
-			return "", errors.New("ranking required secret unavailable")
+			return "", fmt.Errorf("ranking required secret unavailable: %s", ref)
 		}
 		native.secrets[ref] = value
 		return value, nil
@@ -473,7 +507,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		return nil, ranker.ErrUnavailable
 	}
 	native.client = &http.Client{Transport: &http.Transport{TLSClientConfig: pinned, Proxy: nil, MaxIdleConns: 8, MaxIdleConnsPerHost: 4, ResponseHeaderTimeout: 2 * time.Second}, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	native.visibility = &rankingVisibilityClient{b.VisibilityEndpoint, native.client}
+	native.visibility = &rankingVisibilityClient{endpoint: b.VisibilityEndpoint, client: native.client, now: time.Now}
 	certificate, err = rankingBoundBytes(b.ServerCertFile, b.ServerCertSHA256)
 	if err != nil {
 		return nil, err
@@ -496,6 +530,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	if err != nil {
 		return nil, err
 	}
+	native.reader.Evidence = evidence
 	source, err := store.NewFrozenInputs(pool, native.reader)
 	if err != nil {
 		return nil, err
@@ -540,6 +575,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		defer cancel()
 		raw, err := native.reader.MarshalUniverse(bounded, pool, uuid.NewString())
 		if err != nil {
+			logger.Error("ranking input read failed", "error", err)
 			sharedhttp.WriteJSON(w, 503, map[string]string{"code": "RANKING_INPUT_UNAVAILABLE"})
 			return
 		}
@@ -553,7 +589,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		return nil, err
 	}
 	ingress := http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/health" || request.URL.Path == "/health/live" || request.URL.Path == "/health/ready" || request.URL.Path == metricsPath {
+		if request.URL.Path == "/health" || request.URL.Path == healthLivePath || request.URL.Path == healthReadyPath || request.URL.Path == metricsPath {
 			router.ServeHTTP(w, request)
 			return
 		}
@@ -570,7 +606,7 @@ func (r *nativeRankingRuntime) ready(ctx context.Context) error {
 	for ref, old := range r.secrets {
 		value, err := r.provider.GetRequired(ctx, ref)
 		if err != nil || value != old {
-			return errors.New("ranking secret unavailable or rotated")
+			return fmt.Errorf("ranking secret unavailable or rotated: %s", ref)
 		}
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -680,15 +716,19 @@ func (r *nativeRankingRuntime) runPublication() {
 			return
 		case <-ticker.C:
 			if tick%60 == 0 {
-				if _, err := r.publication.Prune(r.ctx, time.Now().UTC(), 100); err != nil {
-					r.logger.Error("ranking prune failed", slog.String("code", "RANKING_PRUNE_UNAVAILABLE"))
-				}
+				r.prune()
 			}
 			r.publishRound()
 			for _, category := range append(ranker.HeavyCategoryNames(), "new") {
 				_ = r.cache.Rebuild(r.ctx, r.publication.SnapshotStore, category)
 			}
 		}
+	}
+}
+
+func (r *nativeRankingRuntime) prune() {
+	if _, err := r.publication.Prune(r.ctx, time.Now().UTC(), 100); err != nil {
+		r.logger.Error("ranking prune failed", slog.String("code", "RANKING_PRUNE_UNAVAILABLE"), slog.Any("error", err))
 	}
 }
 
@@ -736,5 +776,8 @@ func (r *nativeRankingRuntime) close() {
 	r.workers.Wait()
 	if r.client != nil {
 		r.client.CloseIdleConnections()
+	}
+	if r.evidenceClient != nil {
+		r.evidenceClient.CloseIdleConnections()
 	}
 }

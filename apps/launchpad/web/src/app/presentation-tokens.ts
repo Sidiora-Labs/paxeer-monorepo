@@ -13,8 +13,8 @@ export const launchpadGeometry = {
     rightDefault: 312,
     centerMin: 560,
     sideMax: 640,
-    collapsed: 44,
-    gutter: 44,
+    collapsed: 24,
+    gutter: 4,
     frameInset: 4,
   },
   chart: {

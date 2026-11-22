@@ -16,10 +16,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	iface "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -51,12 +53,32 @@ func rewardSchemaRoot() string {
 	return filepath.Clean(filepath.Join(filepath.Dir(source), "../../../../.."))
 }
 
+var rewardSchemaDependencies struct {
+	once sync.Once
+	err  error
+}
+
+func rewardSchemaNode(t *testing.T, ctx context.Context, script string, args ...string) *exec.Cmd {
+	t.Helper()
+	directory := filepath.Join(rewardSchemaRoot(), "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema")
+	rewardSchemaDependencies.once.Do(func() {
+		install := exec.CommandContext(ctx, "pnpm", "install", "--ignore-workspace", "--frozen-lockfile")
+		install.Dir = directory
+		if output, err := install.CombinedOutput(); err != nil {
+			rewardSchemaDependencies.err = fmt.Errorf("reward schema dependencies: %w: %s", err, output)
+		}
+	})
+	if rewardSchemaDependencies.err != nil {
+		t.Fatal(rewardSchemaDependencies.err)
+	}
+	return exec.CommandContext(ctx, "node", append([]string{filepath.Join(directory, script)}, args...)...)
+}
+
 // PGlite executes the real deployment SQL and PostgreSQL wire protocol in WASM;
 // no PostgreSQL installation, shared database or service credentials are used.
 func rewardSchemaStore(t *testing.T, ctx context.Context, directory string) (string, func()) {
 	t.Helper()
-	script := filepath.Join(rewardSchemaRoot(), "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/store.mjs")
-	cmd := exec.CommandContext(ctx, "node", script, directory)
+	cmd := rewardSchemaNode(t, ctx, "store.mjs", directory)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdout, err := cmd.StdoutPipe()
@@ -328,7 +350,7 @@ func TestRewardRequestSchemaRecovery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	root := rewardSchemaRoot()
-	compile := exec.CommandContext(ctx, "node", filepath.Join(root, "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/contracts.mjs"), root)
+	compile := rewardSchemaNode(t, ctx, "contracts.mjs", root)
 	var compileErr bytes.Buffer
 	compile.Stderr = &compileErr
 	raw, err := compile.Output()
@@ -442,10 +464,8 @@ func TestRewardRequestSchemaRecovery(t *testing.T) {
 	}
 	rewardSchemaSQL(t, ctx, pool, epochSQL)
 	rewardSchemaSQL(t, ctx, pool, `INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'local',1,$1)`, strings.Repeat("a", 64))
-	rewardSchemaSQL(t, ctx, pool, `CREATE TABLE indexer.indexer_canonical_creations (
-  nft_id numeric PRIMARY KEY,pool text NOT NULL,creator text NOT NULL,
-  height bigint NOT NULL,block_hash text NOT NULL,transaction_hash text NOT NULL,
-  transaction_index numeric NOT NULL,log_index numeric NOT NULL)`)
+	rewardSchemaSQL(t, ctx, pool, internaltest.RegisteredObjectSQL(t, 190001, "TABLE", "indexer.indexer_canonical_creations"))
+	rewardSchemaSQL(t, ctx, pool, internaltest.RegisteredObjectSQL(t, 190001, "VIEW", "indexer.indexer_canonical_creations_v1"))
 	var creation *types.Log
 	for _, entry := range minted.Logs {
 		if entry.Address == addresses["SidioraNFT"] && len(entry.Topics) == 4 && entry.Topics[0] == crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)")) && entry.Topics[1] == (common.Hash{}) {
@@ -455,7 +475,8 @@ func TestRewardRequestSchemaRecovery(t *testing.T) {
 	if creation == nil {
 		t.Fatal("real NFT mint produced no creation event")
 	}
-	rewardSchemaSQL(t, ctx, pool, `INSERT INTO indexer.indexer_canonical_creations VALUES(1,$1,$2,$3,$4,$5,$6,$7)`, strings.ToLower(addresses["SidioraPool"].Hex()), wallet, creation.BlockNumber, creation.BlockHash.Hex(), creation.TxHash.Hex(), creation.TxIndex, creation.Index)
+	rewardSchemaSQL(t, ctx, pool, `INSERT INTO indexer.indexer_canonical_creations(nft_id,pool,creator,height,block_hash,transaction_hash,transaction_index,log_index,token,factory,optical,block_timestamp,provenance,payload)
+ VALUES(1,$1,$2,$3,$4,$5,$6,$7,$8,$2,$9,$10,'{}','{}')`, strings.ToLower(addresses["SidioraPool"].Hex()), wallet, creation.BlockNumber, creation.BlockHash.Hex(), creation.TxHash.Hex(), creation.TxIndex, creation.Index, strings.ToLower(addresses["Token"].Hex()), zero.Hex(), head.Time)
 	hashes := map[string]string{}
 	for _, target := range []string{l18.NFT, l18.Accumulator, l18.FeesRouter, l18.USDL} {
 		var code, slot hexutil.Bytes

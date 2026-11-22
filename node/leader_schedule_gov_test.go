@@ -67,6 +67,7 @@ func TestLeaderScheduleFollowsGovernedChangeNextHeight(t *testing.T) {
 		_, err = a.Commit(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, next, a.LastBlockHeight())
+		app.WaitForTestQueryHeight(t, a, a.LastBlockHeight())
 	}
 
 	height := a.LastBlockHeight() + 1

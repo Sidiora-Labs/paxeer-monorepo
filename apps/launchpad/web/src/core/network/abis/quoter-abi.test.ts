@@ -9,4 +9,4 @@ export function webQuoterAbiMatchesPrecompileRole() {
   );
 }
 
-test(webQuoterAbiMatchesPrecompileRole);
+test(webQuoterAbiMatchesPrecompileRole.name, webQuoterAbiMatchesPrecompileRole);

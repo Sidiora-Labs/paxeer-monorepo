@@ -1,4 +1,3 @@
-import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -37,6 +36,12 @@ export const Tab: FC<
           color="success"
           size="sm"
           className="oui-px-2 oui-flex oui-gap-1"
+          style={{
+            position: "absolute",
+            top: "50%",
+            insetInlineEnd: "24px",
+            transform: "translateY(-50%)",
+          }}
           onClick={(e) => {
             props.anATrader();
           }}
@@ -53,6 +58,12 @@ export const Tab: FC<
           color="primary"
           size="sm"
           className="oui-px-2 oui-flex oui-gap-1"
+          style={{
+            position: "absolute",
+            top: "50%",
+            insetInlineEnd: "24px",
+            transform: "translateY(-50%)",
+          }}
           onClick={(e) => {
             props.anAnAffiliate();
           }}
@@ -68,7 +79,7 @@ export const Tab: FC<
 
   if (props.isLoading) {
     return (
-      <div className={cn("oui-max-w-screen-xl", props.classNames?.loadding)}>
+      <div className={cn("oui-max-w-[960px]", props.classNames?.loadding)}>
         {props.splashPage?.() || <HomePage />}
       </div>
     );
@@ -76,7 +87,7 @@ export const Tab: FC<
 
   if ((!props.isAffiliate && !props.isTrader) || props.showHome) {
     return (
-      <div className={cn("oui-max-w-screen-xl", props?.classNames?.home)}>
+      <div className={cn("oui-max-w-[960px]", props?.classNames?.home)}>
         <HomePage />
       </div>
     );
@@ -91,58 +102,51 @@ export const Tab: FC<
       }}
       className={cn("oui-w-full", props.classNames?.dashboard)}
     >
-      <div className="oui-flex oui-flex-wrap oui-items-center oui-gap-3">
-        <TabsList
-          className={cn(
-            "oui-px-6 oui-flex oui-flex-row oui-justify-start oui-h-10 oui-relative oui-items-end",
-            "oui-text-base md:oui-text-lg",
-            "oui-rounded-xl oui-bg-base-9",
-            "oui-border oui-border-line-6",
-            props.isAffiliate && props.isTrader && "oui-justify-center",
-          )}
-        >
-          {props.isAffiliate && (
-            <TabsTrigger
-              id="oui-affiliate-dashboard-tab-affiliate"
-              value={TabTypes.affiliate}
-            >
-              <Flex
-                direction={"row"}
-                gap={1}
-                mb={2}
-                className={surface.surface}
-              >
-                <AffiliateIcon
-                  className={
-                    props.tab === TabTypes.affiliate
-                      ? "oui-text-base-contrast"
-                      : "oui-text-base-contrast-36"
-                  }
-                />
-                <Text>{t("common.affiliate")}</Text>
-              </Flex>
-            </TabsTrigger>
-          )}
-          {props.isTrader && (
-            <TabsTrigger
-              id="oui-affiliate-dashboard-tab-trader"
-              value={TabTypes.trader}
-            >
-              <Flex direction={"row"} gap={1} mb={2}>
-                <TraderIcon
-                  className={
-                    props.tab === TabTypes.trader
-                      ? "oui-text-base-contrast"
-                      : "oui-text-base-contrast-36"
-                  }
-                />
-                <Text>{t("affiliate.trader")}</Text>
-              </Flex>
-            </TabsTrigger>
-          )}
-        </TabsList>
+      <TabsList
+        className={cn(
+          "oui-px-6 oui-flex oui-flex-row oui-justify-start oui-h-[44px] oui-relative oui-items-end",
+          "oui-text-base md:oui-text-lg",
+          "oui-rounded-xl oui-bg-base-9",
+          "oui-border oui-border-line-6",
+          props.isAffiliate && props.isTrader && "oui-justify-center",
+        )}
+      >
+        {props.isAffiliate && (
+          <TabsTrigger
+            id="oui-affiliate-dashboard-tab-affiliate"
+            value={TabTypes.affiliate}
+          >
+            <Flex direction={"row"} gap={1} mb={2}>
+              <AffiliateIcon
+                className={
+                  props.tab === TabTypes.affiliate
+                    ? "oui-text-base-contrast"
+                    : "oui-text-base-contrast-36"
+                }
+              />
+              <Text>{t("common.affiliate")}</Text>
+            </Flex>
+          </TabsTrigger>
+        )}
+        {props.isTrader && (
+          <TabsTrigger
+            id="oui-affiliate-dashboard-tab-trader"
+            value={TabTypes.trader}
+          >
+            <Flex direction={"row"} gap={1} mb={2}>
+              <TraderIcon
+                className={
+                  props.tab === TabTypes.trader
+                    ? "oui-text-base-contrast"
+                    : "oui-text-base-contrast-36"
+                }
+              />
+              <Text>{t("affiliate.trader")}</Text>
+            </Flex>
+          </TabsTrigger>
+        )}
         {extendNode()}
-      </div>
+      </TabsList>
       {props.isAffiliate && (
         <TabsContent value={TabTypes.affiliate} className="oui-mt-4">
           <AffiliatePage />

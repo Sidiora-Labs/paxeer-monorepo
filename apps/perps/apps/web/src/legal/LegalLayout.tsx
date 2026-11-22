@@ -1,6 +1,9 @@
-import React from "react";
+import React, { type CSSProperties } from "react";
 import Link from "next/link";
 import { ChevronLeftIcon } from "@paxeer-network/ui/icon/chevronLeft";
+
+import { WORKSPACE_THEME_CSS_VARS } from "../theme/workspaceTheme";
+import { CookieBanner } from "./CookieBanner";
 
 interface LegalLayoutProps {
   title: string;
@@ -18,7 +21,10 @@ export function LegalLayout({
   children,
 }: LegalLayoutProps) {
   return (
-    <div className="oui-min-h-full oui-bg-base-10 oui-px-4 oui-py-10">
+    <div
+      style={WORKSPACE_THEME_CSS_VARS as CSSProperties}
+      className="oui-min-h-full oui-bg-base-10 oui-px-4 oui-py-10"
+    >
       <div className="oui-mx-auto oui-max-w-2xl">
         {/* Back link */}
         <Link
@@ -69,6 +75,7 @@ export function LegalLayout({
           </Link>
         </div>
       </div>
+      <CookieBanner />
     </div>
   );
 }

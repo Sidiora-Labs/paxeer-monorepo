@@ -1,4 +1,3 @@
-import surface from "../../../surface.module.css";
 import { FC, ReactNode, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Flex, Text, cn } from "@paxeer-network/ui";
@@ -48,7 +47,7 @@ export const BecomeAffiliate: FC<BecomeAffiliateReturns> = (props) => {
       p={6}
       itemAlign={"center"}
       r={"2xl"}
-      className={`${surface.surface} oui-bg-base-9`}
+      className="oui-bg-base-9"
       width={"100%"}
     >
       <Text>{t("affiliate.process.title")}</Text>
@@ -88,7 +87,7 @@ const Item: FC<{
     <Flex
       className={cn(
         "oui-flex oui-flex-row oui-gap-3",
-        "xl:oui-flex-1 xl:oui-flex-col xl:oui-gap-1",
+        "xl:oui-flex-1 xl:oui-flex-col xl:oui-gap-[6px]",
       )}
       width={"100%"}
     >
@@ -119,7 +118,7 @@ const ApplyIcon = () => {
       viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="xl:oui-w-16 xl:oui-h-16 2xl:oui-w-20 2xl:oui-h-20"
+      className="xl:oui-w-[64px] xl:oui-h-[64px] 2xl:oui-w-[80px] 2xl:oui-h-[80px]"
     >
       <path
         fillRule="evenodd"
@@ -168,7 +167,7 @@ const ShareIcon = () => {
       viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="xl:oui-w-16 xl:oui-h-16 2xl:oui-w-20 2xl:oui-h-20"
+      className="xl:oui-w-[64px] xl:oui-h-[64px] 2xl:oui-w-[80px] 2xl:oui-h-[80px]"
     >
       <path
         d="M24 33a9 9 0 1 1-18 0 9 9 0 0 1 18 0"
@@ -200,7 +199,7 @@ const EarnIcon = () => {
       viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="xl:oui-w-16 xl:oui-h-16 2xl:oui-w-20 2xl:oui-h-20"
+      className="xl:oui-w-[64px] xl:oui-h-[64px] 2xl:oui-w-[80px] 2xl:oui-h-[80px]"
     >
       <path
         fillRule="evenodd"

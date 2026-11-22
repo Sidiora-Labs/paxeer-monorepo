@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO n'est pas pris en charge lorsque TP/SL, Post-Only, IOC ou FOK est sélectionné.",
   "orderEntry.estLiqPrice": "Prix de liq. estimé",
   "orderEntry.disableOrderConfirm": "Désactiver la confirmation d'ordre",
+  "orderEntry.nativeFunding.twoTransactions": "Deux transactions vont suivre : déposer la garantie manquante, puis passer l’ordre. Une autorisation du jeton peut aussi être nécessaire.",
   "orderEntry.orderConfirm": "Confirmer l'ordre",
   "orderEntry.confirmScaledOrder": "Confirmer l'ordre échelonné",
   "orderEntry.hidden": "Masqué",

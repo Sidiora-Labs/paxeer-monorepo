@@ -154,6 +154,7 @@ func runGigaStorageGas(t *testing.T, stored *uint64, storageGas uint64) {
 		_, err = w.App.Commit(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, response.AppHash, w.App.LastCommitID().Hash)
+		app.WaitForTestReceiptHeight(t, w.App, 1)
 		ctx := w.App.GetCheckCtx()
 		var receipts []*evmtypes.Receipt
 		for i, signed := range []*ethtypes.Transaction{signedCreation, signedCall} {

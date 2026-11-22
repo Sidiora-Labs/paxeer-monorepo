@@ -414,6 +414,7 @@ func (e *PreflightEngine) Measure(ctx context.Context, plan MeasurementPlan, raw
 	capture := &measurementCapture{reader: e.reader, writer: raw, hash: hash, maxBytes: plan.MaxRawBytes}
 	measured := *e
 	measured.reader = capture
+	measured.attestations = newPreflightAttestations()
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(plan.DeadlineMilliseconds)*time.Millisecond)
 	defer cancel()
 	capture.cancel = cancel

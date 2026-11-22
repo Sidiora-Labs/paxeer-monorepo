@@ -37,7 +37,6 @@ const PageTitle = ({
         alignItems="center"
       >
         <Flex
-          h={{ base: 'auto', lg: isLoading ? 10 : 'auto' }}
           maxW="100%"
           minW={ 0 }
           alignItems="center"
@@ -49,13 +48,15 @@ const PageTitle = ({
           { beforeTitle }
           <Skeleton
             loading={ isLoading }
+            flex={ isLoading && kind ? '1' : undefined }
             minW={ 0 }
             maxW="100%"
           >
             <Heading
               level="1"
               textStyle="h1"
-              whiteSpace="normal"
+              whiteSpace={ isLoading && kind ? 'nowrap' : 'normal' }
+              overflow={ isLoading && kind ? 'hidden' : undefined }
               overflowWrap="anywhere"
             >
               { title }
@@ -71,7 +72,7 @@ const PageTitle = ({
         { withTextAd && <TextAd order={{ base: -1, lg: 100 }} mb={{ base: 6, lg: 0 }} ml="auto" w={{ base: '100%', lg: 'auto' }}/> }
       </Flex>
       { identifier && (
-        <Flex alignItems="center" flexWrap="wrap" gap={ 2 } minW={ 0 } maxW="100%" fontFamily="mono" fontVariantNumeric="tabular-nums" data-entity-identifier>
+        <Flex alignItems="center" flexWrap={ identifierContent ? 'wrap' : 'nowrap' } gap={ 2 } minW={ 0 } maxW="100%" fontFamily="mono" fontVariantNumeric="tabular-nums" data-entity-identifier>
           { identifierContent ?? (
             <>
               <Box overflowWrap="anywhere" minW={ 0 }>{ identifier }</Box>
@@ -91,7 +92,7 @@ const PageTitle = ({
           loading={ isLoading }
           alignItems="center"
           minH={ 10 }
-          overflow="hidden"
+          overflow={ isLoading ? 'hidden' : 'visible' }
           display="flex"
           flexWrap={{ base: 'wrap', lg: 'nowrap' }}
           rowGap={ 2 }

@@ -110,6 +110,7 @@ func tableCopy(t *testing.T, r rehearsal.CopyReport, name string) rehearsal.Tabl
 func TestCopySourceReadsOneSnapshotIntoTheFullLedger(t *testing.T) {
 	s := newSource(t, 4)
 	s.standardFixture(t)
+	sourceTables := relations(t, s.pg.DB)
 	target := s.pg.Database(t, "rehearsal_target")
 	all := testsupport.GatewayMigrationFiles(t)
 	dir := testsupport.GatewayMigrationsDir(t)
@@ -183,8 +184,8 @@ func TestCopySourceReadsOneSnapshotIntoTheFullLedger(t *testing.T) {
 	if err := r.Verify(); err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Tables) != 13 {
-		t.Fatalf("copied %d tables, want the 13 of the source ledger", len(r.Tables))
+	if len(r.Tables) != sourceTables {
+		t.Fatalf("copied %d tables, want the %d of the source ledger", len(r.Tables), sourceTables)
 	}
 	for _, c := range r.Tables {
 		if c.SourceRows != c.TargetRows || c.SourceDigest != c.TargetDigest {

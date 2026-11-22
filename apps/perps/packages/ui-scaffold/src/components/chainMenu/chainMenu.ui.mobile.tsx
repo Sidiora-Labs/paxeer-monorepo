@@ -8,9 +8,6 @@ export const ChainMenuUiMobile = (props: UseChainMenuScriptReturn) => {
 
   return (
     <button
-      type="button"
-      aria-label={t("connector.switchNetwork")}
-      className="oui-shell-icon-button"
       onClick={(e) => {
         modal
           .show<{
@@ -34,11 +31,11 @@ export const ChainMenuUiMobile = (props: UseChainMenuScriptReturn) => {
           );
       }}
     >
-      <Box className="oui-relative oui-rounded-t-md oui-rounded-bl-md oui-rounded-br-sm oui-bg-base-5 oui-px-2 oui-h-12 oui-w-12 oui-flex oui-items-center oui-justify-center">
+      <Box className="oui-relative oui-rounded-t-[6px] oui-rounded-bl-[6px] oui-rounded-br-[3px] oui-bg-base-5 oui-px-2 oui-h-8 oui-w-8 oui-flex oui-items-center oui-justify-center">
         <ChainIcon
           chainId={props.currentChainId!}
           size="xs"
-          className="oui-h-5 oui-w-5"
+          className="oui-h-[18px] oui-w-[18px]"
         />
         <div className="oui-absolute oui-end-0 oui-bottom-0">
           <svg

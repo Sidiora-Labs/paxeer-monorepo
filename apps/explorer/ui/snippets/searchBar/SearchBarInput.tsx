@@ -64,8 +64,6 @@ const SearchBarInput = (
       <ClearButton
         onClick={ onClear }
         visible={ Boolean(value?.length) }
-        minH="touchTarget"
-        minW="touchTarget"
         color="text.secondary"
         mx={ 2 }
       />
@@ -101,6 +99,7 @@ const SearchBarInput = (
       onClick={ onFormClick }
       w={ isHero ? 'calc(var(--chakra-spacing-80) * 2)' : 'var(--chakra-spacing-80)' }
       maxW="100%"
+      minW={ 0 }
       flexShrink={ 1 }
       backgroundColor="raised"
       borderRadius={ isHero ? 'control' : 'pill' }
@@ -109,10 +108,14 @@ const SearchBarInput = (
       { ...rest }
     >
       <InputGroup
+        minW={ 0 }
         startElement={ startElement }
+        startOffset="var(--chakra-spacing-9)"
+        endOffset={ isMobile ? 'var(--chakra-spacing-9)' : 'calc(var(--chakra-spacing-20) + var(--chakra-spacing-7) / 4)' }
         endElement={ endElement }
       >
         <Input
+          minW={ 0 }
           size="md"
           name="q"
           aria-controls={ isSuggestOpen ? suggestionId : undefined }
@@ -121,8 +124,8 @@ const SearchBarInput = (
           autoCapitalize="none"
           spellCheck={ false }
           h="auto"
-          minH={ isHero ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 'touchTarget' }
-          py={ 2 }
+          minH={ isHero ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 9 }
+          py={ 0 }
           borderRadius={ isHero ? 'control' : 'pill' }
           aria-label={ compact ? 'Search or ask' : 'Search' }
           placeholder={ isHero ? 'Search or ask: a transaction, address, block or token' : 'Search or ask…' }

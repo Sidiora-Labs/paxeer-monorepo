@@ -63,7 +63,7 @@ export const ActionButton: React.FC<ActionButtonProps> = (props) => {
   const buttonSize = { initial: "md", lg: "lg" } as const;
 
   return (
-    <Box className="oui-w-full lg:oui-w-auto lg:oui-min-w-44">
+    <Box className="oui-w-full lg:oui-w-auto lg:oui-min-w-[184px]">
       <AuthGuard
         status={AccountStatusEnum.EnableTrading}
         networkId={networkId}

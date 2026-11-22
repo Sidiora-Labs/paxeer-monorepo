@@ -17,26 +17,20 @@ import { LeverageScriptReturns } from "./leverage.script";
 
 const IconButton: React.FC<{
   Icon: React.ComponentType<any>;
-  onClick: () => void;
+  onClick: React.MouseEventHandler<SVGSVGElement>;
   disabled: boolean;
-  label: string;
 }> = (props) => {
-  const { Icon, onClick, disabled, label } = props;
+  const { Icon, onClick, disabled } = props;
   return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
+    <Icon
+      onClick={disabled ? undefined : onClick}
       className={cn(
-        "oui-m-1 oui-flex oui-min-h-10 oui-min-w-10 oui-items-center oui-justify-center oui-rounded-full oui-text-base-contrast oui-transition-opacity focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary",
+        "oui-m-2 oui-text-base-contrast oui-transition-all",
         disabled
           ? "oui-cursor-not-allowed oui-opacity-20"
           : "oui-cursor-pointer oui-opacity-100",
       )}
-    >
-      <Icon aria-hidden="true" />
-    </button>
+    />
   );
 };
 
@@ -76,18 +70,14 @@ export const LeverageInput: React.FC<LeverageInputProps> = (props) => {
         Icon={ReduceIcon}
         onClick={props.onLeverageReduce}
         disabled={props.isReduceDisabled}
-        label="Decrease leverage"
       />
       <Flex itemAlign="center" justify="center" className="oui-me-4">
         <Input
           value={props.value}
           id={id}
-          name="leverage"
-          inputMode="decimal"
-          aria-label="Leverage"
           autoComplete="off"
           classNames={{
-            input: cn("oui-text-end oui-text-2xl"),
+            input: cn("oui-text-end oui-text-[24px]"),
             root: cn(
               "oui-w-12",
               "oui-px-0",
@@ -115,7 +105,6 @@ export const LeverageInput: React.FC<LeverageInputProps> = (props) => {
         Icon={PlusIcon}
         onClick={props.onLeverageIncrease}
         disabled={props.isIncreaseDisabled}
-        label="Increase leverage"
       />
     </label>
   );
@@ -201,20 +190,26 @@ export const LeverageSelector: React.FC<LeverageSelectorProps> = (props) => {
       className="oui-text-base-contrast-80"
     >
       {props.toggles.map((option) => (
-        <button
-          type="button"
-          aria-pressed={value === option}
+        <Flex
           key={option}
+          itemAlign="center"
+          justify="center"
           className={cn(
-            "oui-box-border oui-flex oui-min-h-11 oui-cursor-pointer oui-items-center oui-justify-center oui-rounded-md oui-border oui-border-solid oui-bg-clip-padding oui-px-3 oui-py-2.5 oui-transition-colors focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary",
+            `oui-box-border oui-cursor-pointer oui-rounded-md oui-border oui-border-solid oui-bg-clip-padding oui-px-3 oui-py-2.5 oui-transition-all`,
             value === option
               ? "oui-border-primary oui-bg-base-6"
               : "oui-border-line-12",
           )}
           onClick={() => onLeverageChange?.(option)}
         >
-          <span className="oui-w-9 oui-select-none">{option}x</span>
-        </button>
+          <Flex
+            itemAlign="center"
+            justify="center"
+            className={cn(`oui-h-3 oui-w-9 oui-select-none`)}
+          >
+            {option}x
+          </Flex>
+        </Flex>
       ))}
     </Flex>
   );
@@ -314,7 +309,6 @@ export const LeverageSlider: FC<LeverageSliderProps> = (props) => {
                 left: `${position}%`,
               }}
               data-testid={`oui-testid-leverage-${item}-btn`}
-              type="button"
             >
               {`${item}x`}
             </button>

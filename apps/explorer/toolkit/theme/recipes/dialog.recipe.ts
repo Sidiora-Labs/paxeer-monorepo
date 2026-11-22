@@ -69,6 +69,7 @@ export const recipe = defineSlotRecipe({
     },
     footer: {
       display: 'flex',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'flex-start',
       gap: '6',

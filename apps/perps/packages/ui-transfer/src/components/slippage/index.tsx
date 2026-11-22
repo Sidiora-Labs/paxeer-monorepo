@@ -1,5 +1,4 @@
-import styles from "../../presentation.module.css";
-import { FC, ReactNode, useEffect, useMemo, useState, useId } from "react";
+import { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
   AlertDialog,
@@ -45,9 +44,6 @@ export const Slippage: FC<SlippageProps> = (props) => {
   const [customValue, setCustomValue] = useState("");
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
-  const inputId = useId();
-  const [interacted, setInteracted] = useState(false);
-  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (props.value !== undefined && !options.includes(props.value)) {
@@ -60,8 +56,6 @@ export const Slippage: FC<SlippageProps> = (props) => {
   }, [props.value, open]);
 
   const showSlippage = () => {
-    setInteracted(false);
-    setEditing(false);
     setOpen(true);
   };
 
@@ -132,12 +126,10 @@ export const Slippage: FC<SlippageProps> = (props) => {
         : undefined;
   const disabled = shouldDisableSlippageSave(currentValue, riskLevel);
 
-  const showError = interacted && !editing && !!errorMessage;
-
   const content = (
     <div className="oui-text-2xs">
       <Flex gapX={1} itemAlign="center">
-        <Text size="sm" intensity={80}>
+        <Text size="sm" intensity={54}>
           {t("transfer.slippage.slippageTolerance")}
         </Text>
         <Tips
@@ -147,12 +139,12 @@ export const Slippage: FC<SlippageProps> = (props) => {
           }
           title={t("common.tips")}
           classNamss={{
-            trigger: "oui-mt-0.5 oui-size-4",
+            trigger: "oui-mt-[2px] oui-size-4",
           }}
         />
       </Flex>
 
-      <Flex gap={2} mt={3} wrap="wrap">
+      <Flex gapX={2} mt={3}>
         {options.map((item) => {
           const isActive = value === item;
           return (
@@ -168,18 +160,6 @@ export const Slippage: FC<SlippageProps> = (props) => {
         })}
 
         <Input
-          id={inputId}
-          name="slippage"
-          aria-label={t("transfer.slippage.slippageTolerance")}
-          aria-invalid={showError}
-          aria-describedby={showError ? `${inputId}-hint` : undefined}
-          inputMode="decimal"
-          autoComplete="off"
-          onFocus={() => setEditing(true)}
-          onBlur={() => {
-            setEditing(false);
-            setInteracted(true);
-          }}
           suffix="%"
           formatters={[
             inputFormatter.numberFormatter,
@@ -188,10 +168,13 @@ export const Slippage: FC<SlippageProps> = (props) => {
           value={customValue}
           onValueChange={onValueChange}
           classNames={{
-            root: cn("oui-rounded-md oui-bg-base-6", "oui-min-h-12 oui-w-24"),
+            root: cn(
+              "oui-rounded-md oui-bg-base-6",
+              "oui-h-[40px] oui-w-[74px]",
+            ),
             input: "oui-text-base-contrast",
             additional: "oui-ps-1",
-            suffix: "oui-text-base-contrast-80",
+            suffix: "oui-text-base-contrast-36",
           }}
         />
       </Flex>
@@ -199,14 +182,14 @@ export const Slippage: FC<SlippageProps> = (props) => {
         <Text
           as="div"
           size="2xs"
-          intensity={80}
+          intensity={54}
           className="oui-mt-3 oui-leading-4"
         >
           {props.riskGuidance?.helperText || props.message}
         </Text>
       )}
-      {showError && (
-        <Flex mt={3} id={`${inputId}-hint`}>
+      {errorMessage && (
+        <Flex mt={3}>
           <Text
             size="2xs"
             color="warning"
@@ -229,7 +212,6 @@ export const Slippage: FC<SlippageProps> = (props) => {
   return (
     <>
       <AlertDialog
-        classNames={{ content: styles.surface }}
         open={open}
         onOpenChange={setOpen}
         title={t("transfer.slippage")}
@@ -239,26 +221,20 @@ export const Slippage: FC<SlippageProps> = (props) => {
         actions={{ primary: { disabled } }}
       />
       <Flex
-        asChild
         width="100%"
         justify="between"
         className="oui-cursor-pointer oui-select-none"
+        onClick={showSlippage}
       >
-        <button
-          type="button"
-          onClick={showSlippage}
-          className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-        >
-          <Text intensity={80} size="2xs">
-            {t("transfer.slippage")}
+        <Text intensity={36} size="2xs">
+          {t("transfer.slippage")}
+        </Text>
+        <Flex gapX={1}>
+          <Text size="2xs" color="primaryLight">
+            {props.value}%
           </Text>
-          <Flex gapX={1}>
-            <Text size="2xs" color="primaryLight">
-              {props.value}%
-            </Text>
-            <EditIcon className="oui-size-3 oui-text-primary-light" />
-          </Flex>
-        </button>
+          <EditIcon className="oui-size-3 oui-text-primary-light" />
+        </Flex>
       </Flex>
     </>
   );
@@ -273,28 +249,21 @@ type SlippageItemProps = {
 const SlippageItem: FC<SlippageItemProps> = ({ value, isActive, onClick }) => {
   return (
     <Flex
-      asChild
       intensity={600}
       justify="center"
       itemAlign="center"
       r="md"
-      width="var(--oui-space-20)"
-      height="var(--oui-space-10)"
+      width={74}
+      height={40}
       className={cn(
         "oui-cursor-pointer oui-select-none",
         isActive
           ? "oui-bg-primary-darken oui-text-primary-contrast/80"
           : "oui-text-base-contrast-80",
       )}
+      onClick={onClick}
     >
-      <button
-        type="button"
-        aria-pressed={isActive}
-        onClick={onClick}
-        className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-      >
-        <Text size="sm">{value}%</Text>
-      </button>
+      <Text size="sm">{value}%</Text>
     </Flex>
   );
 };

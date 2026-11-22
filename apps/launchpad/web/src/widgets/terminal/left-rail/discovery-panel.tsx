@@ -48,8 +48,8 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
   // The statistics read itself failed or is not deployed; per-row reasons cover everything else.
   const statsDetail = state.stats.state === 'unsupported' ? technicalDetail(state.stats.operation, state.stats.status) : null;
   let body;
-  if (ranking.state === 'loading') {
-    body = <div role="status" aria-label={`Loading ${title.toLowerCase()}`}><TableRowsSkeleton rows={6} columns={3} dense /></div>;
+  if (state.loading || ranking.state === 'loading') {
+    body = <div role="status" aria-label={`Loading ${title.toLowerCase()}`} className="absolute inset-0 overflow-hidden"><TableRowsSkeleton rows={6} columns={3} dense /></div>;
   } else if (ranking.state === 'unsupported') {
     body = <UnavailableState title={title} operation={ranking.operation} status={ranking.status} message={ranking.message} onRetry={state.reload} className="p-4" />;
   } else if (ranking.state === 'error') {
@@ -74,10 +74,11 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
 
   return (
     <section aria-labelledby={headingId} className={cn('flex min-h-0 flex-col bg-surface-1', className)}>
-      <header className="flex min-h-control-height-sm shrink-0 flex-wrap items-center gap-1 px-2">
+      <header className="flex min-h-control-height-sm shrink-0 flex-wrap items-center gap-1 px-2 min-[835px]:flex-nowrap">
         <h2 id={headingId} className="mr-auto truncate text-sm font-bold text-text">{title}</h2>
         <SegmentedControl
           label={`${title} change window`}
+          className="shrink-0"
           size="sm"
           shape="sm"
           options={railTimeframes.map(option => ({ value: option.value, label: option.label, ariaLabel: timeframeServed(option.value) ? `${option.label} change` : `${option.label} change, coming soon` }))}
@@ -120,7 +121,7 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
         <span>Coin</span>
         <span>Market cap</span>
       </div>
-      <div className="min-h-24 flex-1 overflow-y-auto">{body}</div>
+      <div className="relative min-h-24 flex-1 overflow-y-auto">{body}</div>
     </section>
   );
 }

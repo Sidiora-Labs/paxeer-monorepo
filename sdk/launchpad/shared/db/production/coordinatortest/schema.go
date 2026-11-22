@@ -26,7 +26,7 @@ func ReadMigrationSource(root, relative, want string) ([]byte, error) {
 			break
 		}
 	}
-	raw, err := os.ReadFile(filepath.Join(root, relative))
+	raw, err := os.ReadFile(filepath.Join(root, relative)) //nolint:gosec // Local repository path checked above; reviewed manifests bind the source checksum.
 	if err != nil {
 		return nil, fmt.Errorf("migration source is unavailable")
 	}

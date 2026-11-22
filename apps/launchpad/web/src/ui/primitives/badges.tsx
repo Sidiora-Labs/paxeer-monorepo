@@ -52,10 +52,21 @@ export function Chip({
   ...rest
 }: ChipProps) {
   const isOn = selected || pressed === true;
+  const interactive = !!href || !!rest.onClick || pressed !== undefined;
   const classes = cn(
-    'inline-flex shrink-0 items-center gap-1.5 py-1 rounded-pill font-bold transition-colors duration-fast',
-    size === 'sm' ? 'min-h-control-height-sm px-3 text-sm' : 'min-h-control-height-md px-4 text-sm',
-    variant === 'token' && 'min-h-[var(--sl-badge-height-sm)] px-2 text-xs',
+    'inline-flex shrink-0 items-center gap-1.5 rounded-pill font-bold transition-colors duration-fast',
+    interactive && 'border border-control-edge',
+    variant === 'token'
+      ? 'min-h-[var(--sl-badge-height-sm)] px-2 py-0.5 text-xs'
+      : size === 'sm'
+        ? 'min-h-control-height-sm px-3 py-1 text-sm'
+        : 'min-h-control-height-md px-4 py-1 text-sm',
+    interactive &&
+      (variant === 'token'
+        ? 'px-[calc(var(--sl-space-2)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)*0.5-var(--sl-edge-width))]'
+        : size === 'sm'
+          ? 'px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))]'
+          : 'px-[calc(var(--sl-space-4)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))]'),
     isOn
       ? variant === 'preset'
         ? 'bg-accent text-on-accent'
@@ -83,7 +94,7 @@ export function Chip({
   );
   if (href)
     return (
-      <Link href={href} className={classes} aria-current={selected ? 'page' : undefined}>
+      <Link prefetch={false} href={href} className={classes} aria-current={selected ? 'page' : undefined}>
         {body}
       </Link>
     );
@@ -480,7 +491,7 @@ export function ShortAddress({
           onClick={handleCopy}
           aria-label={`Copy address ${short}`}
           className={cn(
-            'inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text',
+            'inline-flex size-5 shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text',
             copied && 'text-accent'
           )}
         >
@@ -501,7 +512,7 @@ export function ShortAddress({
           rel="noreferrer noopener"
           onClick={(event) => event.stopPropagation()}
           aria-label="View on Paxeer explorer, opens in new tab"
-          className="inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text"
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text"
         >
           <ExternalLink aria-hidden="true" className="size-icon-sm" />
         </a>

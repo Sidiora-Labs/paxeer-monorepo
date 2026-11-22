@@ -1,9 +1,4 @@
 // Proves: operations.gen.ts operationDefinitions and Operations.call -> @kindle/sdk exported module / SdkClient native HTTP -> market operationsFor, fetchPlatformMetricsV2, fetchPoolDetailListing, resolvePoolSnapshot, loadSparkline, fetchStatsBatch and cups-contract readers.
-// Repairs: Operations.call did not reject non-object inputs explicitly;
-// pool-listings.fetchPoolDetailListing ignored the stats identity and quarantine;
-// pool-resolver.resolvePoolSnapshot ignored the metadata envelope watermark;
-// use-stats-batch.fetchStatsBatch ignored the envelope watermark;
-// use-sparkline.loadSparkline compared canonical candle addresses with mixed-case input.
 // The anchor owns no durable state. Sequential reads must reach the listener again.
 // The loopback application owns its domain records and emits responses using the
 // real SDK contract decoder. No SDK, transport, consumer or fetch is substituted.
@@ -89,7 +84,7 @@ class LaunchpadApplication {
   generation = 1;
   order = { orderId, chainOrderId: '1', inputRaw: '7', kind: 'limit', poolAddress: pool, status: 'active', triggerPrice: price, wallet };
   cup = { cupId, name: 'SDK cup', startsAt: from, endsAt: at, mode: 'solo', scoring: 'pnl', status: 'finished', prizePoolRaw: '10', prizeLadder: [{ rank: 1, amountRaw: '10' }], rulesMarkdown: 'Highest PnL wins.' };
-  pool = { chainId: '125', poolAddress: pool, tokenAddress: token, creator: wallet, createdPosition: position, createdAt: from, effectivePricingUsdlReserveRaw: '2000000', tokenReserveRaw: '1000000000000000000', quoteAssetAddress: wallet, quoteAssetDecimals: 6, feeBps: 30, realUsdlBalanceRaw: '1000000', virtualUsdlReserveRaw: '1000000' };
+  pool = { chainId: '125', homeChain: '0', poolAddress: pool, tokenAddress: token, creator: wallet, createdPosition: position, createdAt: from, effectivePricingUsdlReserveRaw: '2000000', tokenReserveRaw: '1000000000000000000', quoteAssetAddress: wallet, quoteAssetDecimals: 6, feeBps: 30, realUsdlBalanceRaw: '1000000', virtualUsdlReserveRaw: '1000000' };
   token = { address: token, name: 'Proof token', symbol: 'PROOF', decimals: 18, decimalsQuality: 'verified', logoAssetId: null, metadataRevision: '1', sourcePosition: position, supplyQuality: 'verified', totalSupplyRaw: '1000000000000000000' };
   stats() {
     return { poolAddress: pool, buys24h: '1', sells24h: '0', changeBaselineQuality: 'complete', circulatingMarketCapUsdlRaw: null, holderCount: '1', indicativeTvlUsdlRaw: null, priceChangeBps24h: null, realUsdlBalanceRaw: '1000000', sourceUpperPosition: position, supplyValuationQuality: 'verified', totalSupplyValuationUsdlRaw: null, valuationChangeUsdlRaw: null, valuationMethod: null, volume24hRaw: String(this.generation), watermark: { ...watermark }, windowStart: from, windowEnd: at };
@@ -154,6 +149,7 @@ class LaunchpadApplication {
       if (this.fault === 'stats-quarantine' && name === 'IF_POOL_DETAIL') response.data.stats.watermark.integrity = 'quarantined';
       if (this.fault === 'metadata-quarantine' && name === 'IF_METADATA_GET') response.watermark.integrity = 'quarantined';
       if (this.fault === 'batch-quarantine' && name === 'IF_STATS_BATCH') response.watermark.integrity = 'quarantined';
+      if (this.fault === 'pool-home-chain' && name === 'IF_POOL_DETAIL') delete response.data.pool.homeChain;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(response));
     } catch (error) {
@@ -192,8 +188,8 @@ async function runConsumerProof() {
     assert.notEqual(operationsFor(new SdkClient(client.config)), operations);
     const body = { poolAddress: pool, direction: 'crosses_above', cooldownSeconds: 300, threshold: price };
     const named = [IF_ALERT_CREATE, IF_ALERT_DELETE, IF_CUP_CURRENT, IF_CUP_GET, IF_CUP_RESULTS, IF_CUP_STANDINGS, IF_ORDER_CANCEL];
-    for (const name of named) assert.equal(routeStatus(name), 'development');
-    assert.equal(ROUTE_CORRECTIONS.IF_REWARD_CLAIM, '/v2/me/rewards/claim');
+    for (const name of named) assert.equal(routeStatus(name), [IF_ALERT_CREATE, IF_ALERT_DELETE].includes(name) ? 'served' : 'development');
+    assert.equal(ROUTE_CORRECTIONS.IF_REWARD_CLAIM, '/v2/me/rewards:prepare-claim');
 
     // Every named producer runs twice; changing domain records makes a cached
     // result visible. HTTP counts prove the consumers did not take a shortcut.
@@ -237,7 +233,7 @@ async function runConsumerProof() {
 
     const production = operationsFor(new SdkClient(config('https://api.example.com', true)));
     const before = app.requests.length;
-    for (const name of named) await assert.rejects(production.call(name, {}), error => error instanceof CapabilityUnavailableError && error.message === `Operation ${name} is development-only`);
+    for (const name of named) await assert.rejects(production.call(name, {}), error => [IF_ALERT_CREATE, IF_ALERT_DELETE].includes(name) ? error instanceof TypeError && error.message.startsWith(name === IF_ALERT_CREATE ? 'Invalid v2 contract AlertCreateBody:' : 'Invalid IF_ALERT_DELETE path') : error instanceof CapabilityUnavailableError && error.message === `Operation ${name} is development-only`);
     assert.equal(app.requests.length, before);
     await assert.rejects(operations.call(IF_CUP_GET, { path: { cupId: 'unknown' } }), /Invalid IF_CUP_GET path/);
     await assert.rejects(operations.call(IF_CUP_CURRENT, null), /Invalid IF_CUP_CURRENT input/);
@@ -252,7 +248,7 @@ async function runConsumerProof() {
       [IF_ORDER_CANCEL, () => operations.call(IF_ORDER_CANCEL, { path: { orderId } }, { headers: { 'Idempotency-Key': randomUUID() } })],
       ['IF_PLATFORM', () => fetchPlatformMetricsV2(operations)],
       ['IF_POOL_DETAIL', () => fetchPoolDetailListing(operations, pool)],
-      ['IF_METADATA_GET', () => resolvePoolSnapshot(pool, { operations })],
+      ['IF_METADATA_GET', () => operations.call('IF_METADATA_GET', { path: { tokenAddress: token } })],
       ['IF_CANDLES', () => loadSparkline(operations, pool, { from, to: at })],
       ['IF_STATS_BATCH', () => fetchStatsBatch(operations, [pool])],
     ]);
@@ -262,6 +258,14 @@ async function runConsumerProof() {
       await assert.rejects(call(), error => error instanceof TypeError && error.message.includes('Invalid v2 contract'), name);
       assert.equal(app.count(name), count + 1, name);
     }
+    app.fault = 'IF_METADATA_GET';
+    const optional = await resolvePoolSnapshot(pool, { operations });
+    assert.equal(optional.metadata, null);
+    assert.deepEqual(optional.token, app.token);
+    assert.equal(optional.unavailable.metadata, null);
+    app.fault = 'pool-home-chain';
+    await assert.rejects(operations.call('IF_POOL_DETAIL', { path: { poolAddress: pool } }), /Invalid v2 contract PoolDetailResponse/);
+    app.pool.homeChain = '0';
     app.fault = null;
     const disposable = await operations.call(IF_ALERT_CREATE, { body }, { headers: { 'Idempotency-Key': randomUUID() } });
     app.fault = IF_ALERT_DELETE;

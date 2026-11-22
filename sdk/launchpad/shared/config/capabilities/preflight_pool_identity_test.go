@@ -437,7 +437,7 @@ func TestPreflightPoolNativeCostSpender(t *testing.T) {
 			}
 			request.BlockHash = c.peer.blocks[1]
 			after := child.connected(request)
-			if !after.Supported || !after.CreationCost.Present || after.CreationCost.Value == nil {
+			if !after.Supported || !after.ExecutionPermitted || after.ReasonCode.Present || !after.CreationCost.Present || after.CreationCost.Value == nil {
 				t.Fatalf("recorded native approval did not admit creation: %+v", after)
 			}
 			paid := after.CreationCost.Value

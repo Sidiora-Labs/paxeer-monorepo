@@ -69,7 +69,7 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
     <article aria-labelledby={headingId} data-callout-id={callout.id} className={cn('flex flex-col gap-3 rounded-md bg-surface-1 p-3', variant === 'rail' && 'p-4', className)}>
       <header className="flex items-start gap-3">
         {profileHref ? (
-          <Link href={profileHref} className="shrink-0 rounded-pill" aria-label={`Open profile of ${authorLabel}`}>
+          <Link prefetch={false} href={profileHref} className="shrink-0 rounded-pill" aria-label={`Open profile of ${authorLabel}`}>
             <Avatar src={identity?.avatarUrl ?? null} name={authorLabel} size="lg" decorative loading={isPending} />
           </Link>
         ) : (
@@ -77,7 +77,7 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
         )}
         <div className="min-w-0 flex-1">
           <h3 id={headingId} className="flex min-w-0 items-center gap-2 text-md font-bold text-text">
-            {profileHref ? <Link href={profileHref} className="truncate hover:underline">{authorLabel}</Link> : <span className="truncate" title={callout.authorId}>{authorLabel}</span>}
+            {profileHref ? <Link prefetch={false} href={profileHref} className="truncate hover:underline">{authorLabel}</Link> : <span className="truncate" title={callout.authorId}>{authorLabel}</span>}
             <AgeChip iso={callout.createdAt} className="shrink-0" />
             {callout.corrected ? <span className="inline-flex shrink-0 items-center gap-1 text-xs text-text-faint"><Pencil aria-hidden="true" className="size-icon-sm" />Edited</span> : null}
           </h3>
@@ -121,7 +121,7 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
       <footer className="flex items-center gap-1">
         <IconButton label="Copy link" icon={<Link2 />} size="sm" onClick={() => { void copyLink(); }} />
         {callout.poolAddress ? (
-          <Link href={`/coin/${callout.poolAddress}#trade`} aria-label="Trade this coin" title="Trade this coin" className="inline-flex size-control-height-sm items-center justify-center rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text [&_svg]:size-icon-sm">
+          <Link prefetch={false} href={`/coin/${callout.poolAddress}#trade`} aria-label="Trade this coin" title="Trade this coin" className="inline-flex size-control-height-sm items-center justify-center rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text [&_svg]:size-icon-sm">
             <ArrowLeftRight aria-hidden="true" />
           </Link>
         ) : null}

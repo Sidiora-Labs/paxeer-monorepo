@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { Flex, Text, cn } from "@paxeer-network/ui";
+import { Flex, Text, cn, usePaxeerNetworkTheme } from "@paxeer-network/ui";
 
 /**
  * Icon type for step card
@@ -22,6 +22,17 @@ export type StepCardProps = {
  */
 export const StepCard: FC<StepCardProps> = (props) => {
   const { step, icon, title, description, className } = props;
+  const { currentTheme } = usePaxeerNetworkTheme();
+  const isLight = currentTheme?.mode === "light";
+
+  // Use one shared brand surface for every card in the light theme.
+  const cardBackgroundClass = isLight
+    ? "oui-bg-primary"
+    : "oui-bg-primary-darken";
+  const badgeDigitClass = isLight
+    ? "oui-text-base-foreground"
+    : "oui-text-primary-contrast";
+
   return (
     <Flex
       direction="column"
@@ -30,8 +41,8 @@ export const StepCard: FC<StepCardProps> = (props) => {
       className={cn(
         "oui-stepCard",
         "oui-relative oui-gap-0 oui-text-primary-contrast",
-        "oui-p-6",
-        "oui-bg-primary-darken",
+        "lg:oui-min-h-[320px] lg:oui-py-12 lg:oui-px-8",
+        cardBackgroundClass,
         className,
       )}
     >
@@ -51,17 +62,17 @@ export const StepCard: FC<StepCardProps> = (props) => {
       <div
         className={cn(
           "oui-stepCard-title",
-          "oui-relative oui-isolate oui-mt-8 oui-w-full oui-min-h-12 oui-ps-8",
-          "oui-text-xl oui-font-semibold oui-leading-normal oui-tracking-normal",
+          "oui-relative oui-isolate oui-mt-8 oui-w-full oui-min-h-[2.4em] oui-translate-y-3 oui-pl-7",
+          "oui-text-xl oui-font-semibold oui-leading-[1.2] oui-tracking-[-0.02em]",
         )}
       >
         <span
           className={cn(
-            "oui-absolute oui-start-0 oui-top-0 oui-z-[3]",
+            "oui-absolute oui-left-0 oui-top-0 oui-z-[3]",
             "oui-inline-flex oui-h-6 oui-w-6 oui-items-center oui-justify-center",
             "oui-rounded-full oui-bg-base-10",
             "oui-text-xs oui-font-semibold oui-leading-none",
-            "oui-text-base-contrast",
+            badgeDigitClass,
           )}
         >
           {step}
@@ -73,7 +84,7 @@ export const StepCard: FC<StepCardProps> = (props) => {
       <Text
         className={cn(
           "oui-stepCard-description",
-          "oui-mt-3 oui-max-w-[34ch] oui-text-sm oui-leading-normal",
+          "oui-mt-2.5 oui-max-w-[34ch] oui-text-sm oui-leading-[1.45]",
         )}
       >
         {description}

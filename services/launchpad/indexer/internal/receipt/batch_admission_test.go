@@ -58,8 +58,10 @@ func TestIssuedReceiptsRequireCompleteUniqueBatchBindings(t *testing.T) {
 			case "duplicate receipt":
 				qualified = append(append([]*QualifiedReceipt(nil), receipts...), q)
 			case "unbounded receipts":
+				changed.Blocks = append(changed.Blocks, store.BlockCompleteness{Height: changed.Blocks[0].Height + 1, Hash: common.HexToHash("0xabc").Hex(), FetchComplete: true, RequiredDecodeComplete: true})
 				qualified = make([]*QualifiedReceipt, 4097)
 			case "unbounded records":
+				changed.Blocks = append(changed.Blocks, store.BlockCompleteness{Height: changed.Blocks[0].Height + 1, Hash: common.HexToHash("0xabc").Hex(), FetchComplete: true, RequiredDecodeComplete: true})
 				changed.Records = make([]store.RawRecord, 65537)
 			case "raw height without block":
 				qualified = nil

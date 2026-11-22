@@ -686,7 +686,7 @@ def test_programs_restart_reopens_accounts_and_exit_eligibility(peers, name):
 
 
 @pytest.mark.parametrize('name', ['deploy', 'upgrade', 'wind-down-route', 'wind-down-deprecate', 'wind-down-exit', 'wind-down-tombstone'])
-def test_programs_current_evm_lifecycle_matches_committed_native_producer_codec(peers, name):
+def test_programs_current_evm_lifecycle_matches_committed_native_producer_codec(peers, name, monkeypatch):
     peer, gateway, fixture = peers
     node = CHAIN.Node(fixture.endpoints['node']['url'], fixture.document['receipt_keys'], {'Authorization': AUTH})
     record = json.loads((ROOT / ('sdk/platform/conformance/fixtures/native-program-' + name + '-v4.json')).read_text())
@@ -701,7 +701,9 @@ def test_programs_current_evm_lifecycle_matches_committed_native_producer_codec(
     else:
         # The independently committed native encoder supplies the ABI call, too.
         from importlib.util import spec_from_file_location, module_from_spec
-        spec = spec_from_file_location('lifecycle_fixture_producer', ROOT / 'sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py')
+        producer_path = ROOT / 'sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py'
+        monkeypatch.syspath_prepend(str(producer_path.parent))
+        spec = spec_from_file_location('lifecycle_fixture_producer', producer_path)
         producer = module_from_spec(spec)
         spec.loader.exec_module(producer)
         assert producer.evm(record) == record['evm']

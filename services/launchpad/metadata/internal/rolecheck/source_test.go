@@ -134,6 +134,9 @@ func (r *sourceReader) resolve(t *testing.T, s Statement) string {
 		t.Fatalf("%s: source call %d absent", s.ID, s.Call)
 	}
 	sql := r.text(t, s.File, calls[s.Call].Args[1], s.Bindings)
+	if s.SQL != "" && s.SQL != sql {
+		t.Fatalf("%s: source SQL differs from inventory", s.ID)
+	}
 	kind := strings.Fields(sql)[0]
 	if kind != s.Kind && !(kind == "WITH" && s.Kind == "UPDATE") {
 		t.Fatalf("%s: source kind %s differs from inventory %s", s.ID, kind, s.Kind)

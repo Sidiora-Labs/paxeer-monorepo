@@ -159,6 +159,8 @@ def test_035_production_ingress_refuses_retired_subtree_before_dispatch():
     assert ingress.index('if path == "/rpc"') < ingress.index("routes::route(")
     assert "public_reads::route(config, request)" in ingress
     public = rust_function("public_reads.rs", "route")
+    assert "route_with_clock(config, request, now)" in public
+    public = rust_function("public_reads.rs", "route_with_clock")
     assert 'matches!(request.path.as_str(), "/" | "/openrpc.json")' in public
     assert "return Some(super::rpc::route(config, request));" in public
     rpc = rust_function("rpc.rs", "route")
@@ -172,7 +174,7 @@ def test_035_inherited_repair_preserves_entire_openrpc_document():
     ).read_text())
     assert snapshot["base_revision"] == "b06a8e8502aeb3eee0ed79afb1979f134a140ff1"
     assert snapshot["source"] == "services/platform/hosted/gateway/openrpc.json"
-    assert snapshot["pin_source_revision"] == "f210675f121b1d1e6b66ec46a6e59286320dd35e"
+    assert snapshot["pin_source_revision"] == "1a3e9060e2ab9d8a7af0652c86d77e3746941fbf"
     assert hashlib.sha256((ROOT / snapshot["source"]).read_bytes()).hexdigest() == snapshot["sha256"]
 
 

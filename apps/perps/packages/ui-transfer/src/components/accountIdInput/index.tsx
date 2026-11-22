@@ -1,14 +1,15 @@
-import styles from "../../presentation.module.css";
-import { useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
   Box,
+  Checkbox,
   cn,
   Flex,
   Text,
-  PopoverRoot,
-  PopoverAnchor,
-  PopoverContent,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+  DropdownMenuPortal,
+  DropdownMenuContent,
 } from "@paxeer-network/ui";
 import { InputStatus } from "../../types";
 import type { AccountInfo } from "../withdrawForm/hooks/useWithdrawAccountId";
@@ -42,21 +43,13 @@ export const TextAreaInput = (props: TextAreaInputProps) => {
     accountDropdownOpen,
     setAccountDropdownOpen,
   } = props;
-  const inputId = useId();
-  const hintId = `${inputId}-hint`;
-  const [interacted, setInteracted] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const skipNextFocus = useRef(false);
-  const resultId = `${inputId}-result`;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [selectedAccount, setSelectedAccount] = useState<AccountInfo | null>(
     null,
   );
 
-  const displayStatus: InputStatus | undefined =
-    status === "error" && (!interacted || editing) ? undefined : status;
-  const displayHint =
-    status === "error" && !displayStatus ? undefined : hintMessage;
+  const displayStatus: InputStatus | undefined = status;
+  const displayHint = hintMessage;
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const nextValue = e.target.value;
@@ -64,21 +57,36 @@ export const TextAreaInput = (props: TextAreaInputProps) => {
       setSelectedAccount(null);
     }
     onChange?.(nextValue);
+
+    // auto adjust height
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
   };
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [value, selectedAccount?.address]);
+
   const prefix = (
-    <label htmlFor={inputId} className="oui-block oui-px-3 oui-pt-2">
-      <Text size="2xs" intensity={80}>
+    <div className="oui-absolute oui-start-3 oui-top-0.5 oui-z-[1]">
+      <Text size="2xs" intensity={36}>
         {label}
       </Text>
-    </label>
+    </div>
   );
 
   const message = (
-    <Flex id={hintId} className={styles.hint} mb={1} gapX={1} px={1}>
+    <Flex mb={1} gapX={1} px={1}>
       <Box
-        width="var(--oui-space-1)"
-        height="var(--oui-space-1)"
+        width={4}
+        height={4}
         r="full"
         className={cn(
           displayStatus === "error" && "oui-bg-danger-light",
@@ -99,6 +107,7 @@ export const TextAreaInput = (props: TextAreaInputProps) => {
 
   const textareaNode = (
     <div className="oui-relative">
+      {prefix}
       <div
         className={cn(
           "oui-relative oui-w-full oui-rounded-lg oui-mb-1",
@@ -111,50 +120,24 @@ export const TextAreaInput = (props: TextAreaInputProps) => {
           "disabled:oui-cursor-not-allowed",
         )}
       >
-        {prefix}
         <textarea
           ref={textareaRef}
-          id={inputId}
-          name="recipient-account"
-          autoComplete="off"
-          autoCapitalize="none"
-          spellCheck={false}
-          aria-invalid={displayStatus === "error"}
-          aria-describedby={displayHint ? hintId : undefined}
-          onBlur={() => {
-            setInteracted(true);
-            setEditing(false);
-          }}
           placeholder={placeholder}
           className={cn(
-            styles.textarea,
+            // hide resize height control and scrollbar
+            "oui-resize-none oui-overflow-y-hidden",
             "oui-block oui-w-full oui-bg-transparent",
-            "oui-px-3 oui-pt-1",
+            "oui-px-3 oui-pt-5",
             selectedAccount?.address ? "oui-pb-0" : "oui-pb-2",
             "oui-text-sm oui-text-base-contrast",
             "oui-rounded-lg oui-outline-none",
-            "placeholder:oui-text-base-contrast-80",
+            "placeholder:oui-text-base-contrast-20",
             props.className,
           )}
           rows={1}
           value={value}
           onChange={handleChange}
-          onKeyDown={(event) => {
-            if (
-              event.key === "ArrowDown" &&
-              accountInfo &&
-              accountDropdownOpen
-            ) {
-              event.preventDefault();
-              document.getElementById(resultId)?.focus();
-            }
-          }}
           onFocus={() => {
-            setEditing(true);
-            if (skipNextFocus.current) {
-              skipNextFocus.current = false;
-              return;
-            }
             if (accountInfo) {
               setAccountDropdownOpen?.(true);
             }
@@ -165,8 +148,8 @@ export const TextAreaInput = (props: TextAreaInputProps) => {
           <div className="oui-flex oui-items-center oui-justify-between oui-px-3 oui-pb-2 oui-pt-1">
             <Text
               size="2xs"
-              intensity={80}
-              className="oui-truncate oui-leading-normal"
+              intensity={36}
+              className="oui-truncate oui-leading-[15px]"
             >
               ({t("common.address")}:{" "}
               <Text.formatted as="span" rule="address" range={[6, 4]}>
@@ -175,6 +158,11 @@ export const TextAreaInput = (props: TextAreaInputProps) => {
               )
             </Text>
           </div>
+        )}
+        {enableAccountLookup && (
+          <DropdownMenuTrigger asChild>
+            <span className="oui-absolute oui-start-0 oui-bottom-0 oui-w-0 oui-h-0" />
+          </DropdownMenuTrigger>
         )}
       </div>
     </div>
@@ -190,7 +178,7 @@ export const TextAreaInput = (props: TextAreaInputProps) => {
   }
 
   return (
-    <PopoverRoot
+    <DropdownMenuRoot
       open={!!(accountInfo && accountDropdownOpen)}
       onOpenChange={(open) => {
         if (!open) {
@@ -198,51 +186,45 @@ export const TextAreaInput = (props: TextAreaInputProps) => {
         }
       }}
     >
-      <PopoverAnchor asChild>{textareaNode}</PopoverAnchor>
+      {textareaNode}
       {displayHint && message}
+      <DropdownMenuTrigger asChild>
+        <span className="oui-invisible oui-w-0 oui-h-0 oui-overflow-hidden" />
+      </DropdownMenuTrigger>
       {accountInfo && accountDropdownOpen && (
-        <PopoverContent
-          align="start"
-          className={cn(
-            "oui-bg-base-8",
-            "oui-rounded-md oui-shadow-lg",
-            styles.popover,
-            "oui-w-[var(--radix-popover-trigger-width)] oui-p-1",
-          )}
-          onOpenAutoFocus={(event) => event.preventDefault()}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            if (
-              document.activeElement === document.body ||
-              document.activeElement?.id === resultId
-            ) {
-              skipNextFocus.current = true;
-              textareaRef.current?.focus();
-            }
-          }}
-        >
-          <AccountResultItem
-            id={resultId}
-            item={accountInfo}
-            disabled={props.disabled}
-            selected={
-              !!selectedAccount &&
-              selectedAccount.accountId === accountInfo.accountId
-            }
-            onSelect={(account) => {
-              onChange?.(account.accountId);
-              setSelectedAccount(account);
-              setAccountDropdownOpen?.(false);
-            }}
-          />
-        </PopoverContent>
+        <DropdownMenuPortal>
+          <DropdownMenuContent
+            align="start"
+            className={cn(
+              "oui-bg-base-8",
+              "oui-rounded-md oui-shadow-lg",
+              "oui--mt-1 oui-w-[378px] oui-p-1",
+            )}
+            {...({
+              onOpenAutoFocus: (event: any) => event.preventDefault(),
+            } as any)}
+          >
+            <AccountResultItem
+              item={accountInfo}
+              disabled={props.disabled}
+              selected={
+                !!selectedAccount &&
+                selectedAccount.accountId === accountInfo.accountId
+              }
+              onSelect={(account) => {
+                onChange?.(account.accountId);
+                setSelectedAccount(account);
+                setAccountDropdownOpen?.(false);
+              }}
+            />
+          </DropdownMenuContent>
+        </DropdownMenuPortal>
       )}
-    </PopoverRoot>
+    </DropdownMenuRoot>
   );
 };
 
 type AccountResultItemProps = {
-  id: string;
   item: AccountInfo;
   disabled?: boolean;
   selected?: boolean;
@@ -250,7 +232,6 @@ type AccountResultItemProps = {
 };
 
 const AccountResultItem = ({
-  id,
   item,
   disabled,
   selected,
@@ -258,15 +239,10 @@ const AccountResultItem = ({
 }: AccountResultItemProps) => {
   const { t } = useTranslation();
   return (
-    <button
-      id={id}
-      type="button"
-      disabled={disabled}
-      aria-pressed={!!selected}
+    <div
       className={cn(
-        styles.option,
         "oui-flex oui-w-full oui-items-center oui-justify-between",
-        "oui-gap-1.5 oui-rounded oui-px-2 oui-py-1.5",
+        "oui-gap-1.5 oui-rounded-[4px] oui-px-2 oui-py-1.5",
         "oui-cursor-pointer hover:oui-bg-base-5",
         disabled && "oui-cursor-not-allowed oui-opacity-50",
       )}
@@ -275,7 +251,7 @@ const AccountResultItem = ({
       <div className="oui-flex oui-flex-col oui-items-start oui-gap-0.5">
         <Text
           size="sm"
-          intensity={80}
+          intensity={54}
           weight="semibold"
           className="oui-tracking-wide"
         >
@@ -289,11 +265,11 @@ const AccountResultItem = ({
             {item.accountId}
           </Text.formatted>
         </Text>
-        <Text size="2xs" intensity={80}>
+        <Text size="2xs" intensity={36}>
           ({item.address})
         </Text>
       </div>
-      <span aria-hidden="true">{selected ? "✓" : ""}</span>
-    </button>
+      <Checkbox checked={!!selected} />
+    </div>
   );
 };

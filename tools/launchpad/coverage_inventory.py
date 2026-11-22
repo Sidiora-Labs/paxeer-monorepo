@@ -3,8 +3,10 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
+import tempfile
 import time
 import uuid
 
@@ -35,13 +37,18 @@ def write_manifest(path, manifest):
     temporary.replace(path)
 
 
+def filesystem_time_ns(directory):
+    with tempfile.NamedTemporaryFile(dir=directory) as probe:
+        return os.fstat(probe.fileno()).st_mtime_ns
+
+
 def begin_run(cover_dir, manifest_path, modules):
     modules = module_inventory(modules)
     Path(cover_dir).mkdir(parents=True, exist_ok=True)
     manifest = {
         "version": 1,
         "run_id": uuid.uuid4().hex,
-        "started_ns": time.time_ns(),
+        "started_ns": filesystem_time_ns(cover_dir),
         "modules": modules,
         "results": {},
     }

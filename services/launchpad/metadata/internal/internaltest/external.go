@@ -67,7 +67,7 @@ func externalDatabase(t *testing.T) string {
 		}
 	}()
 	name := "metadata_test_" + suffix(t)
-	if _, err = conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
+	if _, err = conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()+" TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C'"); err != nil {
 		t.Fatalf("create test database: %v", err)
 	}
 	t.Cleanup(func() {

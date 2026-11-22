@@ -1,6 +1,9 @@
 defmodule BlockScoutWeb.API.V2.StatsControllerTest do
   use BlockScoutWeb.ConnCase
 
+  alias Explorer.Market.{MarketHistoryCache, Token}
+  alias Explorer.Market.Fetcher.Coin
+
   alias Explorer.Chain.Address
   alias Explorer.Chain.Cache.Counters.{AddressesCount, AverageBlockTime, TransactionsCount}
   alias Explorer.Chain.PaxeerX.PriceFeed
@@ -64,14 +67,112 @@ defmodule BlockScoutWeb.API.V2.StatsControllerTest do
 
   describe "/stats/charts/market" do
     setup do
-      configuration = Application.get_env(:explorer, Explorer.Market.MarketHistoryCache)
-      Application.put_env(:explorer, Explorer.Market.MarketHistoryCache, cache_period: 0)
+      configuration = [
+        {Coin, [enabled: true, store: :ets, table_name: :stats_market_chart_rates]},
+        {MarketHistoryCache, [cache_period: 60_000]},
+        {:supply, Explorer.Chain.Supply.ExchangeRate}
+      ]
 
-      :ok
+      previous_configuration = Enum.map(configuration, fn {key, _} -> {key, Application.fetch_env(:explorer, key)} end)
+      history_enabled = :persistent_term.get(:market_history_fetcher_enabled, nil)
+      cache_name = MarketHistoryCache.cache_name()
+      cache_keys = [MarketHistoryCache.data_key(), MarketHistoryCache.updated_at_key()]
+      cached_values = Enum.map(cache_keys, fn key -> {key, ConCache.get(cache_name, key)} end)
 
       on_exit(fn ->
-        Application.put_env(:explorer, Explorer.Market.MarketHistoryCache, configuration)
+        Enum.each(previous_configuration, fn
+          {key, {:ok, value}} -> Application.put_env(:explorer, key, value)
+          {key, :error} -> Application.delete_env(:explorer, key)
+        end)
+
+        if is_nil(history_enabled) do
+          :persistent_term.erase(:market_history_fetcher_enabled)
+        else
+          :persistent_term.put(:market_history_fetcher_enabled, history_enabled)
+        end
+
+        Enum.each(cached_values, fn
+          {key, nil} -> ConCache.delete(cache_name, key)
+          {key, value} -> ConCache.put(cache_name, key, value)
+        end)
       end)
+
+      Enum.each(configuration, fn {key, value} -> Application.put_env(:explorer, key, value) end)
+      :ets.new(Coin.table_name(), [:set, :named_table, :public])
+      :persistent_term.put(:market_history_fetcher_enabled, true)
+      Enum.each(cache_keys, &ConCache.delete(cache_name, &1))
+      :ok
+    end
+
+    test "keeps stored closing prices when the current rate is unknown", %{conn: conn} do
+      today = insert(:market_history, closing_price: Decimal.new("5.25"), market_cap: nil, tvl: nil)
+
+      yesterday =
+        insert(:market_history,
+          date: Date.add(today.date, -1),
+          closing_price: Decimal.new("4.25"),
+          market_cap: nil,
+          tvl: nil
+        )
+
+      assert Explorer.Market.get_coin_exchange_rate() == Token.null()
+
+      response = get(conn, "/api/v2/stats/charts/market") |> json_response(200)
+
+      assert response == %{
+               "chart_data" => [
+                 %{
+                   "date" => Date.to_iso8601(today.date),
+                   "closing_price" => "5.25",
+                   "market_cap" => nil,
+                   "tvl" => nil
+                 },
+                 %{
+                   "date" => Date.to_iso8601(yesterday.date),
+                   "closing_price" => "4.25",
+                   "market_cap" => nil,
+                   "tvl" => nil
+                 }
+               ],
+               "available_supply" => 0
+             }
+    end
+
+    test "uses the current fiat value only for the newest closing price", %{conn: conn} do
+      today = insert(:market_history, closing_price: Decimal.new("5.25"), market_cap: nil, tvl: nil)
+
+      yesterday =
+        insert(:market_history,
+          date: Date.add(today.date, -1),
+          closing_price: Decimal.new("4.25"),
+          market_cap: nil,
+          tvl: nil
+        )
+
+      token = %{Token.null() | fiat_value: Decimal.new("7.5"), available_supply: Decimal.new(100)}
+      ref = make_ref()
+      assert {:noreply, _} = Coin.handle_info({ref, {{:ok, token}, false}}, %Coin{tasks: %{ref => false}})
+      assert Explorer.Market.get_coin_exchange_rate().fiat_value == token.fiat_value
+
+      response = get(conn, "/api/v2/stats/charts/market") |> json_response(200)
+
+      assert response == %{
+               "chart_data" => [
+                 %{
+                   "date" => Date.to_iso8601(today.date),
+                   "closing_price" => "7.5",
+                   "market_cap" => "750.0",
+                   "tvl" => nil
+                 },
+                 %{
+                   "date" => Date.to_iso8601(yesterday.date),
+                   "closing_price" => "4.25",
+                   "market_cap" => "425.00",
+                   "tvl" => nil
+                 }
+               ],
+               "available_supply" => "100"
+             }
     end
 
     test "get empty data", %{conn: conn} do

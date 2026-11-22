@@ -11,7 +11,11 @@ import IconSvg from 'ui/shared/IconSvg';
 
 import { PageFilterInput } from './PageFilterInput';
 
-const BlockCountdownIndex = () => {
+type Props = {
+  searchWidth?: string;
+};
+
+const BlockCountdownIndex = ({ searchWidth = 'var(--chakra-spacing-80)' }: Props) => {
   const router = useRouter();
   const multichainContext = useMultichainContext();
 
@@ -32,7 +36,7 @@ const BlockCountdownIndex = () => {
         <IconSvg
           name="block_countdown"
           color="icon.secondary"
-          w={{ base: 'var(--chakra-spacing-40)', lg: 'var(--chakra-spacing-62\\.5)' }}
+          w={{ base: 'var(--chakra-spacing-40)', lg: 'calc(var(--chakra-spacing-1) * 60)' }}
           h="auto"
           aspectRatio={ 241 / 185 }
         />
@@ -54,12 +58,12 @@ const BlockCountdownIndex = () => {
       >
         Block countdown
       </Heading>
-      <Box mt={ 2 }>
+      <Box mt={ 2 } textWrap="balance">
         The estimated time for a block to be created and added to the blockchain.
       </Box>
       <chakra.form
         onSubmit={ handleFormSubmit }
-        w={{ base: '100%', lg: 'var(--chakra-spacing-80)' }}
+        w={{ base: '100%', lg: searchWidth }}
         mt={{ base: 3, lg: 6 }}
       >
         <PageFilterInput

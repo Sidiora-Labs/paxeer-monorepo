@@ -28,7 +28,7 @@ import {
 import { browserPasskeyAuthenticator, performStepUp } from "../approvals/ceremony.ts";
 import {
   VERIFICATION_PRESENTATIONS,
-  verificationRung,
+  verificationDisplayRung,
   type ConfirmationKind,
   type StatusKey,
 } from "../../kit/model.ts";
@@ -162,6 +162,7 @@ export function catalogSentence(copyKey: string): string {
 
 const RECEIPT_LEVELS: readonly VerificationLevel[] = [
   "receipt-verified",
+  "committed",
   "checkpoint-finalised",
 ];
 
@@ -371,7 +372,7 @@ export function spendPresentation(agent: Agent, locale: string): SpendPresentati
     protocolBacked: agent.limit.enforcement === "protocol",
     enforcementSentence: copyEntry(enforcementCopyKey).message,
     verificationSentence: catalogSentence(
-      VERIFICATION_PRESENTATIONS[verificationRung(agent.spend.verification)].copyKey,
+      VERIFICATION_PRESENTATIONS[verificationDisplayRung(agent.spend.verification)].copyKey,
     ),
   };
   if (agent.spend.reconciliation_copy_key !== undefined) {

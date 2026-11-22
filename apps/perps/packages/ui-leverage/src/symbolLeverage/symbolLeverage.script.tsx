@@ -91,11 +91,11 @@ export const useSymbolLeverageScript = (
     setLeverage(leverage);
   };
 
-  const onLeverageIncrease = () => {
+  const onLeverageIncrease: React.MouseEventHandler<SVGSVGElement> = () => {
     setLeverage((prev) => prev + 1);
   };
 
-  const onLeverageReduce = () => {
+  const onLeverageReduce: React.MouseEventHandler<SVGSVGElement> = () => {
     setLeverage((prev) => prev - 1);
   };
 

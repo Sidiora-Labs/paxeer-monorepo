@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/core/query-keys';
 import { useOperations } from '@/core/market/operations';
@@ -34,7 +35,7 @@ export function platformFooterItems(data: PlatformMetricsV2): FooterMetric[] {
   const optional = (
     value: string | null | undefined,
     field: string,
-    format: (raw: string) => string
+    format: (raw: string) => string,
   ): Pick<FooterMetric, 'value' | 'operation'> =>
     value === undefined || value === null
       ? { value: null, operation: pending(field) }
@@ -51,8 +52,8 @@ export function platformFooterItems(data: PlatformMetricsV2): FooterMetric[] {
 }
 
 /**
- * Platform activity figures for the slim footer row (app-shell ShellFooter):
- * one line of label/value pairs, or one quiet status line when unavailable.
+ * Platform activity figures use the same labelled row while loading and ready,
+ * or one quiet status line when unavailable.
  * A figure the envelope does not carry shows a faint em dash that says "not
  * served" to assistive tech, with the operation in a developer-only attribute
  * (the SourceNotice / rail convention).
@@ -67,20 +68,13 @@ export default function PlatformMetricsFooter() {
   });
   useRefetchOnAnyEvent({ queryKeys: [queryKeys.platformStats()], throttleMs: 30_000 });
 
-  if (query.isPending) {
-    return (
-      // The footer row stays a single line while loading: no placeholder bars.
-      <span aria-busy="true" className="sr-only">
-        Loading platform activity
-      </span>
-    );
-  }
   // A refetch whose transient retries ran out keeps the last-good figures.
   const data = query.data;
+  let failure: ReactNode = null;
   if (query.error && !(data && isTransientError(query.error))) {
     const marker = toUnsupported(OPERATION, query.error);
     if (marker)
-      return (
+      failure = (
         <UnavailableState
           variant="inline"
           title="Platform activity"
@@ -89,49 +83,76 @@ export default function PlatformMetricsFooter() {
           className="text-2xs"
         />
       );
-    return (
-      <p role="status" className="truncate text-2xs text-text-faint">
-        Couldn't load stats.{' '}
-        <button
-          type="button"
-          onClick={() => {
-            void query.refetch();
-          }}
-          className="font-bold text-text-muted hover:text-text"
-        >
-          Try again
-        </button>
-      </p>
-    );
+    else
+      failure = (
+        <p role="status" className="truncate text-2xs text-text-faint">
+          Couldn't load stats.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              void query.refetch();
+            }}
+            className="font-bold text-text-muted hover:text-text focus-visible:-outline-offset-2 focus-visible:underline"
+          >
+            Try again
+          </button>
+        </p>
+      );
   }
 
-  if (!data) return null;
+  if (!data && !query.isPending && !failure) return null;
+  const items: FooterMetric[] = data
+    ? platformFooterItems(data)
+    : ['24h volume', 'Market cap', '24h trades', '24h traders', 'Coins launched', 'New today'].map(
+        (label) => ({ label, value: null, operation: null }),
+      );
   return (
-    <dl aria-label="Platform activity" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      {platformFooterItems(data).map((item) => {
-        const detail = item.value === null ? technicalDetail(item.operation, null) : null;
-        return (
-          <div key={item.label} className="flex items-baseline gap-1 text-2xs">
-            <dt className="text-text-faint">{item.label}</dt>
-            {item.value === null ? (
-              <dd
-                data-unavailable=""
-                title={detail ?? undefined}
-                data-operation={detail ?? undefined}
-                className="text-text-faint"
-              >
-                <span aria-hidden="true">—</span>
-                <span className="sr-only">not available yet</span>
-              </dd>
-            ) : (
-              <dd data-numeric className="text-right font-bold tabular-nums text-text-muted">
-                {item.value}
-              </dd>
-            )}
-          </div>
-        );
-      })}
-    </dl>
+    <div className="grid min-w-0">
+      <dl
+        aria-label="Platform activity"
+        aria-busy={query.isPending || undefined}
+        aria-hidden={failure ? true : undefined}
+        inert={failure ? true : undefined}
+        className={`col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1${failure ? ' invisible' : ''}`}
+      >
+        {items.map((item) => {
+          const detail = item.value === null ? technicalDetail(item.operation, null) : null;
+          return (
+            <div key={item.label} className="flex min-w-0 items-baseline gap-1 text-2xs">
+              <dt className="text-text-faint">{item.label}</dt>
+              {query.isPending ? (
+                <dd className="min-h-[1lh] self-center text-right font-bold tabular-nums">
+                  <span aria-hidden="true" className="invisible">
+                    {item.label === '24h volume' || item.label === 'Market cap'
+                      ? formatUsdl('0', { compact: true })
+                      : formatCount('0')}
+                  </span>
+                  <span className="sr-only">Loading platform activity</span>
+                </dd>
+              ) : item.value === null ? (
+                <dd
+                  data-unavailable=""
+                  title={detail ?? undefined}
+                  data-operation={detail ?? undefined}
+                  className="min-h-[1lh] text-right text-text-faint"
+                >
+                  <span aria-hidden="true">—</span>
+                  <span className="sr-only">not available yet</span>
+                </dd>
+              ) : (
+                <dd
+                  data-numeric
+                  className="min-h-[1lh] text-right font-bold tabular-nums text-text-muted"
+                >
+                  {item.value}
+                </dd>
+              )}
+            </div>
+          );
+        })}
+      </dl>
+      {failure ? <div className="col-start-1 row-start-1 min-w-0 self-start">{failure}</div> : null}
+    </div>
   );
 }
 
@@ -144,10 +165,8 @@ const LEGAL_LINKS = [
 ];
 
 /**
- * Slim footer row, as on the reference: copyright, legal links and the
- * platform activity figures on one canvas-coloured line. The page content
- * above it is at least one viewport tall, so the row is only reached by
- * scrolling and never floats in the middle of a short page.
+ * Copyright, legal links and activity figures share a canvas row.
+ * The footer sits at the viewport bottom on short pages.
  */
 export function ShellFooter() {
   return (
@@ -156,17 +175,27 @@ export function ShellFooter() {
       <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {LEGAL_LINKS.map(({ label, href }) => (
           <Link
+            prefetch={false}
             key={href}
             href={href}
-            className="inline-flex min-h-touch-target-min items-center transition-colors duration-fast hover:text-text"
+            className="inline-flex items-center transition-colors duration-fast hover:text-text"
           >
             {label}
           </Link>
         ))}
       </nav>
-      <div className="min-w-0 sm:ml-auto">
+      <div className="min-h-[1lh] min-w-0 sm:ml-auto">
         <PlatformMetricsFooter />
       </div>
     </footer>
+  );
+}
+
+export function PageWithFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="min-w-0 flex-1">{children}</div>
+      <ShellFooter />
+    </div>
   );
 }

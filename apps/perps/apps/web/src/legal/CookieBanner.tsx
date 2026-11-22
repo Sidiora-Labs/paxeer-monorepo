@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@paxeer-network/ui/button/button";
 import { CloseIcon } from "@paxeer-network/ui/icon/close";
@@ -8,15 +8,71 @@ import { useCookieConsent } from "./useCookieConsent";
 
 export function CookieBanner() {
   const { value, loading, accept, decline } = useCookieConsent();
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (loading || value !== null) return;
+    const revealFocus = (event: FocusEvent) => {
+      const target = event.target;
+      const banner = bannerRef.current;
+      if (
+        !(target instanceof HTMLElement) ||
+        !banner ||
+        banner.contains(target)
+      )
+        return;
+      const focused = target.getBoundingClientRect();
+      const overlay = banner.getBoundingClientRect();
+      const covered = document.elementFromPoint(
+        Math.max(
+          0,
+          Math.min(innerWidth - 1, (focused.left + focused.right) / 2),
+        ),
+        Math.max(
+          0,
+          Math.min(innerHeight - 1, (focused.top + focused.bottom) / 2),
+        ),
+      );
+      if (
+        covered &&
+        banner.contains(covered) &&
+        focused.bottom > overlay.top &&
+        focused.top < overlay.bottom &&
+        focused.right > overlay.left &&
+        focused.left < overlay.right
+      ) {
+        target.scrollIntoView({
+          block: "center",
+          inline: "nearest",
+          behavior: "instant",
+        });
+        const moved = target.getBoundingClientRect();
+        const atFocus = document.elementFromPoint(
+          Math.max(0, Math.min(innerWidth - 1, (moved.left + moved.right) / 2)),
+          Math.max(
+            0,
+            Math.min(innerHeight - 1, (moved.top + moved.bottom) / 2),
+          ),
+        );
+        if (atFocus && banner.contains(atFocus)) {
+          const atTop = banner.style.top !== "";
+          banner.style.top = atTop ? "" : "24px";
+          banner.style.bottom = atTop ? "" : "auto";
+        }
+      }
+    };
+    document.addEventListener("focusin", revealFocus);
+    return () => document.removeEventListener("focusin", revealFocus);
+  }, [loading, value]);
   if (loading || value !== null) return null;
 
   return (
     <div
+      ref={bannerRef}
       role="dialog"
       aria-label="Cookie consent"
       aria-describedby="cookie-consent-description"
       aria-modal="false"
-      className="oui-fixed oui-bottom-6 oui-left-1/2 -oui-translate-x-1/2 oui-z-[200] oui-w-full oui-max-w-[560px] oui-px-4"
+      className="oui-fixed oui-bottom-6 oui-left-1/2 -oui-translate-x-1/2 oui-z-40 oui-w-full oui-max-w-[560px] oui-px-4"
     >
       <div className="oui-rounded-xl oui-border oui-border-line-12 oui-bg-base-9 oui-shadow-2xl oui-p-5">
         <div className="oui-flex oui-items-start oui-justify-between oui-gap-3 oui-mb-3">

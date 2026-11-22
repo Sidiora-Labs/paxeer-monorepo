@@ -55,7 +55,7 @@ export const UnsettlePnlInfo = (props: UnsettlePnlInfoProps) => {
   };
 
   return (
-    <Flex justify="between" className="oui-text-2xs oui-text-base-contrast-80">
+    <Flex justify="between" className="oui-text-2xs oui-text-base-contrast-36">
       <Flex itemAlign="center" justify="start" gap={1}>
         {tooltipContent ? (
           isMobile ? (
@@ -73,7 +73,7 @@ export const UnsettlePnlInfo = (props: UnsettlePnlInfoProps) => {
             </button>
           ) : (
             <Tooltip
-              className="oui-max-w-72 oui-font-semibold"
+              className="oui-max-w-[274px] oui-font-semibold"
               content={tooltipContent as any}
             >
               {renderUnsettledLabel()}
@@ -96,19 +96,13 @@ export const UnsettlePnlInfo = (props: UnsettlePnlInfoProps) => {
       <Flex itemAlign="center" gap={1} className="oui-cursor-pointer">
         <RefreshIcon className="oui-text-primary" />
         <Text
-          asChild
           data-testid="oui-testid-withdraw-dialog-settle-text"
           size="2xs"
           color="primary"
           className=" oui-select-none"
+          onClick={settlePnlDialog}
         >
-          <button
-            type="button"
-            onClick={settlePnlDialog}
-            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-          >
-            {t("common.settle")}
-          </button>
+          {t("common.settle")}
         </Text>
       </Flex>
     </Flex>

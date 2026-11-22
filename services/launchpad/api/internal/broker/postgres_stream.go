@@ -23,6 +23,7 @@ import (
 )
 
 var ErrStreamUnavailable = errors.New("stream projection unavailable")
+var ErrTopicNotStarted = fmt.Errorf("topic has no first frame: %w", ErrStreamUnavailable)
 
 type PostgresStream struct {
 	pool      *pgxpool.Pool
@@ -184,7 +185,7 @@ type streamProjection struct {
 	frame                      Frame
 }
 
-func (s *PostgresStream) projections(ctx context.Context, tx pgx.Tx, topics []string) ([]streamProjection, error) {
+func (s *PostgresStream) projections(ctx context.Context, tx pgx.Tx, topics []string, snapshotRead bool) ([]streamProjection, error) {
 	rows, err := tx.Query(ctx, "SELECT topic,partition_id::text,sequence::text,frame FROM "+s.table("stream_projection")+" WHERE topic=ANY($1) ORDER BY topic", topics)
 	if err != nil {
 		return nil, err
@@ -197,6 +198,9 @@ func (s *PostgresStream) projections(ctx context.Context, tx pgx.Tx, topics []st
 		if err = rows.Scan(&p.topic, &p.partition, &p.sequence, &raw); err != nil {
 			return nil, err
 		}
+		if snapshotRead && p.sequence == "0" && raw == nil {
+			return nil, ErrTopicNotStarted
+		}
 		p.frame, err = parseStreamV2(raw)
 		if err != nil || p.sequence != p.frame.Sequence || p.topic != p.frame.Topic {
 			return nil, ErrFrame
@@ -207,6 +211,9 @@ func (s *PostgresStream) projections(ctx context.Context, tx pgx.Tx, topics []st
 		return nil, err
 	}
 	if len(out) != len(topics) {
+		if snapshotRead {
+			return nil, ErrTopicNotStarted
+		}
 		return nil, ErrStreamUnavailable
 	}
 	return out, nil
@@ -224,6 +231,9 @@ func (s *PostgresStream) authorize(ctx context.Context, p sharedauth.StreamPrinc
 }
 
 func (s *PostgresStream) Snapshot(ctx context.Context, p sharedauth.StreamPrincipal, b sharedauth.StreamTicketBinding) (json.RawMessage, error) {
+	if s == nil || s.pool == nil {
+		return nil, ErrStreamUnavailable
+	}
 	if err := s.authorize(ctx, p, b); err != nil {
 		return nil, err
 	}
@@ -234,13 +244,16 @@ func (s *PostgresStream) Snapshot(ctx context.Context, p sharedauth.StreamPrinci
 		return nil, err
 	}
 	defer streamRollback(tx)
-	projections, err := s.projections(ctx, tx, b.Topics)
-	if err != nil {
-		return nil, err
-	}
 	var generation string
 	var now time.Time
 	if err = tx.QueryRow(ctx, "SELECT generation::text,transaction_timestamp() FROM "+s.table("stream_generation")+" WHERE singleton").Scan(&generation, &now); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrStreamUnavailable
+		}
+		return nil, err
+	}
+	projections, err := s.projections(ctx, tx, b.Topics, true)
+	if err != nil {
 		return nil, err
 	}
 	scope := CursorScopeV2{Chain: "125", Subject: p.AccountID, SessionID: p.SessionID, PermissionEpoch: strconv.FormatInt(p.AuthEpoch, 10), ProjectionEpoch: generation, SchemaMajor: 2, FilterHash: b.FilterDigest, SnapshotID: uuid.NewString()}
@@ -360,7 +373,7 @@ func (s *PostgresStream) Resume(ctx context.Context, p sharedauth.StreamPrincipa
 	if err != nil {
 		return nil, err
 	}
-	projections, err := s.projections(ctx, tx, b.Topics)
+	projections, err := s.projections(ctx, tx, b.Topics, false)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +498,7 @@ func (r *PostgresReplay) Batch(ctx context.Context) ([][]byte, error) {
 		if r.Machine.State == Replaying {
 			upper = r.Machine.barrier[partition]
 		}
-		rows, err := r.source.pool.Query(ctx, "SELECT sequence::text,frame FROM "+r.source.table("stream_delivery_outbox")+" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4", partition, offset, upper, 128-len(out))
+		rows, err := r.source.pool.Query(ctx, "SELECT sequence::text,frame FROM "+r.source.table("stream_delivery_outbox")+" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4", partition, offset, upper, 128-len(out))
 		if err != nil {
 			return nil, err
 		}

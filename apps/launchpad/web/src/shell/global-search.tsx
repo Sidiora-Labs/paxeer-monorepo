@@ -215,6 +215,7 @@ function SearchPalette({
       try {
         push({
           address: pool,
+          tokenAddress: args.tokenAddress,
           name: args.name,
           symbol: args.symbol,
           logo: args.logo,
@@ -349,7 +350,7 @@ function SearchPalette({
           id={listId}
           aria-label="Search results"
           aria-busy={searching || undefined}
-          className="flex flex-col"
+          className="flex h-[calc(var(--sl-touch-target-min)*6)] flex-col overflow-y-auto"
         >
           {showIdle ? (
             <>
@@ -373,6 +374,7 @@ function SearchPalette({
                       key={item.address}
                       id={optionId(`recent:${item.address}`)}
                       active={activeId === optionId(`recent:${item.address}`)}
+                      tokenAddress={item.tokenAddress}
                       name={item.name}
                       symbol={item.symbol}
                       logo={item.logo}
@@ -397,7 +399,7 @@ function SearchPalette({
                       key={coin.poolAddress}
                       id={optionId(`hot:${coin.poolAddress}`)}
                       active={activeId === optionId(`hot:${coin.poolAddress}`)}
-                      name={coin.name || ''}
+                      tokenAddress={coin.tokenAddress} name={coin.name || ''}
                       symbol={coin.symbol || ''}
                       logo={coin.logo || null}
                       mcapRaw={coin.marketCap && coin.marketCap !== '0' ? coin.marketCap : null}
@@ -432,7 +434,7 @@ function SearchPalette({
                         key={row.identity}
                         id={id}
                         active={activeId === id}
-                        name={row.name}
+                        tokenAddress={row.token_address} name={row.name}
                         symbol={row.symbol}
                         logo={row.images.logo}
                         mcapRaw={mcap}
@@ -489,7 +491,7 @@ function SearchPalette({
               checked={remember && !privateMode}
               disabled={privateMode}
               onChange={(event) => setRemember(event.target.checked)}
-              className="size-5 shrink-0 accent-[var(--sl-accent)]"
+              className="size-touch-target-min shrink-0 accent-[var(--sl-accent)]"
             />
             Remember recent views on this device
           </label>

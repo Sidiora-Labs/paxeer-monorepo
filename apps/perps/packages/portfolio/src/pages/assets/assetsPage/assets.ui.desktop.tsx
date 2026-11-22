@@ -27,11 +27,7 @@ import type {
   AssetsWidgetProps,
 } from "./assets.widget";
 
-const LazyConvertHistoryWidget = React.lazy(() =>
-  import("../convertPage/convert.widget").then((mod) => {
-    return { default: mod.ConvertHistoryWidget };
-  }),
-);
+import { ConvertHistoryWidget } from "../convertPage/convert.widget";
 
 export type AssetsProps = useAssetsScriptReturn;
 
@@ -54,13 +50,8 @@ const TotalValueInfo: React.FC<
         <Text size="2xs" color="neutral" weight="semibold">
           {t("common.totalValue")}
         </Text>
-        <button
-          type="button"
-          onClick={onToggleVisibility}
-          aria-label={visible ? "Hide total value" : "Show total value"}
-          aria-pressed={visible}
-        >
-          <Icon size={18} className={cn("oui-text-base-contrast-80")} />
+        <button onClick={onToggleVisibility}>
+          <Icon size={18} className={cn("oui-text-base-contrast-54")} />
         </button>
       </Flex>
       <Flex justify={"start"} itemAlign="end" gap={1}>
@@ -97,7 +88,7 @@ const DepositAndWithdrawButton: React.FC<
   const mergedDisabled = wrongNetwork || disabledConnect;
   return (
     <Flex
-      className="oui-text-2xs oui-text-base-contrast-80"
+      className="oui-text-2xs oui-text-base-contrast-54"
       itemAlign="center"
       gap={3}
     >
@@ -109,7 +100,7 @@ const DepositAndWithdrawButton: React.FC<
         onClick={onDeposit}
       >
         <ArrowDownShortIcon
-          color="inherit"
+          color="white"
           opacity={mergedDisabled ? 0.4 : 1}
           className="oui-rotate-0 oui-text-primary-contrast"
         />
@@ -124,7 +115,7 @@ const DepositAndWithdrawButton: React.FC<
         data-testid="oui-testid-assetView-withdraw-button"
       >
         <ArrowDownShortIcon
-          color="inherit"
+          color="white"
           opacity={mergedDisabled ? 0.4 : 1}
           className="oui-rotate-180 oui-text-base-contrast"
         />
@@ -348,7 +339,7 @@ export const AssetsTable: React.FC<AssetsWidgetProps> = (props) => {
             )}
             classNames={{
               scrollRoot:
-                "oui-max-h-[calc(var(--oui-space-24)*7)] oui-overflow-y-auto oui-custom-scrollbar oui-w-full",
+                "oui-max-h-[700px] oui-overflow-y-auto oui-custom-scrollbar oui-w-full",
             }}
           />
         </TabPanel>
@@ -365,7 +356,7 @@ export const AssetsTable: React.FC<AssetsWidgetProps> = (props) => {
               className="oui-w-full"
             >
               <Divider className="oui-w-full oui-border-b oui-border-line-4 oui-pt-6" />
-              <LazyConvertHistoryWidget />
+              <ConvertHistoryWidget />
             </Flex>
           </React.Suspense>
         </TabPanel>

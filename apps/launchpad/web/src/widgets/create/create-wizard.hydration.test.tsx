@@ -7,6 +7,7 @@ import { act, type ComponentType, type ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterAll, expect, it, vi } from 'vitest';
 import { builtinEnvironments } from 'vitest/environments';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { cookieToInitialState, serialize, type State } from 'wagmi';
 import { AppRouterContext, type AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { PathnameContext, SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
@@ -91,7 +92,8 @@ it('renders /create for a cookie-less request the same way regardless of earlier
 
   // Browser: a new page load for the cookie-less visitor hydrates that HTML.
   const env = await builtinEnvironments.jsdom.setup(globalThis, { jsdom: { url: 'http://localhost/create' } });
-  teardown = env.teardown;
+  const restoreBrowserSurface = applyBrowserSurface();
+  teardown = async global => { await restoreBrowserSurface(); await env.teardown(global); };
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.resetModules();
   const browser = await loadApp();

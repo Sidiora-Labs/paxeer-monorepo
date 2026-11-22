@@ -1,0 +1,498 @@
+[manifest]
+task = "22.44.112"
+surface = "Sidiora Launchpad terminal, swap and orders"
+views = 10
+named_states = 4
+states = 14
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[coverage]
+views = ["meta-ag-orders", "meta-ag-swap", "swap", "terminal", "terminal-coin", "terminal-portfolio", "terminal-rewards", "terminal-track", "terminal-trenches", "terminal-slug"]
+named_states = ["swap/settings", "swap/coin-selector", "terminal/layout-menu", "terminal/settings-menu"]
+view_configurations = 340
+named_state_configurations = 104
+configurations = 444
+
+[presentation]
+terminal = "The desktop header measures 40px and the status bar measures 28px; the workspace fills the space below the shell."
+discovery = "Pair rows use a 44px minimum and recent pairs use one row of coin, price, market cap and removal columns."
+trade = "Preset and accordion controls use compact surface spacing and retain their states and focus marks."
+swap = "The classic swap card has a 460px maximum width; the best-route heading and details have a 480px maximum width."
+orders = "The orders region has a 1100px maximum width and a 420px desktop form column."
+touch = "Interactive controls reserve at least 44px through viewport width 834px."
+content = "The views retain their discovery data, chart, activity, trade information and signed-out forms."
+
+[render]
+count = 444
+result = "pass"
+did_not_render = 0
+showed_nothing = 0
+findings = 0
+
+[finding_counts]
+order = ["first", "last"]
+load = [86, 0]
+sideways = [0, 0]
+cut = [0, 0]
+contrast = [0, 0]
+touch = [0, 0]
+focus = [0, 0]
+shift = [38, 0]
+motion = [0, 0]
+scale = [790, 0]
+geometry = [0, 0]
+
+[geometry]
+views = 9
+widths = [390, 1280, 1440, 1920, 2560]
+comparisons = 45
+differing_parts_first = 447
+differing_parts_last = 409
+font_size_differences = 0
+line_height_differences = 0
+
+[view.meta-ag-orders]
+differing_parts = [7, 6, 5, 5, 6]
+
+[part.meta-ag-orders.first-heading]
+widths = [1280, 1440, 1920, 2560]
+cause = "The heading follows the current content width and Manrope face and fallback metrics within the reserved scrollbar track; adjacent mobile controls reserve 44px targets."
+
+[part.meta-ag-orders.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.meta-ag-orders.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Activity figures follow the mobile legal-link clearance and use the current Manrope face and fallback metrics within the reserved scrollbar track."
+
+[part.meta-ag-orders.footer-navigation-first-link]
+widths = [390, 1280, 2560]
+cause = "Legal links retain their font size and line height with the current Manrope face and fallback metrics, and reserve 44px touch targets through 834px."
+
+[part.meta-ag-orders.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.meta-ag-orders.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile legal links and controls reserve touch clearance."
+
+[part.meta-ag-orders.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.meta-ag-orders.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[view.meta-ag-swap]
+differing_parts = [9, 6, 6, 6, 7]
+
+[part.meta-ag-swap.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The heading follows the current content width and Manrope face and fallback metrics within the reserved scrollbar track; adjacent mobile controls reserve 44px targets."
+
+[part.meta-ag-swap.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.meta-ag-swap.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Activity figures follow the mobile legal-link clearance and use the current Manrope face and fallback metrics within the reserved scrollbar track."
+
+[part.meta-ag-swap.footer-navigation-first-link]
+widths = [390, 2560]
+cause = "Legal links retain their font size and line height with the current Manrope face and fallback metrics, and reserve 44px touch targets through 834px."
+
+[part.meta-ag-swap.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.meta-ag-swap.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile legal links and controls reserve touch clearance."
+
+[part.meta-ag-swap.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.meta-ag-swap.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.meta-ag-swap.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The control follows its card within the reserved scrollbar track and uses 44px touch clearance through 834px."
+
+[view.swap]
+differing_parts = [10, 7, 7, 7, 7]
+
+[part.swap.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The heading follows the current content width and Manrope face and fallback metrics within the reserved scrollbar track; adjacent mobile controls reserve 44px targets."
+
+[part.swap.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.swap.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Activity figures follow the mobile legal-link clearance and use the current Manrope face and fallback metrics within the reserved scrollbar track."
+
+[part.swap.footer-navigation-first-link]
+widths = [390]
+cause = "Legal links retain their font size and line height with the current Manrope face and fallback metrics, and reserve 44px touch targets through 834px."
+
+[part.swap.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.swap.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile legal links and controls reserve touch clearance."
+
+[part.swap.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.swap.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.swap.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The control follows its card within the reserved scrollbar track and uses 44px touch clearance through 834px."
+
+[part.swap.swap-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The Swap heading is an h1; the classic card retains its 460px maximum width and the mobile inline space after the scrollbar track."
+
+[view.terminal]
+differing_parts = [11, 9, 9, 9, 9]
+
+[part.terminal.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The heading retains its font size and line height with the current Manrope face and fallback metrics; mobile controls reserve a separate 44px navigation row."
+
+[part.terminal.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.terminal.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile controls reserve touch clearance."
+
+[part.terminal.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Terminal links retain their text metrics and desktop height; mobile touch targets occupy a separate navigation row, and the desktop track follows the heading metrics and reserved scrollbar space."
+
+[part.terminal.table-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The rankings table uses its intrinsic column sizes for the current values and text metrics; mobile links and sortable controls reserve 44px targets."
+
+[part.terminal.table-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The rankings table uses its intrinsic column sizes for the current values and text metrics; mobile links and sortable controls reserve 44px targets."
+
+[part.terminal.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The workspace uses the width after the reserved scrollbar track and retains its current content; mobile navigation and controls reserve touch clearance."
+
+[view.terminal-coin]
+differing_parts = [25, 21, 18, 21, 21]
+
+[part.terminal-coin.first-heading]
+widths = [390, 1280, 1920, 2560]
+cause = "The heading retains its font size and line height with the current Manrope face and fallback metrics; mobile controls reserve a separate 44px navigation row."
+
+[part.terminal-coin.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.terminal-coin.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile controls reserve touch clearance."
+
+[part.terminal-coin.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-coin.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-coin.new-pairs-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.pair-activity-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Activity contains its current inline message and Retry control below the chart toolbar and price-list row, within the center width after the reserved scrollbar track."
+
+[part.terminal-coin.primary-control]
+widths = [390, 1280, 1920, 2560]
+cause = "Terminal links retain their text metrics and desktop height; mobile touch targets occupy a separate navigation row, and the desktop track follows the heading metrics and reserved scrollbar space."
+
+[part.terminal-coin.recent-trades-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The right rail follows the reserved scrollbar track and retains its current content; mobile controls reserve 44px touch targets."
+
+[part.terminal-coin.recently-viewed-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.terminal-accordion-security-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The right rail follows the reserved scrollbar track and retains its current content; mobile controls reserve 44px touch targets."
+
+[part.terminal-coin.terminal-accordion-similar-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The current similar-coins message and Retry control wrap within the fixed rail width; mobile controls reserve touch clearance."
+
+[part.terminal-coin.trade-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The right rail follows the reserved scrollbar track and retains its current content; mobile controls reserve 44px touch targets."
+
+[part.terminal-coin.trending-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.ul-1-first-row]
+widths = [390, 1280, 1920, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-coin.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-coin.ul-2-first-row]
+widths = [390]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.ul-2-region]
+widths = [390]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.ul-3-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.ul-3-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.ul-4-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.ul-4-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Discovery panels share the available column height with the current recently-viewed price message; rows retain their desktop dimensions and reserve mobile touch clearance."
+
+[part.terminal-coin.window-stats-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The right rail follows the reserved scrollbar track; mobile window controls reserve 44px touch targets."
+
+[part.terminal-coin.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The center contains the current chart toolbar, price-list row and activity message within the width after the reserved scrollbar track; mobile controls reserve touch clearance."
+
+[part.terminal-coin.your-position-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The right rail follows the reserved scrollbar track; the mobile signed-out link reserves a 44px touch target."
+
+[view.terminal-portfolio]
+differing_parts = [9, 7, 7, 4, 7]
+
+[part.terminal-portfolio.first-heading]
+widths = [390, 1280, 1440, 2560]
+cause = "The heading retains its font size and line height with the current Manrope face and fallback metrics; mobile controls reserve a separate 44px navigation row."
+
+[part.terminal-portfolio.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.terminal-portfolio.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile controls reserve touch clearance."
+
+[part.terminal-portfolio.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-portfolio.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-portfolio.primary-control]
+widths = [390, 1280, 1440, 2560]
+cause = "Terminal links retain their text metrics and desktop height; mobile touch targets occupy a separate navigation row, and the desktop track follows the heading metrics and reserved scrollbar space."
+
+[part.terminal-portfolio.ul-1-first-row]
+widths = [390, 1280, 1440, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-portfolio.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-portfolio.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The workspace uses the width after the reserved scrollbar track and retains its current content; mobile navigation and controls reserve touch clearance."
+
+[view.terminal-rewards]
+differing_parts = [9, 7, 4, 7, 4]
+
+[part.terminal-rewards.first-heading]
+widths = [390, 1280, 1920]
+cause = "The heading retains its font size and line height with the current Manrope face and fallback metrics; mobile controls reserve a separate 44px navigation row."
+
+[part.terminal-rewards.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.terminal-rewards.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile controls reserve touch clearance."
+
+[part.terminal-rewards.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-rewards.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-rewards.primary-control]
+widths = [390, 1280, 1920]
+cause = "Terminal links retain their text metrics and desktop height; mobile touch targets occupy a separate navigation row, and the desktop track follows the heading metrics and reserved scrollbar space."
+
+[part.terminal-rewards.ul-1-first-row]
+widths = [390, 1280, 1920]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-rewards.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-rewards.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The workspace uses the width after the reserved scrollbar track and retains its current content; mobile navigation and controls reserve touch clearance."
+
+[view.terminal-track]
+differing_parts = [9, 7, 4, 4, 7]
+
+[part.terminal-track.first-heading]
+widths = [390, 1280, 2560]
+cause = "The heading retains its font size and line height with the current Manrope face and fallback metrics; mobile controls reserve a separate 44px navigation row."
+
+[part.terminal-track.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.terminal-track.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile controls reserve touch clearance."
+
+[part.terminal-track.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-track.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-track.primary-control]
+widths = [390, 1280, 2560]
+cause = "Terminal links retain their text metrics and desktop height; mobile touch targets occupy a separate navigation row, and the desktop track follows the heading metrics and reserved scrollbar space."
+
+[part.terminal-track.ul-1-first-row]
+widths = [390, 1280, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-track.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-track.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The workspace uses the width after the reserved scrollbar track and retains its current content; mobile navigation and controls reserve touch clearance."
+
+[view.terminal-trenches]
+differing_parts = [14, 12, 12, 12, 9]
+
+[part.terminal-trenches.about-to-graduate-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Trench columns divide the width after the reserved scrollbar track; mobile filter controls reserve 44px targets before the pair rows."
+
+[part.terminal-trenches.first-heading]
+widths = [390, 1280, 1440, 1920]
+cause = "The heading retains its font size and line height with the current Manrope face and fallback metrics; mobile controls reserve a separate 44px navigation row."
+
+[part.terminal-trenches.graduated-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Trench columns divide the width after the reserved scrollbar track; mobile filter controls reserve 44px targets before the pair rows."
+
+[part.terminal-trenches.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The stable scrollbar track reserves 15px of inline space."
+
+[part.terminal-trenches.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region shares the inline space after the scrollbar track; mobile controls reserve touch clearance."
+
+[part.terminal-trenches.navigation]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-trenches.navigation-first-row]
+widths = [390]
+cause = "Mobile navigation divides the inline space after the reserved scrollbar track among its destinations."
+
+[part.terminal-trenches.new-pairs-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Trench columns divide the width after the reserved scrollbar track; mobile filter controls reserve 44px targets before the pair rows."
+
+[part.terminal-trenches.new-pairs-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Trench columns divide the width after the reserved scrollbar track; mobile filter controls reserve 44px targets before the pair rows."
+
+[part.terminal-trenches.new-pairs-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Trench columns divide the width after the reserved scrollbar track; mobile filter controls reserve 44px targets before the pair rows."
+
+[part.terminal-trenches.primary-control]
+widths = [390, 1280, 1440, 1920]
+cause = "Terminal links retain their text metrics and desktop height; mobile touch targets occupy a separate navigation row, and the desktop track follows the heading metrics and reserved scrollbar space."
+
+[part.terminal-trenches.ul-1-first-row]
+widths = [390, 1280, 1440, 1920]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-trenches.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "Terminal navigation follows the current heading metrics and inline space after the scrollbar track; mobile touch targets occupy a separate row."
+
+[part.terminal-trenches.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The workspace uses the width after the reserved scrollbar track and retains its current content; mobile navigation and controls reserve touch clearance."

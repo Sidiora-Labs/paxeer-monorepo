@@ -6,6 +6,7 @@
  * Runs the real TokenMarketLayout with the app providers against a real local HTTP origin that
  * answers every market route with a non-retryable 503.
  */
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React, { act } from 'react';
@@ -23,10 +24,13 @@ vi.mock('next/image', async importOriginal => {
 // Next selects its client-only loader when its module initializes. Let Vitest
 // install the browser environment before imports, as it does in the browser.
 (globalThis as unknown as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+const closeBrowserSurface = applyBrowserSurface();
 
 const pool = '0xce20da50f92d21d8bee497910c782e9aa25b6263';
 const outage = { code: 'DEPENDENCY_UNAVAILABLE', message: 'no backing service', requestId: '0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01', retryable: false, retryAfterMs: null, fieldErrors: [], details: null };
 const seen: string[] = [];
+let detailStatus = 503;
+let searchStatus = 503;
 
 const server = createServer((request, response) => {
   response.setHeader('Access-Control-Allow-Origin', '*');
@@ -36,18 +40,23 @@ const server = createServer((request, response) => {
     response.statusCode = 204; response.end(); return;
   }
   seen.push(request.url ?? '');
-  response.statusCode = 503;
+  const detail = request.url === `/v2/pools/${pool}`;
+  response.statusCode = detail ? detailStatus : request.url?.startsWith('/v2/search') ? searchStatus : 503;
   response.setHeader('Content-Type', 'application/json');
-  response.end(JSON.stringify(outage));
+  response.end(JSON.stringify(detail && detailStatus === 404 ? { ...outage, code: 'NOT_FOUND' } : outage));
 });
 const origin = await new Promise<string>(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)));
 for (const name of ['DATA_API_URL', 'GATEWAY_URL', 'USER_API_URL', 'METADATA_API_URL', 'PNL_API_URL', 'SOCIAL_API_URL', 'RPC_URL']) process.env[`NEXT_PUBLIC_${name}`] = origin;
 process.env.NEXT_PUBLIC_STREAM_ORIGIN = 'ws://127.0.0.1:1';
 
 const { createRoot } = await import('react-dom/client');
-const { SdkClient } = await import('@kindle/sdk');
+const { Operations, SdkClient } = await import('@kindle/sdk');
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+const { PoolNotFoundError, PoolUnavailableError, resolvePoolSnapshot } = await import('@/core/market/pool-resolver');
+const { snapshotFailure } = await import('@/page-modules/token/snapshot-failure');
 const AppProviders = (await import('@/ui/providers/app-providers')).default;
 const { MarketClientProvider } = await import('@/page-modules/token/market-session-context');
+const { default: TokenModule } = await import('@/page-modules/token');
 const { default: TokenMarketLayout } = await import('./token-market-layout');
 // Load the real deferred panel before measuring the outage render. Transforming
 // its wallet dependencies is setup work, not a backend response to wait for.
@@ -142,5 +151,53 @@ describe('coin page when the snapshot fails', () => {
     const after = snapshotReads();
     expect(after - before).toBeLessThanOrEqual(2);
     expect(container.querySelector('[data-market-snapshot="failed"]')).not.toBeNull();
+    act(() => { root!.unmount(); });
+    root = undefined;
+    container.remove();
+  }, 30_000);
+
+  it('hydrates an unavailable search as market frames with placeholders and a working retry', async function coinUnavailableSnapshotKeepsFrames() {
+    detailStatus = 404;
+    searchStatus = 404;
+    const stream = 'ws://127.0.0.1:1';
+    const client = new SdkClient({ apiOrigin: origin, identityOrigin: origin, mediaOrigin: origin, streamOrigin: stream, approvedStreamOrigins: [stream], production: false });
+    const error = await resolvePoolSnapshot(pool, { operations: new Operations(client) }).catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(PoolUnavailableError);
+    expect(error).not.toBeInstanceOf(PoolNotFoundError);
+    const failure = snapshotFailure(error);
+    expect(failure).toEqual({ kind: 'unavailable', operation: 'IF_SEARCH', status: 404 });
+    const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    try {
+      act(() => { root!.render(<AppProviders><QueryClientProvider client={queries}><MarketClientProvider client={client}><TokenModule poolAddress={pool} initialSnapshot={{ data: null, failure, updatedAt: Date.now() }} /></MarketClientProvider></QueryClientProvider></AppProviders>); });
+      await waitFor(() => container.querySelector('header[data-coin-header="degraded"]') !== null
+        && container.querySelector('form[aria-label="Trade"]') !== null
+        && container.querySelector('section[aria-label="Price chart"]') !== null
+        && container.querySelector('section[aria-label="Coin details"]') !== null);
+      expect(container.querySelector('[data-coin-state="not-found"]')).toBeNull();
+      const header = container.querySelector('header[data-coin-header="degraded"]') as HTMLElement;
+      expect(header.querySelector('[data-headline]')?.textContent).toBe('—');
+      const notice = header.querySelector('[data-state="unavailable"]') as HTMLElement;
+      expect(notice.textContent).toContain('This coin is not available yet');
+      const retry = Array.from(notice.querySelectorAll('button')).find(button => button.textContent === 'Try again');
+      expect(retry).toBeDefined();
+      const reads = () => seen.filter(url => url === `/v2/pools/${pool}`).length;
+      const before = reads();
+      await act(async () => { retry!.click(); });
+      await waitFor(() => reads() > before && container.querySelector('header[data-coin-header="degraded"]') !== null);
+      expect(container.querySelector('[data-market-snapshot="failed"]')).not.toBeNull();
+      expect(container.querySelector('[data-coin-state="not-found"]')).toBeNull();
+    } finally {
+      act(() => { root!.unmount(); });
+      root = undefined;
+      queries.clear();
+      container.remove();
+      detailStatus = 503;
+      searchStatus = 503;
+    }
   }, 30_000);
 });
+
+afterAll(closeBrowserSurface);

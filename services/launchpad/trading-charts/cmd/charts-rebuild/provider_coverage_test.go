@@ -9,14 +9,19 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	production "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -99,6 +104,33 @@ func rebuildReadyDatabase(t *testing.T) string {
 		t.Fatal(err)
 	}
 	parsed.User = url.UserPassword(role, password)
+	budgetBytes, err := os.ReadFile(filepath.Join(coordinatortest.RepositoryRoot(t), "deploy/launchpad/documents/values/common.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var budget production.ConnectionBudget
+	if err = json.Unmarshal(budgetBytes, &budget); err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.ParseUint(parsed.Port(), 10, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	budget.Targets[0].Host, budget.Targets[0].Port = parsed.Hostname(), uint16(port)
+	if err = pool.QueryRow(ctx, "SELECT setting::bigint FROM pg_settings WHERE name='max_connections'").Scan(&budget.Targets[0].MaxConnections); err != nil {
+		t.Fatal(err)
+	}
+	for i := range budget.Clients {
+		if budget.Clients[i].Role == "chartsd" {
+			budget.Clients[i].Transport = runtimedb.TransportDirect
+			budget.Clients[i].Pooler = ""
+			budget.Clients[i].Alias = strings.TrimPrefix(parsed.Path, "/")
+			budget.Clients[i].User = role
+		}
+	}
+	rebuildRuntimeBind(t, "DB_BUDGET", budget, true)
+	t.Setenv("DB_POOL_ID", "chartsd_pool")
+	t.Setenv("INSTANCE_ID", "charts-rebuild")
 	return parsed.String()
 }
 
@@ -110,6 +142,9 @@ func TestRebuildUsesOwnedProvidersForArchiveAdmission(t *testing.T) {
 	last, err := (chainread.Reader{RPC: rpc}).Block(context.Background(), 2)
 	if err != nil || first.Time >= 1704067200 || last.Time < 1704672000 {
 		t.Fatalf("canonical archive boundary blocks: first=%+v last=%+v err=%v", first, last, err)
+	}
+	if _, err := rebuildBlockTime(context.Background(), nil, 1, first.Hash); !errors.Is(err, chainread.ErrUnavailable) {
+		t.Fatalf("archive block cause: %v", err)
 	}
 	if stamp, err := rebuildBlockTime(context.Background(), rpc, 1, strings.ToUpper(first.Hash)); err != nil || stamp != first.Time {
 		t.Fatalf("canonical archive block time: %d, %v", stamp, err)
@@ -127,6 +162,8 @@ func TestRebuildUsesOwnedProvidersForArchiveAdmission(t *testing.T) {
 	} {
 		t.Setenv(key, value)
 	}
+	features := config.ChartRuntimeFeatures{SchemaVersion: 2, EndpointSetVersion: "local", DeploymentVersion: deployment.Current().DeploymentVersion, AnchorHeight: 1, AnchorHash: first.Hash, CanonicalAPIOrigin: rpcURL, ReplayGatewayOrigin: rpcURL, CanonicalSeriesModel: "qualified-exact-v2", DisplayPrecision: 6, MaxHistoryOrigins: 2, RollupBatch: 16, RollupIntervalMillis: 1000, Archive: &config.ChartArchiveFeatures{Endpoint: objects.Endpoint, Region: objects.Region, Bucket: objects.Bucket}}
+	rebuildRuntimeBind(t, "CHART_FEATURES_CONFIG", features, true)
 	manifest := filepath.Join(t.TempDir(), "manifests.json")
 	if err := os.WriteFile(manifest, []byte("[]"), 0600); err != nil {
 		t.Fatal(err)
@@ -134,6 +171,18 @@ func TestRebuildUsesOwnedProvidersForArchiveAdmission(t *testing.T) {
 	if err := runArgs(rebuildRuntimeArgs(manifest)); err == nil || !strings.Contains(err.Error(), "reconstruction failed") {
 		t.Fatalf("archive reconstruction admission: %v", err)
 	}
+	t.Run("unallocated rebuild pool", func(t *testing.T) {
+		t.Setenv("DB_POOL_ID", "unallocated")
+		if err := runArgs(rebuildRuntimeArgs(manifest)); err == nil || !strings.Contains(err.Error(), "unregistered runtime pool") {
+			t.Fatalf("rebuild pool admission: %v", err)
+		}
+	})
+	t.Run("unbound archive", func(t *testing.T) {
+		t.Setenv("CHART_FEATURES_CONFIG_SHA256", strings.Repeat("0", 64))
+		if err := runArgs(rebuildRuntimeArgs(manifest)); err == nil || !strings.Contains(err.Error(), "binding_mismatch") {
+			t.Fatalf("archive binding: %v", err)
+		}
+	})
 	for _, tc := range []struct {
 		name, variable, value, want string
 	}{

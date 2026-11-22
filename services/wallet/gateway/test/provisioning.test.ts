@@ -30,7 +30,7 @@ import {
   verifyChainSequencerReceipt,
 } from './support/chain.js';
 import { KERNEL_POLICY } from './e2e/attestors.js';
-import { reservePorts } from './support/ports.js';
+import { assertProcessRunning, startOnReservedPorts, stopPortProcess } from './support/ports.js';
 import {
   authenticateNodeReceipt,
   authenticateSponsoredBindReceipt,
@@ -335,9 +335,6 @@ beforeAll(async () => {
   );
   const kernelPolicyFile = join(workDir, 'kernel-policy.json');
   writeFileSync(kernelPolicyFile, JSON.stringify(KERNEL_POLICY));
-  const reservedPorts = await reservePorts(nodes.length * 2);
-  const apiPorts = reservedPorts.slice(0, nodes.length).map(({ port }) => port);
-  const peerPorts = reservedPorts.slice(nodes.length).map(({ port }) => port);
   const pins = nodes.map((n) => spkiPin(join(workDir, `${n}.crt`)));
   const inventoryFile = join(workDir, 'inventory.jwt');
   const issuedAt = Math.floor(Date.now() / 1000);
@@ -378,60 +375,86 @@ beforeAll(async () => {
     });
     writeFileSync(inventoryFile, `${input}.${signature.toString('base64url')}`);
   };
-  for (const [i, node] of nodes.entries()) {
-    const others = nodes.map((n, j) => ({ n, j })).filter((x) => x.j !== i);
-    const keyFile = join(workDir, `${node}.store`);
-    writeFileSync(keyFile, randomBytes(32).toString('hex'));
-    const log = openSync(join(workDir, `${node}.log`), 'w');
-    await Promise.all([reservedPorts[i]!.release(), reservedPorts[i + nodes.length]!.release()]);
-    const child = spawn(bin, [], {
-      env: {
-        PATH: process.env.PATH ?? '',
-        ATTESTOR_NODE_ID: node,
-        ATTESTOR_REGION: `region-${i + 1}`,
-        ATTESTOR_LISTEN_ADDR: `127.0.0.1:${apiPorts[i]}`,
-        ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${peerPorts[i]}`,
-        ATTESTOR_PEERS: others.map((x) => `${x.n}=127.0.0.1:${peerPorts[x.j]}`).join(','),
-        ATTESTOR_PEER_PINS: others.map((x) => `${x.n}=${pins[x.j]}`).join(','),
-        ATTESTOR_NODE_KEY_FILE: keyFile,
-        ATTESTOR_DATA_DIR: join(workDir, `${node}-data`),
-        ATTESTOR_CHAIN_ID: String(CHAIN_ID),
-        ATTESTOR_AGENT_PAYMASTER: PAYMASTER,
-        ATTESTOR_JWKS_URL: `${idp.url}/auth/v1/.well-known/jwks.json`,
-        ATTESTOR_JWT_ISSUER: `${idp.url}/auth/v1`,
-        ATTESTOR_JWT_AUDIENCE: 'authenticated',
-        ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: authorityPublicKeyFile,
-        ATTESTOR_AUTHORITY_ISSUER: `${idp.url}/auth/v1`,
-        ATTESTOR_AUTHORITY_TENANT: 'provisioning-test',
-        ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: authorityPublicKeyFile,
-        ATTESTOR_INVENTORY_FILE: inventoryFile,
-        ATTESTOR_POLICY_FILE: policyFile,
-        ATTESTOR_TLS_CERT_FILE: join(workDir, `${node}.crt`),
-        ATTESTOR_TLS_KEY_FILE: join(workDir, `${node}.key`),
-        ATTESTOR_TLS_CA_FILE: join(workDir, 'ca.crt'),
-        ATTESTOR_OPERATOR_CA_FILE: join(workDir, 'ca.crt'),
-        ATTESTOR_KERNEL_POLICY_FILE: kernelPolicyFile,
-        ATTESTOR_RPC_URL: chain.url,
-        ATTESTOR_ACTIVITY_TYPES: '0x10005',
-      },
-      stdio: ['ignore', log, log],
-    });
-    daemons.push(child);
-    endpoints.push(`https://127.0.0.1:${apiPorts[i]}`);
+  for (const node of nodes) {
+    writeFileSync(join(workDir, `${node}.store`), randomBytes(32).toString('hex'));
   }
-  const deadline = Date.now() + 120_000;
-  for (;;) {
-    const states = await Promise.all(endpoints.map((u) => health(u)));
-    if (states.every((s) => s.ready)) break;
-    if (
-      daemons.some((child) => child.exitCode !== null || child.signalCode !== null) ||
-      Date.now() > deadline
-    ) {
-      const logs = nodes.map((n) => readFileSync(join(workDir, `${n}.log`), 'utf8')).join('\n');
-      throw new Error(`attestors did not become ready: ${logs}`);
+  let startupError: Error | undefined;
+  await startOnReservedPorts(
+    nodes.length * 2,
+    async (reservedPorts) => {
+      const apiPorts = reservedPorts.slice(0, nodes.length).map(({ port }) => port);
+      const peerPorts = reservedPorts.slice(nodes.length).map(({ port }) => port);
+      for (const [i, node] of nodes.entries()) {
+        const others = nodes.map((n, j) => ({ n, j })).filter((x) => x.j !== i);
+        const keyFile = join(workDir, `${node}.store`);
+        const log = openSync(join(workDir, `${node}.log`), 'w');
+        await Promise.all([
+          reservedPorts[i]!.release(),
+          reservedPorts[i + nodes.length]!.release(),
+        ]);
+        const child = spawn(bin, [], {
+          env: {
+            PATH: process.env.PATH ?? '',
+            ATTESTOR_NODE_ID: node,
+            ATTESTOR_REGION: `region-${i + 1}`,
+            ATTESTOR_LISTEN_ADDR: `127.0.0.1:${apiPorts[i]}`,
+            ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${peerPorts[i]}`,
+            ATTESTOR_PEERS: others.map((x) => `${x.n}=127.0.0.1:${peerPorts[x.j]}`).join(','),
+            ATTESTOR_PEER_PINS: others.map((x) => `${x.n}=${pins[x.j]}`).join(','),
+            ATTESTOR_NODE_KEY_FILE: keyFile,
+            ATTESTOR_DATA_DIR: join(workDir, `${node}-data`),
+            ATTESTOR_CHAIN_ID: String(CHAIN_ID),
+            ATTESTOR_AGENT_PAYMASTER: PAYMASTER,
+            ATTESTOR_JWKS_URL: `${idp.url}/auth/v1/.well-known/jwks.json`,
+            ATTESTOR_JWT_ISSUER: `${idp.url}/auth/v1`,
+            ATTESTOR_JWT_AUDIENCE: 'authenticated',
+            ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: authorityPublicKeyFile,
+            ATTESTOR_AUTHORITY_ISSUER: `${idp.url}/auth/v1`,
+            ATTESTOR_AUTHORITY_TENANT: 'provisioning-test',
+            ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: authorityPublicKeyFile,
+            ATTESTOR_INVENTORY_FILE: inventoryFile,
+            ATTESTOR_POLICY_FILE: policyFile,
+            ATTESTOR_TLS_CERT_FILE: join(workDir, `${node}.crt`),
+            ATTESTOR_TLS_KEY_FILE: join(workDir, `${node}.key`),
+            ATTESTOR_TLS_CA_FILE: join(workDir, 'ca.crt'),
+            ATTESTOR_OPERATOR_CA_FILE: join(workDir, 'ca.crt'),
+            ATTESTOR_KERNEL_POLICY_FILE: kernelPolicyFile,
+            ATTESTOR_RPC_URL: chain.url,
+            ATTESTOR_ACTIVITY_TYPES: '0x10005',
+          },
+          stdio: ['ignore', log, log],
+        });
+        child.once('error', (error) => {
+          startupError = error;
+        });
+        daemons.push(child);
+        endpoints.push(`https://127.0.0.1:${apiPorts[i]}`);
+      }
+      const deadline = Date.now() + 120_000;
+      for (;;) {
+        if (startupError) throw startupError;
+        for (const [i, child] of daemons.entries()) {
+          assertProcessRunning(child, [readFileSync(join(workDir, `${nodes[i]}.log`), 'utf8')]);
+        }
+        const states = await Promise.all(endpoints.map((u) => health(u)));
+        if (states.every((s) => s.ready)) break;
+        if (
+          daemons.some((child) => child.exitCode !== null || child.signalCode !== null) ||
+          Date.now() > deadline
+        ) {
+          const logs = nodes.map((n) => readFileSync(join(workDir, `${n}.log`), 'utf8')).join('\n');
+          throw new Error(`attestors did not become ready: ${logs}`);
+        }
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    },
+    async () => {
+      await Promise.all(daemons.map(stopPortProcess));
+      daemons.length = 0;
+      endpoints.length = 0;
+      startupError = undefined;
     }
-    await new Promise((r) => setTimeout(r, 300));
-  }
+  );
 
   const relayer = privateKeyToAccount(generatePrivateKey());
   sponsorAddress = relayer.address.toLowerCase();
@@ -442,9 +465,8 @@ beforeAll(async () => {
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
     req.on('end', async () => {
       try {
-        const { constructionDigest, sponsorQuoteDigest } = await import(
-          '../src/attestor/client.js'
-        );
+        const { constructionDigest, sponsorQuoteDigest } =
+          await import('../src/attestor/client.js');
         expect(req.method).toBe('POST');
         expect(req.headers['content-type']).toBe('application/json');
         if (req.url === '/quote') {

@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Box, Text, Button } from "@paxeer-network/ui";
@@ -26,7 +25,7 @@ export const VaultDepositForm: FC<VaultDepositFormScript> = (props) => {
 
   const { t } = useTranslation();
   return (
-    <div className={styles.surface}>
+    <div>
       <BrokerWallet />
       <Box mt={3} mb={1}>
         <QuantityInput
@@ -47,14 +46,14 @@ export const VaultDepositForm: FC<VaultDepositFormScript> = (props) => {
       <Box
         mt={5}
         mb={1}
-        className="oui-flex oui-flex-wrap oui-gap-2 oui-items-center oui-justify-between oui-text-sm oui-font-semibold oui-text-base-contrast-80"
+        className="oui-flex oui-items-center oui-justify-between oui-text-sm oui-font-semibold oui-text-base-contrast-54"
       >
         <div>{t("vaults.deposit.estShares")}</div>
         <Text.numeral
           dp={6}
           padding={false}
           suffix={
-            <span className="oui-ms-1 oui-text-base-contrast-80">
+            <span className="oui-ms-1 oui-text-base-contrast-54">
               {t("vaults.deposit.shares")}
             </span>
           }
@@ -64,12 +63,12 @@ export const VaultDepositForm: FC<VaultDepositFormScript> = (props) => {
       </Box>
       <Box
         mb={5}
-        className="oui-flex oui-flex-wrap oui-gap-2 oui-items-center oui-justify-between oui-text-sm oui-font-semibold oui-text-base-contrast-80"
+        className="oui-flex oui-items-center oui-justify-between oui-text-sm oui-font-semibold oui-text-base-contrast-54"
       >
         <div>{t("vaults.deposit.lockupDuration")}</div>
         <Text.numeral
           suffix={
-            <span className="oui-ms-1 oui-text-base-contrast-80">hrs</span>
+            <span className="oui-ms-1 oui-text-base-contrast-54">hrs</span>
           }
         >
           48

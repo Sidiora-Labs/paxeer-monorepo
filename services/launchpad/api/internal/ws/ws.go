@@ -91,7 +91,7 @@ type Options struct {
 	Lifecycle     *broker.Lifecycle
 	PrivateStream *broker.PostgresStream
 	// TopicRegistry, when set, classifies topics naming unknown resources
-	// (see TopicRegistry). Nil keeps every projection miss a 503.
+	// (see TopicRegistry). Nil treats projection misses as topics awaiting a first frame.
 	TopicRegistry     TopicRegistry
 	AllowedOrigins    []string
 	TrustedProxyCIDRs []string
@@ -125,7 +125,9 @@ func NewHub(opts Options) *Hub {
 		h.lifecycle = broker.NewLifecycle()
 	}
 	for _, origin := range opts.AllowedOrigins {
-		h.allowedOrigins[origin] = true
+		if origin = strings.TrimSpace(origin); origin != "" && origin != "*" {
+			h.allowedOrigins[origin] = true
+		}
 	}
 	if h.sendBuffer <= 0 {
 		h.sendBuffer = 256
@@ -453,39 +455,32 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-func streamHTTPError(w http.ResponseWriter, status int, code string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("X-Schema-Version", "2")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"code": code, literalMessage: code, "requestId": uuid.NewString(), "retryable": status == 503, "retryAfterMs": nil, "fieldErrors": []any{}, "details": nil})
-}
 func (h *Hub) streamBinding(r *http.Request, topics []string) sharedauth.StreamTicketBinding {
 	return sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: append([]string(nil), topics...), FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: r.Header.Get("Origin"), Endpoint: "/v2/stream"}
 }
 func (h *Hub) snapshotHandle(w http.ResponseWriter, r *http.Request) {
 	if h.privateStream == nil || !h.lifecycle.Ready() {
-		streamHTTPError(w, 503, "DEPENDENCY_UNAVAILABLE")
+		broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	origin, originErr := broker.TrustedHTTPOrigin(r, h.allowedOrigins, h.trustedProxies)
 	if originErr != nil {
-		streamHTTPError(w, 403, "FORBIDDEN")
+		broker.WriteStreamHTTPError(w, r, 403, "FORBIDDEN")
 		return
 	}
 	if len(r.URL.RawQuery) > 8192 {
-		streamHTTPError(w, 422, "FIELD_INVALID")
+		broker.WriteStreamHTTPError(w, r, 422, "FIELD_INVALID")
 		return
 	}
 	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil || len(q) != 1 || len(q["topics"]) != 1 {
-		streamHTTPError(w, 422, "FIELD_INVALID")
+		broker.WriteStreamHTTPError(w, r, 422, "FIELD_INVALID")
 		return
 	}
 	topics := strings.Split(q.Get("topics"), ",")
 	shape, err := json.Marshal(map[string]any{"topics": topics})
 	if err != nil || interfaces.ValidateJSON("TopicSnapshotReadRequest", shape) != nil {
-		streamHTTPError(w, 422, "FIELD_INVALID")
+		broker.WriteStreamHTTPError(w, r, 422, "FIELD_INVALID")
 		return
 	}
 	var principal sharedauth.StreamPrincipal
@@ -497,7 +492,7 @@ func (h *Hub) snapshotHandle(w http.ResponseWriter, r *http.Request) {
 		authRequest.Header.Set("Origin", origin)
 		principal, err = h.privateStream.AuthenticateRequest(r.Context(), authRequest)
 		if err != nil {
-			streamHTTPError(w, 401, "AUTH_REQUIRED")
+			broker.WriteStreamHTTPError(w, r, 401, "AUTH_REQUIRED")
 			return
 		}
 	}
@@ -505,27 +500,33 @@ func (h *Hub) snapshotHandle(w http.ResponseWriter, r *http.Request) {
 	binding.Origin = origin
 	snapshot, err := h.privateStream.Snapshot(r.Context(), principal, binding)
 	if err != nil {
-		// A projection miss for a topic naming an unregistered resource is
-		// permanent: 404 NOT_FOUND (declared for IF_TOPIC_SNAPSHOT_READ),
-		// retryable=false, no Retry-After. Any other miss, and any registry
-		// read failure, stays 503 DEPENDENCY_UNAVAILABLE retryable.
+		// Unknown resources take precedence over topics awaiting a first frame.
 		if errors.Is(err, broker.ErrStreamUnavailable) && h.topicRegistry != nil {
-			if unknown, registryErr := h.topicRegistry.UnknownTopics(r.Context(), topics); registryErr == nil && len(unknown) > 0 {
-				streamHTTPError(w, 404, "NOT_FOUND")
+			unknown, registryErr := h.topicRegistry.UnknownTopics(r.Context(), topics)
+			if registryErr != nil {
+				broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+				return
+			}
+			if len(unknown) > 0 {
+				broker.WriteStreamHTTPError(w, r, 404, "NOT_FOUND")
 				return
 			}
 		}
-		streamHTTPError(w, 503, "DEPENDENCY_UNAVAILABLE")
+		if errors.Is(err, broker.ErrTopicNotStarted) {
+			broker.WriteStreamHTTPError(w, r, 404, "TOPIC_NOT_STARTED")
+			return
+		}
+		broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	body, err := json.Marshal(map[string]any{"requestId": uuid.NewString(), "data": map[string]any{"snapshot": snapshot}, "watermark": nil, "revision": nil, "quality": "complete", "nextCursor": nil, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 	if err != nil || interfaces.ValidateJSON("TopicSnapshotReadResponse", body) != nil {
-		streamHTTPError(w, 503, "INTEGRITY_QUARANTINED")
+		broker.WriteStreamHTTPError(w, r, 503, "INTEGRITY_QUARANTINED")
 		return
 	}
 	if principal.AccountID != "" {
 		if err = h.privateStream.Authority.CheckStreamSession(r.Context(), principal); err != nil {
-			streamHTTPError(w, 401, "AUTH_REQUIRED")
+			broker.WriteStreamHTTPError(w, r, 401, "AUTH_REQUIRED")
 			return
 		}
 	}

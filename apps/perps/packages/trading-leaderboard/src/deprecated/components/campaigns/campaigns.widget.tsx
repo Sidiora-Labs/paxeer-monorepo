@@ -24,24 +24,27 @@ export const CampaignsWidget: FC<CampaignsWidgetProps> = (props) => {
     if (emphasisConfig?.subtitle) {
       return {
         container: !canTrade
-          ? "!oui-h-[calc(var(--oui-space-24)*7)] lg:!oui-h-[calc(var(--oui-space-24)*7)]"
-          : "!oui-h-[calc(var(--oui-space-24)*6)] lg:!oui-h-[calc(var(--oui-space-24)*7)]",
+          ? "!oui-h-[680px] lg:!oui-h-[700px]"
+          : "!oui-h-[600px] lg:!oui-h-[700px]",
         topContainer: "!oui-w-[90%]",
       };
     }
 
     if (!isMobile) return undefined;
     return {
-      container: cn("oui-min-h-[calc(var(--oui-space-24)*4)] oui-gap-5"),
-      time: "oui-text-sm",
-      title: "oui-text-2xl oui-leading-normal",
-      description: "oui-text-2xs oui-leading-normal",
-      topContainer: cn("oui-w-full oui-px-3 oui-gap-1"),
+      container: cn("oui-h-[400px] oui-gap-5"),
+      time: "oui-text-sm oui-h-5",
+      title: "oui-text-[24px] oui-leading-[32px]",
+      description: "oui-text-2xs oui-leading-[15px]",
+      topContainer: cn("oui-w-[284px] oui-gap-1"),
     };
   }, [isMobile, emphasisConfig, canTrade]);
 
   return (
-    <div className={cn(["oui-relative oui-z-[1]"])} style={props.style}>
+    <div
+      className={cn(["oui-relative oui-z-[1] oui-overflow-hidden"])}
+      style={props.style}
+    >
       {!props.hideCampaignsBanner && (
         <CampaignsHeaderWidget
           backgroundSrc={state.backgroundSrc}

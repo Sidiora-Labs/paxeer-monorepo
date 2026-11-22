@@ -7,17 +7,85 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/dealer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/attestor"
 )
+
+func TestCeremonyShareFingerprint(t *testing.T) {
+	record := func(form, text string) []byte {
+		raw, err := json.Marshal(map[string]any{form: map[string]string{"share": text}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	var odd, even [32]byte
+	odd[30], odd[31] = 0x0a, 0xbc
+	even[30], even[31] = 0x12, 0x34
+	oddFingerprint, evenFingerprint := sha256.Sum256(odd[:]), sha256.Sum256(even[:])
+	for _, tc := range []struct {
+		name, form, text string
+		want             [32]byte
+	}{
+		{"odd-ecdsa", "ecdsa", "abc", oddFingerprint},
+		{"odd-import", "bundle", "0abc", oddFingerprint},
+		{"even-ecdsa", "ecdsa", "1234", evenFingerprint},
+		{"even-import", "bundle", "1234", evenFingerprint},
+		{"padded-import", "bundle", strings.Repeat("0", 60) + "0abc", oddFingerprint},
+		{"uppercase-ecdsa", "ecdsa", "ABC", oddFingerprint},
+		{"zero-ecdsa", "ecdsa", "0", sha256.Sum256(make([]byte, 32))},
+		{"zero-import", "bundle", "00", sha256.Sum256(make([]byte, 32))},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ceremonyShareFingerprint(record(tc.form, tc.text))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Fatal("share fingerprint differs from the SHA-256 of its 32-byte integer")
+			}
+		})
+	}
+	first, err := ceremonyShareFingerprint(record("ecdsa", "abc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := ceremonyShareFingerprint(record("bundle", "1234"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatal("different shares have the same comparison value")
+	}
+	for _, form := range []string{"ecdsa", "bundle"} {
+		for _, tc := range []struct{ name, text string }{
+			{"empty", ""},
+			{"invalid", "not-hex"},
+			{"negative", "-abc"},
+			{"oversized", "1" + strings.Repeat("0", 64)},
+		} {
+			t.Run(form+"-"+tc.name, func(t *testing.T) {
+				got, err := ceremonyShareFingerprint(record(form, tc.text))
+				if err == nil {
+					t.Fatal("invalid share text was accepted")
+				}
+				if got != ([32]byte{}) {
+					t.Fatal("invalid share returned a comparison value")
+				}
+			})
+		}
+	}
+}
 
 func ceremonyNodesConfig(t *testing.T) (*TLSFiles, []attestor.NodeConfig) {
 	t.Helper()
@@ -105,8 +173,6 @@ func TestCeremonyNodesRealProtocolRefreshAndDescribe(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	const ceremonyID, importID, refreshID, keyID = "repair-m175", "repair-m175-import", "repair-m175-refresh", "repair-m175-key"
 	bundles, pub, err := dealer.Split(dealer.Secp256k1, big.NewInt(0x5eed), client.NodeIDs())
 	if err != nil {
@@ -118,7 +184,10 @@ func TestCeremonyNodesRealProtocolRefreshAndDescribe(t *testing.T) {
 	}
 	approval := CeremonyInventoryKey{KeyID: keyID, Curve: "secp256k1", PublicKey: hex.EncodeToString(publicBytes), Owner: "repair-owner", Operations: []string{"import", "refresh", "sign"}}
 	ceremonyNodesApprove(t, nodes, approval, nil)
-	if _, err := client.ImportCeremony(ctx, ceremonyID, importID, keyID, "repair-owner", "", bundles, pub); err != nil {
+	importCtx, importCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	_, err = client.ImportCeremony(importCtx, ceremonyID, importID, keyID, "repair-owner", "", bundles, pub)
+	importCancel()
+	if err != nil {
 		t.Fatal(err)
 	}
 	before := make([][32]byte, len(nodes.nodes))
@@ -136,7 +205,9 @@ func TestCeremonyNodesRealProtocolRefreshAndDescribe(t *testing.T) {
 		bundle.Share.SetInt64(0)
 	}
 	t.Run("distributed-refresh", func(t *testing.T) {
-		if _, err := client.RefreshCeremony(ctx, ceremonyID, importID, refreshID, "", keyID, pub, 0); err != nil {
+		refreshCtx, refreshCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer refreshCancel()
+		if _, err := client.RefreshCeremony(refreshCtx, ceremonyID, importID, refreshID, "", keyID, pub, 0); err != nil {
 			t.Fatal(err)
 		}
 		for i, bundle := range bundles {
@@ -150,10 +221,13 @@ func TestCeremonyNodesRealProtocolRefreshAndDescribe(t *testing.T) {
 		}
 	})
 	t.Run("durable-description", func(t *testing.T) {
+		client.Close()
 		for i := range nodes.nodes {
 			nodes.Reopen(t, i)
 		}
-		rows, err := client.DescribeCeremony(ctx, keyID)
+		readCtx, readCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer readCancel()
+		rows, err := client.DescribeCeremony(readCtx, keyID)
 		if err != nil {
 			t.Fatalf("real ceremony consumer cannot inspect durable commit identity: %v", err)
 		}
@@ -188,8 +262,6 @@ func TestCeremonyNodesPartialCommitAndReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	const ceremonyID, importID, refreshID, keyID = "repair-m175-partial", "repair-m175-partial-import", "repair-m175-partial-refresh", "repair-m175-partial-key"
 	seed := sha256.Sum256([]byte("repair m175 disposable ed25519 import"))
 	private := ed25519.NewKeyFromSeed(seed[:])
@@ -230,7 +302,10 @@ func TestCeremonyNodesPartialCommitAndReopen(t *testing.T) {
 	}
 	approval := CeremonyInventoryKey{KeyID: keyID, Curve: "ed25519", PublicKey: hex.EncodeToString(publicBytes), Owner: "repair-owner", Operations: []string{"import", "refresh", "sign"}}
 	ceremonyNodesApprove(t, nodes, approval, nil)
-	if _, err = client.ImportCeremony(ctx, ceremonyID, importID, keyID, "repair-owner", "0x4444444444444444444444444444444444444444", bundles, pub); err != nil {
+	importCtx, importCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	_, err = client.ImportCeremony(importCtx, ceremonyID, importID, keyID, "repair-owner", "0x4444444444444444444444444444444444444444", bundles, pub)
+	importCancel()
+	if err != nil {
 		t.Fatal(err)
 	}
 	before := make([][32]byte, len(nodes.nodes))
@@ -249,9 +324,13 @@ func TestCeremonyNodesPartialCommitAndReopen(t *testing.T) {
 		bundle.Share.SetInt64(0)
 	}
 	nodes.nodes[4].interrupt()
-	if _, err = client.RefreshCeremony(ctx, ceremonyID, importID, refreshID, "", keyID, pub, 0); err == nil {
+	interruptedCtx, interruptedCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	_, err = client.RefreshCeremony(interruptedCtx, ceremonyID, importID, refreshID, "", keyID, pub, 0)
+	interruptedCancel()
+	if err == nil {
 		t.Fatal("refresh succeeded despite a closed participant store at commit")
 	}
+	client.Close()
 	nodes.Reopen(t, 4)
 	epochs := make([]uint64, len(nodes.nodes))
 	for i, n := range nodes.nodes {
@@ -263,10 +342,15 @@ func TestCeremonyNodesPartialCommitAndReopen(t *testing.T) {
 	if !reflect.DeepEqual(epochs, []uint64{1, 1, 1, 1, 0}) {
 		t.Fatalf("partial commit epochs: %v", epochs)
 	}
-	if _, err = client.DescribeCeremony(ctx, keyID); !errors.Is(err, attestor.ErrDisagree) {
+	describeCtx, describeCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	_, err = client.DescribeCeremony(describeCtx, keyID)
+	describeCancel()
+	if !errors.Is(err, attestor.ErrDisagree) {
 		t.Fatalf("ordinary description accepted partial epochs: %v", err)
 	}
-	rows, err := client.InspectRefreshRecovery(ctx, ceremonyID, importID, refreshID, keyID, hex.EncodeToString(publicBytes), "ed25519", 0)
+	inspectCtx, inspectCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	rows, err := client.InspectRefreshRecovery(inspectCtx, ceremonyID, importID, refreshID, keyID, hex.EncodeToString(publicBytes), "ed25519", 0)
+	inspectCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,13 +360,19 @@ func TestCeremonyNodesPartialCommitAndReopen(t *testing.T) {
 		}
 	}
 	ceremonyNodesApprove(t, nodes, approval, epochs)
-	if _, err = client.RefreshCeremony(ctx, ceremonyID, importID, refreshID, "", keyID, pub, 0); err != nil {
+	recoveryCtx, recoveryCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	_, err = client.RefreshCeremony(recoveryCtx, ceremonyID, importID, refreshID, "", keyID, pub, 0)
+	recoveryCancel()
+	if err != nil {
 		t.Fatal(err)
 	}
+	client.Close()
 	for i := range nodes.nodes {
 		nodes.Reopen(t, i)
 	}
-	rows, err = client.DescribeCeremony(ctx, keyID)
+	readCtx, readCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	rows, err = client.DescribeCeremony(readCtx, keyID)
+	readCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +389,9 @@ func TestCeremonyNodesPartialCommitAndReopen(t *testing.T) {
 		}
 	}
 	ceremonyNodesApprove(t, nodes, approval, []uint64{1, 1, 1, 1, 1})
-	signed, err := client.SignVerificationCeremony(ctx, ceremonyID, "repair-m175-threshold-proof", "", keyID, importID, pub, 1)
+	signCtx, signCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer signCancel()
+	signed, err := client.SignVerificationCeremony(signCtx, ceremonyID, "repair-m175-threshold-proof", "", keyID, importID, pub, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

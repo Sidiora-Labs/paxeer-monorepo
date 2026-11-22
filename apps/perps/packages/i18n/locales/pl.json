@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO nie jest obsługiwane, gdy wybrano TP/SL, Post-Only, IOC lub FOK.",
   "orderEntry.estLiqPrice": "Szac. cena likw.",
   "orderEntry.disableOrderConfirm": "Wyłącz potwierdzenie zlecenia",
+  "orderEntry.nativeFunding.twoTransactions": "Nastąpią dwie transakcje: wpłata brakującego zabezpieczenia, a następnie złożenie zlecenia. Może być również wymagana zgoda na użycie tokena.",
   "orderEntry.orderConfirm": "Potwierdź zlecenie",
   "orderEntry.confirmScaledOrder": "Potwierdź zlecenie skalowane",
   "orderEntry.hidden": "Ukryte",

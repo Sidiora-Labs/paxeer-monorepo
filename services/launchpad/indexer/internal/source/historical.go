@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+
 	"math"
 	"sort"
 	"strings"
@@ -31,6 +33,14 @@ func (s *CommittedSource) Metrics() SourceMetrics {
 	return SourceMetrics{m.blocksFetched.Load(), m.emptyRanges.Load(), m.rangeBisections.Load(), m.receiptFallbacks.Load(), m.cacheHits.Load(), m.headerFetches.Load(), m.readaheadHits.Load(), m.bloomSkipped.Load()}
 }
 func (s *CommittedSource) BlockAt(ctx context.Context, height uint64) (BlockRecord, error) {
+	return s.blockAt(ctx, height, true)
+}
+
+func (s *CommittedSource) CheckpointBlockAt(ctx context.Context, height uint64) (BlockRecord, error) {
+	return s.blockAt(ctx, height, false)
+}
+
+func (s *CommittedSource) blockAt(ctx context.Context, height uint64, historical bool) (BlockRecord, error) {
 	if height > math.MaxInt64 {
 		return BlockRecord{}, sourceError(InvalidError, "range", nil)
 	}
@@ -45,7 +55,7 @@ func (s *CommittedSource) BlockAt(ctx context.Context, height uint64) (BlockReco
 	}
 	var last error
 	for _, endpoint := range s.eligible() {
-		_, record, err := s.block(ctx, endpoint, fmtHeight(height), true)
+		_, record, err := s.block(ctx, endpoint, fmtHeight(height), historical)
 		if err == nil && record.Height == height {
 			s.mu.Lock()
 			err = s.fenceLocked(height)
@@ -148,12 +158,12 @@ func mergeFetch(out *FetchResult, page FetchResult) error {
 	for _, logs := range [][]ethtypes.Log{out.Logs, page.Logs} {
 		for _, log := range logs {
 			size += 256 + len(log.Data) + 32*len(log.Topics)
-			if size > 128<<20 {
+			if size > decode.MaxBlockLogBytes || len(out.Blocks) > 1 && size > 128<<20 {
 				return sourceError(OversizeError, "historical", nil)
 			}
 		}
 	}
-	if len(out.Logs)+len(page.Logs) > 131072 {
+	if len(out.Blocks) > 1 && len(out.Logs)+len(page.Logs) > 131072 {
 		return sourceError(OversizeError, "historical", nil)
 	}
 	out.Logs = append(out.Logs, page.Logs...)

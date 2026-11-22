@@ -1,7 +1,6 @@
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Text, cn, TextProps, useScreen } from "@paxeer-network/ui";
-import styles from "../../presentation.module.css";
+import { Text, Divider, cn, TextProps, useScreen } from "@paxeer-network/ui";
 import { VaultsIntroductionScript } from "./vaults-introduction.script";
 
 export const VaultsIntroductionDesktop: FC<VaultsIntroductionScript> = (
@@ -14,7 +13,7 @@ export const VaultsIntroductionDesktop: FC<VaultsIntroductionScript> = (
   return (
     <div
       className={cn(
-        styles.introduction,
+        "oui-flex oui-items-center",
         "oui-bg-primary-darken",
         isMobile
           ? "oui-gap-3 oui-rounded-xl oui-p-3"
@@ -27,10 +26,20 @@ export const VaultsIntroductionDesktop: FC<VaultsIntroductionScript> = (
         textProps={{ currency: "$" } as any}
         isMobile={isMobile}
       />
+      <Divider
+        direction="vertical"
+        intensity={12}
+        className={isMobile ? "oui-h-[44px]" : "oui-h-[64px]"}
+      />
       <VaultsIntroductionItem
         title={t("common.vaults")}
         value={vaultsInfo.vaultsCount}
         isMobile={isMobile}
+      />
+      <Divider
+        direction="vertical"
+        intensity={12}
+        className={isMobile ? "oui-h-[44px]" : "oui-h-[64px]"}
       />
       <VaultsIntroductionItem
         title={t("vaults.introduction.depositors")}
@@ -66,10 +75,10 @@ const VaultsIntroductionItem: FC<{
       </div>
       <Text.numeral
         className={cn(
-          "oui-whitespace-nowrap oui-font-semibold oui-text-primary-contrast",
+          "oui-font-semibold oui-text-primary-contrast",
           isMobile
             ? "oui-text-base"
-            : "oui-text-3xl oui-tracking-tight oui-leading-none",
+            : "oui-text-[length:clamp(28px,2.2vw,38px)] oui-tracking-[-0.02em] oui-leading-none",
         )}
         dp={0}
         {...textProps}

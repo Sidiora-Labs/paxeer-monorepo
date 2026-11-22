@@ -262,7 +262,7 @@ func coordinatorReplayRecordedRPC(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if production.Checksum(raw) != "8e30a49734f6381b6234e64d2ee01367a9c47939d1cd1c13b5755914e43b61a1" {
+	if production.Checksum(raw) != "4f043d2a0a3c9e8fb5821b449c7dae1d11a4030a5e98afde52c8ec9b3cfd562e" {
 		t.Fatal("producer RPC transcript differs from its committed checksum")
 	}
 	z, err := gzip.NewReader(bytes.NewReader(raw))
@@ -624,13 +624,13 @@ func coordinatorReplayCurrentFillRows(t *testing.T, ctx context.Context, raw jso
 		if err != nil || hash != fill.Position.BlockHash || fmt.Sprint(header.Time) != fill.BlockTimestampSeconds {
 			t.Fatalf("recorded fill %d does not bind the replayed header: %s %v", i, hash, err)
 		}
-		headerWire, err := json.Marshal(header)
+		headerDigest, err := receiptHeaderDigest(header)
 		if err != nil {
 			t.Fatal(err)
 		}
 		// The supplemental capture reflects the node's corrected receipt root.
 		// Bind the current producer encoding to that recorded header artifact.
-		fill.Provenance.HeaderSHA256 = delivery.Hash(headerWire)
+		fill.Provenance.HeaderSHA256 = headerDigest
 		canonical, err = json.Marshal(fill)
 		if err != nil {
 			t.Fatal(err)

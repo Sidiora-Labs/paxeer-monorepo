@@ -102,13 +102,13 @@ const TxsListItem = ({
       </Flex>
       { method && (
         <Flex mt={ 3 } columnGap={ 2 } alignItems="center" minW={ 0 }>
-          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Method</Skeleton>
+          <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } whiteSpace="pre">Method</Skeleton>
           <ScanMethodChip method={ method } isLoading={ isLoading }/>
         </Flex>
       ) }
       { showBlockInfo && tx.block_number !== null && (
-        <Flex mt={ 2 }>
-          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Block </Skeleton>
+        <Flex mt={ 2 } alignItems="center">
+          <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } whiteSpace="pre">Block </Skeleton>
           <BlockEntity
             isLoading={ isLoading }
             number={ tx.block_number }
@@ -120,7 +120,6 @@ const TxsListItem = ({
         <PriceUpdateFromTo tx={ tx } current={ currentAddress } isLoading={ isLoading } mt={ 6 } fontWeight="medium"/>
       ) : (
         <AddressFromTo
-          mode="compact"
           from={ tx.from }
           to={ dataTo }
           current={ currentAddress }
@@ -130,8 +129,8 @@ const TxsListItem = ({
         />
       ) }
       { !config.UI.views.tx.hiddenFields?.value && (
-        <Flex mt={ 2 } columnGap={ 2 }>
-          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Value</Skeleton>
+        <Flex mt={ 2 } columnGap={ 2 } flexWrap="wrap">
+          <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } whiteSpace="pre">Value</Skeleton>
           { priceUpdate ? <Skeleton loading={ isLoading } color="text.secondary">-</Skeleton> : (
             <NativeCoinValue
               textStyle="number"
@@ -145,10 +144,10 @@ const TxsListItem = ({
         </Flex>
       ) }
       { !config.UI.views.tx.hiddenFields?.tx_fee && (
-        <Flex mt={ 2 } mb={ 3 } columnGap={ 2 }>
+        <Flex mt={ 2 } mb={ 3 } columnGap={ 2 } flexWrap="wrap">
           { (evmTx?.stability_fee !== undefined || tx.fee.value !== null) && (
             <>
-              <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Fee</Skeleton>
+              <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } whiteSpace="pre">Fee</Skeleton>
               { priceUpdate ?
                 <Skeleton loading={ isLoading } color="text.secondary">-</Skeleton> :
                 <TxFee textStyle="number" tx={ tx } loading={ isLoading } color="text.secondary"/> }

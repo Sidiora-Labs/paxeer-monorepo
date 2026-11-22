@@ -24,31 +24,31 @@ const StyledColorList = styled.div`
   flex-direction: row;
   justify-content: start;
   flex-wrap: wrap;
-  gap: var(--oui-space-2, 0.5rem);
+  gap: 10px;
 `;
 
 const Header = styled.div`
-  margin-bottom: var(--oui-space-1, 0.25rem);
-  margin-top: var(--oui-space-2, 0.5rem);
+  margin-bottom: 5px;
+  margin-top: 10px;
 `;
 
 const StyledGroupName = styled.h3`
-  font-size: var(--oui-font-size-sm, 0.875rem);
-  color: rgb(var(--oui-color-text-muted, 132 131 136));
+  font-size: 14px;
+  color: #888;
   font-weight: 700;
 `;
 
 const StyledGradientGroupName = styled.h3`
-  font-size: var(--oui-font-size-sm, 0.875rem);
-  color: rgb(var(--oui-color-text-muted, 132 131 136));
+  font-size: 14px;
+  color: #888;
   font-weight: 700;
   text-transform: capitalize;
 `;
 
 const Description = styled.div`
-  font-size: var(--oui-font-size-2xs, 0.75rem);
-  color: rgb(var(--oui-color-text-muted, 132 131 136));
-  margin-bottom: var(--oui-space-2, 0.5rem);
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 10px;
 `;
 
 export const ColorList = ({
@@ -88,7 +88,7 @@ export const ColorList = ({
 const GradientGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--oui-space-2, 0.5rem) var(--oui-space-6, 1.5rem);
+  gap: 10px 30px;
 `;
 
 export const GradientColorList = ({

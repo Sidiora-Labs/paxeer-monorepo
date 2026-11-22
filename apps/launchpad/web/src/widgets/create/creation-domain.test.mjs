@@ -607,7 +607,7 @@ test('untrusted primitives and draft collections fail closed without coercion or
   for (const field of ['name', 'symbol', 'description'])
     assert.equal(
       c.validateDraft({ ...draft, [field]: 'unsafe\u202E' }, now)[field],
-      'invalid_text',
+      field === 'description' ? 'invalid_text' : 'unsafe_text',
     );
   assert.equal(
     c.validateDraft(

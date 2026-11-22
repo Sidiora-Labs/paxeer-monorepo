@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 /**
  * Routes no backing service answers (development) reply
  * `503 DEPENDENCY_UNAVAILABLE {"retryable":false}` with no Retry-After. These
@@ -211,7 +212,7 @@ describe('profile utility rows against a non-retryable 503', () => {
     expect(view.container.querySelectorAll('[role="alert"]')).toHaveLength(0);
     expect(count('GET', '/v2/discovery/callouts')).toBe(1);
     expect(count('GET', '/v2/me/rewards')).toBe(1);
-    expect(classesOf(view.container).filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     unmount(view);
   });
 });
@@ -223,7 +224,7 @@ describe('account preferences against a non-retryable 503', () => {
     expect(view.container.querySelectorAll('[role="alert"]')).toHaveLength(0);
     expect(view.container.textContent).not.toMatch(/DEPENDENCY_UNAVAILABLE/);
     expect(count('GET', '/v3/me/preferences')).toBe(1);
-    expect(classesOf(view.container).filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     unmount(view);
   });
 });

@@ -425,7 +425,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
         readOnly: { value: { _light: '{colors.bg.sunken}', _dark: '{colors.bg.sunken}' } },
       },
       border: {
-        DEFAULT: { value: { _light: '{colors.border.divider}', _dark: '{colors.border.divider}' } },
+        DEFAULT: { value: { _light: '{colors.border.strong}', _dark: '{colors.border.strong}' } },
         hover: { value: { _light: '{colors.border.strong}', _dark: '{colors.border.strong}' } },
         focus: { value: { _light: '{colors.accent.strong}', _dark: '{colors.accent.strong}' } },
         filled: { value: { _light: '{colors.border.strong}', _dark: '{colors.border.strong}' } },
@@ -433,7 +433,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
         error: { value: { _light: '{colors.feedback.error.fg}', _dark: '{colors.feedback.error.fg}' } },
       },
       placeholder: {
-        DEFAULT: { value: { _light: '{colors.gray.500}', _dark: '{colors.gray.500}' } },
+        DEFAULT: { value: { _light: '{colors.text.muted}', _dark: '{colors.gray.500}' } },
         error: { value: { _light: '{colors.red.500}', _dark: '{colors.red.500}' } },
       },
       element: {
@@ -442,7 +442,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     },
     field: {
       placeholder: {
-        DEFAULT: { value: { _light: '{colors.gray.500}', _dark: '{colors.gray.500}' } },
+        DEFAULT: { value: { _light: '{colors.text.muted}', _dark: '{colors.gray.500}' } },
         disabled: { value: { _light: '{colors.gray.500/20}', _dark: '{colors.gray.500/20}' } },
         error: { value: { _light: '{colors.red.500}', _dark: '{colors.red.500}' } },
       },
@@ -473,7 +473,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
       },
       placeholder: {
         fg: {
-          DEFAULT: { value: { _light: '{colors.gray.500}', _dark: '{colors.gray.500}' } },
+          DEFAULT: { value: { _light: '{colors.text.muted}', _dark: '{colors.gray.500}' } },
           error: { value: { _light: '{colors.red.500}', _dark: '{colors.red.500}' } },
         },
       },

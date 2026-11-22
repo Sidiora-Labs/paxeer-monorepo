@@ -37,14 +37,14 @@ export const TradingRewardsCardMobile: FC<TradingRewardsCardMobileProps> = (
     ? `${curEpochInfo?.epoch_token}`.toLowerCase() === "order"
     : undefined;
 
-  const onClaim = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const onClaim = (event: React.MouseEvent<SVGSVGElement>) => {
     if (!props.isSignIn || props.wrongNetwork) {
       event.stopPropagation();
       event.preventDefault();
       modal.alert({
         title: t("common.tips"),
         message: (
-          <Text intensity={80}>
+          <Text intensity={54}>
             {props.wrongNetwork
               ? t("connector.wrongNetwork.tooltip")
               : t("affiliate.connectWallet.tooltip")}
@@ -60,17 +60,17 @@ export const TradingRewardsCardMobile: FC<TradingRewardsCardMobileProps> = (
     <Flex
       className="
         oui-portfolio-trading-rewards-card
-        oui-via-21.6%
-        oui-via-83.23%
-        oui-relative
-        oui-min-h-60
-        oui-w-full
-        oui-flex-col
+        oui-via-21.6% 
+        oui-via-83.23% 
+        oui-relative 
+        oui-h-[236px] 
+        oui-w-full 
+        oui-flex-col 
         oui-items-start
-        oui-rounded-xl
-        oui-border
-        oui-border-solid
-        oui-border-[rgba(var(--oui-gradient-secondary-start)/0.36)]
+        oui-rounded-xl 
+        oui-border 
+        oui-border-solid 
+        oui-border-[rgba(var(--oui-gradient-secondary-start)/0.36)] 
         oui-bg-gradient-to-r
         oui-from-[rgba(var(--oui-gradient-secondary-end)/0.12)]
         oui-to-[rgba(var(--oui-gradient-secondary-start)/0.12)]
@@ -79,10 +79,10 @@ export const TradingRewardsCardMobile: FC<TradingRewardsCardMobileProps> = (
     >
       <Flex className="oui-w-full oui-flex-row oui-justify-between oui-items-center">
         <Flex className="oui-flex-col oui-items-start">
-          <Text className="oui-text-base-contrast oui-text-base oui-font-semibold oui-whitespace-normal">
+          <Text className="oui-text-base-contrast oui-text-base oui-font-semibold oui-whitespace-pre max-[400px]:oui-text-[15px]">
             {t("common.tradingRewards")}
           </Text>
-          <Text className="oui-text-2xs oui-font-normal oui-whitespace-normal oui-text-base-contrast-80">
+          <Text className="oui-text-2xs oui-font-normal oui-whitespace-pre oui-text-base-contrast-54">
             {t("tradingRewards.subtitle.mm")}
           </Text>
         </Flex>
@@ -91,7 +91,7 @@ export const TradingRewardsCardMobile: FC<TradingRewardsCardMobileProps> = (
       <Flex
         direction="row"
         itemAlign={"center"}
-        className="oui-mb-3 oui-mt-9 oui-w-full oui-justify-center oui-gap-1.5"
+        className="oui-mb-3 oui-mt-[35px] oui-w-full oui-justify-center oui-gap-1.5"
       >
         <Text className="oui-text-sm oui-font-normal oui-text-base-contrast-80">
           {t("tradingRewards.epoch")}
@@ -112,24 +112,18 @@ export const TradingRewardsCardMobile: FC<TradingRewardsCardMobileProps> = (
             "oui-text-xs oui-font-semibold",
             isNumber(props?.curEpochEstimate?.est_r_wallet)
               ? "oui-text-base-contrast"
-              : "oui-text-base-contrast-80",
+              : "oui-text-base-contrast-36",
           )}
         >
           {props?.curEpochEstimate?.est_r_wallet ?? "--"}
         </Text>
         <Flex className="oui-ms-auto">
-          <button
-            type="button"
-            aria-label={t("common.tradingRewards")}
-            className="oui-ms-auto oui-min-h-12 oui-min-w-12"
+          <ChevronRightIcon
+            size={18}
+            color="white"
+            className="oui-ms-auto"
             onClick={onClaim}
-          >
-            <ChevronRightIcon
-              size={18}
-              color="currentColor"
-              className="oui-ms-auto"
-            />
-          </button>
+          />
         </Flex>
       </Flex>
     </Flex>
@@ -195,12 +189,12 @@ const CountDownItem: React.FC<{ type: string; value: number }> = (props) => {
     <Flex
       direction="column"
       itemAlign={"center"}
-      className="oui-h-11 oui-w-8 oui-rounded-md oui-bg-base-contrast-8"
+      className="oui-h-11 oui-w-8 oui-rounded-[6px] oui-bg-base-contrast-8"
     >
       <Text className="oui-text-base oui-font-bold oui-text-base-contrast">
         {value}
       </Text>
-      <Text className="oui-text-2xs oui-font-normal oui-text-base-contrast-80">
+      <Text className="oui-text-2xs oui-font-normal oui-text-base-contrast-36">
         {type}
       </Text>
     </Flex>

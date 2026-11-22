@@ -11,8 +11,6 @@ const BlockListCard = (props: ScanTableCardProps) => (
     overflowWrap: 'anywhere',
     '& a': { display: 'inline-flex', alignItems: 'center' },
     '& a, & button': {
-      minWidth: 'touchTarget',
-      minHeight: 'touchTarget',
       _motionReduce: { transitionProperty: 'none' },
     },
     '& button[role="combobox"]': { focusVisibleRing: 'outside', focusRingColor: 'focusRing' },

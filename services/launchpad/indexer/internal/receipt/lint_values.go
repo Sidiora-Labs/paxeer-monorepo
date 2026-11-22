@@ -1,6 +1,7 @@
 package receipt
 
 const (
+	valueUnknown             = "unknown"
 	valueEventEmitter        = "EventEmitter"
 	valueMarketCreated       = "MarketCreated"
 	valueRouter              = "Router"

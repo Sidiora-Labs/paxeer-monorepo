@@ -1,0 +1,471 @@
+[meta]
+task = "22.44.121"
+title = "Explorer block view dimensions"
+reference = "22.44.105"
+shared_layout = "Block, token, search and transaction views share entity-link touch geometry and horizontal address pairs."
+shared_composition = "Block dimensions compose with shared entity links, transaction rows, asset responses and address responses."
+
+[coverage]
+views = 4
+named_states = 3
+combinations = 7
+routes = ["/block/[height_or_hash]", "/block/countdown/[height]", "/block/countdown", "/blocks"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+matrix_renders = 238
+
+[dimensions]
+entity_links = "Through 834px, entity links center their 44px touch area on the inherited text line without expanding the containing row."
+block_transaction_count = "The transaction-count link centers its touch area on the 18px number line."
+transaction_addresses = "From and to addresses share one row with their existing truncation, copy controls and labels."
+countdown_search = "The block countdown route uses a 360px desktop search width and a 240px illustration."
+countdown_heading = "The heading keeps its inline text box beside the block illustration."
+countdown_illustration = "The block illustration measures 65 by 75px on mobile and 125 by 140px on desktop."
+countdown_timer = "Days, hours, minutes and seconds share one row with 8px gaps around separators and 12px mobile or 16px desktop padding."
+countdown_values = "Timer values use 40px mobile and 48px desktop text with a 48px line height; captions use 14px text with a 20px line height."
+countdown_statistics = "Remaining blocks and current block share two equal columns separated by 8px."
+accessibility = "Focus marks, labels, roles, landmarks, loading and empty states, control states and reduced motion remain available."
+scrollbar = "The page retains its reserved scrollbar track."
+
+[first_comparison]
+renders = 0
+visible_renders = 0
+
+[first_findings]
+load = 1
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[dimension_comparison]
+renders = 238
+visible_renders = 238
+views = 4
+named_states = 3
+result = "Every view and state renders visible content; dimension and layout movement counts are listed below."
+
+[original_comparison_findings]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 7
+motion = 0
+scale = 0
+geometry = 228
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+parts_per_width = 47
+measured_parts = 235
+different_parts = 227
+threshold_pixels = 1
+fields = ["left", "top", "width", "height", "fontSize", "lineHeight"]
+reference = "The original explorer dimension reference remains available; the block reference pins restored dimensions and retained product content."
+
+[geometry.1]
+view = "/block/[height_or_hash]"
+width = 390
+different_parts = 11
+
+[geometry.2]
+view = "/block/[height_or_hash]"
+width = 1280
+different_parts = 10
+
+[geometry.3]
+view = "/block/[height_or_hash]"
+width = 1440
+different_parts = 12
+
+[geometry.4]
+view = "/block/[height_or_hash]"
+width = 1920
+different_parts = 12
+
+[geometry.5]
+view = "/block/[height_or_hash]"
+width = 2560
+different_parts = 12
+
+[geometry.6]
+view = "/block/countdown"
+width = 390
+different_parts = 11
+
+[geometry.7]
+view = "/block/countdown"
+width = 1280
+different_parts = 10
+
+[geometry.8]
+view = "/block/countdown"
+width = 1440
+different_parts = 11
+
+[geometry.9]
+view = "/block/countdown"
+width = 1920
+different_parts = 11
+
+[geometry.10]
+view = "/block/countdown"
+width = 2560
+different_parts = 11
+
+[geometry.11]
+view = "/block/countdown/[height]"
+width = 390
+different_parts = 12
+
+[geometry.12]
+view = "/block/countdown/[height]"
+width = 1280
+different_parts = 11
+
+[geometry.13]
+view = "/block/countdown/[height]"
+width = 1440
+different_parts = 12
+
+[geometry.14]
+view = "/block/countdown/[height]"
+width = 1920
+different_parts = 12
+
+[geometry.15]
+view = "/block/countdown/[height]"
+width = 2560
+different_parts = 12
+
+[geometry.16]
+view = "/blocks"
+width = 390
+different_parts = 11
+
+[geometry.17]
+view = "/blocks"
+width = 1280
+different_parts = 10
+
+[geometry.18]
+view = "/blocks"
+width = 1440
+different_parts = 12
+
+[geometry.19]
+view = "/blocks"
+width = 1920
+different_parts = 12
+
+[geometry.20]
+view = "/blocks"
+width = 2560
+different_parts = 12
+
+[retained_geometry.1]
+view = "/block/[height_or_hash]"
+width = 390
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main", "primary-control", "transactions-card", "transactions-first-row"]
+causes = ["entity content", "scrollbar track", "touch rule"]
+description = "The block view retains its identifier, status tags, grouped transaction tabs, count note and focusable transaction scroll region. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. Through 834px, controls retain 44px touch areas; footer links and calendar controls reserve their touch height."
+
+[retained_geometry.2]
+view = "/block/[height_or_hash]"
+width = 390
+parts = ["header"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.3]
+view = "/block/[height_or_hash]"
+width = 390
+parts = ["navigation", "navigation-first-item"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. Through 834px, controls retain 44px touch areas; footer links and calendar controls reserve their touch height."
+
+[retained_geometry.4]
+view = "/block/[height_or_hash]"
+width = 1280
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main", "transactions-card"]
+causes = ["entity content", "scrollbar track"]
+description = "The block view retains its identifier, status tags, grouped transaction tabs, count note and focusable transaction scroll region. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.5]
+view = "/block/[height_or_hash]"
+width = 1280
+parts = ["header", "navigation", "navigation-first-item", "transactions-first-row"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.6]
+view = "/block/[height_or_hash]"
+width = 1440
+parts = ["first-heading", "header", "navigation", "navigation-first-item", "primary-control", "transactions-first-row"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.7]
+view = "/block/[height_or_hash]"
+width = 1440
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main", "transactions-card"]
+causes = ["entity content", "scrollbar track"]
+description = "The block view retains its identifier, status tags, grouped transaction tabs, count note and focusable transaction scroll region. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.8]
+view = "/block/[height_or_hash]"
+width = 1920
+parts = ["first-heading", "header", "navigation", "navigation-first-item", "primary-control", "transactions-first-row"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.9]
+view = "/block/[height_or_hash]"
+width = 1920
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main", "transactions-card"]
+causes = ["entity content", "scrollbar track"]
+description = "The block view retains its identifier, status tags, grouped transaction tabs, count note and focusable transaction scroll region. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.10]
+view = "/block/[height_or_hash]"
+width = 2560
+parts = ["first-heading", "header", "navigation", "navigation-first-item", "primary-control", "transactions-first-row"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.11]
+view = "/block/[height_or_hash]"
+width = 2560
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main", "transactions-card"]
+causes = ["entity content", "scrollbar track"]
+description = "The block view retains its identifier, status tags, grouped transaction tabs, count note and focusable transaction scroll region. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.12]
+view = "/block/countdown"
+width = 390
+parts = ["first-heading", "header", "main"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.13]
+view = "/block/countdown"
+width = 390
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "navigation", "navigation-first-item"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. Through 834px, controls retain 44px touch areas; footer links and calendar controls reserve their touch height."
+
+[retained_geometry.14]
+view = "/block/countdown"
+width = 390
+parts = ["primary-control", "search-form"]
+causes = ["scrollbar track", "search label", "touch rule"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. The visible block-height label adds 26px above the input and changes the vertical center of the desktop search group. Through 834px, controls retain 44px touch areas; footer links and calendar controls reserve their touch height."
+
+[retained_geometry.15]
+view = "/block/countdown"
+width = 1280
+parts = ["first-heading", "primary-control", "search-form"]
+causes = ["scrollbar track", "search label"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. The visible block-height label adds 26px above the input and changes the vertical center of the desktop search group."
+
+[retained_geometry.16]
+view = "/block/countdown"
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.17]
+view = "/block/countdown"
+width = 1440
+parts = ["first-heading", "primary-control", "search-form"]
+causes = ["scrollbar track", "search label"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. The visible block-height label adds 26px above the input and changes the vertical center of the desktop search group."
+
+[retained_geometry.18]
+view = "/block/countdown"
+width = 1440
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.19]
+view = "/block/countdown"
+width = 1920
+parts = ["first-heading", "primary-control", "search-form"]
+causes = ["scrollbar track", "search label"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. The visible block-height label adds 26px above the input and changes the vertical center of the desktop search group."
+
+[retained_geometry.20]
+view = "/block/countdown"
+width = 1920
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.21]
+view = "/block/countdown"
+width = 2560
+parts = ["first-heading", "primary-control", "search-form"]
+causes = ["scrollbar track", "search label"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. The visible block-height label adds 26px above the input and changes the vertical center of the desktop search group."
+
+[retained_geometry.22]
+view = "/block/countdown"
+width = 2560
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.23]
+view = "/block/countdown/[height]"
+width = 390
+parts = ["first-heading", "header", "main"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.24]
+view = "/block/countdown/[height]"
+width = 390
+parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "game-card", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. Through 834px, controls retain 44px touch areas; footer links and calendar controls reserve their touch height."
+
+[retained_geometry.25]
+view = "/block/countdown/[height]"
+width = 1280
+parts = ["first-heading", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "game-card", "header", "main", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.26]
+view = "/block/countdown/[height]"
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "game-card", "header", "main", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.27]
+view = "/block/countdown/[height]"
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "game-card", "header", "main", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.28]
+view = "/block/countdown/[height]"
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "game-card", "header", "main", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.29]
+view = "/blocks"
+width = 390
+parts = ["first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "list-card", "main", "primary-control"]
+causes = ["list content", "scrollbar track", "touch rule"]
+description = "The blocks view retains its single listing, countdown action, count note and scanning notice. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. Through 834px, controls retain 44px touch areas; footer links and calendar controls reserve their touch height."
+
+[retained_geometry.30]
+view = "/blocks"
+width = 390
+parts = ["header"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.31]
+view = "/blocks"
+width = 390
+parts = ["navigation", "navigation-first-item"]
+causes = ["scrollbar track", "touch rule"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px. Through 834px, controls retain 44px touch areas; footer links and calendar controls reserve their touch height."
+
+[retained_geometry.32]
+view = "/blocks"
+width = 1280
+parts = ["first-row", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "list-card", "main", "primary-control"]
+causes = ["list content", "scrollbar track"]
+description = "The blocks view retains its single listing, countdown action, count note and scanning notice. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.33]
+view = "/blocks"
+width = 1280
+parts = ["header", "navigation", "navigation-first-item"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.34]
+view = "/blocks"
+width = 1440
+parts = ["first-heading", "header", "navigation", "navigation-first-item"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.35]
+view = "/blocks"
+width = 1440
+parts = ["first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "list-card", "main", "primary-control"]
+causes = ["list content", "scrollbar track"]
+description = "The blocks view retains its single listing, countdown action, count note and scanning notice. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.36]
+view = "/blocks"
+width = 1920
+parts = ["first-heading", "header", "navigation", "navigation-first-item"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.37]
+view = "/blocks"
+width = 1920
+parts = ["first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "list-card", "main", "primary-control"]
+causes = ["list content", "scrollbar track"]
+description = "The blocks view retains its single listing, countdown action, count note and scanning notice. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.38]
+view = "/blocks"
+width = 2560
+parts = ["first-heading", "header", "navigation", "navigation-first-item"]
+causes = ["scrollbar track"]
+description = "The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[retained_geometry.39]
+view = "/blocks"
+width = 2560
+parts = ["first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "list-card", "main", "primary-control"]
+causes = ["list content", "scrollbar track"]
+description = "The blocks view retains its single listing, countdown action, count note and scanning notice. The reserved scrollbar track reduces available width by 15px and shifts centered content by 7.5px."
+
+[layout]
+block_identifier = "The block identifier and its copy and QR controls wrap into their earlier rows."
+transaction_scroll = "The block transaction table retains its viewport-height scroll region with 96px reserved for surrounding controls."
+transaction_loading_space = "The one-row transaction placeholder expands to the returned list; overflow at the page viewport leaves the footer available for browser scroll anchoring."
+transaction_loading = "When block transaction loading finishes, a visible footer retains its screen position while the returned rows replace the loading row."
+countdown_heading = "The title box retains its 30px mobile and 43px desktop height; the Apple calendar border occupies its existing horizontal padding."
+
+[last_render]
+renders = 238
+visible_renders = 238
+result = "Every view and state renders visible content with no presentation or geometry findings."
+
+[last_findings]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0

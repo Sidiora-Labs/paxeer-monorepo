@@ -1,5 +1,4 @@
-import { SimpleDialog } from "../../ui-connector/src/platformOverlays";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useAccount,
   useConnect,
@@ -8,21 +7,25 @@ import {
   usePaxeer,
   PAXEER_CONNECTOR_ID,
 } from "@paxeer-network/paxeer-backend/core/wallet/embedded";
-import { Button, Flex, Text, Input, toast } from "@paxeer-network/ui";
+import {
+  SimpleDialog,
+  Button,
+  Flex,
+  Text,
+  Input,
+  toast,
+} from "@paxeer-network/ui";
 import { ChainNamespace } from "@paxeer-network/types";
 export function NativeWalletDialog() {
   const [request, setRequest] = useState<any>(null);
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const emailId = useId();
   const { connectors, connectAsync, isPending } = useConnect();
   const wallet = useAccount();
   const auth = usePaxeer();
   useEffect(() => {
     const listener = (event: Event) => {
       setEmailSent(false);
-      setEmailError("");
       setRequest((event as CustomEvent).detail);
     };
     window.addEventListener("paxeer-network:wallet-picker", listener);
@@ -69,71 +72,30 @@ export function NativeWalletDialog() {
       }}
       title="Connect wallet"
       size="sm"
-      classNames={{ content: "oui-shell-overlay" }}
     >
       <Flex direction="column" gap={3} itemAlign="stretch">
         {auth.wallet && !auth.isAuthenticated && (
           <>
-            <form
-              className="oui-flex oui-flex-col oui-gap-3"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                if (auth.authBusy) return;
+            <Input
+              type="email"
+              value={email}
+              onValueChange={setEmail}
+              placeholder="Email address"
+            />
+            <Button
+              loading={auth.authBusy}
+              disabled={!email.includes("@")}
+              onClick={async () => {
                 const result = await auth.signInWithEmail(email);
                 if (result.ok) setEmailSent(true);
                 else toast.error(result.error ?? "Unable to sign in.");
               }}
             >
-              <label htmlFor={emailId}>Email address</label>
-              <Input
-                id={emailId}
-                ref={(input) => input?.setAttribute("autofocus", "")}
-                name="email"
-                type="email"
-                autoComplete="email"
-                autoCapitalize="none"
-                spellCheck={false}
-                required
-                size="xl"
-                value={email}
-                aria-invalid={Boolean(emailError)}
-                aria-describedby={emailError ? `${emailId}-error` : undefined}
-                onValueChange={(value) => {
-                  setEmail(value);
-                  setEmailError("");
-                  setEmailSent(false);
-                }}
-                onBlur={(event) => {
-                  if (event.currentTarget.value)
-                    setEmailError(event.currentTarget.validationMessage);
-                }}
-                onInvalid={(event) =>
-                  setEmailError(event.currentTarget.validationMessage)
-                }
-                placeholder="Email address"
-              />
-              {emailError && (
-                <Text
-                  id={`${emailId}-error`}
-                  role="alert"
-                  className="oui-text-base-contrast"
-                >
-                  {emailError}
-                </Text>
-              )}
-              <Button
-                type="submit"
-                loading={auth.authBusy}
-                disabled={auth.authBusy}
-              >
-                Continue with email
-              </Button>
-              {emailSent && (
-                <Text size="xs" role="status">
-                  Check your email for the sign-in link.
-                </Text>
-              )}
-            </form>
+              Continue with email
+            </Button>
+            {emailSent && (
+              <Text size="xs">Check your email for the sign-in link.</Text>
+            )}
             <Flex gap={2}>
               <Button
                 fullWidth
@@ -188,7 +150,7 @@ export function NativeWalletDialog() {
             Paxeer wallet
           </Button>
         )}
-        <Text size="xs" intensity={80}>
+        <Text size="xs" intensity={54}>
           Connect your wallet to use paxeer-network on Paxeer.
         </Text>
       </Flex>

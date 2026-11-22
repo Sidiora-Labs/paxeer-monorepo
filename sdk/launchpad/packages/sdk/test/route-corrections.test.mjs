@@ -3,8 +3,33 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { SdkClient, Operations, routeStatus } from '../dist/index.js';
+import { operationDefinitions } from '../dist/operations.gen.js';
 import { ROUTE_CORRECTIONS } from '../dist/route-corrections.js';
+
+const correctionProducers = [
+  {
+    operation: 'IF_REWARD_CLAIM',
+    method: 'POST',
+    path: '/v2/me/rewards:prepare-claim',
+    file: 'services/launchpad/pnl-tracker/internal/app/app.go',
+    registration: 'router.Post("/v2/me/rewards:prepare-claim", PrepareClaim(h))',
+  },
+];
+
+function everyRouteCorrectionHasRegisteredProducer() {
+  const root = new URL('../../../../../', import.meta.url);
+  assert.deepEqual(Object.keys(ROUTE_CORRECTIONS).sort(), correctionProducers.map(row => row.operation).sort());
+  for (const { operation, method, path, file, registration } of correctionProducers) {
+    const source = readFileSync(new URL(file, root), 'utf8').split('\n');
+    assert.equal(source.filter(line => line.trim() === registration).length, 1, file);
+    assert.ok(registration.startsWith(`router.${method[0]}${method.slice(1).toLowerCase()}("${path}",`));
+    assert.equal(operationDefinitions[operation].method, method, operation);
+    assert.equal(ROUTE_CORRECTIONS[operation], path, operation);
+    assert.equal(routeStatus(operation), 'served', operation);
+  }
+}
 
 async function rewardClaimUsesServedRoute() {
   const seen = [];
@@ -47,7 +72,7 @@ async function rewardClaimUsesServedRoute() {
         contentType: req.headers['content-type'],
         body: receivedBody,
       });
-      if (req.method !== 'POST' || req.url !== '/v2/me/rewards/claim') {
+      if (req.method !== 'POST' || req.url !== '/v2/me/rewards:prepare-claim') {
         res.writeHead(404);
         res.end();
         return;
@@ -74,11 +99,11 @@ async function rewardClaimUsesServedRoute() {
       headers: { 'Idempotency-Key': idempotencyKey },
     });
 
-    assert.equal(ROUTE_CORRECTIONS.IF_REWARD_CLAIM, '/v2/me/rewards/claim');
+    assert.equal(ROUTE_CORRECTIONS.IF_REWARD_CLAIM, '/v2/me/rewards:prepare-claim');
     assert.equal(routeStatus('IF_REWARD_CLAIM'), 'served');
     assert.deepEqual(seen, [{
       method: 'POST',
-      path: '/v2/me/rewards/claim',
+      path: '/v2/me/rewards:prepare-claim',
       authorization: 'Bearer test-session',
       idempotencyKey,
       contentType: 'application/json',
@@ -92,4 +117,5 @@ async function rewardClaimUsesServedRoute() {
   }
 }
 
+test(everyRouteCorrectionHasRegisteredProducer);
 test(rewardClaimUsesServedRoute);

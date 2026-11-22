@@ -1,4 +1,3 @@
-import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Flex, Text } from "@paxeer-network/ui";
@@ -19,20 +18,21 @@ export const AvailableToClaim: FC<AvailableReturns> = (props) => {
       direction={"column"}
       gap={4}
       width={"100%"}
-      className={`${surface.surface}  oui-font-semibold oui-bg-base-9 `}
+      className=" oui-font-semibold oui-bg-base-9 "
     >
       <Flex direction={"row"} justify={"between"} width={"100%"}>
         <Text className="oui-text-lg">
           {t("tradingRewards.availableClaim")}
         </Text>
-        <button
-          type="button"
+        <Flex
+          direction={"row"}
+          gap={1}
           onClick={props.goToClaim}
-          className="oui-inline-flex oui-items-center oui-gap-1 oui-text-primary-light oui-underline"
+          className="oui-cursor-pointer oui-text-primary-light"
         >
           <Text size="sm">{t("tradingRewards.claim")}</Text>
           <JumpIcon />
-        </button>
+        </Flex>
       </Flex>
       <Flex direction={"row"} gap={3} width={"100%"}>
         <Statics title="ORDER" value={props.order} />
@@ -41,6 +41,7 @@ export const AvailableToClaim: FC<AvailableReturns> = (props) => {
     </Flex>
   );
 };
+// background: linear-gradient(28.29deg, #1B1D22 21.6%, #26292E 83.23%);
 
 const Statics: FC<{
   title: string;
@@ -50,7 +51,7 @@ const Statics: FC<{
   const { value } = props;
   return (
     <Flex
-      className="oui-flex-1 oui-bg-base-8 oui-py-3"
+      className="oui-flex-1 oui-bg-base-8 oui-py-[11px]"
       direction={"column"}
       gap={2}
       r="xl"

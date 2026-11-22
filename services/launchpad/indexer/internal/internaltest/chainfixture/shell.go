@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+const shellOnlyCase = "shell only"
+
 // ShellBlock applies the shell receipt wire form to recorded block and log
 // material. The listed receipts retain their original signed transactions.
 type ShellBlock struct {
@@ -24,14 +26,14 @@ type ShellBlock struct {
 }
 
 func ShellCases() []string {
-	return []string{"shell only", "mixed", "missing listed bloom", "extra header bloom", "shell own bloom"}
+	return []string{shellOnlyCase, "mixed", "missing listed bloom", "extra header bloom", "shell own bloom"}
 }
 
 func NewShellCase(t testing.TB, name string) *ShellBlock {
 	t.Helper()
-	b := NewShellBlock(t, name != "shell only")
+	b := NewShellBlock(t, name != shellOnlyCase)
 	switch name {
-	case "shell only", "mixed":
+	case shellOnlyCase, "mixed":
 	case "missing listed bloom":
 		b.Header.Bloom = types.Bloom{}
 		b.Reject = true
@@ -85,7 +87,7 @@ func NewShellBlock(t testing.TB, withTransaction bool) *ShellBlock {
 	if anchor.Hash == (common.Hash{}) || anchor.Transactions == nil || len(anchor.Transactions) != 0 {
 		t.Fatal("recorded empty anchor required")
 	}
-	var regular types.Receipts
+	regular := make(types.Receipts, 0, 1)
 	selector, err := json.Marshal(map[string]any{"blockHash": block.Hash, "requireCanonical": true})
 	if err != nil {
 		t.Fatal(err)
@@ -148,12 +150,23 @@ func (b *ShellBlock) Serve(t testing.TB) string {
 			block["logsBloom"], _ = json.Marshal(b.Header.Bloom)
 			block["receiptsRoot"], _ = json.Marshal(b.Header.ReceiptHash)
 			block["transactionsRoot"], _ = json.Marshal(b.Header.TxHash)
-			var txs []json.RawMessage
-			if err := json.Unmarshal(block["transactions"], &txs); err != nil {
-				t.Fatal(err)
-			}
-			if len(b.Transactions) == 0 {
-				txs = []json.RawMessage{}
+			txs := make([]map[string]json.RawMessage, len(b.Transactions))
+			for i, tx := range b.Transactions {
+				raw, err := tx.MarshalJSON()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(raw, &txs[i]); err != nil {
+					t.Fatal(err)
+				}
+				txs[i]["blockHash"], _ = json.Marshal(b.Hash)
+				txs[i]["blockNumber"], _ = json.Marshal(hexutil.EncodeBig(b.Header.Number))
+				txs[i]["transactionIndex"], _ = json.Marshal(hexutil.Uint64(i))
+				from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				txs[i]["from"], _ = json.Marshal(from)
 			}
 			block["transactions"], _ = json.Marshal(txs)
 			entry.Result, _ = json.Marshal(block)

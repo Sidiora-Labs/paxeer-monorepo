@@ -1,0 +1,10 @@
+{
+  "internal_transactions_count": 10,
+  "logs_count": 10,
+  "token_balances_count": 10,
+  "token_transfers_count": 10,
+  "transactions_count": 10,
+  "validations_count": 10,
+  "withdrawals_count": 10,
+  "beacon_deposits_count": 10
+}

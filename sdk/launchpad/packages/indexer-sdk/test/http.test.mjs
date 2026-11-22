@@ -50,13 +50,14 @@ test('recent trades accepts empty transactions and rejects invalid response cont
     const client = new HttpClient();
     client.configure({baseUrl:`http://127.0.0.1:${server.address().port}`});
     assert.deepEqual(await client.recentTrades(pool), { pool, trades: [] });
-    const trade = {id:'1',sender:pool,isBuy:false,amountIn:'123',amountOut:'1',price:'0.5',fee:'1',blockTimestamp:123,txHash:'0x123'};
+    const trade = {id:'1',poolAddress:pool,sender:pool,isBuy:false,amountIn:'123',amountOut:'1',price:'0.5',fee:'1',blockTimestamp:123,txHash:'0x123'};
     for (const invalid of [
       null,
       { pool, trades: [trade] },
       { transactions: null },
       { transactions: {} },
       { transactions: [null] },
+      { transactions: [{ ...trade, poolAddress: undefined }] },
       ...Object.keys(trade).map(key => ({ transactions: [{ ...trade, [key]: null }] })),
       { transactions: [{ ...trade, amountIn: 123 }] },
       { transactions: [{ ...trade, blockTimestamp: 1.5 }] },

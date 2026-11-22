@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"hash/crc32"
 	"image"
 	"image/png"
@@ -61,10 +63,82 @@ func TestProductionRlimitWorkerReadiness(t *testing.T) {
 	if (ProcessWorker{Executable: executable}).Ready() != ErrUnavailable {
 		t.Fatal("cgroup isolation without a parent must be unavailable")
 	}
-	if (ProcessWorker{Executable: executable, CgroupParent: "/sys/fs/cgroup", Isolation: "cgroup"}).Ready() != ErrUnavailable {
+	if (ProcessWorker{Executable: executable, CgroupParent: t.TempDir(), Isolation: "cgroup"}).Ready() != ErrUnavailable {
 		t.Fatal("cgroup worker requires delegated memory, cpu, and pids controllers")
 	}
 	rlimitWorker(t)
+	t.Run("delegated cgroup", func(t *testing.T) {
+		const parent = "/sys/fs/cgroup"
+		if err := delegatedRasterControllers(parent); err != nil {
+			t.Skipf("delegated cgroup readiness unavailable: %v", err)
+		}
+		if err := (ProcessWorker{Executable: executable, CgroupParent: parent, Isolation: "cgroup"}).Ready(); err != nil {
+			t.Fatalf("delegated cgroup readiness = %v", err)
+		}
+	})
+}
+
+func delegatedRasterControllers(parent string) error {
+	for _, file := range []string{"cgroup.controllers", "cgroup.subtree_control"} {
+		raw, err := os.ReadFile(filepath.Join(parent, file))
+		if err != nil {
+			return fmt.Errorf("read %s: %w", file, err)
+		}
+		controllers := " " + strings.Join(strings.Fields(string(raw)), " ") + " "
+		for _, name := range []string{"memory", "cpu", "pids"} {
+			if !strings.Contains(controllers, " "+name+" ") {
+				return fmt.Errorf("%s lacks %s controller", file, name)
+			}
+		}
+	}
+	return nil
+}
+
+func TestDelegatedRasterControllers(t *testing.T) {
+	for _, tc := range []struct {
+		name, available, enabled, reason string
+	}{
+		{"delegated", "memory cpu pids", "pids\n cpu\tmemory\n", ""},
+		{"memory unavailable", "cpu pids", "memory cpu pids", "cgroup.controllers lacks memory controller"},
+		{"cpu unavailable", "memory pids", "memory cpu pids", "cgroup.controllers lacks cpu controller"},
+		{"pids unavailable", "memory cpu", "memory cpu pids", "cgroup.controllers lacks pids controller"},
+		{"memory disabled", "memory cpu pids", "cpu pids", "cgroup.subtree_control lacks memory controller"},
+		{"cpu disabled", "memory cpu pids", "memory pids", "cgroup.subtree_control lacks cpu controller"},
+		{"pids disabled", "memory cpu pids", "memory cpu", "cgroup.subtree_control lacks pids controller"},
+		{"whole controller names", "memory cpu pids_extra", "memory cpu pids", "cgroup.controllers lacks pids controller"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parent := t.TempDir()
+			for name, body := range map[string]string{"cgroup.controllers": tc.available, "cgroup.subtree_control": tc.enabled} {
+				if err := os.WriteFile(filepath.Join(parent, name), []byte(body), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err := delegatedRasterControllers(parent)
+			if tc.reason == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || err.Error() != tc.reason {
+				t.Fatalf("controller delegation = %v, want %q", err, tc.reason)
+			}
+		})
+	}
+	for _, missing := range []string{"cgroup.controllers", "cgroup.subtree_control"} {
+		t.Run("missing "+missing, func(t *testing.T) {
+			parent := t.TempDir()
+			for _, name := range []string{"cgroup.controllers", "cgroup.subtree_control"} {
+				if name != missing {
+					if err := os.WriteFile(filepath.Join(parent, name), []byte("memory cpu pids"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if err := delegatedRasterControllers(parent); err == nil || !strings.Contains(err.Error(), "read "+missing+":") || !os.IsNotExist(errors.Unwrap(err)) {
+				t.Fatalf("missing controller file = %v", err)
+			}
+		})
+	}
 }
 
 func TestProductionRlimitWorkerRejectsInvalidExecutable(t *testing.T) {

@@ -17,6 +17,7 @@
     "test": "npm run build && node --test --test-reporter=tap test/*.test.mjs"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "viem": "2.37.3"
   }
 }

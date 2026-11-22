@@ -12,6 +12,7 @@ export function usePriceFreshness(rows: readonly MarketSnapshot[]): number {
   useEffect(() => {
     let deadline = Infinity;
     for (const row of rows) {
+      if (row.price_updated_at === null) continue;
       const expires = row.price_updated_at + PRICE_FRESHNESS_MS;
       if (
         row.price !== null &&

@@ -255,6 +255,7 @@ const Chart = () => {
                 variant="icon_background"
                 size="md"
                 boxSize={ 8 }
+                px={ 0 }
               />
             )
           )) }
@@ -278,7 +279,6 @@ const Chart = () => {
         ref={ ref }
         flexGrow={ 1 }
         h="50dvh"
-        minH="var(--chakra-spacing-65)"
         mt={ 3 }
         position="relative"
       >

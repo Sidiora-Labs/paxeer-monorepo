@@ -18,6 +18,7 @@ import (
 	"time"
 
 	gatewayauth "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy"
 	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -27,7 +28,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	redis "github.com/redis/go-redis/v9"
 )
 
 // This verifier performs real EIP-191 signature recovery for the test's EOA.
@@ -53,7 +53,7 @@ func newUploadErrorFixture(t *testing.T) *uploadErrorFixture {
 	ctx := context.Background()
 	dsn := os.Getenv("L33_POSTGRES_DSN")
 	if dsn == "" {
-		dsn = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
+		t.Fatal("L33_POSTGRES_DSN is required")
 	}
 	admin, err := pgxpool.New(ctx, dsn)
 	if err != nil {
@@ -144,7 +144,7 @@ func (f *uploadErrorFixture) handler(t *testing.T) *Connected {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	t.Cleanup(func() { _ = db.Close() })
 	namespace := "repair52_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	admission, err := NewAdmission(db, namespace, 2)

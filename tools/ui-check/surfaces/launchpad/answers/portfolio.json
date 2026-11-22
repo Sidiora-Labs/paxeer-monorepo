@@ -1,0 +1,61 @@
+{
+  "algorithm": "proportional_floor_v1",
+  "decimals": 6,
+  "quoteAsset": "USDL",
+  "version": 3,
+  "positionErrors": {},
+  "data": {
+    "positions": [
+      {
+        "positionId": "125:0x4444444444444444444444444444444444444444:0x3333333333333333333333333333333333333333",
+        "chainId": "125",
+        "wallet": "0x4444444444444444444444444444444444444444",
+        "tokenAddress": "0x3333333333333333333333333333333333333333",
+        "balanceRaw": "5000000000000000000",
+        "basisCoverage": {
+          "numerator": "1",
+          "denominator": "1"
+        },
+        "basisQuality": "complete",
+        "knownQuantityRaw": "5000000000000000000",
+        "knownRealizedSubtotalUsdlRaw": "0",
+        "knownRemainingCostUsdlRaw": "0",
+        "markPrice": null,
+        "pricingQuality": "unpriced",
+        "realizedBasisQuality": "complete",
+        "realizedPnlRaw": "0",
+        "remainingCostUsdlRaw": "0",
+        "sourceWatermark": {
+          "chainId": "125",
+          "height": "4200",
+          "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+          "projectionRevision": "7",
+          "integrity": "healthy",
+          "observedAt": "2026-10-12T15:00:00.000Z"
+        },
+        "unknownQuantityRaw": "0",
+        "unrealizedPnlRaw": null
+      }
+    ],
+    "summary": {
+      "wallet": "0x4444444444444444444444444444444444444444",
+      "basisQuality": "complete",
+      "completeValueUsdlRaw": null,
+      "pricedSubtotalUsdlRaw": "0",
+      "knownRealizedSubtotalUsdlRaw": "0",
+      "positionCount": 1,
+      "pricingQuality": "unpriced",
+      "realizedPnlRaw": "0",
+      "snapshotId": "snap-4444",
+      "unpricedAssetCount": 1,
+      "watermark": {
+        "chainId": "125",
+        "height": "4200",
+        "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+        "projectionRevision": "7",
+        "integrity": "healthy",
+        "observedAt": "2026-10-12T15:00:00.000Z"
+      }
+    }
+  }
+}

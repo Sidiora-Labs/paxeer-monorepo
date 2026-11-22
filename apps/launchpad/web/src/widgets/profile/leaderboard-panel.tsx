@@ -50,7 +50,7 @@ export interface LeaderboardPanelProps {
 /** Value column text; `unavailable` entries carry no trustworthy metric and render a dash. */
 export function leaderboardValue(entry: LeaderboardEntry, metric: LeaderboardMetric): string | null {
   if (entry.quality === 'unavailable') return null;
-  return formatUsdl(entry.metricRaw, { signed: metric === 'profit' });
+  return formatUsdl(metric === 'profit' ? entry.metricSigned ?? entry.metricRaw : entry.metricRaw, { signed: metric === 'profit' });
 }
 
 /** Short wallet without the 0x prefix so the initials fallback reads as two hex digits. */
@@ -72,7 +72,7 @@ function LeaderboardRow({ entry, identity, metric, self }: LeaderboardRowProps) 
   const value = leaderboardValue(entry, metric);
   return (
     <li>
-      <Link
+      <Link prefetch={false}
         href={`/profile/${wallet}`}
         aria-current={self ? 'true' : undefined}
         className={cn(

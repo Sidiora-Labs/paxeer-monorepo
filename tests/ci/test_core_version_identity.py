@@ -63,7 +63,7 @@ def _image_sources(cwd, repo_root=None):
 
 def test_core_image_tags_match_version_json(tmp_path):
     version = _release_version()
-    assert version == "v7.0.0"
+    assert version == json.loads((ROOT / VERSION_FILE).read_text())["version"]
     expected = {
         name: f"ghcr.io/sidiora-labs/{name}:{version} {dockerfile}"
         for name, dockerfile in CORE_IMAGES.items()

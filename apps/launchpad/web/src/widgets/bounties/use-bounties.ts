@@ -7,6 +7,8 @@ import { useGatewayOperations } from '@/core/market/operations';
 import { toUnsupported, type Loadable } from '@/core/market/unsupported';
 import { bountiesContract, type BountiesAvailability, type BountiesStatsResponse, type Bounty, type BountyGetResponse, type BountyListFilter, type BountyListResponse } from './bounties-contract';
 
+import { useBountyReader } from './use-bounty-reader';
+
 const policy = marketCachePolicy.bounties;
 
 type QueryShape<T> = { status: 'pending' | 'error' | 'success'; data: T | undefined; error: unknown; refetch(): unknown };
@@ -72,15 +74,16 @@ export interface BountiesResult {
  * an empty filter and narrow the loaded pages with `bountiesContract.mine`.
  */
 export function useBounties(filter: BountyListFilter, options: { enabled?: boolean; limit?: number } = {}): BountiesResult {
-  const operations = useGatewayOperations();
+  const reader = useBountyReader();
   const enabled = options.enabled ?? true;
   const limit = options.limit ?? bountiesContract.pageLimit;
   const filterKey = bountiesContract.listFilterKey(filter);
   const query = useInfiniteQuery({
-    queryKey: queryKeys.bounties(filterKey, null),
+    queryKey: [...queryKeys.bounties(filterKey, null), reader.scope],
+    meta: reader.meta,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => bountiesContract.validateList(
-      await operations.call('IF_BOUNTY_LIST', { query: bountiesContract.listQuery(filter, pageParam, limit) }, { signal }),
+      await reader.list(bountiesContract.listQuery(filter, pageParam, limit), signal),
       filter,
     ),
     getNextPageParam: (last: BountyListResponse) => last.nextCursor,
@@ -120,10 +123,11 @@ export function useBountiesStats(enabled = true): Loadable<BountiesStatsResponse
 
 /** IF_BOUNTY_GET `GET /v2/bounties/{bountyId}`; the detail page (BN5) builds on this. */
 export function useBounty(bountyId: string | null): Loadable<BountyGetResponse> {
-  const operations = useGatewayOperations();
+  const reader = useBountyReader();
   const query = useQuery({
-    queryKey: queryKeys.bounty(bountyId ?? ''),
-    queryFn: async ({ signal }) => bountiesContract.validateBountyResponse(await operations.call('IF_BOUNTY_GET', { path: { bountyId: bountyId as string } }, { signal }), bountyId as string),
+    queryKey: [...queryKeys.bounty(bountyId ?? ''), reader.scope],
+    meta: reader.meta,
+    queryFn: async ({ signal }) => bountiesContract.validateBountyResponse(await reader.get(bountyId as string, signal), bountyId as string),
     enabled: bountyId !== null,
     ...policy,
   });

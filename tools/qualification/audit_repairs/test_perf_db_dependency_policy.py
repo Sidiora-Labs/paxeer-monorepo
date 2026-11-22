@@ -18,6 +18,7 @@ EXISTING_UPDATES = (
     ("gomod", "/sdk/cosmovisor", 3),
     ("gomod", "/sdk/ics23", 3),
     ("npm", "/contracts", 5),
+    ("npm", "/apps/perps", 5),
     ("npm", "/tests/integration/dapp_tests", 3),
     ("npm", "/tests/integration/rpc_tests", 3),
     ("cargo", "/wasm-runtime/libwasmvm", 3),
@@ -64,7 +65,7 @@ def test_perf_dependabot_location():
 def test_existing_dependabot_updates_preserved():
     config = load_config()
     assert set(config) == {"version", "updates"}
-    assert len(config["updates"]) == 5
+    assert len(config["updates"]) == 6
     for ecosystem, directory, limit in EXISTING_UPDATES:
         assert any(
             update["package-ecosystem"] == ecosystem

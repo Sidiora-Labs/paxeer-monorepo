@@ -18,7 +18,7 @@ const PRICE_ORDER: Array<keyof GasPrices> = [ 'fast', 'average', 'slow' ];
 
 const GasTrackerPrices = ({ prices, isLoading }: Props) => (
   <Box>
-    <Grid as="ul" role="list" templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-62\.5)), 1fr))" gap={ 4 } mb={ 8 }>
+    <Grid as="ul" role="list" templateColumns={{ base: '1fr', lg: 'repeat(3, minmax(0, 1fr))' }} gap={ 4 } mb={ 8 }>
       { PRICE_ORDER.map((type) => prices[type] && <GasTrackerPriceSnippet key={ type } type={ type } data={ prices[type] } isLoading={ isLoading }/>) }
     </Grid>
     <DetailedInfo.Section label="Gas fee estimates">

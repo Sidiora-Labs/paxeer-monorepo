@@ -10,6 +10,7 @@ import {
 
 import { getStreamSocketOrigin } from "@paxeer-network/paxeer-backend/core/feeds";
 import { useEffect, useState } from "react";
+import { priceWindowChange } from "../../core/perps/priceWindow";
 import { parseFundingRateHourly } from "@paxeer-network/paxeer-backend/core/perps/fundingRate";
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -42,6 +43,7 @@ export interface MarketSnapshot {
   symbol: string;
   symbol_full: string;
   price: number | null;
+  index_price: number | null;
   /** 24h % change as a percentage number (e.g. 1.23 means +1.23%). */
   change_24h: number | null;
   volume_24h: number;
@@ -52,14 +54,16 @@ export interface MarketSnapshot {
   perp_funding_rate: bigint | null;
   /** Last settled hourly funding rate at 18 decimals (1e18 = 1.0); null before the first settlement. */
   last_funding_rate_hourly: bigint | null;
+  /** Next funding time in whole epoch milliseconds; null when unavailable. */
+  perp_next_funding_ms: number | null;
   volume_7d: number;
   volume_30d: number;
   trades_count: number;
   last_updated: number | null;
-  price_updated_at: number;
+  price_updated_at: number | null;
   price_24h: number;
-  high_24h: number;
-  low_24h: number;
+  high_24h: number | null;
+  low_24h: number | null;
   amount_24h: number;
   reported_volume_24h: number;
   reported_open_interest: number;
@@ -160,6 +164,7 @@ function ensureConnected(): void {
 }
 
 function connect(): void {
+  if (process.env.NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER === "1") return;
   if (!isPageActive()) {
     scheduleReconnect();
     return;
@@ -404,11 +409,16 @@ export function normalizeMarket(raw: unknown): MarketSnapshot | null {
   const r = raw as Record<string, unknown>;
   const symbol = typeof r.symbol === "string" ? r.symbol : null;
   if (!symbol) return null;
+  const rawPrice = r.price == null ? null : num(r.price);
+  const price = rawPrice !== null && rawPrice <= 0 ? null : rawPrice;
+  const price24h = r.price_24h == null ? 0 : num(r.price_24h);
+  if (!Number.isFinite(price24h)) return null;
   const snapshot: MarketSnapshot = {
     symbol,
     symbol_full: typeof r.symbol_full === "string" ? r.symbol_full : symbol,
-    price: r.price === null ? null : num(r.price),
-    change_24h: r.change_24h === null ? null : num(r.change_24h),
+    price,
+    index_price: r.perp_index_price == null ? null : num(r.perp_index_price),
+    change_24h: priceWindowChange(price, price24h),
     volume_24h: num(r.volume_24h),
     open_interest: num(r.open_interest),
     funding_8h: marketFundingHourly(symbol, "funding_8h", r.funding_8h),
@@ -422,25 +432,23 @@ export function normalizeMarket(raw: unknown): MarketSnapshot | null {
       "last_funding_rate_hourly",
       r.last_funding_rate_hourly,
     ),
+    perp_next_funding_ms:
+      typeof r.perp_next_funding_ms === "number" &&
+      Number.isSafeInteger(r.perp_next_funding_ms) &&
+      r.perp_next_funding_ms > 0
+        ? r.perp_next_funding_ms
+        : null,
     volume_7d: num(r.volume_7d),
     volume_30d: num(r.volume_30d),
     trades_count: num(r.trades_count),
-    last_updated: r.last_updated === null ? null : num(r.last_updated),
-    price_updated_at: num(r.price_updated_at),
-    price_24h: num(r.price_24h),
-    high_24h: num(r.high_24h),
-    low_24h: num(r.low_24h),
-    amount_24h: num(r.amount_24h),
-    reported_volume_24h: num(
-      r.reported_volume_24h === undefined
-        ? r.volume_24h
-        : r.reported_volume_24h,
-    ),
-    reported_open_interest: num(
-      r.reported_open_interest === undefined
-        ? r.open_interest
-        : r.reported_open_interest,
-    ),
+    last_updated: r.last_updated == null ? null : num(r.last_updated),
+    price_updated_at: r.last_updated == null ? null : num(r.last_updated),
+    price_24h: price24h > 0 ? price24h : 0,
+    high_24h: null,
+    low_24h: null,
+    amount_24h: num(r.perp_volume_24h_contracts),
+    reported_volume_24h: num(r.volume_24h),
+    reported_open_interest: num(r.open_interest),
   };
   for (const [field, value] of Object.entries(snapshot)) {
     if (

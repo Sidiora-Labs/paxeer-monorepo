@@ -64,7 +64,7 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
   }
 
   return (
-    <Flex flexGrow={ 1 } flexDir="column" h="100%" data-label="chain-indicator-chart" data-points={ data[0]?.items.length ?? 0 }>
+    <Flex flexGrow={ 1 } flexDir="column" minW={ 0 } h="100%" data-label="chain-indicator-chart" data-points={ data[0]?.items.length ?? 0 }>
       <Skeleton loading={ isLoading } display="flex" alignItems="center" w="fit-content" columnGap={ 1 }>
         <chakra.span
           data-title
@@ -81,7 +81,7 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
           { valueDiffElement }
         </Flex>
       ) }
-      <Flex mt={ 2 } h={{ base: 'var(--chakra-spacing-40)', lg: 'var(--chakra-spacing-40\\.5)' }} alignItems="flex-start" flexGrow={ 1 }>
+      <Flex mt={ 2 } h={{ base: 'var(--chakra-spacing-40)', lg: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-10))' }} alignItems="flex-start" flexGrow={ 1 }>
         <ChainIndicatorChartContainer data={ data } caption={ title } isError={ chartQuery.isError } isPending={ isLoading }/>
       </Flex>
     </Flex>

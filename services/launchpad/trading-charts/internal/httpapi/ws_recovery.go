@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -32,6 +33,7 @@ func RegisterReplayGateway(r chi.Router, gatewayOrigin string) error {
 		}
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		slog.ErrorContext(req.Context(), "durable candle replay failed", "err", err)
 		historyError(w, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE", "durable candle replay unavailable", true)
 	}
 	r.Get("/v2/snapshots", proxy.ServeHTTP)

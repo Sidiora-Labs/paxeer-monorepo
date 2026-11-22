@@ -165,6 +165,10 @@ func (d *developmentMarket) requiredWatermark(ctx context.Context, head store.De
 
 // developmentPoolDocument renders an indexer.pools row as the contract Pool.
 func developmentPoolDocument(row store.DevelopmentPool, created accounting.SourcePosition) (map[string]any, error) {
+	homeChain, err := strconv.ParseUint(row.HomeChain, 10, 32)
+	if err != nil || strconv.FormatUint(homeChain, 10) != row.HomeChain {
+		return nil, store.ErrDataIntegrity
+	}
 	if row.Reserves == nil || row.FeeBps == nil {
 		return nil, errPoolStateUnavailable
 	}
@@ -179,6 +183,7 @@ func developmentPoolDocument(row store.DevelopmentPool, created accounting.Sourc
 	}
 	return map[string]any{
 		literalChainId:                   "125",
+		"homeChain":                      row.HomeChain,
 		literalPoolAddress:               row.Pool,
 		literalTokenAddress:              row.Token,
 		literalCreator:                   row.Creator,

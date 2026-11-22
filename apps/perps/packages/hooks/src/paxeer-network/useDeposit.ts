@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import {
   API,
   ARBITRUM_MAINNET_CHAINID,
@@ -80,6 +81,9 @@ export const useDeposit = (options: DepositOptions) => {
   );
 
   const vaultAddress = useMemo(() => {
+    if (options.srcChainId === paxeerChain.id) {
+      return targetChain?.network_infos.vault_address;
+    }
     // cross swap deposit vault address
     if (dst?.chainId !== options.srcChainId) {
       return options.crossChainRouteAddress;
@@ -140,6 +144,7 @@ export const useDeposit = (options: DepositOptions) => {
     vaultAddress,
     isNativeToken,
     dst,
+    allowance,
   });
 
   const resetApprove = useCallback(
@@ -553,6 +558,7 @@ function useDepositFee(options: {
   vaultAddress?: string;
   isNativeToken?: boolean;
   dst?: DST;
+  allowance: string;
 }) {
   const {
     quantity,
@@ -563,6 +569,7 @@ function useDepositFee(options: {
     vaultAddress,
     isNativeToken,
     dst,
+    allowance,
   } = options;
 
   const getDepositFee = useCallback(
@@ -639,8 +646,9 @@ function useDepositFee(options: {
       decimals,
       targetChain?.network_infos?.chain_id,
       quantity,
+      allowance,
     ];
-  }, [quantity, targetChain, decimals, dstToken, dst, vaultAddress]);
+  }, [quantity, targetChain, decimals, dstToken, dst, vaultAddress, allowance]);
 
   const fetcher = useCallback(async () => {
     const res = await getDepositFee(quantity);
@@ -657,13 +665,14 @@ function useDepositFee(options: {
 
   const depositFee = useMemo(() => {
     const fee = data ?? 0n;
+    if (targetChain?.network_infos.chain_id === paxeerChain.id) return fee;
     return BigInt(
       new Decimal(fee.toString())
         .mul(DEPOSIT_FEE_RATE)
         .toFixed(0, Decimal.ROUND_UP)
         .toString(),
     );
-  }, [data]);
+  }, [data, targetChain]);
 
   return { depositFee, depositFeeRevalidating, mutateDepositFee };
 }
@@ -674,6 +683,8 @@ function useTargetChain(srcChainId?: number) {
 
   const targetChain = useMemo(() => {
     let chain: API.Chain | undefined;
+
+    if (srcChainId === paxeerChain.id) return findByChainId(srcChainId);
 
     // paxeer-network testnet supported chain
     if (networkId === "testnet") {

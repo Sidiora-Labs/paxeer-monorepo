@@ -71,7 +71,7 @@ func (p *Processor) RetainSourcePoison(ctx context.Context, result source.FetchR
 			}
 			code = decoded.FailureReason
 		}
-		if decodeErr == nil && decoded != nil && decoded.Status == "decoded" {
+		if decodeErr == nil && decoded != nil && decoded.Status == valueDecoded {
 			code = ""
 		}
 		if decodeErr != nil && code == "" {
@@ -94,6 +94,10 @@ func (p *Processor) RetainSourcePoison(ctx context.Context, result source.FetchR
 		if result.BlockTimestamps[log.BlockNumber] <= 0 {
 			code = "source_repair_required"
 			required = true
+		}
+		if decodeErr == nil && decoded != nil && decoded.Status == "quarantined" && code == "bounds" {
+			required = false
+			requirement = "optional.deployment_log_bounds"
 		}
 		if code == "" {
 			continue

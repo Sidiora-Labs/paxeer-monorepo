@@ -46,7 +46,7 @@ export function MarketStatsCard({ paxPrice, ohlcData, window }: MarketStatsCardP
       <div className="col-span-2 px-1 pt-1">
         <SectionLabel text="Market" />
         {window && (
-          <p className="text-xs text-pax-muted">
+          <p className="text-size-11 text-pax-muted">
             {new Date(window.from).toISOString()} – {new Date(window.to).toISOString()}
           </p>
         )}

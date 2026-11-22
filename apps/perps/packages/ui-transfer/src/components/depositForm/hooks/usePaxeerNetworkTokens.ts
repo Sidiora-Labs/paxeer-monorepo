@@ -4,7 +4,9 @@ import { CurrentChain } from "../../../types";
 import { sortTokensWithUSDCFirst } from "../../../utils";
 
 export const usePaxeerNetworkTokens = (currentChain?: CurrentChain | null) => {
-  const [paxeerNetworkTokens, setPaxeerNetworkTokens] = useState<API.TokenInfo[]>([]);
+  const [paxeerNetworkTokens, setPaxeerNetworkTokens] = useState<
+    API.TokenInfo[]
+  >([]);
 
   // when chain changed and chain data ready then call this function init tokens
   const onChainInited = useCallback((chainInfo?: API.Chain) => {
@@ -19,7 +21,7 @@ export const usePaxeerNetworkTokens = (currentChain?: CurrentChain | null) => {
 
   useEffect(() => {
     onChainInited(currentChain?.info);
-  }, [currentChain]);
+  }, [currentChain?.id, currentChain?.info]);
 
   return paxeerNetworkTokens;
 };

@@ -1,9 +1,9 @@
-import { registerAffiliateDialog } from "../../../../components/dialog";
+import { registerSimpleDialog } from "@paxeer-network/ui";
 import { BindReferralCodeWidget } from "./bindReferralCode.widget";
 
 export const BindReferralCodeDialogId = "BindReferralCodeDialogId";
 
-registerAffiliateDialog(BindReferralCodeDialogId, BindReferralCodeWidget, {
+registerSimpleDialog(BindReferralCodeDialogId, BindReferralCodeWidget, {
   size: "sm",
   classNames: {
     content: "oui-border oui-border-line-6",

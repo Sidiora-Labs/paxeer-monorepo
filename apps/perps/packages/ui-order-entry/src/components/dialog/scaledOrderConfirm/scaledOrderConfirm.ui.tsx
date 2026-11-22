@@ -52,7 +52,7 @@ export const ScaledOrderConfirm = (props: ScaledOrderConfirmProps) => {
             <Flex gap={2}>
               <div
                 className={cn(
-                  "oui-h-[42px] oui-w-1 oui-shrink-0 oui-rounded-sm",
+                  "oui-h-[42px] oui-w-1 oui-shrink-0 oui-rounded-[1px]",
                   record.side === OrderSide.BUY
                     ? "oui-bg-trade-profit"
                     : "oui-bg-trade-loss",

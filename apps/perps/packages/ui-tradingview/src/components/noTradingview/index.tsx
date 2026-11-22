@@ -4,14 +4,12 @@ import { Trans, useTranslation } from "@paxeer-network/i18n";
 const Link: React.FC<React.PropsWithChildren<{ url: string }>> = (props) => {
   const { url, children } = props;
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className="oui-px-0.5 oui-text-primary-light oui-underline"
+    <span
+      onClick={() => window.open(url)}
+      className="oui-cursor-pointer oui-px-0.5 oui-text-primary-light oui-underline"
     >
       {children}
-    </a>
+    </span>
   );
 };
 

@@ -59,7 +59,10 @@ export const marketCachePolicy = {
   holders: { staleTime: 10_000, gcTime: 30_000, ...retryTransientOnly },
   profile: { staleTime: 60_000, gcTime: 10 * 60_000, ...retryTransientOnly },
   walletIdentity: { staleTime: 5 * 60_000, gcTime: 30 * 60_000, ...retryTransientOnly },
-  leaderboard: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
+  leaderboard: {
+    staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly,
+    refetchInterval: false, refetchOnWindowFocus: false, refetchOnReconnect: false, retryOnMount: false,
+  },
   feed: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
   callouts: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
   watchlistRows: { staleTime: 10_000, gcTime: 30_000, ...retryTransientOnly },

@@ -121,8 +121,7 @@ const PNLMenus = (props: {
     return (
       <button
         type="button"
-        className="oui-touch-target oui-p-2 oui-text-base-contrast-54 oui-cursor-not-allowed"
-        aria-label="PnL input unavailable"
+        className="oui-p-2 oui-text-base-contrast-54 oui-cursor-not-allowed"
         disabled
       >
         <CaretDownIcon size={12} color="inherit" />
@@ -143,11 +142,7 @@ const PNLMenus = (props: {
         }
       }}
     >
-      <button
-        type="button"
-        className="oui-touch-target oui-p-2"
-        aria-label="Select PnL input type"
-      >
+      <button type="button" className="oui-p-2">
         <CaretDownIcon size={12} color="white" />
       </button>
     </SimpleDropdownMenu>

@@ -191,6 +191,14 @@ def test_required_variables_follow_runtime_readers_and_build_arguments():
         r"^ARG\s+([A-Z][A-Z0-9_]*)", (CONTAINER / "Dockerfile").read_text(), re.M
     ))
     required.update(arguments)
+    replica_settings = re.search(
+        r"const REPLICA_SETTINGS:[^=]+=\s*\[([^]]+)\];",
+        (AUTHORITY / "main.rs").read_text(),
+    )
+    assert replica_settings is not None
+    replica_names = set(re.findall(r'"([A-Z][A-Z0-9_]*)"', replica_settings[1]))
+    assert len(replica_names) == 5
+    required.difference_update(replica_names)
     material = {row[0] for row in file_rows()}
     assert variables.keys() == required | material
     human = functions((AUTHORITY / "human.rs").read_text())["load"]
@@ -249,7 +257,7 @@ def test_port_health_topology_and_clock_supervision():
         "require a shared network namespace.\ntarget"
     )
     assert target_comment in DEFINITION.read_text()
-    assert ".and_then(loopback_http)" in bodies["config"]
+    assert ".and_then(loopback_http)" in bodies["replica_config"]
     loopback = functions((AUTHORITY / "lib.rs").read_text())["loopback_http"]
     chain = functions((AUTHORITY / "chain_receipt.rs").read_text())["load"]
     assert "_ => return None" in loopback
@@ -257,7 +265,7 @@ def test_port_health_topology_and_clock_supervision():
     rollout = tomllib.loads((ROOT / "deploy/rollout.kvx").read_text())["service"]
     assert service["needs"] == ["sequencer-primary"]
     assert all(rollout[name]["order"] < service["order"] for name in service["needs"])
-    assert service["order"] < rollout["router"]["order"]
+    assert service["order"] < rollout["gateway"]["order"]
     assert (service["restart"], service["replicas"], service["public"]) == ("ALWAYS", 1, 0)
     dockerfile = (CONTAINER / "Dockerfile").read_text()
     assert "USER 4020:4020" in dockerfile

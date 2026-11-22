@@ -1,0 +1,76 @@
+[manifest]
+task = "22.44.64"
+surface = "Sidiora Launchpad community"
+views = 14
+states = 14
+named_states = 0
+routes = ["bounties", "chat", "docs"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+portrait_height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[matrix]
+configurations_per_view = 34
+configurations = 476
+default_configurations_per_view = 22
+additional_mode_widths = [390, 1440]
+review_widths = [360, 768, 1440, 2560, "844x390"]
+review_configurations = 140
+
+[presentation]
+navigation = "Documentation labels are centered within their touch targets."
+accessibility = "Documentation navigation has a name and its back icon is decorative."
+coverage = "Bounty, chat and document views retain all four presentation modes."
+bounty_navigation = "The initial bounty view includes its heading, tabs, statistics and highlight regions."
+bounty_tokens = "Pool-address links remain available while token metadata loads."
+bounty_header = "Token metadata stays within the bounty header row."
+bounty_loading = "Temporary bounty placeholders leave scroll anchoring to persistent content."
+bounty_reservation = "Bounty headers reserve space for wrapped content within narrow columns."
+
+[review]
+screenshots = 164
+guides = ["html", "performance", "optimize-script-priority"]
+corrections = [
+  "Documentation labels align within their touch targets.",
+  "Bounty token metadata wraps within the header row.",
+  "Bounty statistics and creation controls wrap together at intermediate widths.",
+  "Bounty header actions wrap with enlarged text at wider viewports.",
+  "The shell content offset follows the measured header without replacing the route content.",
+  "Bounty detail renders with its resolved route parameters.",
+  "Bounty loading headers reserve the space used by enlarged content in narrow columns.",
+]
+
+[findings.first]
+load = 5
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[result]
+status = "pass"
+renders = 476
+rendered = 476
+did_not_render = 0
+showed_nothing = 0
+cancelled = 0
+findings = 0
+
+[findings.last]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0

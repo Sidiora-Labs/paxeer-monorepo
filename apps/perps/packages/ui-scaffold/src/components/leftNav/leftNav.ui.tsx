@@ -1,4 +1,3 @@
-import { SimpleDialog } from "../../../../ui-connector/src/platformOverlays";
 import { FC, useMemo } from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -8,6 +7,8 @@ import {
   type RouteOption,
 } from "@paxeer-network/types";
 import {
+  Sheet,
+  SheetContent,
   VectorIcon,
   SwapHorizIcon,
   PeopleIcon,
@@ -40,14 +41,9 @@ export type LeftNavUIProps = LeftNavProps &
 export const LeftNavUI: FC<LeftNavUIProps> = (props) => {
   return (
     <>
-      <button
-        type="button"
-        aria-label="Navigation"
-        onClick={props.showSheet}
-        className={`oui-shell-icon-button ${props.className ?? ""}`}
-      >
-        <VectorIcon aria-hidden="true" />
-      </button>
+      <div onClick={props.showSheet} className={props?.className}>
+        <VectorIcon />
+      </div>
       <LeftNavSheet {...props} />
     </>
   );
@@ -80,7 +76,7 @@ const LeftNavSheet: FC<LeftNavUIProps> = (props) => {
         : state.subAccounts?.find((item) => item.id === state.accountId)
             ?.description || "";
     return (
-      <div className="oui-shell-action oui-flex oui-w-full oui-items-center oui-gap-2 oui-rounded-xl oui-bg-base-5 oui-p-3">
+      <div className="oui-flex oui-w-full oui-cursor-pointer oui-items-center oui-gap-2 oui-rounded-xl oui-bg-base-5 oui-p-3">
         <div>
           <PeopleIcon />
         </div>
@@ -93,7 +89,7 @@ const LeftNavSheet: FC<LeftNavUIProps> = (props) => {
           </Text.formatted>
           <Text.formatted
             rule="address"
-            className="oui-text-2xs oui-text-base-contrast-80"
+            className="oui-text-2xs oui-text-base-contrast-36"
           >{`ID: ${state.accountId}`}</Text.formatted>
         </div>
         <div className="oui-ms-auto">
@@ -103,98 +99,87 @@ const LeftNavSheet: FC<LeftNavUIProps> = (props) => {
     );
   }, [state, t]);
 
+  const openExternalLink = (url: string) => {
+    window.open(url, "_blank");
+  };
+
   return (
-    <SimpleDialog
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      title="Navigation"
-      classNames={{
-        content:
-          "oui-platform-navigation oui-shell-overlay oui-w-72 oui-bg-base-8",
-      }}
-    >
-      <div className="oui-relative oui-flex oui-h-full oui-flex-col oui-gap-3">
-        <div className="oui-mt-2 oui-flex oui-h-11 oui-items-center [&_img]:!oui-h-5">
-          <MainLogo {...props?.logo} />
-        </div>
-        {props?.leading}
-        {showSubAccount && (
-          <SubAccountWidget customTrigger={subAccountTrigger} />
-        )}
-        {(primaryMenus.length > 0 || secondaryMenus.length > 0) && (
-          <div className="oui-flex oui-min-h-0 oui-flex-1 oui-flex-col oui-items-start oui-overflow-y-auto">
-            {primaryMenus.map((item) => (
-              <NavItem
-                item={item}
-                key={`item-${item.name}`}
-                onClick={onRouteChange}
-              />
-            ))}
-            {secondaryMenus.length > 0 && primaryMenus.length > 0 && (
-              <Divider className="oui-my-1 oui-w-full" intensity={8} />
-            )}
-            {secondaryMenus.map((item) => (
-              <NavItem
-                item={item}
-                key={`item-${item.name}`}
-                onClick={onRouteChange}
-              />
-            ))}
+    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
+      <SheetContent
+        side="left"
+        className="oui-w-[276px] oui-bg-base-8"
+        closeable
+        closeableSize={24}
+        closeOpacity={0.54}
+      >
+        <div className="oui-relative oui-flex oui-h-full oui-flex-col oui-gap-3">
+          <div className="oui-mt-[6px] oui-flex oui-h-[44px] oui-items-center [&_img]:!oui-h-[18px]">
+            <MainLogo {...props?.logo} />
           </div>
-        )}
-        <div className="oui-shrink-0 oui-py-4 oui-flex oui-w-full oui-flex-col oui-gap-4 oui-bg-base-8">
-          <div className="oui-flex oui-items-center oui-justify-around">
-            {props.telegramUrl && (
-              <a
-                href={props.telegramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Telegram"
-                className="oui-shell-icon-button"
-              >
-                <CommunityTG width={24} height={24} />
-              </a>
-            )}
-            {props.twitterUrl && (
-              <a
-                href={props.twitterUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="X"
-                className="oui-shell-icon-button"
-              >
-                <CommunityX width={24} height={24} />
-              </a>
-            )}
-            {props.discordUrl && (
-              <a
-                href={props.discordUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Discord"
-                className="oui-shell-icon-button"
-              >
-                <CommunityDiscord width={24} height={24} />
-              </a>
-            )}
-            {props.duneUrl && (
-              <a
-                href={props.duneUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Dune"
-                className="oui-shell-icon-button"
-              >
-                <CommunityDune />
-              </a>
-            )}
-          </div>
-          {props.customFooter ?? (
-            <DefaultTradingViewTncLink className="oui-text-center" />
+          {props?.leading}
+          {showSubAccount && (
+            <SubAccountWidget customTrigger={subAccountTrigger} />
           )}
+          {(primaryMenus.length > 0 || secondaryMenus.length > 0) && (
+            <div className="oui-flex oui-h-[calc(100vh-260px)] oui-flex-col oui-items-start oui-overflow-y-auto">
+              {primaryMenus.map((item) => (
+                <NavItem
+                  item={item}
+                  key={`item-${item.name}`}
+                  onClick={onRouteChange}
+                />
+              ))}
+              {secondaryMenus.length > 0 && primaryMenus.length > 0 && (
+                <Divider className="oui-my-1 oui-w-full" intensity={8} />
+              )}
+              {secondaryMenus.map((item) => (
+                <NavItem
+                  item={item}
+                  key={`item-${item.name}`}
+                  onClick={onRouteChange}
+                />
+              ))}
+            </div>
+          )}
+          <div className="oui-z-60 oui-absolute oui-bottom-6 oui-flex oui-w-full oui-flex-col oui-gap-4 oui-bg-base-8">
+            <div className="oui-flex oui-items-center oui-justify-around">
+              {props.telegramUrl && (
+                <div
+                  onClick={() => openExternalLink(props.telegramUrl as string)}
+                >
+                  <CommunityTG width={24} height={24} />
+                </div>
+              )}
+              {props.twitterUrl && (
+                <div
+                  onClick={() => openExternalLink(props.twitterUrl as string)}
+                >
+                  <CommunityX width={24} height={24} />
+                </div>
+              )}
+              {props.discordUrl && (
+                <div
+                  onClick={() => openExternalLink(props.discordUrl as string)}
+                >
+                  <CommunityDiscord width={24} height={24} />
+                </div>
+              )}
+              {props.duneUrl && (
+                <div
+                  onClick={() => openExternalLink(props.duneUrl as string)}
+                  className="oui-mb-1"
+                >
+                  <CommunityDune />
+                </div>
+              )}
+            </div>
+            {props.customFooter ?? (
+              <DefaultTradingViewTncLink className="oui-text-center" />
+            )}
+          </div>
         </div>
-      </div>
-    </SimpleDialog>
+      </SheetContent>
+    </Sheet>
   );
 };
 
@@ -214,19 +199,7 @@ const NavItem: FC<NavItemProps> = ({ item, onClick }) => {
     target,
   } = item;
   const { isMainAccount } = useAccount();
-  const onItemClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey ||
-      target ||
-      !onClick ||
-      href.startsWith("http")
-    )
-      return;
-    event.preventDefault();
+  const onItemClick = () => {
     // Check if href is a full URL (external link)
     const isExternalLink =
       href.startsWith("http://") || href.startsWith("https://");
@@ -241,15 +214,12 @@ const NavItem: FC<NavItemProps> = ({ item, onClick }) => {
   };
   if (typeof customRender === "function") {
     return (
-      <a
-        href={href}
-        target={target}
-        rel={target === "_blank" ? "noopener noreferrer" : undefined}
-        className="oui-flex oui-min-h-12 oui-w-full oui-items-center oui-p-3"
+      <div
+        className="oui-flex oui-w-full oui-items-center oui-p-3"
         onClick={onItemClick}
       >
         {customRender({ name: name, href: href })}
-      </a>
+      </div>
     );
   }
   if (onlyInMainAccount && !isMainAccount) {
@@ -257,19 +227,16 @@ const NavItem: FC<NavItemProps> = ({ item, onClick }) => {
   }
   const isSecondary = !!item.isSecondary;
   const textClassName = isSecondary
-    ? "oui-text-xs oui-font-normal oui-text-base-contrast-80"
+    ? "oui-text-xs oui-font-normal oui-text-base-contrast-54"
     : "oui-text-base oui-font-semibold oui-text-base-contrast-80";
   return (
-    <a
-      href={href}
-      target={target}
-      rel={target === "_blank" ? "noopener noreferrer" : undefined}
-      className={`oui-flex oui-min-h-12 oui-w-full oui-items-center oui-gap-2 oui-p-3 ${isSecondary ? "oui-py-2" : ""}`}
+    <div
+      className={`oui-flex oui-w-full oui-items-center oui-gap-2 oui-p-3 ${isSecondary ? "oui-py-2" : ""}`}
       onClick={onItemClick}
     >
       <div>{icon}</div>
       <div className={textClassName}>{name}</div>
       {trailing}
-    </a>
+    </div>
   );
 };

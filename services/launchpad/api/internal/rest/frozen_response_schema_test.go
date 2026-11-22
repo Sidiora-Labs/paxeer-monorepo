@@ -83,6 +83,9 @@ func TestFrozenV2OperationLooksUpCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	for route, expected := range chainRoutes {
+		if operation, ok := operations[route]; !ok || operation.ID != expected.id || operation.Response != expected.response {
+			t.Fatalf("chain route %s catalog=%+v", route, operation)
+		}
 		_, path, _ := strings.Cut(route, " ")
 		operation := contract.Paths[path]["get"]
 		if operation.OperationID != expected.id || operation.Authorization != "public" || operation.Responses["200"].Content["application/json"].Schema.Ref != "#/components/schemas/"+expected.response {
@@ -107,13 +110,13 @@ func TestFrozenV2OperationLooksUpCatalog(t *testing.T) {
 	count, authenticated := 0, 0
 	seenChain := map[string]bool{}
 	err = chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
-		operation, ok := operations[method+" "+path]
+		key := method + " " + path
+		if _, chain := chainRoutes[key]; chain {
+			seenChain[key] = true
+		}
+		operation, ok := operations[key]
 		if !ok {
-			if _, added := chainRoutes[method+" "+path]; !added {
-				t.Errorf("mounted route absent from the v2 catalog: %s %s", method, path)
-			} else {
-				seenChain[method+" "+path] = true
-			}
+			t.Errorf("mounted route absent from the v2 catalog: %s %s", method, path)
 			count++
 			return nil
 		}

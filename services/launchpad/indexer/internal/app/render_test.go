@@ -155,6 +155,7 @@ func TestRenderedProductionDocumentsBoot(t *testing.T) {
 	if err = bindRuntimeAnchor(&tampered, receiptDoc.Production); err == nil {
 		t.Fatal("start checkpoint not bound to the chain anchor")
 	}
+	exerciseComposedProductionStartup(t, docs)
 }
 
 // Inventory enrichment is bound as one unit at boot: a generation without the

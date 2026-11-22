@@ -1,8 +1,7 @@
-import { Tooltip } from "../../../../ui-connector/src/platformOverlays";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { cn } from "@paxeer-network/ui";
-import { ChevronDownIcon, ChevronUpIcon } from "@paxeer-network/ui";
+import { Tooltip, ChevronDownIcon, ChevronUpIcon } from "@paxeer-network/ui";
 import { useWallet } from "../../hooks/useWallet";
 import { useWalletConnectorPrivy } from "../../provider";
 import { useWagmiWallet } from "../../providers/wagmi/wagmiWalletProvider";
@@ -47,30 +46,23 @@ export function AddEvmWallet() {
   }, [open]);
 
   return (
-    <div className="oui-rounded-lg oui-bg-base-10 oui-px-2 oui-py-3">
+    <div className="oui-rounded-[8px] oui-bg-base-10 oui-px-2 oui-py-[11px]">
       <Tooltip
-        className="oui-z-[65] oui-max-w-52 oui-text-base-contrast-80"
+        className="oui-z-[65] oui-max-w-[200px] oui-text-warning-darken"
         open={open}
-        onOpenChange={setOpen}
         content={t("connector.privy.addEvmWallet.tips")}
       >
-        <div
-          tabIndex={0}
-          className="oui-flex oui-items-center oui-justify-center oui-gap-1"
-        >
+        <div className="oui-flex oui-items-center oui-justify-center oui-gap-1 ">
           <div className="oui-flex oui-items-center oui-justify-center oui-gap-1">
-            <div className="oui-relative oui-flex oui-w-14 oui-items-center oui-justify-start">
+            <div className="oui-relative oui-flex oui-w-[55px] oui-items-center oui-justify-start">
               <img
-                width={24}
-                height={24}
-                alt=""
                 src="/assets/static/sdk/chains.png"
-                className="oui-relative oui-z-0 oui-h-5"
+                className="oui-relative oui-z-0 oui-h-[18px]"
               />
-              <div className="oui-absolute oui-end-0 oui-flex oui-size-5 oui-items-center oui-justify-center oui-rounded-full oui-bg-base-5">
+              <div className="oui-absolute oui-end-0 oui-flex oui-size-[18px] oui-items-center oui-justify-center oui-rounded-full oui-bg-base-5">
                 <EVMChainPopover>
                   <MoreIcon
-                    className="oui-relative oui-z-10 oui-size-3 oui-text-base-contrast-80 hover:oui-text-base-contrast"
+                    className="oui-relative oui-z-10 oui-size-3 oui-text-base-contrast-54 hover:oui-text-base-contrast"
                     style={{ zIndex: 1 }}
                   />
                 </EVMChainPopover>
@@ -81,18 +73,12 @@ export function AddEvmWallet() {
             {t("connector.privy.addEvmWallet")}
           </div>
 
-          <button
-            type="button"
-            className="oui-shell-icon-button"
-            aria-expanded={!visible}
-            aria-label={t("connector.privy.addEvmWallet")}
-            onClick={() => setVisible(!visible)}
-          >
+          <button onClick={() => setVisible(!visible)}>
             {visible ? (
               <ChevronDownIcon
                 size={16}
                 opacity={1}
-                className="oui-text-base-contrast-80"
+                className="oui-text-base-contrast-36"
               />
             ) : (
               <ChevronUpIcon
@@ -105,24 +91,22 @@ export function AddEvmWallet() {
         </div>
       </Tooltip>
       <div
-        hidden={visible}
         className={cn(
-          "oui-transition-height oui-grid oui-grid-cols-2 oui-gap-2 oui-overflow-hidden oui-[transition-duration:var(--oui-duration-fast)]",
-          visible ? "oui-mt-0 oui-max-h-0" : "oui-mt-3 oui-max-h-96",
+          "oui-transition-height oui-grid oui-grid-cols-2 oui-gap-2 oui-overflow-hidden oui-duration-150",
+          visible ? "oui-mt-0 oui-max-h-0" : "oui-mt-3 oui-max-h-[400px]",
         )}
       >
         {connectors.map((item, index) => (
-          <button
-            type="button"
+          <div
             key={index}
-            className="oui-flex oui-cursor-pointer oui-items-center oui-justify-center  oui-gap-1 oui-bg-base-9 oui-px-2 oui-py-3 oui-text-2xs"
+            className="oui-flex oui-cursor-pointer oui-items-center oui-justify-center  oui-gap-1 oui-bg-base-9 oui-px-2 oui-py-[11px] oui-text-2xs"
             onClick={() =>
               connect({ walletType: WalletConnectType.EVM, connector: item })
             }
           >
             <RenderWalletIcon connector={item} />
             <div className="oui-text-base-contrast">{item.name}</div>
-          </button>
+          </div>
         ))}
       </div>
     </div>

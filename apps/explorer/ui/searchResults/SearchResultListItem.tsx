@@ -59,15 +59,33 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
 
   const { colorMode } = useColorMode();
 
+  if (isLoading) {
+    return (
+      <ListItemMobile py={ 3 } textStyle="sm" rowGap={ 2 } aria-busy="true">
+        <Flex w="100%" alignItems="center" minH="1lh">
+          <Skeleton loading boxSize="20px" mr={ 2 } flexShrink={ 0 }/>
+          <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
+          <Skeleton loading h="1lh" w={ 10 } ml={ 8 } flexShrink={ 0 }/>
+        </Flex>
+        <Flex w="100%" gap={ 2 } alignItems="center">
+          <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
+          <Skeleton loading h="1lh" w={ 12 }/>
+        </Flex>
+      </ListItemMobile>
+    );
+  }
+
   const firstRow = (() => {
     switch (data.type) {
       case 'token': {
         const name = data.name + (data.symbol ? ` (${ data.symbol })` : '');
 
         return (
-          <Flex alignItems="center" overflow="hidden">
+          <Flex alignItems="center" minW={ 0 }>
             <TokenEntity.Icon token={{ ...data, type: data.token_type }} isLoading={ isLoading }/>
             <Link
+              data-touch-inline
+              css={{ '--touch-line-size': '1lh' }}
               href={ route({ pathname: '/token/[hash]', query: { hash: data.address_hash } }) }
               fontWeight="bold"
               wordBreak="break-all"
@@ -330,6 +348,8 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
           <EnsEntity.Container>
             <EnsEntity.Icon protocol={ data.ens_info.protocol }/>
             <Link
+              data-touch-inline
+              css={{ '--touch-line-size': '1lh' }}
               href={ data.address_hash ?
                 route({ pathname: '/address/[hash]', query: { hash: data.address_hash } }) :
                 route({ pathname: '/name-services/domains/[name]', query: { name: data.ens_info.name } })
@@ -497,7 +517,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
 
   return (
     <ListItemMobile py={ 3 } textStyle="sm" rowGap={ 2 }>
-      <Grid templateColumns="1fr auto" w="100%" overflow="hidden">
+      <Grid templateColumns="minmax(0, 1fr) auto" w="100%" minW={ 0 }>
         { firstRow }
         <Skeleton loading={ isLoading } color="text.secondary" ml={ 8 } textTransform="capitalize">
           <span>{ category ? searchItemTitles[category].itemTitleShort : '' }</span>

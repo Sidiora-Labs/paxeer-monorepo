@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"runtime"
 	"strconv"
@@ -243,11 +244,14 @@ func (s *Service) Personalize(ctx context.Context, page IntegratedPage, p auth.I
 	bounded, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
 	defer cancel()
 	if err = s.Store.Pool.QueryRow(bounded, "SELECT payload FROM stats_search.preferences_v2 WHERE wallet=$1 AND payload->>'accountId'=$2", wallet, p.AccountID).Scan(&raw); err != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, unavailable(err)
 	}
 	var preferences PreferenceSnapshot
-	if strictJSON(raw, &preferences) != nil || preferences.Validate() != nil || preferences.AccountID != p.AccountID || preferences.Wallet != wallet {
-		return IntegratedPage{}, ErrUnavailable
+	if err := strictJSON(raw, &preferences); err != nil {
+		return IntegratedPage{}, fmt.Errorf("%w: preferences document: %v", ErrUnavailable, err)
+	}
+	if preferences.Validate() != nil || preferences.AccountID != p.AccountID || preferences.Wallet != wallet {
+		return IntegratedPage{}, fmt.Errorf("%w: preferences identity or fields invalid", ErrUnavailable)
 	}
 	muted, followed, saved := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, a := range preferences.MutedCreators {
@@ -271,8 +275,11 @@ func (s *Service) Personalize(ctx context.Context, page IntegratedPage, p auth.I
 		items = append(items, hit)
 	}
 	generation, revision, privacy, err := s.state(bounded)
-	if err != nil || generation != page.Generation || revision != page.Revision || privacy != page.PrivacyRevision {
-		return IntegratedPage{}, ErrUnavailable
+	if err != nil {
+		return IntegratedPage{}, err
+	}
+	if generation != page.Generation || revision != page.Revision || privacy != page.PrivacyRevision {
+		return IntegratedPage{}, fmt.Errorf("%w: search revisions changed", ErrUnavailable)
 	}
 	page.Items = items
 	return page, nil

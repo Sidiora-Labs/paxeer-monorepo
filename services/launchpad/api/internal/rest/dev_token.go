@@ -97,6 +97,7 @@ func (c *developmentChain) tokenDocument(ctx context.Context, token string, wm s
 	}
 	name, hasName := values["name"].(string)
 	symbol, hasSymbol := values["symbol"].(string)
+	name, symbol = coinText(name, symbol)
 	decimals, hasDecimals := values[literalDecimals].(uint8)
 	supply, hasSupply := values["totalSupply"].(*big.Int)
 	if hasSupply && (supply.Sign() < 0 || supply.BitLen() > 256) {

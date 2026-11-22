@@ -1029,7 +1029,7 @@ func (v PostgresCommittedBlockProvider) CommittedBlock(ctx context.Context) (*bi
 		return nil, common.Hash{}, ErrScopeDenied
 	}
 	var height, hash, integrity string
-	err := v.Pool.QueryRow(ctx, `SELECT height::text,block_hash,integrity FROM auth_committed_blocks WHERE chain_id=125 ORDER BY height DESC LIMIT 1`).Scan(&height, &hash, &integrity)
+	err := v.Pool.QueryRow(ctx, `SELECT height::text,block_hash,integrity FROM auth_committed_blocks AS heads WHERE chain_id=125 ORDER BY heads.height DESC LIMIT 1`).Scan(&height, &hash, &integrity)
 	if err != nil {
 		return nil, common.Hash{}, err
 	}

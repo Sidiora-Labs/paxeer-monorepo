@@ -49,7 +49,7 @@ function RewardValue({ valuation, size }: { valuation: BountyValuation | null; s
 function Meta({ bounty, now }: { bounty: Bounty; now?: number }) {
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-faint">
-      {bounty.poolAddress ? <span className="relative z-10"><BountyTokenChip poolAddress={bounty.poolAddress} /></span> : null}
+      {bounty.poolAddress ? <span className="relative z-10 max-w-full"><BountyTokenChip poolAddress={bounty.poolAddress} /></span> : null}
       {bounty.deadlineAt ? <CountdownProgress endsAt={bounty.deadlineAt} variant="icon" now={now} /> : null}
       {bounty.submissionsCount !== undefined ? (
         <span className="inline-flex items-center gap-1 tabular-nums" data-numeric><Users aria-hidden="true" className="size-icon-sm" />{formatCount(bounty.submissionsCount)}<span className="sr-only"> submissions</span></span>
@@ -85,19 +85,19 @@ export function HighestValueRail({ enabled = true, serviceDown = false, limit = 
       ) : (
         <ol className="flex flex-col gap-2">
           <li className="relative flex flex-col gap-1 rounded-md bg-accent-soft p-3 transition-colors duration-fast hover:bg-accent-soft-strong">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <RankBadge rank={1} variant="disc" />
               <span className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Top open bounty</span>
             </div>
             <RewardValue valuation={featured.valuation} size="lg" />
-            <Link href={bountyHref(featured.bounty)} className="line-clamp-2 text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{featured.bounty.title}</Link>
+            <Link prefetch={false} href={bountyHref(featured.bounty)} className="line-clamp-2 content-center text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{featured.bounty.title}</Link>
             <Meta bounty={featured.bounty} now={now} />
           </li>
           {rest.map((row, index) => (
             <li key={row.bounty.bountyId} className="relative flex items-center gap-2 rounded-md p-2 transition-colors duration-fast hover:bg-surface-hover">
               <RankBadge rank={index + 2} variant="disc" />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <Link href={bountyHref(row.bounty)} className="truncate text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{row.bounty.title}</Link>
+                <Link prefetch={false} href={bountyHref(row.bounty)} className="block content-center truncate text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{row.bounty.title}</Link>
                 <Meta bounty={row.bounty} now={now} />
               </span>
               <RewardValue valuation={row.valuation} size="sm" />
@@ -143,7 +143,7 @@ export function RecentlyPaidCard({ enabled = true, serviceDown = false, limit = 
         <ul className="flex flex-col gap-1">
           {rows.map(bounty => (
             <li key={bounty.bountyId} className="relative flex items-center gap-2 rounded-md p-2 transition-colors duration-fast hover:bg-surface-hover">
-              <Link href={bountyHref(bounty)} className="min-w-0 flex-1 truncate text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{bounty.title}</Link>
+              <Link prefetch={false} href={bountyHref(bounty)} className="min-w-0 flex-1 content-center truncate text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{bounty.title}</Link>
               {bounty.winnersCount !== undefined ? <span className="shrink-0 text-xs tabular-nums text-text-faint" data-numeric>{formatCount(bounty.winnersCount)} {bounty.winnersCount === 1 ? 'winner' : 'winners'}</span> : null}
               <RewardValue valuation={valuations.valuationOf(bounty)} size="sm" />
             </li>

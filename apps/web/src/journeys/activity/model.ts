@@ -25,7 +25,7 @@ import {
   type MoneyDirection,
   type VerificationLevel,
 } from "../../api/index.ts";
-import { protocolAmount, statusPresentation, verificationRung, type ProtocolAmount, type StatusKey, type VerificationRung } from "../../kit/model.ts";
+import { protocolAmount, statusPresentation, verificationDisplayRung, type ProtocolAmount, type StatusKey, type VerificationRung } from "../../kit/model.ts";
 
 export const STATUS_KEY_BY_STATE: Readonly<Record<JourneyState, StatusKey>> = Object.freeze({
   "getting-ready": "getting_ready",
@@ -61,13 +61,13 @@ const KIND_LABEL_KEYS: Readonly<Record<ActivityEntryKind, string>> = Object.free
 const VERIFICATION_LABEL_KEYS: Readonly<Record<VerificationRung, string>> = Object.freeze({
   unverified: "activity.verification.unverified",
   "receipt-verified": "activity.verification.receipt_verified",
-  "checkpoint-finalised": "activity.verification.checkpoint_finalised",
+  committed: "activity.verification.checkpoint_finalised",
 });
 
 const VERIFICATION_ORDER: readonly VerificationRung[] = Object.freeze([
   "unverified",
   "receipt-verified",
-  "checkpoint-finalised",
+  "committed",
 ]);
 
 export function entryStatusKey(state: JourneyState): StatusKey {
@@ -223,7 +223,7 @@ export async function resolveEvidencePath(
 }
 
 export function verificationLabel(level: VerificationLevel): string {
-  return copyEntry(VERIFICATION_LABEL_KEYS[verificationRung(level)]).message;
+  return copyEntry(VERIFICATION_LABEL_KEYS[verificationDisplayRung(level)]).message;
 }
 
 export function evidenceClassLabel(evidenceClass: EvidenceClass): string {
@@ -233,7 +233,7 @@ export function evidenceClassLabel(evidenceClass: EvidenceClass): string {
 export function entryVerification(evidence: readonly EvidenceRef[]): VerificationLevel {
   let best = 0;
   for (const reference of evidence) {
-    const rank = VERIFICATION_ORDER.indexOf(verificationRung(reference.verification));
+    const rank = VERIFICATION_ORDER.indexOf(verificationDisplayRung(reference.verification));
     if (rank > best) {
       best = rank;
     }
@@ -448,6 +448,7 @@ export function detailUnresolved(detail: Readonly<Pick<ActivityEntryDetail, "sta
 
 const RECEIPT_LEVELS: readonly VerificationLevel[] = Object.freeze([
   "receipt-verified",
+  "committed",
   "checkpoint-finalised",
 ]);
 

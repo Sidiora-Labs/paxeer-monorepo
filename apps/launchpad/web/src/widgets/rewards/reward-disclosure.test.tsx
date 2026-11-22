@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -38,8 +39,7 @@ describe('reward program disclosure', () => {
     expect(production).not.toContain('data-technical');
     expect(bodyText(production)).toContain('Creator fees');
     expect(bodyText(production)).toContain(plainCopy.notAvailable);
-    const classes = Array.from(production.matchAll(/class="([^"]*)"/g)).flatMap(match => match[1].split(/\s+/));
-    expect(classes.filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(production)).not.toMatch(BORDER);
 
     const development = renderToString(<RewardProgramList env="development" />);
     expect(bodyText(development)).not.toMatch(JARGON);

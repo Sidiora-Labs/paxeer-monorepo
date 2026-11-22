@@ -38,6 +38,7 @@ export function routeForPath(pathname: string) {
   if (segments.length === 4 && segments[1] === 'tokens' && /^0x[0-9a-fA-F]{40}$/.test(segments[2]) && segments[3] === 'metadata') return routes.find(route => route.id === 'token-metadata');
   if (segments.length !== 3) return undefined;
   const [, family, identifier] = segments;
+  if (family === 'create' && identifier === 'chain') return routes.find(route => route.id === 'create');
   if ((family === 'token' || family === 'profile' || family === 'coin') && /^0x[0-9a-fA-F]{40}$/.test(identifier)) return routes.find(route => route.pathname === '/' + family);
   if (family === 'bounties' && /^[a-zA-Z0-9_-]{1,128}$/.test(identifier)) return routes.find(route => route.id === 'bounties');
   if (family === 'terminal' && (/^0x[0-9a-fA-F]{40}$/.test(identifier) || ['trending', 'portfolio', 'track', 'rewards', 'trenches'].includes(identifier))) return routes.find(route => route.id === 'terminal');

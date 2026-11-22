@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Embedded messages</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/base.css"><body>
+<p>Embedded script</p>
+<script src="/embedded/messages.js"></script>
+<script>
+const parameters = new URLSearchParams(location.search);
+const external = parameters.get("external");
+if (parameters.has("outside") || external) {
+  const script = document.createElement("script");
+  script.src = external || "/outside/messages.js";
+  document.head.append(script);
+}
+</script></body></html>

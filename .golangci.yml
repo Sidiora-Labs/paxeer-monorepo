@@ -972,6 +972,10 @@ linters:
       - path: "^precompiles/launchpad/[^/]+\\.go$"
         linters: [goconst]
 
+      # These statement lists hold SQL text as values.
+      - path: "^services/launchpad/(gateway|indexer|metadata)/internal/rolecheck/statements\\.go$"
+        linters: [goconst]
+
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/launchpad/hooks\\.go$"
         linters: [gosec]

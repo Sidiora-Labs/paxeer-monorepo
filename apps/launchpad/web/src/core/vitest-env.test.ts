@@ -22,4 +22,4 @@ function vitestEnvOriginsAreLoopback() {
   expect(ports.size).toBe(names.length);
 }
 
-test(vitestEnvOriginsAreLoopback);
+test(vitestEnvOriginsAreLoopback.name, vitestEnvOriginsAreLoopback);

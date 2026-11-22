@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Socket surface</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<body>
+<p id="message">Connecting</p>
+<script>
+  const target = new URL(new URLSearchParams(location.search).get("address") ?? "/socket", location.href);
+  target.protocol = target.protocol === "https:" ? "wss:" : "ws:";
+  const socket = new WebSocket(target);
+  socket.addEventListener("message", (event) => {
+    document.querySelector("#message").textContent = event.data;
+    document.body.dataset.socket = "received";
+  }, { once: true });
+  socket.addEventListener("error", () => { document.body.dataset.socket = "error"; });
+</script>
+</body>
+</html>

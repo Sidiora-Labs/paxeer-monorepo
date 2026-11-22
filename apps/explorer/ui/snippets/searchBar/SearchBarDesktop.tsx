@@ -142,6 +142,8 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
   );
 
   const isSuggestOpen = open && (searchTerm.trim().length > 0 || recentSearchKeywords.length > 0);
+  const showAssistant = searchTerm.trim().length > 0 && config.features.assistant.isEnabled &&
+    Boolean(assistant.canAsk || assistant.answer || assistant.error);
 
   return (
     <>
@@ -167,8 +169,24 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
         anchorRef={ inputRef }
         anchorName={ anchorName }
         matchAnchorWidth
+        minW={ showAssistant ? 'min(calc(var(--chakra-spacing-80) * 2), calc(100dvw - var(--chakra-spacing-8)))' : undefined }
         w={ isHeroBanner && !compact ? 'calc(var(--chakra-spacing-80) * 2)' : 'var(--chakra-spacing-80)' }
         p={ 4 }
+        { ...(showAssistant ? {
+          css: {
+            '@supports (width: anchor-size(width))': { width: 'anchor-size(width)' },
+            '@supports (position-area: bottom)': {
+              positionAnchor: anchorName,
+              positionArea: 'bottom span-all',
+              justifySelf: 'anchor-center',
+              positionTryFallbacks: 'flip-block',
+              inset: 'auto',
+              margin: 0,
+              marginInline: 'var(--chakra-spacing-4)',
+              marginBlockStart: 'var(--chakra-spacing-2)',
+            },
+          },
+        } : {}) }
       >
         <Box color="text.primary" maxH="50dvh" minH={ 0 } display="flex" flexDirection="column" overflowY="auto">
           { searchTerm.trim().length === 0 && recentSearchKeywords.length > 0 && (
@@ -190,8 +208,6 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
           <Box pt={ 2 } borderTopWidth="var(--chakra-border-widths-1)" borderColor="hairline">
             <Button
               variant="link"
-              minH="touchTarget"
-              minW="touchTarget"
               textStyle="sm"
               onClick={ handleViewAllResultsClick }
             >

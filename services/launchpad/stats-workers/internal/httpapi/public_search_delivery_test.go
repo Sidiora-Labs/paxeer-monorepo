@@ -302,6 +302,13 @@ func TestPublicSearchDeliveryPublicSearchSourceDeliveryAndRestart(t *testing.T) 
 	token := publicSearchAddress(100)
 	first := p.create(1, token)
 	p.create(2, first)
+	created := p.get(publicSearchQuery(first, "pool", 25), 200)
+	if len(created.Data.Items) != 2 || created.Data.Status != "ok" {
+		t.Fatal("created pools must be searchable", created)
+	}
+	if result, err := p.pool.Exec(p.ctx, "DELETE FROM stats_search.authority_v2"); err != nil || result.RowsAffected() != 2 {
+		t.Fatal("remove authority for missing-row read", result.RowsAffected(), err)
+	}
 	// The production migration deliberately has no legacy search tables.
 	var legacy *string
 	if err := p.pool.QueryRow(p.ctx, "SELECT to_regclass('stats_search.generation')::text").Scan(&legacy); err != nil || legacy != nil {

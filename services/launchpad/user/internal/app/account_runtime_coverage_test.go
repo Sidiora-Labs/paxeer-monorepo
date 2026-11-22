@@ -195,4 +195,7 @@ func TestConnectedAccountRuntimeWiresBrokerAndRoutes(t *testing.T) {
 			}
 		})
 	}
+	t.Run("composed deployment lifecycle", func(t *testing.T) {
+		accountDeploymentLifecycle(t, cfg)
+	})
 }

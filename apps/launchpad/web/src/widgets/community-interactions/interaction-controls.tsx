@@ -34,6 +34,7 @@ const textLimitMessage = 'Keep it under 2,000 characters';
 export function FollowControl({ client, wallet }: { client: InteractionClient; wallet: string }): ReactNode {
   const [following, setFollowing] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   const action = useAction();
   const retry = useRef<{ remove: boolean; key: string } | null>(null);
   const target = useRef({ client, wallet }); target.current = { client, wallet };
@@ -41,7 +42,7 @@ export function FollowControl({ client, wallet }: { client: InteractionClient; w
     const controller = new AbortController(); setFollowing(null); setLoadError(''); retry.current = null;
     void client.stats(wallet, controller.signal).then(value => { if (!controller.signal.aborted) setFollowing(value.data.is_following); }).catch(error => { if (!controller.signal.aborted) setLoadError(errorText(error)); });
     return () => controller.abort();
-  }, [client, wallet]);
+  }, [client, wallet, attempt]);
   return <div className="flex flex-col gap-1">
     <Button variant="secondary" size="sm" disabled={following === null || action.busy} loading={action.busy} aria-pressed={following === true} className={cn('group', following && 'bg-accent-soft text-accent hover:bg-danger-soft hover:text-danger')} onClick={() => {
       if (following === null) return;
@@ -49,6 +50,7 @@ export function FollowControl({ client, wallet }: { client: InteractionClient; w
       retry.current = mutation;
       void action.run(async () => { await client.follow(wallet, mutation.remove, mutation.key); const fresh = await client.stats(wallet); if (target.current.client !== client || target.current.wallet !== wallet) return; setFollowing(fresh.data.is_following); retry.current = null; });
     }}>{following ? 'Unfollow' : 'Follow'}</Button>
+    {loadError && <Button variant="secondary" size="sm" onClick={() => setAttempt(value => value + 1)}>Try again</Button>}
     {(action.error || loadError) && <Alert>{action.error || loadError}</Alert>}
   </div>;
 }
@@ -121,5 +123,5 @@ export function CommentFeed({ client, pool, viewer, isCreator }: { client: Inter
   const refresh = () => setGeneration(value => value + 1);
   useEffect(() => { const controller = new AbortController(); const current = ++scope.current; setComments([]); setCursor(null); setError(''); setLoading(true); void client.comments(pool, undefined, controller.signal).then(value => { if (!controller.signal.aborted && current === scope.current) { setComments(value.data.items ?? []); setCursor(value.nextCursor); } }).catch(error => { if (!controller.signal.aborted) setError(errorText(error)); }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => { ++scope.current; controller.abort(); }; }, [client, pool, viewer, generation]);
   async function more() { if (!cursor || loading) return; const current = scope.current; setLoading(true); setError(''); try { const result = await client.comments(pool, cursor); if (current !== scope.current) return; setComments(prior => { const byID = new Map(prior.map(value => [value.commentId, value])); for (const item of result.data.items ?? []) byID.set(item.commentId, item); return [...byID.values()]; }); setCursor(result.nextCursor); } catch (error) { if (current === scope.current) setError(errorText(error)); } finally { if (current === scope.current) setLoading(false); } }
-  return <section aria-label="Replies" aria-busy={loading || undefined} className="flex flex-col gap-3">{viewer && <CommentComposer client={client} pool={pool} onCreated={refresh} />}{!loading && !error && comments.length === 0 ? <EmptyState icon={MessageSquare} title="No replies yet" body={viewer ? 'Be the first to reply' : 'Sign in to post a reply'} announce /> : null}<ul className="flex flex-col gap-2">{comments.map(comment => <li key={comment.commentId}><CommentActions client={client} comment={comment} own={viewer?.toLowerCase() === comment.authorWallet} creator={isCreator} onChanged={refresh} /></li>)}</ul>{cursor && <div className="flex justify-center"><Button variant="secondary" size="md" disabled={loading} loading={loading} onClick={() => { void more(); }}>Load more</Button></div>}{error && <Alert>{error}</Alert>}</section>;
+  return <section aria-label="Replies" aria-busy={loading || undefined} className="flex flex-col gap-3">{viewer && <CommentComposer client={client} pool={pool} onCreated={refresh} />}{!loading && !error && comments.length === 0 ? <EmptyState icon={MessageSquare} title="No replies yet" body={viewer ? 'Be the first to reply' : 'Sign in to post a reply'} announce /> : null}<ul className="flex flex-col gap-2">{comments.map(comment => <li key={comment.commentId}><CommentActions client={client} comment={comment} own={viewer?.toLowerCase() === comment.authorWallet} creator={isCreator} onChanged={refresh} /></li>)}</ul>{cursor && <div className="flex justify-center"><Button variant="secondary" size="md" disabled={loading} loading={loading} onClick={() => { void more(); }}>Load more</Button></div>}{error && <><Alert>{error}</Alert><Button variant="secondary" size="sm" onClick={refresh}>Try again</Button></>}</section>;
 }

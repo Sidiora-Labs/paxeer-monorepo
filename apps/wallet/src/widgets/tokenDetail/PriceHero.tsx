@@ -67,7 +67,7 @@ export function PriceHero({
   return (
     <div className="px-5 pt-3 pb-1">
       {isScrubbing && scrubTime && (
-        <p className="text-xs text-pax-muted font-medium mb-0.5">
+        <p className="text-size-11 text-pax-muted font-medium mb-0.5">
           {new Date(scrubTime * 1000).toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -77,7 +77,7 @@ export function PriceHero({
         </p>
       )}
       <p
-        className={`text-3xl font-bold leading-tight tracking-tight transition-opacity duration-fast ${
+        className={`text-size-32 font-bold leading-tight tracking-tight transition-opacity duration-fast ${
           isScrubbing ? 'text-pax-light' : ''
         }`}
       >

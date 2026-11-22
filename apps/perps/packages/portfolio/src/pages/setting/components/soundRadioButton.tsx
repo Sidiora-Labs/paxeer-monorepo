@@ -13,17 +13,23 @@ export const SoundRadioButton: FC<SoundRadioButtonProps> = ({
   onCheckChange,
 }) => {
   return (
-    <label className="oui-inline-flex oui-min-h-12 oui-cursor-pointer oui-items-center oui-gap-2 oui-text-2xs">
-      <input
-        type="radio"
-        name="trading-alert-sound"
-        value={label}
-        checked={sel}
-        onChange={onCheckChange}
-        className="oui-size-4 oui-accent-primary"
-      />
-      <span>{label}</span>
-    </label>
+    <Flex
+      onClick={(e) => {
+        onCheckChange();
+        e.stopPropagation();
+      }}
+      gap={1}
+      className="oui-cursor-pointer"
+    >
+      {sel ? (
+        <SoundSelIcon className="oui-fill-base-contrast" />
+      ) : (
+        <SoundUnselIcon className="oui-fill-base-contrast-54" />
+      )}
+      <Text size="2xs" intensity={sel ? 98 : 54}>
+        {label}
+      </Text>
+    </Flex>
   );
 };
 

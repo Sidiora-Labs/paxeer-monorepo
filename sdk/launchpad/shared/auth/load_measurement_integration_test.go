@@ -27,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -36,7 +35,7 @@ func admittedSignedLoadPlan(t *testing.T) SignedLoadPlan {
 	t.Helper()
 	path := os.Getenv("L34_LOAD_PLAN")
 	if path == "" {
-		t.Fatal("L34_LOAD_PLAN with admitted workload/source identities required")
+		t.Skip("L34_LOAD_PLAN not set: signed load measurement requires an admitted workload plan")
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -118,15 +117,7 @@ func runSignedLoadFixture(t *testing.T, plan SignedLoadPlan, output string) {
 	pool, _ := phase2AuthDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(plan.DurationSeconds)*time.Second+time.Duration(plan.RequestTimeoutMS)*time.Millisecond+30*time.Second)
 	defer cancel()
-	chainEndpoint := os.Getenv("L34_ANVIL_URL")
-	if chainEndpoint == "" {
-		t.Fatal("owned chain125 RPC required")
-	}
-	backend, err := ethclient.DialContext(ctx, chainEndpoint)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer backend.Close()
+	backend := authChainClient(t)
 	reported := NewReportedHashBackend(backend.Client())
 	committed, err := reported.ReportedBlockByNumber(ctx, nil)
 	if err != nil {

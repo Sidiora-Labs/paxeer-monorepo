@@ -51,16 +51,16 @@ export function terminalViewForPath(pathname: string | null): TerminalView | nul
 export default function TerminalSubNav({ active }: { active: TerminalView }) {
   return (
     <nav aria-label="Terminal views" className="min-w-0 overflow-x-auto scrollbar-none">
-      <ul className="flex h-10 items-stretch">
+      <ul className="flex min-h-10 items-stretch">
         {terminalViews.map(view => {
           const selected = view.id === active;
           return (
-            <li key={view.id} className="flex">
-              <Link
+            <li key={view.id} className="flex shrink-0">
+              <Link prefetch={false}
                 href={terminalViewPath(view.id)}
                 aria-current={selected ? 'page' : undefined}
                 className={cn(
-                  'relative inline-flex items-center whitespace-nowrap rounded-sm px-3 text-sm font-bold transition-colors duration-fast hover:bg-surface-hover',
+                  'relative inline-flex items-center whitespace-nowrap rounded-sm px-3 text-sm font-bold transition-colors duration-fast hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
                   selected ? 'text-text' : 'text-text-muted hover:text-text',
                 )}
               >

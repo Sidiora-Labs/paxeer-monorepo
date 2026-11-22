@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -17,6 +18,15 @@ import (
 )
 
 func TestCanonicalHolderJobAdvancesCommittedTransfers(t *testing.T) {
+	canonicalHolderJob(t, false)
+}
+
+func TestCoinTextHolderJobContinuesWithoutMetadata(t *testing.T) {
+	canonicalHolderJob(t, true)
+}
+
+func canonicalHolderJob(t *testing.T, withoutMetadata bool) {
+	t.Helper()
 	ctx := context.Background()
 	db := internaltest.NewPostgres(t)
 	if _, err := db.Exec(ctx, "CREATE SCHEMA indexer"); err != nil {
@@ -97,9 +107,24 @@ func TestCanonicalHolderJobAdvancesCommittedTransfers(t *testing.T) {
 	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_token_transfers(chain_id,transaction_hash,log_index,token,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,payload) VALUES(125,$1,1,$2,$3,$4,100,10,0,$5,'{}',$6)`, transactionHash, token, holdings.Zero, wallet, blockHash, payload); err != nil {
 		t.Fatal(err)
 	}
+	tokenLimit := 2
+	if withoutMetadata {
+		tokenLimit = 4
+		for i, metadata := range []string{`{}`, `{"metadata":null}`, `{"metadata":{"decimals":6}}`} {
+			if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) SELECT $1,$2,creator,factory,optical,$3,height,block_hash,$4,transaction_index,log_index,block_timestamp,provenance,$5 FROM indexer.indexer_canonical_creations WHERE token=$6`, address(78+i), address(178+i), 2+i, fmt.Sprintf("0x%064x", i+1), metadata, token); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) SELECT chain_id,$1,log_index,height,transaction_index,block_hash,emitter,topics,data FROM indexer.indexer_raw_logs WHERE transaction_hash=$2 AND log_index=0`, fmt.Sprintf("0x%064x", i+1), transactionHash); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := db.Exec(ctx, `UPDATE indexer.indexer_block_completeness SET raw_count=5; UPDATE indexer.indexer_ingest_commits SET record_count=5`); err != nil {
+			t.Fatal(err)
+		}
+	}
 	after := ""
 	refreshed := []string{}
-	if err := catchUpStatsHolders(ctx, db, repository, "canonical", 2, 10, &after, func(_ context.Context, token string) error { refreshed = append(refreshed, token); return nil }); err != nil {
+	if err := catchUpStatsHolders(ctx, db, repository, "canonical", tokenLimit, 10, &after, func(_ context.Context, token string) error { refreshed = append(refreshed, token); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if after != token || len(refreshed) != 1 || refreshed[0] != token {
@@ -109,10 +134,17 @@ func TestCanonicalHolderJobAdvancesCommittedTransfers(t *testing.T) {
 	if err != nil || snapshot.Supply != "100" || snapshot.Coverage != "complete" || len(snapshot.Balances) != 1 || snapshot.Balances[0].Address != wallet {
 		t.Fatalf("canonical holders: %+v %v", snapshot, err)
 	}
-	if err := catchUpStatsHolders(ctx, db, repository, "canonical", 2, 10, &after); err != nil || after != "" {
+	if withoutMetadata {
+		for i := 0; i < 3; i++ {
+			if _, err := repository.Snapshot(ctx, address(78+i), 10); !errors.Is(err, holdings.ErrUnknownToken) {
+				t.Fatalf("metadata-free holdings: %v", err)
+			}
+		}
+	}
+	if err := catchUpStatsHolders(ctx, db, repository, "canonical", tokenLimit, 10, &after); err != nil || after != "" {
 		t.Fatalf("completed scan: %q %v", after, err)
 	}
-	if err := catchUpStatsHolders(ctx, nil, repository, "canonical", 2, 10, &after); err == nil {
+	if err := catchUpStatsHolders(ctx, nil, repository, "canonical", tokenLimit, 10, &after); err == nil {
 		t.Fatal("missing source pool accepted")
 	}
 }

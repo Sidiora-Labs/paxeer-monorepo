@@ -41,14 +41,15 @@ const TokenTransferTableItem = ({
         </TableCell>
       ) }
       <TableCell>
-        <Flex flexDirection="column" alignItems="flex-start" mt="1.25" rowGap={ 3 }>
+        <Flex flexDirection="column" alignItems="flex-start" mt="1.25" rowGap={ 3 } minW={ 0 } maxW="100%">
           { txHash ? (
             <TxEntity
               hash={ txHash }
               isLoading={ isLoading }
               fontWeight="semibold"
               noIcon
-              truncation="constant_long"
+              truncation="dynamic"
+              maxW="100%"
             />
           ) : <Skeleton loading={ isLoading }>-</Skeleton> }
           <TimeWithTooltip
@@ -63,7 +64,7 @@ const TokenTransferTableItem = ({
       </TableCell>
       <TableCell>
         { method ? (
-          <Box my="1">
+          <Box my={ 'calc(var(--chakra-spacing-1) - var(--chakra-spacing-0\\.25))' }>
             <ScanMethodChip method={ method } isLoading={ isLoading }/>
           </Box>
         ) : null }
@@ -74,6 +75,7 @@ const TokenTransferTableItem = ({
           to={ to }
           isLoading={ isLoading }
           mt="1.25"
+          truncation="dynamic"
           mode={{ lg: 'compact', xl: 'long' }}
           tokenHash={ token?.address_hash }
           tokenSymbol={ token?.symbol ?? undefined }
@@ -96,7 +98,11 @@ const TokenTransferTableItem = ({
       { token && (hasTokenTransferValue(token.type)) && (
         <TableCell isNumeric verticalAlign="top">
           { isConfidentialTokenType(token.type) ? (
-            <ConfidentialValue loading={ isLoading } mt="2" wordBreak="break-all"/>
+            <ConfidentialValue
+              loading={ isLoading }
+              mt={ 'calc(var(--chakra-spacing-2) - var(--chakra-spacing-0\\.25))' }
+              wordBreak="break-all"
+            />
           ) : (
             <AssetValue
               amount={ total && 'value' in total ? total.value : null }
@@ -104,7 +110,7 @@ const TokenTransferTableItem = ({
               exchangeRate={ token?.exchange_rate }
               loading={ isLoading }
               layout="vertical"
-              mt="2"
+              mt={ 'calc(var(--chakra-spacing-2) - var(--chakra-spacing-0\\.25))' }
               rowGap="2.5"
             />
           ) }

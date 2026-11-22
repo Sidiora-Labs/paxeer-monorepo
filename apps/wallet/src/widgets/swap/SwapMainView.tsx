@@ -86,10 +86,10 @@ export function SwapMainView({
             <span className="text-xs text-pax-muted">You pay</span>
             <div className="flex items-center gap-2">
               {fromBalance !== null && (
-                <span className="text-xs text-pax-muted">Balance: {fromBalance}</span>
+                <span className="text-size-11 text-pax-muted">Balance: {fromBalance}</span>
               )}
-              <span className="text-xs text-pax-muted/50">|</span>
-              <span className="text-xs text-pax-muted">{slippageBps / 100}% slip</span>
+              <span className="text-size-11 text-pax-muted/50">|</span>
+              <span className="text-size-11 text-pax-muted">{slippageBps / 100}% slip</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -127,7 +127,7 @@ export function SwapMainView({
                 key={pct}
                 onClick={() => onApplyPercentage(pct)}
                 disabled={percentageDisabled}
-                className="min-h-[var(--touch-target)] flex-1 py-1.5 rounded-lg bg-pax-control text-xs font-medium text-pax-muted hover:bg-pax-overlay hover:text-pax-light transition-all press-scale focus-visible:ring-2 focus-visible:ring-pax-accent disabled:opacity-30 disabled:cursor-not-allowed"
+                className="min-h-[var(--touch-target)] flex-1 py-1.5 rounded-lg bg-pax-control text-size-11 font-medium text-pax-muted hover:bg-pax-overlay hover:text-pax-light transition-all press-scale focus-visible:ring-2 focus-visible:ring-pax-accent disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {pct === 100 ? 'Max' : `${pct}%`}
               </button>
@@ -155,7 +155,7 @@ export function SwapMainView({
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-pax-muted">You receive</span>
             {toBalance !== null && (
-              <span className="text-xs text-pax-muted">Balance: {toBalance}</span>
+              <span className="text-size-11 text-pax-muted">Balance: {toBalance}</span>
             )}
           </div>
           <div className="flex items-center gap-3">

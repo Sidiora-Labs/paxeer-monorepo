@@ -1,5 +1,5 @@
 import { WSMessage } from "@paxeer-network/types";
-import { Decimal } from "@paxeer-network/utils";
+import { priceWindowChange } from "@paxeer-network/paxeer-backend/core/perps/priceWindow";
 import { Calculator, CalculatorCtx, CalculatorScope } from "../../types";
 import { useMarketStore } from "../useMarket/market.store";
 import { BaseCalculator } from "./baseCalculator";
@@ -14,6 +14,7 @@ class MarketCalculator extends BaseCalculator<any> {
     if (Array.isArray(data)) {
       return data.map((ticker: WSMessage.Ticker) => {
         const market = markets[ticker.symbol];
+        const change = priceWindowChange(ticker.close, ticker.open);
         const data = {
           ...market,
           "24h_close": ticker.close,
@@ -26,16 +27,8 @@ class MarketCalculator extends BaseCalculator<any> {
           "24h_volumn": ticker.volume,
           "24h_volume": ticker.volume,
           "24h_amount": ticker.amount,
-          change: 0,
-          // change: ticker.change,
+          change: change === null ? undefined : change / 100,
         };
-
-        if (ticker.close !== undefined && ticker.open !== undefined) {
-          data["change"] = new Decimal(ticker.close)
-            .minus(ticker.open)
-            .div(ticker.open)
-            .toNumber();
-        }
 
         return data;
       });

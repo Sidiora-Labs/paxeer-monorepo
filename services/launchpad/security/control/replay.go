@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -66,23 +67,26 @@ func (p *ReplayProvider) Execute(ctx context.Context, request ReplayExecution) (
 	req.Header.Set("Idempotency-Key", request.Job.CompletionIdentity)
 	response, err := p.client.Do(req)
 	if err != nil {
-		return result, Unavailable
+		return result, providerUnavailable(ctx, "projection replay request", err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, response.Body.Close()) }()
 	if response.StatusCode != http.StatusOK {
-		return result, Unavailable
+		return result, providerUnavailable(ctx, "projection replay response", fmt.Errorf("unexpected HTTP status %d", response.StatusCode))
 	}
 	raw, err = io.ReadAll(io.LimitReader(response.Body, 65537))
-	if err != nil || len(raw) > 65536 {
-		return result, Unavailable
+	if err != nil {
+		return result, providerUnavailable(ctx, "projection replay response read", err)
+	}
+	if len(raw) > 65536 {
+		return result, providerUnavailable(ctx, "projection replay response", errors.New("response exceeds 65536 bytes"))
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if rejectDuplicateFields(raw) != nil || decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF {
-		return result, Unavailable
+		return result, providerUnavailable(ctx, "projection replay response", errors.New("invalid projection replay response document"))
 	}
 	if result.ActionID != request.Job.ActionID || result.JobID != request.JobID || result.PayloadHash != request.Job.PayloadHash || result.PayloadReference != request.Job.PayloadReference || result.CompletionIdentity != request.Job.CompletionIdentity || (result.State != controlSucceeded && result.State != controlFailed) || !text(result.Reference, 256) {
-		return ReplayResult{}, Unavailable
+		return ReplayResult{}, providerUnavailable(ctx, "projection replay response", errors.New("projection replay acknowledgement does not bind terminal completion"))
 	}
 	return result, nil
 }

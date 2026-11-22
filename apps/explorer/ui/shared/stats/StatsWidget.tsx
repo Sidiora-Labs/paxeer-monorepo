@@ -7,6 +7,7 @@ import { route } from 'nextjs-routes';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Hint } from 'toolkit/components/Hint/Hint';
+import { getStatValueStyles, getStatValueText } from 'toolkit/utils/statValue';
 import IconSvg, { type IconName } from 'ui/shared/IconSvg';
 
 export type Props = {
@@ -26,10 +27,11 @@ export type Props = {
   isFallback?: boolean;
 };
 
-const Container = ({ href, children, className }: { href?: Route; children: React.JSX.Element; className?: string }) => {
+const Container = ({ href, isLoading, children, className }: { href?: Route; isLoading?: boolean; children: React.JSX.Element; className?: string }) => {
   if (href) {
     return (
-      <Link href={ route(href) } variant="plain" className={ className } display="block" w="100%" h="100%" minW={ 0 } maxW="100%">
+      <Link href={ isLoading ? undefined : route(href) } inert={ isLoading } variant="plain" className={ className }
+        display="block" w="100%" h="100%" minW={ 0 } maxW="100%">
         { children }
       </Link>
     );
@@ -54,12 +56,13 @@ const StatsWidget = ({
   href,
   isFallback,
 }: Props) => {
+  const characters = Array.from(`${ valuePrefix ?? '' }${ getStatValueText(value ?? '—') }${ valuePostfix ?? '' }`).length;
   let diffColor = 'text.muted';
   if (diff != null && Number(diff) !== 0) {
     diffColor = Number(diff) > 0 ? 'positive' : 'negative';
   }
   return (
-    <Container href={ !isLoading ? href : undefined } className={ href ? className : undefined }>
+    <Container href={ href } isLoading={ isLoading } className={ href ? className : undefined }>
       <Flex
         className={ href ? undefined : className }
         alignItems="center"
@@ -85,7 +88,15 @@ const StatsWidget = ({
             opacity={ isFallback && !isLoading ? 'control.disabled' : 1 }
           />
         ) }
-        <Box flex={ 1 } minW={ 0 }>
+        <Box
+          flex={ 1 }
+          minW={ 0 }
+          fontFamily="mono"
+          fontSize="textMd"
+          fontWeight="semibold"
+          fontVariantNumeric="tabular-nums"
+          css={{ containerType: 'inline-size' }}
+        >
           <Skeleton
             loading={ isLoading }
             color="text.muted"
@@ -108,13 +119,22 @@ const StatsWidget = ({
             textStyle="statValue"
             color={ isFallback || value == null ? 'text.muted' : 'text.primary' }
           >
-            { valuePrefix && <chakra.span whiteSpace="pre">{ valuePrefix }</chakra.span> }
-            { typeof value === 'string' || typeof value === 'number' ? (
-              <chakra.span minW={ 0 } maxW="100%" overflowWrap="anywhere">{ value }</chakra.span>
-            ) : (
-              value ?? '—'
-            ) }
-            { valuePostfix && <chakra.span whiteSpace="pre">{ valuePostfix }</chakra.span> }
+            <chakra.span
+              minW={ 0 }
+              maxW="100%"
+              whiteSpace="pre-wrap"
+              overflow="visible"
+              textOverflow="clip"
+              css={{ ...getStatValueStyles(characters), '& wbr': { display: 'inline' } }}
+              wordBreak="normal"
+              overflowWrap="anywhere"
+            >
+              { valuePrefix && <chakra.span>{ valuePrefix }</chakra.span> }
+              { typeof value === 'string' ? value.split(/(?<=,)/).map((group, index) => (
+                <React.Fragment key={ index }>{ index > 0 && <wbr/> }{ group }</React.Fragment>
+              )) : value ?? '—' }
+              { valuePostfix && <chakra.span>{ valuePostfix }</chakra.span> }
+            </chakra.span>
             { diff != null && Number.isFinite(Number(diff)) && (
               <>
                 <Text ml={ 2 } mr={ 1 } textStyle="number" color={ diffColor }>

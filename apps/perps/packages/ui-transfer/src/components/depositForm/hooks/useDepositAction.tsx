@@ -40,7 +40,7 @@ export function useDepositAction(options: Options) {
           <div>
             {t("common.somethingWentWrong")}
             <br />
-            <div className="oui-text-base-contrast-80 oui-text-xs">
+            <div className="paxeer-network-text-white/[0.54] paxeer-network-text-xs">
               {t("common.details")}: {knownErrorMessage}
             </div>
           </div>,

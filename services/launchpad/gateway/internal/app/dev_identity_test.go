@@ -67,7 +67,7 @@ func realPostgres(t *testing.T) string {
 	t.Helper()
 	dsn := os.Getenv("L33_POSTGRES_DSN")
 	if dsn == "" {
-		dsn = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
+		t.Fatal("L33_POSTGRES_DSN is required")
 	}
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, dsn)

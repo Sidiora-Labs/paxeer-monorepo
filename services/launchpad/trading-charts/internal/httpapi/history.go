@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -249,6 +250,9 @@ func (h HistoryHandler) applyCursor(r HistoryRequest, s string) (HistoryRequest,
 	return r, nil
 }
 func historyError(w http.ResponseWriter, status int, code, msg string, retry bool) {
+	if status >= 500 {
+		slog.Error("chart request unavailable", "code", code, "cause", msg)
+	}
 	var delay interface{}
 	if retry {
 		delay = 1000

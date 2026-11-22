@@ -45,8 +45,8 @@ const Stats = () => {
   const apiQuery = useApiQuery('general:stats', {
     queryOptions: { refetchOnMount: false, placeholderData: HOMEPAGE_STATS },
   });
-  const apiData = apiQuery.isPlaceholderData ? undefined : apiQuery.data;
-  const statsData = hasStatsService && !statsQuery.isPlaceholderData && !statsQuery.isError ? statsQuery.data : undefined;
+  const apiData = apiQuery.data;
+  const statsData = hasStatsService && !statsQuery.isError ? statsQuery.data : undefined;
   const isLoading = apiQuery.isPlaceholderData || apiQuery.isPending ||
     (hasStatsService && (statsQuery.isPlaceholderData || statsQuery.isPending));
   const rawBlockTime = statsData?.average_block_time?.value;
@@ -89,7 +89,7 @@ const Stats = () => {
   return (
     <Box as="section" aria-label="Network statistics" data-label="home-stats">
       { apiQuery.isError && !statsData ? <StatsDegraded/> : (
-        <Grid data-label="home-stat-tiles" templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-40)), 1fr))" gap={ 4 }>
+        <Grid data-label="home-stat-tiles" templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }} gap={ 4 }>
           { items.map(({ id, ...item }) => (
             <Box key={ id } data-stat={ id } minW={ 0 } overflowWrap="anywhere">
               <StatsWidget
@@ -105,7 +105,7 @@ const Stats = () => {
           )) }
         </Grid>
       ) }
-      <Grid mt={ 8 } autoRows="1fr" templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-80)), 1fr))" gap={ 4 }>
+      <Grid mt={ 8 } autoRows="1fr" templateColumns={{ base: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }} gap={ 4 }>
         { [
           { id: 'daily_txs' as const, title: `${ config.chain.name } transaction history in ${ HISTORY_DAYS } days` },
           { id: 'coin_price' as const, title: `${ config.chain.currency.symbol } price` },

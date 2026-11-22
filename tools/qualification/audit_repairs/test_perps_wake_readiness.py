@@ -51,7 +51,7 @@ def test_finding_019_shell_registers_guarded_readiness_cases():
     assert ('grep -q \'^wave 5 explorer SUCCESS$\' "$tmp/out" || '
             'fail "ready explorer did not pass wave 5"') in shell
     programs = re.findall(r"<<'PY2'\n(.*?)\nPY2", shell, re.S)
-    assert len(programs) == 3
+    assert len(programs) == 7
     latest = []
     for program in programs:
         tree = ast.parse(program)

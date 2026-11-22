@@ -14,7 +14,7 @@ const PopoverShowcase = () => {
           <Sample label="size: sm">
             <PopoverRoot>
               <PopoverTrigger>
-                <Button variant="dropdown">Trigger</Button>
+                <Button variant="dropdown" h="auto" minH={ 10 }>Trigger</Button>
               </PopoverTrigger>
               <PopoverContent>
                 <PopoverBody>

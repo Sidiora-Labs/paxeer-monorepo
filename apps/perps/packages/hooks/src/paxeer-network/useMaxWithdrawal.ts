@@ -10,6 +10,9 @@ import {
 import { useAppStore } from "./appStore";
 import { useHoldingStream } from "./useHoldingStream";
 
+const EMPTY_HOLDINGS: NonNullable<ReturnType<typeof useHoldingStream>["data"]> =
+  [];
+
 const { maxWithdrawalUSDC, maxWithdrawalOtherCollateral, collateralRatio } =
   accountPerp;
 
@@ -28,7 +31,7 @@ export const useMaxWithdrawal = (token: string) => {
 
   const indexPriceRef = useUpdatedRef(getIndexPrice(token));
 
-  const { usdc, data: holdings = [] } = useHoldingStream();
+  const { usdc, data: holdings = EMPTY_HOLDINGS } = useHoldingStream();
 
   const holding = useMemo(() => {
     return holdings.find(

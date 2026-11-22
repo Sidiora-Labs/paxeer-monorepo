@@ -44,11 +44,11 @@ export function ActivityFeed({
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="col-span-2 bg-pax-surface rounded-xl py-10 text-center">
+        <div className="col-span-2 bg-pax-surface rounded-3xl py-10 text-center">
           <p className="text-xs text-pax-muted">No activity yet</p>
         </div>
       ) : (
-        <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
+        <div className="col-span-2 bg-pax-surface rounded-3xl  divide-pax-line overflow-hidden">
           {rows.map((row, i) => {
             const isSent = row.fromAddress.toLowerCase() === addr;
             return (
@@ -70,7 +70,7 @@ export function ActivityFeed({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold">{isSent ? 'Sent' : 'Received'}</p>
-                  <p className="text-xs text-pax-muted truncate">
+                  <p className="text-size-11 text-pax-muted truncate">
                     {isSent
                       ? `To ${shortenAddress(row.toAddress)}`
                       : `From ${shortenAddress(row.fromAddress)}`}

@@ -1170,6 +1170,10 @@ const rollingSQL = `SELECT m.market_id::text, m.symbol, m.name, s.volume_7d / $1
 // the same latest FundingSettled row.
 func (p *Providers) records(ctx context.Context, syms []string) (result0 []records.MarketRecord, resultErr error) {
 	now := time.Now()
+	prices, err := records.PriceWindow(ctx, p.db, now)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := p.db.QueryContext(ctx, rollingSQL, usdScale.String(), now.Add(-24*time.Hour))
 	if err != nil {
 		return nil, err
@@ -1216,6 +1220,7 @@ func (p *Providers) records(ctx context.Context, syms []string) (result0 []recor
 				*f.dst = *v
 			}
 		}
+		r.Price24h = prices[r.MarketID].Price
 		r.TradesCount = trades.Int64
 		if updated.Valid {
 			ms := updated.Time.UnixMilli()

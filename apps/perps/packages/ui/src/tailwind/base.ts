@@ -1,29 +1,22 @@
 import plugin from "tailwindcss/plugin";
-import { SURFACE_CSS_VARS } from "./tokens";
 
 export const basePlugin = () =>
   plugin(function ({ addComponents, addBase }) {
     addBase({
       html: {
+        // fontSize: "var(--paxeer-network-font-size-base)",
         backgroundColor: "rgb(var(--oui-color-base-10))",
         color: "rgb(var(--oui-color-base-foreground) / 0.98)",
         fontFamily: "var(--oui-font-family)",
-        colorScheme: "dark",
-        textSizeAdjust: "100%",
       },
       body: {
+        // fontSize: "var(--oui-font-size-base)",
         backgroundColor: "rgb(var(--oui-color-base-10))",
         color: "rgb(var(--oui-color-base-foreground) / 0.98)",
         fontFamily: "var(--oui-font-family)",
         fontWeight: "500",
+        // Atyp BL stylistic sets; no-op for fonts without these features.
         fontFeatureSettings: '"ss02" 1, "ss03" 1, "ss05" 1, "ss06" 1',
-        fontVariantNumeric: "tabular-nums",
-      },
-      "h1, h2, h3, h4, h5, h6": {
-        textWrap: "balance",
-      },
-      "p, li, dd": {
-        textWrap: "pretty",
       },
       "h1, h2, h3, h4, h5, h6, [role='heading']": {
         fontWeight: "600",
@@ -34,22 +27,6 @@ export const basePlugin = () =>
       },
       ":where(.oui-text-2xs, .oui-text-xs, .oui-text-sm)": {
         fontWeight: "500",
-      },
-      "*:focus-visible": {
-        outline:
-          "var(--oui-focus-ring-width) solid rgb(var(--oui-color-focus-ring) / 0.9)",
-        outlineOffset: "var(--oui-focus-ring-offset)",
-      },
-      "::selection": {
-        backgroundColor: "rgb(var(--oui-color-primary) / 0.28)",
-        color: "rgb(var(--oui-color-base-foreground) / 0.98)",
-      },
-      "*, *::before, *::after": {
-        boxSizing: "border-box",
-      },
-      "[data-oui-theme='light']": {
-        ...SURFACE_CSS_VARS,
-        colorScheme: "light",
       },
     });
   });

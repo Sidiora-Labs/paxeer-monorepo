@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -77,11 +78,13 @@ func (l *ProductionLegacyReads) single(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	token := normalizeAddr(strings.TrimSuffix(chi.URLParam(r, "tokenAddress"), ".json"))
 	if !l.ready() {
+		LogFailure(slog.Default(), "metadata read unavailable", ErrUnrepresentable)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
 		return
 	}
-	out, e := l.build(r.Context(), []string{token})
+	out, e := l.buildRecords(r.Context(), []string{token}, false)
 	if e != nil {
+		LogFailure(slog.Default(), "metadata read unavailable", e)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
 		return
 	}
@@ -96,11 +99,13 @@ func (l *ProductionLegacyReads) batch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !l.ready() {
+		LogFailure(slog.Default(), "metadata read unavailable", ErrUnrepresentable)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
 		return
 	}
 	out, e := l.build(r.Context(), requested)
 	if e != nil {
+		LogFailure(slog.Default(), "metadata read unavailable", e)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
 		return
 	}
@@ -137,6 +142,10 @@ func (l *ProductionLegacyReads) refreshModeration(ctx context.Context, tokens []
 
 // build refreshes visibility, then assembles records in one read-only snapshot.
 func (l *ProductionLegacyReads) build(ctx context.Context, tokens []string) (map[string]types.PublicMetadata, error) {
+	return l.buildRecords(ctx, tokens, true)
+}
+
+func (l *ProductionLegacyReads) buildRecords(ctx context.Context, tokens []string, skipUnavailable bool) (map[string]types.PublicMetadata, error) {
 	store := l.Media.Metadata.Store
 	bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -156,7 +165,7 @@ func (l *ProductionLegacyReads) build(ctx context.Context, tokens []string) (map
 			continue
 		}
 		identity, e := l.identity(bounded, tx, token)
-		if errors.Is(e, ErrMissing) {
+		if errors.Is(e, ErrMissing) || (skipUnavailable && errors.Is(e, errCoinMetadataUnavailable)) {
 			out[token] = record
 			continue
 		}
@@ -288,6 +297,7 @@ func (l *ProductionLegacyReads) logo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !l.ready() {
+		LogFailure(slog.Default(), "metadata read unavailable", ErrUnrepresentable)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
 		return
 	}
@@ -295,11 +305,13 @@ func (l *ProductionLegacyReads) logo(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	if e := l.refreshModeration(ctx, []string{token}); e != nil {
+		LogFailure(slog.Default(), "metadata read unavailable", e)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
 		return
 	}
 	tx, e := store.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if e != nil {
+		LogFailure(slog.Default(), "metadata read unavailable", e)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
 		return
 	}
@@ -314,10 +326,12 @@ func (l *ProductionLegacyReads) logo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if e != nil {
+		LogFailure(slog.Default(), "metadata read unavailable", e)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
 		return
 	}
 	if e = tx.Commit(ctx); e != nil {
+		LogFailure(slog.Default(), "metadata read unavailable", e)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
 		return
 	}
@@ -327,6 +341,7 @@ func (l *ProductionLegacyReads) logo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if e != nil {
+		LogFailure(slog.Default(), "metadata read unavailable", e)
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
 		return
 	}

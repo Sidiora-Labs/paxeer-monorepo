@@ -21,23 +21,11 @@ import { AllMarketsIcon, FavoritesIcon, NewListingsIcon } from "../../../icons";
 import { MarketsTabName, SortType } from "../../../type";
 import { UseMarketsDataListScript } from "./marketsDataList.script";
 
-const LazySearchInput = React.lazy(() =>
-  import("../../../components/searchInput").then((mod) => {
-    return { default: mod.SearchInput };
-  }),
-);
+import { SearchInput } from "../../../components/searchInput";
 
-const LazyFavoritesListFullWidget = React.lazy(() =>
-  import("../../../components/favoritesListFull").then((mod) => {
-    return { default: mod.FavoritesListFullWidget };
-  }),
-);
+import { FavoritesListFullWidget } from "../../../components/favoritesListFull";
 
-const LazyMarketsListFullWidget = React.lazy(() =>
-  import("../../../components/marketsListFull").then((mod) => {
-    return { default: mod.MarketsListFullWidget };
-  }),
-);
+import { MarketsListFullWidget } from "../../../components/marketsListFull";
 
 type BuiltInTabMeta = {
   title: React.ReactNode;
@@ -130,9 +118,9 @@ export const MarketsDataList: React.FC<MarketsDataListProps> = (props) => {
         trailing={
           <Flex className="oui-my-1 oui-min-w-0 oui-items-center oui-gap-x-3">
             <React.Suspense fallback={null}>
-              <LazySearchInput
+              <SearchInput
                 classNames={{
-                  root: "oui-min-w-0 oui-w-60",
+                  root: "oui-min-w-0 oui-w-[240px]",
                 }}
               />
             </React.Suspense>
@@ -184,7 +172,7 @@ export const MarketsDataList: React.FC<MarketsDataListProps> = (props) => {
               >
                 <React.Suspense fallback={null}>
                   {tab.type === "favorites" ? (
-                    <LazyFavoritesListFullWidget
+                    <FavoritesListFullWidget
                       emptyView={
                         !searchValue && (
                           <FavoritesEmpty
@@ -205,7 +193,7 @@ export const MarketsDataList: React.FC<MarketsDataListProps> = (props) => {
                       showScrollIndicator
                       renderPanel={(selected) => (
                         <React.Suspense fallback={null}>
-                          <LazyMarketsListFullWidget
+                          <MarketsListFullWidget
                             type="all"
                             initialSort={meta.initialSort}
                             dataFilter={createCommunityBrokerFilter(selected)}
@@ -225,7 +213,7 @@ export const MarketsDataList: React.FC<MarketsDataListProps> = (props) => {
                       showScrollIndicator
                       renderPanel={(_, dataFilter) => (
                         <React.Suspense fallback={null}>
-                          <LazyMarketsListFullWidget
+                          <MarketsListFullWidget
                             type="rwa"
                             initialSort={meta.initialSort}
                             dataFilter={dataFilter}
@@ -234,7 +222,7 @@ export const MarketsDataList: React.FC<MarketsDataListProps> = (props) => {
                       )}
                     />
                   ) : (
-                    <LazyMarketsListFullWidget
+                    <MarketsListFullWidget
                       type={meta.listType!}
                       initialSort={meta.initialSort}
                     />
@@ -259,7 +247,7 @@ export const MarketsDataList: React.FC<MarketsDataListProps> = (props) => {
               value={key}
             >
               <React.Suspense fallback={null}>
-                <LazyMarketsListFullWidget
+                <MarketsListFullWidget
                   type="all"
                   initialSort={DEFAULT_SORT}
                   dataFilter={tabDataFilters[key]}

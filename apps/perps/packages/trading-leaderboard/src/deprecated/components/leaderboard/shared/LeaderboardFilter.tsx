@@ -1,4 +1,3 @@
-import surface from "../../../../surface.module.css";
 import { FC, SVGProps } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -9,7 +8,9 @@ import {
   Flex,
   Input,
   Text,
+  useScreen,
 } from "@paxeer-network/ui";
+import { ScrollIndicator } from "@paxeer-network/ui";
 import {
   FilterDays,
   GeneralLeaderboardScriptReturn,
@@ -19,16 +20,14 @@ export type LeaderboardFilterProps = GeneralLeaderboardScriptReturn;
 
 export const LeaderboardFilter: FC<LeaderboardFilterProps> = (props) => {
   const { t } = useTranslation();
+  const { isMobile } = useScreen();
   const { useCampaignDateRange, weeklyRanges, setDateRange } = props;
 
   const weeklyView = (
-    <Flex gap={3} className="oui-flex-wrap">
+    <Flex gap={3} className={cn(isMobile ? "oui-h-[24px]" : "oui-h-[53px]")}>
       {weeklyRanges.map((range) => (
         <button
-          type="button"
-          aria-pressed={props.dateRange?.label === range.label}
-          onClick={() => setDateRange(range)}
-          className="oui-relative oui-w-fit oui-whitespace-nowrap oui-px-2 oui-py-0 oui-text-sm"
+          className="oui-relative oui-w-fit oui-whitespace-nowrap oui-px-2 oui-py-[2px] oui-text-sm"
           key={range.label}
         >
           <div className="oui-z-10">
@@ -45,7 +44,12 @@ export const LeaderboardFilter: FC<LeaderboardFilterProps> = (props) => {
               {`${range.label}`}
             </Text.gradient>
           </div>
-          <div className="oui-pointer-events-none oui-absolute oui-inset-0 oui-rounded oui-opacity-10 oui-gradient-primary"></div>
+          <div
+            className="oui-absolute oui-inset-0 oui-rounded oui-opacity-[.12] oui-gradient-primary"
+            onClick={() => {
+              setDateRange(range);
+            }}
+          ></div>
         </button>
       ))}
     </Flex>
@@ -69,22 +73,15 @@ export const LeaderboardFilter: FC<LeaderboardFilterProps> = (props) => {
       suffix={
         props.searchValue && (
           <Box mr={2}>
-            <button
-              type="button"
-              aria-label={t("common.reset")}
+            <CloseCircleFillIcon
+              size={14}
+              className="oui-cursor-pointer oui-text-base-contrast-36"
               onClick={props.clearSearchValue}
-            >
-              <CloseCircleFillIcon
-                size={14}
-                className="oui-cursor-pointer oui-text-base-contrast-36"
-              />
-            </button>
+            />
           </Box>
         )
       }
-      name="address"
-      aria-label={t("common.address.search.placeholder")}
-      autoComplete="on"
+      autoComplete="off"
     />
   );
 
@@ -94,17 +91,14 @@ export const LeaderboardFilter: FC<LeaderboardFilterProps> = (props) => {
       onFilter={(value) => {
         props.onFilter(value);
       }}
-      className="oui-h-12 oui-border-none"
+      className="oui-h-[53px] oui-border-none"
     />
   );
 
   const filterDayView = FilterDays.map((value) => {
     return (
       <button
-        type="button"
-        aria-pressed={props.filterDay === value}
-        onClick={() => props.updateFilterDay(value)}
-        className="oui-relative oui-px-2 oui-py-0 oui-text-sm"
+        className="oui-relative oui-px-2 oui-py-[2px] oui-text-sm"
         key={value}
       >
         <div className="oui-z-10">
@@ -117,27 +111,60 @@ export const LeaderboardFilter: FC<LeaderboardFilterProps> = (props) => {
             {`${value}D`}
           </Text.gradient>
         </div>
-        <div className="oui-pointer-events-none oui-absolute oui-inset-0 oui-rounded oui-opacity-10 oui-gradient-primary"></div>
+        <div
+          className="oui-absolute oui-inset-0 oui-rounded oui-opacity-[.12] oui-gradient-primary"
+          onClick={() => {
+            props.updateFilterDay(value as any);
+          }}
+        ></div>
       </button>
     );
   });
 
-  return (
-    <div
-      className={`${surface.filters} oui-trading-leaderboard-ranking-filter`}
-    >
-      <div className={surface.filterChoices}>
+  if (isMobile) {
+    return (
+      <Flex
+        width="100%"
+        justify="between"
+        itemAlign="center"
+        direction="column"
+        mt={3}
+        className={cn("oui-mobile-trading-leaderboard-ranking-filter")}
+      >
+        {input}
+
         {useCampaignDateRange ? (
-          weeklyView
+          <Flex gap={3} className="oui-w-full oui-py-3">
+            <ScrollIndicator className="oui-w-full">
+              {weeklyView}
+            </ScrollIndicator>
+          </Flex>
         ) : (
-          <>
+          <Flex gap={3} className="oui-w-full">
             {dateRangeView}
-            {filterDayView}
-          </>
+            <ScrollIndicator className="oui-w-full">
+              <Flex gap={3}>{filterDayView}</Flex>
+            </ScrollIndicator>
+          </Flex>
         )}
-      </div>
-      <div className={surface.search}>{input}</div>
-    </div>
+      </Flex>
+    );
+  }
+
+  return (
+    <Flex
+      width="100%"
+      justify="between"
+      itemAlign="center"
+      className={cn("oui-trading-leaderboard-ranking-filter")}
+    >
+      <Flex gap={3}>
+        {useCampaignDateRange && weeklyView}
+        {!useCampaignDateRange && dateRangeView}
+        {!useCampaignDateRange && filterDayView}
+      </Flex>
+      <Box width={240}>{input}</Box>
+    </Flex>
   );
 };
 

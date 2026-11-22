@@ -28,7 +28,7 @@ const HeaderMobile = ({ hideSearchButton, onGoToSearchResults }: Props) => {
       borderColor="hairline"
       minH="var(--chakra-spacing-14)"
     >
-      <Flex px={ 4 } minH="var(--chakra-spacing-14)" py={ 1 } flexWrap="wrap" alignItems="center" gap={ 2 }>
+      <Flex px={ 4 } minH="calc(var(--chakra-spacing-14) - var(--chakra-border-widths-1))" py={ 1 } flexWrap="wrap" alignItems="center" gap={ 2 }>
         <NetworkIcon/>
         <TestnetBadge/>
         <RollupStageBadge/>

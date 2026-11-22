@@ -10,7 +10,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -24,7 +24,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -162,9 +162,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -176,9 +176,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -190,11 +190,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -218,9 +218,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -248,7 +248,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -260,9 +260,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -273,12 +273,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -288,9 +288,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -302,9 +302,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -316,9 +316,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -330,9 +330,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -344,11 +344,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -372,9 +372,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -402,7 +402,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -414,9 +414,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -427,12 +427,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -442,9 +442,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -456,9 +456,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -470,9 +470,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -484,9 +484,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -498,11 +498,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -526,9 +526,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -556,7 +556,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -568,9 +568,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -581,12 +581,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -596,9 +596,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -610,9 +610,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -624,9 +624,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -638,9 +638,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -652,11 +652,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -680,9 +680,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -710,7 +710,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -722,9 +722,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -735,12 +735,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -750,9 +750,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -764,9 +764,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -918,9 +918,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 365.0625,
+        "top": 359.6875,
         "width": 984,
-        "height": 159.71875,
+        "height": 158.1875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -932,11 +932,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 382.0625,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 376.6875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -960,9 +960,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 250.90625,
+        "top": 250,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -990,7 +990,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1002,9 +1002,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 250.90625,
+        "top": 250,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1015,12 +1015,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -1030,9 +1030,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 78.984375,
+        "height": 78.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1044,9 +1044,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 250.90625,
+        "top": 250,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1058,9 +1058,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 366.625,
+        "top": 359.6875,
         "width": 1104,
-        "height": 160.1875,
+        "height": 158.1875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1072,11 +1072,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 383.625,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 376.6875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -1100,9 +1100,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 251.15625,
+        "top": 250,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1130,7 +1130,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1142,9 +1142,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 251.15625,
+        "top": 250,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1155,12 +1155,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -1170,9 +1170,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 79.125,
+        "height": 78.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1184,9 +1184,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 251.15625,
+        "top": 250,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1198,9 +1198,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 371.390625,
+        "top": 359.6875,
         "width": 1104,
-        "height": 161.40625,
+        "height": 158.1875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1212,11 +1212,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 388.390625,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 376.6875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -1240,9 +1240,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 251.96875,
+        "top": 250,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1270,7 +1270,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1282,9 +1282,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 251.96875,
+        "top": 250,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1295,12 +1295,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -1310,9 +1310,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 79.578125,
+        "height": 78.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1324,9 +1324,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 251.96875,
+        "top": 250,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1338,9 +1338,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 377.5625,
+        "top": 359.6875,
         "width": 1104,
-        "height": 163.0625,
+        "height": 158.1875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1352,11 +1352,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 394.5625,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 376.6875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -1380,9 +1380,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 252.875,
+        "top": 250,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1410,7 +1410,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1422,9 +1422,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 252.875,
+        "top": 250,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1435,12 +1435,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -1450,9 +1450,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 80,
+        "height": 78.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1464,9 +1464,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 252.875,
+        "top": 250,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1620,7 +1620,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1634,7 +1634,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1772,9 +1772,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1786,9 +1786,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1800,11 +1800,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -1828,9 +1828,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1858,7 +1858,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1870,9 +1870,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1883,12 +1883,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -1898,9 +1898,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1912,9 +1912,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1926,9 +1926,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1940,9 +1940,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -1954,11 +1954,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -1982,9 +1982,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2012,7 +2012,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2024,9 +2024,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2037,12 +2037,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -2052,9 +2052,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2066,9 +2066,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2080,9 +2080,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2094,9 +2094,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2108,11 +2108,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -2136,9 +2136,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2166,7 +2166,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2178,9 +2178,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2191,12 +2191,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -2206,9 +2206,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2220,9 +2220,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2234,9 +2234,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2248,9 +2248,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2262,11 +2262,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -2290,9 +2290,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2320,7 +2320,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2332,9 +2332,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2345,12 +2345,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -2360,9 +2360,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2374,9 +2374,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2390,7 +2390,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2404,7 +2404,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2542,9 +2542,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2556,9 +2556,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2570,11 +2570,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -2598,9 +2598,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2628,7 +2628,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2640,9 +2640,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2653,12 +2653,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -2668,9 +2668,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2682,9 +2682,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2696,9 +2696,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2710,9 +2710,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2724,11 +2724,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -2752,9 +2752,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2782,7 +2782,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2794,9 +2794,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2807,12 +2807,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -2822,9 +2822,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2836,9 +2836,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2850,9 +2850,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2864,9 +2864,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2878,11 +2878,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -2906,9 +2906,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2936,7 +2936,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2948,9 +2948,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2961,12 +2961,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -2976,9 +2976,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -2990,9 +2990,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3004,9 +3004,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3018,9 +3018,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3032,11 +3032,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -3060,9 +3060,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3090,7 +3090,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3102,9 +3102,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3115,12 +3115,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -3130,9 +3130,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3144,9 +3144,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3215,7 +3215,7 @@
       "values": {
         "left": 20,
         "top": 89,
-        "width": 81.84375,
+        "width": 70,
         "height": 44,
         "fontSize": 13,
         "lineHeight": 19.5
@@ -3242,9 +3242,9 @@
       "selector": "main .rounded-lg >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3272,7 +3272,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3286,9 +3286,9 @@
         "left": 276,
         "top": 92,
         "width": 195.1875,
-        "height": 35.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "height": 35.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -3312,9 +3312,9 @@
       "selector": "main .rounded-lg >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3342,7 +3342,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3356,9 +3356,9 @@
         "left": 296,
         "top": 92,
         "width": 219.1875,
-        "height": 36.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "height": 35.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -3382,9 +3382,9 @@
       "selector": "main .rounded-lg >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3412,7 +3412,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3426,9 +3426,9 @@
         "left": 536,
         "top": 92,
         "width": 219.1875,
-        "height": 36.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "height": 35.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -3452,9 +3452,9 @@
       "selector": "main .rounded-lg >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3482,7 +3482,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3496,9 +3496,9 @@
         "left": 856,
         "top": 92,
         "width": 219.1875,
-        "height": 36.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "height": 35.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -3510,7 +3510,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3524,7 +3524,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3662,9 +3662,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3676,9 +3676,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3690,11 +3690,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -3718,9 +3718,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3748,7 +3748,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3760,9 +3760,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3773,12 +3773,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -3788,9 +3788,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3802,9 +3802,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3816,9 +3816,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3830,9 +3830,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3844,11 +3844,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -3872,9 +3872,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3902,7 +3902,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3914,9 +3914,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3927,12 +3927,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -3942,9 +3942,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3956,9 +3956,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3970,9 +3970,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3984,9 +3984,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -3998,11 +3998,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -4026,9 +4026,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4056,7 +4056,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4068,9 +4068,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4081,12 +4081,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -4096,9 +4096,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4110,9 +4110,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4124,9 +4124,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4138,9 +4138,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4152,11 +4152,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -4180,9 +4180,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4210,7 +4210,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4222,9 +4222,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4235,12 +4235,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -4250,9 +4250,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4264,9 +4264,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4280,7 +4280,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4294,7 +4294,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4432,9 +4432,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4446,9 +4446,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4460,11 +4460,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -4488,9 +4488,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4518,7 +4518,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4530,9 +4530,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4543,12 +4543,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -4558,9 +4558,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4572,9 +4572,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4586,9 +4586,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4600,9 +4600,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4614,11 +4614,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -4642,9 +4642,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4672,7 +4672,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4684,9 +4684,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4697,12 +4697,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -4712,9 +4712,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4726,9 +4726,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4740,9 +4740,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4754,9 +4754,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4768,11 +4768,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -4796,9 +4796,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4826,7 +4826,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4838,9 +4838,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4851,12 +4851,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -4866,9 +4866,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4880,9 +4880,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4894,9 +4894,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4908,9 +4908,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4922,11 +4922,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -4950,9 +4950,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4980,7 +4980,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -4992,9 +4992,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5005,12 +5005,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -5020,9 +5020,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5034,9 +5034,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5050,7 +5050,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5064,7 +5064,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5202,9 +5202,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5216,9 +5216,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5230,11 +5230,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -5258,9 +5258,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5288,7 +5288,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5300,9 +5300,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5313,12 +5313,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -5328,9 +5328,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5342,9 +5342,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5356,9 +5356,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5370,9 +5370,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5384,11 +5384,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -5412,9 +5412,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5442,7 +5442,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5454,9 +5454,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5467,12 +5467,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -5482,9 +5482,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5496,9 +5496,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5510,9 +5510,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5524,9 +5524,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5538,11 +5538,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -5566,9 +5566,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5596,7 +5596,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5608,9 +5608,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5621,12 +5621,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -5636,9 +5636,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5650,9 +5650,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5664,9 +5664,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5678,9 +5678,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5692,11 +5692,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -5720,9 +5720,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5750,7 +5750,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5762,9 +5762,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5775,12 +5775,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -5790,9 +5790,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5804,9 +5804,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5820,7 +5820,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5834,7 +5834,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5972,9 +5972,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -5986,9 +5986,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6000,11 +6000,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -6028,9 +6028,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6058,7 +6058,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6070,9 +6070,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6083,12 +6083,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -6098,9 +6098,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6112,9 +6112,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6126,9 +6126,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6140,9 +6140,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6154,11 +6154,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -6182,9 +6182,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6212,7 +6212,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6224,9 +6224,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6237,12 +6237,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -6252,9 +6252,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6266,9 +6266,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6280,9 +6280,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6294,9 +6294,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6308,11 +6308,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -6336,9 +6336,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6366,7 +6366,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6378,9 +6378,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6391,12 +6391,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -6406,9 +6406,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6420,9 +6420,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6434,9 +6434,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6448,9 +6448,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6462,11 +6462,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -6490,9 +6490,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6520,7 +6520,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6532,9 +6532,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6545,12 +6545,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -6560,9 +6560,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6574,9 +6574,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6673,10 +6673,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -6714,11 +6714,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -6728,11 +6728,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -6744,7 +6744,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 325.84375,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6757,10 +6757,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -6798,11 +6798,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -6812,11 +6812,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -6828,7 +6828,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 326.21875,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6841,10 +6841,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -6882,11 +6882,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -6896,11 +6896,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -6912,7 +6912,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 327.28125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -6925,10 +6925,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -6966,11 +6966,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -6980,11 +6980,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -6996,7 +6996,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 328.53125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7093,10 +7093,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7134,11 +7134,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7148,11 +7148,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7164,7 +7164,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 325.84375,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7177,10 +7177,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7218,11 +7218,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7232,11 +7232,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7248,7 +7248,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 326.21875,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7261,10 +7261,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7302,11 +7302,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7316,11 +7316,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7332,7 +7332,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 327.28125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7345,10 +7345,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7386,11 +7386,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7400,11 +7400,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7416,7 +7416,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 328.53125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7513,10 +7513,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7554,11 +7554,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7568,11 +7568,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7584,7 +7584,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 325.84375,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7597,10 +7597,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7638,11 +7638,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7652,11 +7652,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7668,7 +7668,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 326.21875,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7681,10 +7681,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7722,11 +7722,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7736,11 +7736,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7752,7 +7752,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 327.28125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7765,10 +7765,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7806,11 +7806,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7820,11 +7820,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7836,7 +7836,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 328.53125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -7933,10 +7933,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -7974,11 +7974,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -7988,11 +7988,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8004,7 +8004,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 325.84375,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8017,10 +8017,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8058,11 +8058,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8072,11 +8072,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8088,7 +8088,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 326.21875,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8101,10 +8101,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8142,11 +8142,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8156,11 +8156,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8172,7 +8172,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 327.28125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8185,10 +8185,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8226,11 +8226,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8240,11 +8240,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8256,7 +8256,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 328.53125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8353,10 +8353,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8394,11 +8394,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8408,11 +8408,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8424,7 +8424,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 341.84375,
+        "height": 340.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8437,10 +8437,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8478,11 +8478,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8492,11 +8492,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8508,7 +8508,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 342.21875,
+        "height": 340.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8521,10 +8521,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8562,11 +8562,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8576,11 +8576,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8592,7 +8592,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 343.28125,
+        "height": 340.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8605,10 +8605,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8646,11 +8646,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8660,11 +8660,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8676,7 +8676,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 344.53125,
+        "height": 340.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8773,10 +8773,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8814,11 +8814,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8828,11 +8828,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8844,7 +8844,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 293.84375,
+        "height": 292.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8857,10 +8857,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8898,11 +8898,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8912,11 +8912,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8928,7 +8928,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 294.21875,
+        "height": 292.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -8941,10 +8941,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -8982,11 +8982,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -8996,11 +8996,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9012,7 +9012,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 295.28125,
+        "height": 292.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9025,10 +9025,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9066,11 +9066,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9080,11 +9080,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9096,7 +9096,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 296.53125,
+        "height": 292.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9193,10 +9193,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9234,11 +9234,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9248,11 +9248,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9264,7 +9264,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 325.84375,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9277,10 +9277,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9318,11 +9318,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9332,11 +9332,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9348,7 +9348,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 326.21875,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9361,10 +9361,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9402,11 +9402,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9416,11 +9416,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9432,7 +9432,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 327.28125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9445,10 +9445,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9486,11 +9486,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9500,11 +9500,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9516,7 +9516,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 328.53125,
+        "height": 324.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9613,10 +9613,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9654,11 +9654,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9668,11 +9668,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9684,7 +9684,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 269.84375,
+        "height": 268.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9697,10 +9697,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9738,11 +9738,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9752,11 +9752,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9768,7 +9768,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 270.21875,
+        "height": 268.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9781,10 +9781,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9822,11 +9822,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9836,11 +9836,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9852,7 +9852,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 271.28125,
+        "height": 268.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -9865,10 +9865,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -9906,11 +9906,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9920,11 +9920,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -9936,7 +9936,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 272.53125,
+        "height": 268.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10033,10 +10033,10 @@
       "values": {
         "left": 289,
         "top": 105,
-        "width": 276.140625,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -10074,11 +10074,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 289,
-        "top": 239.859375,
+        "top": 239.09375,
         "width": 950,
-        "height": 44.984375,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -10088,11 +10088,11 @@
       "selector": "#session-token",
       "values": {
         "left": 306,
-        "top": 193.359375,
+        "top": 192.59375,
         "width": 916,
         "height": 21,
-        "fontSize": 15.328,
-        "lineHeight": 22.992
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -10104,7 +10104,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 269.84375,
+        "height": 268.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10117,10 +10117,10 @@
       "values": {
         "left": 309,
         "top": 105,
-        "width": 278.59375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -10158,11 +10158,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 309,
-        "top": 240.09375,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.125,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -10172,11 +10172,11 @@
       "selector": "#session-token",
       "values": {
         "left": 326,
-        "top": 193.59375,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.424,
-        "lineHeight": 23.136
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -10188,7 +10188,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 270.21875,
+        "height": 268.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10201,10 +10201,10 @@
       "values": {
         "left": 549,
         "top": 105,
-        "width": 286.203125,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -10242,11 +10242,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 549,
-        "top": 240.703125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 45.578125,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -10256,11 +10256,11 @@
       "selector": "#session-token",
       "values": {
         "left": 566,
-        "top": 194.203125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 15.712,
-        "lineHeight": 23.568
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -10272,7 +10272,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 271.28125,
+        "height": 268.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10285,10 +10285,10 @@
       "values": {
         "left": 869,
         "top": 105,
-        "width": 296.015625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "width": 266.828125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -10326,11 +10326,11 @@
       "selector": "main form:has(#session-token) button[type=\"submit\"]",
       "values": {
         "left": 869,
-        "top": 241.53125,
+        "top": 239.09375,
         "width": 1070,
-        "height": 46,
-        "fontSize": 16,
-        "lineHeight": 24
+        "height": 44.5,
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -10340,11 +10340,11 @@
       "selector": "#session-token",
       "values": {
         "left": 886,
-        "top": 195.03125,
+        "top": 192.59375,
         "width": 1036,
         "height": 21,
-        "fontSize": 16,
-        "lineHeight": 24
+        "fontSize": 15,
+        "lineHeight": 22.5
       }
     },
     {
@@ -10356,7 +10356,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 272.53125,
+        "height": 268.59375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10370,7 +10370,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10384,7 +10384,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10522,9 +10522,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10536,9 +10536,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10550,11 +10550,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -10578,9 +10578,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10608,7 +10608,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10620,9 +10620,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10633,12 +10633,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -10648,9 +10648,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10662,9 +10662,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10676,9 +10676,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10690,9 +10690,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10704,11 +10704,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -10732,9 +10732,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10762,7 +10762,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10774,9 +10774,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10787,12 +10787,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -10802,9 +10802,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10816,9 +10816,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10830,9 +10830,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10844,9 +10844,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10858,11 +10858,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -10886,9 +10886,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10916,7 +10916,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10928,9 +10928,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10941,12 +10941,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -10956,9 +10956,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10970,9 +10970,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10984,9 +10984,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -10998,9 +10998,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11012,11 +11012,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -11040,9 +11040,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11070,7 +11070,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11082,9 +11082,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11095,12 +11095,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -11110,9 +11110,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11124,9 +11124,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11140,7 +11140,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11154,7 +11154,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11292,9 +11292,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11306,9 +11306,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11320,11 +11320,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -11348,9 +11348,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11378,7 +11378,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11390,9 +11390,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11403,12 +11403,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -11418,9 +11418,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11432,9 +11432,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11446,9 +11446,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11460,9 +11460,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11474,11 +11474,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -11502,9 +11502,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11532,7 +11532,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11544,9 +11544,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11557,12 +11557,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -11572,9 +11572,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11586,9 +11586,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11600,9 +11600,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11614,9 +11614,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11628,11 +11628,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -11656,9 +11656,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11686,7 +11686,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11698,9 +11698,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11711,12 +11711,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -11726,9 +11726,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11740,9 +11740,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11754,9 +11754,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11768,9 +11768,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11782,11 +11782,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -11810,9 +11810,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11840,7 +11840,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11852,9 +11852,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11865,12 +11865,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -11880,9 +11880,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11894,9 +11894,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11910,7 +11910,7 @@
         "left": 16,
         "top": 587.75,
         "width": 358,
-        "height": 658.28125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -11924,7 +11924,7 @@
         "left": 33,
         "top": 626.84375,
         "width": 324,
-        "height": 150.796875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12062,9 +12062,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 272,
-        "top": 380.234375,
+        "top": 370.875,
         "width": 984,
-        "height": 351.484375,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12076,9 +12076,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 289,
-        "top": 420.09375,
+        "top": 409.96875,
         "width": 950,
-        "height": 73.90625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12090,11 +12090,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 289,
-        "top": 397.234375,
-        "width": 178.46875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -12118,9 +12118,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 272,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12148,7 +12148,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12160,9 +12160,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 938.65625,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.34375,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12173,12 +12173,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1174.3125,
-        "top": 12.53125,
-        "width": 81.6875,
-        "height": 37.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "left": 1175.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -12188,9 +12188,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12202,9 +12202,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 605.328125,
-        "top": 266.078125,
+        "top": 261.1875,
         "width": 317.328125,
-        "height": 94.15625,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12216,9 +12216,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 292,
-        "top": 382.96875,
+        "top": 370.875,
         "width": 1104,
-        "height": 352.71875,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12230,9 +12230,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 309,
-        "top": 423.0625,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.15625,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12244,11 +12244,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 309,
-        "top": 399.96875,
-        "width": 180.0625,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -12272,9 +12272,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 292,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12302,7 +12302,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12314,9 +12314,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1038.65625,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12327,12 +12327,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1333.96875,
-        "top": 12.484375,
-        "width": 82.03125,
-        "height": 38.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "left": 1335.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -12342,9 +12342,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12356,9 +12356,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 665.328125,
-        "top": 267.5,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 95.46875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12370,9 +12370,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 532,
-        "top": 391.234375,
+        "top": 370.875,
         "width": 1104,
-        "height": 356.578125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12384,9 +12384,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 549,
-        "top": 431.9375,
+        "top": 409.96875,
         "width": 1070,
-        "height": 74.96875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12398,11 +12398,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 549,
-        "top": 408.234375,
-        "width": 184.96875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -12426,9 +12426,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 532,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12456,7 +12456,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12468,9 +12468,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1278.65625,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12481,12 +12481,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 1813.125,
-        "top": 12.296875,
-        "width": 82.875,
-        "height": 38.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "left": 1815.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -12496,9 +12496,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12510,9 +12510,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 905.328125,
-        "top": 271.8125,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 99.421875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12524,9 +12524,9 @@
       "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))",
       "values": {
         "left": 852,
-        "top": 402.25,
+        "top": 370.875,
         "width": 1104,
-        "height": 361.03125,
+        "height": 347.09375,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12538,9 +12538,9 @@
       "selector": "main [role=\"listitem\"] >> nth=0",
       "values": {
         "left": 869,
-        "top": 443.78125,
+        "top": 409.96875,
         "width": 1070,
-        "height": 75.875,
+        "height": 73,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12552,11 +12552,11 @@
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
         "left": 869,
-        "top": 419.25,
-        "width": 191.3125,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "top": 387.875,
+        "width": 172.453125,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -12580,9 +12580,9 @@
       "selector": "main .rounded-lg:has-text(\"Live API keys\")",
       "values": {
         "left": 852,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12610,7 +12610,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12622,9 +12622,9 @@
       "selector": "main .rounded-lg:has-text(\"Verified test payments\")",
       "values": {
         "left": 1598.65625,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.34375,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12635,12 +12635,12 @@
       "part": "primary-control",
       "selector": "header button:has-text(\"Sign out\")",
       "values": {
-        "left": 2452,
-        "top": 12.0625,
-        "width": 84,
-        "height": 38.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "left": 2455.265625,
+        "top": 12.75,
+        "width": 80.734375,
+        "height": 37.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -12650,9 +12650,9 @@
       "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12664,9 +12664,9 @@
       "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")",
       "values": {
         "left": 1225.328125,
-        "top": 277.5625,
+        "top": 261.1875,
         "width": 357.328125,
-        "height": 104.6875,
+        "height": 89.6875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12735,7 +12735,7 @@
       "values": {
         "left": 20,
         "top": 89,
-        "width": 81.84375,
+        "width": 70,
         "height": 44,
         "fontSize": 13,
         "lineHeight": 19.5
@@ -12761,12 +12761,12 @@
       "part": "first-heading",
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
-        "left": 676.34375,
-        "top": 208.921875,
-        "width": 175.296875,
-        "height": 22.859375,
-        "fontSize": 17.6,
-        "lineHeight": 22.88
+        "left": 679.3125,
+        "top": 208.5,
+        "width": 169.375,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -12806,7 +12806,7 @@
         "left": 272,
         "top": 88,
         "width": 984,
-        "height": 43.921875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12820,9 +12820,9 @@
         "left": 276,
         "top": 92,
         "width": 195.1875,
-        "height": 35.921875,
-        "fontSize": 13.28,
-        "lineHeight": 19.92
+        "height": 35.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -12832,9 +12832,9 @@
       "selector": "main .rounded-lg:has-text(\"Dashboard unavailable\") >> nth=0",
       "values": {
         "left": 272,
-        "top": 151.921875,
+        "top": 151.5,
         "width": 984,
-        "height": 168.4375,
+        "height": 167.21875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12845,12 +12845,12 @@
       "part": "first-heading",
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
-        "left": 755.578125,
-        "top": 209.03125,
-        "width": 176.84375,
-        "height": 23.09375,
-        "fontSize": 17.76,
-        "lineHeight": 23.088
+        "left": 759.3125,
+        "top": 208.5,
+        "width": 169.375,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -12890,7 +12890,7 @@
         "left": 292,
         "top": 88,
         "width": 1104,
-        "height": 44.03125,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12904,9 +12904,9 @@
         "left": 296,
         "top": 92,
         "width": 219.1875,
-        "height": 36.03125,
-        "fontSize": 13.36,
-        "lineHeight": 20.04
+        "height": 35.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -12916,9 +12916,9 @@
       "selector": "main .rounded-lg:has-text(\"Dashboard unavailable\") >> nth=0",
       "values": {
         "left": 292,
-        "top": 152.03125,
+        "top": 151.5,
         "width": 1104,
-        "height": 168.796875,
+        "height": 167.21875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12929,12 +12929,12 @@
       "part": "first-heading",
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
-        "left": 993.15625,
-        "top": 209.390625,
-        "width": 181.671875,
-        "height": 23.703125,
-        "fontSize": 18.24,
-        "lineHeight": 23.712
+        "left": 999.3125,
+        "top": 208.5,
+        "width": 169.375,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -12974,7 +12974,7 @@
         "left": 532,
         "top": 88,
         "width": 1104,
-        "height": 44.390625,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -12988,9 +12988,9 @@
         "left": 536,
         "top": 92,
         "width": 219.1875,
-        "height": 36.390625,
-        "fontSize": 13.6,
-        "lineHeight": 20.4
+        "height": 35.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -13000,9 +13000,9 @@
       "selector": "main .rounded-lg:has-text(\"Dashboard unavailable\") >> nth=0",
       "values": {
         "left": 532,
-        "top": 152.390625,
+        "top": 151.5,
         "width": 1104,
-        "height": 169.78125,
+        "height": 167.21875,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -13013,12 +13013,12 @@
       "part": "first-heading",
       "selector": "main :is(h1, h2, h3):visible >> nth=0",
       "values": {
-        "left": 1310.046875,
-        "top": 209.875,
-        "width": 187.90625,
-        "height": 24.53125,
-        "fontSize": 18.88,
-        "lineHeight": 24.544
+        "left": 1319.3125,
+        "top": 208.5,
+        "width": 169.375,
+        "height": 22.09375,
+        "fontSize": 17,
+        "lineHeight": 22.1
       }
     },
     {
@@ -13058,7 +13058,7 @@
         "left": 852,
         "top": 88,
         "width": 1104,
-        "height": 44.875,
+        "height": 43.5,
         "fontSize": 16,
         "lineHeight": 24
       }
@@ -13072,9 +13072,9 @@
         "left": 856,
         "top": 92,
         "width": 219.1875,
-        "height": 36.875,
-        "fontSize": 13.92,
-        "lineHeight": 20.88
+        "height": 35.5,
+        "fontSize": 13,
+        "lineHeight": 19.5
       }
     },
     {
@@ -13084,9 +13084,9 @@
       "selector": "main .rounded-lg:has-text(\"Dashboard unavailable\") >> nth=0",
       "values": {
         "left": 852,
-        "top": 152.875,
+        "top": 151.5,
         "width": 1104,
-        "height": 171.140625,
+        "height": 167.21875,
         "fontSize": 16,
         "lineHeight": 24
       }

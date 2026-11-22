@@ -88,7 +88,7 @@ func run() error {
 	repo := flag.String("repo", ".", "repository root")
 	start := flag.Uint64("start-height", 0, "first block the fleet ingests (anchor = start-height-1)")
 	anchorRPC := flag.String("anchor-rpc", "", "JSON-RPC endpoint that still serves the anchor block (archive)")
-	poolRuntime := flag.String("pool-runtime", "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f", "keccak256 of the runtime code every pool holds (SurfaceRuntime after v6.12.0)")
+	poolRuntime := flag.String("pool-runtime", "", "pool runtime keccak256 hash (required for deployments without a surface factory)")
 	out := flag.String("out", ".", "output directory")
 	maxDeliveryLagMS := flag.String("max-delivery-lag-ms", "", "required positive delivery lag budget in whole milliseconds (bounded by time.Duration)")
 	deadLetters := flag.String("dead-letters", "", "optional path to a DeadLetterParameters JSON object")
@@ -98,6 +98,10 @@ func run() error {
 		return err
 	}
 	manifest := deployment.Current()
+	poolHash, err := poolRuntimeHash(manifest, *poolRuntime)
+	if err != nil {
+		return err
+	}
 	if *start <= manifest.ActivationHeight || *anchorRPC == "" {
 		return errors.New("-start-height above the activation height and -anchor-rpc are required")
 	}
@@ -126,7 +130,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	docs, err := app.RenderRuntimeDocuments(runtimedocs.Inputs{Manifest: manifest, ReviewedCatalog: reviewed, ERC20RuntimeCode: code, PoolRuntimeHash: common.HexToHash(*poolRuntime), Anchor: receipt.BlockAnchor{Height: *start - 1, Hash: anchor}}, parameters)
+	docs, err := app.RenderRuntimeDocuments(runtimedocs.Inputs{Manifest: manifest, ReviewedCatalog: reviewed, ERC20RuntimeCode: code, PoolRuntimeHash: poolHash, Anchor: receipt.BlockAnchor{Height: *start - 1, Hash: anchor}}, parameters)
 	if err != nil {
 		return err
 	}
@@ -146,6 +150,23 @@ func run() error {
 	}
 	fmt.Printf("anchor %d %s (start height %d)\n", *start-1, strings.ToLower(anchor.Hex()), *start)
 	return nil
+}
+
+func poolRuntimeHash(manifest deployment.Manifest, value string) (common.Hash, error) {
+	factory := manifest.Roles["SidioraFactory"]
+	if factory.Kind == "surface" {
+		if value == "" {
+			return common.Hash{}, nil
+		}
+		if !factory.AcceptsRuntimeHash(value) {
+			return common.Hash{}, fmt.Errorf("-pool-runtime %q is not accepted by SidioraFactory runtimeHash %q (stagedRuntimeHash %q, stagedUpgrade %q)", value, factory.RuntimeHash, factory.StagedRuntimeHash, factory.StagedUpgrade)
+		}
+	}
+	decoded, err := hex.DecodeString(strings.TrimPrefix(value, "0x"))
+	if err != nil || !strings.HasPrefix(value, "0x") || len(decoded) != common.HashLength || common.BytesToHash(decoded) == (common.Hash{}) {
+		return common.Hash{}, fmt.Errorf("-pool-runtime %q must be a nonzero keccak256 hash", value)
+	}
+	return common.BytesToHash(decoded), nil
 }
 
 func reportedBlockHash(ctx context.Context, url string, height uint64) (common.Hash, error) {

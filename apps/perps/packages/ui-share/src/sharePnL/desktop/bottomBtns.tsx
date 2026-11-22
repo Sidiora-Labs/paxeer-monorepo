@@ -1,7 +1,6 @@
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Button } from "@paxeer-network/ui";
-import surface from "../../surface.module.css";
+import { Button, Flex } from "@paxeer-network/ui";
 
 export const BottomButtons: FC<{
   onClickDownload: any;
@@ -11,9 +10,8 @@ export const BottomButtons: FC<{
   const { t } = useTranslation();
 
   return (
-    <div className={surface.shareActions}>
+    <Flex px={8} gap={3} mt={3} itemAlign={"center"}>
       <Button
-        type="button"
         color={"secondary"}
         className="oui-flex-1 oui-flex oui-gap-1"
         onClick={onClickDownload}
@@ -24,17 +22,13 @@ export const BottomButtons: FC<{
         {t("common.download")}
       </Button>
 
-      <Button
-        type="button"
-        className="oui-flex-1 oui-flex oui-gap-1"
-        onClick={onClickCopy}
-      >
+      <Button className="oui-flex-1 oui-flex oui-gap-1" onClick={onClickCopy}>
         <span>
           <CopyIcon />
         </span>
         {t("common.copy")}
       </Button>
-    </div>
+    </Flex>
   );
 };
 

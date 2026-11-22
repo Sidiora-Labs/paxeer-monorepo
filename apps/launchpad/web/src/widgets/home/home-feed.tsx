@@ -2,7 +2,12 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CalloutsFeedBody, FeedPauseButton, useCalloutsFeed, type CalloutsFeed } from './callouts-widget';
+import {
+  CalloutsFeedBody,
+  FeedPauseButton,
+  useCalloutsFeed,
+  type CalloutsFeed,
+} from './callouts-widget';
 
 /**
  * Feed tabs on the compact home. pump.fun shows Callouts / Friends / Top; the connected feed
@@ -35,15 +40,27 @@ export function HomeFeed({ className }: { className?: string }) {
   }
 
   return (
-    <div data-home-feed="" className={cn('mx-auto flex w-full max-w-120 flex-col gap-3 px-4 pb-6 pt-4', className)}>
-      <div className="flex flex-wrap items-center gap-4">
-        <div role="tablist" aria-label="Callout feed" className="flex min-w-0 max-w-full flex-1 basis-60 flex-wrap items-baseline gap-5">
+    <div
+      data-home-feed=""
+      className={cn(
+        'mx-auto flex min-h-0 w-full max-w-120 flex-1 flex-col gap-3 px-4 pb-6 pt-4',
+        className
+      )}
+    >
+      <div className="flex shrink-0 flex-wrap items-center gap-4">
+        <div
+          role="tablist"
+          aria-label="Callout feed"
+          className="flex min-w-0 max-w-full flex-1 basis-60 flex-wrap items-baseline gap-5"
+        >
           {homeFeedTabs.map((tab, index) => {
             const selected = tab.value === feed;
             return (
               <button
                 key={tab.value}
-                ref={element => { refs.current[index] = element; }}
+                ref={(element) => {
+                  refs.current[index] = element;
+                }}
                 type="button"
                 role="tab"
                 id={`${id}-tab-${tab.value}`}
@@ -51,8 +68,11 @@ export function HomeFeed({ className }: { className?: string }) {
                 aria-controls={`${id}-panel`}
                 tabIndex={selected ? 0 : -1}
                 onClick={() => setFeed(tab.value)}
-                onKeyDown={event => onKeyDown(event, index)}
-                className={cn('whitespace-nowrap text-lg font-bold transition-colors duration-base', selected ? 'text-text' : 'text-text-faint hover:text-text-muted')}
+                onKeyDown={(event) => onKeyDown(event, index)}
+                className={cn(
+                  'whitespace-nowrap text-lg font-bold transition-colors duration-base',
+                  selected ? 'text-text' : 'text-text-faint hover:text-text-muted'
+                )}
               >
                 {tab.label}
               </button>
@@ -71,7 +91,12 @@ export function HomeFeed({ className }: { className?: string }) {
           {state.pending} new {state.pending === 1 ? 'callout' : 'callouts'}
         </button>
       ) : null}
-      <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${feed}`} className="flex flex-col">
+      <div
+        role="tabpanel"
+        id={`${id}-panel`}
+        aria-labelledby={`${id}-tab-${feed}`}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <CalloutsFeedBody feed={feed} filter="" state={state} />
       </div>
     </div>

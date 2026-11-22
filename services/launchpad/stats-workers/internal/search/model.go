@@ -79,6 +79,27 @@ func Normalize(raw string) (Query, error) {
 	return Query{s, "text"}, nil
 }
 
+func storedNameKey(raw string) string {
+	s := strings.Map(func(r rune) rune {
+		if r == 0x061c || r == 0x200e || r == 0x200f || (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069) {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(raw))
+	return strings.TrimSpace(cases.Fold().String(norm.NFKC.String(s)))
+}
+
+func displayPrefix(s string, points, bytes int) string {
+	count := 0
+	for offset, r := range s {
+		if count == points || offset+utf8.RuneLen(r) > bytes {
+			return s[:offset]
+		}
+		count++
+	}
+	return s
+}
+
 type Document struct {
 	Version            int      `json:"version"`
 	ChainID            string   `json:"chainId"`
@@ -111,11 +132,10 @@ func (d Document) Validate() error {
 			return ErrInvalid
 		}
 	}
-	if !boundedDisplay(d.Name, 100, 400) || !boundedDisplay(d.Ticker, 32, 128) {
+	if !boundedDisplay(d.Name, 100, 400) || !boundedDisplay(d.Ticker, 16, 64) {
 		return ErrInvalid
 	}
-	n, e := Normalize(d.Name)
-	if e != nil || d.NameKey != n.Key || d.CanonicalTicker != canonicalTicker(d.Ticker) || d.CanonicalTicker == "" {
+	if d.NameKey != storedNameKey(d.Name) || d.CanonicalTicker != canonicalTicker(d.Ticker) {
 		return ErrInvalid
 	}
 	if len(d.LanguageHints) > 8 || len(d.ConfusableWarnings) > 2 {
@@ -156,7 +176,7 @@ func (d Document) Validate() error {
 	return nil
 }
 func boundedDisplay(s string, points, bytes int) bool {
-	return utf8.ValidString(s) && !strings.ContainsRune(s, 0) && len(s) <= bytes && utf8.RuneCountInString(s) <= points && strings.TrimSpace(s) != ""
+	return utf8.ValidString(s) && !strings.ContainsRune(s, 0) && len(s) <= bytes && utf8.RuneCountInString(s) <= points
 }
 
 type Filter struct {

@@ -9,4 +9,4 @@ export function webFeesRouterAbiMatchesPrecompileRole() {
   );
 }
 
-test(webFeesRouterAbiMatchesPrecompileRole);
+test(webFeesRouterAbiMatchesPrecompileRole.name, webFeesRouterAbiMatchesPrecompileRole);
