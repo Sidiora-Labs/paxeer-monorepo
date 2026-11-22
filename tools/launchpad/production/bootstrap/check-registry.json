@@ -9477,7 +9477,7 @@
           "sdk/launchpad/protocol/contracts/v1/examples.json"
         ]
       },
-      "policy_sha256": "8f331c4a9e2e3547978ea143b369cb54fd7596d10ca626418ae3807be301a424",
+      "policy_sha256": "f130745cc6bc162f62d4775a7ec61cba4a6760ac2c96503d03133d14b4726616",
       "serial_gate_policy": {
         "accepted_ids": {
           "1.01": "b9b3a6be-8701-4930-b03b-a0a92f87366c",
@@ -12949,13 +12949,13 @@
       "sdk/launchpad/protocol/contracts/v1/accounting-cases.json": "871cd5f812cf143f8a2b6688de8992cbc352ef098f44e46f858fc66128b178c1",
       "sdk/launchpad/protocol/contracts/v1/capabilities.json": "7a084a3cb425a6195d192d8cb7564dd1795deab6a8ffdaca61dd17519b13d40a",
       "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json": "8ac70f904a048bca6fbc193c0667fea65b3f5e3d51446c0d5a434ccbbb79103f",
-      "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json": "c7a839b43baf6110ef7f1a4a47af1e71a36c9c3870a0cd1fda6455c4e289b030",
+      "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json": "96b48e54f6d4ae961796910de603da98554d0e27d278c49ef8a856c28733e3fb",
       "sdk/launchpad/protocol/contracts/v1/chain/event-authorities.json": "7812672058fd4aac1b8f0a54d1e5619ff4c6a4fa2ecc6dd412eb0dc8d6553c18",
       "sdk/launchpad/protocol/contracts/v1/chain/golden-fixtures.json": "b7538134b931cf24a04d3d18d8545d8865306f703ff5c421f7cff8424e99a993",
-      "sdk/launchpad/packages/sdk/src/operations.gen.ts": "b7763579cac0429a3bf507370fcf055b0839b642c9c9d33c8488791fe3fcd42b",
+      "sdk/launchpad/packages/sdk/src/operations.gen.ts": "9279c6ea49512bb8700ba50cc0b26f0d39093e544a87f0b1c57458f00f382550",
       "sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json": "b4a27915f9025e6d2a282a10eb119a8897a5fe7d0362852a304d795479ff7eae"
     },
-    "sha256": "f7c9ca35bb68850016a6f02c78befe181443bd89d43d874f45d3be4d8ce9ecaa"
+    "sha256": "e119db98ec2863cfb69a38483d10f6207671d795cd8ed97af7c3f6eb31d1ba09"
   },
   "control_plane": {
     "schema_version": 1,
