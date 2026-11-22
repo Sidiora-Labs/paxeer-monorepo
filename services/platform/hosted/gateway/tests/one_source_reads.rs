@@ -82,7 +82,7 @@ impl RedisProcess {
         let acl = directory.join("users.acl");
         fs::write(
             &acl,
-            "user default off\nuser gateway on >gateway-secret ~* &* +@all\n",
+            "user default off ~* &* +@all\nuser gateway on >gateway-secret ~* &* +@all\n",
         )
         .unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.join("redis.conf");
