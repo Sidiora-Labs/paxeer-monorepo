@@ -198,7 +198,7 @@ func (a *RPCQualification) pinnedBlockAtHeight(ctx context.Context, height uint6
 		return pinnedBlock{}, nil, false, err
 	}
 	header := block.Header
-	if header.Number.Uint64() != height || header.Number.Uint64() < a.options.Manifest.ActivationHeight || !header.Number.IsInt64() || len(block.Transactions) > 4096 || header.Time == 0 || header.Time > math.MaxInt64/1000 {
+	if header.Number.Uint64() != height || header.Number.Uint64() < a.options.Manifest.ActivationHeight || !header.Number.IsInt64() || header.Time == 0 || header.Time > math.MaxInt64/1000 {
 		return pinnedBlock{}, nil, false, ErrQualification
 	}
 	if gate != nil && !gate.relevant(header.Bloom) {

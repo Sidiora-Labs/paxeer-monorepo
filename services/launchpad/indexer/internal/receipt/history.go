@@ -23,7 +23,7 @@ func historicalEmitterEpochs(manifest deployment.Manifest, catalogJSON []byte) (
 	}
 	sum := sha256.Sum256(approvedDeploymentSource)
 	if hex.EncodeToString(sum[:]) != manifest.SourceManifestSHA256 {
-		return nil, ErrQualification
+		return nil, qualificationRefusal("Treasury", valueErc1967, common.Address{}, "coverage")
 	}
 	var source struct {
 		Deployment struct {
@@ -36,7 +36,7 @@ func historicalEmitterEpochs(manifest deployment.Manifest, catalogJSON []byte) (
 		} `json:"_deployment"`
 	}
 	if json.Unmarshal(approvedDeploymentSource, &source) != nil {
-		return nil, ErrQualification
+		return nil, qualificationRefusal("Treasury", valueErc1967, common.Address{}, "coverage")
 	}
 	if _, exists := manifest.Roles["Treasury"]; exists {
 		return nil, nil
@@ -44,21 +44,21 @@ func historicalEmitterEpochs(manifest deployment.Manifest, catalogJSON []byte) (
 	proxy, ok := source.Deployment.Records["Treasury_proxy"]
 	implementation, implOK := source.Deployment.Records["Treasury_impl"]
 	if !ok || !implOK || proxy.Status != "confirmed" || implementation.Status != "confirmed" || proxy.Height > manifest.ActivationHeight || implementation.Height > manifest.ActivationHeight {
-		return nil, ErrQualification
+		return nil, qualificationRefusal("Treasury", valueErc1967, common.HexToAddress(proxy.Address), "coverage")
 	}
 	identity := deployment.Role{Address: proxy.Address, Kind: valueErc1967, RuntimeHash: proxy.RuntimeHash, ImplementationAddress: implementation.Address, ImplementationHash: implementation.RuntimeHash}
 	if !validRPCIdentity(identity) {
-		return nil, ErrQualification
+		return nil, qualificationRefusal("Treasury", identity.Kind, common.HexToAddress(identity.Address), "identity")
 	}
 	var catalog decode.Catalog
 	if json.Unmarshal(catalogJSON, &catalog) != nil || catalog.ManifestSHA256 != manifest.SourceManifestSHA256 {
-		return nil, ErrQualification
+		return nil, qualificationRefusal("Treasury", identity.Kind, common.HexToAddress(identity.Address), "template")
 	}
 	var revision string
 	for _, contract := range catalog.Contracts {
 		if contract.Name == "Treasury" {
 			if revision != "" {
-				return nil, ErrQualification
+				return nil, qualificationRefusal("Treasury", identity.Kind, common.HexToAddress(identity.Address), "template")
 			}
 			revision = contract.ABIRevision
 		}

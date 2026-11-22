@@ -29,6 +29,11 @@ func WriteStreamHTTPError(w http.ResponseWriter, r *http.Request, status int, co
 		retryAfter = &milliseconds
 		w.Header().Set("Retry-After", "1")
 	}
+	if status == http.StatusNotFound && code == "TOPIC_NOT_STARTED" {
+		milliseconds := 5000
+		retryAfter = &milliseconds
+		w.Header().Set("Retry-After", "5")
+	}
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(struct {
 		Code         string `json:"code"`

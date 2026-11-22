@@ -193,12 +193,22 @@ values_annotations
 
 stats_inline_pem_plan() {
 	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
-import json, sys
+import base64, hashlib, json, sys
+from pathlib import Path
+root = Path(sys.argv[1]).resolve().parents[3]
+sys.path.insert(0, str(root / "deploy/launchpad/documents"))
+import stats as stats_documents
 stats = json.load(open(sys.argv[1]))["stats"]
 json.dump({"stats": stats}, open(f"{sys.argv[2]}/stats.json", "w"))
 needed = [n for k, v in stats.items() if isinstance(v, list) and k not in ("secret", "secrets")
           for n in v if n not in stats["fixed"]]
 values = {n: f"sentinel-stats-{i:02d}" for i, n in enumerate(needed)}
+runtime = stats_documents.documents("stats", root / "deploy/launchpad/documents/values")["DELIVERY_CONFIG_DOCUMENT"]
+policy = next(sub for sub in runtime["phase2"]["searchConsumers"] if sub["kind"] == "social_policy")
+assert policy["eventType"] == "social.policy.changed.v2"
+wire = json.dumps(runtime, sort_keys=True, separators=(",", ":")).encode()
+values["DELIVERY_CONFIG_DOCUMENT"] = base64.b64encode(wire).decode()
+values["DELIVERY_CONFIG_SHA256"] = hashlib.sha256(wire).hexdigest()
 values["IDENTITY_MTLS_CLIENT_KEY_PEM"] = "-----BEGIN PRIVATE KEY-----\nsentinel-stats-pem-3b7e\n-----END PRIVATE KEY-----"
 json.dump({"stats": values}, open(f"{sys.argv[2]}/stats-values.json", "w"))
 project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")
@@ -300,6 +310,7 @@ needed = [n for k, v in user.items() if isinstance(v, list) and k not in ("secre
           for n in v if n not in user["fixed"]]
 values = {n: f"sentinel-user-{i:02d}" for i, n in enumerate(needed)}
 values["ACCOUNT_SERVICE_SIGNING_SEED"] = "sentinel-signing-seed-6f0a"
+values["ACCOUNT_NATS_STREAM"] = "USERS"
 json.dump({"user": values}, open(f"{sys.argv[2]}/user-values.json", "w"))
 json.dump([v for n, v in values.items() if n in user["secrets"]] + ["sentinel-live-seed-1c9b"],
           open(f"{sys.argv[2]}/user-secret-values.json", "w"))
@@ -332,6 +343,7 @@ set -e
 [ "$user_apply" -eq 0 ] || fail "user apply exited $user_apply: $(cat "$tmp/user-apply.out")"
 grep -q '^  differs ACCOUNT_SERVICE_SIGNING_SEED \*\*\*\* -> \*\*\*\*$' "$tmp/user-plan.out" || fail "signing seed not masked in plan"
 grep -q '^  applied ' "$tmp/user-apply.out" || fail "user apply did not upsert"
+grep -q '^  missing ACCOUNT_NATS_STREAM = USERS$' "$tmp/user-plan.out" || fail "user plan omitted the account stream"
 python3 - "$tmp/user-secret-values.json" "$tmp/user-plan.out" "$tmp/user-apply.out" <<'PY' || fail "user plan or apply printed a secret value"
 import json, sys
 secrets = json.load(open(sys.argv[1]))
@@ -396,7 +408,19 @@ for f in echo.out echo.err miss.out miss.err short.out short.err; do
 done
 indexer_document_sources() {
 	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
-import json, sys
+import base64, hashlib, json, sys
+from pathlib import Path
+
+documents = Path(sys.argv[1]).parents[1] / "documents"
+sys.path.insert(0, str(documents))
+import indexer as indexer_documents
+
+receipt = indexer_documents.documents("indexer", documents / "values")["INDEXER_RECEIPT_CONFIG_DOCUMENT"]
+fixture = json.loads((documents / "fixtures/indexer-discovery.json").read_bytes())
+assert receipt["Production"]["Discovery"] == fixture["Discovery"]
+receipt_bytes = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
+receipt_document = base64.b64encode(receipt_bytes).decode()
+receipt_digest = hashlib.sha256(receipt_bytes).hexdigest()
 indexer = json.load(open(sys.argv[1]))["indexer"]
 sources = indexer["documentSources"]
 assert sources == {
@@ -416,6 +440,9 @@ for form in ("document", "file"):
         selected.pop(path if form == "document" else document, None)
         selected[document if form == "document" else path] = (
             f"sentinel-{document}" if form == "document" else f"/run/launchpad/indexer/{path}.json")
+    if form == "document":
+        selected["INDEXER_RECEIPT_CONFIG_DOCUMENT"] = receipt_document
+    selected["INDEXER_RECEIPT_CONFIG_SHA256"] = receipt_digest
     json.dump({"indexer": selected}, open(f"{sys.argv[2]}/indexer-{form}-values.json", "w"))
     want = {**indexer["defaults"], **indexer["fixed"], **selected}
     json.dump([project,
@@ -616,6 +643,72 @@ PY
 	echo PASS private-listen-address-contract
 }
 private_listen_address_contract
+
+ranking_evidence_document() {
+	python3 - "$root" "$tmp" "$replay" "$tool" <<'PYCODE'
+import base64, hashlib, json, os, shutil, subprocess, sys
+from pathlib import Path
+
+root, directory = Path(sys.argv[1]), Path(sys.argv[2])
+documents = root / "deploy/launchpad/documents"
+values = directory / "ranking-values"
+values.mkdir()
+shutil.copyfile(documents / "values/common.example.json", values / "common.json")
+shutil.copyfile(documents / "values/ranking.example.json", values / "ranking.json")
+expected_schema = values / "expected-schema"
+expected_schema.mkdir()
+digest = "0" * 64
+(expected_schema / "ranking.json").write_text(json.dumps({
+    "service": "core/ranking-algo", "runtime_role": "rankingd",
+    "registry_digest": digest, "interface_digest": digest, "reader_version": 1,
+    "migrations": {"1": digest}, "schemas": {"ranking": digest},
+    "epoch": 1, "region": "mainnet-beta",
+    "privileges": [{"schema": "ranking", "object": "snapshots", "privileges": ["SELECT"]}],
+}))
+output = directory / "ranking-composed"
+composed = subprocess.run([
+    sys.executable, str(documents / "compose.py"), "--values", str(values),
+    "--out", str(output), "--service", "ranking",
+], capture_output=True, text=True, env=os.environ)
+assert composed.returncode == 0, composed.stdout + composed.stderr
+record = json.loads((output / "ranking.json").read_bytes())
+raw = base64.b64decode(record["RANKING_RUNTIME_DOCUMENT"], validate=True)
+binding = json.loads(raw)
+endpoint = json.loads((values / "ranking.json").read_bytes())["evidenceEndpoint"]
+assert binding["version"] == 2
+assert binding["evidenceEndpoint"] == endpoint
+assert hashlib.sha256(raw).hexdigest() == record["RANKING_RUNTIME_SHA256"]
+entry = json.loads((root / "deploy/launchpad/railway/variables.json").read_bytes())["ranking"]
+selected = {name: f"ranking-value-{index:02d}" for index, name in enumerate(entry["required"])}
+selected.update(record)
+for document, path in entry["documentSources"].items():
+    selected.pop(path, None)
+    assert document in selected
+want = {**entry["defaults"], **selected, **entry["fixed"]}
+project = next(event for event in json.load(open(sys.argv[3])) if event["op"] == "Project")
+project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-ranking", "name": "ranking"}}]
+replay = [project,
+    {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-ranking"},
+     "data": {"variables": {}}},
+    {"op": "VariablesUpsert", "variables": {"i": {
+        "projectId": "proj-test", "environmentId": "env-prod", "serviceId": "svc-ranking",
+        "variables": want, "skipDeploys": True}}, "data": {"variableCollectionUpsert": True}},
+]
+for name, data in (("manifest", {"ranking": entry}), ("values", {"ranking": selected}), ("replay", replay)):
+    (directory / f"ranking-{name}.json").write_text(json.dumps(data))
+result = subprocess.run([
+    sys.executable, sys.argv[4], "proj-test", "production", "--apply",
+    "--manifest", str(directory / "ranking-manifest.json"),
+    "--values", str(directory / "ranking-values.json"),
+    "--replay", str(directory / "ranking-replay.json"),
+], capture_output=True, text=True, env=os.environ)
+assert result.returncode == 0, result.stdout + result.stderr
+assert f"  applied {len(want)} variables" in result.stdout
+assert record["RANKING_RUNTIME_DOCUMENT"] not in result.stdout + result.stderr
+PYCODE
+	echo PASS ranking-evidence-document
+}
+ranking_evidence_document
 
 optional_settings_and_defaults() {
 	python3 - "$tmp" "$replay" "$tool" <<'PY'

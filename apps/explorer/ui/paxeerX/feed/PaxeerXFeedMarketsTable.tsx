@@ -32,7 +32,7 @@ const PaxeerXFeedMarketsTable = ({ items, top = 0, isLoading }: Props) => {
   const initialList = useInitialList({ data: items, idFn: rowId, enabled: !isLoading });
 
   return (
-    <TableScrollArea label="Markets">
+    <TableScrollArea label="Markets" minTableWidth="calc(var(--chakra-spacing-200) + var(--chakra-spacing-20) + var(--chakra-spacing-5))">
       <TableRoot aria-label="Markets" variant="scan" minW="max-content" data-label="paxeer-x-feed-markets">
         <TableHeaderSticky top={ top }>
           <TableRow>
@@ -41,7 +41,7 @@ const PaxeerXFeedMarketsTable = ({ items, top = 0, isLoading }: Props) => {
             <TableColumnHeader width="16%" isNumeric>Mark price</TableColumnHeader>
             <TableColumnHeader width="14%">Source time</TableColumnHeader>
             <TableColumnHeader width="22%">Last update</TableColumnHeader>
-            <TableColumnHeader width="14%">Block</TableColumnHeader>
+            <TableColumnHeader width="14%" isNumeric>Block</TableColumnHeader>
           </TableRow>
         </TableHeaderSticky>
         <TableBody>
@@ -60,8 +60,8 @@ const PaxeerXFeedMarketsTable = ({ items, top = 0, isLoading }: Props) => {
                       { market.symbol }
                     </Link>
                   </Skeleton>
-                  { !isLoading && market.symbol.toLowerCase() !== market.chainflow_symbol.toLowerCase() && (
-                    <Skeleton loading={ false } color="text.secondary" textStyle="text.xs">{ market.chainflow_symbol }</Skeleton>
+                  { market.symbol.toLowerCase() !== market.chainflow_symbol.toLowerCase() && (
+                    <Skeleton loading={ isLoading } color="text.secondary" textStyle="text.xs">{ market.chainflow_symbol }</Skeleton>
                   ) }
                 </TableCell>
                 <TableCell verticalAlign="middle" isNumeric>
@@ -82,8 +82,10 @@ const PaxeerXFeedMarketsTable = ({ items, top = 0, isLoading }: Props) => {
                     </Skeleton>
                   ) : dash }
                 </TableCell>
-                <TableCell verticalAlign="middle">
-                  { latest ? <BlockEntity number={ latest.block_number } isLoading={ isLoading } truncation="none" noIcon/> : dash }
+                <TableCell verticalAlign="middle" isNumeric>
+                  { latest ? (
+                    <BlockEntity justifyContent="flex-end" number={ latest.block_number } isLoading={ isLoading } truncation="none" noIcon/>
+                  ) : dash }
                 </TableCell>
               </TableRow>
             );

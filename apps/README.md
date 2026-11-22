@@ -82,12 +82,12 @@ network inputs; variable names are listed without deployment values.
   reads `NAMES_RPC_URL`, `NAMES_RESOLVER`, `NAMES_CONSENSUS_RPC_URL`,
   `NAMES_BUCKET_BASE_URL` and `NAMES_SHELL_DOMAIN`.
   [next.config.ts](names/next.config.ts) configures the shell framework.
-- **Perps:** [gateway.ts](perps/src/core/network/gateway.ts) reads
-  `NEXT_PUBLIC_PERPS_GATEWAY_URL`; [rpc.ts](perps/src/core/rpc.ts) reads
+- **Perps:** [gateway.ts](perps/packages/paxeer-backend/src/core/network/gateway.ts) reads
+  `NEXT_PUBLIC_PERPS_GATEWAY_URL`; [rpc.ts](perps/packages/paxeer-backend/src/core/rpc.ts) reads
   `NEXT_PUBLIC_PAXEER_RPC_URLS` and `NEXT_PUBLIC_PAXEER_RPC_URL`.
   [The deployment guide](perps/deploy/README.md) documents the remaining inputs,
   including market proxy, wallet and error-reporting configuration. Tracked
-  configuration includes [next.config.js](perps/next.config.js),
+  configuration includes [next.config.js](perps/apps/web/next.config.js),
   [railway.json](perps/railway.json),
   [deploy/.env.production.example](perps/deploy/.env.production.example) and
   [deploy/build-args.production.env](perps/deploy/build-args.production.env).

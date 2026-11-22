@@ -40,6 +40,17 @@ const DetailsCard = ({ title, children, mt }: CardProps) => {
       px={ 4 }
       py={ 4 }
       minW={ 0 }
+      css={{
+        '& [data-detailed-info]': {
+          '@media (max-width: 999px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
+          '& > [data-detailed-info-value]': { borderTopWidth: { base: 0, lg: 'var(--chakra-border-widths-1)' } },
+          ...(title === 'Metadata' ? {
+            '@media (min-width: 1000px)': {
+              '@container detailed-info (min-width: 48rem)': { gridTemplateColumns: 'minmax(0, 1fr) auto' },
+            },
+          } : {}),
+        },
+      }}
     >
       <chakra.h2 textStyle="sm" fontWeight="semibold" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
       <DetailedInfo.Container
@@ -89,7 +100,7 @@ const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
             size="md"
             withFullscreen
             w="100%"
-            maxW="64"
+            maxW={ 'var(--chakra-spacing-62\\.5)' }
             alignSelf="center"
           />
         </DetailsCard>
@@ -117,7 +128,7 @@ const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
             isLoading={ isLoading }
             multiRow
           >
-            <Box display="flex" alignItems="center" overflow="hidden" data-token-instance-id>
+            <Box display="flex" alignItems="center" minW={ 0 } data-token-instance-id>
               <Skeleton loading={ isLoading } overflow="hidden" display="inline-block" w="100%">
                 <HashStringShortenDynamic hash={ data.id }/>
               </Skeleton>
@@ -143,7 +154,7 @@ const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
 
           { (config.UI.views.nft.marketplaces.length === 0 && appActionData) && (
             <ScanKeyValue label="Dapp" hint="Link to the dapp">
-              <AppActionButton data={ appActionData } height="touchTarget" source="NFT item"/>
+              <AppActionButton data={ appActionData } height={ 'var(--chakra-spacing-7\\.5)' } source="NFT item"/>
             </ScanKeyValue>
           ) }
 

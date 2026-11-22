@@ -113,7 +113,7 @@ const AddressAddToWallet = ({ className, token, tokenId, isLoading, variant = 'i
   }
 
   if (isLoading) {
-    return <Skeleton loading className={ className } boxSize="touchTarget" borderRadius="base"/>;
+    return <Skeleton loading data-touch-placeholder className={ className } boxSize={ iconSize } borderRadius="base"/>;
   }
 
   const canBeAdded = (
@@ -153,8 +153,6 @@ const AddressAddToWallet = ({ className, token, tokenId, isLoading, variant = 'i
         display="inline-flex"
         onClick={ handleClick }
         flexShrink={ 0 }
-        minW="touchTarget"
-        minH="touchTarget"
         alignItems="center"
         justifyContent="center"
         aria-label="Add token to wallet"

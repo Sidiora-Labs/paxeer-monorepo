@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Search, X } from 'lucide-react';
@@ -127,7 +128,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
   const tokenUsable = token !== null && token.decimalsQuality === 'verified' && token.decimals !== null;
   const effectiveAsset = asset;
   const decimals = effectiveAsset === 'usdl' ? bountiesContract.usdlDecimals : (token?.decimals as number);
-  const symbol = effectiveAsset === 'usdl' ? 'USDL' : token?.symbol ?? 'token';
+  const symbol = effectiveAsset === 'usdl' ? 'USDL' : displayCoinText(token?.symbol, token?.address);
   const budgetRaw = effectiveAsset === 'token' && !tokenUsable ? null : parseDecimalAmount(budget, decimals);
 
   const errors = {
@@ -172,7 +173,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
   const failure = mutation.error;
 
   return (
-    <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-5 rounded-lg bg-surface-1 p-4 md:p-6', className)}>
+    <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-5 rounded-lg bg-surface-1 p-4 md:p-6 [&_.sl-field]:py-[calc(var(--sl-space-2)-var(--sl-edge-width))] [&_[role=radio]]:min-h-6 [&_[role=radio]]:py-0 [&_input:not([type=file])]:text-base [&_input:not([type=file])]:leading-[calc(var(--sl-leading-base)/var(--sl-text-base))] [&_textarea]:text-base [&_textarea]:leading-[calc(var(--sl-leading-base)/var(--sl-text-base))]', className)}>
       <h2 id={`${id}-heading`} className="text-lg font-bold text-text">Bounty details</h2>
       <FormField
         id={`${id}-title`}
@@ -199,7 +200,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
           onChange={setAsset}
           options={[
             { value: 'usdl', label: 'USDL' },
-            { value: 'token', label: token ? `$${token.symbol}` : 'Linked coin', disabled: !tokenUsable },
+            { value: 'token', label: token ? `$${displayCoinText(token.symbol, token.address)}` : 'Linked coin', disabled: !tokenUsable },
           ]}
         />
         <p className="text-xs text-text-faint">

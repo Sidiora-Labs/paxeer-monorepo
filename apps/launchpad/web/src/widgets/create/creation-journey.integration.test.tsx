@@ -291,6 +291,17 @@ it('executes creation fee, exact approval, native hash resolution and protected 
       await testClient.setAutomine(true);
       await testClient.mine({ blocks: 2 });
     }
+    // Publish the created pools' reserve events for the joined market reads.
+    const reserveAbi = parseAbi(['function syncReserves() returns (uint256 usdlBalance, uint256 tokenBalance)']);
+    for (const record of await storage.history()) {
+      if (!record.poolAddress) throw new Error('Created pool address is required.');
+      const sync = await admin.writeContract({
+        address: record.poolAddress as Address,
+        abi: reserveAbi,
+        functionName: 'syncReserves',
+      });
+      expect((await client.waitForTransactionReceipt({ hash: sync })).status).toBe('success');
+    }
   } finally {
     controller.dispose();
   }

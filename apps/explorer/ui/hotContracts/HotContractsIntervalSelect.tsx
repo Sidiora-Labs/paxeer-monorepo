@@ -50,7 +50,7 @@ const HotContractsIntervalSelect = ({ interval, onIntervalChange, isLoading }: P
       <Select
         collection={ intervalCollection }
         placeholder="Select interval"
-        triggerProps={{ 'aria-label': 'Select interval', minH: 'touchTarget', minW: 'touchTarget' }}
+        triggerProps={{ 'aria-label': 'Select interval' }}
         value={ [ interval ] }
         onValueChange={ handleItemSelect }
         hideFrom="lg"

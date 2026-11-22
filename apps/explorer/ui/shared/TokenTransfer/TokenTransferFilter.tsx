@@ -49,8 +49,6 @@ const TokenTransferFilter = ({
           aria-label="Filter token transfers"
           appliedFiltersNum={ appliedFiltersNum }
           isLoading={ isInitialLoading }
-          minH="touchTarget"
-          minW="touchTarget"
         />
       </PopoverTrigger>
       <PopoverContent

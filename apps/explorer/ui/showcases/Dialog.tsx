@@ -17,7 +17,7 @@ const DialogShowcase = () => {
           <Sample label="size: sm">
             <DialogRoot size="sm">
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" h="auto" minH={ 8 }>
                   Open Dialog
                 </Button>
               </DialogTrigger>
@@ -29,7 +29,7 @@ const DialogShowcase = () => {
                   <p>{ TEXT }</p>
                 </DialogBody>
                 <DialogFooter>
-                  <Button>Save</Button>
+                  <Button h="auto" minH={ 10 }>Save</Button>
                   <DialogActionTrigger asChild>
                     <Button variant="link">I'll do it later</Button>
                   </DialogActionTrigger>
@@ -41,7 +41,7 @@ const DialogShowcase = () => {
           <Sample label="size: md">
             <DialogRoot size="md">
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" h="auto" minH={ 8 }>
                   Open Dialog
                 </Button>
               </DialogTrigger>
@@ -54,9 +54,9 @@ const DialogShowcase = () => {
                 </DialogBody>
                 <DialogFooter>
                   <DialogActionTrigger asChild>
-                    <Button variant="outline">Cancel</Button>
+                    <Button variant="outline" h="auto" minH={ 10 }>Cancel</Button>
                   </DialogActionTrigger>
-                  <Button>Save</Button>
+                  <Button h="auto" minH={ 10 }>Save</Button>
                 </DialogFooter>
               </DialogContent>
             </DialogRoot>
@@ -65,7 +65,7 @@ const DialogShowcase = () => {
           <Sample label="size: full">
             <DialogRoot size="full">
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" h="auto" minH={ 8 }>
                   Open Dialog
                 </Button>
               </DialogTrigger>
@@ -78,9 +78,9 @@ const DialogShowcase = () => {
                 </DialogBody>
                 <DialogFooter>
                   <DialogActionTrigger asChild>
-                    <Button variant="outline">Cancel</Button>
+                    <Button variant="outline" h="auto" minH={ 10 }>Cancel</Button>
                   </DialogActionTrigger>
-                  <Button>Save</Button>
+                  <Button h="auto" minH={ 10 }>Save</Button>
                 </DialogFooter>
               </DialogContent>
             </DialogRoot>

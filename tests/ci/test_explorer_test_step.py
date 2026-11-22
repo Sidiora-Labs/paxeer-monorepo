@@ -86,32 +86,29 @@ def test_compiler_inventory_covers_vyper_verification_requests():
     assert requested <= listed, sorted(requested - listed)
 
 
-def test_mix_test_excludes_compiler_tag_without_binaries(tmp_path):
+def test_mix_test_requires_compiler_tools(tmp_path):
     source = BUILDER.read_text(encoding="utf-8")
     match = re.search(
         r"cat <<'CONTAINER_SCRIPT_END'\n(.*?)\nCONTAINER_SCRIPT_END", source, re.S
     )
     assert match, "The builder must select compiler tests inside its container"
     script = match[1]
-    selection, setup = script.split(
+    selection, setup = script[script.index("compiler_binaries_available() {") :].split(
         'if [ "${MIX_IN_BUILDER_BROWSER_DRIVER:-0}"', 1
     )
     assert "command -v node" in selection
     assert "require.resolve('solc'" in selection
     assert "command -v vyper" in selection
-    assert 'exec mix "$@"' in setup
+    assert setup.strip().endswith('run_mix_with_retry "$@"')
     assert 'sh -c "$CONTAINER_SCRIPT" mix-in-builder "$@"' in source
 
-    # Exercise the real shell selection with no executable tools on PATH.
+    # Exercise the real compiler check with no executable tools on PATH.
     # Stop before database setup and mix execution; no command is substituted.
     for arguments, expected in [
-        (["test"], ["test", "--exclude", "compiler"]),
+        (["test"], []),
         (
             ["test", "apps/explorer/test", "--only", "line:42", "a path with spaces"],
-            [
-                "test", "apps/explorer/test", "--only", "line:42",
-                "a path with spaces", "--exclude", "compiler",
-            ],
+            [],
         ),
         (["compile", "--warnings-as-errors"], ["compile", "--warnings-as-errors"]),
     ]:
@@ -121,17 +118,25 @@ def test_mix_test_excludes_compiler_tag_without_binaries(tmp_path):
             env={**os.environ, "PATH": str(tmp_path)},
             cwd=BACKEND,
             capture_output=True,
-            check=True,
+            check=False,
         )
         assert result.stdout.decode().split("\0")[:-1] == expected
         if arguments[0] == "test":
-            assert b"compiler tools unavailable" in result.stderr
+            assert result.returncode == 1
+            assert result.stdout == b""
+            assert result.stderr == (
+                b"mix-in-builder: required compiler tools are unavailable\n"
+            )
         else:
+            assert result.returncode == 0
             assert result.stderr == b""
 
     contracts = BACKEND / "apps/explorer/test/explorer/smart_contract"
     compiler = (contracts / "solidity/code_compiler_test.exs").read_text()
-    assert "doctest Explorer.SmartContract.Solidity.CodeCompiler, tags: [compiler: true]" in compiler
+    assert (
+        "doctest Explorer.SmartContract.Solidity.CodeCompiler, "
+        "tags: [compiler: true, compiler_doctest: true]"
+    ) in compiler
     assert re.search(r'describe "run/2" do\s+@describetag :compiler', compiler)
     # Compiler-independent cases must continue to run in the same modules.
     for name in ["solidity/code_compiler_test.exs", "solidity/verifier_test.exs",

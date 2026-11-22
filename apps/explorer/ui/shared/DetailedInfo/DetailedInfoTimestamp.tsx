@@ -80,6 +80,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
               aria-label="Toggle time format"
               variant="icon_secondary"
               boxSize={ 5 }
+              inlineLineSize="var(--chakra-sizes-5)"
               borderRadius="sm"
               selected={ !isLoading }
               loadingSkeleton={ isLoading }
@@ -98,8 +99,8 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
         <Skeleton
           loading={ isLoading }
           minW="0"
-          whiteSpace="normal"
-          overflowWrap="anywhere"
+          truncate
+          title={ timeText }
         >
           { timeText }
         </Skeleton>

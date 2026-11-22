@@ -76,7 +76,7 @@ test('explicit compact and hero render in both modes', async function explicitCo
     expect(inputs.map(input => input.getAttribute('aria-label'))).toEqual([ 'Search', 'Search or ask' ]);
     expect(inputs.map(input => window.getComputedStyle(input).height)).toEqual([ 'auto', 'auto' ]);
     expect(inputs.map(input => window.getComputedStyle(input).minHeight))
-      .toEqual([ 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))', 'var(--chakra-sizes-touch-target)' ]);
+      .toEqual([ 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))', 'var(--chakra-sizes-9)' ]);
     expect(inputs.map(input => window.getComputedStyle(input.closest('form')!).width))
       .toEqual([ 'calc(var(--chakra-spacing-80) * 2)', 'var(--chakra-spacing-80)' ]);
     expect(inputs.map(input => window.getComputedStyle(input).borderRadius)).toEqual([ 'var(--chakra-radii-control)', 'var(--chakra-radii-pill)' ]);
@@ -153,7 +153,7 @@ async function assertGroupedSuggestions(isHeroBanner: boolean): Promise<Array<st
     expect(groups[3].textContent).toContain(searchFixture.token1.name);
     expect(groups[4].textContent).toContain(appsFixture[0].title);
     expect(groups[4].textContent).toContain(appsFixture[0].description);
-    expect(window.getComputedStyle(groups[0].querySelector('a')!).minHeight).toBe('var(--chakra-sizes-touch-target)');
+    expect(window.getComputedStyle(groups[0].querySelector('a')!).minHeight).toBe('var(--chakra-sizes-11)');
   }, { timeout: 30_000, interval: 100 });
   const searchRequests = fetchMock.mock.calls.map(([ request ]) => String(request));
   expect(searchRequests.some(url => url.includes('/api/v2/search/quick') && url.includes('q=o'))).toBe(true);
@@ -229,7 +229,8 @@ test('mobile hero keeps the search and ask prompt on one line', function mobileH
   expect(style.overflow).toBe('visible');
   expect(style.textOverflow).not.toBe('ellipsis');
   expect(style.width).toBe('100%');
+  expect(style.height).toBe('calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))');
   expect(style.minHeight).toBe('calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))');
-  expect(style.minWidth).toBe('var(--chakra-sizes-touch-target)');
-  expect(window.getComputedStyle(trigger.querySelector('span')!).fontSize).toBe('0.8125rem');
+  expect(style.minWidth).toBe('var(--chakra-sizes-10)');
+  expect(window.getComputedStyle(trigger.querySelector('span')!).fontSize).toBe('0.875rem');
 });

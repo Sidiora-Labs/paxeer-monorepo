@@ -365,24 +365,48 @@ func migrationContractRPC(t *testing.T) *migrationContractChain {
 	c.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		var request struct {
+		type rpcRequest struct {
 			ID     json.RawMessage   `json:"id"`
 			Method string            `json:"method"`
 			Params []json.RawMessage `json:"params"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		var raw json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		result, err := c.result(request.Method, request.Params)
-		response := map[string]any{"jsonrpc": "2.0", "id": request.ID}
-		if err != nil {
-			response["error"] = map[string]any{"code": -32000, "message": err.Error()}
-		} else {
-			response["result"] = result
+		respond := func(request rpcRequest) map[string]any {
+			result, err := c.result(request.Method, request.Params)
+			response := map[string]any{"jsonrpc": "2.0", "id": request.ID}
+			if err != nil {
+				response["error"] = map[string]any{"code": -32000, "message": err.Error()}
+			} else {
+				response["result"] = result
+			}
+			return response
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
+		if len(raw) > 0 && raw[0] == '[' {
+			var requests []rpcRequest
+			if err := json.Unmarshal(raw, &requests); err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			responses := make([]map[string]any, len(requests))
+			for i, request := range requests {
+				responses[i] = respond(request)
+			}
+			if err := json.NewEncoder(w).Encode(responses); err != nil {
+				t.Error(err)
+			}
+			return
+		}
+		var request rpcRequest
+		if err := json.Unmarshal(raw, &request); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(respond(request)); err != nil {
 			t.Error(err)
 		}
 	}))

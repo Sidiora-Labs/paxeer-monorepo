@@ -18,7 +18,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 UCP = "services/interop/specs/conformance/ucp/sequenced-order.json"
 PRODUCER = "sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json"
-CONSUMER = "services/interop/crates/layerx-ucp/tests/fixtures/sequenced-order.json"
+CONSUMER = UCP
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_93.kvx"
 )
@@ -290,7 +290,7 @@ def test_ucp_reopened_replay_source_contract():
         "assert_eq!( UcpAdapter::read_order_with_config(stored, keys, config), Ok(order.clone()) );"
     ) in recovered_order
     vectors = source("services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs")
-    assert 'include_str!("fixtures/sequenced-order.json")' in vectors
+    assert 'include_str!("../../../specs/conformance/ucp/sequenced-order.json")' in vectors
     assert 'MerchantCurrencyBinding::new(submission.currency, submission.layerx_asset, 2, 6)' in vectors
     assert 'vector["signedReceipt"], source["signedReceipt"]' in vectors
     assert 'vector["evidence"]["logs"], source["receiptJson"]["logs"]' in vectors

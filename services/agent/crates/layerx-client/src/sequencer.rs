@@ -968,13 +968,26 @@ fn validate_history_readiness(value: &Value) -> Option<()> {
         }
         let reconciled = source.get("reconciled")?.as_bool()?;
         let failures = source.get("consecutive_failures")?.as_u64()?;
-        match source.get("state")?.as_str()? {
-            "ready"
-                if reconciled
-                    && failures == 0
-                    && source.get("last_success_at")?.as_u64().is_some()
-                    && source.get("freshness_secs")?.as_u64().is_some()
-                    && source.get("source_head")? == source.get("indexed_cursor")? => {}
+        let state = source.get("state")?.as_str()?;
+        match state {
+            "ready" | "index_disabled" => {
+                if !reconciled
+                    || failures != 0
+                    || source.get("last_success_at")?.as_u64().is_none()
+                    || source.get("freshness_secs")?.as_u64().is_none()
+                {
+                    return None;
+                }
+                if state == "ready" {
+                    if source.get("indexed_cursor")?.as_u64()?
+                        > source.get("source_head")?.as_u64()?
+                    {
+                        return None;
+                    }
+                } else if name != "comet" {
+                    return None;
+                }
+            }
             "catching_up" | "retrying" | "failing" => {
                 rank = rank.max(1);
             }

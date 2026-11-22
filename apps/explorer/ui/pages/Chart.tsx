@@ -279,7 +279,6 @@ const Chart = () => {
         ref={ ref }
         flexGrow={ 1 }
         h="50dvh"
-        minH="var(--chakra-spacing-65)"
         mt={ 3 }
         position="relative"
       >

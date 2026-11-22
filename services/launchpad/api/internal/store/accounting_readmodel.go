@@ -24,6 +24,7 @@ const MaxCanonicalCandles = 2000
 const MaxCanonicalTrades = 100
 const maxAccountingPageBytes = 256 << 10
 
+var ErrAccountingUntraded = errors.New("pool has no market position")
 var ErrAccountingNotReady = errors.New("accounting snapshot not coherent")
 var accountingSchema = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 var accountingToken = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
@@ -182,10 +183,51 @@ func (s *AccountingReadModel) vector(ctx context.Context, tx pgx.Tx, pool, consu
 	}
 	return v, nil
 }
+func (s *AccountingReadModel) untradedPage(ctx context.Context, tx pgx.Tx, pool string) (AccountingPage, error) {
+	out := AccountingPage{Items: []json.RawMessage{}, SeriesModelVersion: s.config.ProjectionVersion}
+	if _, err := sourcebootstrap.FirstMarketPosition(ctx, tx, s.config.SourcePartitionSchema, s.config.ProjectionVersion, pool); !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil {
+			return out, err
+		}
+		return out, ErrAccountingNotReady
+	}
+	if _, err := sourcebootstrap.CanonicalCreation(ctx, tx, s.config.SourceStream, pool); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return out, ErrAccountingNotReady
+		}
+		return out, err
+	}
+	for i, deliverySchema := range []string{s.config.ChartsDeliverySchema, s.config.StatsDeliverySchema} {
+		consumer := s.config.ChartsConsumerID
+		if i == 1 {
+			consumer = s.config.StatsConsumerID
+		}
+		var exists bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM `+pgx.Identifier{deliverySchema}.Sanitize()+`.delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)`, consumer, s.config.ProjectionGeneration, "125:"+pool).Scan(&exists)
+		if err != nil {
+			return out, err
+		}
+		if exists {
+			return out, ErrAccountingNotReady
+		}
+	}
+	var observed time.Time
+	if err := tx.QueryRow(ctx, `SELECT transaction_timestamp()`).Scan(&observed); err != nil {
+		return out, err
+	}
+	out.GeneratedAt = observed.UTC().Format("2006-01-02T15:04:05.000Z")
+	identity, _ := json.Marshal([]string{"public-accounting-untraded-v2", s.config.ProjectionGeneration, pool})
+	out.SnapshotID = uuid.NewSHA1(uuid.NameSpaceOID, identity).String()
+	out.Watermark = json.RawMessage(`null`)
+	return out, ErrAccountingUntraded
+}
 func (s *AccountingReadModel) snapshot(ctx context.Context, tx pgx.Tx, r AccountingPageRequest) (AccountingPage, accountingVector, error) {
 	out := AccountingPage{Items: []json.RawMessage{}, SeriesModelVersion: s.config.ProjectionVersion}
 	v, err := s.vector(ctx, tx, r.Pool, s.config.ChartsConsumerID, true, s.config.ChartsDeliverySchema, r.SnapshotSequence)
 	if err != nil {
+		if errors.Is(err, ErrAccountingNotReady) && r.ExpectedSnapshot == "" && r.SnapshotSequence == nil && r.AfterStart == nil && r.AfterSequence == nil && r.AfterOrder == nil && r.AfterEventID == "" {
+			out, err = s.untradedPage(ctx, tx, r.Pool)
+		}
 		return out, v, err
 	}
 	stats, err := s.vector(ctx, tx, r.Pool, s.config.StatsConsumerID, false, s.config.StatsDeliverySchema, r.SnapshotSequence)

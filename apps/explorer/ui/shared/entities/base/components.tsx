@@ -92,6 +92,8 @@ const Link = chakra(({ isLoading, children, external, onClick, href, noLink, var
       variant={ variant ?? 'primary' }
       noIcon={ noIcon }
       data-entity-link
+      data-touch-inline
+      css={{ '--touch-line-size': '1lh' }}
     >
       { children }
     </LinkToolkit>

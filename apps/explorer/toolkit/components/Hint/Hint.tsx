@@ -13,9 +13,10 @@ export interface HintProps extends IconButtonProps {
   tooltipProps?: Partial<TooltipProps>;
   isLoading?: boolean;
   as?: React.ElementType;
+  inline?: boolean;
 }
 
-export const Hint = React.memo(({ label, tooltipProps, isLoading, boxSize = 5, ...rest }: HintProps) => {
+export const Hint = React.memo(({ label, tooltipProps, isLoading, boxSize = 5, inline, ...rest }: HintProps) => {
   return (
     <Tooltip
       content={ label }
@@ -25,6 +26,8 @@ export const Hint = React.memo(({ label, tooltipProps, isLoading, boxSize = 5, .
       <IconButton
         aria-label="hint"
         boxSize={ boxSize }
+        data-touch-inline={ inline || undefined }
+        css={ inline ? { '--touch-line-size': typeof boxSize === 'number' ? `var(--chakra-sizes-${ boxSize })` : boxSize } : undefined }
         loadingSkeleton={ isLoading }
         borderRadius="sm"
         variant="icon_secondary"

@@ -87,6 +87,7 @@ tests
 !services/interop/crates/x-websearch/**
 !services/platform/hosted/authority/**
 !services/platform/hosted/gateway/**
+!services/platform/hosted/identity/**
 !services/platform/hosted/indexer/**
 !services/platform/hosted/internal/**
 !programs/crates/layerx-programs-registry/**

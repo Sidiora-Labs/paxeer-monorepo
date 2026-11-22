@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -70,7 +71,7 @@ export default function TokenMetadataPage() {
       {error && <div role="alert"><p>{error}</p>{validToken && <button type="button" onClick={() => void query.refetch()}>Try again</button>}</div>}
       <Link href="/explore">Back to coins</Link>
       {metadata && savedDetails === `${token}:${address}:${session?.epoch}:${metadata.revision}` && <p role="status">Coin details saved</p>}
-      {metadata && <p>{metadata.token.name} ({metadata.token.symbol})</p>}
+      {metadata && <p className="[overflow-wrap:anywhere]">{displayCoinText(metadata.token.name, token)} ({displayCoinText(metadata.token.symbol, token)})</p>}
       {validToken && <p className="break-all">{metadata ? metadata.token.address : token}</p>}
       {metadata && <>
         {!isConnected || !address ? <><p>Connect the creator wallet to edit coin details</p><WalletButton /></> : chainId !== 125 ? <><p role="alert">Switch your wallet to Paxeer to edit coin details</p><WalletButton /></> : <>

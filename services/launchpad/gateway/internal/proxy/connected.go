@@ -103,8 +103,8 @@ func allowedConnectedRoute(name string, r ConnectedRoute) bool {
 	}
 	if name == metadataServiceName {
 		for _, route := range MetadataConnectedRoutes() {
-			if route.Template == r.Template && route.Method == r.Method {
-				return r.Authenticate == route.Authenticate && r.Optional == route.Optional && !r.Upload
+			if route == r {
+				return true
 			}
 		}
 	}
@@ -697,7 +697,7 @@ const (
 // for the enqueue, verifies the gateway's actor assertion and the creator's
 // operation envelope); the legacy metadata/logo/banner reads are public.
 func MetadataConnectedRoutes() []ConnectedRoute {
-	return []ConnectedRoute{
+	routes := []ConnectedRoute{
 		{Method: http.MethodGet, Template: metadataPublicationAuthority, Authenticate: true},
 		{Method: http.MethodPost, Template: metadataPublications, Authenticate: true},
 		{Method: http.MethodGet, Template: metadataPublication, Authenticate: true},
@@ -706,6 +706,19 @@ func MetadataConnectedRoutes() []ConnectedRoute {
 		{Method: http.MethodGet, Template: metadataLogo},
 		{Method: http.MethodGet, Template: "/banner/{file}"},
 	}
+	frozen := FrozenConnectedSurface()[metadataServiceName]
+	paths := make([]string, 0, len(frozen))
+	for path := range frozen {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		for _, method := range strings.Fields(frozen[path]) {
+			asset := strings.Contains(path, "/assets/")
+			routes = append(routes, ConnectedRoute{Method: method, Template: path, Authenticate: method != http.MethodGet || asset, Upload: method == http.MethodPut && asset})
+		}
+	}
+	return routes
 }
 
 // slowRoute is a route whose upstream work is bounded by more than the

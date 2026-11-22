@@ -585,7 +585,7 @@ describe('column tab rows never clip a control', () => {
     for (const segment of segments) {
       const classes = segment.className.split(/\s+/);
       expect(classes).toContain('whitespace-nowrap');
-      expect(classes).toContain('px-1.5');
+      expect(classes).toContain('px-[calc(var(--sl-space-1)*1.5-var(--sl-edge-width))]');
       expect(
         classes.some((name) => /^(truncate|overflow-|text-ellipsis|line-clamp)/.test(name))
       ).toBe(false);

@@ -1,12 +1,13 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { poolPath } from '@/core/app-foundation/navigation';
 import { explorerTransactionUrl } from '@/core/clients/explorer-api';
 import { Avatar, Tooltip } from '@/ui/primitives';
-import { formatCompactUsd, formatTokenAmount, formatUsdl, relativeAge, shortAddress } from '@/utils/format';
+import { formatCompactUsd, formatTokenAmount, formatUsdl, relativeAge } from '@/utils/format';
 import { ActionBadge } from './action-badge';
 import type { ActivityEvent, ActivityValue } from './activity-transport';
 import { MaskedAmount } from './balance-visibility';
@@ -38,16 +39,16 @@ function absoluteTime(ms: number): string {
 
 export function ActivityRow({ event, identity, now }: { event: ActivityEvent; identity: ActivityTokenIdentity; now: number }) {
   const known = !!identity.name;
-  const title = identity.name ?? 'Unknown';
-  const subtitle = known ? identity.symbol ?? shortAddress(event.tokenAddress) : shortAddress(event.tokenAddress);
+  const title = displayCoinText(identity.name, event.tokenAddress);
+  const subtitle = displayCoinText(identity.symbol, event.tokenAddress);
   const inflow = event.amountRaw > 0n;
   const explorer = explorerTransactionUrl(event.txHash);
   const coin = (
     <>
-      <Avatar src={identity.logo} name={identity.symbol ?? title} size="lg" shape="square" decorative />
+      <Avatar src={identity.logo} name={subtitle} size="lg" shape="square" decorative />
       <span className="min-w-0">
-        <span className="block truncate text-sm font-bold text-text">{title}</span>
-        <span className={cn('block truncate text-xs text-text-faint', !known || !identity.symbol ? 'font-mono' : null)}>{subtitle}</span>
+        <span className="block truncate text-sm font-bold text-text" title={title}>{title}</span>
+        <span className={cn('block truncate text-xs text-text-faint', !known || !identity.symbol ? 'font-mono' : null)} title={subtitle}>{subtitle}</span>
       </span>
     </>
   );
@@ -73,8 +74,8 @@ export function ActivityRow({ event, identity, now }: { event: ActivityEvent; id
         </span>
       </td>
       <td className="px-2 py-2 text-right">
-        <MaskedAmount className={cn('block whitespace-nowrap text-sm font-bold tabular-nums', inflow ? 'text-success' : event.amountRaw < 0n ? 'text-danger' : 'text-text')}>
-          {signedTokenAmount(event.amountRaw, identity.decimals, identity.symbol)}
+        <MaskedAmount className={cn('block min-w-0 max-w-48 truncate text-sm font-bold tabular-nums', inflow ? 'text-success' : event.amountRaw < 0n ? 'text-danger' : 'text-text')}>
+          <span title={signedTokenAmount(event.amountRaw, identity.decimals, subtitle)}>{signedTokenAmount(event.amountRaw, identity.decimals, subtitle)}</span>
         </MaskedAmount>
         <MaskedAmount className="block whitespace-nowrap text-xs text-text-faint tabular-nums">{activityValueText(event.value)}</MaskedAmount>
       </td>

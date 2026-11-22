@@ -1,0 +1,24 @@
+[latest_transactions]
+price_update = "The table tag reads Price update; its value cell shows the observation count with market for one and markets otherwise, and its fee line shows a dash."
+row_tags = "The time keeps its form; kind and status tags keep their whole labels and wrap onto the next line when needed, while name tags retain truncation."
+other_views = "Stacked rows and other transaction views retain the price-update label with its market count."
+
+[home_rendering]
+part_renders = 340
+home_renders = 102
+result = "Every render shows content with no findings."
+cut = 0
+scale = 0
+sideways = 0
+shift = 0
+
+[desktop_tags]
+kind = "Coin transfer"
+rows_per_width = 1
+widths_px = [1024, 1100, 1280, 1440, 1920]
+tag_box_widths_px = [101, 101, 101, 101, 101]
+text_widths_px = [89, 89, 89, 89, 89]
+label_box_widths_px = [89, 89, 89, 89, 89]
+label_scroll_widths_px = [89, 89, 89, 89, 89]
+wrapping = "The tag takes the line after the time at 1024 pixels and fits beside the time at the other measured widths."
+price_update_rows = 0

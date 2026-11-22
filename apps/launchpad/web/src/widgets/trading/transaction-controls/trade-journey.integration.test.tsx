@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { it, expect } from 'vitest';
+import { it, expect, test } from 'vitest';
 import {
   createPublicClient,
+  decodeFunctionData,
   createWalletClient,
   createTestClient,
   defineChain,
@@ -24,8 +25,9 @@ import {
 } from './providers';
 import { ReceiptRecoveryScheduler, type RecoveryUpdate } from './recovery';
 import { TradeJourney } from './runtime';
+import { CORE_DEPLOYMENT } from '@/core/network/deployment';
 import { WalletSessionController } from '@/core/wallet-sdk/session';
-import { contextKey, minimumOutput, type TradeContext } from './domain';
+import { contextKey, minimumOutput, reviewedRouterAbi, type TradeContext } from './domain';
 import { TransactionStatus } from './transaction-status';
 import { useTransactionAttempt } from '@/hooks/tx/use-transaction-attempt';
 import { AmountInput } from '../trade-panel-parts';
@@ -47,9 +49,13 @@ function fixture() {
   return JSON.parse(bytes.toString());
 }
 function deployConfig(data: ReturnType<typeof fixture>): TradeDeployment {
-  const deployment = data.deployment.tradeDeployment;
+  const deployment: TradeDeployment = data.deployment.tradeDeployment;
+  expect(deployment.spender).toBe(deployment.router);
   expect(deployment.revision).toBe(data.deployment.revision);
-  for (const [field, role] of Object.entries({ router: 'Router', usdl: 'USDL', registry: 'PoolRegistry', quoter: 'Quoter', emitter: 'EventEmitter' }))
+  for (const [field, role] of [
+    ['router', 'Router'], ['usdl', 'USDL'], ['registry', 'PoolRegistry'],
+    ['quoter', 'Quoter'], ['emitter', 'EventEmitter'],
+  ] as const)
     expect(getAddress(deployment[field])).toBe(getAddress(data.manifest.roles[role].address));
   expect(getAddress(data.deployment.usdlSpender)).toBe(getAddress(deployment.router));
   return deployment;
@@ -509,3 +515,148 @@ it('funded real chain125 quote, zero-reset approvals, receipt recovery, actual s
     }
   }
 }, 180000);
+
+async function tradeUsesDeploymentSpenderAndRouterTargets() {
+  const data = fixture();
+  const rpc = process.env.L26_RPC_URL;
+  if (!rpc || !/^http:\/\/127\.0\.0\.1:\d+$/.test(rpc))
+    throw new Error('Owned loopback RPC required');
+  const chain = defineChain({
+    id: 125,
+    name: 'Trade deployment',
+    nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 },
+    rpcUrls: { default: { http: [rpc] } },
+  });
+  const client = createPublicClient({ chain, cacheTime: 0, transport: http(rpc, { retryCount: 0 }) });
+  const wallet = createWalletClient({ chain, transport: http(rpc, { retryCount: 0 }) });
+  const account = getAddress(data.account);
+  const deployment = { ...deployConfig(data), spender: CORE_DEPLOYMENT.launchpadPrecompile };
+  expect(deployment.spender).not.toBe(deployment.router);
+  const session = new WalletSessionController(() => {});
+  session.select('owned-anvil', 'injected', account, 125, ['owned-anvil']);
+  const provider = new ChainTradeProvider(client, wallet, deployment, session);
+  const { JSDOM } = createRequire(import.meta.url)('jsdom');
+  const browser = new JSDOM('', { url: 'https://trade.local' });
+  const journey = new TradeJourney(provider, account, browser.window.localStorage);
+  try {
+    const info = await provider.inspectPool(getAddress(data.pool));
+    const artifactPath = process.env.L26_ZERO_RESET_ARTIFACT;
+    if (!artifactPath) throw new Error('Compiled actual zero-reset token artifact required');
+    const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+    const zeroHash = await wallet.deployContract({ account, abi: artifact.abi, bytecode: artifact.bytecode as Hex, args: [100000000n] });
+    const zeroReceipt = await client.waitForTransactionReceipt({ hash: zeroHash });
+    expect(zeroReceipt.status).toBe('success');
+    const zeroContext: TradeContext = {
+      chainId: 125, manifestRevision: deployment.revision, pool: data.pool,
+      token: zeroReceipt.contractAddress!, router: deployment.router, sender: account,
+      recipient: account, inputRaw: 1000000n, isBuy: true,
+      opticalRevision: info.opticalRevision, opticalData: '0x',
+    };
+    const initial = await wallet.writeContract({
+      account, address: zeroReceipt.contractAddress!, abi: erc20Abi,
+      functionName: 'approve', args: [deployment.spender, 1n],
+    });
+    expect((await client.waitForTransactionReceipt({ hash: initial })).status).toBe('success');
+    expect(await provider.requiresZeroReset(zeroContext, zeroContext.inputRaw)).toBe(true);
+    journey.setContext(zeroContext);
+    await journey.approve(session.capture());
+    const resets = journey.state.attempts.filter(update => update.attempt.action === 'approve');
+    expect(resets).toHaveLength(2);
+    const resetAmounts: bigint[] = [];
+    for (const update of resets) {
+      expect(update.receipt?.status).toBe('success');
+      const transaction = await client.getTransaction({ hash: update.attempt.txHash as Hash });
+      const decoded = decodeFunctionData({ abi: erc20Abi, data: transaction.input });
+      expect(decoded.functionName).toBe('approve');
+      if (decoded.functionName !== 'approve') throw new Error('Approval calldata required');
+      expect(decoded.args[0]).toBe(deployment.spender);
+      resetAmounts.push(decoded.args[1]);
+    }
+    expect(resetAmounts.sort((a, b) => a < b ? -1 : a > b ? 1 : 0)).toEqual([0n, zeroContext.inputRaw]);
+    expect(await provider.readAllowance(zeroContext)).toBe(zeroContext.inputRaw);
+    let sellInput = 0n;
+    for (const isBuy of [true, false]) {
+      const context: TradeContext = {
+        chainId: 125,
+        manifestRevision: deployment.revision,
+        pool: data.pool,
+        token: isBuy ? deployment.usdl : info.token,
+        router: deployment.router,
+        sender: account,
+        recipient: account,
+        inputRaw: isBuy ? 1000000n : sellInput,
+        isBuy,
+        opticalRevision: info.opticalRevision,
+        opticalData: '0x',
+      };
+      for (const [spender, amount] of [
+        [deployment.router, 0n],
+        [deployment.router, context.inputRaw],
+        [deployment.spender, 0n],
+      ] as const) {
+        const hash = await wallet.writeContract({
+          account, address: getAddress(context.token), abi: erc20Abi,
+          functionName: 'approve', args: [spender, amount],
+        });
+        expect((await client.waitForTransactionReceipt({ hash })).status).toBe('success');
+      }
+      expect(await client.readContract({
+        address: getAddress(context.token), abi: erc20Abi, functionName: 'allowance',
+        args: [account, deployment.router],
+      })).toBe(context.inputRaw);
+      expect(await provider.readAllowance(context)).toBe(0n);
+      const quote = await provider.readQuote(context);
+      const minimum = minimumOutput(quote.outputRaw, 100);
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 120);
+      await provider.simulate(context, quote, minimum, deadline);
+      await expect(provider.submitSwap(context, minimum, deadline, session.capture()))
+        .rejects.toThrow('verified_allowance_required');
+      journey.setContext(context);
+      await journey.approve(session.capture());
+      const approval = journey.state.attempts.find(update =>
+        update.attempt.action === 'approve' && update.attempt.actionFingerprint === transactionFingerprint(
+          context.token,
+          encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [deployment.spender, context.inputRaw] }),
+        ) && update.receipt?.status === 'success',
+      );
+      expect(approval).toBeDefined();
+      const approvalTransaction = await client.getTransaction({ hash: approval!.attempt.txHash as Hash });
+      expect(approvalTransaction.to?.toLowerCase()).toBe(context.token.toLowerCase());
+      expect((await provider.readReceipt(approval!.attempt))?.status).toBe('success');
+      expect(decodeFunctionData({ abi: erc20Abi, data: approvalTransaction.input })).toMatchObject({
+        functionName: 'approve', args: [deployment.spender, context.inputRaw],
+      });
+      expect(await provider.readAllowance(context)).toBe(context.inputRaw);
+      const routerProvider = new ChainTradeProvider(client, wallet, deployConfig(data), session);
+      await expect(routerProvider.readReceipt(approval!.attempt)).rejects.toThrow('approval_action_mismatch');
+      const freshQuote = await provider.readQuote(context);
+      const freshMinimum = minimumOutput(freshQuote.outputRaw, 100);
+      const freshDeadline = BigInt(Math.floor(Date.now() / 1000) + 120);
+      await provider.simulate(context, freshQuote, freshMinimum, freshDeadline);
+      const hash = await provider.submitSwap(context, freshMinimum, freshDeadline, session.capture());
+      const receipt = await client.waitForTransactionReceipt({ hash });
+      expect(receipt.status).toBe('success');
+      const transaction = await client.getTransaction({ hash });
+      expect(transaction.to?.toLowerCase()).toBe(deployment.router.toLowerCase());
+      expect(decodeFunctionData({ abi: reviewedRouterAbi, data: transaction.input })).toMatchObject({
+        functionName: isBuy ? 'buy' : 'sell',
+        args: [getAddress(context.pool), context.inputRaw, freshMinimum, freshDeadline],
+      });
+      const fill = homeTradeFill(receipt, {
+        emitter: deployment.emitter, pool: getAddress(context.pool), account,
+        isBuy, amount: context.inputRaw, minimum: freshMinimum,
+      });
+      if (isBuy) {
+        sellInput = fill.amountOut / 2n;
+        expect(sellInput).toBeGreaterThan(0n);
+      }
+
+    }
+  } finally {
+    journey.close();
+    session.dispose();
+    browser.window.close();
+  }
+}
+
+test(tradeUsesDeploymentSpenderAndRouterTargets.name, tradeUsesDeploymentSpenderAndRouterTargets, 60000);

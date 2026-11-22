@@ -5,9 +5,8 @@ import dynamic from 'next/dynamic';
 import PremiumErrorBoundary from '@/ui/common/error-boundary';
 import { SearchX } from 'lucide-react';
 import { Button, EmptyState, Skeleton } from '@/ui/primitives';
-import type { PoolStats } from '@/core/market/pool-resolver';
+import { PoolNotFoundError, type PoolStats } from '@/core/market/pool-resolver';
 import { formatCount } from '@/utils/format';
-import { isNotFoundError } from '@/core/user-facing-error';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { useMarketLive } from '@/page-modules/token/market-session-context';
 import { priceNumber } from '@/page-modules/token/market-presentation';
@@ -129,7 +128,7 @@ export default function TokenMarketLayout({ poolAddress, initialStreams, initial
   const snapshot = usePoolSnapshot(poolAddress);
   const data = snapshot.data ?? null;
   const pool = data?.pool.poolAddress ?? null;
-  const notFound = snapshot.isError && isNotFoundError(snapshot.error);
+  const notFound = snapshot.isError && snapshot.error instanceof PoolNotFoundError;
   /**
    * One live session per coin page, keyed by the resolved pool. It starts only once resolution has
    * settled and never for a coin the resolver answered 404 for: an unknown address must not poll

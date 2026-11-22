@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useRankings, type RankingCategory, type RankingsResponse } from '@/core/market/use-rankings';
@@ -11,7 +12,6 @@ import { useTokenMetadataBatch } from '@/hooks/market/use-token-metadata';
 import type { TokenMetadata } from '@/widgets/home/types';
 import { appendRankingPage, marketLimits } from '@/page-modules/token/market-session';
 import { usdlNumber } from '@/page-modules/token/market-presentation';
-import { shortAddress } from '@/utils/format';
 import { poolPath } from '@/core/app-foundation/navigation';
 import type { Stage } from '@/ui/primitives';
 
@@ -92,8 +92,8 @@ export function buildExploreRow({ poolAddress, rank, stats, listing = null, meta
   const changes = statsChanges(stats);
   const price = statsSpotPrice(stats);
   const top10 = statsShare(stats, 'top10'), dev = statsShare(stats, 'creator');
-  const name = metadata?.name?.trim() || shortAddress(pool, 6, 4);
-  const symbol = metadata?.symbol?.trim() || shortAddress(tokenAddress ?? pool, 4, 4);
+  const name = displayCoinText(metadata?.name, tokenAddress ?? pool);
+  const symbol = displayCoinText(metadata?.symbol, tokenAddress ?? pool);
   return {
     poolAddress: pool,
     tokenAddress,

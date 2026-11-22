@@ -65,7 +65,7 @@ const NetworkStatsHero = () => {
     <>
       { ((hasStatsService && counters.isError) || stats.isError) && <DataFetchAlert/> }
       { items.length > 0 && (
-        <Grid data-network-stats-hero templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-40)), 1fr))" gap={ 4 } mb={ 8 }>
+        <Grid data-network-stats-hero templateColumns={{ base: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }} gap={ 4 } mb={ 8 }>
           { items.map((item) => <ScanStatCard key={ item.label } { ...item }/>) }
         </Grid>
       ) }

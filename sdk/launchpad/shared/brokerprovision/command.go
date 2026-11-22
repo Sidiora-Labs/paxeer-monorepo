@@ -38,7 +38,7 @@ func (s source) read() ([]byte, error) {
 		if err != nil {
 			return nil, errors.New("cannot read source")
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		raw, err = io.ReadAll(io.LimitReader(f, MaxDocumentBytes+1))
 		if err != nil {
 			return nil, errors.New("cannot read source")
@@ -56,13 +56,13 @@ func (s source) read() ([]byte, error) {
 // or input error. Broker and authentication errors never include source values.
 func Run(ctx context.Context, args []string, out, errOut io.Writer) int {
 	fail := func(message string) int {
-		fmt.Fprintln(errOut, "brokerprovision: "+strings.TrimPrefix(message, "brokerprovision: "))
+		_, _ = fmt.Fprintln(errOut, "brokerprovision: "+strings.TrimPrefix(message, "brokerprovision: "))
 		return 2
 	}
 	if ctx == nil {
 		return fail("context required")
 	}
-	if len(args) == 0 || (args[0] != "provision" && args[0] != "check") {
+	if len(args) == 0 || (args[0] != "provision" && args[0] != commandCheck) {
 		return fail("expected provision or check")
 	}
 	flags := flag.NewFlagSet("brokerprovision", flag.ContinueOnError)
@@ -84,7 +84,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) int {
 	if *document == "" || *timeout < time.Second || *timeout > 5*time.Minute {
 		return fail("document and bounded timeout required")
 	}
-	if args[0] == "check" && (len(streams) > 0 || len(durables) > 0) {
+	if args[0] == commandCheck && (len(streams) > 0 || len(durables) > 0) {
 		return fail("check does not accept updates")
 	}
 	f, err := os.Open(*document)
@@ -92,7 +92,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) int {
 		return fail("cannot open document")
 	}
 	d, err := Read(f)
-	f.Close()
+	_ = f.Close()
 	if err != nil {
 		return fail(err.Error())
 	}
@@ -144,7 +144,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer) int {
 	if err != nil {
 		return fail("broker API unavailable")
 	}
-	if args[0] == "check" {
+	if args[0] == commandCheck {
 		differences, err := Check(bounded, js, d)
 		if err != nil {
 			return fail(err.Error())

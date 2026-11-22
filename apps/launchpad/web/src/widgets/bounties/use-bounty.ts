@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { V2ContractTypes } from '@kindle/sdk';
@@ -95,7 +96,7 @@ export function useRewardAsset(bounty: Pick<Bounty, 'assetAddress' | 'poolAddres
   const matches = token !== null && token.address.toLowerCase() === bounty.assetAddress.toLowerCase();
   return {
     kind: 'token',
-    symbol: matches ? token.symbol : 'token',
+    symbol: displayCoinText(matches ? token.symbol : null, bounty.assetAddress),
     decimals: matches && token.decimalsQuality === 'verified' ? token.decimals : null,
     pending: bounty.poolAddress !== null && snapshot.isPending,
   };

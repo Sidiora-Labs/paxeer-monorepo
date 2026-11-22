@@ -233,7 +233,7 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 }
 
 func (r *ReplayRunner) run(ctx context.Context, request store.ReplayRequest, canonical *Processor) error {
-	if canonical != nil && (request.Mode != "backfill" || request.Target != "indexer" || request.SourceStream != canonical.deps.CanonicalStreamID || request.Generation != canonical.deps.InventoryGeneration || request.ProjectionRevision != canonical.deps.AccountingProjectionVersion) {
+	if canonical != nil && (request.Mode != valueBackfill || request.Target != valueIndexer || request.SourceStream != canonical.deps.CanonicalStreamID || request.Generation != canonical.deps.InventoryGeneration || request.ProjectionRevision != canonical.deps.AccountingProjectionVersion) {
 		return errors.New("canonical backfill source or projection mismatch")
 	}
 	if err := r.validate(); err != nil {

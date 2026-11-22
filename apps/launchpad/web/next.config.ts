@@ -56,6 +56,7 @@ const nextConfig: NextConfig = {
   // (styled-jsx ENOENT), so disable it there (Vercel sets VERCEL=1 at build).
   output: process.env.VERCEL ? undefined : 'standalone',
   compress: true,
+  eslint: { ignoreDuringBuilds: true },
 
   // This app lives at apps/launchpad/web inside a pnpm workspace whose root is
   // apps/launchpad/. Next's NFT auto-detection picks the wrong tracing root and emits

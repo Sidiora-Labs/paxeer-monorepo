@@ -29,9 +29,10 @@ REVOKE ALL ON migration_control.migration_attempts FROM PUBLIC;RESET ROLE;`
 func OnlineIndexControlDDL() string { return onlineIndexControlDDL }
 
 type OnlineIndexKey struct {
-	Column     string `json:"column"`
-	Numeric    bool   `json:"numeric,omitempty"`
-	Descending bool   `json:"descending,omitempty"`
+	Column           string `json:"column"`
+	Numeric          bool   `json:"numeric,omitempty"`
+	Descending       bool   `json:"descending,omitempty"`
+	JSONTextPosition *int   `json:"json_text_position,omitempty"`
 }
 
 type OnlineIndexPlan struct {
@@ -56,10 +57,17 @@ func (p OnlineIndexPlan) keys() ([]OnlineIndexKey, error) {
 	}
 	seen := map[string]bool{}
 	for _, k := range keys {
-		if !identifier.MatchString(k.Column) || seen[k.Column] {
+		identity := k.Column
+		if k.JSONTextPosition != nil {
+			if *k.JSONTextPosition < 0 || *k.JSONTextPosition > 3 || k.Numeric {
+				return nil, fmt.Errorf("invalid json text index key")
+			}
+			identity = fmt.Sprintf("%s/json/%d", k.Column, *k.JSONTextPosition)
+		}
+		if !identifier.MatchString(k.Column) || seen[identity] {
 			return nil, fmt.Errorf("invalid index column")
 		}
-		seen[k.Column] = true
+		seen[identity] = true
 	}
 	return keys, nil
 }
@@ -72,7 +80,9 @@ func (p OnlineIndexPlan) CreateSQL() (string, error) {
 	columns := make([]string, len(keys))
 	for i, k := range keys {
 		columns[i] = pgx.Identifier{k.Column}.Sanitize()
-		if k.Numeric {
+		if k.JSONTextPosition != nil {
+			columns[i] = fmt.Sprintf("(%s ->> %d)", columns[i], *k.JSONTextPosition)
+		} else if k.Numeric {
 			columns[i] = "(" + columns[i] + "::numeric)"
 		}
 		if k.Descending {
@@ -102,10 +112,19 @@ func InspectOnlineIndex(ctx context.Context, conn *pgx.Conn, p OnlineIndexPlan) 
 	keyNames := make([]string, len(keys))
 	numeric := make([]bool, len(keys))
 	descending := make([]bool, len(keys))
+	positions := make([]int32, len(keys))
 	for i, k := range keys {
 		keyNames[i], numeric[i], descending[i] = k.Column, k.Numeric, k.Descending
+		positions[i] = -1
+		if k.JSONTextPosition != nil {
+			position := *k.JSONTextPosition
+			if position < 0 || position > 3 {
+				return state, fmt.Errorf("invalid json text index key")
+			}
+			positions[i] = int32(position)
+		}
 	}
-	err := conn.QueryRow(ctx, `SELECT i.indisvalid,i.indisready,i.indisunique,t.relname,tn.nspname,am.amname,ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum ORDER BY k.ord),pg_get_expr(i.indpred,i.indrelid),pg_get_expr(i.indexprs,i.indrelid),pg_get_indexdef(i.indexrelid)=format('CREATE %sINDEX %I ON %I.%I USING btree (%s)',$4::text,$2::text,$1::text,$3::text,(SELECT string_agg(CASE WHEN num THEN '(('||quote_ident(v)||')::numeric)' ELSE quote_ident(v) END || CASE WHEN desc_key THEN ' DESC' ELSE '' END,', ' ORDER BY ord) FROM unnest($5::text[],$6::boolean[],$7::boolean[]) WITH ORDINALITY col(v,num,desc_key,ord))) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace tn ON tn.oid=t.relnamespace JOIN pg_am am ON am.oid=c.relam WHERE n.nspname=$1 AND c.relname=$2`, p.Schema, p.Name, p.Table, indexUniquePrefix(p.Unique), keyNames, numeric, descending).Scan(&state.Valid, &state.Ready, &state.Unique, &state.Table, &state.Schema, &state.Method, &state.Columns, &state.Predicate, &state.Expressions, &state.DefinitionMatches)
+	err := conn.QueryRow(ctx, `SELECT i.indisvalid,i.indisready,i.indisunique,t.relname,tn.nspname,am.amname,ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum ORDER BY k.ord),pg_get_expr(i.indpred,i.indrelid),pg_get_expr(i.indexprs,i.indrelid),pg_get_indexdef(i.indexrelid)=format('CREATE %sINDEX %I ON %I.%I USING btree (%s)',$4::text,$2::text,$1::text,$3::text,(SELECT string_agg(CASE WHEN pos>=0 THEN '(('||quote_ident(v)||' ->> '||pos::text||'))' WHEN num THEN '(('||quote_ident(v)||')::numeric)' ELSE quote_ident(v) END || CASE WHEN desc_key THEN ' DESC' ELSE '' END,', ' ORDER BY ord) FROM unnest($5::text[],$6::boolean[],$7::boolean[],$8::integer[]) WITH ORDINALITY col(v,num,desc_key,pos,ord))) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace tn ON tn.oid=t.relnamespace JOIN pg_am am ON am.oid=c.relam WHERE n.nspname=$1 AND c.relname=$2`, p.Schema, p.Name, p.Table, indexUniquePrefix(p.Unique), keyNames, numeric, descending, positions).Scan(&state.Valid, &state.Ready, &state.Unique, &state.Table, &state.Schema, &state.Method, &state.Columns, &state.Predicate, &state.Expressions, &state.DefinitionMatches)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return state, nil
 	}
@@ -129,7 +148,9 @@ func (s OnlineIndexState) matches(p OnlineIndexPlan) bool {
 	columns := []string{}
 	expressions := []string{}
 	for _, k := range keys {
-		if k.Numeric {
+		if k.JSONTextPosition != nil {
+			expressions = append(expressions, fmt.Sprintf("(%s ->> %d)", k.Column, *k.JSONTextPosition))
+		} else if k.Numeric {
 			expressions = append(expressions, "("+k.Column+")::numeric")
 		} else {
 			columns = append(columns, k.Column)
@@ -197,7 +218,7 @@ func ApplyOnlineIndexMigrationAsOwner(ctx context.Context, conn *pgx.Conn, m Mig
 	if err != nil {
 		return err
 	}
-	if conn == nil || !identifier.MatchString(owner) || m.Schema != plan.Schema || m.TransactionMode != "nontransactional" {
+	if conn == nil || !identifier.MatchString(owner) || m.Schema != plan.Schema || m.TransactionMode != valueNontransactional {
 		return fmt.Errorf("dedicated direct nontransactional index migration required")
 	}
 	var owns bool

@@ -13,24 +13,24 @@ export interface StatsRowProps {
 }
 
 type TileState =
-  | { kind: 'loading' }
+  | { kind: 'loading'; caption?: string }
   | { kind: 'value'; value: string; unit?: string; caption?: string }
   | { kind: 'unavailable'; title: string; plural?: boolean };
 
-const numeral = 'text-2xl leading-tight font-bold tracking-tight tabular-nums';
+const numeral = 'flex min-w-0 items-baseline text-[36px] leading-[1.1111112] font-bold tracking-tight tabular-nums sm:text-[44px] sm:leading-[1.0909091]';
 
 function DisplayTile({ label, state, tone = 'text', detail, onRetry, className }: { label: string; state: TileState; tone?: 'text' | 'success'; detail: string | null; onRetry?: () => void; className?: string }) {
   let body: ReactNode;
   if (state.kind === 'loading') {
-    body = <span aria-hidden="true" className="sl-skeleton inline-block h-[var(--sl-skeleton-text-height)] w-40 max-w-full align-middle" />;
+    body = <span aria-hidden="true" className="sl-skeleton block h-[1lh] w-40 max-w-full" />;
   } else if (state.kind === 'unavailable') {
     // Holds the numeral slot at display height so the bar keeps its shape; no number is invented.
     body = <span aria-label="Not available yet" className="text-text-faint">{'—'}</span>;
   } else {
     body = (
       <>
-        <span className={tone === 'success' ? 'text-success' : 'text-text'}>{state.value}</span>
-        {state.unit ? <span className="ml-1.5 whitespace-nowrap text-md font-semibold tracking-normal text-text-faint">{state.unit}</span> : null}
+        <span className={cn('min-w-0', tone === 'success' ? 'text-success' : 'text-text')}>{state.value}</span>
+        {state.unit ? <span className="ml-1.5 shrink-0 whitespace-nowrap text-md font-semibold tracking-normal text-text-faint">{state.unit}</span> : null}
       </>
     );
   }
@@ -42,6 +42,8 @@ function DisplayTile({ label, state, tone = 'text', detail, onRetry, className }
         <dd className="flex min-w-0"><StateNotice kind="unavailable" surface={2} title={state.title} plural={state.plural} detail={detail} onRetry={onRetry} /></dd>
       ) : state.kind === 'value' && state.caption ? (
         <dd className="text-xs text-text-faint">{state.caption}</dd>
+      ) : state.kind === 'loading' && state.caption ? (
+        <dd aria-hidden="true" className="h-[var(--sl-leading-xs)]" />
       ) : null}
     </div>
   );
@@ -63,7 +65,7 @@ export default function StatsRow({ stats }: StatsRowProps) {
   const detail = stats.state === 'unsupported' ? technicalDetail(stats.operation, stats.status) : null;
   const onRetry = stats.state === 'error' ? stats.retry : undefined;
   const tile = (value: string | null, missing: { title: string; plural?: boolean }, extra?: { unit?: string; caption?: string }): TileState =>
-    loading ? { kind: 'loading' } : value === null ? { kind: 'unavailable', ...missing } : { kind: 'value', value, ...extra };
+    loading ? { kind: 'loading', caption: extra?.caption } : value === null ? { kind: 'unavailable', ...missing } : { kind: 'value', value, ...extra };
   const distributed = data ? usdlAmountText(data.cumulativeDistributedRaw) : null;
   return (
     <section aria-labelledby="holder-rewards-stats-title" className="flex flex-col gap-2">

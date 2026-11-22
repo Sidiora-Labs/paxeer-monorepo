@@ -19,11 +19,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
+
+const MaxBlockResponseBytes = 2*decode.MaxBlockLogBytes + (4 << 20)
 
 type ErrorKind string
 
@@ -104,7 +108,7 @@ type CommittedOptions struct {
 	ManifestDigest             string
 	Epochs                     []AddressEpoch
 	LiveDeadline, BulkDeadline time.Duration
-	MaxResponseBytes           int64                    // may reduce, never increase, the 32 MiB limit
+	MaxResponseBytes           int64                    // may reduce, never increase, the block response limit
 	SelectionAuthority         SourceSelectionAuthority `json:"-"`
 	// HistoricalConcurrency bounds the requests in flight to each historical
 	// endpoint, readahead included (0: default 48; at most 96).
@@ -189,9 +193,9 @@ func NewCommittedSource(ctx context.Context, o CommittedOptions) (*CommittedSour
 	}
 	o.Epochs = cloneEpochs(o.Epochs)
 	if o.MaxResponseBytes <= 0 {
-		o.MaxResponseBytes = 32 << 20
+		o.MaxResponseBytes = MaxBlockResponseBytes
 	}
-	if o.MaxResponseBytes > 32<<20 {
+	if o.MaxResponseBytes > MaxBlockResponseBytes {
 		return nil, sourceError(OversizeError, "config", nil)
 	}
 	if err := validateEpochs(o.Epochs, o.ManifestDigest); err != nil {
@@ -1050,7 +1054,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 		}
 		for _, log := range logs {
 			payloadBytes += 256 + len(log.Data) + 32*len(log.Topics)
-			if payloadBytes > 32<<20 {
+			if payloadBytes > decode.MaxBlockLogBytes || o.FromBlock < o.ToBlock && payloadBytes > 32<<20 {
 				return FetchResult{}, sourceError(OversizeError, e.id, nil)
 			}
 		}
@@ -1069,7 +1073,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 		}
 		for _, log := range logs {
 			payloadBytes += 256 + len(log.Data) + 32*len(log.Topics)
-			if payloadBytes > 32<<20 {
+			if payloadBytes > decode.MaxBlockLogBytes || o.FromBlock < o.ToBlock && payloadBytes > 32<<20 {
 				return FetchResult{}, sourceError(OversizeError, e.id, nil)
 			}
 		}
@@ -1310,9 +1314,6 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 			if berr != nil {
 				return nil, berr
 			}
-			if len(b.Transactions) > 4096 {
-				return nil, sourceError(IncompleteError, e.id, nil)
-			}
 			wanted := map[common.Address]bool{}
 			for _, a := range addresses {
 				wanted[common.HexToAddress(a)] = true
@@ -1354,6 +1355,7 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 		return nil, err
 	}
 	logs := make([]ethtypes.Log, 0, len(wire))
+	size := 0
 	for _, w := range wire {
 		if !strings.HasPrefix(w.Data, "0x") {
 			return nil, sourceError(IncompleteError, e.id, nil)
@@ -1365,8 +1367,12 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 		blockNumber, berr := parseCommittedUint64(w.BlockNumber)
 		logIndex, ierr := parseCommittedUint64(w.LogIndex)
 		tx, terr := parseCommittedUint64(w.TxIndex)
-		if err != nil || berr != nil || ierr != nil || terr != nil || logIndex > 1<<32-1 || tx > 1<<32-1 || len(l.Topics) > 4 || len(l.Data) > 64<<10 || !validHash(w.BlockHash) || !validHash(w.TxHash) {
+		if err != nil || berr != nil || ierr != nil || terr != nil || logIndex > 1<<32-1 || tx > 1<<32-1 || len(l.Topics) > 4 || !validHash(w.BlockHash) || !validHash(w.TxHash) {
 			return nil, sourceError(IncompleteError, e.id, nil)
+		}
+		size += 256 + len(l.Data) + 32*len(l.Topics)
+		if size > decode.MaxBlockLogBytes || from < to && size > 32<<20 {
+			return nil, sourceError(OversizeError, e.id, nil)
 		}
 		l.BlockNumber = blockNumber
 		logIndexUint, conversionErr := checked.Convert[uint](logIndex)
@@ -1410,7 +1416,6 @@ func (s *CommittedSource) RejoinEndpoint(ctx context.Context, sourceID string) e
 		return sourceError(InvalidError, sourceID, nil)
 	}
 	generation := endpoint.generation
-	acceptedVersion := s.acceptedVersion
 	heights := make([]uint64, 0, len(s.accepted))
 	for height := range s.accepted {
 		heights = append(heights, height)
@@ -1446,25 +1451,50 @@ func (s *CommittedSource) RejoinEndpoint(ctx context.Context, sourceID string) e
 			return err
 		}
 	}
+	// Share the endpoint's bulk permits with other reads while checking the
+	// recorded identities concurrently under the rejoin's single deadline.
+	pending := make(chan uint64, len(heights))
 	for _, height := range heights {
-		_, record, err := s.readBlock(ctx, endpoint, fmtHeight(height), true)
-		if err != nil {
-			return err
-		}
-		if record.Height != height || record.Hash != expected[height] {
-			return sourceError(IntegrityError, sourceID, nil)
-		}
-		s.mu.Lock()
-		if endpoint.generation != generation {
+		pending <- height
+	}
+	close(pending)
+	workers := min(len(heights), cap(endpoint.bulkPermits))
+	results := make(chan error, workers)
+	verify := func() error {
+		for height := range pending {
+			_, record, err := s.readBlock(ctx, endpoint, fmtHeight(height), true)
+			if err != nil {
+				return err
+			}
+			if record.Height != height || record.Hash != expected[height] {
+				return sourceError(IntegrityError, sourceID, nil)
+			}
+			s.mu.Lock()
+			if endpoint.generation != generation {
+				s.mu.Unlock()
+				return sourceError(IntegrityError, sourceID, nil)
+			}
+			endpoint.health.RecoveryChecks++
 			s.mu.Unlock()
-			return sourceError(IntegrityError, sourceID, nil)
 		}
-		endpoint.health.RecoveryChecks++
-		s.mu.Unlock()
+		return nil
+	}
+	for i := 0; i < workers; i++ {
+		go func() { results <- verify() }()
+	}
+	var firstError error
+	for i := 0; i < workers; i++ {
+		if err := <-results; err != nil && firstError == nil {
+			firstError = err
+			cancel()
+		}
+	}
+	if firstError != nil {
+		return firstError
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if endpoint.generation != generation || endpoint.health.RecoveryChecks != 128 || s.acceptedVersion != acceptedVersion {
+	if endpoint.generation != generation || endpoint.health.RecoveryChecks != 128 {
 		return sourceError(IntegrityError, sourceID, nil)
 	}
 	for height, hash := range expected {

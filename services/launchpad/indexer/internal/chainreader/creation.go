@@ -30,18 +30,15 @@ func CreationFromReceipt(registry *decode.Registry, receipt *ethtypes.Receipt, e
 	if registry == nil || receipt == nil || expectedTx == (common.Hash{}) || receipt.BlockNumber == nil || receipt.BlockNumber.Sign() < 0 || receipt.BlockNumber.BitLen() > 64 || receipt.BlockHash == (common.Hash{}) || receipt.TxHash != expectedTx || receipt.Status != ethtypes.ReceiptStatusSuccessful {
 		return nil, fmt.Errorf("successful exact creation receipt required")
 	}
-	if len(receipt.Logs) > decode.MaxRawBatchLogs {
-		return nil, fmt.Errorf("receipt exceeds log count cap")
-	}
 	aggregate := 0
 	for _, l := range receipt.Logs {
 		if l == nil {
 			return nil, fmt.Errorf("nil receipt log")
 		}
-		if len(l.Topics) > 4 || len(l.Data) > decode.MaxEnvelopeBytes || len(l.Topics) > (decode.MaxEnvelopeBytes-len(l.Data))/32 {
+		if len(l.Topics) > 4 {
 			return nil, fmt.Errorf("receipt log exceeds envelope cap")
 		}
-		size := len(l.Data) + 32*len(l.Topics)
+		size := 256 + len(l.Data) + 32*len(l.Topics)
 		if size > decode.MaxRawBatchBytes-aggregate {
 			return nil, fmt.Errorf("receipt exceeds aggregate byte cap")
 		}
@@ -70,7 +67,7 @@ func CreationFromReceipt(registry *decode.Registry, receipt *ethtypes.Receipt, e
 		if err != nil {
 			return nil, err
 		}
-		if e.Event == nil || e.EmitterRole != "SidioraFactory" || e.EventName != "MarketCreated" {
+		if e.Status != "decoded" || e.Event == nil || e.EmitterRole != "SidioraFactory" || e.EventName != "MarketCreated" {
 			continue
 		}
 		if result != nil {

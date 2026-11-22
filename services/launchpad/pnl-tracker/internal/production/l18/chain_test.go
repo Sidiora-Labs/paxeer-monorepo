@@ -123,8 +123,8 @@ func TestProductionAnvilCreatorAndEpochStorage(t *testing.T) {
 	if e != nil || ev.Raw != "10000000" {
 		t.Fatalf("claim %+v %v", ev, e)
 	}
-	if _, e = l.RecordCreatorClaim(ctx, c, h, f.Pool, f.Bob); e != nil {
-		t.Fatal(e)
+	if replay, err := l.RecordCreatorClaim(ctx, c, h, f.Pool, f.Bob); err != nil || replay != ev {
+		t.Fatalf("creator receipt replay changed settlement: %+v, %v", replay, err)
 	}
 	if got := query(t, l, "SELECT count(*)::text FROM l18_claims"); got != "1" {
 		t.Fatal(got)
@@ -176,8 +176,8 @@ func TestProductionAnvilCreatorAndEpochStorage(t *testing.T) {
 	if e != nil || ec.Raw != "6" {
 		t.Fatalf("holder epoch %+v %v", ec, e)
 	}
-	if _, e = l.RecordEpochClaim(ctx, c, h, f.Pool, f.Alice, "1"); e != nil {
-		t.Fatal(e)
+	if replay, err := l.RecordEpochClaim(ctx, c, h, f.Pool, f.Alice, "1"); err != nil || replay != ec {
+		t.Fatalf("epoch receipt replay changed settlement: %+v, %v", replay, err)
 	}
 	ent, e = l.EpochEntitlement(ctx, c, f.Pool, "1", f.Bob)
 	if e != nil || ent.ClaimableRaw != "4" {

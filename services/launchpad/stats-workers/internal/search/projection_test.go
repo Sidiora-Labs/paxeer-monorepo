@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func TestProjectionMonotonicRevisionAndDeletion(t *testing.T) {
@@ -62,6 +63,11 @@ func TestProjectionPreferenceIsolationStorage(t *testing.T) {
 }
 
 func TestRealBrokerInboxProjectionAndOutboxAtomicity(t *testing.T) {
+	coinTextBrokerProjection(t, "Canonical name", "COIN", "Canonical name", "COIN", "canonical name", "COIN", false, 100)
+}
+
+func coinTextBrokerProjection(t *testing.T, name, symbol, wantName, wantSymbol, wantKey, wantTicker string, withoutMetadata bool, copies int) {
+	t.Helper()
 	brokerURL := os.Getenv("L20_NATS_URL")
 	if brokerURL == "" {
 		t.Fatal("L20_NATS_URL required for real isolated file-backed NATS qualification")
@@ -74,7 +80,7 @@ func TestRealBrokerInboxProjectionAndOutboxAtomicity(t *testing.T) {
 		t.Fatal(err)
 	}
 	creationDDL := strings.Split(string(sourceDDL), "CREATE TABLE indexer.indexer_token_transfers")[0]
-	if _, err = pool.Exec(ctx, "CREATE SCHEMA indexer;"+creationDDL+"CREATE SCHEMA search_delivery;"); err != nil {
+	if _, err = pool.Exec(ctx, "CREATE SCHEMA indexer;"+creationDDL+"CREATE SCHEMA search_delivery; CREATE SCHEMA creation_delivery;"); err != nil {
 		t.Fatal(err)
 	}
 	ddl, err := delivery.SchemaDDL("search_delivery")
@@ -82,6 +88,13 @@ func TestRealBrokerInboxProjectionAndOutboxAtomicity(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, ddl); err != nil {
+		t.Fatal(err)
+	}
+	producerDDL, err := delivery.SchemaDDL("creation_delivery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, producerDDL); err != nil {
 		t.Fatal(err)
 	}
 	nonce := strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -125,21 +138,40 @@ func TestRealBrokerInboxProjectionAndOutboxAtomicity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fact := map[string]any{"token": fixtureAddress(99), "pool": fixtureAddress(1), "creator": fixtureAddress(101), "factory": fixtureAddress(901), "optical": fixtureAddress(902), "nftId": "1", "blockTimestampSeconds": "1700000000", "position": map[string]string{"chainId": "125", "height": "1", "transactionIndex": "0", "logIndex": "0", "transactionHash": "0x" + strings.Repeat("2", 64), "blockHash": "0x" + strings.Repeat("1", 64)}, "metadata": map[string]string{"name": "Canonical name", "symbol": "COIN"}, "provenance": map[string]string{}}
+	fact := map[string]any{"token": fixtureAddress(99), "pool": fixtureAddress(1), "creator": fixtureAddress(101), "factory": fixtureAddress(901), "optical": fixtureAddress(902), "nftId": "1", "blockTimestampSeconds": "1700000000", "position": map[string]string{"chainId": "125", "height": "1", "transactionIndex": "0", "logIndex": "0", "transactionHash": "0x" + strings.Repeat("2", 64), "blockHash": "0x" + strings.Repeat("1", 64)}, "metadata": map[string]string{"name": name, "symbol": symbol}, "provenance": map[string]string{}}
+	if withoutMetadata {
+		delete(fact, "metadata")
+	}
 	payload, err := json.Marshal(fact)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations VALUES($1,$2,$3,$4,$5,1,1,$6,$7,0,0,1700000000,'{}',$8)`, fixtureAddress(99), fixtureAddress(1), fixtureAddress(101), fixtureAddress(901), fixtureAddress(902), "0x"+strings.Repeat("1", 64), "0x"+strings.Repeat("2", 64), payload); err != nil {
-		t.Fatal(err)
-	}
-	event := delivery.Envelope{EventID: "creation_fixture", EventType: "canonical_creation", SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: "1", TransactionIndex: "0", LogIndex: "0"}, EmittedAt: time.Now().UTC(), TraceID: "fixture_trace", PayloadHash: delivery.Hash(payload), Payload: payload}
-	wire, err := event.Encode(policy, subject)
+	producer, err := delivery.NewStore(pool, "creation_delivery", policy)
 	if err != nil {
 		t.Fatal(err)
 	}
+	event := delivery.Envelope{EventID: "creation_fixture", EventType: "canonical_creation", SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: "1", TransactionIndex: "0", LogIndex: "0"}, EmittedAt: time.Now().UTC(), TraceID: "fixture_trace", PayloadHash: delivery.Hash(payload), Payload: payload}
+	if err = producer.Produce(ctx, []delivery.Pending{{Subject: subject, Envelope: event}}, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations VALUES($1,$2,$3,$4,$5,1,1,$6,$7,0,0,1700000000,'{}',$8)`, fixtureAddress(99), fixtureAddress(1), fixtureAddress(101), fixtureAddress(901), fixtureAddress(902), "0x"+strings.Repeat("1", 64), "0x"+strings.Repeat("2", 64), payload)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var wire []byte
+	if err = pool.QueryRow(ctx, "SELECT envelope FROM creation_delivery.delivery_outbox WHERE event_id=$1", event.EventID).Scan(&wire); err != nil {
+		t.Fatal(err)
+	}
 	projection := Projection{Delivery: inbox, ConsumerID: "search", InboxGeneration: "generation1", InvalidationSubject: invalidate, InvalidationEventType: "search_invalidation"}
-	for i := 0; i < 100; i++ {
+	var initialState string
+	for i := 0; i < copies; i++ {
+		if i == 1 {
+			consumer.Close()
+			consumer, err = natsdriver.NewConsumer(ctx, nc, config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer consumer.Close()
+		}
 		if _, err = publisher.Publish(ctx, subject, fmt.Sprintf("transport_copy_%d", i), wire); err != nil {
 			t.Fatal(err)
 		}
@@ -149,6 +181,59 @@ func TestRealBrokerInboxProjectionAndOutboxAtomicity(t *testing.T) {
 		}
 		if err = projection.ConsumeCanonicalCreation(ctx, subject, messages[0].Wire, messages[0]); err != nil {
 			t.Fatal(err)
+		}
+		brokerConsumer, err := js.Consumer(ctx, stream, config.Durable)
+		if err != nil {
+			t.Fatal(err)
+		}
+		info, err := brokerConsumer.Info(ctx)
+		if err != nil || info.NumAckPending != 0 || info.AckFloor.Consumer != uint64(i+1) {
+			t.Fatalf("creation acknowledgement: %+v %v", info, err)
+		}
+		var state string
+		if err = pool.QueryRow(ctx, `SELECT jsonb_build_object('documents',(SELECT jsonb_agg(to_jsonb(d)) FROM stats_search.documents_v2 d),'authority',(SELECT jsonb_agg(to_jsonb(a)) FROM stats_search.authority_v2 a),'active',(SELECT to_jsonb(a) FROM stats_search.active_v2 a),'source',(SELECT jsonb_agg(to_jsonb(s)) FROM stats_search.source_documents_v2 s))::text`).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			initialState = state
+			assertCreationAuthority(t, pool, fixtureAddress(1), 1, true, false)
+			var raw []byte
+			if err = pool.QueryRow(ctx, "SELECT payload FROM stats_search.source_documents_v2 WHERE pool_address=$1", fixtureAddress(1)).Scan(&raw); err != nil {
+				t.Fatal(err)
+			}
+			var document IndexedDocument
+			if err = json.Unmarshal(raw, &document); err != nil || document.Validate() != nil || document.Name != wantName || document.Ticker != wantSymbol || document.NameKey != wantKey || document.CanonicalTicker != wantTicker {
+				t.Fatalf("creation document: %+v %v", document, err)
+			}
+			assertCreationSearch(t, pool, document, true)
+			tx, err := pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = projection.authorizeTx(ctx, tx, event, Change{Kind: valueCreation, Document: &document}); err != nil {
+				rollbackSearch(tx)
+				t.Fatal(err)
+			}
+			rollbackSearch(tx)
+			for _, query := range []string{wantTicker, wantKey, "unrelated text"} {
+				if _, err := Normalize(query); err != nil {
+					continue
+				}
+				page, err := (Store{Pool: pool}).Search(ctx, Request{Query: query, Kind: "pool", Limit: 25})
+				want := 0
+				if query == wantTicker || query == wantKey {
+					want = 1
+				}
+				if err != nil || len(page.Items) != want {
+					t.Fatalf("text search %q: %+v %v", query, page, err)
+				}
+				integrated, err := (Store{Pool: pool}).SearchIntegrated(ctx, IntegratedRequest{Request: Request{Query: query, Kind: "pool", Limit: 25}, Sort: "address"})
+				if err != nil || len(integrated.Items) != want {
+					t.Fatalf("integrated text search %q: %+v %v", query, integrated, err)
+				}
+			}
+		} else if state != initialState {
+			t.Fatal("duplicate creation changed stored projection")
 		}
 	}
 	var effects, inboxRows, outboxRows int

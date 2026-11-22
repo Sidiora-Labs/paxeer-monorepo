@@ -93,6 +93,10 @@ CONTAINER_SETUP = """if ! docker version >/dev/null 2>&1; then
   fi
 fi
 docker version --format '{{.Server.Version}}'"""
+CONTAINER_SETUP_RETRY = CONTAINER_SETUP.replace(
+    "sudo apt-get update\n  sudo apt-get install --yes docker.io acl",
+    'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes docker.io acl',
+)
 SHELL_REFERENCE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 
 ROUTED = re.compile(
@@ -128,8 +132,15 @@ def container_runtime_use(body):
     job_env = body.get("env") if isinstance(body.get("env"), dict) else {}
     for combination in matrix_combinations(body):
         runtime_ready = False
+        checkout_ready = False
         for step in body.get("steps") or []:
-            if not isinstance(step, dict) or "run" not in step:
+            if not isinstance(step, dict):
+                continue
+            if (str(step.get("uses", "")).startswith("actions/checkout@")
+                    and "if" not in step and not step.get("continue-on-error")
+                    and not (step.get("with") or {}).get("path")):
+                checkout_ready = True
+            if "run" not in step:
                 continue
             step_env = step.get("env") if isinstance(step.get("env"), dict) else {}
             env = {key: render_matrix(value, combination) for key, value in {**job_env, **step_env}.items()}
@@ -137,7 +148,10 @@ def container_runtime_use(body):
                 lambda match: env.get(match.group(1) or match.group(2), match.group(0)),
                 render_matrix(step["run"], combination),
             )
-            if (command.strip() == CONTAINER_SETUP and "if" not in step
+            setup = command.strip() == CONTAINER_SETUP or (
+                checkout_ready and command.strip() == CONTAINER_SETUP_RETRY
+            )
+            if (setup and "if" not in step
                     and not step.get("continue-on-error") and "if" not in body
                     and not body.get("continue-on-error")):
                 runtime_ready = True

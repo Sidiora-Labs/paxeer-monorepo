@@ -22,7 +22,7 @@ const CoderEditorCollapseButton = ({ onClick, label, isDisabled, isCollapsed }: 
       disabled={ isDisabled }
       aria-expanded={ isCollapsed === undefined ? undefined : !isCollapsed }
       _disabled={{ opacity: 'control.disabled', cursor: 'not-allowed' }}
-      boxSize="touchTarget"
+      boxSize={ 5 }
       p={ 0.5 }
       borderRadius="sm"
       _before={{

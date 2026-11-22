@@ -134,14 +134,17 @@ fn real_ingress_retains_the_principal_credential_and_exact_financial_body() {
 }
 
 #[test]
-fn archive_sync_readiness_reaches_the_actual_sync_predicate() {
-    let entry = unified_service_route("GET", "/v1/sync/readiness").unwrap_or_else(|| panic!("{}", "actual archive sync readiness"));
-    assert_eq!(entry["service"], "archive");
-    assert_eq!(entry["upstream"], "archive");
-    assert_eq!(entry["authentication"], "public");
-    assert_eq!(entry["source"], "services/platform/relay_archive/runtime.py");
-    assert!(unified_service_route("GET", "/v1/sync/network").is_some());
-    assert!(unified_service_route("GET", "/v1/history/activities?limit=10&cursor=0").is_some());
+fn sync_and_history_paths_have_no_unified_route() {
+    for path in [
+        "/v1/sync/readiness",
+        "/v1/sync/network",
+        "/v1/history/activities?limit=10&cursor=0",
+    ] {
+        assert!(
+            unified_service_route("GET", path).is_none(),
+            "unregistered GET {path}"
+        );
+    }
 }
 
 fn run(program: &str, arguments: &[&str]) {
@@ -180,9 +183,10 @@ impl Drop for Gateway {
 impl Gateway {
     fn start() -> Self {
         Self::start_with_explorer(None)
+            .unwrap_or_else(|status| panic!("gateway refused start-up: {status}"))
     }
 
-    fn start_with_explorer(explorer: Option<&TcpListener>) -> Self {
+    fn start_with_explorer(explorer: Option<&TcpListener>) -> Result<Self, std::process::ExitStatus> {
         let directory = std::env::temp_dir().join(format!("layerx-unified-paths-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos()));
         fs::create_dir(&directory).unwrap_or_else(|error| panic!("test directory must be created: {error}"));
         let file = |name: &str| directory.join(name);
@@ -211,7 +215,7 @@ impl Gateway {
         );
         run("openssl", &["x509", "-in", text(&file("server.pem")), "-outform", "DER", "-out", text(&file("server.der"))]);
         let redis_port = free_port();
-        fs::write(file("users.acl"), "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(file("users.acl"), "user default off ~* &* +@all\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         fs::write(
             file("redis.conf"),
             format!(
@@ -251,10 +255,10 @@ impl Gateway {
         let mut started = Self { process: gateway, redis, directory, port, redis_port };
         for _ in 0..200 {
             if let Ok(Some(status)) = started.process.try_wait() {
-                panic!("gateway refused start-up: {status}");
+                return Err(status);
             }
             if started.exchange("GET", "/livez", b"").is_ok_and(|(status, _)| status == 200) {
-                return started;
+                return Ok(started);
             }
             thread::sleep(Duration::from_millis(50));
         }
@@ -392,7 +396,11 @@ fn register_replaced() {
     }
     let served = gateway.call("px_register", &json!([signer, signature]));
     assert!(served.get("result").is_none(), "{served}");
-    assert_eq!(served["error"]["code"], -32002, "{served}");
+    assert_eq!(served["error"]["code"], -32001, "{served}");
+    assert_eq!(
+        served["error"]["data"]["code"], "registration_not_configured",
+        "{served}"
+    );
     let schema = include_bytes!("../openrpc.json");
     let schema: Value = serde_json::from_slice(schema).unwrap_or_else(|error| panic!("schema JSON: {error}"));
     let names: Vec<&str> = schema["methods"].as_array().unwrap_or_else(|| panic!("schema methods")).iter().filter_map(|method| method["name"].as_str()).collect();
@@ -406,7 +414,7 @@ fn register_replaced() {
 fn explorer_program_paths_are_not_proxied() {
     let explorer = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{}: {error:?}", "explorer listener must bind"));
     explorer.set_nonblocking(true).unwrap_or_else(|error| panic!("{}: {error:?}", "explorer listener must be nonblocking"));
-    let gateway = Gateway::start_with_explorer(Some(&explorer));
+    let gateway = Gateway::start();
     let program = "ab".repeat(32);
     for path in [format!("/v1/programs/{program}"), format!("/v1/programs/{program}/reads/resolve")] {
         let (status, body) = gateway.exchange("GET", &path, b"").unwrap_or_else(|error| panic!("{path} must be answered: {error}"));
@@ -418,6 +426,13 @@ fn explorer_program_paths_are_not_proxied() {
             Err(error) => panic!("explorer connection check failed: {error}"),
             Ok(_) => panic!("{path} reached the explorer upstream"),
         }
+    }
+    match Gateway::start_with_explorer(Some(&explorer)) {
+        Err(status) => assert!(
+            !status.success(),
+            "explorer binding must refuse start-up: {status}"
+        ),
+        Ok(_) => panic!("explorer binding must refuse gateway start-up"),
     }
 }
 

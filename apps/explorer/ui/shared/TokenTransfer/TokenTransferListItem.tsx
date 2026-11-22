@@ -43,7 +43,7 @@ const TokenTransferListItem = ({
   return (
     <ListItemMobile rowGap={ 3 }>
       <Flex w="100%" justifyContent="space-between">
-        <Flex flexWrap="wrap" rowGap={ 1 } mr={ showTxInfo && txHash ? 2 : 0 } columnGap={ 2 } overflow="hidden">
+        <Flex flexWrap="wrap" rowGap={ 1 } mr={ showTxInfo && txHash ? 2 : 0 } columnGap={ 2 } minW={ 0 } maxW="full">
           { token && (
             <>
               <TokenEntity
@@ -92,9 +92,14 @@ const TokenTransferListItem = ({
         current={ baseAddress }
         isLoading={ isLoading }
         w="100%"
+        minW={ 0 }
+        css={{
+          gridTemplateColumns: 'minmax(0, max-content) max-content minmax(0, max-content)',
+          '& [data-entity]': { minW: 0, maxW: '100%' },
+        }}
       />
       { total && 'value' in total && total.value !== null && (
-        <Flex columnGap={ 2 } w="100%">
+        <Flex columnGap={ 2 } w="100%" flexWrap="wrap">
           <Skeleton loading={ isLoading } fontWeight="medium" flexShrink={ 0 }>Value</Skeleton>
           <AssetValue
             amount={ total && 'value' in total && total.value !== null ? total.value : null }
@@ -107,7 +112,7 @@ const TokenTransferListItem = ({
       ) }
 
       { token && isConfidentialTokenType(token.type) && (!total || !('value' in total) || total.value === null) && (
-        <Flex columnGap={ 2 } w="100%">
+        <Flex columnGap={ 2 } w="100%" flexWrap="wrap">
           <Skeleton loading={ isLoading } fontWeight="medium" flexShrink={ 0 }>Value</Skeleton>
           <ConfidentialValue loading={ isLoading } color="text.secondary"/>
         </Flex>

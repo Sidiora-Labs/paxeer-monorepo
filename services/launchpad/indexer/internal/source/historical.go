@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+
 	"math"
 	"sort"
 	"strings"
@@ -156,12 +158,12 @@ func mergeFetch(out *FetchResult, page FetchResult) error {
 	for _, logs := range [][]ethtypes.Log{out.Logs, page.Logs} {
 		for _, log := range logs {
 			size += 256 + len(log.Data) + 32*len(log.Topics)
-			if size > 128<<20 {
+			if size > decode.MaxBlockLogBytes || len(out.Blocks) > 1 && size > 128<<20 {
 				return sourceError(OversizeError, "historical", nil)
 			}
 		}
 	}
-	if len(out.Logs)+len(page.Logs) > 131072 {
+	if len(out.Blocks) > 1 && len(out.Logs)+len(page.Logs) > 131072 {
 		return sourceError(OversizeError, "historical", nil)
 	}
 	out.Logs = append(out.Logs, page.Logs...)

@@ -73,7 +73,7 @@ it('lets search fill a second row and flex between desktop bounds', function hea
   expect(rules).toContain('order:1');
   expect(rules).toContain('max-width:100%');
   expect(rules).toContain('order:0');
-  expect(rules).toContain('flex-basis:var(--chakra-spacing-80)');
+  expect(rules).toContain('flex:01var(--chakra-spacing-80)');
   expect(rules).toContain('min-width:var(--chakra-spacing-62\\.5)');
   expect(rules).toContain('max-width:var(--chakra-spacing-80)');
 });

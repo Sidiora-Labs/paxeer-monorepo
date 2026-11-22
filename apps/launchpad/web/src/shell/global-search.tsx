@@ -215,6 +215,7 @@ function SearchPalette({
       try {
         push({
           address: pool,
+          tokenAddress: args.tokenAddress,
           name: args.name,
           symbol: args.symbol,
           logo: args.logo,
@@ -373,6 +374,7 @@ function SearchPalette({
                       key={item.address}
                       id={optionId(`recent:${item.address}`)}
                       active={activeId === optionId(`recent:${item.address}`)}
+                      tokenAddress={item.tokenAddress}
                       name={item.name}
                       symbol={item.symbol}
                       logo={item.logo}
@@ -397,7 +399,7 @@ function SearchPalette({
                       key={coin.poolAddress}
                       id={optionId(`hot:${coin.poolAddress}`)}
                       active={activeId === optionId(`hot:${coin.poolAddress}`)}
-                      name={coin.name || ''}
+                      tokenAddress={coin.tokenAddress} name={coin.name || ''}
                       symbol={coin.symbol || ''}
                       logo={coin.logo || null}
                       mcapRaw={coin.marketCap && coin.marketCap !== '0' ? coin.marketCap : null}
@@ -432,7 +434,7 @@ function SearchPalette({
                         key={row.identity}
                         id={id}
                         active={activeId === id}
-                        name={row.name}
+                        tokenAddress={row.token_address} name={row.name}
                         symbol={row.symbol}
                         logo={row.images.logo}
                         mcapRaw={mcap}

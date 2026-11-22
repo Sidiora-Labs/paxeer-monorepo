@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
 import { useOptimisticReceipt } from '@/hooks/tx/use-optimistic-receipt';
@@ -11,6 +12,7 @@ import {
   useReadErc20Decimals,
   useReadQuoterQuoteMultihop,
   ROUTER_ADDRESS,
+  LAUNCHPAD_ADDRESS,
   erc20ApprovalRequest,
 } from '@/core/network/contracts';
 import { formatUnits, zeroAddress, erc20Abi, parseAbi, encodeFunctionData, type Address, type Hash, type TransactionReceipt } from 'viem';
@@ -37,6 +39,10 @@ import { statsSpotPrice, statsMarketCap } from '@/core/market/pool-stats-display
 import { openAuthModal } from '@/shell/auth-modal-store';
 
 const homeSwapAbi = parseAbi(['function swapTokenForToken(address tokenIn,address tokenOut,uint256 amountIn,uint256 minAmountOut,uint256 deadline) returns (uint256 amountOut,uint256 intermediateUsdl)']);
+
+export function swapAllowanceRequest(token: Address, owner: Address) {
+  return { token, owner, spender: LAUNCHPAD_ADDRESS } as const;
+}
 
 export interface TokenInfo {
   tokenAddress: string;
@@ -97,8 +103,8 @@ export async function loadSwapTokens(operations: Operations, signal: AbortSignal
     return {
       tokenAddress,
       poolAddress,
-      name: meta?.name || `Token ${poolAddress.slice(0, 6)}`,
-      symbol: meta?.symbol || '???',
+      name: displayCoinText(meta?.name, tokenAddress),
+      symbol: displayCoinText(meta?.symbol, tokenAddress),
       logo: meta?.images?.logo || null,
       price: stats.get(poolAddress)?.price ?? null,
       marketCap: stats.get(poolAddress)?.marketCap ?? null,
@@ -152,7 +158,7 @@ function TokenSelectorModal({
       <div className="shrink-0 p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 id="swap-selector-title" className="text-base font-bold text-text">Select a coin</h2>
-          <button type="button" onClick={onClose} aria-label="Close coin selector" className="min-h-touch-target-min min-w-touch-target-min p-1 text-text-faint transition hover:text-text">
+          <button type="button" onClick={onClose} aria-label="Close coin selector" className="p-1 text-text-faint transition hover:text-text">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
@@ -165,7 +171,7 @@ function TokenSelectorModal({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, symbol, or address"
-          className="w-full border border-control-edge bg-surface-2 rounded-xl px-3 py-2.5 text-xs text-text transition placeholder:text-text-faint"
+          className="w-full border border-control-edge bg-surface-2 rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space)*2.5-var(--sl-edge-width))] text-xs text-text transition placeholder:text-text-faint"
         />
       </div>
 
@@ -202,8 +208,8 @@ function TokenSelectorModal({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-text truncate">{token.name}</span>
-                  <span className="text-2xs text-text-faint uppercase">{token.symbol}</span>
+                  <span className="min-w-0 truncate text-sm font-bold text-text" title={token.name}>{token.name}</span>
+                  <span className="block min-w-0 truncate text-2xs text-text-faint" title={token.symbol}>{token.symbol}</span>
                 </div>
                 {token.marketCap !== null && token.marketCap > 0 && (
                   <span className="text-2xs text-text-faint">MC: {formatCurrency(token.marketCap)}</span>
@@ -293,7 +299,7 @@ export function TokenInputBox({
         <button
           type="button"
           onClick={onSelectClick}
-          className="flex items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-3 py-2 transition max-w-full flex-shrink-0"
+          className="flex min-h-8 items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))] transition max-w-full flex-shrink-0"
         >
           {token ? (
             <>
@@ -307,7 +313,7 @@ export function TokenInputBox({
                   className="object-cover"
                 />
               </div>
-              <span className="text-sm font-bold text-text">{token.symbol}</span>
+              <span className="min-w-0 truncate text-sm font-bold text-text" title={token.symbol}>{token.symbol}</span>
             </>
           ) : (
             <span className="text-xs font-bold text-text">Select coin</span>
@@ -472,8 +478,8 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amou
       await ensureHomeChain(wallet, home);
       if (!(await wallet.getAddresses()).some(value => value.toLowerCase() === approvedAddress.toLowerCase()) || latest.current.tokenIn !== approvedToken || latest.current.address !== approvedAddress || latest.current.amountIn !== amountIn) throw new Error('Wallet or coin changed. Review again.');
       const client = homeChainClient(home);
-      const hash = await wallet.writeContract({ chain: client.chain, account: address, address: tokenIn, abi: erc20Abi, functionName: 'approve', args: [ROUTER_ADDRESS, amount] });
-      const attempt: HomeAttempt = { home, hash, sender: address, target: tokenIn, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [ROUTER_ADDRESS, amount] }), action: 'approve' };
+      const hash = await wallet.writeContract({ chain: client.chain, account: address, address: tokenIn, abi: erc20Abi, functionName: 'approve', args: [LAUNCHPAD_ADDRESS, amount] });
+      const attempt: HomeAttempt = { home, hash, sender: address, target: tokenIn, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [LAUNCHPAD_ADDRESS, amount] }), action: 'approve' };
       setHomeRecovery(attempt);
       await checkHomeReceipt(attempt);
       return true;
@@ -622,11 +628,7 @@ export default function SwapPanel() {
   }, [tokenIn, tokenOut, balIn, balOut, tokenInDec, tokenOutDec]);
 
   // ── Allowance ─────────────────────────────────────────────────
-  const { data: allowanceRaw, error: allowanceError, refetch: refetchAllowance } = useReadErc20Allowance({
-    token: tokenInAddr,
-    owner: userAddr,
-    spender: ROUTER_ADDRESS,
-  });
+  const { data: allowanceRaw, error: allowanceError, refetch: refetchAllowance } = useReadErc20Allowance(swapAllowanceRequest(tokenInAddr, userAddr));
   const allowance = allowanceRaw !== undefined && allowanceRaw !== null ? BigInt(String(allowanceRaw)) : null;
 
   // ── Quote ─────────────────────────────────────────────────────
@@ -695,7 +697,7 @@ export default function SwapPanel() {
       if (needsApproval) {
         resetApproval();
         if (await approveHome(parsedAmountIn)) return;
-        await writeApprove(erc20ApprovalRequest({ token: tokenInAddr, spender: ROUTER_ADDRESS, amount: parsedAmountIn }));
+        await writeApprove(erc20ApprovalRequest({ ...swapAllowanceRequest(tokenInAddr, userAddr), amount: parsedAmountIn }));
         return;
       }
       requestSwap();
@@ -748,7 +750,7 @@ export default function SwapPanel() {
       : null;
 
   return (
-    <div className="relative mx-auto w-full max-w-md">
+    <div className="relative mx-auto w-full max-w-[calc(var(--sl-space)*115)]">
       <div className="rounded-2xl bg-surface-1 overflow-hidden">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">
@@ -818,7 +820,7 @@ export default function SwapPanel() {
                   {effectiveRate !== null && (
                     <div className="flex justify-between text-2xs">
                       <span className="text-text-faint">Rate</span>
-                      <span className="text-text font-bold">
+                      <span className="min-w-0 truncate text-text font-bold" title={`1 ${tokenIn?.symbol} = ${formatNumber(effectiveRate, 4)} ${tokenOut?.symbol}`}>
                         1 {tokenIn?.symbol} = {formatNumber(effectiveRate, 4)} {tokenOut?.symbol}
                       </span>
                     </div>
@@ -864,7 +866,7 @@ export default function SwapPanel() {
                   {/* Min received (with slippage) */}
                   <div className="flex justify-between text-2xs">
                     <span className="text-text-faint">Minimum received ({safeFixed(Number(slippageBps) / 100, 1)}% slippage)</span>
-                    <span className="text-text font-bold">
+                    <span className="min-w-0 truncate text-text font-bold" title={tokenOut?.symbol}>
                       {quote && tokenOutDec !== undefined ? `${formatNumber(Number(formatUnits(minAmountOut, tokenOutDec)), 4)} ${tokenOut?.symbol}` : '...'}
                     </span>
                   </div>

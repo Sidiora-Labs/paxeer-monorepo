@@ -12,7 +12,7 @@ const require = createRequire(new URL('../../../../apps/launchpad/web/package.js
 const { WebSocketServer } = require('ws');
 const directory = new URL('./answers/', import.meta.url);
 const answerNames = [
-  'pool', 'coin-pool', 'pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
+  'pool', 'coin-pool', 'pools', 'terminal-pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
   'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
   'profile-empty', 'follow-stats', 'follow-stats-empty', 'portfolio', 'portfolio-empty', 'bounties', 'bounty', 'bounties-stats', 'unavailable',
   'rpc-unavailable', 'chart-config', 'chart-symbol', 'chart-time', 'chart-history-empty', 'not-found', 'explorer-empty', 'snapshot', 'stream-control', 'search', 'search-token', 'authority', 'public-share', 'cup-current-empty', 'comments-empty',
@@ -27,9 +27,10 @@ const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
 const loading = await readFile(new URL('loading.js', directory));
-const surface = JSON.parse(await readFile(new URL('./parts/explore.json', import.meta.url), 'utf8'));
-const rewardsSurface = JSON.parse(await readFile(new URL('./parts/rewards.json', import.meta.url), 'utf8'));
-const loadingPaths = new Set([...surface.views, ...rewardsSurface.views].filter(view => {
+const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community'].map(async part => {
+  return JSON.parse(await readFile(new URL(`./parts/${part}.json`, import.meta.url), 'utf8'));
+}));
+const loadingPaths = new Set(loadingSurfaces.flatMap(surface => surface.views).filter(view => {
   const url = new URL(view.path, origin);
   return url.searchParams.get('render') === 'loading';
 }).map(view => view.path));
@@ -220,6 +221,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
       return;
     }
     const answer = answerFor(url, state, pagePath);
+    if (pagePath === '/swap' && answer.name === 'pools') answer.name = 'terminal-pools';
     let body = answers.get(answer.name);
     if (answer.name === 'snapshot') {
       const snapshot = JSON.parse(body);
@@ -363,7 +365,10 @@ const warmDirectory = new URL('./warm/', import.meta.url);
 for (const file of (await readdir(warmDirectory)).sort()) {
   warmPaths.push(...JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8')));
 }
-await Promise.all([...new Set(warmPaths)].map(path => warmPage(path)));
+const pendingWarmPaths = [...new Set(warmPaths)];
+await Promise.all(Array.from({ length: 4 }, async () => {
+  while (pendingWarmPaths.length > 0) await warmPage(pendingWarmPaths.shift());
+}));
 pagesReady = true;
 function close() {
   for (const socket of sockets.clients) socket.terminate();

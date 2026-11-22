@@ -59,7 +59,7 @@ func template(start, end time.Time) (*x509.Certificate, error) {
 
 func certificate(raw []byte) (*x509.Certificate, error) {
 	block, rest := pem.Decode(raw)
-	if block == nil || block.Type != "CERTIFICATE" || len(bytes.TrimSpace(rest)) != 0 {
+	if block == nil || block.Type != certificateBlockType || len(bytes.TrimSpace(rest)) != 0 {
 		return nil, errors.New("exactly one PEM certificate required")
 	}
 	return x509.ParseCertificate(block.Bytes)
@@ -84,7 +84,7 @@ func CreateAuthority(dir string, lifetime time.Duration) error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func CreateAuthority(dir string, lifetime time.Duration) error {
 	if err != nil {
 		return err
 	}
-	return writeFiles(store, []outputFile{{"ca.cert.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), false}, {"ca.key.pem", private, true}})
+	return writeFiles(store, []outputFile{{"ca.cert.pem", pem.EncodeToMemory(&pem.Block{Type: certificateBlockType, Bytes: der}), false}, {"ca.key.pem", private, true}})
 }
 
 // IssueService issues an ECDSA P-256 certificate for all supplied DNS or IP
@@ -147,7 +147,7 @@ func IssueService(dir, service string, names []string, lifetime time.Duration) e
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	caPEM, err := readFile(store, "ca.cert.pem")
 	if err != nil {
 		return err
@@ -183,7 +183,7 @@ func IssueService(dir, service string, names []string, lifetime time.Duration) e
 	if err != nil {
 		return err
 	}
-	return writeFiles(store, []outputFile{{service + ".cert.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), false}, {service + ".key.pem", private, true}})
+	return writeFiles(store, []outputFile{{service + ".cert.pem", pem.EncodeToMemory(&pem.Block{Type: certificateBlockType, Bytes: der}), false}, {service + ".key.pem", private, true}})
 }
 
 func validDNS(name string) bool {
@@ -195,9 +195,10 @@ func validDNS(name string) bool {
 			return false
 		}
 		for _, c := range label {
-			if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
-				return false
+			if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' {
+				continue
 			}
+			return false
 		}
 	}
 	return true
@@ -213,7 +214,7 @@ func CreateAssertionKey(dir, service string) error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
@@ -255,7 +256,7 @@ func DescribeService(dir, service string) (Description, error) {
 	if err != nil {
 		return Description{}, err
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	caRaw, err := readFile(store, "ca.cert.pem")
 	if err != nil {
 		return Description{}, err

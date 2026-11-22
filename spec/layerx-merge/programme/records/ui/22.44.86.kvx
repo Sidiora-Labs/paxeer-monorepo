@@ -1,0 +1,75 @@
+[coverage]
+surface = "Paxscan explorer transactions and price feed"
+views = 10
+named_states = 6
+view_state_combinations = 16
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+planned_renders = 508
+default_only_views = ["/cc/tx/[hash]", "/cross-chain-tx/[id]", "/txs/kettle/[hash]"]
+
+[presentation]
+first_page = "Transaction lists retain the first response's row count and next-page cursor."
+loading = "Feed and internal transaction placeholders retain the first response's row count and cursor."
+transaction = "Transaction details receive their initial query data with the page and retain client updates."
+responsive_lists = "Activity views mount the list or table selected by their container breakpoint."
+numbers = "Numeric table columns align to the right and use tabular figures."
+summary_values = "Summary figures retain one line within their card; long figures use ellipsis and expose their full text in a native tooltip."
+identifiers = "Hashes, timestamps and feeder identifiers wrap within their columns."
+transfers = "Transfer addresses and values wrap within their available width."
+controls = "Previous and next controls retain a visible border in both schemes."
+loading_interaction = "Loading skeletons retain their content geometry and exclude placeholder controls from interaction."
+internal_calls = "Internal call labels use the scheme cyan text colour."
+
+[guidance]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "responsive-table"]
+
+[render_review]
+required_screenshots_reviewed = 80
+screenshot_widths = [360, 768, 1440, 2560]
+screenshot_landscape = [844, 390]
+screenshot_schemes = ["light", "dark"]
+
+[visual_corrections]
+header = "The desktop header wraps its brand, navigation, search and controls within the available width. Ordinary desktop typography retains one row where space permits."
+internal_addresses = "Internal transaction address links and copy controls wrap together within the address column."
+addresses = "Transfer addresses retain their natural width and wrap within their columns."
+connection_notice = "The feed connection notice appears above the records after a connection issue and clears when the channel joins. Initial channel joins retain endpoint polling without showing a lost-connection notice."
+
+[mode_scope]
+internal_transactions = "Internal transaction search, list and table render in default, reduced-motion, double-text and keyboard modes."
+cross_chain_details = "Cross-chain details use the shared transaction detail typography, timestamp selector, entity links and copy controls; those components receive the additional modes in the transaction detail view. The completed lifecycle has no route-specific motion."
+unavailable_routes = "Cross-chain and kettle routes disabled in this configuration use the shared not-found page; its typography, motion and keyboard behavior receive the additional modes in the not-found view."
+
+[first_finding_counts]
+load = 31
+sideways = 604
+cut = 28
+contrast = 0
+touch = 0
+focus = 0
+shift = 2
+motion = 0
+scale = 0
+geometry = 0
+
+[market_rows]
+loading = "Market symbols and chainflow symbols retain the same row structure during loading and refresh."
+
+[rendering]
+renders = 508
+views_with_content = 508
+findings = 0
+result = "pass"
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0

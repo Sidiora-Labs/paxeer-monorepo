@@ -1173,6 +1173,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -1204,6 +1205,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -1371,6 +1373,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -1485,6 +1488,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -1603,6 +1607,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -1739,6 +1744,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -1854,6 +1860,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -2045,6 +2052,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -2187,6 +2195,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -2298,6 +2307,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -2504,6 +2514,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -2625,6 +2636,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -2760,6 +2772,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -2931,6 +2944,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -3084,6 +3098,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -3227,6 +3242,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -3377,6 +3393,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -3521,6 +3538,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -3653,6 +3671,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -3812,6 +3831,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -3948,6 +3968,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -4078,6 +4099,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -4234,6 +4256,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -4382,6 +4405,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -4566,6 +4590,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -4701,6 +4726,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -4830,6 +4856,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -4978,6 +5005,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -5099,6 +5127,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -5249,6 +5278,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -5425,6 +5455,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -5626,6 +5657,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -5769,6 +5801,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -5890,6 +5923,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -6033,6 +6067,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -6261,6 +6296,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -6411,6 +6447,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -6678,6 +6715,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -6817,6 +6855,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -7021,6 +7060,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -7304,6 +7344,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -7510,6 +7551,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -7663,6 +7705,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -7858,6 +7901,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -8001,6 +8045,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -8129,6 +8174,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -8409,6 +8455,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -8527,6 +8574,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -8653,6 +8701,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -8800,6 +8849,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -8952,6 +9002,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -9345,6 +9396,7 @@
           "sdk/launchpad/packages/production-contracts/test",
           "tools/launchpad/production/interfaces/examples_check.py",
           "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt",
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
@@ -9396,7 +9448,8 @@
           "tools/launchpad/production/interfaces/test_capability_check.py",
           "tools/launchpad/production/interfaces/test_codegen.py",
           "tools/launchpad/production/interfaces/test_materialize.py",
-          "tools/launchpad/production/interfaces/validator.go.txt"
+          "tools/launchpad/production/interfaces/validator.go.txt",
+          "tools/launchpad/production/interfaces/validator.compiled.go.txt"
         ],
         "outputs": [
           "apps/launchpad/web/src/core/network/deployment.ts",

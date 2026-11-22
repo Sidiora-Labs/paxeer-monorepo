@@ -181,11 +181,11 @@ func (s *DevelopmentPoolMetadataSource) Resolve(ctx context.Context, pool string
 	if len(results[2]) != 32 || len(results[3]) != 32 {
 		return token, errors.New("token metadata unavailable")
 	}
-	name, err := decodeMetadataString(results[0], 160)
+	name, err := decodeMetadataString(results[0])
 	if err != nil {
 		return token, err
 	}
-	symbol, err := decodeMetadataString(results[1], 32)
+	symbol, err := decodeMetadataString(results[1])
 	if err != nil {
 		return token, err
 	}
@@ -202,6 +202,7 @@ func (s *DevelopmentPoolMetadataSource) Resolve(ctx context.Context, pool string
 	digest := sha256.Sum256(revisionInput)
 	revision := interfaces.UInt256(new(big.Int).SetBytes(digest[:]).String())
 	token = interfaces.Token{Address: tokenAddress, Name: name, Symbol: symbol, Decimals: &decimals, DecimalsQuality: qualityVerified, MetadataRevision: revision, SourcePosition: &position, SupplyQuality: qualityVerified, TotalSupplyRaw: &total}
+	token = normalizeTokenMetadata(token)
 	raw, err := json.Marshal(token)
 	if err != nil || interfaces.ValidateJSON("Token", raw) != nil {
 		return interfaces.Token{}, errors.New("development token metadata violates the Token contract")

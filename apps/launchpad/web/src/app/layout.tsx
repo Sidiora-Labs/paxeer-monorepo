@@ -1,10 +1,22 @@
 import type { Metadata, Viewport } from 'next';
-import type { ReactNode } from 'react';
-import { headers } from 'next/headers';
-import { BackendConfigurationError } from '@/ui/shared/backend-configuration-error';
-import { backendConfigurationProblems } from '@/core/backend-origins';
+import { cloneElement, type ReactNode } from 'react';
+import localFont from 'next/font/local';
 import { launchpadCanvasColors } from './presentation-tokens';
+import renderRootLayout from './root-layout';
 import './globals.css';
+
+const manrope = localFont({
+  src: [
+    { path: '../../public/fonts/manrope-medium.otf', weight: '500', style: 'normal' },
+    { path: '../../public/fonts/manrope-semibold.otf', weight: '600', style: 'normal' },
+    { path: '../../public/fonts/manrope-bold.otf', weight: '700', style: 'normal' },
+    { path: '../../public/fonts/manrope-extrabold.otf', weight: '800', style: 'normal' },
+  ],
+  variable: '--sl-font-sans',
+  display: 'swap',
+  adjustFontFallback: false,
+  fallback: ['Manrope Fallback', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+});
 
 export const metadata: Metadata = {
   title: { default: 'Sidiora Launch', template: '%s | Sidiora Launch' },
@@ -28,62 +40,10 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE = process.env.NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE;
-  const privateFixtureProfileInput = NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE;
-  // A production build without its backend origins renders one explicit error
-  // state and mounts nothing that would contact a backend (no fallback host).
-  const configurationProblems = backendConfigurationProblems();
-  if (configurationProblems.length > 0) {
-    console.error(`[sidiora] backend origins are not configured: ${configurationProblems.map(problem => problem.message).join('; ')}`);
-    return (
-      <html lang="en">
-        <body className="bg-canvas text-text">
-          <BackendConfigurationError problems={configurationProblems} />
-        </body>
-      </html>
-    );
-  }
-  const [
-    { cookieStorage, cookieToInitialState, createStorage },
-    { createWagmiConfig },
-    { default: AppProviders },
-    { PRIVATE_FIXTURE_WAGMI_STORAGE_KEY },
-    { default: AppShell },
-    { default: PlatformRulesModal },
-    { default: CookieBanner },
-  ] = await Promise.all([
-    import('wagmi'),
-    import('@/core/wagmi-config'),
-    import('@/ui/providers/app-providers'),
-    import('@/core/network/deployment'),
-    import('@/shell/app-shell'),
-    import('@/ui/shared/platform-rules-modal'),
-    import('@/ui/shared/cookie-banner'),
-  ]);
-  const hdrs = await headers();
-  const cookie = hdrs.get('cookie') ?? '';
-  const config = createWagmiConfig();
-  const storage = privateFixtureProfileInput === undefined ? config.storage : createStorage({ key: PRIVATE_FIXTURE_WAGMI_STORAGE_KEY, storage: cookieStorage });
-  const wagmiInitialState = cookieToInitialState({ ...config, storage }, cookie);
-
-  return (
-    <html lang="en">
-      <head>
-        <link rel="preload" href="/fonts/manrope-medium.otf" as="font" type="font/otf" crossOrigin="anonymous" />
-        <link rel="preload" href="/fonts/manrope-semibold.otf" as="font" type="font/otf" crossOrigin="anonymous" />
-        <link rel="preload" href="/fonts/manrope-bold.otf" as="font" type="font/otf" crossOrigin="anonymous" />
-        <link rel="preload" href="/fonts/manrope-extrabold.otf" as="font" type="font/otf" crossOrigin="anonymous" />
-      </head>
-      <body className="bg-canvas text-text">
-        <PlatformRulesModal />
-        <CookieBanner />
-        <AppProviders wagmiInitialState={wagmiInitialState} privateFixtureProfileInput={privateFixtureProfileInput}>
-          <AppShell>
-            {children}
-          </AppShell>
-        </AppProviders>
-      </body>
-    </html>
-  );
+export default async function RootLayout(props: { children: ReactNode }) {
+  const layout = await renderRootLayout(props);
+  const body = layout.props.children;
+  return cloneElement(layout, undefined, cloneElement(body, {
+    className: `${manrope.variable} ${body.props.className}`,
+  }));
 }

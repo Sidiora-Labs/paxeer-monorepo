@@ -78,6 +78,7 @@ export function toTrendingRow(row: ExploreRow, timeframe: Timeframe, metadata: T
   const change = changeFor(row, timeframe);
   return {
     poolAddress: row.poolAddress,
+    tokenAddress: row.tokenAddress,
     href: row.href,
     rank: row.rank,
     name: row.name,

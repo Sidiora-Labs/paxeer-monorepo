@@ -8,9 +8,26 @@
 
 export const GENERIC_TRADE_ERROR = 'Something went wrong, try again';
 
+const walletRefusalPattern = /user rejected|user denied|rejected the request|denied transaction|cancelled|canceled/i;
+
+export function isWalletRefusal(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  while (error && !seen.has(error)) {
+    if (typeof error === 'string') return walletRefusalPattern.test(error);
+    if (typeof error !== 'object') return false;
+    seen.add(error);
+    const detail = error as { code?: unknown; name?: unknown; shortMessage?: unknown; message?: unknown; cause?: unknown };
+    if (detail.code === 4001 || detail.name === 'UserRejectedRequestError') return true;
+    for (const field of ['shortMessage', 'message'] as const) {
+      if (typeof detail[field] === 'string' && walletRefusalPattern.test(detail[field])) return true;
+    }
+    error = detail.cause;
+  }
+  return false;
+}
+
 /** Ordered: the first matching rule wins. */
 const rules: ReadonlyArray<readonly [RegExp, string]> = [
-  [/user rejected|user denied|rejected the request|denied transaction|cancelled|canceled/i, 'You cancelled in your wallet'],
   [/insufficient funds|exceeds balance|insufficient_balance|insufficient balance/i, 'Not enough balance for this trade'],
   [/network switch|switch.*paxeer|wrong network|chain mismatch|invalid_chain/i, "Your wallet didn't switch to Paxeer. Switch in your wallet and try again"],
   [/cooldown/i, 'This coin has a short cooldown between trades. Try again in a moment'],
@@ -32,6 +49,7 @@ const rules: ReadonlyArray<readonly [RegExp, string]> = [
 /** One plain sentence for a trade-panel failure; '' stays ''. */
 export function plainTradeError(text: string | null | undefined, fallback: string = GENERIC_TRADE_ERROR): string {
   if (!text) return '';
+  if (isWalletRefusal(text)) return 'You cancelled in your wallet';
   for (const [pattern, copy] of rules) if (pattern.test(text)) return copy;
   return fallback;
 }

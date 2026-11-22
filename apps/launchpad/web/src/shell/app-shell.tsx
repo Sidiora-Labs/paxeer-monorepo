@@ -131,12 +131,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
               ? navigation.getBoundingClientRect().top
               : window.innerHeight;
           const cookieBanner = document.querySelector('[data-cookie-banner]');
-          const visibleBottom = Math.min(
+          let visibleBottom = Math.min(
             navigationTop,
             cookieBanner instanceof HTMLElement
               ? cookieBanner.getBoundingClientRect().top
               : window.innerHeight
           );
+          const floatingAction = document.querySelector('[data-floating-action]');
+          if (
+            floatingAction instanceof HTMLElement &&
+            floatingAction.getClientRects().length > 0 &&
+            !floatingAction.contains(control)
+          ) {
+            const actionRect = floatingAction.getBoundingClientRect();
+            if (rect.right > actionRect.left && rect.left < actionRect.right) {
+              visibleBottom = Math.min(visibleBottom, actionRect.top);
+            }
+          }
           if (rect.top < headerBottom || rect.height > visibleBottom - headerBottom) {
             window.scrollBy({ top: rect.top - headerBottom, behavior: 'instant' });
           } else if (rect.bottom > visibleBottom) {
@@ -201,8 +212,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
               className={cn(
                 'flex min-w-0 flex-1 flex-col',
                 route.id === 'discovery' && 'min-h-0',
+                route.id === 'chat' && pathname.startsWith('/chat/') &&
+                  'min-h-[calc(100vh-var(--sl-space)*15)]',
                 (route.id === 'coin' || route.id === 'create' || (route.id === 'token' && pathname !== '/token')) &&
-                  'min-h-[calc(100dvh-var(--shell-top))]'
+                  'min-h-[calc(100dvh-var(--shell-top))]',
+                (route.id === 'swap' || route.id === 'legacy-swap' || route.id === 'orders') &&
+                  'min-h-[calc(100dvh-var(--sl-space-8)*2)]'
               )}
             >
               {children}

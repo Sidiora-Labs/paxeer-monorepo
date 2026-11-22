@@ -21,38 +21,6 @@
   line-gap-override: 0%;
 }
 
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-medium.otf') format('opentype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-semibold.otf') format('opentype');
-  font-weight: 600;
-  font-style: normal;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-bold.otf') format('opentype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-extrabold.otf') format('opentype');
-  font-weight: 800;
-  font-style: normal;
-  font-display: optional;
-}
-
 /* Motion utilities: Tailwind v4 has no --duration-* theme namespace, so these map to the motion tokens. */
 @utility duration-instant {
   transition-duration: var(--sl-duration-instant);
@@ -120,14 +88,20 @@
 
 /* Legal doc prose */
 .prose-legal {
-  container-type: inline-size;
-  max-inline-size: var(--sl-prose-measure);
   color: var(--sl-text-muted);
+}
+.prose-legal li {
+  overflow-wrap: normal;
+}
+@container legal (width < 18em) {
+  .prose-legal li {
+    overflow-wrap: anywhere;
+  }
 }
 .prose-legal h1 {
   font-weight: var(--sl-weight-bold);
   font-size: 22px;
-  line-height: 33px;
+  line-height: calc(33px / 22px);
   color: var(--sl-text);
   margin-bottom: var(--sl-space-1);
 }
@@ -140,6 +114,48 @@
   font-size: var(--sl-text-sm);
   line-height: var(--sl-leading-prose);
   margin-bottom: var(--sl-space-3);
+}
+
+:where([data-shell-route-id='chat']) {
+  font-size-adjust: var(--sl-font-size-adjust);
+}
+
+:where([data-shell-route-id='bounties'], [data-shell-route-id='chat'], [data-shell-route-id='docs']) [data-shell-main] {
+  line-height: calc(var(--sl-leading-md) / var(--sl-text-md));
+
+  & .text-2xs {
+    line-height: var(--tw-leading, calc(var(--sl-leading-2xs) / var(--sl-text-2xs)));
+  }
+  & .text-xs {
+    line-height: var(--tw-leading, calc(var(--sl-leading-xs) / var(--sl-text-xs)));
+  }
+  & .text-sm {
+    line-height: var(--tw-leading, calc(var(--sl-leading-sm) / var(--sl-text-sm)));
+  }
+  & .text-base {
+    line-height: var(--tw-leading, calc(var(--sl-leading-base) / var(--sl-text-base)));
+  }
+  & .text-md {
+    line-height: var(--tw-leading, calc(var(--sl-leading-md) / var(--sl-text-md)));
+  }
+  & .text-lg {
+    line-height: var(--tw-leading, calc(var(--sl-leading-lg) / var(--sl-text-lg)));
+  }
+  & .text-xl {
+    line-height: var(--tw-leading, calc(var(--sl-leading-xl) / var(--sl-text-xl)));
+  }
+  & .text-2xl {
+    line-height: var(--tw-leading, calc(var(--sl-leading-2xl) / var(--sl-text-2xl)));
+  }
+  & .text-num-sm {
+    line-height: var(--tw-leading, calc(var(--sl-leading-num-sm) / var(--sl-text-num-sm)));
+  }
+  & .text-num-md {
+    line-height: var(--tw-leading, calc(var(--sl-leading-num-md) / var(--sl-text-num-md)));
+  }
+  & [class~='text-[length:var(--sl-text-card-title)]'] {
+    line-height: calc(var(--sl-leading-md) / var(--sl-text-card-title));
+  }
 }
 
 /* Scrollbar hide utility */
@@ -179,6 +195,7 @@
 }
 
 .sl-notifications {
+  --sl-notice-bottom-offset: var(--sl-space-6);
   position: fixed;
   inset: 0;
   margin: 0;
@@ -192,6 +209,23 @@
   background: transparent;
   pointer-events: none;
   z-index: var(--sl-z-toast);
+}
+@media (width < 64rem) {
+  .sl-notifications {
+    --sl-notice-bottom-offset: calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0rem));
+  }
+  body:has(.foundation-shell[data-shell-route-id='coin']) .sl-notifications {
+    --sl-notice-bottom-offset: calc(
+      var(--sl-trade-cta-clearance) + env(safe-area-inset-bottom, 0rem)
+    );
+  }
+}
+@media (width < 48rem) {
+  .sl-notifications {
+    --sl-notice-bottom-offset: calc(
+      var(--sl-bottom-nav-height) + var(--sl-space-8) + env(safe-area-inset-bottom, 0rem)
+    );
+  }
 }
 .sl-notifications[data-suppressed='true'] {
   visibility: hidden;
@@ -278,6 +312,15 @@
   }
   .sl-native-select {
     align-items: center;
+    column-gap: calc(var(--sl-space-1) * 1.25);
+  }
+  .sl-native-select::picker-icon {
+    content: '';
+    inline-size: var(--sl-icon-sm);
+    block-size: var(--sl-icon-sm);
+    background: currentColor;
+    color: inherit;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
   }
   .sl-native-select::picker(select) {
     background: var(--sl-surface-3);
@@ -320,4 +363,8 @@
 
 .sl-chat-log:focus-visible {
   outline-offset: calc(-1 * var(--sl-focus-width));
+}
+
+.chat-state {
+  container-type: normal;
 }

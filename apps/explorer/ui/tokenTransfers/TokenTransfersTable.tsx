@@ -19,10 +19,10 @@ interface Props {
 const TokenTransferTable = ({ items, top, isLoading, chainData }: Props) => {
   return (
     <AddressHighlightProvider>
-      <ActivityTable label="Token transfers" minW="var(--chakra-sizes-4xl)" tableLayout="auto">
+      <ActivityTable label="Token transfers" minW={ 'calc(var(--chakra-spacing-200) + var(--chakra-spacing-37\\.5))' } tableLayout="auto">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            { chainData && <TableColumnHeader width="var(--chakra-spacing-9)"/> }
+            { chainData && <TableColumnHeader width={ 'calc(var(--chakra-spacing-9) + var(--chakra-spacing-0\\.5))' }/> }
             <TableColumnHeader>
               Txn hash
               <TimeFormatToggle/>

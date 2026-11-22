@@ -70,11 +70,11 @@ func (a *BaselineAuthority) receiptSettlement(ctx context.Context, tx pgx.Tx, fi
 	if header == nil || strconv.FormatUint(header.Time, 10) != fill.BlockTimestampSeconds {
 		return result, delivery.ErrIntegrity
 	}
-	raw, err = json.Marshal(header)
+	headerDigest, err := receiptHeaderDigest(header)
 	if err != nil {
 		return result, err
 	}
-	if delivery.Hash(raw) != fill.Provenance.HeaderSHA256 {
+	if headerDigest != fill.Provenance.HeaderSHA256 {
 		return result, delivery.ErrIntegrity
 	}
 	var tokenMoves, settlements, quoteMoves []movement

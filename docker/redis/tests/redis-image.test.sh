@@ -48,7 +48,7 @@ for role in redis-router redis-internal; do
 		'tls-cert-file /run/secrets/redis.crt' \
 		'tls-key-file /run/secrets/redis.key' \
 		'tls-ca-cert-file /run/secrets/ca.crt' \
-		'aclfile /run/secrets/users.acl' \
+		'aclfile /run/layerx/users.acl' \
 		'appendonly yes' \
 		'dir /data' \
 		'maxmemory 3gb' \
@@ -57,9 +57,15 @@ for role in redis-router redis-internal; do
 	done
 	[ "$(head -n1 "$work/$role.conf")" = 'include /run/secrets/redis.conf' ] || fail "operator include must come first so rendered directives win"
 	cut -f2 "$dir/files.tsv" | while read -r path; do
-		[ "$path" = /run/secrets/redis.conf ] || grep -q " $path\$" "$work/$role.conf" || fail "$role conf does not use $path"
+		case "$path" in
+		/run/secrets/redis.conf | /run/secrets/users.acl) continue ;;
+		esac
+		grep -q " $path\$" "$work/$role.conf" || fail "$role conf does not use $path"
 	done
 done
+
+printf '%s\n' 'user default off' | env -i PATH="$PATH" LAYERX_ROLE=redis-router sh "$dir/entrypoint.sh" render-acl >"$work/users.acl" || fail "render access list"
+grep -qx 'user default off ~\* &\* +@all' "$work/users.acl" || fail "disabled default user rules"
 
 ! env -i PATH="$PATH" LAYERX_ROLE=kms sh "$dir/entrypoint.sh" render >/dev/null 2>&1 || fail "unknown role accepted"
 ! env -i PATH="$PATH" LAYERX_ROLE=redis-router REDIS_MAXMEMORY='1gb; rm' sh "$dir/entrypoint.sh" render >/dev/null 2>&1 || fail "bad maxmemory accepted"

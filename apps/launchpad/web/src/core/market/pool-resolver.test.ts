@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, it, expect } from 'vitest';
 import { HttpError, Operations, SdkClient, type V2ContractTypes } from '@kindle/sdk';
 import { recordedStats, serveRecorded, v2Reads, type Replay, type ReplayFallback } from '@/core/test-fixtures/market-production/v2-reads';
-import { PoolNotFoundError, fetchPoolDetail, resolvePoolIdentity, resolvePoolSnapshot } from './pool-resolver';
+import { PoolNotFoundError, PoolUnavailableError, fetchPoolDetail, resolvePoolIdentity, resolvePoolSnapshot } from './pool-resolver';
 import { toUnsupported } from './unsupported';
 
 type MetadataGetResponse = V2ContractTypes['MetadataGetResponse'];
@@ -94,6 +94,59 @@ describe('pool resolver over served v2 routes', () => {
     expect(calls()).toEqual([`GET /v2/pools/${unknown}`, `GET /v2/search?q=${unknown}&type=token&limit=10`, `GET /v2/search?q=${unknown}&type=pool&limit=10`]);
   });
 
+  it.each([503, 412, 501])('keeps detail status %s unavailable when both searches have no hit', async function poolDetailUnavailableWithoutSearchHit(status) {
+    const { deps, calls } = harness((_method, url) => url.pathname === `/v2/pools/${unknown}`
+      ? { status, body: envelope(status === 412 ? 'PRECONDITION_FAILED' : 'DEPENDENCY_UNAVAILABLE') }
+      : undefined);
+    const failure = await resolvePoolIdentity(unknown, deps).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(PoolUnavailableError);
+    expect(failure).not.toBeInstanceOf(PoolNotFoundError);
+    expect(failure).toMatchObject({ operation: 'IF_POOL_DETAIL', status });
+    expect(calls()).toEqual([`GET /v2/pools/${unknown}`, `GET /v2/search?q=${unknown}&type=token&limit=10`, `GET /v2/search?q=${unknown}&type=pool&limit=10`]);
+  });
+
+  it('resolves a token when its detail probe answers 503 and token search has a hit', async function poolDetailUnavailableWithTokenHit() {
+    const { deps, calls } = harness((_method, url) => url.pathname === `/v2/pools/${token}`
+      ? { status: 503, body: envelope('DEPENDENCY_UNAVAILABLE') }
+      : undefined);
+    const resolved = await resolvePoolIdentity(token, deps);
+    expect(resolved.identity).toEqual({ chainId: '125', poolAddress: pool, tokenAddress: token });
+    expect(resolved.resolvedBy).toBe('search');
+    expect(resolved.detail).toEqual(recorded.poolDetailReal.body);
+    expect(resolved.detailUnavailable).toBeNull();
+    expect(calls()).toEqual([`GET /v2/pools/${token}`, `GET /v2/search?q=${token}&type=token&limit=10`, `GET /v2/pools/${pool}`]);
+  });
+
+  it.each(['token', 'pool'])('keeps a detail 404 unavailable when the %s search is not served', async function poolSearchUnavailableAfterDetailNotFound(type) {
+    for (const status of [404, 503, 412, 501]) {
+      const { deps, calls } = harness((_method, url) => url.pathname === '/v2/search' && url.searchParams.get('type') === type
+        ? { status, body: envelope('DEPENDENCY_UNAVAILABLE') }
+        : undefined);
+      const failure = await resolvePoolIdentity(unknown, deps).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(PoolUnavailableError);
+      expect(failure).not.toBeInstanceOf(PoolNotFoundError);
+      expect(failure).toMatchObject({ operation: 'IF_SEARCH', status });
+      expect(calls()).toEqual([`GET /v2/pools/${unknown}`, `GET /v2/search?q=${unknown}&type=token&limit=10`, `GET /v2/search?q=${unknown}&type=pool&limit=10`]);
+    }
+  });
+
+  it('resolves by pool after a token search that is not served', async function poolHitAfterUnavailableTokenSearch() {
+    const { deps, calls } = harness((_method, url) => url.pathname === '/v2/search' && url.searchParams.get('type') === 'token'
+      ? { status: 501, body: envelope('DEPENDENCY_UNAVAILABLE') }
+      : undefined);
+    const resolved = await resolvePoolIdentity(stateless, deps);
+    expect(resolved.identity).toEqual({ chainId: '125', poolAddress: stateless, tokenAddress: statelessToken });
+    expect(resolved.resolvedBy).toBe('search');
+    expect(resolved.detailUnavailable).toMatchObject({ operation: 'IF_POOL_DETAIL', status: 503 });
+    expect(calls()).toEqual([`GET /v2/pools/${stateless}`, `GET /v2/pools/${stateless}`, `GET /v2/pools/${stateless}`, `GET /v2/search?q=${stateless}&type=token&limit=10`, `GET /v2/search?q=${stateless}&type=pool&limit=10`]);
+  });
+
+  it('rejects a malformed address before reading any route', async function malformedPoolAddress() {
+    const { deps, calls } = harness();
+    await expect(resolvePoolIdentity('not-an-address', deps)).rejects.toThrow(new TypeError('Invalid chain125 pool address'));
+    expect(calls()).toEqual([]);
+  });
+
   it('resolves a pool whose detail answers 503 through /v2/search and keeps the real status', async () => {
     const { deps, calls } = harness();
     const snapshot = await resolvePoolSnapshot(stateless, deps);
@@ -104,6 +157,7 @@ describe('pool resolver over served v2 routes', () => {
     expect(snapshot.unavailable.registry).toEqual({ state: 'unsupported', operation: 'IF_POOL_DETAIL', status: 503, message: 'DEPENDENCY_UNAVAILABLE' });
     expect(snapshot.creator).toBeNull();
     expect(snapshot.createdAt).toBeNull();
+    expect(calls().slice(0, 5)).toEqual([`GET /v2/pools/${stateless}`, `GET /v2/pools/${stateless}`, `GET /v2/pools/${stateless}`, `GET /v2/search?q=${stateless}&type=token&limit=10`, `GET /v2/search?q=${stateless}&type=pool&limit=10`]);
     expect(calls()).toEqual(expect.arrayContaining([`GET /v2/pools/${stateless}`, `GET /v2/search?q=${stateless}&type=pool&limit=10`, `GET /v2/pools/${stateless}/stats`]));
   });
 

@@ -305,5 +305,11 @@
         }
       ]
     }
+  ],
+  "released": [
+    {
+      "id": "core_market",
+      "deploymentVersion": "paxeer125-v6.12.0"
+    }
   ]
 }

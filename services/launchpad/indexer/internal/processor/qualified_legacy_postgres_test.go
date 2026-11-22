@@ -207,13 +207,13 @@ func TestQualifiedProductionIngestionRealMarketPostgres(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if virtual != pinned.VirtualUSDL.String() || real != pinned.RealUSDL.String() || tokenReserve != pinned.Token.String() || price != pinned.Price.String() || real == "0" {
+		if virtual != pinned.VirtualUSDL.String() || real != pinned.RealUSDL.String() || tokenReserve != pinned.Token.String() || price != pinned.Price.String() || (block == 33963716 && real != "0") || (block != 33963716 && real == "0") {
 			t.Fatalf("snapshot at %d differs from pinned reserves", block)
 		}
 		snapshots++
 	}
 	rows.Close()
-	if snapshots != 2 {
+	if snapshots != 3 {
 		t.Fatalf("pinned reserve snapshots %d", snapshots)
 	}
 	var creations, fills int

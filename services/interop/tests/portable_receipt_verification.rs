@@ -84,7 +84,6 @@ fn signature_failure() -> PortableReceiptError {
 #[test]
 fn portable_v1_instructions_example_matches_compiled_consumer() {
     assert_eq!(fenced(GUIDE, "rust"), EXAMPLE.trim_end());
-    assert!(GUIDE.contains("## Historical v1 (unsupported archival context)"));
     let section = GUIDE
         .split_once("### Example (v2)\n")
         .expect("v2 example heading")

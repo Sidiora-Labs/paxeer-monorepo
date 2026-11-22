@@ -1,7 +1,9 @@
 package production
 
 const (
+	valueDELETE                 = "DELETE"
 	valueEXECUTE                = "EXECUTE"
+	valueINSERT                 = "INSERT"
 	valueSELECT                 = "SELECT"
 	valueUPDATE                 = "UPDATE"
 	valueUSAGE                  = "USAGE"
@@ -14,8 +16,11 @@ const (
 	valueFunction               = "function"
 	valueMigration              = "migration"
 	valueMigrationControl       = "migration_control"
+	valuePnl                    = "pnl"
+	valueSecurity               = "security"
 	valueSequence               = "sequence"
 	valueTable                  = "table"
+	valueNontransactional       = "nontransactional"
 	valueTransactional          = "transactional"
 	valueView                   = "view"
 	valueCoreApiCache           = "core/api/cache"

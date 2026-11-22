@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { createRequire, enableCompileCache, flushCompileCache } from 'node:module';
 import { readFile, readdir } from 'node:fs/promises';
@@ -5,41 +6,61 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
+import { watchSurfaceOwner } from './lifecycle.mjs';
 import { tokenServerAnswer } from './tokens.mjs';
+import { readBlockResponses } from './block-responses.mjs';
+import { prepareAddressResponses, readAddressResponses } from './address-responses.mjs';
 
+const preparing = process.argv.includes('--prepare');
 const directory = fileURLToPath(new URL('../../../../apps/explorer/', import.meta.url));
 const compileCache = enableCompileCache();
 if (!compileCache.directory) throw new Error(compileCache.message);
+process.env.NODE_COMPILE_CACHE = compileCache.directory;
 const require = createRequire(directory + 'package.json');
 const environment = JSON.parse(await readFile(new URL('./environment.json', import.meta.url), 'utf8'));
 const zetaChainCCTX = await readFile(new URL('./zeta-chain.json', import.meta.url));
 const statistics = JSON.parse(await readFile(new URL('./statistics-service.json', import.meta.url), 'utf8'));
+const transactionAnswers = JSON.parse(await readFile(join(directory, '.next/cache/explorer-transaction-answers.json'), 'utf8'));
+if (transactionAnswers.buildId !== (await readFile(join(directory, '.next/BUILD_ID'), 'utf8')).trim()) throw new Error('Transaction answers must match the explorer build');
+const transactionSurface = { answers: transactionAnswers.answers.map((answer) => ({ ...answer, pattern: new RegExp(answer.pattern.source, answer.pattern.flags), body: Buffer.from(answer.body, 'base64') })) };
+const productionConfig = JSON.parse(await readFile(join(directory, '.next/required-server-files.json'), 'utf8')).config;
+productionConfig.experimental.preloadEntriesOnStart = false;
 Object.assign(process.env, environment, { NODE_ENV: 'production', DISABLE_TRACKING: 'true', NEXT_TELEMETRY_DISABLED: '1' });
+process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(productionConfig);
 const next = require('next');
 const { WebSocketServer } = require('ws');
 const staticAssets = new Map();
 let blockResponses = new Map();
+let addressResponses = new Map();
 async function loadStaticAssets(relative = '') {
   const root = join(directory, '.next/static', relative);
-  for (const entry of await readdir(root, { withFileTypes: true })) {
+  const entries = await readdir(root, { withFileTypes: true });
+  await Promise.all(entries.map(async (entry) => {
     const filename = join(relative, entry.name);
     if (entry.isDirectory()) {
       await loadStaticAssets(filename);
     } else if (entry.name.endsWith('.js') || entry.name.endsWith('.css')) {
-      const body = await readFile(join(root, entry.name));
       staticAssets.set('/explorer/_next/static/' + filename, {
-        body,
+        filename: join(root, entry.name),
+        body: null,
         compressed: null,
         type: entry.name.endsWith('.js') ? 'application/javascript' : 'text/css',
       });
     }
-  }
+  }));
 }
-await loadStaticAssets();
-const iconSprite = await readFile('/tmp/explorer-icons/sprite.svg');
-const compressedIconSprite = gzipSync(iconSprite);
+async function readAssetBody(asset) {
+  if (!asset.body) asset.body = await readFile(asset.filename);
+  return asset.body;
+}
 const application = next({ dir: directory, dev: false, hostname: 'localhost', port: 4173 });
-await application.prepare();
+const [, , iconSprite] = await Promise.all([
+  application.prepare(),
+  loadStaticAssets(),
+  readFile('/tmp/explorer-icons/sprite.svg'),
+]);
+const compressedIconSprite = gzipSync(iconSprite);
+const notFoundPage = preparing ? null : await readFile(join(directory, '.next/server/pages/404.html'));
 const handle = application.getRequestHandler();
 let ready = false;
 const server = createServer(async (request, response) => {
@@ -50,9 +71,15 @@ const server = createServer(async (request, response) => {
       response.end('Explorer');
       return;
     }
+    if (notFoundPage && url.pathname === '/explorer/404' && (request.method === 'GET' || request.method === 'HEAD')) {
+      response.writeHead(404, { 'content-type': 'text/html; charset=utf-8', 'content-length': notFoundPage.length });
+      response.end(request.method === 'HEAD' ? undefined : notFoundPage);
+      return;
+    }
     const asset = staticAssets.get(decodeURI(url.pathname));
     if (asset && (request.method === 'GET' || request.method === 'HEAD')) {
       const compressed = /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
+      await readAssetBody(asset);
       if (compressed && !asset.compressed) asset.compressed = gzipSync(asset.body);
       const body = compressed ? asset.compressed : asset.body;
       response.writeHead(200, {
@@ -108,6 +135,15 @@ const server = createServer(async (request, response) => {
       response.end(await readFile(new URL('./services/chain-metrics.json', import.meta.url)));
       return;
     }
+    if (url.pathname.startsWith('/api/v2/')) {
+      const address = 'https://explorer.example.test' + apiPath + url.search;
+      const answer = transactionSurface.answers.find((entry) => entry.method === request.method && entry.pattern.test(address));
+      if (answer) {
+        response.writeHead(answer.status ?? 200, answer.headers);
+        response.end(answer.body);
+        return;
+      }
+    }
     if (apiPath.startsWith('/api/v2/') || apiPath === '/api/v1/solidity:visualize-contracts' || (apiPath === '/api' && url.searchParams.get('action') === 'getblockcountdown')) {
       const answer = !request.headers['user-agent']?.startsWith('Mozilla/') && tokenServerAnswer(request.method, apiPath, url.search);
       if (answer) {
@@ -132,7 +168,7 @@ const server = createServer(async (request, response) => {
       response.end(JSON.stringify(payload ?? { message: 'Chart not found' }));
       return;
     }
-    const blockResponse = !url.search && blockResponses.get(url.pathname);
+    const blockResponse = !url.search && (blockResponses.get(url.pathname) ?? addressResponses.get(url.pathname));
     if (blockResponse && (request.method === 'GET' || request.method === 'HEAD')) {
       const compressed = /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
       const body = compressed ? blockResponse.compressed : blockResponse.body;
@@ -175,7 +211,6 @@ server.listen(4173, 'localhost', () => {
   });
 });
 async function prepare() {
-  const preparing = process.argv.includes('--prepare');
   try {
     const response = await fetch('http://localhost:4173/explorer/404', { signal: AbortSignal.timeout(10000) });
     await response.arrayBuffer();
@@ -190,18 +225,21 @@ async function prepare() {
         await document.arrayBuffer();
         if (document.status !== 200) throw new Error(`${path}: statistics document must answer with status 200`);
       }
+      await prepareAddressResponses();
       await (await import('./blocks.mjs')).prepareBlockResponses();
-      blockResponses = await (await import('./blocks.mjs')).readBlockResponses();
+      blockResponses = await readBlockResponses();
       await (await import('./blocks.mjs')).assertBlockPages();
+      await (await import('./transactions.mjs')).assertTransactionPages();
       flushCompileCache();
     } else {
-      blockResponses = await (await import('./blocks.mjs')).readBlockResponses();
+      blockResponses = await readBlockResponses();
     }
-    for (const response of blockResponses.values()) {
+    addressResponses = await readAddressResponses();
+    for (const response of [...blockResponses.values(), ...addressResponses.values()]) {
       for (const [, path] of response.body.toString().matchAll(/(?:src|href)="(\/explorer\/_next\/static\/[^"?]+\.(?:js|css))(?:\?[^\"]*)?"/g)) {
         const asset = staticAssets.get(decodeURI(path));
         if (!asset) throw new Error(`Prepared block asset must exist: ${path}`);
-        if (!asset.compressed) asset.compressed = gzipSync(asset.body);
+        if (!asset.compressed) asset.compressed = gzipSync(await readAssetBody(asset));
       }
     }
     ready = true;
@@ -215,6 +253,10 @@ async function close() {
   server.closeAllConnections();
   server.close();
   await application.close();
+}
+if (!process.argv.includes('--prepare')) {
+  const ownerPid = Number(execFileSync('ps', ['-o', 'ppid=', '-p', String(process.ppid)], { encoding: 'utf8' }).trim());
+  watchSurfaceOwner(ownerPid, () => void close());
 }
 process.on('SIGTERM', () => void close());
 process.on('SIGINT', () => void close());

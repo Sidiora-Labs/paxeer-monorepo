@@ -66,8 +66,8 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
     const explorer = explorerIdentity.get(event.tokenAddress);
     const pool = meta?.pool_address && /^0x[0-9a-fA-F]{40}$/.test(meta.pool_address) ? meta.pool_address : null;
     return {
-      name: meta?.name?.trim() || explorer?.name || null,
-      symbol: meta?.symbol?.trim() || explorer?.symbol || null,
+      name: meta?.name ?? explorer?.name ?? null,
+      symbol: meta?.symbol ?? explorer?.symbol ?? null,
       logo: meta?.images?.logo ?? explorer?.logo ?? null,
       decimals: typeof meta?.decimals === 'number' ? meta.decimals : explorer?.decimals ?? event.decimals,
       poolAddress: event.poolAddress ?? pool,

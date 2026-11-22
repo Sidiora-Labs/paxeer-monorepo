@@ -133,7 +133,7 @@ func chartFaultSource(t *testing.T, pool *pgxpool.Pool, chain internaltest.Marke
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{"market": true}}
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 	for index := 0; index < 2; index++ {
 		fill := chartFaultFill(t, index, chain)
 		if err = accounting.ValidateFillV1(fill); err != nil {
@@ -167,7 +167,7 @@ func chartFaultSource(t *testing.T, pool *pgxpool.Pool, chain internaltest.Marke
 			_ = tx.Rollback(ctx)
 			t.Fatal(err)
 		}
-		envelope := delivery.Envelope{EventID: publication.PublicationID, EventType: "market", SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex}, EmittedAt: time.Now().UTC(), TraceID: "chart-fault-local", PayloadHash: delivery.Hash(payload), Payload: payload}
+		envelope := delivery.Envelope{EventID: publication.PublicationID, EventType: accounting.MarketSubject, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex}, EmittedAt: time.Now().UTC(), TraceID: "chart-fault-local", PayloadHash: delivery.Hash(payload), Payload: payload}
 		wire, err := envelope.Encode(policy, accounting.MarketSubject)
 		if err != nil {
 			_ = tx.Rollback(ctx)
@@ -280,7 +280,7 @@ func TestFaultScenariosPreserveOrderedAndPoisonedDelivery(t *testing.T) {
 	if _, err := pool.Exec(ctx, `UPDATE indexer.delivery_outbox SET envelope=$2 WHERE event_id=$1`, wires[0].id, wires[0].wire); err != nil {
 		t.Fatal(err)
 	}
-	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{"market": true}}
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 	envelope, err := delivery.Decode(wires[0].wire, policy, accounting.MarketSubject)
 	if err != nil {
 		t.Fatal(err)
