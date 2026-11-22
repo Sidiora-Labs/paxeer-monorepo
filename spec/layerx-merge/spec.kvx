@@ -211053,7 +211053,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1082]
 title = "Add cases to the api module until the total of the coverage gate for the module reads 86.0 of 100 or more"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
