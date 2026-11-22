@@ -16630,6 +16630,18 @@ value = "One. The member files of the member retained_inputs takes, for sdk/laun
 basis = "Gotcha 4846."
 affects = []
 
+[decision.3920]
+title = "The first case of the receipt state integration test waits for the state checking through its helper"
+value = "One. In the first case of the file use-optimistic-receipt.integration.test.tsx the fixed wait of 2300 milliseconds stays. After it and before the line of four requirements the case waits through the helper waitUntil until the state reads checking, in the form that the second case uses. The four requirements follow unchanged. Two. The title and the bound of the first case, its later steps, the second case, the helper waitUntil and the source file use-optimistic-receipt.ts stay as they are. Three. Scope: the one test file. Four. Target: the verification of task 22.39.1138 passes. It prepares the test environment of the web application and runs the test runner on the test files whose names hold use-optimistic-receipt.integration. Task 22.39.1138."
+basis = "Gotcha 4847."
+affects = []
+
+[decision.3921]
+title = "Each phase of the two replay cases of the launchpad API broker runs under a deadline of its own of five minutes"
+value = "One. In the case TestPostgresRetainedIdentitiesSurviveInterruptedReplay three phases each run under a context of their own with a deadline of five minutes that begins when the phase begins. The append phase holds the first frame, the cursor token and the transaction with its 10000 appends and its commit. The replay phase holds the two calls of PublicResume that follow, every call of Batch and the check of the state Live with 10000 frames seen. The closing phase holds the count query, frame 10002 and the final call of PublicResume. Two. In the case TestPostgresResumePreflightsByteLimitBeforeDelivery two phases each run under a context of their own with a deadline of five minutes likewise. The append phase holds the first frame, the cursor token, the appends and the commit. The resume phase holds the call of PublicResume. Three. The context of a phase is released when the phase ends. The frame counts, the byte limit, the requirements, the messages, the names of the cases, the helpers of the file and every product source stay as they are. The form is the choice of the participant: a small helper of the case file or plain context calls. Four. Scope: the one case file. Five. Target: the verification of task 22.39.1139 passes. It runs the lint target of the launchpad for the module api, runs the cases of the broker package whose names begin with TestPostgres with the flag -race and requires a case whose name begins with TestPostgresRetained. Task 22.39.1139."
+basis = "Gotcha 4848."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46290,6 +46302,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1139]
+title = "Give each phase of the two replay cases of the launchpad API broker a deadline of its own"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/broker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -race -timeout 20m -run ^TestPostgres ./internal/broker/ && go test -count=1 -list ^TestPostgresRetained ./internal/broker/ | grep -q ^TestPostgresRetained)"
+do_1 = "do_1 Gotcha 4848, decision 3921. Read services/launchpad/api/internal/broker/postgres_stream_test.go whole, the function PublicResume in services/launchpad/api/internal/broker/handoff.go, the functions Resume, Batch and AppendProjectionTx in services/launchpad/api/internal/broker/postgres_stream.go and the lint and race targets of services/launchpad/Makefile. The final message lists for both cases every call that takes the context of the case, with its line."
+symbols = []
+
+[capability.22.39.1138]
+title = "Let the first case of the receipt state integration test wait for the state checking through its helper"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run use-optimistic-receipt.integration"
+do_1 = "do_1 Gotcha 4847, decision 3920. Find the files use-optimistic-receipt.ts and use-optimistic-receipt.integration.test.tsx by their names under apps/launchpad/web/src and read both whole. Read the test script of apps/launchpad/web/package.json, the file apps/launchpad/web/vitest.config.ts and the argument handling of apps/launchpad/web/scripts/prepare-test-environment.py. The final message lists the line of the fixed wait, the line of the four requirements and the line of the second case that waits through the helper."
+symbols = []
 
 [capability.22.39.1137]
 title = "Bring the control registry of the launchpad production tooling in step with its present inputs"
@@ -211878,6 +211908,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1139]
+title = "Give each phase of the two replay cases of the launchpad API broker a deadline of its own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1139"]
+interfaces = []
+do_1 = "do_1 Gotcha 4848, decision 3921. Read services/launchpad/api/internal/broker/postgres_stream_test.go whole, the function PublicResume in services/launchpad/api/internal/broker/handoff.go, the functions Resume, Batch and AppendProjectionTx in services/launchpad/api/internal/broker/postgres_stream.go and the lint and race targets of services/launchpad/Makefile. The final message lists for both cases every call that takes the context of the case, with its line."
+do_2 = "do_2 Change the case TestPostgresRetainedIdentitiesSurviveInterruptedReplay under decision 3921 point one and the case TestPostgresResumePreflightsByteLimitBeforeDelivery under point two. Each phase takes a context of its own with a deadline of five minutes, and the context of a phase is released when the phase ends. The transaction of an append phase commits inside that phase. Point three holds: no count, requirement, message, name or helper changes, and no product source changes."
+do_3 = "do_3 Run the verification. The 5 cases of the file keep their names and pass, and the linter reports nothing for the module. The task changes the one case file only. Decision 3921 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/broker"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -race -timeout 20m -run ^TestPostgres ./internal/broker/ && go test -count=1 -list ^TestPostgresRetained ./internal/broker/ | grep -q ^TestPostgresRetained)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1138]
+title = "Let the first case of the receipt state integration test wait for the state checking through its helper"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1138"]
+interfaces = []
+do_1 = "do_1 Gotcha 4847, decision 3920. Find the files use-optimistic-receipt.ts and use-optimistic-receipt.integration.test.tsx by their names under apps/launchpad/web/src and read both whole. Read the test script of apps/launchpad/web/package.json, the file apps/launchpad/web/vitest.config.ts and the argument handling of apps/launchpad/web/scripts/prepare-test-environment.py. The final message lists the line of the fixed wait, the line of the four requirements and the line of the second case that waits through the helper."
+do_2 = "do_2 Change the first case of use-optimistic-receipt.integration.test.tsx under decision 3920 point one: after the fixed wait of 2300 milliseconds and before the line of four requirements the case waits through the helper waitUntil until the state reads checking. Nothing else in the file changes, and the task changes no other file. Decision 3920 points two and three hold."
+do_3 = "do_3 Run the verification and give the count of cases that the test runner reports for the file in the final message. Decision 3920 point four holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run use-optimistic-receipt.integration"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -404325,7 +404415,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1137]
 title = "Bring the control registry of the launchpad production tooling in step with its present inputs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404356,7 +404446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1136]
 title = "Bring the interface authority records, the load fixture and two case files of the launchpad in step with the present sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
