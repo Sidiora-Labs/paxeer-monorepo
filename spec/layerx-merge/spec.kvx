@@ -404385,7 +404385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1122]
 title = "Bring three gateway case files of the qualification directory and the two schema document fixtures to the present gateway source and schema document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404445,7 +404445,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1120]
 title = "Bring the line values of the three chain launch route rows of the interface inventory to the present source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404475,7 +404475,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1119]
 title = "Bring the migration registry case file to the approved registry and the present reader functions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404505,7 +404505,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1118]
 title = "Take the start time of a coverage run of the launchpad from the clock of the file system of the cover directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
