@@ -16372,6 +16372,54 @@ value = "One. Each of the ten files of gotcha 4803 part one writes the default u
 basis = "Gotcha 4803. Gotcha 4798."
 affects = []
 
+[decision.3877]
+title = "The three cases of the unified service paths case file follow the catalogue, the check of the binding document and the registration function of the source"
+value = "One. The case on the sync paths asserts that the lookup of GET /v1/sync/readiness, of the path /v1/sync/network and of the path /v1/history/activities with its query each return no entry. The name of the case is the choice of the participant. Two. The case on the program paths starts the gateway without a binding document and expects the status 404 with the code not_found for the two program paths of gotcha 4804 part five. Three. The same case, or a case beside it, starts the gateway with the binding document of the fixture configure_explorer and requires that the gateway refuses the start, which the start fixture reports when the process ends before it answers. The form is the choice of the participant. Four. The case register_replaced expects the code -32001 and the data code registration_not_configured for the call of px_register. Its other asserts keep their form. Five. Scope: only the case file changes. The catalogue, the two lookup functions, the check of the binding document and the registration function keep their form. The other cases of the file keep their form, no case leaves and no case gains a skip. Six. Target: the verification of task 22.39.1096 passes. Task 22.39.1096."
+basis = "Gotcha 4804."
+affects = []
+
+[decision.3878]
+title = "The egress case file of the gateway reads the eight node origins of the manifest and asserts the egress rule that admits them"
+value = "One. The helper rpc_endpoint requires eight entries. Entry n is the HTTPS origin at the node root of the node name api followed by n under mainnet-beta.paxeer.network, in the order one to eight, with the port 443 and an empty base path. The helper returns the first entry. Two. The policy case keeps its asserts on the node manifest that need no gateway endpoint. It asserts that the gateway deployment stands in the namespace layerx-mainnet-beta, that the text of the gateway manifest holds neither the name layerx-testnet nor the internal service name suffix, that the egress rules of the policy layerx-gateway hold the rule to the address block of all addresses on TCP port 443, that the policies admit DNS on port 53 for UDP and TCP, and that a pod selected by labels in the namespace of the gateway is not admitted on TCP port 443. The form of the asserts is the choice of the participant. Three. The asserts that tie the endpoint to the Service paxeer-boundary leave the case. The relay case keeps its form. Four. Scope: only the case file changes. The manifest and the case file of gotcha 4805 part three keep their form. No case leaves and no case gains a skip. Five. Target: the verification of task 22.39.1097 passes. Task 22.39.1097."
+basis = "Gotcha 4805."
+affects = []
+
+[decision.3879]
+title = "The indexer double of the chain only readiness case serves a readiness document with one ready source"
+value = "One. The fixture of the case starts one source session on the store of the indexer double for a source name that the gateway admits, records a head and a success for it, and serves the double through the function route_with with a readiness value that names that source. Two. The asserts of the case on the readiness answer of the gateway keep their form. The form of the fixture is the choice of the participant. Three. Scope: only the case file changes. The indexer source and the gateway source keep their form. The case does not leave and gains no skip. Four. Target: the verification of task 22.39.1098 passes. Task 22.39.1098."
+basis = "Gotcha 4806."
+affects = []
+
+[decision.3880]
+title = "The two cases of the hosted contracts case file follow the served schema document, the relay of the node namespaces and the product scope of the source"
+value = "One. The case published_hosted_transport_and_discovery_refuse_retired_aliases compares the answer of GET /openrpc.json with the document of the file after removal of the five method entries of gotcha 4807 part one. Two. The loop of that case follows the source: the code -32601 for lx_getNetwork and for two node signing methods of the choice of the participant, a relayed result for eth_chainId from the node double of the case, and the code -32004 for eth_subscribe. Three. The function assert_contract asserts for the product scope the status code and the status word of the core scope, the member complete true, and for every service entry configured false, ready false and the reason not_configured. Four. Scope: only the case file changes. The source keeps its form. The other cases of the file keep their form, no case leaves and no case gains a skip. The description text of the schema document is the subject of task 22.39.1102. Five. Target: the verification of task 22.39.1099 passes. Task 22.39.1099."
+basis = "Gotcha 4807."
+affects = []
+
+[decision.3881]
+title = "The store double of the committed evidence support file answers the reads of the audit index, and its backends map holds the indexer entry"
+value = "One. The store double of the support file answers the read of the cursor key with a null bulk value and the page read of the stream gateway:audit with an empty array, and keeps answering the command PING. Two. The expected backends map of the function readiness of the support file gains the entry indexer with the state unavailable and the reason not_configured. Three. Scope: only the support file changes. The source and the four case files keep their form. Four. Target: the verification of task 22.39.1100 passes. It runs the targets committed_router_paths, documented_rpc_examples and router_recovery whole and the case signed_node_receipt_and_committed_evidence_recover of the target proof_gateway_jsonrpc_methods. Task 22.39.1100."
+basis = "Gotcha 4808."
+affects = []
+
+[decision.3882]
+title = "The payment events support case gives its producer client a trigger double that serves the readiness read for the kind payment"
+value = "One. The case starts a trigger double on a TLS listener of the support file. The double serves the readiness read for the kind payment with the admission document of gotcha 4809 part two, with the role webhook-trigger and the member ready true, and answers every other request with the status 404. Two. The client takes the event source as the source upstream and the trigger double as the trigger upstream. The double stops at the end of the case. Three. The asserts of the case keep their form. The form of the double is the choice of the participant, and the trigger double of services/platform/hosted/internal/tests/producer_delivery_recovery.rs is a model. Four. Scope: only the support file changes. The producer client, the event source and the trigger service keep their form. Five. Target: the verification of task 22.39.1101 passes. It runs the targets degraded and tap_nonce whole. Both start the store server binary of the environment. Task 22.39.1101."
+basis = "Gotcha 4809."
+affects = []
+
+[decision.3883]
+title = "The description of the gateway schema document says that it does not declare the node method namespaces, and the command line fixture copy and the expected method list follow the document"
+value = "One. The middle clause of the third sentence of the description says that this document does not declare the method names that begin with eth_, net_ or web3_ and that a client uses the node origin for them. The clause says nothing on how the gateway answers these names. The wording is the choice of the participant and names no deployment. The first and the third clause of the sentence and the other sentences of the description keep their text. Two. The copy tools/platform/cli/tests/fixtures/openrpc.json equals the document byte by byte after the change. Three. The function assert_published_methods of tools/platform/cli/src/rpc.rs requires the 23 names of the document in order, the first px_openSession. Four. Scope: the method entries of the document keep their form. The files that read other phrases of the description keep their form. The files openrpc_source_digest.json and openrpc_normalized_digest.json under the fixtures directory of the gateway cases keep their text. Five. Target: the verification of task 22.39.1102 passes. It compares the two files byte by byte and runs the lib target and the target lx_switch_off of the command line crate and the unit cases of the binary target layerx-gateway. Task 22.39.1102."
+basis = "Gotcha 4810. Gotcha 4807."
+affects = []
+
+[decision.3884]
+title = "The key planned_paths of task 8.20.4 names the path of the beta surfaces case file under docs/platform/build"
+value = "One. The key planned_paths of task 8.20.4 names docs/platform/build/test_beta_surfaces.py. The change of the list is recorded together with this decision. Two. The other keys of the done task keep their text as its record. Three. A task that moves a file which a done task names as a planned path is recorded together with the change of that list. Four. No task follows from this decision."
+basis = "Gotcha 4811."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46032,6 +46080,69 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1102]
+title = "State in the description of the gateway schema document that it does not declare the node method namespaces, and bring the command line fixture copy and the expected method list in step with the document"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/openrpc.json", "tools/platform/cli/tests/fixtures/openrpc.json", "tools/platform/cli/src/rpc.rs"]
+tests = []
+verification_contract = "cmp services/platform/hosted/gateway/openrpc.json tools/platform/cli/tests/fixtures/openrpc.json && cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --lib --test lx_switch_off && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway"
+do_1 = "do_1 Gotcha 4810, decision 3883, gotcha 4807 part two. Read the description and the method names of services/platform/hosted/gateway/openrpc.json, the row of the document in tests/ci/data/intentional_copies.txt, the case positional_requests_match_published_contract and the function assert_published_methods in tools/platform/cli/src/rpc.rs and the case file tools/platform/cli/tests/lx_switch_off.rs."
+symbols = []
+
+[capability.22.39.1101]
+title = "Give the producer client of the payment events support case of the gateway a trigger double for the readiness read"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/support/payment_events.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test degraded --test tap_nonce"
+do_1 = "do_1 Gotcha 4809, decision 3882. Read the admission check and the function step of the producer client in services/platform/hosted/internal/src/producer.rs, the readiness answer in services/platform/hosted/webhooks/src/main.rs, the trigger double in services/platform/hosted/internal/tests/producer_delivery_recovery.rs and the case with the listener and the event source in services/platform/hosted/gateway/tests/support/payment_events.rs."
+symbols = []
+
+[capability.22.39.1100]
+title = "Answer the reads of the audit index in the store double of the committed evidence support file of the gateway cases and add the indexer entry to its backends map"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/support/committed_evidence.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test committed_router_paths --test documented_rpc_examples --test router_recovery && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test proof_gateway_jsonrpc_methods -- --exact signed_node_receipt_and_committed_evidence_recover"
+do_1 = "do_1 Gotcha 4808, decision 3881. Read the start of the thread principal-audit-index and the function readiness in services/platform/hosted/gateway/src/main.rs, the function reconcile_principal_audit_indexes in services/platform/hosted/gateway/src/store.rs and the store double with the function readiness in services/platform/hosted/gateway/tests/support/committed_evidence.rs."
+symbols = []
+
+[capability.22.39.1099]
+title = "Bring two cases of the hosted contracts case file of the gateway in step with the served schema document, the relay of the node namespaces and the product scope of the source"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/hosted_service_contracts.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test hosted_service_contracts"
+do_1 = "do_1 Gotcha 4807, decision 3880. Read the function schema_document and the method routing function in services/platform/hosted/gateway/src/rpc.rs, the relay function in services/platform/hosted/gateway/src/paxeer.rs, the function relayable_method in services/platform/hosted/gateway/src/evm.rs, the function readiness in services/platform/hosted/gateway/src/routes.rs, the function gateway_readiness_scope in services/platform/hosted/gateway/src/main.rs and the two cases with the function assert_contract in services/platform/hosted/gateway/tests/hosted_service_contracts.rs."
+symbols = []
+
+[capability.22.39.1098]
+title = "Serve the indexer double of the chain only readiness case of the gateway with one ready source"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/chain_only_readiness.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test chain_only_readiness"
+do_1 = "do_1 Gotcha 4806, decision 3879. Read the function readiness in services/platform/hosted/gateway/src/main.rs, the functions status and readiness_status in services/platform/hosted/gateway/src/history.rs, the functions route, route_with and readiness_document with the readiness value in services/platform/hosted/indexer/src/api.rs and the case with its fixture in services/platform/hosted/gateway/tests/chain_only_readiness.rs."
+symbols = []
+
+[capability.22.39.1097]
+title = "Read the eight node origins of the gateway manifest in the egress case file and assert the egress rule that admits them"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/rpc_egress.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test rpc_egress"
+do_1 = "do_1 Gotcha 4805, decision 3878. Read the Deployment layerx-gateway and the three NetworkPolicy documents in services/platform/hosted/gateway/deployment.yaml, the cases of tools/qualification/audit_repairs/test_gateway_mainnet_configuration.py, and the helper rpc_endpoint, the function admitted and the two cases in services/platform/hosted/gateway/tests/rpc_egress.rs."
+symbols = []
+
+[capability.22.39.1096]
+title = "State the sync path lookups, the start with an explorer binding document and the registration answer without a token in the unified service paths cases of the gateway as the source returns them"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/unified_service_paths.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test unified_service_paths"
+do_1 = "do_1 Gotcha 4804, decision 3877. Read the functions unified_service_catalogue and unified_service_route in services/platform/hosted/gateway/src/lib.rs, the function validate_upstreams in services/platform/hosted/gateway/src/routes.rs, the function register in services/platform/hosted/gateway/src/rpc_register.rs, the route catalogue tools/paxeer-x/route-catalogue.json and the three cases with the start fixture and the fixture configure_explorer in services/platform/hosted/gateway/tests/unified_service_paths.rs."
+symbols = []
 
 [capability.22.39.1095]
 title = "Write the default user line of the store access list in ten gateway case files in the disabled form with rules"
@@ -229696,6 +229807,216 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1102]
+title = "State in the description of the gateway schema document that it does not declare the node method namespaces, and bring the command line fixture copy and the expected method list in step with the document"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1102"]
+interfaces = []
+do_1 = "do_1 Gotcha 4810, decision 3883, gotcha 4807 part two. Read the description and the method names of services/platform/hosted/gateway/openrpc.json, the row of the document in tests/ci/data/intentional_copies.txt, the case positional_requests_match_published_contract and the function assert_published_methods in tools/platform/cli/src/rpc.rs and the case file tools/platform/cli/tests/lx_switch_off.rs."
+do_2 = "do_2 Change the middle clause under decision 3883 point one, write the copy under point two and change the expected names under point three. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/openrpc.json", "tools/platform/cli/tests/fixtures/openrpc.json", "tools/platform/cli/src/rpc.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli"
+verify_cmd = "cmp services/platform/hosted/gateway/openrpc.json tools/platform/cli/tests/fixtures/openrpc.json && cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --lib --test lx_switch_off && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1101]
+title = "Give the producer client of the payment events support case of the gateway a trigger double for the readiness read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1101"]
+interfaces = []
+do_1 = "do_1 Gotcha 4809, decision 3882. Read the admission check and the function step of the producer client in services/platform/hosted/internal/src/producer.rs, the readiness answer in services/platform/hosted/webhooks/src/main.rs, the trigger double in services/platform/hosted/internal/tests/producer_delivery_recovery.rs and the case with the listener and the event source in services/platform/hosted/gateway/tests/support/payment_events.rs."
+do_2 = "do_2 Change the case under decision 3882 points one and two. No other file changes."
+do_3 = "do_3 Points three to five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/support/payment_events.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test degraded --test tap_nonce"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test degraded --test tap_nonce"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1100]
+title = "Answer the reads of the audit index in the store double of the committed evidence support file of the gateway cases and add the indexer entry to its backends map"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1100"]
+interfaces = []
+do_1 = "do_1 Gotcha 4808, decision 3881. Read the start of the thread principal-audit-index and the function readiness in services/platform/hosted/gateway/src/main.rs, the function reconcile_principal_audit_indexes in services/platform/hosted/gateway/src/store.rs and the store double with the function readiness in services/platform/hosted/gateway/tests/support/committed_evidence.rs."
+do_2 = "do_2 Change the store double and the backends map under decision 3881 points one and two. No other file changes."
+do_3 = "do_3 Points three and four hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/support/committed_evidence.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test committed_router_paths --test documented_rpc_examples --test router_recovery && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test proof_gateway_jsonrpc_methods -- --exact signed_node_receipt_and_committed_evidence_recover"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1099]
+title = "Bring two cases of the hosted contracts case file of the gateway in step with the served schema document, the relay of the node namespaces and the product scope of the source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1099"]
+interfaces = []
+do_1 = "do_1 Gotcha 4807, decision 3880. Read the function schema_document and the method routing function in services/platform/hosted/gateway/src/rpc.rs, the relay function in services/platform/hosted/gateway/src/paxeer.rs, the function relayable_method in services/platform/hosted/gateway/src/evm.rs, the function readiness in services/platform/hosted/gateway/src/routes.rs, the function gateway_readiness_scope in services/platform/hosted/gateway/src/main.rs and the two cases with the function assert_contract in services/platform/hosted/gateway/tests/hosted_service_contracts.rs."
+do_2 = "do_2 Change the case and the function under decision 3880 points one to three. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/hosted_service_contracts.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test hosted_service_contracts"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test hosted_service_contracts"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1098]
+title = "Serve the indexer double of the chain only readiness case of the gateway with one ready source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1098"]
+interfaces = []
+do_1 = "do_1 Gotcha 4806, decision 3879. Read the function readiness in services/platform/hosted/gateway/src/main.rs, the functions status and readiness_status in services/platform/hosted/gateway/src/history.rs, the functions route, route_with and readiness_document with the readiness value in services/platform/hosted/indexer/src/api.rs and the case with its fixture in services/platform/hosted/gateway/tests/chain_only_readiness.rs."
+do_2 = "do_2 Change the fixture under decision 3879 point one. No other file changes."
+do_3 = "do_3 Points two to four hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/chain_only_readiness.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test chain_only_readiness"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test chain_only_readiness"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1097]
+title = "Read the eight node origins of the gateway manifest in the egress case file and assert the egress rule that admits them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1097"]
+interfaces = []
+do_1 = "do_1 Gotcha 4805, decision 3878. Read the Deployment layerx-gateway and the three NetworkPolicy documents in services/platform/hosted/gateway/deployment.yaml, the cases of tools/qualification/audit_repairs/test_gateway_mainnet_configuration.py, and the helper rpc_endpoint, the function admitted and the two cases in services/platform/hosted/gateway/tests/rpc_egress.rs."
+do_2 = "do_2 Change the helper and the policy case under decision 3878 points one to three. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/rpc_egress.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test rpc_egress"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test rpc_egress"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1096]
+title = "State the sync path lookups, the start with an explorer binding document and the registration answer without a token in the unified service paths cases of the gateway as the source returns them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1096"]
+interfaces = []
+do_1 = "do_1 Gotcha 4804, decision 3877. Read the functions unified_service_catalogue and unified_service_route in services/platform/hosted/gateway/src/lib.rs, the function validate_upstreams in services/platform/hosted/gateway/src/routes.rs, the function register in services/platform/hosted/gateway/src/rpc_register.rs, the route catalogue tools/paxeer-x/route-catalogue.json and the three cases with the start fixture and the fixture configure_explorer in services/platform/hosted/gateway/tests/unified_service_paths.rs."
+do_2 = "do_2 Change the three cases under decision 3877 points one to four. No other file changes."
+do_3 = "do_3 Points five and six hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/unified_service_paths.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test unified_service_paths"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test unified_service_paths"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1095]
 title = "Write the default user line of the store access list in ten gateway case files in the disabled form with rules"
 status = "done"
@@ -328113,7 +328434,7 @@ do_4 = "Add services/platform/docs/build/test_beta_surfaces.py (planned) with te
 symbols = ["test_beta_surfaces_name_no_retired_kernel_surface"]
 touches = ["services/platform/docs/content/beta.md", "services/platform/docs/build/test_beta_surfaces.py"]
 tests = ["services/platform/docs/build/test_beta_surfaces.py::test_beta_surfaces_name_no_retired_kernel_surface"]
-planned_paths = ["services/platform/docs/build/test_beta_surfaces.py"]
+planned_paths = ["docs/platform/build/test_beta_surfaces.py"]
 build_cmd = "python3 -m py_compile services/platform/docs/build/test_beta_surfaces.py"
 verify_cmd = "python3 -m pytest services/platform/docs/build/test_beta_surfaces.py::test_beta_surfaces_name_no_retired_kernel_surface -q"
 gate_kind = "planned"
