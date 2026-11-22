@@ -172,8 +172,8 @@ impl CosignDirectory {
     }
 
     /// Every well-formed signature published for `digest` whose recovered
-    /// signer matches its file name. Unreadable or malformed entries are
-    /// skipped, never fatal.
+    /// signer matches its file name, ordered by ascending signer address.
+    /// Unreadable or malformed entries are skipped, never fatal.
     #[must_use]
     pub fn collect(&self, digest: &[u8; 32]) -> Vec<[u8; 65]> {
         let Ok(entries) = fs::read_dir(self.root.join(hex::encode(digest))) else {
@@ -201,10 +201,14 @@ impl CosignDirectory {
                 continue;
             };
             if recover_signer(digest, &signature) == Ok(claimed) {
-                signatures.push(signature);
+                signatures.push((claimed, signature));
             }
         }
+        signatures.sort_unstable_by_key(|share| share.0);
         signatures
+            .into_iter()
+            .map(|(_, signature)| signature)
+            .collect()
     }
 }
 
