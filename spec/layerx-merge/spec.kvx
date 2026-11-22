@@ -404325,7 +404325,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1137]
 title = "Bring the control registry of the launchpad production tooling in step with its present inputs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404356,7 +404356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1136]
 title = "Bring the interface authority records, the load fixture and two case files of the launchpad in step with the present sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
