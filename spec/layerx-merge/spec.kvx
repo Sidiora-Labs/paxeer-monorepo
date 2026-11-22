@@ -229563,7 +229563,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1086]
 title = "Keep in the document cases of the mirror, portable and x402 crates the lookups whose text the documents hold"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1081"]
