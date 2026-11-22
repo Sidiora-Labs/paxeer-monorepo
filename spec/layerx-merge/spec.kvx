@@ -403995,7 +403995,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1117]
 title = "List the package documentation of the trading workspace as imported in the markdown link case and name the present paths in three links of apps/README.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404055,7 +404055,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1115]
 title = "Admit the lint build setting of the launchpad web configuration in the chart declarations case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404085,7 +404085,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1114]
 title = "Bring the two builder cases of the explorer in step with the forwarding function and the compiler tool check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404145,7 +404145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1112]
 title = "Admit the push ignore list and the demo test script in the wallet wiring case file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404295,7 +404295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1107]
 title = "List the trading workspace as an imported tree in the licence case and the version case, list the release line of the launchpad SDK package, and declare the licence of the render check tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404325,7 +404325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1106]
 title = "Bring the declaration copy of the trading backend package, the list of intentional copies and the swagger case in step with their sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404385,7 +404385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1104]
 title = "Count a file conftest.py among the modules the test runner loads in the collection case of the repository check directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
