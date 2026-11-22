@@ -242,6 +242,55 @@ fn rpc_transport_ambiguous_identity_never_receives_write() {
 }
 
 #[test]
+fn rpc_transport_receipt_keys_preserves_upstream_reply() {
+    let _serial = RPC_TRANSPORT_SERIAL.lock().checked();
+    let request =
+        serde_json::json!({"jsonrpc":"2.0","id":17,"method":"px_getReceiptKeys","params":[]});
+    let reply = br#"{ "jsonrpc": "2.0", "id": 17, "result": { "keys": [] } }"#.to_vec();
+    let (node, peer) = rpc_transport_peer(vec![vec![
+        (
+            rpc_transport_identity(),
+            rpc_transport_bytes(&serde_json::json!({"jsonrpc":"2.0","id":1,"result":"0x7d"})),
+        ),
+        (request.clone(), reply.clone()),
+    ]]);
+    let config = rpc_transport_config(node, None);
+    let response = rpc_transport_exchange(config, "POST", "/", &rpc_transport_bytes(&request));
+    assert_eq!(response.status, 200);
+    assert_eq!(response.body, reply);
+    peer.join().checked();
+}
+
+#[test]
+fn rpc_transport_px_register_refusal_does_not_contact_upstream() {
+    let _serial = RPC_TRANSPORT_SERIAL.lock().checked();
+    let listener = TcpListener::bind("127.0.0.1:0").checked();
+    let node = NodeEndpoint {
+        address: listener.local_addr().checked(),
+        path: "/".to_owned(),
+    };
+    let request = serde_json::json!({"jsonrpc":"2.0","id":17,"method":"px_register","params":[]});
+    let response = rpc_transport_exchange(
+        rpc_transport_config(node, None),
+        "POST",
+        "/",
+        &rpc_transport_bytes(&request),
+    );
+    assert_eq!(response.status, 200);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&response.body).checked(),
+        serde_json::json!({"jsonrpc":"2.0","id":17,"error":{
+            "code":-32601,"message":"method is not relayed by the boundary"
+        }})
+    );
+    listener.set_nonblocking(true).checked();
+    match listener.accept() {
+        Err(error) => assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock),
+        Ok(_) => panic!("refused request reached upstream"),
+    }
+}
+
+#[test]
 fn rpc_transport_custody_and_resource_refusals_do_not_contact_upstream() {
     let _serial = RPC_TRANSPORT_SERIAL.lock().checked();
     let listener = TcpListener::bind("127.0.0.1:0").checked();

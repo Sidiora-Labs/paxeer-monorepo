@@ -183,7 +183,7 @@ export async function readSurface(filename) {
   const file = await realpath(resolve(filename));
   const base = dirname(file);
   const value = JSON.parse(await readFile(file, "utf8"));
-  object(value, ["name", "directory", "build", "buildMs", "outputs", "start", "address", "readyPath", "views", "answers", "typeScale", "geometry", "reportedKinds"], "surface");
+  object(value, ["name", "directory", "build", "buildMs", "outputs", "start", "address", "readyPath", "readyMs", "views", "answers", "typeScale", "geometry", "reportedKinds"], "surface");
   text(value.name, "surface.name");
   if (value.reportedKinds !== undefined) {
     array(value.reportedKinds, "surface.reportedKinds");
@@ -214,6 +214,9 @@ export async function readSurface(filename) {
   }
   if (value.buildMs !== undefined && (!Number.isInteger(value.buildMs) || value.buildMs < 1000 || value.buildMs > 1800000)) {
     throw new Error(`Surface ${value.name} buildMs must be a whole number from 1000 to 1800000`);
+  }
+  if (value.readyMs !== undefined && (!Number.isInteger(value.readyMs) || value.readyMs < 1000 || value.readyMs > 120000)) {
+    throw new Error(`Surface ${value.name} readyMs must be a whole number from 1000 to 120000`);
   }
   if (value.outputs !== undefined) {
     const label = `Surface ${value.name} outputs`;

@@ -120,7 +120,6 @@ const TxsListItem = ({
         <PriceUpdateFromTo tx={ tx } current={ currentAddress } isLoading={ isLoading } mt={ 6 } fontWeight="medium"/>
       ) : (
         <AddressFromTo
-          mode="compact"
           from={ tx.from }
           to={ dataTo }
           current={ currentAddress }

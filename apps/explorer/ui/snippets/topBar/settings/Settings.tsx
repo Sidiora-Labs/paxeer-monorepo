@@ -42,7 +42,7 @@ const Settings = ({ children }: { children?: React.ReactNode }) => {
       <Tooltip content="Website settings" disableOnMobile open={ tooltip.open } onOpenChange={ handleTooltipOpenChange }>
         <Flex alignItems="center">
           <PopoverTrigger>
-            <IconButton minH="touchTarget" minW="touchTarget"
+            <IconButton
               variant="link"
               size="2xs"
               borderRadius="sm"

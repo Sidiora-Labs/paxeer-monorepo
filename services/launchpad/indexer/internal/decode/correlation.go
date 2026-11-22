@@ -35,7 +35,7 @@ type CorrelatedReceipt struct {
 }
 
 func (r *Registry) CorrelateOptionalReceipt(receipt *ethtypes.Receipt, bindings []CorrelationBinding) (*CorrelatedReceipt, error) {
-	if r == nil || receipt == nil || receipt.Status != ethtypes.ReceiptStatusSuccessful || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.TxHash == (common.Hash{}) || receipt.BlockHash == (common.Hash{}) || len(receipt.Logs) > MaxRawBatchLogs {
+	if r == nil || receipt == nil || receipt.Status != ethtypes.ReceiptStatusSuccessful || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.TxHash == (common.Hash{}) || receipt.BlockHash == (common.Hash{}) {
 		return nil, fmt.Errorf("successful bounded receipt required")
 	}
 	if len(bindings) > 64 {
@@ -140,6 +140,9 @@ func equalFields(a, b map[string]any, names ...string) bool {
 }
 
 func companionMatches(n, c *DecodedEnvelope, wrapped common.Address) bool {
+	if n.Status != valueDecoded || c.Status != valueDecoded || n.Event == nil || c.Event == nil {
+		return false
+	}
 	a, b := n.Event.Args, c.Event.Args
 	if n.EmitterRole == valuePECOROrders {
 		if !equalFields(a, b, "orderId") {
@@ -246,7 +249,7 @@ func companionMatches(n, c *DecodedEnvelope, wrapped common.Address) bool {
 
 func eventActors(e *DecodedEnvelope) *ActorContext {
 	out := &ActorContext{AttributionConfidence: "unknown", AttributionMethod: "unavailable", EvidenceIdentity: []RawIdentity{e.Raw.Identity}, Revision: "actor-v1"}
-	if e.Event == nil {
+	if e.Status != valueDecoded || e.Event == nil {
 		return out
 	}
 	field := "sender"
@@ -267,7 +270,7 @@ type ActorMarketBinding struct {
 }
 
 func (r *Registry) DecodeTransactionReceipt(tx *ethtypes.Transaction, receipt *ethtypes.Receipt, markets []ActorMarketBinding) ([]*DecodedEnvelope, error) {
-	if r == nil || tx == nil || receipt == nil || !tx.Protected() || tx.ChainId().Cmp(big.NewInt(125)) != 0 || receipt.Status != ethtypes.ReceiptStatusSuccessful || receipt.TxHash != tx.Hash() || receipt.BlockHash == (common.Hash{}) || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || len(receipt.Logs) > MaxRawBatchLogs {
+	if r == nil || tx == nil || receipt == nil || !tx.Protected() || tx.ChainId().Cmp(big.NewInt(125)) != 0 || receipt.Status != ethtypes.ReceiptStatusSuccessful || receipt.TxHash != tx.Hash() || receipt.BlockHash == (common.Hash{}) || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() {
 		return nil, fmt.Errorf("signed chain125 transaction and matching successful receipt required")
 	}
 	sender, err := ethtypes.Sender(ethtypes.LatestSignerForChainID(big.NewInt(125)), tx)

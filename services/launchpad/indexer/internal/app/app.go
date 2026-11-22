@@ -68,6 +68,7 @@ import (
 type App struct {
 	runStop         context.CancelFunc
 	workers         *runtimeWorkers
+	pauseWorkers    *runtimeWorkers
 	canonicalSource *canonicalSourceReadiness
 	history         *source.HistoricalSource
 	webhook         *delivery.WebhookBridge
@@ -101,6 +102,11 @@ func (a *App) SourceCapacityProviders() source.CapacityProviders {
 		return source.CapacityProviders{}
 	}
 	return source.CapacityProviders{Live: a.history.RPC, Historical: a.history, Head: a.sources.Head, Processor: a.Processor, Pool: a.pool}
+}
+
+func (p *pauseObservations) configureInventoryCoverage(realm string, batchSource processor.QualifiedBatchSource) {
+	recovery, ok := batchSource.(*recoveringQualifiedSource)
+	p.inventoryCovered = realm == valueProduction && ok && recovery != nil
 }
 
 // New runs migrations and builds every component for the configured run mode.
@@ -236,6 +242,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	workers := newRuntimeWorkers(logger)
 	var canonicalSource *canonicalSourceReadiness
 	var selectionAuthority *source.SelectionAuthority
+	var pauses *pauseObservations
+	var pauseWorkers *runtimeWorkers
 	status := httpapi.StatusDeps{Mode: httpapi.StatusLegacy}
 
 	defer func() {
@@ -244,6 +252,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				canonicalSource.Close()
 			}
 			workers.Close()
+			if pauseWorkers != nil {
+				pauseWorkers.Close()
+			}
 			if history != nil {
 				_ = history.Close()
 			}
@@ -359,6 +370,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		lifecycleSecrets := map[string]string{}
+		lifecycle.logEndpointReferences(logger)
 		for endpoint, reference := range lifecycle.EndpointSecretReferences {
 			value, e := provider.GetRequired(ctx, reference)
 			if e != nil {
@@ -443,6 +455,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return durableBlockHash(c, pool, d.CanonicalStreamID, height, lifecycle)
 		}}
 		deps.Reserves = qualified
+		discoveredEpochs := qualified.DiscoveredEpochs
 		if doc.Realm == valueProduction {
 			inventory := postgresMarketInventory{pool: pool}
 			newAuthority := func(c context.Context) (*receipt.RPCQualification, error) {
@@ -468,6 +481,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			historicalRecovery.reserves = nil
 			historicalQualified = &historicalRecovery
 			deps.Reserves = reserves
+			discoveredEpochs = reserves.DiscoveredEpochs
 		}
 		deps.Quarantine = &processor.QuarantinePolicy{Registry: qualified.Registry(), SourceStream: d.CanonicalStreamID, OptionalEmitterTopics: lifecycle.OptionalEmitterTopics}
 		authorize := func(c context.Context, action string) error {
@@ -618,6 +632,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			deps.HistoricalRequest = request
 			deps.HistoricalRequests = lifecycle.BackfillRequests
 		}
+		pauses = &pauseObservations{pool: pool, rpc: runtimeRPC, stream: d.CanonicalStreamID, epochs: lifecycle.Committed.Epochs, discoveredEpochs: discoveredEpochs}
+		pauses.configureInventoryCoverage(doc.Realm, liveQualified)
+		pauseWorkers = newRuntimeWorkers(logger)
+		pauseWorkers.AddPeriodic("pause_observations", time.Second, false, pauses.refresh)
 		secretChecks["workers"] = workers.Ready
 		canonicalSource = newCanonicalSourceReadiness(st, pool, history.RPC, d.CanonicalStreamID, lifecycle, time.Now, logger)
 		secretChecks["canonical_source"] = canonicalSource.Ready
@@ -653,17 +671,18 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	status.Logger = logger
 	httpapi.RegisterStatus(router, status)
 
+	router.Handle("/internal/ranking-evidence", pauses)
 	if selectionAuthority != nil {
 		router.Handle("/internal/source-selection", selectionAuthority.HandlerWithLogger(history.RPC, logger))
 	}
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", proc.MetricsHandler(metrics))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err
 	}
 	secretOwned = true
-	return &App{workers: workers, canonicalSource: canonicalSource, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
+	return &App{workers: workers, pauseWorkers: pauseWorkers, canonicalSource: canonicalSource, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
 		runtimeRPC: runtimeRPC, runtimeRPCClose: runtimeRPCClose, nats: nc, relay: relay,
 		Router:    runtimeHandlerWithIngestionState(tracker, router, metrics, proc.LeaseState),
 		Processor: proc,
@@ -691,6 +710,9 @@ func (a *App) Close() {
 	if a.workers != nil {
 		a.workers.Stop()
 	}
+	if a.pauseWorkers != nil {
+		a.pauseWorkers.Stop()
+	}
 	if a.tracker != nil {
 		if err := a.tracker.Drain(drain); err != nil && a.logger != nil {
 			a.logger.Error("indexer in-flight drain failed", slog.Any("error", err))
@@ -698,6 +720,9 @@ func (a *App) Close() {
 	}
 	if a.workers != nil {
 		a.workers.CloseContext(drain)
+	}
+	if a.pauseWorkers != nil {
+		a.pauseWorkers.CloseContext(drain)
 	}
 	if a.history != nil {
 		_ = a.history.Close()
@@ -769,6 +794,11 @@ func Run(parent context.Context) error {
 
 	if err = app.workers.Start(ctx); err != nil {
 		return err
+	}
+	if app.pauseWorkers != nil {
+		if err = app.pauseWorkers.Start(ctx); err != nil {
+			return err
+		}
 	}
 	if app.relay != nil {
 		go func() {

@@ -8,6 +8,7 @@ apps/launchpad/web/src/core/wallet-sdk/test-fixtures | Launchpad application qua
 apps/launchpad/web/src/widgets/create | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
 cmd/retirement | Kernel command retirement policy belongs to the separate kernel retirement gate; these source absence checks are outside the retained command suites.
 core/deps/geth/crypto/secp256k1/libsecp256k1/tools | Vendored secp256k1 source generators belong to the upstream geth native build and require its generated preprocessor inputs, rather than repository pytest discovery.
+deploy/launchpad/documents | Launchpad deployment qualification owns the document composers and the object rights document of the launchpad services; these cases run in the launchpad release environment.
 deploy/launchpad/production/bootstrap | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
 deploy/launchpad/production/observability | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
 deploy/launchpad/production/observability/phase2/tests | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
@@ -17,6 +18,7 @@ deploy/launchpad/production/recovery/phase2 | Launchpad deployment qualification
 deploy/launchpad/production/recovery/phase4 | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
 deploy/launchpad/production/topology/phase2/tests | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
 deploy/launchpad/production/topology/tests | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/tests | Launchpad deployment qualification owns the document composers and the object rights document of the launchpad services; these cases run in the launchpad release environment.
 docs/platform/build | Documentation source contracts belong to the documentation build qualification inventory; the runtime Python job does not qualify generated documentation artifacts.
 layerxproof/retired | Retired proof-package absence checks belong to the kernel retirement gate, separately from retained daemon and hosted runtime qualification.
 programs/fixtures | Program fixture qualification requires its own Cargo workspace and generated guest fixture artifacts; the native command build does not produce that fixture corpus.

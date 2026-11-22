@@ -28,7 +28,15 @@ const MAX_CONNECTIONS: usize = 128;
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 
 const ALLOWED_PREFIXES: [&str; 1] = ["eth_"];
-const ALLOWED_METHODS: [&str; 3] = ["net_version", "web3_clientVersion", "pax_sequencerReceipt"];
+const ALLOWED_METHODS: [&str; 7] = [
+    "net_version",
+    "web3_clientVersion",
+    "pax_sequencerReceipt",
+    "px_getReceiptKeys",
+    "px_getCommit",
+    "px_getValidators",
+    "px_getHistory",
+];
 const DENIED_METHODS: [&str; 8] = [
     "eth_accounts",
     "eth_coinbase",
@@ -746,6 +754,21 @@ mod tests {
         assert!(!method_allowed("pax_unknownMethod"));
         assert!(!method_allowed("eth_sendTransaction"));
         assert!(!method_allowed("eth_sign"));
+    }
+
+    #[test]
+    fn node_client_px_read_methods_are_allowed_by_name() {
+        for method in [
+            "px_getReceiptKeys",
+            "px_getCommit",
+            "px_getValidators",
+            "px_getHistory",
+        ] {
+            assert!(method_allowed(method), "{method}");
+        }
+        for method in ["px_register", "px_requestFunds", "px_getAccount"] {
+            assert!(!method_allowed(method), "{method}");
+        }
     }
 
     #[test]

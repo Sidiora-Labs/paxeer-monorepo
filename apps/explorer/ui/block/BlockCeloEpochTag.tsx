@@ -27,9 +27,7 @@ const BlockCeloEpochTagRegular = ({ blockQuery }: Props) => {
         href={ route({ pathname: '/epochs/[number]', query: { number: String(blockQuery.data.celo.epoch_number) } }) }
         display="inline-flex"
         alignItems="center"
-        minW="touchTarget"
         maxW="full"
-        minH="touchTarget"
         _motionReduce={{ transitionProperty: 'none' }}
       >
         <Tag variant="clickable">Epoch #{ blockQuery.data.celo.epoch_number }</Tag>
@@ -57,9 +55,7 @@ const BlockCeloEpochTag = ({ blockQuery }: Props) => {
           href={ route({ pathname: '/epochs/[number]', query: { number: String(blockQuery.data.celo.l1_era_finalized_epoch_number) } }) }
           display="inline-flex"
           alignItems="center"
-          minW="touchTarget"
           maxW="full"
-          minH="touchTarget"
           _motionReduce={{ transitionProperty: 'none' }}
         >
           <Tag

@@ -64,7 +64,7 @@ function SkeletonRows({
             return (
               <td key={spec.id} className={cn('px-3 align-middle', spec.responsive)}>
                 {spec.id === 'coin' ? (
-                  <span className="flex [@media(max-width:834px)]:min-h-[calc(var(--sl-touch-target-min)+var(--sl-leading-xs))] w-36 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
+                  <span className="flex min-h-[calc(var(--sl-leading-sm)+var(--sl-leading-xs))] [@media(max-width:834px)]:min-h-[calc(var(--sl-touch-target-min)+var(--sl-leading-xs))] w-36 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
                     <span className="sl-skeleton h-3 w-5 shrink-0" />
                     <span className="sl-skeleton size-avatar-md shrink-0 rounded-pill" />
                     <span className="flex flex-1 flex-col gap-1.5">
@@ -135,9 +135,9 @@ export function ExploreTable({
           role="region"
           aria-label="Coin rankings table"
           tabIndex={0}
-          className="relative min-h-[calc(var(--sl-table-row-comfortable)*8+var(--sl-touch-target-min)+var(--sl-space-8))] overflow-x-auto scroll-px-3 [contain:inline-size] focus-visible:outline-2 focus-visible:outline-focus"
+          className="relative overflow-x-auto scroll-px-3 [contain:inline-size] focus-visible:outline-2 focus-visible:outline-focus"
         >
-          <table className="w-full table-auto">
+          <table className="w-full table-auto [&_svg]:max-w-none">
             <caption className="sr-only">{caption}</caption>
             <thead>
               <tr className="bg-surface-1">
@@ -208,12 +208,9 @@ export function ExploreTable({
             </tbody>
           </table>
         </div>
-        {/* The notice shares the reserved table frame and stays outside its horizontal scroller. */}
+        {/* The notice stays below the headers and outside the horizontal scroller. */}
         {!loading && rows.length === 0 ? (
-          <div
-            data-explore-empty
-            className="absolute inset-x-0 bottom-0 top-touch-target-min flex items-center justify-center"
-          >
+          <div data-explore-empty>
             {empty}
           </div>
         ) : null}

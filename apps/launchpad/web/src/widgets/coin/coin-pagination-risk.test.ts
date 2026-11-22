@@ -7,6 +7,7 @@ import { SdkClient, decodeV2Contract, type V2ContractTypes } from '@kindle/sdk';
 import { afterAll, afterEach, beforeEach, expect, test } from 'vitest';
 import { serveRecorded, v2Reads } from '@/core/test-fixtures/market-production/v2-reads';
 import { queryKeys } from '@/core/query-keys';
+import type { PoolSnapshot } from '@/core/market/use-pool-snapshot';
 
 interface BrowserDom { window: Window & typeof globalThis }
 type JsdomModule = { JSDOM: new (html: string, options: { url: string; pretendToBeVisual: boolean }) => BrowserDom };
@@ -184,6 +185,52 @@ afterAll(async () => {
   Object.assign(process.env, previousEnv);
   dom.window.close();
 });
+
+async function holder_pool_badge_preserves_creator_links_and_wallet_rows() {
+  const creator = detail.data.pool.creator.toLowerCase();
+  const poolPage = holderPage(pool, 3n, '2', null);
+  const creatorPage = holderPage(creator, 2n, '2', null);
+  const walletPage = holderPage(holder, 1n, '2', null);
+  firstHolders = {
+    ...poolPage,
+    data: { ...poolPage.data, items: [...walletPage.data.items, ...poolPage.data.items, ...creatorPage.data.items] },
+  };
+  const view = mount(createElement(HoldersTable, { poolAddress: pool, price: 2 }));
+  await waitFor(() => view.container.querySelectorAll('tbody tr').length === 3);
+  const rows = [...view.container.querySelectorAll('tbody tr')];
+  const poolRow = rows[0]!;
+  const creatorRow = rows[1]!;
+  const walletRow = rows[2]!;
+  const badge = poolRow.querySelector('[data-pool-badge]');
+  expect(badge?.textContent).toBe('Bonding curve');
+  expect(badge?.getAttribute('title')).toBe('Coins held by the bonding curve');
+  expect(poolRow.querySelector('a')).toBeNull();
+  expect(poolRow.querySelector('[data-dev-badge]')).toBeNull();
+  expect(creatorRow.querySelector('[data-dev-badge]')?.textContent).toBe('Creator');
+  expect(creatorRow.querySelector('[data-dev-badge]')?.getAttribute('title')).toBe('Creator wallet');
+  expect(creatorRow.querySelector('a')?.getAttribute('href')).toBe(`/profile/${creator}`);
+  expect(creatorRow.querySelector('[data-pool-badge]')).toBeNull();
+  expect(walletRow.querySelector('a')?.getAttribute('href')).toBe(`/profile/${holder}`);
+  expect(walletRow.querySelector('[data-dev-badge], [data-pool-badge]')).toBeNull();
+  expect(rows.map(row => [...row.querySelectorAll('td')].slice(1, 4).map(cell => cell.textContent))).toEqual([
+    ['3', '0.00%', '6.00 USDL'],
+    ['2', '0.00%', '4.00 USDL'],
+    ['1', '0.00%', '2.00 USDL'],
+  ]);
+
+  const mixedCasePool = `0x${pool.slice(2).toUpperCase()}`;
+  await act(async () => {
+    view.cache.setQueryData<PoolSnapshot>(queryKeys.poolSnapshot(pool), snapshot => snapshot ? {
+      ...snapshot, pool: { ...snapshot.pool, poolAddress: mixedCasePool },
+    } : snapshot);
+    await new Promise(resolve => setTimeout(resolve, 20));
+  });
+  await waitFor(() => view.container.querySelector('[data-pool-badge]') !== null);
+  expect(view.container.querySelector('[data-pool-badge]')?.closest('tr')?.querySelector('a')).toBeNull();
+  expect(view.container.querySelectorAll('[data-pool-badge]')).toHaveLength(1);
+  expect(view.container.querySelectorAll('[data-dev-badge]')).toHaveLength(1);
+}
+test(holder_pool_badge_preserves_creator_links_and_wallet_rows, holder_pool_badge_preserves_creator_links_and_wallet_rows);
 
 async function holder_page_refresh_replaces_balances_and_cursor_chain() {
   const view = mount(createElement(HoldersTable, { poolAddress: pool }));

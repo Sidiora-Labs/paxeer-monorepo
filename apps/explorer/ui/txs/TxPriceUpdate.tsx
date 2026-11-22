@@ -16,6 +16,13 @@ export const isPriceUpdate = (tx: TransactionFeedItem): tx is PriceUpdateItem =>
 
 export const priceUpdateHref = (hash: string) => route({ pathname: '/feed/update/[hash]', query: { hash } });
 
+export const priceUpdateKind = 'Price update';
+
+export const priceUpdateMarkets = (tx: Pick<Transaction, 'price_update'>) => {
+  const count = tx.price_update?.observation_count ?? 0;
+  return `${ count } market${ count === 1 ? '' : 's' }`;
+};
+
 export const priceUpdateMethod = (tx: Pick<Transaction, 'price_update'>) => {
   const count = tx.price_update?.observation_count ?? 0;
   return `Price update · ${ count } market${ count === 1 ? '' : 's' }`;

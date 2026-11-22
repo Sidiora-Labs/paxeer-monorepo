@@ -1086,6 +1086,12 @@ func restMeasurementHotExpiry(ctx context.Context, c restMeasurementInput, clien
 func TestProductionRESTMeasurementHarness(t *testing.T) {
 	path := os.Getenv("L22_MEASUREMENT_INPUT")
 	digest := os.Getenv("L22_MEASUREMENT_INPUT_SHA256")
+	if path == "" {
+		t.Skip("L22_MEASUREMENT_INPUT not set: operator measurement input required")
+	}
+	if digest == "" {
+		t.Skip("L22_MEASUREMENT_INPUT_SHA256 not set: operator measurement input digest required")
+	}
 	raw, err := restMeasurementBoundFile(path, digest, 2<<20)
 	if err != nil {
 		t.Fatal("actual approved L22 measurement input required:", err)
@@ -1422,7 +1428,15 @@ type restMeasurementAggregateInput struct {
 }
 
 func TestProductionRESTMeasurementAggregate(t *testing.T) {
-	raw, err := restMeasurementBoundFile(os.Getenv("L22_MEASUREMENT_AGGREGATE_INPUT"), os.Getenv("L22_MEASUREMENT_AGGREGATE_INPUT_SHA256"), 2<<20)
+	path := os.Getenv("L22_MEASUREMENT_AGGREGATE_INPUT")
+	digest := os.Getenv("L22_MEASUREMENT_AGGREGATE_INPUT_SHA256")
+	if path == "" {
+		t.Skip("L22_MEASUREMENT_AGGREGATE_INPUT not set: operator generator result manifest required")
+	}
+	if digest == "" {
+		t.Skip("L22_MEASUREMENT_AGGREGATE_INPUT_SHA256 not set: operator generator result manifest digest required")
+	}
+	raw, err := restMeasurementBoundFile(path, digest, 2<<20)
 	if err != nil {
 		t.Fatal("actual source-bound generator result manifest required:", err)
 	}

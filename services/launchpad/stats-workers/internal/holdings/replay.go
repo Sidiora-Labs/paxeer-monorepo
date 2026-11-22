@@ -153,14 +153,31 @@ func (r *Repository) RebuildFromCanonical(ctx context.Context, source *pgxpool.P
 	}
 	defer rollbackTransaction(context.WithoutCancel(ctx), src)
 	var matches bool
-	var initialSupply, creationTransaction string
-	err = src.QueryRow(ctx, "SELECT height=$2::bigint AND (payload->'metadata'->>'decimals')::integer=$3,payload->'metadata'->>'totalSupply',transaction_hash FROM indexer.indexer_canonical_creations_v1 WHERE token=$1", token, first, int(decimals)).Scan(&matches, &initialSupply, &creationTransaction)
+	var payload []byte
+	var creationTransaction string
+	err = src.QueryRow(ctx, "SELECT height=$2::bigint,payload,transaction_hash FROM indexer.indexer_canonical_creations_v1 WHERE token=$1", token, first).Scan(&matches, &payload, &creationTransaction)
 	if err != nil {
 		return PersistedCheckpoint{}, err
 	}
 	if !matches {
 		return PersistedCheckpoint{}, ErrConflict
 	}
+	var fact struct {
+		Metadata *struct {
+			Decimals    *uint8  `json:"decimals"`
+			TotalSupply *string `json:"totalSupply"`
+		} `json:"metadata"`
+	}
+	if err = json.Unmarshal(payload, &fact); err != nil {
+		return PersistedCheckpoint{}, err
+	}
+	if fact.Metadata == nil || fact.Metadata.Decimals == nil || fact.Metadata.TotalSupply == nil {
+		return PersistedCheckpoint{}, ErrUnknownToken
+	}
+	if *fact.Metadata.Decimals != decimals {
+		return PersistedCheckpoint{}, ErrConflict
+	}
+	initialSupply := *fact.Metadata.TotalSupply
 	if _, err = UInt(initialSupply); err != nil {
 		return PersistedCheckpoint{}, err
 	}

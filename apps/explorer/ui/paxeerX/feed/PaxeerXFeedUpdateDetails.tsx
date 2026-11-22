@@ -25,8 +25,8 @@ const PaxeerXFeedUpdateDetails = ({ data, isLoading }: Props) => {
 
   return (
     <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-price-update={ data.hash } css={{
-      '& a': { display: 'inline-flex', alignItems: 'center', minWidth: 'touchTarget', minHeight: 'touchTarget' },
-      '& button': { minWidth: 'touchTarget', minHeight: 'touchTarget' },
+      '& a': { display: 'inline-flex', alignItems: 'center' },
+      '& button': { },
       '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
     }}>
       <Box

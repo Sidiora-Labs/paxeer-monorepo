@@ -30,7 +30,7 @@ func HistoryTable(service, schema string) (string, error) {
 		"core/api":                    {"api_stream", "migration_control.api_versions"},
 		"core/trading-charts":         {"candles", "migration_control.trading_charts_versions"},
 		valueCoreStatsWorkers:         {"stats", "migration_control.stats_workers_versions"},
-		"core/pnl-tracker":            {"pnl", "migration_control.pnl_tracker_versions"},
+		"core/pnl-tracker":            {valuePnl, "migration_control.pnl_tracker_versions"},
 		"media/user":                  {"users", "migration_control.user_versions"},
 		"media/social":                {"chat", "migration_control.social_versions"},
 		"media/metadata":              {"metadata", "migration_control.metadata_versions"},
@@ -38,7 +38,7 @@ func HistoryTable(service, schema string) (string, error) {
 		"core/ranking-algo":           {"ranking", "migration_control.ranking_versions"},
 		"core/stats-workers/search":   {"stats_search", "migration_control.search_versions"},
 		"platform/recovery":           {"recovery", "migration_control.recovery_versions"},
-		"security/control":            {"pnl", "migration_control.control_versions"},
+		"security/control":            {valuePnl, "migration_control.control_versions"},
 		"core/stats-workers/holdings": {"stats_transfer_holdings", "migration_control.stats_transfer_holdings_versions"},
 		valueCoreApiCache:             {valueApiLimits, "migration_control.api_limits_versions"},
 		valueCoreDiscovery:            {valueNarrativeDiscovery, "migration_control.narrative_discovery_versions"},
@@ -46,7 +46,7 @@ func HistoryTable(service, schema string) (string, error) {
 		"media/gateway/audit-source":  {"gateway_audit_source", "migration_control.gateway_audit_source_versions"},
 		"media/gateway/audit-sink":    {"gateway_audit_sink", "migration_control.gateway_audit_sink_versions"},
 		"media/gateway/storage":       {"gateway", "migration_control.gateway_storage_versions"},
-		"security/policy":             {"security", "migration_control.security_policy_versions"},
+		"security/policy":             {valueSecurity, "migration_control.security_policy_versions"},
 	}
 	h, ok := histories[service]
 	if !ok || h[0] != schema {
@@ -746,7 +746,7 @@ func validateExpectedSchema(want ExpectedSchema) error {
 					return fmt.Errorf("invalid sequence privilege")
 				}
 			default:
-				if p != valueSELECT && p != "INSERT" && p != valueUPDATE && p != "DELETE" {
+				if p != valueSELECT && p != valueINSERT && p != valueUPDATE && p != valueDELETE {
 					return fmt.Errorf("unsafe expected table privilege")
 				}
 			}
@@ -756,7 +756,7 @@ func validateExpectedSchema(want ExpectedSchema) error {
 				return fmt.Errorf("invalid expected column")
 			}
 		}
-		if len(g.Columns) > 0 && (kind == valueFunction || kind == valueSequence || len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE)) {
+		if len(g.Columns) > 0 && (kind == valueFunction || kind == valueSequence || len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE && !operatorInsertGrant(want.Service, g))) {
 			return fmt.Errorf("invalid expected column privilege")
 		}
 		if kind != valueFunction && len(g.ArgumentTypes) > 0 {

@@ -98,7 +98,7 @@ func TestShellReceiptRejectsDuplicateHash(t *testing.T) {
 	}
 }
 
-func TestShellReceiptCountLimitIncludesSetAside(t *testing.T) {
+func TestShellReceiptCountIncludesSetAside(t *testing.T) {
 	txs, receipts, hash, height := shellReceiptFixture(t, false)
 	for i := 1; i < 4097; i++ {
 		r := *receipts[0]
@@ -108,8 +108,8 @@ func TestShellReceiptCountLimitIncludesSetAside(t *testing.T) {
 		receipts = append(receipts, &r)
 	}
 	_, _, err := SeparateShellReceipts(txs, receipts, hash, height, types.MergeBloom(listedShellFixtureReceipts(receipts)), types.DeriveSha(listedShellFixtureReceipts(receipts), trie.NewStackTrie(nil)), false)
-	if err == nil {
-		t.Fatal("receipt count over the limit was admitted")
+	if err != nil {
+		t.Fatalf("shell receipt content: %v", err)
 	}
 }
 

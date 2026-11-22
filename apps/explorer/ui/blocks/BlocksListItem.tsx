@@ -44,7 +44,7 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
   return (
     <ListItemMobile fontSize="small" lineHeight="small" rowGap={ 3 } key={ String(data.height) } animation={ animation } _motionReduce={{ animation: 'none' }}
       css={{ '& a': { display: 'inline-flex', alignItems: 'center' },
-        '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}>
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } } }}>
       <Flex justifyContent="space-between" alignItems="center" w="100%" flexWrap="wrap" gap={ 2 }>
         <Flex columnGap={ 2 } alignItems="center">
           <BlockEntity
@@ -92,7 +92,11 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
         <Text fontWeight="medium">Txn</Text>
         { data.transactions_count > 0 ? (
           <Skeleton loading={ isLoading } textStyle="number" display="inline-block">
-            <Link href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height), tab: 'txs' } }, { chain: chainData }) }>
+            <Link
+              href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height), tab: 'txs' } }, { chain: chainData }) }
+              data-touch-inline
+              css={{ '--touch-line-size': 'var(--chakra-line-heights-small)' }}
+            >
               { data.transactions_count }
             </Link>
           </Skeleton>

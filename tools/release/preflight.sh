@@ -90,7 +90,7 @@ APP_KEYS = {
         "replication-tls-key": str, "replication-tls-ca": str,
         "replication-peer-name": str, "replication-peer-spki": str,
         "wal-retain-blocks": int, "nonce-queue-max-per-sender": int,
-        "nonce-queue-max-total": int, "lease-duration": str,
+        "nonce-queue-max-total": int, "nonce-queue-lifetime": str, "lease-duration": str,
     },
 }
 home = Path(sys.argv[1]).absolute()
@@ -182,6 +182,8 @@ def check_configuration():
         table = loaded_app.get(section)
         require(isinstance(table, dict), f"app.toml missing [{section}]")
         for key, kind in keys.items():
+            if section == "sequencer" and key == "nonce-queue-lifetime" and key not in table:
+                continue
             require(key in table, f"app.toml missing {section}.{key}")
             require(type(table[key]) is kind, f"app.toml invalid type for {section}.{key}")
     require(loaded_app["state-commit"]["sc-enable"] is True,

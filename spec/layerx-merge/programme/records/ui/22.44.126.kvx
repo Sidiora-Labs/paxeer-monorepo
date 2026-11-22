@@ -1,0 +1,231 @@
+[meta]
+task = "22.44.126"
+title = "Explorer chain and cross-chain dimensions"
+references = ["22.44.120", "22.44.105", "22.44.90"]
+
+[coverage]
+views = 15
+named_states = 0
+chain_specific_views = 11
+virtual_chain_views = 2
+cross_chain_views = 2
+schemes = ["light", "dark"]
+modes = ["default"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+
+[layout]
+entity_links = "Entity links center their mobile touch area on the text line without adding that area to the row height."
+timestamps = "The time-format control centers its mobile touch area on its 20px mark; date text wraps within its available width."
+lifecycle = "Lifecycle headings retain their 20px line box and existing text size, spacing and status colours."
+virtual_chain_identifiers = "Invalid virtual-chain identifiers use the body text style and wrap within the available width."
+desktop = "Controls above 834px retain their intrinsic and size-variant dimensions."
+scrollbar = "The page reserves the scrollbar track."
+copy_target = "The cross-chain hash row lets its copy target extend around the text line while the hash content handles truncation."
+
+[geometry]
+measured_views = 13
+widths = [390, 1280, 1440, 1920, 2560]
+measured_parts = 655
+differing_parts = 627
+equal_parts = 28
+scrollbar = "The reserved 15px scrollbar track reduces fluid widths and moves centered content by 7.5px."
+touch = "Controls through 834px retain 44px minimum touch areas; footer links increase their tracks, and the timestamp wraps within the narrower value track."
+native_home_link = "One native home link carries a 40px desktop control, a 44px touch control and a separate 32px top margin. Its 16px text and 24px line box match the visible button inside the earlier 14px / 20px link wrapper, whose 72px box includes the margin."
+
+[geometry.view_1]
+view = "/cc/tx/[hash]"
+differing_parts = 51
+parts_by_width = [10, 8, 11, 11, 11]
+
+[geometry.view_2]
+view = "/chain/[chain_slug]/accounts/label/[slug]"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_3]
+view = "/chain/[chain_slug]/advanced-filter"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_4]
+view = "/chain/[chain_slug]/block/[height_or_hash]"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_5]
+view = "/chain/[chain_slug]/block/countdown/[height]"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_6]
+view = "/chain/[chain_slug]/block/countdown"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_7]
+view = "/chain/[chain_slug]/csv-export"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_8]
+view = "/chain/[chain_slug]/op/[hash]"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_9]
+view = "/chain/[chain_slug]/token/[hash]"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_10]
+view = "/chain/[chain_slug]/token/[hash]/instance/[id]"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_11]
+view = "/chain/[chain_slug]/tx/[hash]"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_12]
+view = "/chain/[chain_slug]/visualize/sol2uml"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_13]
+view = "/cross-chain-tx/[id]"
+differing_parts = 48
+parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.not_found]
+views = ["/chain/[chain_slug]/accounts/label/[slug]", "/chain/[chain_slug]/advanced-filter", "/chain/[chain_slug]/block/[height_or_hash]", "/chain/[chain_slug]/block/countdown/[height]", "/chain/[chain_slug]/block/countdown", "/chain/[chain_slug]/csv-export", "/chain/[chain_slug]/op/[hash]", "/chain/[chain_slug]/token/[hash]", "/chain/[chain_slug]/token/[hash]/instance/[id]", "/chain/[chain_slug]/tx/[hash]", "/chain/[chain_slug]/visualize/sol2uml", "/cross-chain-tx/[id]"]
+description = "The same not-found presentation supplies the following measured parts for each listed view."
+
+[geometry.cross_chain_390]
+width = 390
+differing_parts = 10
+parts = ["details-card", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["details-card", "footer", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+touch_parts = ["details-card", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main", "navigation", "navigation-first-item", "primary-control"]
+
+[geometry.cross_chain_1280]
+width = 1280
+differing_parts = 8
+parts = ["details-card", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+scrollbar_parts = ["details-card", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+
+[geometry.cross_chain_1440]
+width = 1440
+differing_parts = 11
+parts = ["details-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["details-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+
+[geometry.cross_chain_1920]
+width = 1920
+differing_parts = 11
+parts = ["details-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["details-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+
+[geometry.cross_chain_2560]
+width = 2560
+differing_parts = 11
+parts = ["details-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["details-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+
+[geometry.not_found_390]
+width = 390
+differing_parts = 10
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["first-heading", "footer", "header", "main", "navigation", "navigation-first-item"]
+touch_parts = ["footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main", "navigation", "navigation-first-item"]
+native_home_link_parts = ["primary-control"]
+
+[geometry.not_found_1280]
+width = 1280
+differing_parts = 8
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+native_home_link_parts = ["primary-control"]
+
+[geometry.not_found_1440]
+width = 1440
+differing_parts = 10
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+native_home_link_parts = ["primary-control"]
+
+[geometry.not_found_1920]
+width = 1920
+differing_parts = 10
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+native_home_link_parts = ["primary-control"]
+
+[geometry.not_found_2560]
+width = 2560
+differing_parts = 10
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+scrollbar_parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+native_home_link_parts = ["primary-control"]
+
+[renders.first]
+views = 15
+named_states = 0
+renders = 0
+with_content = 0
+retried = 0
+
+[findings.first]
+load = 1
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[renders.part]
+views = 15
+named_states = 0
+renders = 330
+with_content = 330
+retried = 0
+result = "All 15 views show content across 330 renders."
+
+[findings.part]
+load = 0
+sideways = 0
+cut = 10
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 627
+
+[renders.last]
+views = 1
+named_states = 0
+renders = 22
+with_content = 22
+retried = 0
+view = "/cc/tx/[hash]"
+result = "All renders show content; 51 measured parts retain scrollbar and touch dimensions, with no other findings."
+
+[findings.last]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 51

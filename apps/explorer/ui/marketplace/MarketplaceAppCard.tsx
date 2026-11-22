@@ -160,7 +160,6 @@ const MarketplaceAppCard = ({
             flexWrap="wrap"
             gap={ 2 }
             marginTop="auto"
-            minH="touchTarget"
             position="relative"
             zIndex={ 1 }
           >

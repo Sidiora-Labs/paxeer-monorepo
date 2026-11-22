@@ -429,10 +429,11 @@
       "o.lease_until",
       "o.subject",
       "picked.event_id",
-      "state"
+      "state",
+      "subject"
     ],
     "bindings": {},
-    "sql": "WITH picked AS (SELECT event_id FROM \"chat\".delivery_outbox WHERE state='pending' AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE \"chat\".delivery_outbox o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts"
+    "sql": "WITH picked AS (SELECT event_id FROM \"chat\".delivery_outbox WHERE state='pending' AND subject=ANY($4::text[]) AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE \"chat\".delivery_outbox o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts"
   },
   {
     "id": "shared/delivery/store.go:Store.MarkPublished:1",
@@ -631,10 +632,11 @@
       "created_at",
       "envelope",
       "lease_expiry_count",
-      "state"
+      "state",
+      "subject"
     ],
     "bindings": {},
-    "sql": "SELECT count(*) FILTER(WHERE state='pending'),\n COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint,\n count(*) FILTER(WHERE state='quarantined'),\n COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,\n COALESCE(sum(lease_expiry_count),0)::bigint,\n COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM \"chat\".delivery_outbox"
+    "sql": "SELECT count(*) FILTER(WHERE state='pending'),\n COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint,\n count(*) FILTER(WHERE state='quarantined'),\n COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,\n COALESCE(sum(lease_expiry_count),0)::bigint,\n COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM \"chat\".delivery_outbox WHERE subject=ANY($1::text[])"
   },
   {
     "id": "shared/queue/queue.go:EpochGuard.Assert:1",
@@ -1690,7 +1692,8 @@
     ],
     "sequences": [],
     "functions": [
-      "pg_catalog.extract"
+      "pg_catalog.extract",
+      "pg_catalog.floor"
     ],
     "columns": [
       "c.id",
@@ -1707,7 +1710,7 @@
       "m.sequence"
     ],
     "bindings": {},
-    "sql": "SELECT m.id,m.conversation_id,m.sender,m.content,m.reply_to,m.sequence,m.revision,extract(epoch from m.created_at)::bigint,m.deleted_at IS NOT NULL,m.client_id,c.kind FROM chat.chat_messages m JOIN chat.chat_conversations c ON c.id=m.conversation_id WHERE m.id=$1 FOR UPDATE OF m,c"
+    "sql": "SELECT m.id,m.conversation_id,m.sender,m.content,m.reply_to,m.sequence,m.revision,floor(extract(epoch from m.created_at))::bigint,m.deleted_at IS NOT NULL,m.client_id,c.kind FROM chat.chat_messages m JOIN chat.chat_conversations c ON c.id=m.conversation_id WHERE m.id=$1 FOR UPDATE OF m,c"
   },
   {
     "id": "app/visibility.go:socialConnectedRuntime.messageVisibilityEvent:2",
@@ -3777,7 +3780,8 @@
     ],
     "sequences": [],
     "functions": [
-      "pg_catalog.extract"
+      "pg_catalog.extract",
+      "pg_catalog.floor"
     ],
     "columns": [
       "client_id",
@@ -3792,7 +3796,7 @@
       "sequence"
     ],
     "bindings": {},
-    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,extract(epoch from created_at)::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE sender=$1 AND client_id=$2"
+    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,floor(extract(epoch from created_at))::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE sender=$1 AND client_id=$2"
   },
   {
     "id": "fanout/durable.go:DurableStore.Send:3",
@@ -4074,7 +4078,8 @@
     ],
     "sequences": [],
     "functions": [
-      "pg_catalog.extract"
+      "pg_catalog.extract",
+      "pg_catalog.floor"
     ],
     "columns": [
       "client_id",
@@ -4090,7 +4095,7 @@
       "wallet"
     ],
     "bindings": {},
-    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,extract(epoch from created_at)::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE conversation_id=$1 AND sequence>$2 AND EXISTS(SELECT 1 FROM chat_members WHERE conversation_id=$1 AND wallet=$3) ORDER BY sequence LIMIT $4"
+    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,floor(extract(epoch from created_at))::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE conversation_id=$1 AND sequence>$2 AND EXISTS(SELECT 1 FROM chat_members WHERE conversation_id=$1 AND wallet=$3) ORDER BY sequence LIMIT $4"
   },
   {
     "id": "fanout/durable.go:DurableStore.DrainOutbox:1",
@@ -4187,7 +4192,8 @@
     ],
     "sequences": [],
     "functions": [
-      "pg_catalog.extract"
+      "pg_catalog.extract",
+      "pg_catalog.floor"
     ],
     "columns": [
       "chat_messages.conversation_id",
@@ -4204,7 +4210,7 @@
       "wallet"
     ],
     "bindings": {},
-    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,extract(epoch from created_at)::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE id=$1 AND sender=$2 AND EXISTS(SELECT 1 FROM chat_members WHERE conversation_id=chat_messages.conversation_id AND wallet=$2) FOR UPDATE"
+    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,floor(extract(epoch from created_at))::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE id=$1 AND sender=$2 AND EXISTS(SELECT 1 FROM chat_members WHERE conversation_id=chat_messages.conversation_id AND wallet=$2) FOR UPDATE"
   },
   {
     "id": "fanout/durable.go:DurableStore.Revise:2",
@@ -4321,7 +4327,8 @@
     ],
     "sequences": [],
     "functions": [
-      "pg_catalog.extract"
+      "pg_catalog.extract",
+      "pg_catalog.floor"
     ],
     "columns": [
       "client_id",
@@ -4336,7 +4343,7 @@
       "sequence"
     ],
     "bindings": {},
-    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,extract(epoch from created_at)::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE id=$1 FOR UPDATE"
+    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,floor(extract(epoch from created_at))::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE id=$1 FOR UPDATE"
   },
   {
     "id": "fanout/durable.go:DurableStore.ModerateTx:2",
@@ -4412,7 +4419,8 @@
     ],
     "sequences": [],
     "functions": [
-      "pg_catalog.extract"
+      "pg_catalog.extract",
+      "pg_catalog.floor"
     ],
     "columns": [
       "client_id",
@@ -4427,7 +4435,7 @@
       "sequence"
     ],
     "bindings": {},
-    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,extract(epoch from created_at)::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE id=$1"
+    "sql": "SELECT id,conversation_id,sender,content,reply_to,sequence,revision,floor(extract(epoch from created_at))::bigint,deleted_at IS NOT NULL,client_id FROM chat_messages WHERE id=$1"
   },
   {
     "id": "fanout/durable.go:DurableStore.CurrentEvent:2",
@@ -4464,6 +4472,7 @@
     "functions": [
       "pg_catalog.count",
       "pg_catalog.extract",
+      "pg_catalog.floor",
       "pg_catalog.max"
     ],
     "columns": [
@@ -4483,7 +4492,7 @@
       "peer.wallet"
     ],
     "bindings": {},
-    "sql": "SELECT c.id,peer.wallet,extract(epoch from max(msg.created_at))::bigint,count(msg.id) FILTER(WHERE msg.sequence>own.read_sequence AND msg.deleted_at IS NULL AND msg.sender<>$1),own.read_sequence,own.muted FROM chat_conversations c JOIN chat_members own ON own.conversation_id=c.id AND own.wallet=$1 JOIN chat_members peer ON peer.conversation_id=c.id AND peer.wallet<>$1 LEFT JOIN chat_messages msg ON msg.conversation_id=c.id WHERE c.kind='dm' GROUP BY c.id,peer.wallet,own.read_sequence,own.muted ORDER BY max(msg.created_at) DESC NULLS LAST,c.id LIMIT 100"
+    "sql": "SELECT c.id,peer.wallet,floor(extract(epoch from max(msg.created_at)))::bigint,count(msg.id) FILTER(WHERE msg.sequence>own.read_sequence AND msg.deleted_at IS NULL AND msg.sender<>$1),own.read_sequence,own.muted FROM chat_conversations c JOIN chat_members own ON own.conversation_id=c.id AND own.wallet=$1 JOIN chat_members peer ON peer.conversation_id=c.id AND peer.wallet<>$1 LEFT JOIN chat_messages msg ON msg.conversation_id=c.id WHERE c.kind='dm' GROUP BY c.id,peer.wallet,own.read_sequence,own.muted ORDER BY max(msg.created_at) DESC NULLS LAST,c.id LIMIT 100"
   },
   {
     "id": "fanout/hub.go:Hub.admitSend:1",
@@ -8183,6 +8192,7 @@
     "sequences": [],
     "functions": [
       "pg_catalog.extract",
+      "pg_catalog.floor",
       "pg_catalog.max"
     ],
     "columns": [
@@ -8194,7 +8204,7 @@
       "peer.wallet"
     ],
     "bindings": {},
-    "sql": "SELECT peer.wallet,extract(epoch from max(msg.created_at))::bigint FROM chat_members own JOIN chat_members peer ON peer.conversation_id=own.conversation_id AND peer.wallet<>own.wallet LEFT JOIN chat_messages msg ON msg.conversation_id=own.conversation_id WHERE own.conversation_id=$1 AND own.wallet=$2 GROUP BY peer.wallet"
+    "sql": "SELECT peer.wallet,floor(extract(epoch from max(msg.created_at)))::bigint FROM chat_members own JOIN chat_members peer ON peer.conversation_id=own.conversation_id AND peer.wallet<>own.wallet LEFT JOIN chat_messages msg ON msg.conversation_id=own.conversation_id WHERE own.conversation_id=$1 AND own.wallet=$2 GROUP BY peer.wallet"
   },
   {
     "id": "social/moderation.go:authorizeFrozenVoiceRead:1",

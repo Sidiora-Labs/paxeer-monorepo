@@ -51,8 +51,8 @@ type senderNonce struct {
 }
 
 // NonceQueue holds future nonces per sender and hands them to Accept in nonce order
-// once the gap fills. Accept calls are serialised in arrival order, so across senders
-// the receipt order is the arrival order and one sender's transactions never reorder.
+// once the gap fills or a block opens. Accept calls for one sender are serialised
+// so that sender's transactions never reorder or execute twice.
 // Accept must not call back into the queue.
 type NonceQueue struct {
 	cfg    NonceQueueConfig
@@ -148,6 +148,21 @@ func (q *NonceQueue) Drain(sender common.Address) *DrainFailure {
 	defer q.mu.Unlock()
 	return q.drain(sender)
 }
+
+// Release drains each sender with held transactions against the open state.
+// Each sender keeps its admission gate, and a refusal stops only that sender.
+func (q *NonceQueue) Release() {
+	q.mu.Lock()
+	senders := make([]common.Address, 0, len(q.held))
+	for sender := range q.held {
+		senders = append(senders, sender)
+	}
+	q.mu.Unlock()
+	for _, sender := range senders {
+		q.Drain(sender)
+	}
+}
+
 
 func (q *NonceQueue) drain(sender common.Address) *DrainFailure {
 	pending := q.held[sender]

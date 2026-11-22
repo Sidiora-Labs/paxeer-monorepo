@@ -123,7 +123,8 @@ def test_explorer_openapi_matches_backend_swagger():
     assert b"openapi: 3.0.3" in backend.read_bytes()
     consumer = (ROOT / "apps/explorer/ui/apiDocs/utils.ts").read_text()
     assert re.search(
-        r"CORE_API_SPEC_PUBLIC_URL\s*=\s*['\"]/openapi\.yaml['\"]", consumer
+        r"CORE_API_SPEC_PUBLIC_URL\s*=\s*`\$\{\s*config\.app\.basePath\s*\}"
+        r"/openapi\.yaml`", consumer
     )
     dockerfile = (ROOT / "docker/explorer-frontend/Dockerfile").read_text()
     assert "COPY apps/explorer ." in dockerfile

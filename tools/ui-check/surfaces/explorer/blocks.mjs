@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { readFile, writeFile } from 'node:fs/promises';
-import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright';
 
 import { readSurface } from '../../check.mjs';
 import { LIMITS } from '../../config.mjs';
+
+import { readBlockResponses as readPreparedBlockResponses } from './block-responses.mjs';
 
 const preparedPagesFile = '/tmp/explorer-block-pages.json';
 
@@ -24,19 +26,13 @@ export async function prepareBlockResponses() {
     assert.ok(body.includes('id="__NEXT_DATA__"'), `${view.name}: application page data`);
     pages.push({ path: view.path, body, type: response.headers.get('content-type') });
   }
-  await writeFile(preparedPagesFile, JSON.stringify({ buildId, pages }));
+  const source = await readFile(new URL('./parts/blocks.json', import.meta.url));
+  const surfaceHash = createHash('sha256').update(source).digest('hex');
+  await writeFile(preparedPagesFile, JSON.stringify({ buildId, surfaceHash, pages }));
 }
 
 export async function readBlockResponses() {
-  const buildId = await readFile(new URL('../../../../apps/explorer/.next/BUILD_ID', import.meta.url), 'utf8');
-  const prepared = JSON.parse(await readFile(preparedPagesFile, 'utf8'));
-  assert.equal(prepared.buildId, buildId, 'Prepared block pages match the application build');
-  const surface = await readSurface(fileURLToPath(new URL('./parts/blocks.json', import.meta.url)));
-  assert.deepEqual(prepared.pages.map((page) => page.path), surface.views.map((view) => view.path));
-  return new Map(prepared.pages.map((page) => {
-    const body = Buffer.from(page.body);
-    return [page.path, { body, compressed: gzipSync(body), type: page.type }];
-  }));
+  return readPreparedBlockResponses();
 }
 
 async function assertBlockState(surface, browser, view, state, width) {

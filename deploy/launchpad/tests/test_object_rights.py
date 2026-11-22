@@ -84,11 +84,14 @@ def _object_calls(entry: dict) -> list[dict[str, object]]:
     calls: list[dict[str, object]] = []
     for path in _source_files(entry):
         relative = path.relative_to(ROOT).as_posix()
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        occurrences: dict[str, int] = {}
+        for line in path.read_text(encoding="utf-8").splitlines():
             for match in CALL_RE.finditer(line):
                 receiver, method = match.group("receiver"), match.group("method")
                 if _is_object_call(receiver, method):
-                    calls.append({"source": relative, "line": line_number, "call": f"{receiver}.{method}"})
+                    call = f"{receiver}.{method}"
+                    occurrences[call] = occurrences.get(call, 0) + 1
+                    calls.append({"source": relative, "occurrence": occurrences[call], "call": call})
     return calls
 
 
@@ -140,10 +143,10 @@ def test_object_rights_document() -> None:
                 row for row in calls
                 if row["service"] == service
                 and row["source"] == call["source"]
-                and row["line"] == call["line"]
+                and row["occurrence"] == call["occurrence"]
                 and row["call"] == call["call"]
             ]
-            assert rows, f"object call not named: {call['source']}:{call['line']} {call['call']}"
+            assert rows, f"object call not named: {call['source']} {call['call']}"
 
     # Every table row points at a discovered source call and a contract bucket.
     for row in calls:
@@ -153,13 +156,13 @@ def test_object_rights_document() -> None:
         assert any(
             call["service"] == row["service"]
             and call["source"] == row["source"]
-            and call["line"] == row["line"]
+            and call["occurrence"] == row["occurrence"]
             and call["call"] == row["call"]
             for call in discovered
-        ), f"table names a missing call: {row['source']}:{row['line']} {row['call']}"
+        ), f"table names a missing call: {row['source']} {row['call']}"
         bucket = _bucket(entry, row["bucket"])
-        assert row["action"] in bucket["actions"], f"{row['source']}:{row['line']} action {row['action']}"
-        assert row["prefix"] in bucket["prefixes"], f"{row['source']}:{row['line']} prefix {row['prefix']}"
+        assert row["action"] in bucket["actions"], f"{row['source']} {row['call']} action {row['action']}"
+        assert row["prefix"] in bucket["prefixes"], f"{row['source']} {row['call']} prefix {row['prefix']}"
 
     required_rights: dict[tuple[str, str], set[tuple[str, str]]] = {}
     for row in calls:

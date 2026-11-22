@@ -67,6 +67,7 @@ func TestSequencerConfigReadsRetentionAndQueueBounds(t *testing.T) {
 		require.True(t, templateOpts.IsSet(key), key)
 	}
 	require.False(t, templateOpts.IsSet(sequencer.FlagLeaseDuration))
+	require.False(t, templateOpts.IsSet(sequencer.FlagNonceQueueLifetime))
 }
 
 func TestSequencerConfigRefusesZeroBounds(t *testing.T) {
@@ -79,6 +80,7 @@ func TestSequencerConfigRefusesZeroBounds(t *testing.T) {
 		{sequencer.FlagWALRetainBlocks, func(c *sequencer.Config, n int) { c.WALRetainBlocks = uint64(n) }},
 		{sequencer.FlagNonceQueueMaxPerSender, func(c *sequencer.Config, n int) { c.NonceQueueMaxPerSender = n }},
 		{sequencer.FlagNonceQueueMaxTotal, func(c *sequencer.Config, n int) { c.NonceQueueMaxTotal = n }},
+		{sequencer.FlagNonceQueueLifetime, func(c *sequencer.Config, n int) { c.NonceQueueLifetime = time.Duration(n) }},
 		{sequencer.FlagLeaseDuration, func(c *sequencer.Config, n int) { c.LeaseDuration = time.Duration(n) }},
 	} {
 		t.Run(tc.key, func(t *testing.T) {
@@ -137,6 +139,7 @@ func TestAddStartFlagsRegistersSequencerFlags(t *testing.T) {
 		sequencer.FlagWALRetainBlocks:        {"uint64", strconv.FormatUint(defaults.WALRetainBlocks, 10)},
 		sequencer.FlagNonceQueueMaxPerSender: {"int", strconv.Itoa(defaults.NonceQueueMaxPerSender)},
 		sequencer.FlagNonceQueueMaxTotal:     {"int", strconv.Itoa(defaults.NonceQueueMaxTotal)},
+		sequencer.FlagNonceQueueLifetime:     {"duration", defaults.NonceQueueLifetime.String()},
 		sequencer.FlagLeaseDuration:          {"duration", defaults.LeaseDuration.String()},
 	}
 	for name, expected := range want {
@@ -162,7 +165,7 @@ func TestAddStartFlagsRegistersSequencerFlags(t *testing.T) {
 		"--sequencer.replication-peer-spki=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		"--sequencer.microbatch-window=5ms", "--sequencer.microbatch-max-count=32",
 		"--sequencer.wal-retain-blocks=9", "--sequencer.nonce-queue-max-per-sender=8",
-		"--sequencer.nonce-queue-max-total=128", "--sequencer.lease-duration=2s",
+		"--sequencer.nonce-queue-max-total=128", "--sequencer.nonce-queue-lifetime=7s", "--sequencer.lease-duration=2s",
 	}))
 	cfg, err = sequencer.ReadConfig(opts)
 	require.NoError(t, err)
@@ -175,7 +178,7 @@ func TestAddStartFlagsRegistersSequencerFlags(t *testing.T) {
 		},
 		ReplicationTimeout: 400 * time.Millisecond, MicroBatchWindow: 5 * time.Millisecond,
 		MicroBatchMaxCount: 32, WALRetainBlocks: 9, NonceQueueMaxPerSender: 8,
-		NonceQueueMaxTotal: 128, LeaseDuration: 2 * time.Second,
+		NonceQueueMaxTotal: 128, NonceQueueLifetime: 7 * time.Second, LeaseDuration: 2 * time.Second,
 	}, cfg)
 
 	follower := &cobra.Command{Use: "start"}

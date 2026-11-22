@@ -1,6 +1,7 @@
 package l18
 
 const (
+	fieldData                  = "data"
 	statusReferred             = "referred"
 	sourceReferral             = "referral"
 	fieldBlockHash             = "blockHash"

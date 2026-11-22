@@ -68,7 +68,7 @@ export default function TxAssetFlows(props: FlowViewProps) {
           maxW="full"
           css={{
             '& [data-entity-content]': { minW: 0, whiteSpace: 'normal', overflowWrap: 'anywhere' },
-            '& button': { minW: 'touchTarget', minH: 'touchTarget' },
+            '& button': { },
           }}
           isLoading={ isPlaceholderData }
         />

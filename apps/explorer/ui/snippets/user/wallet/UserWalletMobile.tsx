@@ -59,7 +59,7 @@ const UserWalletMobile = () => {
       <DrawerContent maxWidth="var(--chakra-spacing-75)">
         <DrawerHeader>
           <DrawerTitle>My wallet</DrawerTitle>
-          <DrawerCloseTrigger minH="touchTarget" minW="touchTarget" top={ 4 } insetEnd={ 3 }/>
+          <DrawerCloseTrigger top={ 4 } insetEnd={ 3 }/>
         </DrawerHeader>
         <DrawerBody p={ 6 }>
           { web3AccountWithDomain.address && walletMenu.open && (

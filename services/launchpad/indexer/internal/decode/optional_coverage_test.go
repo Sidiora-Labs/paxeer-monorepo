@@ -165,8 +165,8 @@ func TestOptionalCompanionsMatchExactActionAndEconomicFields(t *testing.T) {
 			for k, v := range tc.mirror {
 				c[k] = v
 			}
-			native := &DecodedEnvelope{EmitterRole: tc.role, EventName: tc.event, Event: &Event{Args: n}}
-			companion := &DecodedEnvelope{EmitterRole: tc.companionRole, EventName: tc.companion, Event: &Event{Args: c}}
+			native := &DecodedEnvelope{Status: valueDecoded, EmitterRole: tc.role, EventName: tc.event, Event: &Event{Args: n}}
+			companion := &DecodedEnvelope{Status: valueDecoded, EmitterRole: tc.companionRole, EventName: tc.companion, Event: &Event{Args: c}}
 			if !companionMatches(native, companion, tc.wrapped) {
 				t.Fatalf("bound companion rejected %v/%v", n, c)
 			}

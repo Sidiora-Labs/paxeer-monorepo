@@ -256,9 +256,11 @@ func TestRunNativeServesPublishesAndStops(t *testing.T) {
 	social := pki.issue(t, visibilityDNS, x509.ExtKeyUsageServerAuth)
 	peer, authority := publicationRecoveryVisibilityPeer(t, pki, social, clientLeaf, map[string]bool{})
 	dir := t.TempDir()
+	evidence := rankingEvidencePeer(t, map[string]bool{})
 	binding := config.RankingRuntimeBinding{
 		Version: 2, RankingSchema: "ranking", StatsSchema: "stats", SourceSchema: "indexer", SourceStream: sourceStream, ProjectionVersion: projection,
 		CacheNamespace: "snapshots", CursorKeyReference: "TEST_RANKING_CURSOR_KEY", RecoverySchema: "recovery", RecoveryEpoch: database.Epoch, RecoveryRegion: database.Region,
+		EvidenceEndpoint:   evidence.URL + "/internal/ranking-evidence",
 		VisibilityEndpoint: peer.URL + "/internal/v2/social/ranking-visibility", VisibilityDNS: visibilityDNS, VisibilityCertSHA256: social.pin(), GatewayDNS: gatewayDNS, GatewayCertSHA256: gateway.pin(),
 		CAFile: filepath.Join(dir, "ca.pem"), ClientCertFile: filepath.Join(dir, "client.pem"), ClientKeyReference: "TEST_RANKING_CLIENT_KEY_PEM", ServerCertFile: filepath.Join(dir, "server.pem"), ServerKeyReference: "TEST_RANKING_SERVER_KEY_PEM", MaxAttempts: 10, MaximumReads: 8,
 	}

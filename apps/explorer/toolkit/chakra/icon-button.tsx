@@ -4,11 +4,12 @@ import { Button, type ButtonProps } from './button';
 
 export interface IconButtonProps extends Omit<ButtonProps, 'size'> {
   size?: '2xs' | '2xs_alt' | 'md';
+  inlineLineSize?: string;
 }
 
 export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
   function IconButton(props, ref) {
-    const { size, variant = 'plain', children, ...rest } = props;
+    const { size, variant = 'plain', children, inlineLineSize, ...rest } = props;
 
     // FIXME: I have to clone the children instead of using _icon props because of style overrides
     // in some pw tests for some reason the _icon style will be applied before the style of child (IconSvg component)
@@ -21,8 +22,6 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           return {
             _icon: { boxSize: 5 },
             boxSize: 5,
-            minW: 'touchTarget',
-            minH: 'touchTarget',
             borderRadius: 'sm',
           };
         }
@@ -30,15 +29,13 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           return {
             _icon: { boxSize: 3 },
             boxSize: 5,
-            minW: 'touchTarget',
-            minH: 'touchTarget',
             borderRadius: 'sm',
           };
         }
         case 'md': {
           return {
             _icon: { boxSize: 5 },
-            boxSize: 'touchTarget',
+            boxSize: 8,
           };
         }
         default:
@@ -57,6 +54,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
         flexShrink="0"
         variant={ variant }
         { ...sizeStyle }
+        { ...(inlineLineSize ? { 'data-touch-inline': true, css: { '--touch-line-size': inlineLineSize } } : {}) }
         { ...rest }
       >
         { clonedChildren }

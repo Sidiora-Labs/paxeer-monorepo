@@ -32,7 +32,7 @@ export const SamplesStack = ({ children }: { children: React.ReactNode }) => (
     columnGap={ 8 }
     w="full"
     minW={ 0 }
-    gridTemplateColumns="minmax(0, 1fr)"
+    gridTemplateColumns="fit-content(var(--chakra-spacing-15)) minmax(0, 1fr)"
     css={{ [ `@container (min-width: ${ breakpoints.lg })` ]: { gridTemplateColumns: 'fit-content(35%) minmax(0, 1fr)' } }}
     justifyItems="flex-start"
     alignItems="flex-start"
@@ -49,12 +49,13 @@ export const Sample = ({ children, label, vertical, ...props }: { children: Reac
         gap={ 3 }
         whiteSpace="pre-wrap"
         flexWrap="wrap"
-        gridColumn="1 / -1"
+        gridColumn={ label ? 'auto' : '1 / -1' }
         minW={ 0 }
         maxW="full"
         css={{
           [ `@container (min-width: ${ breakpoints.lg })` ]: { gridColumn: label ? 'auto' : '1 / -1' },
           '& > :not(dialog)': { maxWidth: 'full', minWidth: 0 },
+          '& .chakra-button': { whiteSpace: 'normal', overflowWrap: 'anywhere' },
         }}
         alignItems={ vertical ? 'flex-start' : 'center' }
         { ...props }

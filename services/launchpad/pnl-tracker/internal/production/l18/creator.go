@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // Frozen ABI copies retain exact provenance in the lane handoff.
@@ -43,6 +44,10 @@ var nft = parseABI(nftABI)
 type RPC interface {
 	CallContext(context.Context, any, string, ...any) error
 }
+type batchRPC interface {
+	BatchCallContext(context.Context, []rpc.BatchElem) error
+}
+
 type Checkpoint struct {
 	Number uint64 `json:"number"`
 	Hash   string `json:"hash"`
@@ -52,10 +57,14 @@ type Creator struct {
 	now       func() time.Time
 	committed func(context.Context) (Checkpoint, error)
 	attest    func(context.Context, Checkpoint) error
+	checked   *Checkpoint
 }
 
 func NewCreator(r RPC, now func() time.Time) *Creator { return &Creator{rpc: r, now: now} }
 func (c *Creator) checkpoint(ctx context.Context) (Checkpoint, error) {
+	if c != nil && c.checked != nil {
+		return *c.checked, nil
+	}
 	if c == nil || c.rpc == nil {
 		return Checkpoint{}, ErrUnavailable
 	}
@@ -71,12 +80,30 @@ func (c *Creator) checkpoint(ctx context.Context) (Checkpoint, error) {
 		if err != nil || !hash.MatchString(b.Hash) {
 			return Checkpoint{}, ErrUnavailable
 		}
-		var header struct {
+		var header *struct {
 			Hash   string         `json:"hash"`
 			Number hexutil.Uint64 `json:"number"`
 		}
-		if err = c.rpc.CallContext(ctx, &header, "eth_getBlockByNumber", hexutil.EncodeUint64(b.Number), false); err != nil {
-			return Checkpoint{}, err
+		for attempt := 0; ; attempt++ {
+			if err = ctx.Err(); err != nil {
+				return Checkpoint{}, err
+			}
+			if err = c.rpc.CallContext(ctx, &header, "eth_getBlockByNumber", hexutil.EncodeUint64(b.Number), false); err != nil {
+				return Checkpoint{}, err
+			}
+			if header != nil {
+				break
+			}
+			if attempt == 5 {
+				return Checkpoint{}, ErrUnavailable
+			}
+			timer := time.NewTimer(100 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return Checkpoint{}, ctx.Err()
+			case <-timer.C:
+			}
 		}
 		if header.Hash != b.Hash || uint64(header.Number) != b.Number {
 			return Checkpoint{}, ErrUnavailable
@@ -106,7 +133,7 @@ func (c *Creator) read(ctx context.Context, b Checkpoint, target string, a abi.A
 		return nil, e
 	}
 	var result hexutil.Bytes
-	e = c.rpc.CallContext(ctx, &result, "eth_call", map[string]any{"to": target, "data": hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true})
+	e = c.rpc.CallContext(ctx, &result, "eth_call", map[string]any{"to": target, fieldData: hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true})
 	if e != nil {
 		return nil, e
 	}
@@ -115,6 +142,44 @@ func (c *Creator) read(ctx context.Context, b Checkpoint, target string, a abi.A
 		return nil, ErrUnavailable
 	}
 	return v[0], nil
+}
+
+func (c *Creator) reads(ctx context.Context, b Checkpoint, target string, a abi.ABI, methods []string, arg any) ([]any, error) {
+	batcher, ok := c.rpc.(batchRPC)
+	values := make([]any, len(methods))
+	if !ok {
+		for i, method := range methods {
+			value, err := c.read(ctx, b, target, a, method, arg)
+			if err != nil {
+				return nil, err
+			}
+			values[i] = value
+		}
+		return values, nil
+	}
+	results := make([]hexutil.Bytes, len(methods))
+	batch := make([]rpc.BatchElem, len(methods))
+	for i, method := range methods {
+		data, err := a.Pack(method, arg)
+		if err != nil {
+			return nil, err
+		}
+		batch[i] = rpc.BatchElem{Method: "eth_call", Args: []any{map[string]any{"to": target, fieldData: hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}}, Result: &results[i]}
+	}
+	if err := batcher.BatchCallContext(ctx, batch); err != nil {
+		return nil, err
+	}
+	for i, method := range methods {
+		if batch[i].Error != nil {
+			return nil, batch[i].Error
+		}
+		v, err := a.Unpack(method, results[i])
+		if err != nil || len(v) != 1 {
+			return nil, ErrUnavailable
+		}
+		values[i] = v[0]
+	}
+	return values, nil
 }
 
 type FeePreview struct {
@@ -138,27 +203,17 @@ func (c *Creator) Preview(ctx context.Context, id, displayCreator string) (FeePr
 	if e != nil {
 		return FeePreview{}, e
 	}
-	owner, e := c.read(ctx, b, NFT, nft, "ownerOf", n)
+	nftValues, e := c.reads(ctx, b, NFT, nft, []string{"ownerOf", "getPoolAddress", "getFeeStrategy"}, n)
 	if e != nil {
 		return FeePreview{}, e
 	}
-	pool, e := c.read(ctx, b, NFT, nft, "getPoolAddress", n)
-	if e != nil {
-		return FeePreview{}, e
-	}
-	strategy, e := c.read(ctx, b, NFT, nft, "getFeeStrategy", n)
-	if e != nil {
-		return FeePreview{}, e
-	}
+	owner, pool, strategy := nftValues[0], nftValues[1], nftValues[2]
 	p := pool.(common.Address)
-	support, e := c.read(ctx, b, Accumulator, accumulator, "supportsAirdrop", p)
+	feeValues, e := c.reads(ctx, b, Accumulator, accumulator, []string{"supportsAirdrop", "getAccumulatedFees"}, p)
 	if e != nil {
 		return FeePreview{}, e
 	}
-	raw, e := c.read(ctx, b, Accumulator, accumulator, "getAccumulatedFees", p)
-	if e != nil {
-		return FeePreview{}, e
-	}
+	support, raw := feeValues[0], feeValues[1]
 	return FeePreview{NFTID: id, Owner: strings.ToLower(owner.(common.Address).Hex()), Pool: strings.ToLower(p.Hex()), HistoricalCreator: displayCreator, ClaimableRaw: raw.(*big.Int).String(), Asset: USDL, Capability: StrategyCapability(strategy.(uint8), support.(bool)), Block: b, Version: RuleVersion}, nil
 }
 

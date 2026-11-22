@@ -60,10 +60,15 @@ type Entry struct {
 	RequiredForRelease bool           `json:"requiredForRelease"`
 	Prerequisites      []Prerequisite `json:"prerequisites"`
 }
+type Release struct {
+	ID                string `json:"id"`
+	DeploymentVersion string `json:"deploymentVersion"`
+}
 type Catalog struct {
-	SchemaVersion int     `json:"schemaVersion"`
-	SourceSHA256  string  `json:"sourceSha256"`
-	Capabilities  []Entry `json:"capabilities"`
+	SchemaVersion int       `json:"schemaVersion"`
+	SourceSHA256  string    `json:"sourceSha256"`
+	Capabilities  []Entry   `json:"capabilities"`
+	Released      []Release `json:"released"`
 }
 
 func Frozen() Catalog {
@@ -74,9 +79,30 @@ func Frozen() Catalog {
 	return c
 }
 
-// Require rejects unknown IDs, and keeps all frozen missing/unqualified
-// prerequisites blocked. Enabling a capability needs a new reviewed baseline.
+func Released(id, deploymentVersion string) bool {
+	c := Frozen()
+	for _, entry := range c.Capabilities {
+		if entry.ID != id {
+			continue
+		}
+		for _, release := range c.Released {
+			if release.ID == id && release.DeploymentVersion == deploymentVersion {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
 func Require(id string) error {
+	if Released(id, deployment.Current().DeploymentVersion) {
+		return nil
+	}
+	return requireBaseline(id)
+}
+
+func requireBaseline(id string) error {
 	for _, entry := range Frozen().Capabilities {
 		if entry.ID != id {
 			continue
@@ -204,7 +230,7 @@ func AssessFamily(f Family, m deployment.Manifest, a deployment.ActivationAttest
 	}
 	result.Supported = true
 	// Public release remains blocked by the frozen complete-user-path baseline.
-	result.ReleaseEnabled = Require(result.CapabilityID) == nil
+	result.ReleaseEnabled = Released(result.CapabilityID, m.DeploymentVersion) || requireBaseline(result.CapabilityID) == nil
 	return result, nil
 }
 

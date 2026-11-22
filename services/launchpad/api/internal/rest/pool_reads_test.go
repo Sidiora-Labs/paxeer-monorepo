@@ -35,11 +35,12 @@ const (
 )
 
 type poolReadsFixture struct {
-	pool  *pgxpool.Pool
-	model *store.AccountingReadModel
-	rdb   *goredis.Client
-	first string
-	srv   *httptest.Server
+	pool   *pgxpool.Pool
+	model  *store.AccountingReadModel
+	stream *broker.PostgresStream
+	rdb    *goredis.Client
+	first  string
+	srv    *httptest.Server
 }
 
 func poolReadsPosition(height int64, logIndex int64) accounting.SourcePosition {
@@ -164,7 +165,7 @@ func newPoolReadsFixture(t *testing.T, statsOrigin string) poolReadsFixture {
 	}
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
-	return poolReadsFixture{pool: pool, model: model, rdb: rdb, first: first, srv: srv}
+	return poolReadsFixture{pool: pool, model: model, stream: stream, rdb: rdb, first: first, srv: srv}
 }
 
 type v2Response struct {

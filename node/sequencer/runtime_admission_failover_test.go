@@ -230,7 +230,7 @@ func TestRuntimeAdmissionNonceSendAndOpenExpiry(t *testing.T) {
 	q := n.NonceAdmission.queue
 	q.mu.Lock()
 	entry := q.held[sender.EvmAddress][3]
-	entry.Arrived = time.Now().Add(-2 * n.Config.LeaseDuration)
+	entry.Arrived = time.Now().Add(-2 * n.Config.NonceQueueLifetime)
 	q.held[sender.EvmAddress][3] = entry
 	q.mu.Unlock()
 	runtimeAdmissionCommit(t, n, h)

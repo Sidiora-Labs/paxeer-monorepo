@@ -1,0 +1,65 @@
+[presentation]
+token_heading = "The token heading shows the complete name and symbol."
+instance_heading = "The token instance heading shows the complete metadata name or its token-name-and-ID fallback."
+wrapping = "Both headings use the shared title's normal wrapping, visible overflow and anywhere word breaking, without an ellipsis."
+loading = "Both headings retain normal wrapping and visible overflow while loading."
+identifier = "Both identifier rows retain nowrap."
+font_size_px = 28
+line_height_px = 32
+
+[geometry_capture]
+widths = [390, 1280, 1440, 1920, 2560]
+scheme = "dark"
+mode = "default"
+
+[geometry_capture.token]
+view = "/token/[hash]"
+renders = 5
+result = "pass"
+load = 0
+cut = 0
+sideways = 0
+shift = 0
+geometry = 0
+contrast = 0
+touch = 0
+focus = 0
+motion = 0
+scale = 0
+
+[geometry_capture.token_instance]
+view = "/token/[hash]/instance/[id]"
+renders = 5
+result = "pass"
+load = 0
+cut = 0
+sideways = 0
+shift = 0
+geometry = 0
+contrast = 0
+touch = 0
+focus = 0
+motion = 0
+scale = 0
+
+[heading.token]
+widths = [360, 390, 430, 1280]
+lines = [1, 1, 1, 1]
+scroll_widths = [302, 302, 302, 302]
+client_widths = [302, 302, 302, 302]
+document_widths = [345, 375, 415, 1265]
+white_space = "normal"
+overflow = "visible"
+overflow_wrap = "anywhere"
+text_overflow = "clip"
+
+[heading.token_instance]
+widths = [360, 390, 430, 1280]
+lines = [2, 2, 2, 1]
+scroll_widths = [313, 343, 383, 510]
+client_widths = [313, 343, 383, 510]
+document_widths = [345, 375, 415, 1265]
+white_space = "normal"
+overflow = "visible"
+overflow_wrap = "anywhere"
+text_overflow = "clip"

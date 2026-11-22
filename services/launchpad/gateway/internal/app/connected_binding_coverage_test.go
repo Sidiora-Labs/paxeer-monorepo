@@ -54,6 +54,8 @@ func TestConnectedGatewayBindingUsesBoundIdentityAndMediaRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
+	rdb, _ := internaltest.NewRedis(t)
+	t.Cleanup(func() { _ = rdb.Close() })
 	pki := testpki.New(t)
 	serverLeaf := pki.Leaf("gateway-server", "localhost")
 	clientLeaf := pki.Leaf("gateway-client", "localhost")
@@ -108,6 +110,9 @@ func TestConnectedGatewayBindingUsesBoundIdentityAndMediaRoutes(t *testing.T) {
 		MetadataSchema:               "metadata",
 		SafetySchema:                 "chat",
 		PurgeMode:                    "invalid",
+		UploadNamespace:              "gateway-fixture",
+		UploadConcurrent:             8,
+		UploadBytesPerSecond:         1 << 20,
 	}
 	for _, name := range []string{"user", "metadata", "social", "livestream"} {
 		binding.Upstreams = append(binding.Upstreams, gatewayUpstreamBinding{Name: name, URL: endpoint.String()})
@@ -115,7 +120,7 @@ func TestConnectedGatewayBindingUsesBoundIdentityAndMediaRoutes(t *testing.T) {
 	readers := map[string]serve.Reader{"approved": objects.Store{Root: t.TempDir()}}
 	assertBinding := func(candidate gatewayRuntimeBinding, configuration config.Config, want string) {
 		t.Helper()
-		runtime, err := newGatewayConnectedRuntime(ctx, configuration, pool, pool, candidate, nil, nil, readers, nil)
+		runtime, err := newGatewayConnectedRuntime(ctx, configuration, pool, pool, candidate, rdb, nil, readers, nil)
 		if runtime != nil || err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("gateway binding: runtime=%v err=%v, want %q", runtime, err, want)
 		}
@@ -164,8 +169,6 @@ func TestConnectedGatewayBindingUsesBoundIdentityAndMediaRoutes(t *testing.T) {
 	if _, err := pool.Exec(ctx, media.SchemaDDL()); err != nil {
 		t.Fatal(err)
 	}
-	rdb, _ := internaltest.NewRedis(t)
-	t.Cleanup(func() { _ = rdb.Close() })
 	controlPool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)

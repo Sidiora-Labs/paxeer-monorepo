@@ -91,7 +91,7 @@ type Options struct {
 	Lifecycle     *broker.Lifecycle
 	PrivateStream *broker.PostgresStream
 	// TopicRegistry, when set, classifies topics naming unknown resources
-	// (see TopicRegistry). Nil keeps every projection miss a 503.
+	// (see TopicRegistry). Nil treats projection misses as topics awaiting a first frame.
 	TopicRegistry     TopicRegistry
 	AllowedOrigins    []string
 	TrustedProxyCIDRs []string
@@ -500,15 +500,21 @@ func (h *Hub) snapshotHandle(w http.ResponseWriter, r *http.Request) {
 	binding.Origin = origin
 	snapshot, err := h.privateStream.Snapshot(r.Context(), principal, binding)
 	if err != nil {
-		// A projection miss for a topic naming an unregistered resource is
-		// permanent: 404 NOT_FOUND (declared for IF_TOPIC_SNAPSHOT_READ),
-		// retryable=false, no Retry-After. Any other miss, and any registry
-		// read failure, stays 503 DEPENDENCY_UNAVAILABLE retryable.
+		// Unknown resources take precedence over topics awaiting a first frame.
 		if errors.Is(err, broker.ErrStreamUnavailable) && h.topicRegistry != nil {
-			if unknown, registryErr := h.topicRegistry.UnknownTopics(r.Context(), topics); registryErr == nil && len(unknown) > 0 {
+			unknown, registryErr := h.topicRegistry.UnknownTopics(r.Context(), topics)
+			if registryErr != nil {
+				broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+				return
+			}
+			if len(unknown) > 0 {
 				broker.WriteStreamHTTPError(w, r, 404, "NOT_FOUND")
 				return
 			}
+		}
+		if errors.Is(err, broker.ErrTopicNotStarted) {
+			broker.WriteStreamHTTPError(w, r, 404, "TOPIC_NOT_STARTED")
+			return
 		}
 		broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 		return

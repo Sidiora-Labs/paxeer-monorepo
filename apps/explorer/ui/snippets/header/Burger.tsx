@@ -24,7 +24,7 @@ const Burger = ({ isMarketplaceAppPage }: Props) => {
       lazyMount={ false }
     >
       <DrawerTrigger>
-        <IconButton minH="touchTarget" minW="touchTarget" onClick={ onOpen } p={ 2 } aria-label="Menu button">
+        <IconButton onClick={ onOpen } p={ 2 } aria-label="Menu button">
           <IconSvg aria-hidden={ true }
             name="burger"
             boxSize={ 6 }
@@ -36,7 +36,7 @@ const Burger = ({ isMarketplaceAppPage }: Props) => {
       <DrawerContent bg="raised" borderColor="hairline" borderWidth="var(--chakra-border-widths-1)">
         <DrawerHeader>
           <DrawerTitle>Navigation</DrawerTitle>
-          <DrawerCloseTrigger minH="touchTarget" minW="touchTarget" top={ 4 } insetEnd={ 3 }/>
+          <DrawerCloseTrigger top={ 4 } insetEnd={ 3 }/>
         </DrawerHeader>
         <DrawerBody display="flex" flexDirection="column" overflowX="hidden" overflowY="auto">
           <TestnetBadge alignSelf="flex-start" mb={ 2 }/>

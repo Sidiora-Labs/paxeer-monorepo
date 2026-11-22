@@ -402,6 +402,7 @@ type RankingRuntimeBinding struct {
 	RecoveryEpoch            int64  `json:"recoveryEpoch"`
 	RecoveryRegion           string `json:"recoveryRegion"`
 	VisibilityEndpoint       string `json:"visibilityEndpoint"`
+	EvidenceEndpoint         string `json:"evidenceEndpoint"`
 	VisibilityDNS            string `json:"visibilityDNS"`
 	VisibilityCertSHA256     string `json:"visibilityCertSHA256"`
 	GatewayDNS               string `json:"gatewayDNS"`

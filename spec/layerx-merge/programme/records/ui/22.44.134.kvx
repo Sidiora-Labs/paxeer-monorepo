@@ -1,0 +1,56 @@
+[presentation]
+statistics = "Transaction statistics use one track below 768px and two tracks from 768px to below 1000px."
+desktop = "From 1000px, the row uses the fewest rows that hold at most four cards per row and the fewest equal-width tracks that hold the cards in those rows."
+tracks = "Every track uses minmax(0, 1fr); the final row leaves unused tracks empty."
+columns = "getTransactionStatsColumns in apps/explorer/ui/txs/TxsStats.tsx calculates the desktop track count from the displayed card count."
+counts_one_to_nine = [1, 2, 3, 4, 3, 3, 4, 4, 3]
+cards = "The scan order, shared card presentation, text styles, size tokens and recipes remain."
+
+[desktop]
+widths = [1000, 1024, 1280, 1440, 1920]
+displayed_cards = 7
+cards_per_row = [4, 3]
+labels = "Every label fits within its height and each word stays on one line."
+values = "Every value fits within its box."
+
+[desktop.width_1024]
+card_width = 231.25
+longest_label_lines = 2
+
+[desktop.width_1280]
+card_width = 295.25
+longest_label_lines = 2
+
+[desktop.width_1440]
+card_width = 299
+longest_label_lines = 2
+
+[geometry]
+view = "/txs"
+renders = 5
+parts = 65
+widths = [390, 1280, 1440, 1920, 2560]
+result = "pass"
+findings = 0
+
+[render_review]
+view = "/txs"
+renders = 136
+result = "pass"
+named_states = ["empty", "loading", "error"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[findings]
+load = 0
+cut = 0
+sideways = 0
+shift = 0
+geometry = 0
+contrast = 0
+touch = 0
+focus = 0
+motion = 0
+scale = 0

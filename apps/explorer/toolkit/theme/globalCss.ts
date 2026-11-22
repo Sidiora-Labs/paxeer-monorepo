@@ -45,7 +45,6 @@ const globalCss: SystemConfig['globalCss'] = {
     color: 'global.body.fg',
     textStyle: 'body',
     fontFamily: 'body',
-    fontSizeAdjust: 'from-font',
     overflowWrap: 'anywhere',
     minWidth: 0,
     WebkitTapHighlightColor: 'transparent',
@@ -68,15 +67,23 @@ const globalCss: SystemConfig['globalCss'] = {
   ':where(a, button, input, select, textarea, [tabindex])': {
     scrollMarginBlock: 'spacing.20',
   },
-  [ ':where(a[href], button, input:not([type=checkbox], [type=radio], [type=hidden]), select, textarea, ' +
-    '[role=tab], [role=menuitem], [role=option], label:has(input[type=checkbox], input[type=radio]))' ]: {
+  [ ':where(a[href], button, input:not([type=checkbox], [type=radio], [type=hidden]), select, textarea, summary, [tabindex="0"], [data-touch-placeholder], ' +
+    '.chakra-button, [role=button], [role=tab], [role=menuitem], [role=option], label:has(input[type=checkbox], input[type=radio]))' ]: {
     '@media (max-width: 834px)': {
       minBlockSize: 'var(--chakra-sizes-touch-target) !important',
       minInlineSize: 'var(--chakra-sizes-touch-target) !important',
     },
   },
-  ':where(input, select, textarea)': {
-    '@media (pointer: coarse)': { fontSize: 'max(var(--chakra-font-sizes-text-md), 1em)' },
+  '[data-touch-inline]': {
+    '--touch-line-size': '1lh',
+    '@media (max-width: 834px)': {
+      marginBlock: 'calc((var(--touch-line-size) - var(--chakra-sizes-touch-target)) / 2)',
+    },
+  },
+  '[data-entity-link]': {
+    '@media (max-width: 834px)': {
+      marginBlock: 'calc((1lh - var(--chakra-sizes-touch-target)) / 2)',
+    },
   },
   ':focus-visible': {
     outline: 'var(--chakra-border-widths-2) solid !important',

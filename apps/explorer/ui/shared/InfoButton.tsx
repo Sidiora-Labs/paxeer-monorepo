@@ -17,8 +17,6 @@ const InfoButton = ({ children, isLoading }: Props) => {
   const triggerButton = (
     <Button
       size="sm"
-      minW="touchTarget"
-      minH="touchTarget"
       variant="dropdown"
       gap={ 0 }
       aria-label="Show info"

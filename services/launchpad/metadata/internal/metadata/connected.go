@@ -581,7 +581,7 @@ func (c ConnectedMedia) media(w http.ResponseWriter, r *http.Request) {
 		v2Failure(w, e)
 		return
 	}
-	data, e := store.readV2(r.Context(), tx, identity.Token.Address)
+	data, e := c.Metadata.readCanonicalDocument(r.Context(), tx, identity)
 	if e != nil {
 		v2Failure(w, e)
 		return
@@ -590,13 +590,20 @@ func (c ConnectedMedia) media(w http.ResponseWriter, r *http.Request) {
 		v2Failure(w, ErrUnrepresentable)
 		return
 	}
+	var hasPool bool
+	if e = tx.QueryRow(r.Context(), "SELECT EXISTS(SELECT 1 FROM "+store.table("pools")+" WHERE pool=$1)", identity.PoolAddress).Scan(&hasPool); e != nil {
+		v2Failure(w, e)
+		return
+	}
 	if e = tx.Commit(r.Context()); e != nil {
 		v2Failure(w, e)
 		return
 	}
-	if e = c.syncModeration(r.Context(), identity.PoolAddress); e != nil {
-		v2Failure(w, e)
-		return
+	if hasPool {
+		if e = c.syncModeration(r.Context(), identity.PoolAddress); e != nil {
+			v2Failure(w, e)
+			return
+		}
 	}
 	tx, e = store.Pool.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if e != nil {
@@ -604,7 +611,7 @@ func (c ConnectedMedia) media(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rollbackV2(r.Context(), tx)
-	data, e = store.readV2(r.Context(), tx, identity.Token.Address)
+	data, e = c.Metadata.readCanonicalDocument(r.Context(), tx, identity)
 	if e != nil {
 		v2Failure(w, e)
 		return

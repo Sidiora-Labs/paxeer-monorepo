@@ -1245,7 +1245,7 @@ fn tenant(store: &Store) -> Checked {
 }
 
 #[test]
-fn daemon_callback_reaches_evm_fallback_and_keeps_comet_unready() -> Checked {
+fn daemon_callback_reaches_evm_fallback_and_declares_comet_index_disabled() -> Checked {
     let calls = Arc::new(std::sync::Mutex::new(Vec::new()));
     let server = node_peer(false, false, false, "off", Arc::clone(&calls));
     let node = ingester(&server, true)?;
@@ -1267,21 +1267,27 @@ fn daemon_callback_reaches_evm_fallback_and_keeps_comet_unready() -> Checked {
         3
     );
     assert!(!store.transfers("paxeer")?.is_empty());
+    store.record_source_success("paxeer", Some(3), Some(3))?;
     let comet = store
         .source_observation("comet")?
         .unwrap_or_else(|| panic!("Comet observation"));
     assert_eq!(comet.source_head, Some(3));
-    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
-    assert!(comet.last_success_at.is_none());
+    assert!(comet.last_error.is_none());
+    assert!(comet.last_error_at.is_none());
+    assert!(comet.last_success_at.is_some());
+    assert_eq!(comet.consecutive_failures, 0);
+    assert!(comet.tx_index_disabled);
     let readiness = layerx_indexer::api::Readiness {
-        sources: vec!["comet"],
+        sources: vec!["comet", "paxeer"],
         stall_after_secs: 30,
+        max_units_per_step: 16,
         started_at: 0,
         explorer: None,
     };
     let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
-    assert_eq!(document.status, "unavailable");
-    assert_ne!(document.sources[0].state, "ready");
+    assert_eq!(document.status, "ready");
+    assert_eq!(document.sources[0].state, "index_disabled");
+    assert_eq!(document.sources[1].state, "ready");
     let calls = calls
         .lock()
         .unwrap_or_else(|error| panic!("{}: {error:?}", "callback order"));
@@ -1304,6 +1310,325 @@ fn daemon_callback_reaches_evm_fallback_and_keeps_comet_unready() -> Checked {
     Ok(())
 }
 
+#[test]
+fn readiness_window_follows_the_step_policy() -> Checked {
+    let store = Store::open_in_memory()?;
+    store.commit(
+        &layerx_indexer::store::Unit {
+            chain: "paxeer".into(),
+            position: 100,
+            hash: "block-100".into(),
+            parent: "block-99".into(),
+            link: "block-100".into(),
+            boundary: 100,
+            ..Default::default()
+        },
+        2,
+    )?;
+    for source in ["paxeer", "comet"] {
+        store.start_source(source)?;
+        for max_units_per_step in [0, 1, 4, 17] {
+            let policy = FollowPolicy {
+                finality_depth: 2,
+                max_units_per_step,
+            };
+            let readiness = layerx_indexer::api::Readiness {
+                sources: vec![source],
+                stall_after_secs: 30,
+                max_units_per_step: policy.max_units_per_step.max(1),
+                ..Default::default()
+            };
+            let step = policy.max_units_per_step.max(1);
+            for (head, expected) in [
+                (Some(100), "ready"),
+                (Some(101), "ready"),
+                (Some(100 + step), "ready"),
+                (Some(101 + step), "catching_up"),
+                (Some(99), "catching_up"),
+                (None, "catching_up"),
+            ] {
+                store.record_source_head(source, head)?;
+                store.record_source_success(source, head, Some(100))?;
+                let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
+                assert_eq!(
+                    document.sources[0].state, expected,
+                    "{source} {policy:?} {head:?}"
+                );
+                assert_eq!(
+                    document.status,
+                    if expected == "ready" {
+                        "ready"
+                    } else {
+                        "degraded"
+                    }
+                );
+                assert_eq!(document.sources[0].indexed_cursor, Some(100));
+            }
+            store.record_source_failure(source, "source_observation_failed")?;
+            assert_eq!(
+                layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+                "retrying"
+            );
+            store.record_source_failure(source, "source_observation_failed")?;
+            store.record_source_failure(source, "source_observation_failed")?;
+            assert_eq!(
+                layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+                "failing"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn readiness_requires_a_cursor_even_without_a_head() -> Checked {
+    let store = Store::open_in_memory()?;
+    for source in ["paxeer", "comet"] {
+        store.start_source(source)?;
+        let readiness = layerx_indexer::api::Readiness {
+            sources: vec![source],
+            stall_after_secs: 30,
+            max_units_per_step: 4,
+            ..Default::default()
+        };
+        for head in [None, Some(1)] {
+            store.record_source_head(source, head)?;
+            store.record_source_success(source, head, None)?;
+            let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
+            assert_eq!(document.sources[0].state, "catching_up");
+            assert_eq!(document.status, "degraded");
+            assert!(document.sources[0].indexed_cursor.is_none());
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn consensus_index_state_migrates_persists_and_returns_to_following() -> Checked {
+    let dir = Scratch::new("consensus-index-state");
+    {
+        let connection = rusqlite::Connection::open(dir.db())?;
+        connection.execute_batch(
+            "CREATE TABLE source_observations(
+                chain TEXT PRIMARY KEY,
+                source_head INTEGER,
+                indexed_position INTEGER,
+                last_success_at INTEGER,
+                last_error TEXT,
+                last_error_at INTEGER,
+                consecutive_failures INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO source_observations(chain, source_head, indexed_position)
+                VALUES ('paxeer', 2, 1);",
+        )?;
+    }
+    let store = Store::open(&dir.db())?;
+    let migrated = store
+        .source_observation("paxeer")?
+        .unwrap_or_else(|| panic!("chain observation"));
+    assert_eq!(migrated.source_head, Some(2));
+    assert_eq!(migrated.indexed_position, Some(1));
+    assert!(!migrated.tx_index_disabled);
+    store.start_source("comet")?;
+    store.start_source("paxeer")?;
+    let readiness = layerx_indexer::api::Readiness {
+        sources: vec!["comet", "paxeer"],
+        stall_after_secs: 30,
+        max_units_per_step: 1,
+        ..Default::default()
+    };
+    let starting = layerx_indexer::api::readiness_document(&store, &readiness)?;
+    assert_eq!(starting.sources[0].state, "starting");
+    assert_eq!(starting.status, "unavailable");
+    let disabled = node_peer(
+        false,
+        false,
+        false,
+        "off",
+        Arc::new(std::sync::Mutex::new(Vec::new())),
+    );
+    let node = ingester(&disabled, true)?;
+    store.record_source_failure("comet", "source_observation_failed")?;
+    assert_eq!(
+        node.observe_comet(&store)?,
+        layerx_indexer::paxeer::CometObservation::IndexDisabled
+    );
+    let observed = store
+        .source_observation("comet")?
+        .unwrap_or_else(|| panic!("consensus observation"));
+    assert!(observed.reconciled);
+    assert!(observed.tx_index_disabled);
+    assert!(observed.last_success_at.is_some());
+    assert_eq!(observed.consecutive_failures, 0);
+    assert!(observed.last_error.is_none());
+    assert!(observed.last_error_at.is_none());
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+        "index_disabled"
+    );
+    node.step(&store)?;
+    store.record_source_success("paxeer", Some(3), Some(3))?;
+    let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
+    assert_eq!(document.status, "ready");
+    assert_eq!(document.sources[0].state, "index_disabled");
+    assert_eq!(document.sources[1].state, "ready");
+    drop(store);
+    let store = Store::open(&dir.db())?;
+    assert_eq!(store.source_observation("comet")?, Some(observed));
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+        "index_disabled"
+    );
+    store.start_source("comet")?;
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+        "starting"
+    );
+    node.observe_comet(&store)?;
+    let enabled = node_peer(
+        false,
+        false,
+        false,
+        "on",
+        Arc::new(std::sync::Mutex::new(Vec::new())),
+    );
+    let node = ingester(&enabled, true)?;
+    assert_eq!(
+        node.observe_comet(&store)?,
+        layerx_indexer::paxeer::CometObservation::Ready
+    );
+    assert!(
+        !store
+            .source_observation("comet")?
+            .unwrap_or_else(|| panic!("enabled index"))
+            .tx_index_disabled
+    );
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+        "ready"
+    );
+    store.rollback("paxeer", Some(1))?;
+    node.observe_comet(&store)?;
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+        "catching_up"
+    );
+    let wider = layerx_indexer::api::Readiness {
+        max_units_per_step: 2,
+        ..readiness.clone()
+    };
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &wider)?.sources[0].state,
+        "ready"
+    );
+    let connection = rusqlite::Connection::open(dir.db())?;
+    connection.execute(
+        "UPDATE source_observations SET tx_index_disabled = 1 WHERE chain = 'paxeer'",
+        [],
+    )?;
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[1].state,
+        "catching_up"
+    );
+    Ok(())
+}
+
+#[test]
+fn consensus_requires_a_synced_node_and_a_declared_index_state() -> Checked {
+    for (index, catching_up) in [(Value::Null, false), (json!("off"), true)] {
+        let server = Server::new(move |_, body| {
+            let request: Value =
+                serde_json::from_slice(body).unwrap_or_else(|error| panic!("{error}"));
+            assert_eq!(request["method"], "status");
+            let response = json!({
+                "jsonrpc": "2.0", "id": request["id"],
+                "result": {
+                    "node_info": {"other": {"tx_index": index}},
+                    "sync_info": {"latest_block_height": "3", "catching_up": catching_up}
+                }
+            });
+            (
+                200,
+                serde_json::to_vec(&response).unwrap_or_else(|error| panic!("{error}")),
+            )
+        });
+        let store = Store::open_in_memory()?;
+        store.start_source("comet")?;
+        assert!(matches!(
+            ingester(&server, true)?.daemon_step(&store),
+            Err(IndexError::Source(_))
+        ));
+        assert!(store.cursor("paxeer")?.is_none());
+        let observation = store
+            .source_observation("comet")?
+            .unwrap_or_else(|| panic!("consensus observation"));
+        assert_eq!(observation.source_head, Some(3));
+        assert_eq!(observation.consecutive_failures, 1);
+        assert_eq!(
+            observation.last_error.as_deref(),
+            Some("source_observation_failed")
+        );
+        assert!(observation.last_success_at.is_none());
+        assert!(!observation.tx_index_disabled);
+    }
+    Ok(())
+}
+
+#[test]
+fn consensus_disabled_index_obeys_stall_and_failure_precedence() -> Checked {
+    let dir = Scratch::new("consensus-freshness");
+    let store = Store::open(&dir.db())?;
+    store.start_source("comet")?;
+    let disabled = node_peer(
+        false,
+        false,
+        false,
+        "off",
+        Arc::new(std::sync::Mutex::new(Vec::new())),
+    );
+    let node = ingester(&disabled, true)?;
+    node.observe_comet(&store)?;
+    let readiness = layerx_indexer::api::Readiness {
+        sources: vec!["comet"],
+        stall_after_secs: 30,
+        max_units_per_step: 1,
+        ..Default::default()
+    };
+    store.record_source_failure("comet", "source_observation_failed")?;
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+        "retrying"
+    );
+    store.record_source_failure("comet", "source_observation_failed")?;
+    store.record_source_failure("comet", "source_observation_failed")?;
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+        "failing"
+    );
+    let connection = rusqlite::Connection::open(dir.db())?;
+    connection.execute(
+        "UPDATE source_observations SET last_success_at = 0 WHERE chain = 'comet'",
+        [],
+    )?;
+    let stalled = layerx_indexer::api::readiness_document(&store, &readiness)?;
+    assert_eq!(stalled.sources[0].state, "stalled");
+    assert_eq!(stalled.status, "unavailable");
+    node.observe_comet(&store)?;
+    let next_session = layerx_indexer::api::Readiness {
+        started_at: u64::MAX,
+        ..readiness.clone()
+    };
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &next_session)?.sources[0].state,
+        "starting"
+    );
+    connection.execute("UPDATE source_observations SET last_success_at = last_success_at + 3600 WHERE chain = 'comet'", [])?;
+    assert_eq!(
+        layerx_indexer::api::readiness_document(&store, &readiness)?.sources[0].state,
+        "stalled"
+    );
+    Ok(())
+}
 #[test]
 fn tenant_query_authenticates_database_domains_and_falls_back_to_node() -> Checked {
     let calls = Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -1652,6 +1977,7 @@ fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
     let readiness = layerx_indexer::api::Readiness {
         sources: vec!["ai"],
         stall_after_secs: 30,
+        max_units_per_step: 1,
         started_at: 0,
         explorer: None,
     };
@@ -1831,6 +2157,7 @@ fn ai_runtime_idle_before_first_projection_is_not_ready() -> Checked {
     let readiness = layerx_indexer::api::Readiness {
         sources: vec!["ai"],
         stall_after_secs: 30,
+        max_units_per_step: 1,
         started_at: 0,
         explorer: None,
     };

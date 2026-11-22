@@ -1,4 +1,4 @@
-import { Grid } from '@chakra-ui/react';
+import { HStack, StackSeparator } from '@chakra-ui/react';
 import { Global } from '@emotion/react';
 import React from 'react';
 
@@ -43,28 +43,23 @@ const BlockCountdownTimer = ({ value: initialValue, onFinish }: Props) => {
           rowGap: 'var(--chakra-spacing-2)',
         },
       }}/>
-      <Grid
+      <HStack
         data-block-countdown-timer
         role="timer"
         aria-label="Block countdown"
-        templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-24)), 1fr))"
-        gap={ 4 }
+        gap={ 2 }
         w="full"
         bgColor="surface"
         mt={{ base: 6, lg: 8 }}
         p={{ base: 3, lg: 4 }}
         borderRadius="base"
-        css={{
-          '& + div': {
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-40)), 1fr))',
-          },
-        }}
+        separator={ <StackSeparator borderColor="border.divider"/> }
       >
         <BlockCountdownTimerItem label="Days" value={ periods.days }/>
         <BlockCountdownTimerItem label="Hours" value={ periods.hours }/>
         <BlockCountdownTimerItem label="Minutes" value={ periods.minutes }/>
         <BlockCountdownTimerItem label="Seconds" value={ periods.seconds }/>
-      </Grid>
+      </HStack>
     </>
   );
 };

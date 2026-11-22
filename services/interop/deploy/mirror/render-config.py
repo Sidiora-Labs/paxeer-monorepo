@@ -168,7 +168,6 @@ def checkpoint_policy(receipt_keys_file):
         refuse("--receipt-keys-file could not be read as JSON: %s" % error)
     if not isinstance(keys, list) or not keys:
         refuse("--receipt-keys-file must contain a nonempty JSON array")
-    windows = []
     receipt_keys = []
     key_ids = set()
     for index, key in enumerate(keys):
@@ -199,11 +198,7 @@ def checkpoint_policy(receipt_keys_file):
             or not 0 <= first <= last < 2**64
         ):
             refuse("%s must have an inclusive uint64 height range in order" % field)
-        windows.append((first, last))
         receipt_keys.append({**identities, "first_height": first, "last_height": last})
-    ordered = sorted(windows)
-    if any(right[0] <= left[1] for left, right in zip(ordered, ordered[1:])):
-        refuse("--receipt-keys-file contains overlapping height ranges")
     return receipt_keys
 
 

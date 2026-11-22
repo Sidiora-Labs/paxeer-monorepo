@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import { Operations, SdkClient } from '@kindle/sdk';
+import { shortAddress } from '@/utils/format';
 import { serveRecorded, v2Reads, type Replay } from '@/core/test-fixtures/market-production/v2-reads';
 
 const { real, realToken, example } = v2Reads.pools;
@@ -34,7 +35,7 @@ describe('meta-ag token universe over IF_RANKINGS + IF_STATS_BATCH', () => {
     const start = replay.requests.length;
     const tokens = await loadMetaAgTokens(undefined, sources());
     expect(tokens[0].kind).toBe('quote');
-    expect(tokens.slice(1).map(token => [token.poolAddress, token.tokenAddress, token.symbol])).toEqual([[real, realToken, 'SIDF'], [example, exampleToken, '???']]);
+    expect(tokens.slice(1).map(token => [token.poolAddress, token.tokenAddress, token.symbol])).toEqual([[real, realToken, 'SIDF'], [example, exampleToken, shortAddress(exampleToken)]]);
     // The real pool's 2.2.0 projection values it at 10098226981 raw USDL (price x total supply); the frozen example at 1 raw USDL.
     expect(tokens[1].marketCap).toBe(10098.226981);
     expect(tokens[2].marketCap).toBe(0.000001);

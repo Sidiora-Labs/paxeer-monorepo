@@ -54,6 +54,8 @@ export interface MarketSnapshot {
   perp_funding_rate: bigint | null;
   /** Last settled hourly funding rate at 18 decimals (1e18 = 1.0); null before the first settlement. */
   last_funding_rate_hourly: bigint | null;
+  /** Next funding time in whole epoch milliseconds; null when unavailable. */
+  perp_next_funding_ms: number | null;
   volume_7d: number;
   volume_30d: number;
   trades_count: number;
@@ -430,6 +432,12 @@ export function normalizeMarket(raw: unknown): MarketSnapshot | null {
       "last_funding_rate_hourly",
       r.last_funding_rate_hourly,
     ),
+    perp_next_funding_ms:
+      typeof r.perp_next_funding_ms === "number" &&
+      Number.isSafeInteger(r.perp_next_funding_ms) &&
+      r.perp_next_funding_ms > 0
+        ? r.perp_next_funding_ms
+        : null,
     volume_7d: num(r.volume_7d),
     volume_30d: num(r.volume_30d),
     trades_count: num(r.trades_count),

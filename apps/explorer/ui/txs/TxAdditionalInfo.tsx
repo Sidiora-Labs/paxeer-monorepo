@@ -32,7 +32,7 @@ const TxAdditionalInfo = ({ hash, tx, isMobile, isLoading, className }: Props) =
     return (
       <ActivityDialog
         title="Additional info"
-        trigger={ <AdditionalInfoButton loading={ isLoading } className={ className } minW="touchTarget" minH="touchTarget"/> }
+        trigger={ <AdditionalInfoButton loading={ isLoading } className={ className }/> }
       >
         { content }
       </ActivityDialog>
@@ -41,11 +41,11 @@ const TxAdditionalInfo = ({ hash, tx, isMobile, isLoading, className }: Props) =
   return (
     <PopoverRoot autoFocus positioning={{ placement: 'right-start' }}>
       <PopoverTrigger>
-        <AdditionalInfoButton loading={ isLoading } className={ className } minW="touchTarget" minH="touchTarget"/>
+        <AdditionalInfoButton loading={ isLoading } className={ className }/>
       </PopoverTrigger>
       <PopoverContent
         aria-label="Additional info"
-        css={{ '& button': { minW: 'touchTarget', minH: 'touchTarget' } }}
+        css={{ '& button': { } }}
         maxH="min(var(--available-height, 100dvh), calc(100dvh - var(--chakra-spacing-8)))"
         overflowY="auto"
         overscrollBehavior="contain"

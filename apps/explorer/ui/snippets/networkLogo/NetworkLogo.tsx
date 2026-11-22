@@ -37,8 +37,6 @@ const NetworkLogo = ({ className }: Props) => {
       aria-label="Link to main page"
       display="inline-flex"
       alignItems="center"
-      minH="touchTarget"
-      minW="touchTarget"
       maxW="100%"
       flexShrink={ 1 }
     >

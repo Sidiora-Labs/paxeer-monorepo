@@ -648,6 +648,7 @@ mod tests {
                 .map(|entry| entry["name"].as_str())
                 .collect::<Vec<_>>(),
             [
+                Some("px_openSession"),
                 Some("px_register"),
                 Some("px_getCommit"),
                 Some("px_getValidators"),

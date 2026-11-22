@@ -406,7 +406,8 @@ fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, Strin
     if keys.is_empty() {
         return Err("LAYERX_INTEROP_RECEIPT_KEYS_FILE must contain at least one key".to_owned());
     }
-    let mut keys = keys
+    let mut key_ids = BTreeSet::new();
+    let keys = keys
         .into_iter()
         .map(|key| {
             let hex32 = |value: &str, field: &str| {
@@ -420,6 +421,9 @@ fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, Strin
             };
             let id = hex32(&key.key_id, "keyId")?;
             let public_key = hex32(&key.public_key, "publicKey")?;
+            if !key_ids.insert(id) {
+                return Err("LAYERX_INTEROP_RECEIPT_KEYS_FILE has a duplicate keyId".to_owned());
+            }
             if key.first_height > key.last_height {
                 return Err(
                     "LAYERX_INTEROP_RECEIPT_KEYS_FILE has a reversed height range".to_owned(),
@@ -433,13 +437,6 @@ fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, Strin
             ))
         })
         .collect::<Result<Vec<_>, String>>()?;
-    keys.sort_by_key(SequencerAuthorization::first_batch_number);
-    if keys
-        .windows(2)
-        .any(|pair| pair[1].first_batch_number() <= pair[0].last_batch_number())
-    {
-        return Err("LAYERX_INTEROP_RECEIPT_KEYS_FILE has overlapping height ranges".to_owned());
-    }
     Ok(keys)
 }
 
@@ -1178,19 +1175,35 @@ mod tests {
     }
 
     #[test]
-    fn overlapping_receipt_key_ranges_are_refused() {
+    fn distinct_receipt_key_ranges_preserve_input_order() {
         let fixture: serde_json::Value = serde_json::from_slice(include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
         )))
         .unwrap_or_else(|error| panic!("sequencer receipt fixture: {error:?}"));
-        let parse = |ranges: &[(u64, u64)]| {
+        let public_key = super::parse_hex32(
+            fixture["cases"][0]["pinnedKey"]["publicKey"]
+                .as_str()
+                .unwrap_or_else(|| panic!("receipt public key"))
+                .strip_prefix("0x")
+                .unwrap_or_else(|| panic!("receipt public key prefix")),
+        )
+        .unwrap_or_else(|error| panic!("receipt public key: {error}"));
+        let alternate_public_key =
+            super::parse_hex32("3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c")
+                .unwrap_or_else(|error| panic!("alternate receipt public key: {error}"));
+        let parse = |ranges: &[(u64, u64)], same_public_key: bool| {
             let entries: Vec<_> = ranges
                 .iter()
                 .enumerate()
                 .map(|(index, &(first, last))| {
                     let mut entry = fixture["cases"][0]["pinnedKey"].clone();
                     entry["keyId"] = format!("0x{:064x}", index + 1).into();
+                    if !same_public_key && index % 2 == 1 {
+                        entry["publicKey"] =
+                            "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
+                                .into();
+                    }
                     entry["firstHeight"] = first.into();
                     entry["lastHeight"] = last.into();
                     entry
@@ -1211,20 +1224,30 @@ mod tests {
             vec![(30, 40), (10, 20), (15, 25)],
             vec![(u64::MAX, u64::MAX), (0, u64::MAX)],
         ] {
-            let error = parse(&ranges)
-                .err()
-                .unwrap_or_else(|| panic!("overlapping keys must be refused"));
-            assert!(
-                error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
-                "{error}"
-            );
-            assert!(
-                error.contains("overlapping height ranges"),
-                "{ranges:?}: {error}"
-            );
+            for same_public_key in [false, true] {
+                let keys = parse(&ranges, same_public_key)
+                    .unwrap_or_else(|error| panic!("distinct receipt keys: {ranges:?}: {error}"));
+                assert_eq!(keys.len(), ranges.len());
+                for (index, (key, &(first, last))) in keys.iter().zip(&ranges).enumerate() {
+                    assert_eq!(key.first_batch_number(), first);
+                    assert_eq!(key.last_batch_number(), last);
+                    let mut expected_id = [0; 32];
+                    expected_id[31] = u8::try_from(index + 1)
+                        .unwrap_or_else(|error| panic!("receipt key index: {error:?}"));
+                    assert_eq!(key.sequencer_id(), expected_id);
+                    assert_eq!(
+                        key.public_key(),
+                        if !same_public_key && index % 2 == 1 {
+                            alternate_public_key
+                        } else {
+                            public_key
+                        }
+                    );
+                }
+            }
         }
 
-        let error = parse(&[(20, 10)])
+        let error = parse(&[(20, 10)], true)
             .err()
             .unwrap_or_else(|| panic!("inverted range must be refused"));
         assert!(
@@ -1233,20 +1256,60 @@ mod tests {
         );
         assert!(error.contains("reversed height range"), "{error}");
 
-        let keys = parse(&[(11, u64::MAX), (0, 0), (1, 10)]).unwrap_or_else(|error| {
+        let keys = parse(&[(11, u64::MAX), (0, 0), (1, 10)], true).unwrap_or_else(|error| {
             panic!(
                 "{}: {error:?}",
                 "unsorted disjoint ranges, including adjacent ranges, are accepted"
             )
         });
         assert_eq!(keys.len(), 3);
-        for (key, (first, last, id)) in keys.iter().zip([(0, 0, 2), (1, 10, 3), (11, u64::MAX, 1)])
+        for (key, (first, last, id)) in keys.iter().zip([(11, u64::MAX, 1), (0, 0, 2), (1, 10, 3)])
         {
             assert_eq!(key.first_batch_number(), first);
             assert_eq!(key.last_batch_number(), last);
             let mut expected_id = [0; 32];
             expected_id[31] = id;
             assert_eq!(key.sequencer_id(), expected_id);
+        }
+    }
+
+    #[test]
+    fn duplicate_receipt_key_ids_are_refused_for_every_window() {
+        let fixture: serde_json::Value = serde_json::from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        )))
+        .unwrap_or_else(|error| panic!("sequencer receipt fixture: {error:?}"));
+        let mut first = fixture["cases"][0]["pinnedKey"].clone();
+        first["keyId"] = format!("0x{}", "ab".repeat(32)).into();
+        first["firstHeight"] = 10.into();
+        first["lastHeight"] = 20.into();
+        for (start, end) in [(10, 20), (15, 25), (21, 30)] {
+            for same_public_key in [false, true] {
+                for reverse in [false, true] {
+                    let mut second = first.clone();
+                    second["keyId"] = format!("0x{}", "AB".repeat(32)).into();
+                    second["firstHeight"] = start.into();
+                    second["lastHeight"] = end.into();
+                    if !same_public_key {
+                        second["publicKey"] = format!("0x{}", "cd".repeat(32)).into();
+                    }
+                    let mut entries = vec![first.clone(), second];
+                    if reverse {
+                        entries.reverse();
+                    }
+                    let bytes = serde_json::to_vec(&entries)
+                        .unwrap_or_else(|error| panic!("receipt keys JSON array: {error:?}"));
+                    let error = super::parse_receipt_keys(&bytes)
+                        .err()
+                        .unwrap_or_else(|| panic!("duplicate receipt key id must be refused"));
+                    assert!(
+                        error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
+                        "{error}"
+                    );
+                    assert!(error.contains("duplicate keyId"), "{error}");
+                }
+            }
         }
     }
 

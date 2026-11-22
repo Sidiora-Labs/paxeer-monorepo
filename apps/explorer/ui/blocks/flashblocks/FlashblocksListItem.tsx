@@ -18,7 +18,7 @@ const FlashblocksListItem = ({ data }: Props) => {
   return (
     <ListItemMobile fontSize="small" lineHeight="small" rowGap={ 3 }
       css={{
-        '& a': { display: 'inline-flex', alignItems: 'center', minWidth: 'touchTarget', minHeight: 'touchTarget' },
+        '& a': { display: 'inline-flex', alignItems: 'center' },
         '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
       }}
     >

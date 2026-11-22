@@ -30,6 +30,7 @@ import ContractVerificationStylusGitHubRepo from './methods/ContractVerification
 import ContractVerificationVyperContract from './methods/ContractVerificationVyperContract';
 import ContractVerificationVyperMultiPartFile from './methods/ContractVerificationVyperMultiPartFile';
 import ContractVerificationVyperStandardInput from './methods/ContractVerificationVyperStandardInput';
+import { verificationColumns } from './styles';
 import type { VerificationSubmission } from './useVerificationSubmission';
 import useVerificationSubmission from './useVerificationSubmission';
 import { getDefaultValues, METHOD_LABELS } from './utils';
@@ -134,12 +135,21 @@ const ContractVerificationForm = ({ method: methodFromQuery, config, hash }: Pro
         autoComplete="off"
         onSubmit={ handleSubmit(onFormSubmit) }
         onChange={ handleFormChange }
+        css={{
+          '@layer base': {
+            '& [data-scope="select"][data-part="trigger"]': {
+              '@media (max-width: 834px)': {
+                minBlockSize: 'max(var(--select-trigger-height), var(--chakra-sizes-touch-target)) !important',
+              },
+            },
+          },
+        }}
       >
         <Grid
           as="section"
-          columnGap={ 8 }
+          columnGap={ 7.5 }
           rowGap={{ base: 2, lg: 5 }}
-          templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(0, var(--chakra-sizes-2xl)) minmax(0, var(--chakra-sizes-80))' }}
+          templateColumns={ verificationColumns }
         >
           { !hash && <ContractVerificationFieldAddress/> }
           <ContractVerificationFieldLicenseType/>

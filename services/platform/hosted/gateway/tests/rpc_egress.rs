@@ -240,8 +240,26 @@ fn rpc_endpoint() -> Endpoint {
             .unwrap_or_else(|| panic!("{}", "RPC URLs string")),
     )
     .unwrap_or_else(|error| panic!("{}: {error:?}", "RPC URL array"));
-    assert_eq!(urls.len(), 1, "one controlled in-cluster RPC path");
-    Endpoint::parse(&urls[0]).unwrap_or_else(|error| panic!("{}: {error:?}", "HTTPS RPC origin"))
+    assert_eq!(urls.len(), 8, "eight public node RPC origins");
+    let endpoints: Vec<_> = urls
+        .iter()
+        .enumerate()
+        .map(|(index, url)| {
+            assert_eq!(
+                url,
+                &format!("https://api{}.mainnet-beta.paxeer.network/", index + 1)
+            );
+            let endpoint = Endpoint::parse(url)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "HTTPS RPC origin"));
+            assert_eq!(endpoint.port, 443);
+            assert!(endpoint.base_path.is_empty(), "root node RPC, without /rpc");
+            endpoint
+        })
+        .collect();
+    endpoints
+        .into_iter()
+        .next()
+        .expect("first public node origin")
 }
 
 #[test]
@@ -268,53 +286,31 @@ fn gateway_rpc_egress_policy_admits_controlled_boundary() {
     let labels = &deployment["spec"]["template"]["metadata"]["labels"];
     let node_labels = &node["spec"]["template"]["metadata"]["labels"];
     let endpoint = rpc_endpoint();
-    let service = resource(&paxeer, "Service", "paxeer-boundary");
-    let namespace = service["metadata"]["namespace"]
+    let namespace = deployment["metadata"]["namespace"]
         .as_str()
-        .unwrap_or_else(|| panic!("{}", "service namespace"));
-    assert_eq!(deployment["metadata"]["namespace"], namespace);
-    assert_eq!(
-        endpoint.host,
-        format!("paxeer-boundary.{namespace}.svc.cluster.local")
-    );
-    assert!(endpoint.base_path.is_empty(), "root node RPC, without /rpc");
-    let selector = json!({"matchLabels": service["spec"]["selector"]});
-    assert!(matches_selector(&selector, node_labels));
-    let port = service["spec"]["ports"]
+        .unwrap_or_else(|| panic!("{}", "gateway namespace"));
+    assert_eq!(namespace, "layerx-mainnet-beta");
+    assert!(!GATEWAY.contains("layerx-testnet"));
+    assert!(!GATEWAY.contains(".svc.cluster.local"));
+    let policy = resource(&gateway, "NetworkPolicy", "layerx-gateway");
+    assert_eq!(policy["metadata"]["namespace"], namespace);
+    assert!(matches_selector(&policy["spec"]["podSelector"], labels));
+    assert!(policy["spec"]["policyTypes"]
         .as_array()
-        .unwrap_or_else(|| panic!("{}", "service ports"))
-        .iter()
-        .find(|port| port["port"] == endpoint.port)
-        .unwrap_or_else(|| panic!("{}", "exposed RPC port"));
-    let containers = node["spec"]["template"]["spec"]["containers"]
+        .unwrap_or_else(|| panic!("{}", "gateway policy types"))
+        .contains(&json!("Egress")));
+    assert!(policy["spec"]["egress"]
         .as_array()
-        .unwrap_or_else(|| panic!("{}", "node containers"));
-    assert!(containers
+        .unwrap_or_else(|| panic!("{}", "gateway egress rules"))
         .iter()
-        .any(
-            |container| container["ports"].as_array().is_some_and(|ports| ports
-                .iter()
-                .any(|candidate| candidate["name"] == port["targetPort"]
-                    && candidate["containerPort"] == endpoint.port))
-        ));
-    assert!(admitted(
-        &gateway,
-        namespace,
-        labels,
-        "egress",
-        (namespace, node_labels),
-        "TCP",
-        endpoint.port
-    ));
-    assert!(admitted(
-        &paxeer,
-        namespace,
-        node_labels,
-        "ingress",
-        (namespace, labels),
-        "TCP",
-        endpoint.port
-    ));
+        .any(|rule| {
+            rule["to"]
+                .as_array()
+                .is_some_and(|peers| peers.contains(&json!({"ipBlock": {"cidr": "0.0.0.0/0"}})))
+                && rule["ports"].as_array().is_some_and(|ports| {
+                    ports.contains(&json!({"protocol": "TCP", "port": endpoint.port}))
+                })
+        }));
     for protocol in ["UDP", "TCP"] {
         assert!(admitted(
             &gateway,
@@ -334,33 +330,6 @@ fn gateway_rpc_egress_policy_admits_controlled_boundary() {
         (namespace, node_labels),
         "TCP",
         443
-    ));
-    assert!(!admitted(
-        &gateway,
-        namespace,
-        labels,
-        "egress",
-        ("other-namespace", node_labels),
-        "TCP",
-        endpoint.port
-    ));
-    assert!(!admitted(
-        &gateway,
-        namespace,
-        labels,
-        "egress",
-        (namespace, &json!({"app": "unrelated"})),
-        "TCP",
-        endpoint.port
-    ));
-    assert!(!admitted(
-        &gateway,
-        namespace,
-        labels,
-        "egress",
-        (namespace, node_labels),
-        "UDP",
-        endpoint.port
     ));
 }
 

@@ -148,8 +148,8 @@ describe('DetailedInfo', () => {
     const hint = container.querySelector('button[aria-label="hint"]') as HTMLButtonElement;
     const box = hint.parentElement as HTMLElement;
 
-    expect(declarationsOf(hint)).toContain('min-width:var(--chakra-sizes-touch-target)');
-    expect(declarationsOf(hint)).toContain('min-height:var(--chakra-sizes-touch-target)');
+    expect(window.getComputedStyle(hint).width).toBe('var(--chakra-sizes-5)');
+    expect(window.getComputedStyle(hint).height).toBe('var(--chakra-sizes-5)');
     expect(declarationsOf(box)).toContain('margin-inline:calc((var(--chakra-sizes-touch-target)-var(--chakra-spacing-5))/2)');
     expect(container.querySelectorAll('a')).toHaveLength(2);
   });
@@ -179,10 +179,19 @@ describe('DetailedInfo', () => {
     ]);
     expect(minimumHeights(labels[1])).toEqual(minimumHeights(labels[0]));
     expect(values.map(minimumHeights)).toEqual([ minimumHeights(labels[0]), minimumHeights(labels[0]) ]);
-    expect(declarationsOf(content[0])).toBe(declarationsOf(content[1]));
-    expect(declarationsOf(content[0])).toContain('padding-block:var(--chakra-spacing-1\\.25)');
-    expect(declarationsOf(content[0])).toContain('padding-block:var(--chakra-spacing-1)');
-    expect(declarationsOf(content[0])).toContain('align-items:flex-start');
+    expect(minimumHeights(content[0])).toEqual([
+      'min-height:var(--chakra-spacing-7\\.5)',
+      'min-height:var(--chakra-spacing-8)',
+    ]);
+    expect(minimumHeights(content[1])).toBeNull();
+    for (const item of content) {
+      expect(declarationsOf(item)).toContain('padding-block:var(--chakra-spacing-1\\.25)');
+      expect(declarationsOf(item)).toContain('padding-block:var(--chakra-spacing-1)');
+      expect(declarationsOf(item)).toContain('align-items:flex-start');
+    }
+    const sharedDeclarations = content.map((element) => declarationsOf(element).split(';')
+      .filter((value) => value && !value.startsWith('min-height:')));
+    expect(sharedDeclarations[0]).toEqual(sharedDeclarations[1]);
     for (const label of labels) {
       expect(label.querySelector('.chakra-skeleton')?.hasAttribute('data-loading')).toBe(isLoading);
     }

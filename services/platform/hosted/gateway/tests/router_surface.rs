@@ -126,7 +126,7 @@ impl Fixture {
         let redis_port = free_port();
         fs::write(
             directory.join("users.acl"),
-            "user default off\nuser gateway on >gateway-secret ~* &* +@all\n",
+            "user default off ~* &* +@all\nuser gateway on >gateway-secret ~* &* +@all\n",
         )
         .unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.join("redis.conf");
@@ -1004,6 +1004,7 @@ fn chain_only_router_serves_receipts_balances_and_assets() {
     let readiness = layerx_indexer::api::Readiness {
         sources: vec!["paxeer"],
         stall_after_secs: 120,
+        max_units_per_step: 1,
         started_at: 0,
         explorer: None,
     };
