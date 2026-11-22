@@ -134,6 +134,10 @@ impl RedisProcess {
         redis_unreachable(process)
     }
 
+    pub fn process_id(&self) -> u32 {
+        self.child.id()
+    }
+
     pub fn restart(&mut self) {
         self.child
             .kill()

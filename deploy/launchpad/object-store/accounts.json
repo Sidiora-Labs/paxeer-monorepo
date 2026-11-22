@@ -122,7 +122,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/serve/serve.go",
-      "line": 135,
+      "occurrence": 1,
       "call": "hr.Head",
       "bucket": "METADATA_BUCKET",
       "action": "s3:GetObject",
@@ -131,7 +131,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/serve/serve.go",
-      "line": 135,
+      "occurrence": 1,
       "call": "hr.Head",
       "bucket": "USER_BUCKET",
       "action": "s3:GetObject",
@@ -140,7 +140,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/serve/serve.go",
-      "line": 135,
+      "occurrence": 1,
       "call": "hr.Head",
       "bucket": "USER_BUCKET",
       "action": "s3:GetObject",
@@ -149,7 +149,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/serve/serve.go",
-      "line": 135,
+      "occurrence": 1,
       "call": "hr.Head",
       "bucket": "OG_BUCKET",
       "action": "s3:GetObject",
@@ -158,7 +158,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/serve/serve.go",
-      "line": 159,
+      "occurrence": 1,
       "call": "reader.Get",
       "bucket": "METADATA_BUCKET",
       "action": "s3:GetObject",
@@ -167,7 +167,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/serve/serve.go",
-      "line": 159,
+      "occurrence": 1,
       "call": "reader.Get",
       "bucket": "USER_BUCKET",
       "action": "s3:GetObject",
@@ -176,7 +176,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/serve/serve.go",
-      "line": 159,
+      "occurrence": 1,
       "call": "reader.Get",
       "bucket": "USER_BUCKET",
       "action": "s3:GetObject",
@@ -185,7 +185,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/serve/serve.go",
-      "line": 159,
+      "occurrence": 1,
       "call": "reader.Get",
       "bucket": "OG_BUCKET",
       "action": "s3:GetObject",
@@ -194,7 +194,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/inventory.go",
-      "line": 71,
+      "occurrence": 1,
       "call": "client.ListObjectsV2",
       "bucket": "METADATA_BUCKET",
       "action": "s3:ListBucket",
@@ -203,7 +203,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/inventory.go",
-      "line": 71,
+      "occurrence": 1,
       "call": "client.ListObjectsV2",
       "bucket": "METADATA_BUCKET",
       "action": "s3:ListBucket",
@@ -212,7 +212,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/inventory.go",
-      "line": 71,
+      "occurrence": 1,
       "call": "client.ListObjectsV2",
       "bucket": "METADATA_BUCKET",
       "action": "s3:ListBucket",
@@ -221,7 +221,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/inventory.go",
-      "line": 214,
+      "occurrence": 1,
       "call": "client.GetObject",
       "bucket": "METADATA_BUCKET",
       "action": "s3:GetObject",
@@ -230,7 +230,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/inventory.go",
-      "line": 214,
+      "occurrence": 1,
       "call": "client.GetObject",
       "bucket": "METADATA_BUCKET",
       "action": "s3:GetObject",
@@ -239,7 +239,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/inventory.go",
-      "line": 214,
+      "occurrence": 1,
       "call": "client.GetObject",
       "bucket": "METADATA_BUCKET",
       "action": "s3:GetObject",
@@ -248,7 +248,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/retention.go",
-      "line": 178,
+      "occurrence": 1,
       "call": "store.Delete",
       "bucket": "METADATA_BUCKET",
       "action": "s3:DeleteObject",
@@ -257,7 +257,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/retention.go",
-      "line": 178,
+      "occurrence": 1,
       "call": "store.Delete",
       "bucket": "METADATA_BUCKET",
       "action": "s3:DeleteObject",
@@ -266,7 +266,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/retention.go",
-      "line": 178,
+      "occurrence": 1,
       "call": "store.Delete",
       "bucket": "METADATA_BUCKET",
       "action": "s3:DeleteObject",
@@ -275,7 +275,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/retention.go",
-      "line": 178,
+      "occurrence": 1,
       "call": "store.Delete",
       "bucket": "METADATA_BUCKET",
       "action": "s3:DeleteObject",
@@ -284,7 +284,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/retention.go",
-      "line": 225,
+      "occurrence": 1,
       "call": "w.Stores[originalKind].Delete",
       "bucket": "METADATA_BUCKET",
       "action": "s3:DeleteObject",
@@ -293,7 +293,7 @@
     {
       "service": "gateway",
       "source": "services/launchpad/gateway/internal/storage/retention.go",
-      "line": 246,
+      "occurrence": 1,
       "call": "client.PresignGetObject",
       "bucket": "METADATA_BUCKET",
       "action": "s3:GetObject",
@@ -302,7 +302,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/user/handlers.go",
-      "line": 345,
+      "occurrence": 1,
       "call": "h.store.Put",
       "bucket": "S3_BUCKET",
       "action": "s3:PutObject",
@@ -311,7 +311,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/user/handlers.go",
-      "line": 345,
+      "occurrence": 1,
       "call": "h.store.Put",
       "bucket": "S3_BUCKET",
       "action": "s3:PutObject",
@@ -320,7 +320,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/user/handlers.go",
-      "line": 393,
+      "occurrence": 1,
       "call": "h.store.Get",
       "bucket": "S3_BUCKET",
       "action": "s3:GetObject",
@@ -329,7 +329,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/user/handlers.go",
-      "line": 393,
+      "occurrence": 1,
       "call": "h.store.Get",
       "bucket": "S3_BUCKET",
       "action": "s3:GetObject",
@@ -338,7 +338,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/account/jobs_http.go",
-      "line": 350,
+      "occurrence": 1,
       "call": "h.Runtime.Objects.GetBytes",
       "bucket": "ACCOUNT_EXPORT_BUCKET",
       "action": "s3:GetObject",
@@ -347,7 +347,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/account/jobs_worker.go",
-      "line": 114,
+      "occurrence": 1,
       "call": "w.Runtime.Objects.Delete",
       "bucket": "ACCOUNT_EXPORT_BUCKET",
       "action": "s3:DeleteObject",
@@ -356,7 +356,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/account/jobs_worker.go",
-      "line": 143,
+      "occurrence": 1,
       "call": "w.Runtime.Objects.Put",
       "bucket": "ACCOUNT_EXPORT_BUCKET",
       "action": "s3:PutObject",
@@ -365,7 +365,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/account/jobs_worker.go",
-      "line": 252,
+      "occurrence": 2,
       "call": "w.Runtime.Objects.Delete",
       "bucket": "ACCOUNT_EXPORT_BUCKET",
       "action": "s3:DeleteObject",
@@ -374,7 +374,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/account/jobs_worker.go",
-      "line": 311,
+      "occurrence": 1,
       "call": "p.Exports.Delete",
       "bucket": "ACCOUNT_EXPORT_BUCKET",
       "action": "s3:DeleteObject",
@@ -383,7 +383,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/account/jobs_worker.go",
-      "line": 337,
+      "occurrence": 1,
       "call": "p.Objects.Delete",
       "bucket": "S3_BUCKET",
       "action": "s3:DeleteObject",
@@ -392,7 +392,7 @@
     {
       "service": "user",
       "source": "services/launchpad/user/internal/account/jobs_worker.go",
-      "line": 337,
+      "occurrence": 1,
       "call": "p.Objects.Delete",
       "bucket": "S3_BUCKET",
       "action": "s3:DeleteObject",
@@ -401,7 +401,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/assets.go",
-      "line": 169,
+      "occurrence": 1,
       "call": "pub.PutImmutable",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:PutObject",
@@ -410,7 +410,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 54,
+      "occurrence": 1,
       "call": "o.Client.GetBucketAcl",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:GetBucketAcl",
@@ -419,7 +419,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 63,
+      "occurrence": 1,
       "call": "o.Client.GetBucketPolicyStatus",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:GetBucketPolicyStatus",
@@ -428,7 +428,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 77,
+      "occurrence": 1,
       "call": "o.Client.HeadBucket",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:ListBucket",
@@ -437,7 +437,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 115,
+      "occurrence": 1,
       "call": "o.Client.PutObject",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:PutObject",
@@ -446,7 +446,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 115,
+      "occurrence": 1,
       "call": "o.Client.PutObject",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:PutObject",
@@ -455,7 +455,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 117,
+      "occurrence": 1,
       "call": "o.read",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:GetObject",
@@ -464,7 +464,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 117,
+      "occurrence": 1,
       "call": "o.read",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:GetObject",
@@ -473,7 +473,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 140,
+      "occurrence": 1,
       "call": "o.Client.GetObject",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:GetObject",
@@ -482,7 +482,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 140,
+      "occurrence": 1,
       "call": "o.Client.GetObject",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:GetObject",
@@ -491,7 +491,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 342,
+      "occurrence": 1,
       "call": "c.Objects.put",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:PutObject",
@@ -500,7 +500,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 352,
+      "occurrence": 1,
       "call": "c.Objects.read",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:GetObject",
@@ -509,7 +509,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 492,
+      "occurrence": 1,
       "call": "c.Objects.Client.DeleteObject",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:DeleteObject",
@@ -518,7 +518,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 900,
+      "occurrence": 2,
       "call": "c.Objects.put",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:PutObject",
@@ -527,7 +527,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 952,
+      "occurrence": 1,
       "call": "c.Objects.Client.GetObject",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:GetObject",
@@ -536,7 +536,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 1009,
+      "occurrence": 1,
       "call": "c.Objects.PutImmutable",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:PutObject",
@@ -545,7 +545,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 1074,
+      "occurrence": 2,
       "call": "c.Objects.Client.DeleteObject",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:DeleteObject",
@@ -554,7 +554,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 1134,
+      "occurrence": 3,
       "call": "c.Objects.Client.DeleteObject",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:DeleteObject",
@@ -563,7 +563,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 1148,
+      "occurrence": 4,
       "call": "c.Objects.Client.DeleteObject",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:DeleteObject",
@@ -572,7 +572,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/edge.go",
-      "line": 147,
+      "occurrence": 1,
       "call": "o.Client.GetObject",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:GetObject",
@@ -581,7 +581,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/app/app.go",
-      "line": 988,
+      "occurrence": 1,
       "call": "media.Objects.Client.GetObject",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:GetObject",
@@ -590,7 +590,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 130,
+      "occurrence": 2,
       "call": "o.read",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:GetObject",
@@ -599,7 +599,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 130,
+      "occurrence": 2,
       "call": "o.read",
       "bucket": "S3_QUARANTINE_BUCKET",
       "action": "s3:GetObject",
@@ -608,7 +608,7 @@
     {
       "service": "metadata",
       "source": "services/launchpad/metadata/internal/metadata/connected.go",
-      "line": 155,
+      "occurrence": 1,
       "call": "o.put",
       "bucket": "S3_APPROVED_BUCKET",
       "action": "s3:PutObject",

@@ -111,6 +111,48 @@ def record():
             "empty": [],
             "unknown_field": [{**key, "unexpected": True}],
         }
+        ranges = {
+            "partial": [(10, 20), (15, 25)],
+            "boundary": [(10, 20), (20, 30)],
+            "contained": [(10, 30), (15, 20)],
+            "same_start": [(10, 20), (10, 30)],
+            "identical": [(10, 20), (10, 20)],
+            "unsorted": [(30, 40), (10, 20), (15, 25)],
+            "uint64": [(2**64 - 1, 2**64 - 1), (0, 2**64 - 1)],
+        }
+        for shape, windows in ranges.items():
+            for same_public_key in (False, True):
+                entries = [
+                    {
+                        **key, "keyId": "0x%064x" % (index + 1),
+                        "publicKey": key["publicKey"] if same_public_key else keys[index % 2]["publicKey"],
+                        "firstHeight": first, "lastHeight": last,
+                    }
+                    for index, (first, last) in enumerate(windows)
+                ]
+                for reverse in (False, True):
+                    name = "overlap_%s_%s_%s" % (
+                        shape, "shared" if same_public_key else "distinct",
+                        "reverse" if reverse else "forward",
+                    )
+                    cases[name] = entries[::-1] if reverse else entries
+        for shape, (first, last) in {
+            "disjoint": (21, 30), "overlapping": (15, 25), "identical": (10, 20),
+        }.items():
+            for same_public_key in (False, True):
+                entries = [
+                    {**key, "firstHeight": 10, "lastHeight": 20},
+                    {
+                        **key, "firstHeight": first, "lastHeight": last,
+                        "publicKey": key["publicKey"] if same_public_key else keys[0]["publicKey"],
+                    },
+                ]
+                for reverse in (False, True):
+                    name = "duplicate_%s_%s_%s" % (
+                        shape, "shared" if same_public_key else "distinct",
+                        "reverse" if reverse else "forward",
+                    )
+                    cases[name] = entries[::-1] if reverse else entries
         policy_file = directory / "policy.json"
         for name, entries in cases.items():
             policy_file.write_text(json.dumps(entries))
