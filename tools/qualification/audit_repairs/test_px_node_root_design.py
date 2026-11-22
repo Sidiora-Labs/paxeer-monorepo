@@ -43,8 +43,10 @@ GROUPS["22.38.12"] = {
     "px_getInferencePeer", "px_getInferenceReceipts",
 }
 REFUSED = {"px_register", "px_requestFunds"}
+HOSTED_ONLY = {"px_openSession"}
 # These are real data owners or integration points, not just any existing file.
 SOURCE_ANCHORS = {
+    "px_openSession": {"services/platform/hosted/gateway/src/rpc_session.rs"},
     "px_register": {"rpc/server.go"},
     "px_requestFunds": {"rpc/server.go"},
     "px_resolveAccount": {"precompiles/addr/addr.go", "rpc/association.go"},
@@ -149,8 +151,8 @@ def present_path(path):
 
 def test_px_node_root_inventory_matches_all_seventeen_contract_methods():
     names = [method["name"] for method in METHODS]
-    expected = set().union(*GROUPS.values(), REFUSED)
-    assert len(names) == len(set(names)) == 22
+    expected = set().union(*GROUPS.values(), REFUSED, HOSTED_ONLY)
+    assert len(names) == len(set(names)) == 23
     assert set(names) == expected == set(SOURCE_ANCHORS)
     document = DESIGN.read_text(encoding="utf-8")
     assert set(method_sections(document)) == expected
@@ -177,7 +179,10 @@ def test_px_node_root_method_contract_sources_and_decision(method):
     assert f"`{name}`" in section
     for path in SOURCE_ANCHORS[name]:
         assert (ROOT / path).is_file(), path
-    if name in REFUSED:
+    if name in HOSTED_ONLY:
+        assert f"`{name}` is served by the hosted gateway alone." in section
+        assert "The node registers no method of that name." in section
+    elif name in REFUSED:
         assert "-32004" in section
         assert "hosted_gateway_service_required" in section
     else:
@@ -199,9 +204,9 @@ def test_px_node_root_three_groups_partition_served_methods():
     assert "## Consensus and receipt evidence" in document
     assert "## Inference reads" in document
     assert "## Hosted operations and errors" in document
-    served = {method["name"] for method in METHODS} - REFUSED
-    assert served == expected_methods_for_current_page(document) - REFUSED
-    assert not (served & REFUSED)
+    served = {method["name"] for method in METHODS} - REFUSED - HOSTED_ONLY
+    assert served == expected_methods_for_current_page(document) - REFUSED - HOSTED_ONLY
+    assert not (served & (REFUSED | HOSTED_ONLY))
 
 
 def test_px_node_root_cutover_and_hosted_continuity():
