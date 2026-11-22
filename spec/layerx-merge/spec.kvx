@@ -211959,7 +211959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1139]
 title = "Give each phase of the two replay cases of the launchpad API broker a deadline of its own"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
