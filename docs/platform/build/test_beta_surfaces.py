@@ -18,16 +18,13 @@ def test_beta_surfaces_name_no_retired_kernel_surface():
     assert table[0] == [
         "Surface",
         "Scope",
-        "Class",
-        "Required rung",
-        "Reached rung",
         "Source",
     ]
     assert all(re.fullmatch(r":?-+:?", cell) for cell in table[1])
     rows = table[2:]
     assert rows, "The beta surface inventory must not be empty"
     for row in rows:
-        assert len(row) == 6, f"Malformed beta surface row: {row}"
+        assert len(row) == 3, f"Malformed beta surface row: {row}"
         for retired in (
             "native-core",
             "native-daemon",
