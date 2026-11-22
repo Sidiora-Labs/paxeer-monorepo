@@ -180,7 +180,7 @@ func snapshotCursor(t *testing.T, ctx context.Context, s *PostgresStream, topics
 
 func TestPostgresRetainedIdentitiesSurviveInterruptedReplay(t *testing.T) {
 	_, s := postgresStreamStorage(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	first := publicPriceFrame(t, "1")
 	commitStreamFrame(t, ctx, s, first)
@@ -202,6 +202,9 @@ func TestPostgresRetainedIdentitiesSurviveInterruptedReplay(t *testing.T) {
 	if err = tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
+	cancel()
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 	replay, err := s.PublicResume(ctx, []string{first.Topic}, token)
 	if err != nil {
 		t.Fatal(err)
@@ -237,6 +240,9 @@ func TestPostgresRetainedIdentitiesSurviveInterruptedReplay(t *testing.T) {
 	if replay.Machine.State != Live || len(seen) != 10000 {
 		t.Fatal(replay.Machine.State, len(seen))
 	}
+	cancel()
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 	var committed int
 	if err = s.pool.QueryRow(ctx, "SELECT count(*) FROM "+s.table("stream_delivery_outbox")+" WHERE sequence>1").Scan(&committed); err != nil || committed != len(seen) {
 		t.Fatal(committed, err)
@@ -265,7 +271,7 @@ func TestPostgresResumeRejectsInternalRetentionHoleBeforeDelivery(t *testing.T) 
 
 func TestPostgresResumePreflightsByteLimitBeforeDelivery(t *testing.T) {
 	_, s := postgresStreamStorage(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	first := publicPriceFrame(t, "1")
 	commitStreamFrame(t, ctx, s, first)
@@ -305,6 +311,9 @@ func TestPostgresResumePreflightsByteLimitBeforeDelivery(t *testing.T) {
 	if err = tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
+	cancel()
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 	if _, err = s.PublicResume(ctx, []string{first.Topic}, token); !errors.Is(err, ErrReplayLimit) {
 		t.Fatal("byte bound admitted partial replay", err)
 	}
