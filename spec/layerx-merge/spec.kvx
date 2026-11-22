@@ -403419,7 +403419,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1093]
 title = "Add the key credentials with the value 1 to the image row of the fixture manifest in the deploy redaction case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -403449,7 +403449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1092]
 title = "Leave the replica settings group out of the required variables of the receipt authority definition case, read the loopback call in the function replica_config and name the rollout service gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

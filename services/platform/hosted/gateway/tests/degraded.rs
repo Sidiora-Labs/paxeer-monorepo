@@ -56,7 +56,7 @@ impl RedisProcess {
         command("openssl", &["x509", "-in", path(&certificate_pem), "-outform", "DER", "-out", path(&certificate_der)]);
         let port = free_port();
         let acl = directory.join("users.acl");
-        fs::write(&acl, "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(&acl, "user default off ~* &* +@all\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.join("redis.conf");
         fs::write(
             &config,

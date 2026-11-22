@@ -49,7 +49,7 @@ impl Fixture {
         command("openssl", &["x509", "-in", path(&pem), "-outform", "DER", "-out", path(&der)]);
         command("openssl", &["pkcs8", "-topk8", "-nocrypt", "-in", path(&key), "-outform", "DER", "-out", path(&key_der)]);
         let redis_port = free_port();
-        fs::write(directory.join("users.acl"), "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(directory.join("users.acl"), "user default off ~* &* +@all\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.join("redis.conf");
         fs::write(
             &config,

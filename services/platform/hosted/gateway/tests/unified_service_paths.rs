@@ -211,7 +211,7 @@ impl Gateway {
         );
         run("openssl", &["x509", "-in", text(&file("server.pem")), "-outform", "DER", "-out", text(&file("server.der"))]);
         let redis_port = free_port();
-        fs::write(file("users.acl"), "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(file("users.acl"), "user default off ~* &* +@all\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         fs::write(
             file("redis.conf"),
             format!(
