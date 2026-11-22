@@ -404325,7 +404325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1124]
 title = "Bring the human bank plan case file and the qualification intent tool to the transfer form of the send leg"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404415,7 +404415,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1121]
 title = "Count px_openSession as a hosted operation in the node root design document, its case file, the transport case file and the schema tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
