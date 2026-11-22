@@ -16510,6 +16510,78 @@ value = "One. The tuple VENDORED_PROJECTS of tests/ci/test_markdown_links_resolv
 basis = "Gotcha 4826."
 affects = []
 
+[decision.3900]
+title = "The coverage inventory tool of the launchpad takes the start time of a run from the clock of the file system of the cover directory"
+value = "One. The tool gains a function that returns the present time of the file system of a directory: it creates a temporary file in the directory, reads the member st_mtime_ns of the status of the open file, closes the file and removes it. Two. The function begin_run writes the member started_ns from that function, called with the cover directory after the directory is created. Three. Scope: the functions read_manifest, profile_facts, finish_run and check_run, the members of the manifest, the messages and the case file keep their form. Four. Target: the verification of task 22.39.1118 passes. It runs the case file tools/qualification/audit_repairs/test_launchpad_coverage_inventory.py. Task 22.39.1118."
+basis = "Gotcha 4827."
+affects = []
+
+[decision.3901]
+title = "The migration registry case file follows the approved registry and the present reader functions, and every case keeps its name"
+value = "One. The case on the registered paths asserts 99 registrations and the inventory digest of the present registrations. Two. The case on the source inputs admits a registration without the member source_inputs, asserts the state approved and an approval digest of 64 hex characters, and compares the inventory digest of the source inputs through a constant of the case file where the present value differs from the value of the record. Its asserts on missing and drifted inputs keep their form. Three. The case on the approval authority asserts the state approved, an approval digest of 64 hex characters, digests of 64 hex characters in the members interface_digest and approval_manifest_digest, a positive reader_min_version and a positive estimated_lock_ms on every registration, a structural fingerprint on every legacy predecessor and an empty list qualification_required. Its asserts on the extension prerequisites and on the proposal of registration 180001 keep their form. Four. The two cases on the legacy sources assert a structural fingerprint on every source of migrations/legacy-history-aliases.json and an approval digest on the registry, compare the inventory digest of the legacy evidence through a constant of the case file where the present value differs from the value of the record, and keep their asserts on the state of migrations/legacy-history-aliases.json and on migrations/readiness.json. Five. The case on the readiness file keeps its asserts on migrations/readiness.json and asserts an approval digest of 64 hex characters on the registry. Six. The case on the reader asserts that readBound calls ReadMigrationSource with the root, the relative path and the wanted digest, reads the join and the checksum comparison from the function ReadMigrationSource of sdk/launchpad/shared/db/production/coordinatortest/schema.go, and asserts that the runtime test passes its list of role names to Bootstrap and that the list names chat_runtime and livestream_runtime. Its other phrases keep their form. Seven. Scope: every case keeps its name. No manifest under migrations, no Go source and no record changes. Eight. Target: the verification of task 22.39.1119 passes. It runs the case file tools/qualification/audit_repairs/test_migration_registry_and_readiness.py. Task 22.39.1119."
+basis = "Gotcha 4828."
+affects = []
+
+[decision.3902]
+title = "The three chain launch route rows of the interface inventory name the lines 81, 82 and 83"
+value = "One. The row interface.22.chainlaunch-route-list of spec/layerx-merge/interfaces.kvx takes the line value 81, the row interface.22.chainlaunch-route-detail the line value 82 and the row interface.22.chainlaunch-route-revenue the line value 83. Two. Scope: the other members of the three rows, every other row of the file, the source services/launchpad/api/internal/rest/compatibility.go and the case file tools/qualification/audit_repairs/test_chain_launch_interfaces.py keep their form. Three. Target: the verification of task 22.39.1120 passes. It runs the case file tools/qualification/audit_repairs/test_chain_launch_interfaces.py. Task 22.39.1120."
+basis = "Gotcha 4829."
+affects = []
+
+[decision.3903]
+title = "The method px_openSession counts as a hosted operation that the hosted gateway alone serves, and the design document, the two case files and the schema tool follow"
+value = "One. The section Hosted operations and errors of spec/layerx-merge/docs/architecture/px-node-root.md gains a paragraph that names px_openSession between backticks and states that the hosted gateway alone serves the method and that the node registers no method of that name. The section already says that a missing method remains subject to normal JSON-RPC method registration and server policy, so the paragraph names no error code. The method inventory table and the other sections keep their text. Two. The case file tools/qualification/audit_repairs/test_px_node_root_design.py gains a set of the methods the hosted gateway alone serves with px_openSession. The set joins the expected method set, the count is 23, the table of source anchors gains an entry for px_openSession with the source services/platform/hosted/gateway/src/rpc_session.rs, the case on the method sections requires for a method of the set that its section states the fact of point one and applies neither the branch of the refused methods nor the branch of the served methods, and the case on the three groups leaves the set out of the served methods together with the refused methods. Three. The case file tools/qualification/audit_repairs/test_hosted_openrpc_transport.py asserts 23 methods. Four. The set HOSTED_METHODS of tools/qualification/paxeer-x/router-authority-schema.py gains the name px_openSession. Five. Scope: the node source, the gateway source, the schema document, the record repair_22_39_293.kvx, the gate script and the terminal outcome tool keep their form. Every case keeps its name. Six. Target: the verification of task 22.39.1121 passes. It runs the case files tools/qualification/audit_repairs/test_px_node_root_design.py, tools/qualification/audit_repairs/test_hosted_openrpc_transport.py and tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py. Task 22.39.1121."
+basis = "Gotcha 4830."
+affects = []
+
+[decision.3904]
+title = "The three gateway case files follow the present gateway source and schema document, and the two schema document fixtures take the present digests"
+value = "One. The case file tools/qualification/audit_repairs/test_gateway_history_openrpc_contracts.py asserts 18 names in the routing constant and 23 methods in the schema document, reads the digest loop from the function tagged_parts of services/platform/hosted/gateway/src/rpc_register.rs in its present form and requires that the function tagged calls tagged_parts. Two. The case files tools/qualification/audit_repairs/test_gateway_openrpc_locations.py and tools/qualification/audit_repairs/test_gateway_route_discovery_openrpc.py read the path comparison from the function route_with_clock of services/platform/hosted/gateway/src/public_reads.rs and require that the function route calls route_with_clock. Three. The fixture tools/qualification/audit_repairs/fixtures/gateway_openrpc_document.json takes the digest of the present schema document, and the fixture tools/qualification/audit_repairs/fixtures/gateway_openrpc_contract_baseline.json takes the digest of the present schema document in the form its case computes. In both fixtures the member pin_source_revision names the revision that last changed the schema document, and the constants of the two cases follow. The member base_revision keeps its value. Four. Scope: the gateway source and the schema document keep their form. Every case keeps its name. Five. Target: the verification of task 22.39.1122 passes. It runs the case files tools/qualification/audit_repairs/test_gateway_history_openrpc_contracts.py, tools/qualification/audit_repairs/test_gateway_openrpc_locations.py and tools/qualification/audit_repairs/test_gateway_route_discovery_openrpc.py. Task 22.39.1122."
+basis = "Gotcha 4831."
+affects = []
+
+[decision.3905]
+title = "The version cases follow the version file across patch releases, the documentation case pins the three hosted operations of the gateway readme, and the image retirement case admits a blank at a row end and compares the node image file at the version of the record day"
+value = "One. The cases of tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py and tools/qualification/audit_repairs/test_hpx_roster_and_funding_recovery.py that hold the pair of part two of gotcha 4832 assert the upgrade name v7.0 and a version that begins with v7.0. followed by a number. Two. The case of tools/qualification/audit_repairs/test_upgrade_documentation_contracts.py on the release document builds the phrase on the version from the version the version file holds. Its other asserts keep their form. Three. The row of the readme services/platform/hosted/gateway/README.md in the table NODE_DOCS of tools/qualification/audit_repairs/test_upgrade_documentation_contracts.py holds the present sentence of the readme on the three hosted operations as its hosted fact. The other four rows keep their facts. Four. The row pattern of the case of tools/qualification/audit_repairs/test_standalone_node_image_retirement.py admits blanks between the row end marker and the line end. Five. For the file docker/paxeer/Dockerfile.paxd the digest case of tools/qualification/audit_repairs/test_standalone_node_image_retirement.py compares the digest of the record with the digest of the file text in which the version of the version file in the image argument line is put back to v7.0.0. For the file docker/paxeer/Dockerfile.paxd-node the comparison keeps its form. Six. Scope: the version file, the release document, the readme, the script services/platform/hosted/tests/beta-images.sh, the two image files and the record keep their form. Every case keeps its name. Seven. Target: the verification of task 22.39.1123 passes. It runs the case files tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py, tools/qualification/audit_repairs/test_hpx_roster_and_funding_recovery.py, tools/qualification/audit_repairs/test_upgrade_documentation_contracts.py and tools/qualification/audit_repairs/test_standalone_node_image_retirement.py. Task 22.39.1123."
+basis = "Gotcha 4832."
+affects = []
+
+[decision.3906]
+title = "The send leg rule of the human bank plan case file and of the qualification intent tool is the transfer to the native pointer of the denomination"
+value = "One. The case of tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py on the function intent_transactions requires the present phrases of the function: the read of the native pointer of the denomination and the building of the transfer calldata take the place of the call of bank_send_calldata, and the other phrases keep their form. Two. The case of tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py on the plan golden requires that the target of a send leg equals the target of the transaction of the context and is neither the zero address nor the bank address, that the selector is the selector of the call transfer(address,uint256), and that the calldata holds two words, the recipient and the amount. Its asserts on the value and on the fee keep their form. Three. The digest case of tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py takes the digest of the present file services/human/schema/human-api/golden/historical/journey.get.response.json from a constant of the case file and keeps the comparison with the record for the two files that still equal it. Four. The function qualify_plan of tools/qualification/paxeer-x/human_attestor_intents.py requires for a leg of the mechanism send a target that is an address of 40 hex characters and neither the zero address nor the bank address, and the selector of the call transfer(address,uint256), decodes two fields and requires that the amount equals the amount of the leg. The branch of the mechanism budget-defund and the fee checks keep their form. Five. Scope: the human service source, the golden files and the record keep their form. Every case keeps its name. Six. Target: the verification of task 22.39.1124 passes. It runs the case files tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py, tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py and tools/qualification/test_service_catalogue_1.py. Task 22.39.1124."
+basis = "Gotcha 4833."
+affects = []
+
+[decision.3907]
+title = "The four wallet case files follow the present documents, image file, workflow and demo sources"
+value = "One. The case of tools/qualification/audit_repairs/test_wallet_documentation_relocation.py on the moved documents requires that each of the sixteen names of EXPECTED_FILES stands in docs/wallet and admits further documents in the directory. Two. The case of tools/qualification/audit_repairs/test_wallet_workflow_contracts.py names the argument NEXT_PUBLIC_PNS_API_BASE with the literal path the workflow supplies and keeps its rule for the other thirty arguments. Three. The case of tools/qualification/audit_repairs/test_wallet_xweb_workflow_inputs.py takes the digest of the present workflow wallet-go-test in the form the case computes. The digest of the workflow xweb-test keeps its value. Four. The two cases of tools/qualification/audit_repairs/test_demo_lint_and_readme_contracts.py require the guards of services/wallet/demo/src/components/FundedAccountPanel.tsx and services/wallet/demo/src/components/WalletModal.tsx in their present layout or in a form that does not depend on the layout. Five. Scope: the documents, the image file, the workflows and the demo sources keep their form. Every case keeps its name. Six. Target: the verification of task 22.39.1125 passes. It runs the case files tools/qualification/audit_repairs/test_wallet_documentation_relocation.py, tools/qualification/audit_repairs/test_wallet_workflow_contracts.py, tools/qualification/audit_repairs/test_wallet_xweb_workflow_inputs.py and tools/qualification/audit_repairs/test_demo_lint_and_readme_contracts.py. Task 22.39.1125."
+basis = "Gotcha 4834."
+affects = []
+
+[decision.3908]
+title = "The dashboard, hosted endpoint and platform documentation case files follow the present sources, and the reference page of the human API takes the two lines of the generator"
+value = "One. The case of tools/qualification/audit_repairs/test_dashboard_evidence_decoding.py on the static script requires the present script of services/platform/hosted/dashboard/web/package.json and keeps its requirement that the two files it names exist. Two. The case of tools/qualification/audit_repairs/test_dashboard_evidence_decoding.py on the dashboard read takes the three phrases from the file services/platform/hosted/dashboard/web/app/dashboard-client.tsx and requires the fetch call in its present layout or in a form that does not depend on the layout. Three. The row of the page docs/wiki/HostedWebhooks.md in the table RETAINED_CONTRACTS of tools/qualification/audit_repairs/test_hosted_endpoint_documentation.py holds the present phrase of the page on ingress TLS with the listen address. The other contracts of the table keep their form. Four. The page docs/platform/content/reference/human-api.md names the contract minor 11 in its line on the schema, and its row of VerificationLevel gains the variant committed after the variant receipt-verified, as the function generated_documents of docs/platform/build/build_site.py returns both lines. No other line of the page changes, and the whole build of the generator is not part of this task. Five. The constant NPM_BASELINE_SHA256 of tools/qualification/audit_repairs/test_platform_documentation_relocation.py takes the digest of the present root file package-lock.json. Six. Scope: the dashboard sources, the wiki page, the schema, the generator and the lock file keep their form. Every case keeps its name. Seven. Target: the verification of task 22.39.1126 passes. It runs the case files tools/qualification/audit_repairs/test_dashboard_evidence_decoding.py, tools/qualification/audit_repairs/test_hosted_endpoint_documentation.py and tools/qualification/audit_repairs/test_platform_documentation_relocation.py. Task 22.39.1126."
+basis = "Gotcha 4835."
+affects = []
+
+[decision.3909]
+title = "The three agent case files follow the present Makefile, fuel suite and agent sources, and the pins fixture takes the present digests"
+value = "One. The case of tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py on the agent recipe requires that the recipe holds the reference to the variable AGENT_TEST_SCOPE after the option --locked and that the default of the variable is --workspace. Its requirement on the clock script keeps its form. Two. The fixture tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json takes the digests of the present files in the member clock_sha256 and the present digest in the member central_sha256 of python_sdk; where the set of the scanned paths or the count moved, the members follow the scanner and the suite directory. The members clock_source_revision and source_revision name the revision the digests are taken at, and the constants of tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py and tools/qualification/audit_repairs/test_python_sdk_test_discovery.py follow. Three. The case of tools/qualification/audit_repairs/test_wasm_fuel_matrix_contract.py requires the present call of the function aggregate of the module epoch in the function compose of programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs. Its second phrase keeps its form. Four. Scope: the Makefile, the Rust and Python sources of the agent, the fuel suite and the records keep their form. Every case keeps its name. Five. Target: the verification of task 22.39.1127 passes. It runs the case files tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py, tools/qualification/audit_repairs/test_python_sdk_test_discovery.py and tools/qualification/audit_repairs/test_wasm_fuel_matrix_contract.py. Task 22.39.1127."
+basis = "Gotcha 4836."
+affects = []
+
+[decision.3910]
+title = "The bridge attestor, perps wake and dependency policy case files follow the present image file, shell case and dependency configuration"
+value = "One. The case of tools/qualification/audit_repairs/test_bridge_attestor_inventory.py requires the environment entry script in the entry line of docker/bridge-relayer/Dockerfile and requires that the exec line of docker/bridge-relayer/env-entrypoint.sh names the entry script. Two. The case of tools/qualification/audit_repairs/test_perps_wake_readiness.py asserts 7 embedded programs. Its other asserts keep their form. Three. The case of tools/qualification/audit_repairs/test_perf_db_dependency_policy.py asserts 6 update entries, and the list EXISTING_UPDATES gains the row of the ecosystem npm, the directory /apps/perps and the limit 5. Four. Scope: the image file, the scripts, the shell case and the dependency configuration keep their form. Every case keeps its name. Five. Target: the verification of task 22.39.1128 passes. It runs the case files tools/qualification/audit_repairs/test_bridge_attestor_inventory.py, tools/qualification/audit_repairs/test_perps_wake_readiness.py and tools/qualification/audit_repairs/test_perf_db_dependency_policy.py. Task 22.39.1128."
+basis = "Gotcha 4837."
+affects = []
+
+[decision.3911]
+title = "The licence case treats the trading workspace as an imported workspace, the relocation case names the revision of task 22.39.511 as its live source, and the transports case loads the producer with its directory on the module search path"
+value = "One. The case file tools/qualification/audit_repairs/test_repository_license_attribution.py gains a constant for imported workspaces with the entry apps/perps; the third case leaves out the manifests under an imported workspace, which keep the licence values they came with. The notice file keeps its text. Two. The constant LIVE_SOURCE of the relocation case names the revision of the commit of task 22.39.511. The constant BASE and the cases keep their form. Three. The case of tools/qualification/paxeer-x/tests/test_qualification_client_transports.py puts the directory of the producer on the module search path for the load of the producer. The producer keeps its text. Four. Scope: the manifests of the trading workspace, the notice file, the vendored tree and the producer files keep their form. Every case keeps its name. Five. Target: the verification of task 22.39.1129 passes. It runs the case file tools/qualification/audit_repairs/test_repository_license_attribution.py, the relocation case file and the case of point three. Task 22.39.1129."
+basis = "Gotcha 4838."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46170,6 +46242,114 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1129]
+title = "Bring the licence case, the relocation case of the vendored tree under tools and the client transports case to the present tree"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs", "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repository_license_attribution.py tools/qualification/audit_repairs/test_hy*_relocation.py tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_programs_current_evm_lifecycle_matches_committed_native_producer_codec"
+do_1 = "do_1 Gotcha 4838, decision 3911. Read the three cases of tools/qualification/audit_repairs/test_repository_license_attribution.py, the constants and the case on preserved files of the relocation case file, and the case of tools/qualification/paxeer-x/tests/test_qualification_client_transports.py with the import line of sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py."
+symbols = []
+
+[capability.22.39.1128]
+title = "Bring the bridge attestor, perps wake and dependency policy case files to the present image file, shell case and dependency configuration"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_bridge_attestor_inventory.py", "tools/qualification/audit_repairs/test_perps_wake_readiness.py", "tools/qualification/audit_repairs/test_perf_db_dependency_policy.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_bridge_attestor_inventory.py tools/qualification/audit_repairs/test_perps_wake_readiness.py tools/qualification/audit_repairs/test_perf_db_dependency_policy.py"
+do_1 = "do_1 Gotcha 4837, decision 3910. Read the entry line of docker/bridge-relayer/Dockerfile, the script docker/bridge-relayer/env-entrypoint.sh, the shell case of the perps project definition under tools/deploy/tests, the configuration .github/dependabot.yml and the cases of the three case files."
+symbols = []
+
+[capability.22.39.1127]
+title = "Bring three agent case files of the qualification directory and the pins fixture to the present Makefile, fuel suite and agent sources"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py", "tools/qualification/audit_repairs/test_python_sdk_test_discovery.py", "tools/qualification/audit_repairs/test_wasm_fuel_matrix_contract.py", "tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py tools/qualification/audit_repairs/test_python_sdk_test_discovery.py tools/qualification/audit_repairs/test_wasm_fuel_matrix_contract.py"
+do_1 = "do_1 Gotcha 4836, decision 3909. Read the recipe agent-test and the variable AGENT_TEST_SCOPE of the root Makefile, the fixture tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json, the function compose of programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs and the cases of the three case files."
+symbols = []
+
+[capability.22.39.1126]
+title = "Bring the dashboard, hosted endpoint and platform documentation case files and the reference page of the human API to the present sources"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_dashboard_evidence_decoding.py", "tools/qualification/audit_repairs/test_hosted_endpoint_documentation.py", "tools/qualification/audit_repairs/test_platform_documentation_relocation.py", "docs/platform/content/reference/human-api.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_dashboard_evidence_decoding.py tools/qualification/audit_repairs/test_hosted_endpoint_documentation.py tools/qualification/audit_repairs/test_platform_documentation_relocation.py"
+do_1 = "do_1 Gotcha 4835, decision 3908. Read the script test:static of services/platform/hosted/dashboard/web/package.json, the dashboard read in services/platform/hosted/dashboard/web/app/dashboard-client.tsx, the sentence of docs/wiki/HostedWebhooks.md on ingress, the schema files services/human/schema/human-api/v1.kvx and services/human/schema/human-api/journeys.kvx, the two lines of docs/platform/content/reference/human-api.md and the cases of the three case files."
+symbols = []
+
+[capability.22.39.1125]
+title = "Bring four wallet case files of the qualification directory to the present documents, image file, workflow and demo sources"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_wallet_documentation_relocation.py", "tools/qualification/audit_repairs/test_wallet_workflow_contracts.py", "tools/qualification/audit_repairs/test_wallet_xweb_workflow_inputs.py", "tools/qualification/audit_repairs/test_demo_lint_and_readme_contracts.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_wallet_documentation_relocation.py tools/qualification/audit_repairs/test_wallet_workflow_contracts.py tools/qualification/audit_repairs/test_wallet_xweb_workflow_inputs.py tools/qualification/audit_repairs/test_demo_lint_and_readme_contracts.py"
+do_1 = "do_1 Gotcha 4834, decision 3907. Read the directory docs/wallet, the build argument declarations of docker/wallet-pwa/Dockerfile, the build arguments of apps/wallet/.github/workflows/nextjs.yml, the workflow .github/workflows/wallet-go-test.yml, the guards of services/wallet/demo/src/components/FundedAccountPanel.tsx and services/wallet/demo/src/components/WalletModal.tsx and the cases of the four case files."
+symbols = []
+
+[capability.22.39.1124]
+title = "Bring the human bank plan case file and the qualification intent tool to the transfer form of the send leg"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py", "tools/qualification/paxeer-x/human_attestor_intents.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py tools/qualification/test_service_catalogue_1.py"
+do_1 = "do_1 Gotcha 4833, decision 3906. Read the function intent_transactions of services/human/crates/layerx-human-service/src/server/production_components.rs, the sentences of services/human/README.md on the native pointer, the golden files of the plan under services/human/schema/human-api/golden, the cases of tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py and the function qualify_plan of tools/qualification/paxeer-x/human_attestor_intents.py."
+symbols = []
+
+[capability.22.39.1123]
+title = "Bring the version pins of three case files, the hosted fact of the gateway readme row and the image retirement case to the present files"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py", "tools/qualification/audit_repairs/test_hpx_roster_and_funding_recovery.py", "tools/qualification/audit_repairs/test_upgrade_documentation_contracts.py", "tools/qualification/audit_repairs/test_standalone_node_image_retirement.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py tools/qualification/audit_repairs/test_hpx_roster_and_funding_recovery.py tools/qualification/audit_repairs/test_upgrade_documentation_contracts.py tools/qualification/audit_repairs/test_standalone_node_image_retirement.py"
+do_1 = "do_1 Gotcha 4832, decision 3905. Read the file tools/release/version.json, the sentence of RELEASE.md on the version file, the readme services/platform/hosted/gateway/README.md, the function image_source of services/platform/hosted/tests/beta-images.sh, the image argument line of docker/paxeer/Dockerfile.paxd and the cases of the four case files."
+symbols = []
+
+[capability.22.39.1122]
+title = "Bring three gateway case files of the qualification directory and the two schema document fixtures to the present gateway source and schema document"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_gateway_history_openrpc_contracts.py", "tools/qualification/audit_repairs/test_gateway_openrpc_locations.py", "tools/qualification/audit_repairs/test_gateway_route_discovery_openrpc.py", "tools/qualification/audit_repairs/fixtures/gateway_openrpc_document.json", "tools/qualification/audit_repairs/fixtures/gateway_openrpc_contract_baseline.json"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_gateway_history_openrpc_contracts.py tools/qualification/audit_repairs/test_gateway_openrpc_locations.py tools/qualification/audit_repairs/test_gateway_route_discovery_openrpc.py"
+do_1 = "do_1 Gotcha 4831, decision 3904. Read the constant ROUTER_METHODS of services/platform/hosted/gateway/src/lib.rs, the functions tagged_parts and tagged of services/platform/hosted/gateway/src/rpc_register.rs, the functions route and route_with_clock of services/platform/hosted/gateway/src/public_reads.rs, the two fixtures and the cases of the three case files."
+symbols = []
+
+[capability.22.39.1121]
+title = "Count px_openSession as a hosted operation in the node root design document, its case file, the transport case file and the schema tool"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/docs/architecture/px-node-root.md", "tools/qualification/audit_repairs/test_px_node_root_design.py", "tools/qualification/audit_repairs/test_hosted_openrpc_transport.py", "tools/qualification/paxeer-x/router-authority-schema.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_px_node_root_design.py tools/qualification/audit_repairs/test_hosted_openrpc_transport.py tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
+do_1 = "do_1 Gotcha 4830, decision 3903. Read the section Hosted operations and errors of spec/layerx-merge/docs/architecture/px-node-root.md, the cases of tools/qualification/audit_repairs/test_px_node_root_design.py and tools/qualification/audit_repairs/test_hosted_openrpc_transport.py, the sets and the function hosted_schema of tools/qualification/paxeer-x/router-authority-schema.py and the readme services/platform/hosted/gateway/README.md."
+symbols = []
+
+[capability.22.39.1120]
+title = "Bring the line values of the three chain launch route rows of the interface inventory to the present source"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/interfaces.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_chain_launch_interfaces.py"
+do_1 = "do_1 Gotcha 4829, decision 3902. Read the three rows in spec/layerx-merge/interfaces.kvx and the lines 78 to 84 of services/launchpad/api/internal/rest/compatibility.go."
+symbols = []
+
+[capability.22.39.1119]
+title = "Bring the migration registry case file to the approved registry and the present reader functions"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
+do_1 = "do_1 Gotcha 4828, decision 3901. Read the manifests migrations/registry.json, migrations/legacy-history-aliases.json and migrations/readiness.json, the functions readBound of sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go and ReadMigrationSource of sdk/launchpad/shared/db/production/coordinatortest/schema.go, the function TestPlatformRuntimeRolesPassReadiness of sdk/launchpad/shared/db/production/coordinatortest/coordinatortest_test.go and the ten cases of tools/qualification/audit_repairs/test_migration_registry_and_readiness.py."
+symbols = []
+
+[capability.22.39.1118]
+title = "Take the start time of a coverage run of the launchpad from the clock of the file system of the cover directory"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/coverage_inventory.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_launchpad_coverage_inventory.py"
+do_1 = "do_1 Gotcha 4827, decision 3900. Read the functions begin_run, read_manifest, profile_facts, finish_run and check_run in tools/launchpad/coverage_inventory.py and the case file tools/qualification/audit_repairs/test_launchpad_coverage_inventory.py."
+symbols = []
 
 [capability.22.39.1117]
 title = "List the package documentation of the trading workspace as imported in the markdown link case and name the present paths in three links of apps/README.md"
@@ -403992,6 +404172,366 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.1129]
+title = "Bring the licence case, the relocation case of the vendored tree under tools and the client transports case to the present tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1129"]
+interfaces = []
+do_1 = "do_1 Gotcha 4838, decision 3911. Read the three cases of tools/qualification/audit_repairs/test_repository_license_attribution.py, the constants and the case on preserved files of the relocation case file, and the case of tools/qualification/paxeer-x/tests/test_qualification_client_transports.py with the import line of sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py."
+do_2 = "do_2 Change the three case files under decision 3911 points one to three. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs", "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repository_license_attribution.py tools/qualification/audit_repairs/test_hy*_relocation.py tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_programs_current_evm_lifecycle_matches_committed_native_producer_codec"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1128]
+title = "Bring the bridge attestor, perps wake and dependency policy case files to the present image file, shell case and dependency configuration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1128"]
+interfaces = []
+do_1 = "do_1 Gotcha 4837, decision 3910. Read the entry line of docker/bridge-relayer/Dockerfile, the script docker/bridge-relayer/env-entrypoint.sh, the shell case of the perps project definition under tools/deploy/tests, the configuration .github/dependabot.yml and the cases of the three case files."
+do_2 = "do_2 Change the three case files under decision 3910 points one to three. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_bridge_attestor_inventory.py", "tools/qualification/audit_repairs/test_perps_wake_readiness.py", "tools/qualification/audit_repairs/test_perf_db_dependency_policy.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_bridge_attestor_inventory.py tools/qualification/audit_repairs/test_perps_wake_readiness.py tools/qualification/audit_repairs/test_perf_db_dependency_policy.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1127]
+title = "Bring three agent case files of the qualification directory and the pins fixture to the present Makefile, fuel suite and agent sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1127"]
+interfaces = []
+do_1 = "do_1 Gotcha 4836, decision 3909. Read the recipe agent-test and the variable AGENT_TEST_SCOPE of the root Makefile, the fixture tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json, the function compose of programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs and the cases of the three case files."
+do_2 = "do_2 Change the three case files and the fixture under decision 3909 points one to three. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py", "tools/qualification/audit_repairs/test_python_sdk_test_discovery.py", "tools/qualification/audit_repairs/test_wasm_fuel_matrix_contract.py", "tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py tools/qualification/audit_repairs/test_python_sdk_test_discovery.py tools/qualification/audit_repairs/test_wasm_fuel_matrix_contract.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1126]
+title = "Bring the dashboard, hosted endpoint and platform documentation case files and the reference page of the human API to the present sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1126"]
+interfaces = []
+do_1 = "do_1 Gotcha 4835, decision 3908. Read the script test:static of services/platform/hosted/dashboard/web/package.json, the dashboard read in services/platform/hosted/dashboard/web/app/dashboard-client.tsx, the sentence of docs/wiki/HostedWebhooks.md on ingress, the schema files services/human/schema/human-api/v1.kvx and services/human/schema/human-api/journeys.kvx, the two lines of docs/platform/content/reference/human-api.md and the cases of the three case files."
+do_2 = "do_2 Change the three case files and the two lines of the page under decision 3908 points one to five. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points six and seven hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_dashboard_evidence_decoding.py", "tools/qualification/audit_repairs/test_hosted_endpoint_documentation.py", "tools/qualification/audit_repairs/test_platform_documentation_relocation.py", "docs/platform/content/reference/human-api.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_dashboard_evidence_decoding.py tools/qualification/audit_repairs/test_hosted_endpoint_documentation.py tools/qualification/audit_repairs/test_platform_documentation_relocation.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1125]
+title = "Bring four wallet case files of the qualification directory to the present documents, image file, workflow and demo sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1125"]
+interfaces = []
+do_1 = "do_1 Gotcha 4834, decision 3907. Read the directory docs/wallet, the build argument declarations of docker/wallet-pwa/Dockerfile, the build arguments of apps/wallet/.github/workflows/nextjs.yml, the workflow .github/workflows/wallet-go-test.yml, the guards of services/wallet/demo/src/components/FundedAccountPanel.tsx and services/wallet/demo/src/components/WalletModal.tsx and the cases of the four case files."
+do_2 = "do_2 Change the four case files under decision 3907 points one to four. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points five and six hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_wallet_documentation_relocation.py", "tools/qualification/audit_repairs/test_wallet_workflow_contracts.py", "tools/qualification/audit_repairs/test_wallet_xweb_workflow_inputs.py", "tools/qualification/audit_repairs/test_demo_lint_and_readme_contracts.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_wallet_documentation_relocation.py tools/qualification/audit_repairs/test_wallet_workflow_contracts.py tools/qualification/audit_repairs/test_wallet_xweb_workflow_inputs.py tools/qualification/audit_repairs/test_demo_lint_and_readme_contracts.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1124]
+title = "Bring the human bank plan case file and the qualification intent tool to the transfer form of the send leg"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1124"]
+interfaces = []
+do_1 = "do_1 Gotcha 4833, decision 3906. Read the function intent_transactions of services/human/crates/layerx-human-service/src/server/production_components.rs, the sentences of services/human/README.md on the native pointer, the golden files of the plan under services/human/schema/human-api/golden, the cases of tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py and the function qualify_plan of tools/qualification/paxeer-x/human_attestor_intents.py."
+do_2 = "do_2 Change the case file and the tool under decision 3906 points one to four. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points five and six hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py", "tools/qualification/paxeer-x/human_attestor_intents.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_human_bank_plan_and_journey_goldens.py tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py tools/qualification/test_service_catalogue_1.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1123]
+title = "Bring the version pins of three case files, the hosted fact of the gateway readme row and the image retirement case to the present files"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1123"]
+interfaces = []
+do_1 = "do_1 Gotcha 4832, decision 3905. Read the file tools/release/version.json, the sentence of RELEASE.md on the version file, the readme services/platform/hosted/gateway/README.md, the function image_source of services/platform/hosted/tests/beta-images.sh, the image argument line of docker/paxeer/Dockerfile.paxd and the cases of the four case files."
+do_2 = "do_2 Change the four case files under decision 3905 points one to five. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points six and seven hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py", "tools/qualification/audit_repairs/test_hpx_roster_and_funding_recovery.py", "tools/qualification/audit_repairs/test_upgrade_documentation_contracts.py", "tools/qualification/audit_repairs/test_standalone_node_image_retirement.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py tools/qualification/audit_repairs/test_hpx_roster_and_funding_recovery.py tools/qualification/audit_repairs/test_upgrade_documentation_contracts.py tools/qualification/audit_repairs/test_standalone_node_image_retirement.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1122]
+title = "Bring three gateway case files of the qualification directory and the two schema document fixtures to the present gateway source and schema document"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1122"]
+interfaces = []
+do_1 = "do_1 Gotcha 4831, decision 3904. Read the constant ROUTER_METHODS of services/platform/hosted/gateway/src/lib.rs, the functions tagged_parts and tagged of services/platform/hosted/gateway/src/rpc_register.rs, the functions route and route_with_clock of services/platform/hosted/gateway/src/public_reads.rs, the two fixtures and the cases of the three case files."
+do_2 = "do_2 Change the three case files and the two fixtures under decision 3904 points one to three. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_gateway_history_openrpc_contracts.py", "tools/qualification/audit_repairs/test_gateway_openrpc_locations.py", "tools/qualification/audit_repairs/test_gateway_route_discovery_openrpc.py", "tools/qualification/audit_repairs/fixtures/gateway_openrpc_document.json", "tools/qualification/audit_repairs/fixtures/gateway_openrpc_contract_baseline.json"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_gateway_history_openrpc_contracts.py tools/qualification/audit_repairs/test_gateway_openrpc_locations.py tools/qualification/audit_repairs/test_gateway_route_discovery_openrpc.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1121]
+title = "Count px_openSession as a hosted operation in the node root design document, its case file, the transport case file and the schema tool"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1121"]
+interfaces = []
+do_1 = "do_1 Gotcha 4830, decision 3903. Read the section Hosted operations and errors of spec/layerx-merge/docs/architecture/px-node-root.md, the cases of tools/qualification/audit_repairs/test_px_node_root_design.py and tools/qualification/audit_repairs/test_hosted_openrpc_transport.py, the sets and the function hosted_schema of tools/qualification/paxeer-x/router-authority-schema.py and the readme services/platform/hosted/gateway/README.md."
+do_2 = "do_2 Change the four files under decision 3903 points one to four. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points five and six hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/docs/architecture/px-node-root.md", "tools/qualification/audit_repairs/test_px_node_root_design.py", "tools/qualification/audit_repairs/test_hosted_openrpc_transport.py", "tools/qualification/paxeer-x/router-authority-schema.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_px_node_root_design.py tools/qualification/audit_repairs/test_hosted_openrpc_transport.py tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1120]
+title = "Bring the line values of the three chain launch route rows of the interface inventory to the present source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1120"]
+interfaces = []
+do_1 = "do_1 Gotcha 4829, decision 3902. Read the three rows in spec/layerx-merge/interfaces.kvx and the lines 78 to 84 of services/launchpad/api/internal/rest/compatibility.go."
+do_2 = "do_2 Change the three line values under decision 3902 point one. Change the three lines only and leave every other byte of the file as it is. No other file changes."
+do_3 = "do_3 Points two and three hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/interfaces.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_chain_launch_interfaces.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1119]
+title = "Bring the migration registry case file to the approved registry and the present reader functions"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1119"]
+interfaces = []
+do_1 = "do_1 Gotcha 4828, decision 3901. Read the manifests migrations/registry.json, migrations/legacy-history-aliases.json and migrations/readiness.json, the functions readBound of sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go and ReadMigrationSource of sdk/launchpad/shared/db/production/coordinatortest/schema.go, the function TestPlatformRuntimeRolesPassReadiness of sdk/launchpad/shared/db/production/coordinatortest/coordinatortest_test.go and the ten cases of tools/qualification/audit_repairs/test_migration_registry_and_readiness.py."
+do_2 = "do_2 Change the seven cases under decision 3901 points one to six. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Use no skip mark and no mark of expected failure. No other file changes."
+do_3 = "do_3 Points seven and eight hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1118]
+title = "Take the start time of a coverage run of the launchpad from the clock of the file system of the cover directory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1118"]
+interfaces = []
+do_1 = "do_1 Gotcha 4827, decision 3900. Read the functions begin_run, read_manifest, profile_facts, finish_run and check_run in tools/launchpad/coverage_inventory.py and the case file tools/qualification/audit_repairs/test_launchpad_coverage_inventory.py."
+do_2 = "do_2 Add the function of decision 3900 point one and change begin_run under point two. No other file changes."
+do_3 = "do_3 Points three and four hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/coverage_inventory.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_launchpad_coverage_inventory.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1117]
 title = "List the package documentation of the trading workspace as imported in the markdown link case and name the present paths in three links of apps/README.md"
