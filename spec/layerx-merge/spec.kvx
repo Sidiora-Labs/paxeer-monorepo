@@ -404355,7 +404355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1133]
 title = "Bring the reward delivery source case in step with the constant name of the PnL tracker sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
