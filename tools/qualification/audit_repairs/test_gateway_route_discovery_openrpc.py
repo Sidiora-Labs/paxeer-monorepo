@@ -110,6 +110,8 @@ def test_retired_rpc_subtree_is_omitted_and_refused_by_production_ingress():
     assert ingress.index('if path == "/rpc"') < ingress.index("routes::route(")
     assert "public_reads::route(config, request)" in ingress
     public = rust_function("public_reads.rs", "route")
+    assert "route_with_clock(config, request, now)" in public
+    public = rust_function("public_reads.rs", "route_with_clock")
     assert 'matches!(request.path.as_str(), "/" | "/openrpc.json")' in public
     assert "return Some(super::rpc::route(config, request));" in public
     rpc = rust_function("rpc.rs", "route")
@@ -221,7 +223,7 @@ def test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved(
 def test_all_unrelated_openrpc_contracts_match_the_recorded_base():
     snapshot = read_json(Path(__file__).with_name("fixtures") / "gateway_openrpc_contract_baseline.json")
     assert snapshot["base_revision"] == "716e8dfe1518af0033ed3d0e2b7b4f34fa81f0aa"
-    assert snapshot["pin_source_revision"] == "f210675f121b1d1e6b66ec46a6e59286320dd35e"
+    assert snapshot["pin_source_revision"] == "1a3e9060e2ab9d8a7af0652c86d77e3746941fbf"
     document = copy.deepcopy(read_json(GATEWAY / "openrpc.json"))
     document["methods"] = [
         item for item in document["methods"] if item["name"] != "px_getRouteCatalogue"
