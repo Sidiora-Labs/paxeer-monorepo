@@ -13,6 +13,7 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_TEST = "rpc::tests::schema_lists_every_public_method"
 HOSTED_METHODS = frozenset({
+    "px_openSession",
     "px_register", "px_getCommit", "px_getValidators", "px_getReceiptKeys",
     "px_getSequenceBatch", "px_requestFunds", "pax_sequencerReceipt", "px_resolveAccount",
     "px_getAccount", "px_getBalances", "px_listAssets", "px_getNetwork", "px_getHistory",
