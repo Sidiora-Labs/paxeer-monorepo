@@ -19,6 +19,7 @@ VENDORED_PROJECTS = (
     "tools/hyperfide/",
     "docs/hyperfide/",
     "services/explorer/",
+    "apps/perps/packages/",
     ".codify/",
 )
 MARKDOWN_SUFFIXES = {".md", ".markdown", ".mdown", ".mkd", ".mdx"}
