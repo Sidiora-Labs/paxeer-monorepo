@@ -589,6 +589,41 @@ fn assert_outbound_attestation_view(
 }
 
 #[test]
+fn cosign_collect_orders_signers_independently_of_publication_order() {
+    let directory = work_directory("cosign-signer-order");
+    let digest = deposit(0xaa, 3, padded(0x77), 17).digest();
+    let mut shares: Vec<_> = [ATTESTOR_1, ATTESTOR_2, PAXEER_FEES_1, FEES_2]
+        .into_iter()
+        .map(|signer| {
+            (
+                ethereum_address(key(signer).verifying_key()),
+                attest(signer, &digest),
+            )
+        })
+        .collect();
+    shares.sort_unstable_by_key(|share| share.0);
+    let expected: Vec<_> = shares.iter().map(|(_, signature)| *signature).collect();
+    for descending in [false, true] {
+        let cosign = CosignDirectory::new(directory.join(if descending {
+            "descending"
+        } else {
+            "ascending"
+        }));
+        let mut ordered = shares.clone();
+        if descending {
+            ordered.reverse();
+        }
+        for (signer, signature) in ordered {
+            cosign
+                .publish(&digest, &signer, &signature)
+                .or_panic("publish share");
+        }
+        assert_eq!(cosign.collect(&digest), expected);
+    }
+    std::fs::remove_dir_all(directory).or_panic("remove cosign directory");
+}
+
+#[test]
 fn the_attestation_view_is_a_snapshot() {
     let signer = signer("attestation-snapshot");
     let directory = work_directory("attestation-snapshot");
