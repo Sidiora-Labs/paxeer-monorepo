@@ -398,7 +398,8 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
         json!({
             "paxeer_chain": {"state": "ready", "reason": "ready"},
             "durable_store": {"state": "ready", "reason": "ready"},
-            "consensus": {"state": "unavailable", "reason": "not_configured"}
+            "consensus": {"state": "unavailable", "reason": "not_configured"},
+            "indexer": {"state": "unavailable", "reason": "not_configured"}
         }),
         "{readiness}"
     );
@@ -427,8 +428,15 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
     assert_method_not_found(&gateway.rpc("lx_sendActivity", &json!(["00"])));
 
     let settlement = gateway.client.post("/v1/settle", b"{}").unwrap_or_else(|error| panic!("settlement route must be answered: {error:?}"));
-    assert_eq!(settlement.status, 503);
+    assert_eq!(settlement.status, 401);
     let refusal: Value = serde_json::from_slice(&settlement.body).unwrap_or_else(|error| panic!("settlement refusal must be JSON: {error}"));
+    assert_eq!(
+        refusal,
+        json!({"ok": false, "error": {"code": "api_key_required"}})
+    );
+
+    let (status, refusal) = gateway.get(&format!("/v1/receipts/{}", "ab".repeat(32)));
+    assert_eq!(status, 503, "{refusal}");
     assert_eq!(refusal, json!({"ok": false, "error": {"code": "kernel_unavailable", "backend": "core_agent_boundary", "reason": "not_configured"}}));
 
     let (status, readiness) = gateway.get("/readyz");
@@ -481,10 +489,19 @@ fn chain_only_gateway_pins_receipt_keys_without_the_component_url() {
 
 #[test]
 fn degraded_endpoint_refuses_a_kernel_side_input_without_the_component_url() {
+    const KERNEL_COMPONENT_SIDE_VARIABLES: [&str; 7] = [
+        "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
+        "LAYERX_GATEWAY_PUBLIC_CORE_URL",
+        "LAYERX_GATEWAY_AUTHORITY_URL",
+        "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE",
+        "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
+        "LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE",
+        "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
+    ];
     let redis = RedisProcess::start();
     let _ = payment_events::tls(&redis);
     let input = secret(&redis.directory, "kernel-side-input", &"42".repeat(32));
-    for variable in KERNEL_SIDE_VARIABLES {
+    for variable in KERNEL_COMPONENT_SIDE_VARIABLES {
         let mut environment = chain_only_environment(&redis, free_port(), free_port(), true);
         environment.push((variable.to_owned(), input.clone()));
         let output = gateway_command(&environment).stdout(Stdio::null()).output().unwrap_or_else(|error| panic!("gateway must run: {error}"));
