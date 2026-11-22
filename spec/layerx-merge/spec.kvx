@@ -16648,6 +16648,12 @@ value = "One. In the script under the anchor launchpad_package_storage_run of .g
 basis = "Gotcha 4849."
 affects = []
 
+[decision.3923]
+title = "The credential pattern of the feature acceptance policy tool admits the marker in the two forms the tool writes"
+value = "One. In tools/launchpad/production/feature-acceptance/policy.py the lookahead of the fourth alternative of SECRET_PATTERN names the marker in its literal form and in the escaped form in which the function urlencode writes it, with each of the two square brackets as a percent escape. The credential words, the separator class and the value class of the alternative stay as they are. Two. The first three alternatives, the marker constant, the function redact_value with its call of urlencode, the functions assert_secret_free and redact_json_artifact and every other line of the file stay as they are. The bytes that redact_json_artifact returns for an input do not change. Three. The case test_phase3_secret_redaction_preserves_real_json_identity_and_exact_hashes of tools/launchpad/production/feature-acceptance/tests/test_policy.py additionally requires that the redacted bytes hold the query name access_token, an equals sign and the marker in the escaped form. Its present requirements stay, and no other case changes. Four. Scope: the one pattern line of the tool and the one case. Five. Target: the verification of task 22.39.1141 passes. It runs the case files under tools/launchpad/production/feature-acceptance/tests and names the case of point three. Task 22.39.1141."
+basis = "Gotcha 4850."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46308,6 +46314,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1141]
+title = "Let the credential pattern of the feature acceptance policy tool admit the marker in the form its redaction function writes into a query"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/feature-acceptance/policy.py", "tools/launchpad/production/feature-acceptance/tests/test_policy.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/launchpad/production/feature-acceptance/tests && python3 -m pytest -q tools/launchpad/production/feature-acceptance/tests/test_policy.py::PolicyTests::test_phase3_secret_redaction_preserves_real_json_identity_and_exact_hashes"
+do_1 = "do_1 Gotcha 4850, decision 3923. Read the marker constant, the pattern SECRET_PATTERN and the functions redact_value, assert_secret_free and redact_json_artifact of tools/launchpad/production/feature-acceptance/policy.py and the cases of tools/launchpad/production/feature-acceptance/tests/test_policy.py whose names begin with test_phase3. The final message lists the four alternatives of the pattern in words and names the form in which urlencode writes the marker."
+symbols = []
 
 [capability.22.39.1140]
 title = "Let the creation request of the object storage fixture step of the launchpad test workflow repeat on a transient answer"
@@ -211929,7 +211944,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1140]
 title = "Let the creation request of the object storage fixture step of the launchpad test workflow repeat on a transient answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -211959,7 +211974,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1139]
 title = "Give each phase of the two replay cases of the launchpad API broker a deadline of its own"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404457,6 +404472,36 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.1141]
+title = "Let the credential pattern of the feature acceptance policy tool admit the marker in the form its redaction function writes into a query"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1141"]
+interfaces = []
+do_1 = "do_1 Gotcha 4850, decision 3923. Read the marker constant, the pattern SECRET_PATTERN and the functions redact_value, assert_secret_free and redact_json_artifact of tools/launchpad/production/feature-acceptance/policy.py and the cases of tools/launchpad/production/feature-acceptance/tests/test_policy.py whose names begin with test_phase3. The final message lists the four alternatives of the pattern in words and names the form in which urlencode writes the marker."
+do_2 = "do_2 Change the pattern under decision 3923 point one: the lookahead of the fourth alternative names the literal marker and the escaped marker. Add the requirement of point three to the case. Point two holds: no other line of the tool changes and the redaction function stays."
+do_3 = "do_3 Run the verification. The task changes the one pattern line of tools/launchpad/production/feature-acceptance/policy.py and the one case of tools/launchpad/production/feature-acceptance/tests/test_policy.py only. Decision 3923 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/feature-acceptance/policy.py", "tools/launchpad/production/feature-acceptance/tests/test_policy.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/launchpad/production/interfaces/requirements.txt"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/feature-acceptance/tests && python3 -m pytest -q tools/launchpad/production/feature-acceptance/tests/test_policy.py::PolicyTests::test_phase3_secret_redaction_preserves_real_json_identity_and_exact_hashes"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1137]
 title = "Bring the control registry of the launchpad production tooling in step with its present inputs"

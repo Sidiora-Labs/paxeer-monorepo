@@ -217,7 +217,7 @@ def qualify(*args, **kwargs):
 REDACTED = '[REDACTED]'
 CREDENTIAL_FIELDS = {'authorization', 'proxyauthorization', 'cookie', 'setcookie', 'password', 'passwd', 'secret', 'clientsecret', 'apikey', 'accesstoken', 'refreshtoken', 'idtoken', 'privatekey', 'streamkey', 'token', 'signaturekey'}
 IDENTITY_FIELDS = {'transactionHash', 'blockHash', 'hash', 'chainId', 'blockNumber', 'logIndex', 'from', 'to', 'address', 'run_id', 'candidate', 'source_sha256', 'registry', 'amount_raw', 'value', 'trace_id', 'span_id', 'transaction_hash', 'block_hash', 'request_id', 'session_id'}
-SECRET_PATTERN = re.compile(r'-----BEGIN (?:[A-Z ]+)?PRIVATE KEY-----|\bBearer\s+(?!\[REDACTED\])[^\s"<>]+|\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}|(?:password|api[_-]?key|access[_-]?token|private[_-]?key|stream[_-]?key)\s*[=:]\s*["\']?(?!\[REDACTED\])[^\s"\'&,;}]+', re.IGNORECASE)
+SECRET_PATTERN = re.compile(r'-----BEGIN (?:[A-Z ]+)?PRIVATE KEY-----|\bBearer\s+(?!\[REDACTED\])[^\s"<>]+|\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}|(?:password|api[_-]?key|access[_-]?token|private[_-]?key|stream[_-]?key)\s*[=:]\s*["\']?(?!\[REDACTED\]|%5BREDACTED%5D)[^\s"\'&,;}]+', re.IGNORECASE)
 
 
 def credential_field(name):
