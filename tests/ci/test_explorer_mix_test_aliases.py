@@ -71,9 +71,15 @@ def test_mix_in_builder_creates_database_before_test():
         shlex.split(line) for line in setup[1].splitlines() if line.strip()
     ]
     assert commands == [["mix", "ecto.create", "--quiet"], ["mix", "ecto.migrate"]]
-    assert script[setup.end() :].strip() == 'exec mix "$@"', (
+    assert script[setup.end() :].strip() == 'run_mix_with_retry "$@"', (
         "Database creation and migration must finish before forwarding all test arguments"
     )
+    assert script[script.index("run_mix_with_retry() {") :].startswith(
+        'run_mix_with_retry() {\n'
+        '  if [ "${MIX_IN_BUILDER_RETRY_FAILED:-0}" != \'1\' ]; then\n'
+        '    exec mix "$@"\n'
+        '  fi\n'
+    ), "Forward all arguments directly to mix when retries are disabled"
     assert 'sh -c "$CONTAINER_SCRIPT" mix-in-builder "$@"' in source
 
     workflow = yaml.safe_load(
