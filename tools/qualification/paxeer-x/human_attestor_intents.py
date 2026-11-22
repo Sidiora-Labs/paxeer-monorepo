@@ -45,12 +45,13 @@ def qualify_plan(chain, plan, expected):
                   'single-chain executable intent capability required')
         raw = bytes.fromhex(leg['calldata'].removeprefix('0x'))
         if leg['mechanism'] == 'send':
-            C.require(leg['to'] == '0x' + '00' * 18 + '1001'
-                      and raw[:4] == C.merged.evm.encode_call('send', ['address', 'address', 'string', 'uint256'],
-                                                            [bytes(20), bytes(20), '', 0])[:4],
-                      'current bank send capability required')
-            fields = C.merged.decode_abi(['address', 'address', 'string', 'uint256'], '0x' + raw[4:].hex())
-            C.require(fields[3] == int(leg['money']['amount']) and fields[2], 'bank send amount and denomination differ')
+            C.require(re.fullmatch('0x[0-9a-fA-F]{40}', leg['to'])
+                      and leg['to'].lower() not in ('0x' + '00' * 20, '0x' + '00' * 18 + '1001')
+                      and raw[:4] == C.merged.evm.encode_call('transfer', ['address', 'uint256'],
+                                                            [bytes(20), 0])[:4],
+                      'current native pointer transfer capability required')
+            fields = C.merged.decode_abi(['address', 'uint256'], '0x' + raw[4:].hex())
+            C.require(fields[1] == int(leg['money']['amount']), 'native pointer transfer amount differs')
         else:
             C.require(leg['to'] == C.PAY and raw[:4] == C.merged.evm.encode_call('budgetDefund', ['bytes32', 'uint128'],
                                                                                        [bytes(32), 0])[:4],
