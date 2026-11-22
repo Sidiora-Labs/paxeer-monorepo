@@ -211143,7 +211143,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1073]
 title = "Let the baseline file of the launchpad Go case runner hold no entry and let the cases that read it follow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1066", "22.39.1067", "22.39.1068", "22.39.1069", "22.39.1070", "22.39.1071", "22.39.1072"]
