@@ -59,7 +59,7 @@ def test_required_matrix_retains_every_existing_clause_and_requires_native_fuel(
     suite = SUITE.read_text(encoding="utf-8")
     for _, name in EXISTING_CASES:
         assert re.search(r"#\[test\]\s*fn " + re.escape(name) + r"\(", suite), name
-    assert "let outcome = agg::apply(" in suite
+    assert "let outcome = epoch::aggregate(" in suite
     assert "self.compose(call, at, FULL)?" in suite
 
 
