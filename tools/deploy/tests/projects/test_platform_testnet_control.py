@@ -237,7 +237,7 @@ def test_private_topology_and_liveness():
     assert SERVICE["restart"] == "ALWAYS"
     assert SERVICE.get("public", 0) == 0
     assert "volume" not in SERVICE
-    assert SERVICE["needs"] == ["identity", "faucet", "router"]
+    assert SERVICE["needs"] == ["identity", "faucet", "gateway"]
     rollout = tomllib.loads((ROOT / "deploy/rollout.kvx").read_text())
     for name in SERVICE["needs"]:
         if name in rollout["service"]:
