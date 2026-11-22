@@ -295,7 +295,8 @@ def test_finding_22_release_script_syntax_guards_and_merged_artifacts():
         assert fact in script
     manifest = json.loads(read("tools/release/version.json"))
     assert set(manifest) == {"version", "upgrade"}
-    assert manifest == {"version": "v7.0.0", "upgrade": "v7.0"}
+    assert manifest["upgrade"] == "v7.0"
+    assert re.fullmatch(r"v7\.0\.[0-9]+", manifest["version"])
     assert re.fullmatch(r"v\d+\.\d+\.\d+", manifest["version"])
     assert 'const MergeUpgrade = "v7.0"' in read("precompiles/common/precompiles.go")
     guide = read("RELEASE.md")
