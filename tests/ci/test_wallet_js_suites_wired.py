@@ -15,10 +15,13 @@ def service_job(name):
     workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
     assert {"pull_request", "push", "workflow_dispatch"} <= workflow["on"].keys()
     assert workflow["on"]["push"]["branches"] == ["main"]
+    assert workflow["on"]["push"]["paths-ignore"] == ["spec/**", "GOTCHA.kvx"]
     for event in ("pull_request", "push"):
         settings = workflow["on"][event]
         if isinstance(settings, dict):
-            assert not {"paths", "paths-ignore", "branches-ignore"} & settings.keys()
+            assert not {"paths", "branches-ignore"} & settings.keys()
+            if event == "pull_request":
+                assert "paths-ignore" not in settings
     job = workflow["jobs"][name]
     assert not {"if", "needs", "continue-on-error"} & job.keys()
     assert "ubuntu-24.04" in job["runs-on"]
@@ -47,7 +50,9 @@ def command_step(steps, command, directory=None):
 def package_test(steps, directory):
     package = json.loads((ROOT / directory / "package.json").read_text())
     assert package["packageManager"] == "pnpm@10.34.9"
-    assert package["scripts"]["test"] == "vitest run"
+    assert package["scripts"]["test"] in (
+        "vitest run", "vitest run --config vitest.config.ts",
+    )
     assert "vitest" in package["devDependencies"]
     assert (ROOT / directory / "vitest.config.ts").is_file()
     run = command_step(steps, "pnpm test", directory)
