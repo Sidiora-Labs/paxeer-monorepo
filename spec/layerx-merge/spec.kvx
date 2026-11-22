@@ -404235,7 +404235,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1131]
 title = "Bring the enforcement rows and the links of three platform documentation pages to the forms the site generator reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
