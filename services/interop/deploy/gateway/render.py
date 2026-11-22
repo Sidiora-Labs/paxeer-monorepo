@@ -1231,7 +1231,9 @@ def self_test():
             declared,
             tests[TRANSPORT_CONFORMANCE[identifier]],
         )
-    assert all(declared[1] == 8 for declared in transport_first_party.values())
+    assert {
+        identifier: declared[1] for identifier, declared in transport_first_party.items()
+    } == {"http": 8, "mcp": 11, "a2a": 14}
     transport_override = dict(complete)
     transport_override[TRANSPORT_VARIABLE["a2a"]] = "99" * 32
     overridden_transports = {
