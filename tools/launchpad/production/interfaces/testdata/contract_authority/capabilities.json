@@ -843,7 +843,7 @@
       "id": "livepeer-config",
       "path": "services/launchpad/livestream/internal/config/config.go",
       "proofKind": "source",
-      "sha256": "6b1f65882e56870f75466a65caa40679d3f67a3487b6a84f16c40c25866fd077"
+      "sha256": "fc387b37a4cd6fb0807f66a7e5851fb2c86178864b52d810f50ec09120e08bce"
     },
     {
       "id": "external-wallet-client-integration-test-ts",

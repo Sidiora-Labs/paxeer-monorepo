@@ -113,11 +113,14 @@ def derive_authority(directory, record_path=RECORD):
    'semantics':shape['description'],
   }
  error_source=ROOT/'services/launchpad/api/internal/rest/primitives.go'
- if hashlib.sha256(error_source.read_bytes()).hexdigest()!='87bb6e3de16019446a2a527dd98bb38bef9d977b5c73aebaa4782e5e91633bf1':
+ if hashlib.sha256(error_source.read_bytes()).hexdigest()!='b0d8fcd04004dd9c70fa03b12ab3947d63da50b6b7ef8af17307765b17bf039c':
   raise m.ContractError('Recorded error source digest mismatch')
  rules=error_source.read_text().split('var v2ErrorRules = map[string]v2ErrorRule{',1)[1].split('\n}',1)[0]
- # Select the sixteen contract errors, excluding the parser/internal wrapper rows.
- for code,status in re.findall(r'"([A-Z_]+)":\s*\{(\d+),',rules):
+ constant_sources=error_source.read_text()+'\n'+(error_source.parent/'lint_literals.go').read_text()
+ constants=dict(re.findall(r'^\s*(?:const\s+)?(\w+)\s*=\s*"([^"\n]*)"',constant_sources,re.M))
+ # Select the seventeen contract errors, excluding the parser/internal wrapper rows.
+ for key,status in re.findall(r'("[A-Z_]+"|\w+):\s*\{(\d+),',rules):
+  code=json.loads(key) if key.startswith('"') else constants[key]
   if code not in ('QUERY_INVALID','INTERNAL_ERROR'):
    catalog['error']['IF_'+code]={'code':code,'http_status':int(status)}
  catalog_path=directory/'admitted-catalog.json';supplementary_path=directory/'supplementary.json'
@@ -146,7 +149,7 @@ class MaterializeTests(unittest.TestCase):
  def valid(self,name,value):
   doc={'$schema':m.DIALECT,'$ref':'#/$defs/'+name,'$defs':self.doc['$defs']};return Draft202012Validator(doc,format_checker=FormatChecker()).is_valid(value)
  def test_all_catalog_entries_mapped(self):
-  self.assertEqual((len(self.map['schemas']),len(self.map['endpoints']),len(self.map['streams']),len(self.map['errors'])),(59,108,12,16))
+  self.assertEqual((len(self.map['schemas']),len(self.map['endpoints']),len(self.map['streams']),len(self.map['errors'])),(59,108,12,17))
   for id,e in self.map['endpoints'].items():
    for field in ['request','data','response']:self.assertIn(e[field],self.doc['$defs'],id)
  def test_regeneration_deterministic(self):self.assertEqual(self.files,m.generate(self.spec,self.supp))
