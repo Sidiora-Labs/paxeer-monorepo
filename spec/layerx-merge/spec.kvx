@@ -229728,7 +229728,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1094]
 title = "Bring three cases of the degraded case file of the gateway in step with the kernel variable group, the readiness entries and the key check of the source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229758,7 +229758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1091]
 title = "Check an idle connection in the gateway store client before a command is written to it, and add a case that restarts the store server process under one store handle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -403479,7 +403479,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1090]
 title = "Write the effective access list in the store image entrypoint with the default user line in the disabled form with rules, and add a case file that runs the entrypoint and the store server binary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
