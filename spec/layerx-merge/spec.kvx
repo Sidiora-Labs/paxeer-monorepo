@@ -16336,6 +16336,42 @@ value = "One. Each of the four case lines of gotcha 4797 part two names gateway 
 basis = "Gotcha 4797. Gotcha 4795."
 affects = []
 
+[decision.3871]
+title = "The store image entrypoint writes the effective access list, which holds the default user line in the disabled form with the rules for all keys, all channels and all commands, and the server configuration names that file"
+value = "One. The entrypoint writes the effective access list to the file users.acl under /run/layerx before it starts the store server, and the directive aclfile of the rendered configuration names that file. The supplied file under /run/secrets stays as the file loader wrote it. Two. The effective list holds exactly one default user line, in the target form: the words user, default and off, followed by the rule for all keys, the rule for all channels and the rule for all commands. These are the three rules that the line of the shared helper services/platform/hosted/gateway/tests/support/redis_process.rs holds after the words on nopass. A supplied default user line that holds the word off is written in the target form, whatever follows that word. A list without a default user line gains the target form as its first line. Three. A supplied default user line that does not hold the word off stays as supplied. Four. Every other line of the supplied list passes through unchanged and in its order. Five. The effective file is created with the mode 0600 before its first line is written and takes the owner of the supplied file, so that only the user of the store server reads it. Six. The mode render keeps printing the server configuration. A second mode reads a list on standard input and prints the effective list on standard output, so that a case runs it without a container. Seven. The script docker/redis/tests/redis-image.test.sh follows: it requires the aclfile directive with the effective file, its loop over the paths of the file table leaves the path of the supplied access list to the entrypoint, and it runs the second mode once on a list whose default user line holds only the word off and requires the target form in the output. Eight. A new case file tools/containers/test_redis_image.py runs the entrypoint without a container. Its cases cover a list whose default user line holds only the word off, a list whose disabled default user line carries other rules, a list without a default user line, a list with an enabled default user line, and the aclfile directive of the rendered configuration for both roles. One more case starts the store server binary of the environment with the effective list for a list with the plain disabled line and one named user, with the append file switched on. It signs in as the named user, writes two keys through one script and one key by a plain command, stops the server, starts it again on the same directory and reads the three keys, and it requires that a command without a sign-in is refused. This case reports a skip with its reason when the binary is not on the path. Nine. The row Redis of docker/README.md says that the entrypoint renders the server configuration and the effective access list. Ten. Scope: the base image line, the file table, the file loader and the input REDIS_ACL keep their form, so the store environment examples and the variables pages stay. The method inside the entrypoint is the choice of the participant, and it uses only tools that the base image holds. Eleven. Target: the verification of task 22.39.1090 passes. It prints the version of the store server binary and runs the case that starts it. Task 22.39.1090."
+basis = "Gotcha 4798."
+affects = []
+
+[decision.3872]
+title = "The gateway store client checks an idle connection before it writes a command to it and opens a new connection when no idle connection passes the check"
+value = "One. Before the function command writes to an idle connection, it checks that connection without a wait. A connection that reports the end of the stream, an error or bytes to read is closed, and the next idle connection is checked. When no idle connection passes, the function opens a new connection as it does today. Two. A command is written at most once for each call. After the write to a connection has begun, an error of the exchange goes to the caller as it does today. Three. The check changes no timeout, no bound and no public function, and it leaves the connection in the mode it had. Four. A new case file services/platform/hosted/gateway/tests/store_reconnect.rs uses the shared helper in the way services/platform/hosted/gateway/tests/principal_audit_index.rs does. One store handle answers ready, the store server process restarts through the helper, and the same handle answers ready at its next call. Further cases are the choice of the participant. Five. Scope: the file services/platform/hosted/gateway/src/store.rs and the new case file change. A file under services/platform/hosted/gateway/tests/support changes only where the new case needs a small addition to the shared helper. The interop service takes the change through the type. The method of the check is the choice of the participant. Six. Target: the verification of task 22.39.1091 passes. Task 22.39.1091."
+basis = "Gotcha 4799."
+affects = []
+
+[decision.3873]
+title = "The receipt authority definition case leaves the replica settings group out of the required variables, reads the loopback call in the function replica_config and names the rollout service gateway"
+value = "One. The case reads the names of the constant REPLICA_SETTINGS from the source, requires that the constant holds five names and leaves them out of the required names. The keys of the section vars then equal the required names without the group, joined with the file inputs. Two. The case asserts the loopback call in the body of the function replica_config. Three. The order line names the rollout service gateway. Four. Scope: the definition, the source, the entrypoint, the image file and the file table stay. No other line of the case file changes, no case leaves and no case gains a skip. Five. Target: the verification of task 22.39.1092 passes. Task 22.39.1092."
+basis = "Gotcha 4800. Gotcha 4795."
+affects = []
+
+[decision.3874]
+title = "The image row of the fixture manifest in the deploy redaction case holds the key credentials with the value 1"
+value = "One. The image row gateway of the manifest that the fixture of the case file writes holds the line credentials with the value 1. Two. Scope: no other line of the case file changes, the project tool stays, no case leaves and no case gains a skip. The other files under tools/deploy/tests are not part of this task. Three. Target: the verification of task 22.39.1093 passes. The four cases of the file pass. Task 22.39.1093."
+basis = "Gotcha 4801."
+affects = []
+
+[decision.3875]
+title = "The degraded case file of the gateway follows the source group of eight names, the readiness entry of the indexer and the key check of the settle route"
+value = "One. The loop of the case degraded_endpoint_refuses_a_kernel_side_input_without_the_component_url runs over the seven names of the source group besides COMPONENT_URL. The two checks on the chain only environment keep covering the twelve names. How the file holds the two sets of names is the choice of the participant. Two. The map that the case degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_kernel compares with gains the entry indexer with the state unavailable and the reason not_configured. Three. In the case degraded_endpoint_starts_chain_only_through_its_real_configuration the answer to the settle request without a key is compared with the status 401 and the code api_key_required. The refusal body of the kernel component that the case holds is compared, together with the status 503, with the answer to a read of the receipt route without a key for an activity id of 64 hexadecimal characters. Four. Scope: the source holds. No other case of the file changes, no case leaves and no case gains a skip. The line of the fixture that writes the access list is the subject of task 22.39.1095 and stays in this task. Five. Target: the verification of task 22.39.1094 passes. Task 22.39.1094."
+basis = "Gotcha 4802."
+affects = []
+
+[decision.3876]
+title = "The ten gateway case files write the default user line in the disabled form with the rules for all keys, all channels and all commands"
+value = "One. Each of the ten files of gotcha 4803 part one writes the default user line in the target form of decision 3871 point two: the word off followed by the three rules that the line of the shared helper holds after the words on nopass. One line changes in each file. Two. Scope: the shared helper stays, the line of the test user stays, no case leaves, no case gains a skip, and the other files of the tree that write an access list are not part of this task. Three. Target: the verification of task 22.39.1095 passes. It runs three cases of tap_nonce.rs and the three cases of task 22.39.1094. Task 22.39.1095."
+basis = "Gotcha 4803. Gotcha 4798."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45996,6 +46032,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1095]
+title = "Write the default user line of the store access list in ten gateway case files in the disabled form with rules"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/chain_only_readiness.rs", "services/platform/hosted/gateway/tests/chain_reads.rs", "services/platform/hosted/gateway/tests/degraded.rs", "services/platform/hosted/gateway/tests/one_source_reads.rs", "services/platform/hosted/gateway/tests/paxeer_failover.rs", "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs", "services/platform/hosted/gateway/tests/receipt_keys.rs", "services/platform/hosted/gateway/tests/router_surface.rs", "services/platform/hosted/gateway/tests/tap_nonce.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test tap_nonce --test degraded -- --exact exact_pending_retry_survives_reconstruction_but_altered_nonce_reuse_is_replay payment_outbox_commits_with_completion_and_retains_acknowledgements principal_binding_comes_only_from_the_authenticated_durable_key_record degraded_endpoint_refuses_a_kernel_side_input_without_the_component_url degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_kernel degraded_endpoint_starts_chain_only_through_its_real_configuration"
+do_1 = "do_1 Gotcha 4803, decision 3876, gotcha 4798 part four, decision 3871 point two. Read the access list string of the ten files and the access list line of services/platform/hosted/gateway/tests/support/redis_process.rs."
+symbols = []
+
+[capability.22.39.1094]
+title = "Bring three cases of the degraded case file of the gateway in step with the kernel variable group, the readiness entries and the key check of the source"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/degraded.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test degraded -- --exact degraded_endpoint_refuses_a_kernel_side_input_without_the_component_url degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_kernel degraded_endpoint_starts_chain_only_through_its_real_configuration"
+do_1 = "do_1 Gotcha 4802, decision 3875. Read the constant KERNEL_VARIABLES, the function configured_kernel, the function readiness, the request handling of the production routes and the function settle in services/platform/hosted/gateway/src/main.rs, the receipt route in services/platform/hosted/gateway/src/lib.rs and the three cases with the constant KERNEL_SIDE_VARIABLES in services/platform/hosted/gateway/tests/degraded.rs."
+symbols = []
+
+[capability.22.39.1093]
+title = "Add the key credentials with the value 1 to the image row of the fixture manifest in the deploy redaction case"
+reqs = ["22998.1"]
+touches = ["tools/deploy/tests"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/test_*_error_redaction.py"
+do_1 = "do_1 Gotcha 4801, decision 3874. Read the fixture and the checks of the case file of gotcha 4801 part one and the key table, the check and the registry step of the tool of part two."
+symbols = []
+
+[capability.22.39.1092]
+title = "Leave the replica settings group out of the required variables of the receipt authority definition case, read the loopback call in the function replica_config and name the rollout service gateway"
+reqs = ["22998.1"]
+touches = ["tools/deploy/tests/projects/test_platform_receipt_authority.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_receipt_authority.py"
+do_1 = "do_1 Gotcha 4800, decision 3873, gotcha 4795 part six. Read the case test_required_variables_follow_runtime_readers_and_build_arguments in tools/deploy/tests/projects/test_platform_receipt_authority.py, the constant REPLICA_SETTINGS and the function replica_config in services/platform/hosted/authority/src/main.rs, the definition deploy/projects/platform/receipt-authority.kvx and the sections of deploy/rollout.kvx."
+symbols = []
+
+[capability.22.39.1091]
+title = "Check an idle connection in the gateway store client before a command is written to it, and add a case that restarts the store server process under one store handle"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/src/store.rs", "services/platform/hosted/gateway/tests/support"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test store_reconnect --test principal_audit_index"
+do_1 = "do_1 Gotcha 4799, decision 3872. Read the type RedisStore with the functions take_idle, retain_idle, command and ready in services/platform/hosted/gateway/src/store.rs, the shared helper services/platform/hosted/gateway/tests/support/redis_process.rs and the file services/platform/hosted/gateway/tests/principal_audit_index.rs."
+symbols = []
+
+[capability.22.39.1090]
+title = "Write the effective access list in the store image entrypoint with the default user line in the disabled form with rules, and add a case file that runs the entrypoint and the store server binary"
+reqs = ["22998.1"]
+touches = ["docker/redis", "docker/README.md"]
+tests = []
+verification_contract = "sh -n docker/redis/entrypoint.sh && bash -n docker/redis/tests/redis-image.test.sh && redis-server --version && python3 -m pytest -q tools/containers/test_redis_image.py"
+do_1 = "do_1 Gotcha 4798, decision 3871. Read docker/redis/entrypoint.sh, docker/redis/files.tsv, docker/redis/Dockerfile, docker/redis/tests/redis-image.test.sh, the row Redis of docker/README.md and the access list line of services/platform/hosted/gateway/tests/support/redis_process.rs."
+symbols = []
 
 [capability.22.39.1089]
 title = "Name the rollout service gateway in four platform definition cases and add the sources that the core boundary image file copies to the watch list of its definition"
@@ -229606,9 +229696,99 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1095]
+title = "Write the default user line of the store access list in ten gateway case files in the disabled form with rules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1094"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1095"]
+interfaces = []
+do_1 = "do_1 Gotcha 4803, decision 3876, gotcha 4798 part four, decision 3871 point two. Read the access list string of the ten files and the access list line of services/platform/hosted/gateway/tests/support/redis_process.rs."
+do_2 = "do_2 Change the one line in each of the ten files under decision 3876 point one. No other file changes."
+do_3 = "do_3 Points two and three hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/chain_only_readiness.rs", "services/platform/hosted/gateway/tests/chain_reads.rs", "services/platform/hosted/gateway/tests/degraded.rs", "services/platform/hosted/gateway/tests/one_source_reads.rs", "services/platform/hosted/gateway/tests/paxeer_failover.rs", "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs", "services/platform/hosted/gateway/tests/receipt_keys.rs", "services/platform/hosted/gateway/tests/router_surface.rs", "services/platform/hosted/gateway/tests/tap_nonce.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test tap_nonce --test degraded -- --exact exact_pending_retry_survives_reconstruction_but_altered_nonce_reuse_is_replay payment_outbox_commits_with_completion_and_retains_acknowledgements principal_binding_comes_only_from_the_authenticated_durable_key_record degraded_endpoint_refuses_a_kernel_side_input_without_the_component_url degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_kernel degraded_endpoint_starts_chain_only_through_its_real_configuration"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1094]
+title = "Bring three cases of the degraded case file of the gateway in step with the kernel variable group, the readiness entries and the key check of the source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1094"]
+interfaces = []
+do_1 = "do_1 Gotcha 4802, decision 3875. Read the constant KERNEL_VARIABLES, the function configured_kernel, the function readiness, the request handling of the production routes and the function settle in services/platform/hosted/gateway/src/main.rs, the receipt route in services/platform/hosted/gateway/src/lib.rs and the three cases with the constant KERNEL_SIDE_VARIABLES in services/platform/hosted/gateway/tests/degraded.rs."
+do_2 = "do_2 Change the three cases under decision 3875 points one to three. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/degraded.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test degraded"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test degraded -- --exact degraded_endpoint_refuses_a_kernel_side_input_without_the_component_url degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_kernel degraded_endpoint_starts_chain_only_through_its_real_configuration"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1091]
+title = "Check an idle connection in the gateway store client before a command is written to it, and add a case that restarts the store server process under one store handle"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1091"]
+interfaces = []
+do_1 = "do_1 Gotcha 4799, decision 3872. Read the type RedisStore with the functions take_idle, retain_idle, command and ready in services/platform/hosted/gateway/src/store.rs, the shared helper services/platform/hosted/gateway/tests/support/redis_process.rs and the file services/platform/hosted/gateway/tests/principal_audit_index.rs."
+do_2 = "do_2 Change the function command under decision 3872 points one to three and write the case file services/platform/hosted/gateway/tests/store_reconnect.rs under point four. No other file changes beyond point five."
+do_3 = "do_3 Points five and six hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/src/store.rs", "services/platform/hosted/gateway/tests/support"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/tests/store_reconnect.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test store_reconnect --test principal_audit_index"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1088]
 title = "Remove the file tests/testnets.rs of the mirror crate, whose three cases run under the target of the binary and the target verifier_documentation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -403237,9 +403417,99 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.1093]
+title = "Add the key credentials with the value 1 to the image row of the fixture manifest in the deploy redaction case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1093"]
+interfaces = []
+do_1 = "do_1 Gotcha 4801, decision 3874. Read the fixture and the checks of the case file of gotcha 4801 part one and the key table, the check and the registry step of the tool of part two."
+do_2 = "do_2 Change the manifest of the fixture under decision 3874 point one. No other file changes."
+do_3 = "do_3 Points two and three hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/tests"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/test_*_error_redaction.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/test_*_error_redaction.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1092]
+title = "Leave the replica settings group out of the required variables of the receipt authority definition case, read the loopback call in the function replica_config and name the rollout service gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1092"]
+interfaces = []
+do_1 = "do_1 Gotcha 4800, decision 3873, gotcha 4795 part six. Read the case test_required_variables_follow_runtime_readers_and_build_arguments in tools/deploy/tests/projects/test_platform_receipt_authority.py, the constant REPLICA_SETTINGS and the function replica_config in services/platform/hosted/authority/src/main.rs, the definition deploy/projects/platform/receipt-authority.kvx and the sections of deploy/rollout.kvx."
+do_2 = "do_2 Change the case under decision 3873 points one to three. No other file changes."
+do_3 = "do_3 Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/tests/projects/test_platform_receipt_authority.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_receipt_authority.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_receipt_authority.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1090]
+title = "Write the effective access list in the store image entrypoint with the default user line in the disabled form with rules, and add a case file that runs the entrypoint and the store server binary"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1090"]
+interfaces = []
+do_1 = "do_1 Gotcha 4798, decision 3871. Read docker/redis/entrypoint.sh, docker/redis/files.tsv, docker/redis/Dockerfile, docker/redis/tests/redis-image.test.sh, the row Redis of docker/README.md and the access list line of services/platform/hosted/gateway/tests/support/redis_process.rs."
+do_2 = "do_2 Change the entrypoint under decision 3871 points one to six and the script under point seven, write the case file tools/containers/test_redis_image.py under point eight and change the row under point nine. No other file changes."
+do_3 = "do_3 Points ten and eleven hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/redis", "docker/README.md"]
+tests = []
+planned_paths = ["tools/containers/test_redis_image.py"]
+build_cmd = "sh -n docker/redis/entrypoint.sh"
+verify_cmd = "sh -n docker/redis/entrypoint.sh && bash -n docker/redis/tests/redis-image.test.sh && redis-server --version && python3 -m pytest -q tools/containers/test_redis_image.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1089]
 title = "Name the rollout service gateway in four platform definition cases and add the sources that the core boundary image file copies to the watch list of its definition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -403269,7 +403539,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1087]
 title = "Bring the interop gateway file table, the interop definition and the hosted renderer call in step with the inputs that the service reads and with the rollout names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
