@@ -211929,7 +211929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1140]
 title = "Let the creation request of the object storage fixture step of the launchpad test workflow repeat on a transient answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
