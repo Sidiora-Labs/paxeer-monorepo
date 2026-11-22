@@ -171,7 +171,7 @@ def test_workspace_edges_resolve_and_reject_missing_targets(npm_root, relative, 
 def test_workspace_inventory_rejects_missing_manifests_and_names(npm_root, damage):
     if damage == 'missing-manifest':
         (npm_root / 'apps/launchpad/mobile/package.json').unlink()
-        expected = 'Missing npm workspace manifest for mobile'
+        expected = 'Missing npm workspace manifest for ./mobile'
     else:
         path = npm_root / 'sdk/launchpad/packages/sdk-v2/package.json'
         data = json.loads(path.read_text())
