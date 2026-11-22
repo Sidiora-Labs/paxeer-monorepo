@@ -16618,6 +16618,18 @@ value = "One. The setUp method that JournalTests and ActivationInterruptionTests
 basis = "Gotcha 4844."
 affects = []
 
+[decision.3918]
+title = "The interface authority records, the load fixture and the two case files of the launchpad follow the present sources"
+value = "One. The member sources of tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json and the member x-producer of tools/launchpad/production/load/testdata/contract_authority_openapi.json take the sha256 of sdk/launchpad/packages/sdk/src/operations.gen.ts as the file stands. Two. The literal of tools/launchpad/production/interfaces/test_materialize.py takes the sha256 of services/launchpad/api/internal/rest/primitives.go as the file stands. The function derive_authority reads every row of the map v2ErrorRules: a key that is a string literal counts by its text, and a key that is a named constant counts by the string value that the constant declarations of services/launchpad/api/internal/rest/lint_literals.go and services/launchpad/api/internal/rest/primitives.go bind to the name. The keys QUERY_INVALID and INTERNAL_ERROR stay left out by their values. The row of the constant topicNotStartedCode counts as a contract error, and the comment line names seventeen contract errors. Three. The case test_all_catalog_entries_mapped and the case test_materializer_test_authority require the four counts 59, 108, 12 and 17. Four. The row livepeer-config of tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json takes the sha256 of services/launchpad/livestream/internal/config/config.go as the file stands. Five. In tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json the source row of each of the eight contracts of gotcha 4845 part seven takes the sha256 of its source as the file stands. Each inventory lists exactly the names that the function interface_fields returns for its source, in sorted order. Each further name gains one mapping at the place of its name in that order, with the four members in the order of the present mappings, the disposition requires_enrichment, the source of the inventory and the rule text that the requires_enrichment mappings of the record hold. No present mapping changes. Six. Scope: no source, no tool and no other case file changes. The four JSON files keep their form, an indent of two blanks and one newline at the end, so that the output of git diff shows only the named values and the further rows. Seven. Target: the verification of task 22.39.1136 passes. It runs tools/launchpad/production/interfaces/test_materialize.py, tools/launchpad/production/interfaces/test_contract_authority.py, tools/launchpad/production/interfaces/test_suite_authority.py and tools/launchpad/production/load/contract_admission_cases.py. Task 22.39.1136."
+basis = "Gotcha 4845."
+affects = []
+
+[decision.3919]
+title = "The control registry of the launchpad production tooling holds the digests that its tools compute from the present inputs"
+value = "One. The member files of the member retained_inputs takes, for sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json and for sdk/launchpad/packages/sdk/src/operations.gen.ts, the sha256 of the file as it stands. Two. The member sha256 of the member retained_inputs takes the value that the function digest of tools/launchpad/production/control_plane.py returns for the member files with the two new values. Three. The member policy_sha256 of the entry with the key 1.99 takes the value that the function digest of tools/launchpad/production/serial_gate.py returns for the member serial_gate_policy of the same entry. The member serial_gate_policy stays as it is. Four. Scope: the four values are set in the file directly, and no tool that writes the registry is run. No other member of the registry changes, and no tool, no case file and no retained input changes. The file keeps its form, an indent of two blanks and one newline at the end, so that the output of git diff shows four changed lines. Five. Target: the verification of task 22.39.1137 passes. It runs tools/launchpad/production/tests/test_control_plane_transport.py. Task 22.39.1137."
+basis = "Gotcha 4846."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46278,6 +46290,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1137]
+title = "Bring the control registry of the launchpad production tooling in step with its present inputs"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/bootstrap/check-registry.json"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/launchpad/production/tests/test_control_plane_transport.py"
+do_1 = "do_1 Gotcha 4846, decision 3919. Read the functions digest, source_file and retained_inventory in tools/launchpad/production/control_plane.py, the function digest and the two places that read the member policy_sha256 in tools/launchpad/production/serial_gate.py, the named case in tools/launchpad/production/tests/test_control_plane_transport.py and the members retained_inputs and tasks of tools/launchpad/production/bootstrap/check-registry.json."
+symbols = []
+
+[capability.22.39.1136]
+title = "Bring the interface authority records, the load fixture and two case files of the launchpad in step with the present sources"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json", "tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json", "tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json", "tools/launchpad/production/interfaces/test_materialize.py", "tools/launchpad/production/interfaces/test_suite_authority.py", "tools/launchpad/production/load/testdata/contract_authority_openapi.json"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/launchpad/production/interfaces/test_materialize.py && python3 -m pytest -q tools/launchpad/production/interfaces/test_contract_authority.py && python3 -m pytest -q tools/launchpad/production/interfaces/test_suite_authority.py && python3 -m pytest -q tools/launchpad/production/load/contract_admission_cases.py"
+do_1 = "do_1 Gotcha 4845, decision 3918. Read the function derive_authority and the case test_all_catalog_entries_mapped in tools/launchpad/production/interfaces/test_materialize.py, the case test_materializer_test_authority in tools/launchpad/production/interfaces/test_suite_authority.py, the functions interface_fields and check in tools/launchpad/production/interfaces/compatibility_check.py, the source loop of tools/launchpad/production/interfaces/capability_check.py, the case test_route_catalog in tools/launchpad/production/load/contract_admission_cases.py, the map v2ErrorRules in services/launchpad/api/internal/rest/primitives.go and the constant block of services/launchpad/api/internal/rest/lint_literals.go."
+symbols = []
 
 [capability.22.39.1135]
 title = "Give the journal and activation cases of the topology operator a connected plan"
@@ -404293,9 +404323,72 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.1137]
+title = "Bring the control registry of the launchpad production tooling in step with its present inputs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1137"]
+interfaces = []
+do_1 = "do_1 Gotcha 4846, decision 3919. Read the functions digest, source_file and retained_inventory in tools/launchpad/production/control_plane.py, the function digest and the two places that read the member policy_sha256 in tools/launchpad/production/serial_gate.py, the named case in tools/launchpad/production/tests/test_control_plane_transport.py and the members retained_inputs and tasks of tools/launchpad/production/bootstrap/check-registry.json."
+do_2 = "do_2 Decision 3919 points one and two: compute the two sha256 values from the files and the value of the function digest of tools/launchpad/production/control_plane.py for the map of the eight values, and set the three members."
+do_3 = "do_3 Decision 3919 point three: compute the value of the function digest of tools/launchpad/production/serial_gate.py for the member serial_gate_policy of the entry with the key 1.99 and set the member policy_sha256."
+do_4 = "do_4 Decision 3919 point four holds: read the output of git diff for the file before the commit. The build command installs tools/launchpad/production/interfaces/requirements.txt. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/bootstrap/check-registry.json"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/launchpad/production/interfaces/requirements.txt"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/tests/test_control_plane_transport.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1136]
+title = "Bring the interface authority records, the load fixture and two case files of the launchpad in step with the present sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1136"]
+interfaces = []
+do_1 = "do_1 Gotcha 4845, decision 3918. Read the function derive_authority and the case test_all_catalog_entries_mapped in tools/launchpad/production/interfaces/test_materialize.py, the case test_materializer_test_authority in tools/launchpad/production/interfaces/test_suite_authority.py, the functions interface_fields and check in tools/launchpad/production/interfaces/compatibility_check.py, the source loop of tools/launchpad/production/interfaces/capability_check.py, the case test_route_catalog in tools/launchpad/production/load/contract_admission_cases.py, the map v2ErrorRules in services/launchpad/api/internal/rest/primitives.go and the constant block of services/launchpad/api/internal/rest/lint_literals.go."
+do_2 = "do_2 Decision 3918 points one and four: compute the sha256 of the two files and set the three values in tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json, tools/launchpad/production/load/testdata/contract_authority_openapi.json and tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json."
+do_3 = "do_3 Decision 3918 points two and three: change the literal, the reading of the map rows and the comment line of the function derive_authority and the count of the named case in tools/launchpad/production/interfaces/test_materialize.py, and the count of the named case in tools/launchpad/production/interfaces/test_suite_authority.py."
+do_4 = "do_4 Decision 3918 point five: change tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json. Take the names from the function interface_fields of tools/launchpad/production/interfaces/compatibility_check.py and copy the rule text from a requires_enrichment mapping of the record. The contract candles-sdk gains 50 names and mappings, and the contracts indexer-sdk, metadata-sdk and users-sdk gain one each."
+do_5 = "do_5 Decision 3918 point six holds: read the output of git diff for the four JSON files before the commit. The build command installs tools/launchpad/production/interfaces/requirements.txt. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json", "tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json", "tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json", "tools/launchpad/production/interfaces/test_materialize.py", "tools/launchpad/production/interfaces/test_suite_authority.py", "tools/launchpad/production/load/testdata/contract_authority_openapi.json"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/launchpad/production/interfaces/requirements.txt"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/interfaces/test_materialize.py && python3 -m pytest -q tools/launchpad/production/interfaces/test_contract_authority.py && python3 -m pytest -q tools/launchpad/production/interfaces/test_suite_authority.py && python3 -m pytest -q tools/launchpad/production/load/contract_admission_cases.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1135]
 title = "Give the journal and activation cases of the topology operator a connected plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404325,7 +404418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1134]
 title = "Bring the source inventory case in step with the pattern form of the launchpad workspace file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404355,7 +404448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1133]
 title = "Bring the reward delivery source case in step with the constant name of the PnL tracker sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404385,7 +404478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1132]
 title = "Bring three document cases of the launchpad in step with the phrases of the present documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

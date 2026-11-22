@@ -6,7 +6,7 @@
   },
   "x-producer": {
     "path": "sdk/launchpad/packages/sdk/src/operations.gen.ts",
-    "sha256": "b7763579cac0429a3bf507370fcf055b0839b642c9c9d33c8488791fe3fcd42b"
+    "sha256": "9279c6ea49512bb8700ba50cc0b26f0d39093e544a87f0b1c57458f00f382550"
   },
   "paths": {
     "/v2/pools/{poolAddress}/candles": {
