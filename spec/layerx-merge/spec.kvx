@@ -16654,6 +16654,36 @@ value = "One. In tools/launchpad/production/feature-acceptance/policy.py the loo
 basis = "Gotcha 4850."
 affects = []
 
+[decision.3924]
+title = "The load test job case names the step of the explorer workflow by its present name"
+value = "One. In the branch for the change conditional-runtime of the case test_routing_refuses_fixed_jobs_and_incomplete_runtime both occurrences of the step name read Ensure the container runtime is available. The indentation, the line with the condition and the form of the replacement stay. Two. The three other subtests, the requirements of the case, the other cases of the file, .github/workflows/explorer-images.yml, .github/workflows/launchpad-test.yml and scripts/ci/runner-routing-check.sh stay as they are. Three. Scope: the one case file. Four. Target: the verification of task 22.39.1142 passes. It runs tools/ci/tests/test_ci_loadtest_job.py. Task 22.39.1142."
+basis = "Gotcha 4851."
+affects = []
+
+[decision.3925]
+title = "The go version pins case compares the pins of the launchpad test workflow with the version the launchpad Makefile exports"
+value = "One. The case reads the line of services/launchpad/Makefile that exports GOTOOLCHAIN, requires that the line exists and takes the version that follows the letters go. Two. For a literal value of the key go-version or GO_VERSION in launchpad-test.yml the case requires the version of point one. For every other workflow file it requires the version of the root go.mod as before. The message of a requirement names the version it compares with. Three. The comparison of the two go.mod files, the rule for a value with a workflow expression, the requirement of at least one checked value and the checks of the image files, of .devcontainer/Dockerfile and of the script fixtures stay as they are. Four. Scope: the one case file. .github/workflows/launchpad-test.yml, services/launchpad/Makefile and every go.mod stay as they are. Five. Target: the verification of task 22.39.1143 passes. It runs tools/ci/tests/test_go_toolchain_pins.py. Task 22.39.1143."
+basis = "Gotcha 4852."
+affects = []
+
+[decision.3926]
+title = "The human web image case finds the web build by the line that ends with the words npm run build"
+value = "One. The case collects the lines of docker/web/Dockerfile that end with the words npm run build, requires exactly one and takes its position as the position of the web build. Two. The three other lookups and the two order requirements stay as they are. The other cases of the file stay. Three. Scope: the one case file. docker/web/Dockerfile stays as it is. Four. Target: the verification of task 22.39.1144 passes. It runs tools/ci/tests/test_makefile_human_build.py. Task 22.39.1144."
+basis = "Gotcha 4853."
+affects = []
+
+[decision.3927]
+title = "The three Makefile cases follow the library exclusions and the target line of the root Makefile"
+value = "One. In the case test_library_exclusions_exact of tools/ci/tests/test_makefile_wave1.py and of tools/ci/tests/test_makefile_wave2.py the expected set holds the one path src/storage/lxp_projection.c. The two comment lines on the four other sources leave with them, and the comment line on the projection source stays. Two. The requirements that follow the set in the two cases stay as they are. Three. In the case test_aggregates_dry_run_clean of tools/ci/tests/test_makefile_wave6.py the requirement on the second line takes the target line of the root Makefile in full: the target name, the colon and the reference to the library variable LIBRARY as the Makefile writes it. The requirement on the first line and every other requirement of the case stay. Four. Scope: the three case files. The other cases of the three files and the root Makefile stay as they are. Five. Target: the verification of task 22.39.1145 passes. It runs the three case files. Task 22.39.1145."
+basis = "Gotcha 4854."
+affects = []
+
+[decision.3928]
+title = "The call of the ledger check in the ledger paths case runs under a bound of its own of 600 seconds"
+value = "One. In the case test_ledger_check_reads_layerx_merge_ledger the call of scripts/ci/beta-ledger-check.sh takes a bound of 600 seconds. Two. The call of tools/ci/beta-report.sh keeps its bound of 60 seconds. Three. The arguments, the environment and the requirements of the two calls, the name of the case, scripts/ci/beta-ledger-check.sh and tools/ci/beta-report.sh stay as they are. Four. Scope: the one case file. Five. Target: the verification of task 22.39.1146 passes. It runs tools/ci/tests/test_beta_ledger_paths.py. Task 22.39.1146."
+basis = "Gotcha 4855."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46314,6 +46344,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1146]
+title = "Give the call of the ledger check in the ledger paths case a bound of its own"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_beta_ledger_paths.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_beta_ledger_paths.py"
+do_1 = "do_1 Gotcha 4855, decision 3928. Read tools/ci/tests/test_beta_ledger_paths.py whole and, in scripts/ci/beta-ledger-check.sh, the awk program of the variable KVX_PARSER and the two read loops that take its output for the ledger file and for the feature spec file. The final message names the two loops with their lines."
+symbols = []
+
+[capability.22.39.1145]
+title = "Bring three Makefile cases in step with the library exclusions and the python suites target line of the root Makefile"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_makefile_wave1.py", "tools/ci/tests/test_makefile_wave2.py", "tools/ci/tests/test_makefile_wave6.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_makefile_wave1.py tools/ci/tests/test_makefile_wave2.py tools/ci/tests/test_makefile_wave6.py"
+do_1 = "do_1 Gotcha 4854, decision 3927. Read the case test_library_exclusions_exact in tools/ci/tests/test_makefile_wave1.py and in tools/ci/tests/test_makefile_wave2.py, the last lines of the case test_aggregates_dry_run_clean in tools/ci/tests/test_makefile_wave6.py, and in the root Makefile the assignment of LIB_EXCLUDED_SOURCES and the two lines that follow the rule test-harness. The final message lists the value of LIB_EXCLUDED_SOURCES and the two lines."
+symbols = []
+
+[capability.22.39.1144]
+title = "Let the human web image case find the web build by the line that ends with the words npm run build"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_makefile_human_build.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_makefile_human_build.py"
+do_1 = "do_1 Gotcha 4853, decision 3926. Read the case test_web_image_builds_agent_sdk_before_web_build in tools/ci/tests/test_makefile_human_build.py and docker/web/Dockerfile whole. The final message lists the positions of the four lines the case compares."
+symbols = []
+
+[capability.22.39.1143]
+title = "Let the go version pins case compare the pins of the launchpad test workflow with the version of the launchpad Makefile"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_go_toolchain_pins.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_go_toolchain_pins.py"
+do_1 = "do_1 Gotcha 4852, decision 3925. Read tools/ci/tests/test_go_toolchain_pins.py whole, the lines with the key go-version in .github/workflows/launchpad-test.yml and the line of services/launchpad/Makefile that exports GOTOOLCHAIN. The final message lists every workflow file that holds a literal value of one of the two keys, with the value."
+symbols = []
+
+[capability.22.39.1142]
+title = "Bring the load test job case in step with the step name of the explorer workflow"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_ci_loadtest_job.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_ci_loadtest_job.py"
+do_1 = "do_1 Gotcha 4851, decision 3924. Read the case test_routing_refuses_fixed_jobs_and_incomplete_runtime in tools/ci/tests/test_ci_loadtest_job.py, the job explorer-backend-test in .github/workflows/explorer-images.yml and the rules of scripts/ci/runner-routing-check.sh that read the steps of a job. The final message names the line of the workflow that holds the step and the rule of the routing check that reads its condition."
+symbols = []
 
 [capability.22.39.1141]
 title = "Let the credential pattern of the feature acceptance policy tool admit the marker in the form its redaction function writes into a query"
@@ -404472,6 +404547,156 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.1146]
+title = "Give the call of the ledger check in the ledger paths case a bound of its own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1146"]
+interfaces = []
+do_1 = "do_1 Gotcha 4855, decision 3928. Read tools/ci/tests/test_beta_ledger_paths.py whole and, in scripts/ci/beta-ledger-check.sh, the awk program of the variable KVX_PARSER and the two read loops that take its output for the ledger file and for the feature spec file. The final message names the two loops with their lines."
+do_2 = "do_2 Change the bound of the first call under decision 3928 point one. Points two and three hold: the second call keeps its bound and no script changes."
+do_3 = "do_3 Run the verification. The task changes the one case file only. Decision 3928 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_beta_ledger_paths.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_beta_ledger_paths.py && bash -n scripts/ci/beta-ledger-check.sh"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_beta_ledger_paths.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1145]
+title = "Bring three Makefile cases in step with the library exclusions and the python suites target line of the root Makefile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1145"]
+interfaces = []
+do_1 = "do_1 Gotcha 4854, decision 3927. Read the case test_library_exclusions_exact in tools/ci/tests/test_makefile_wave1.py and in tools/ci/tests/test_makefile_wave2.py, the last lines of the case test_aggregates_dry_run_clean in tools/ci/tests/test_makefile_wave6.py, and in the root Makefile the assignment of LIB_EXCLUDED_SOURCES and the two lines that follow the rule test-harness. The final message lists the value of LIB_EXCLUDED_SOURCES and the two lines."
+do_2 = "do_2 Change the expected set and its comment lines in the two exclusion cases under decision 3927 point one and the requirement on the second line in the aggregate case under point three. Take the target line from the root Makefile letter for letter. Point two holds."
+do_3 = "do_3 Run the verification. The task changes the three case files only. Decision 3927 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_makefile_wave1.py", "tools/ci/tests/test_makefile_wave2.py", "tools/ci/tests/test_makefile_wave6.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_makefile_wave1.py tools/ci/tests/test_makefile_wave2.py tools/ci/tests/test_makefile_wave6.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_makefile_wave1.py tools/ci/tests/test_makefile_wave2.py tools/ci/tests/test_makefile_wave6.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1144]
+title = "Let the human web image case find the web build by the line that ends with the words npm run build"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1144"]
+interfaces = []
+do_1 = "do_1 Gotcha 4853, decision 3926. Read the case test_web_image_builds_agent_sdk_before_web_build in tools/ci/tests/test_makefile_human_build.py and docker/web/Dockerfile whole. The final message lists the positions of the four lines the case compares."
+do_2 = "do_2 Change the lookup of the web build under decision 3926 point one. Point two holds: the three other lookups and the two order requirements stay."
+do_3 = "do_3 Run the verification. The task changes the one case file only. Decision 3926 points three and four hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_makefile_human_build.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_makefile_human_build.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_makefile_human_build.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1143]
+title = "Let the go version pins case compare the pins of the launchpad test workflow with the version of the launchpad Makefile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1143"]
+interfaces = []
+do_1 = "do_1 Gotcha 4852, decision 3925. Read tools/ci/tests/test_go_toolchain_pins.py whole, the lines with the key go-version in .github/workflows/launchpad-test.yml and the line of services/launchpad/Makefile that exports GOTOOLCHAIN. The final message lists every workflow file that holds a literal value of one of the two keys, with the value."
+do_2 = "do_2 Change the case under decision 3925 points one and two. The form is the choice of the participant: a small map from the name of a workflow file to its version serves. Point three holds: every other check of the case stays."
+do_3 = "do_3 Run the verification. The task changes the one case file only. Decision 3925 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_go_toolchain_pins.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_go_toolchain_pins.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_go_toolchain_pins.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1142]
+title = "Bring the load test job case in step with the step name of the explorer workflow"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1142"]
+interfaces = []
+do_1 = "do_1 Gotcha 4851, decision 3924. Read the case test_routing_refuses_fixed_jobs_and_incomplete_runtime in tools/ci/tests/test_ci_loadtest_job.py, the job explorer-backend-test in .github/workflows/explorer-images.yml and the rules of scripts/ci/runner-routing-check.sh that read the steps of a job. The final message names the line of the workflow that holds the step and the rule of the routing check that reads its condition."
+do_2 = "do_2 Change the two occurrences of the step name under decision 3924 point one. Point two holds: no other line of the case file changes, and no workflow and no script changes."
+do_3 = "do_3 Run the verification. The task changes the one case file only. Decision 3924 points three and four hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_ci_loadtest_job.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_ci_loadtest_job.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_ci_loadtest_job.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1141]
 title = "Let the credential pattern of the feature acceptance policy tool admit the marker in the form its redaction function writes into a query"
