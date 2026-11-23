@@ -230917,7 +230917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1164]
 title = "Let the node of each authority fixture take the system time once for all of its block answers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
