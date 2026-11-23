@@ -192,6 +192,9 @@ def test_account_readme_discovery_and_qualification_boundaries():
     assert 'Missing inputs fail explicitly' in service
     assert 'physical Android device' in staging
     assert 'fresh private output path outside the checkout' in staging
-    assert '`qualificationCapacityClaim` false' in staging
-    assert 'deferred to serial task 9.1' in staging
-    assert 'do not run the service journeys, browser or physical-device qualification' in staging
+    assert '`qualificationCapacityClaim: false`' in staging
+    assert 'does not measure shared load or restore capacity' in staging
+    assert (
+        'do not run the service journeys, browser or physical-device qualification'
+        in ' '.join(staging.split())
+    )

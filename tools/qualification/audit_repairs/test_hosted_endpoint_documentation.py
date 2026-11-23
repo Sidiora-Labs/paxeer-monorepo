@@ -47,7 +47,7 @@ RETAINED_CONTRACTS = {
     ),
     "docs/wiki/HostedWebhooks.md": (
         "Redis requires `rediss://`",
-        "ingress TLS to `[::]:9443`",
+        "Ingress remains TLS on `[::]:9443`",
         "`POST /internal/v1/events/{kind}/{source_event}`",
         "`GET /internal/v1/events/{id}`",
         "| GET | `/healthz`",

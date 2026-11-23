@@ -200,7 +200,8 @@ def test_agent_readme_prerequisites_follow_make_and_real_node_script():
     assert 'sha256sum "$PAXD"' in script
     assert "run-real-node-tests.sh prepare" in recipe("agent-test-native-prerequisites")
     workspace_test = recipe("agent-test")
-    assert "--locked --workspace" in workspace_test
+    assert "--locked $(AGENT_TEST_SCOPE)" in workspace_test
+    assert re.search(r"^AGENT_TEST_SCOPE\s*\?=\s*--workspace\s*$", read("Makefile"), re.M)
     assert "run-with-clock.sh" in workspace_test
     assert "LAYERX_RUNTIME_CLOCK_BIN" in workspace_test
     assert "LAYERX_PAXEER_BOUNDARY_BIN" in workspace_test
@@ -293,7 +294,7 @@ def test_clock_scanner_violations_have_exact_out_of_scope_owner_requests():
     pins = json.loads(
         (Path(__file__).with_name("fixtures") / "python_sdk_and_clock_source_pins.json").read_text()
     )
-    assert pins["clock_source_revision"] == "4bf40d96827730373898dfe869065e56fb9ebf54"
+    assert pins["clock_source_revision"] == "e72595b9cbcfc97f1a154215e16d8e4c383114e8"
     record_requests = record["wiring"]["clock_requests"]
     assert record_requests
     for request in record_requests:

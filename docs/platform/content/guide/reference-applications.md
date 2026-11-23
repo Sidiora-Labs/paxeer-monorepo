@@ -37,6 +37,6 @@ The marketplace program stores listings and consumed receipt digests in program-
 | Capability | Layer | What that means here |
 | --- | --- | --- |
 | Receipt-gated resource release | `service` | Seller middleware checks payment evidence before releasing a resource. |
-| Durable fulfilment | `service` | Stored payment claims prevent a release from being repeated after an uncertain outcome. |
-| Webhook authentication | `service` | The merchant checks signatures and delivery replay claims before handling settlement events. |
-| Bounded program transfers | `protocol` | The marketplace uses the transfer authority supplied to its call. |
+| Exactly-once fulfilment | `service` | Stored payment claims prevent a release from being repeated after an uncertain outcome. |
+| Verified, replay-protected webhooks | `service` | The merchant checks signatures and delivery replay claims before handling settlement events. |
+| Programs never write balances | `protocol` | The marketplace uses the transfer authority supplied to its call. |

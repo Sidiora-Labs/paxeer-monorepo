@@ -259,6 +259,7 @@ jobs:
           curl --fail --retry 30 --retry-connrefused --retry-delay 1 \
             http://localhost:9000/minio/health/ready
           curl --fail --aws-sigv4 "aws:amz:us-east-1:s3" \
+            --retry 30 --retry-delay 1 \
             --user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
             --request PUT http://localhost:9000/launchpad-user-test
       - name: Install the users scanner

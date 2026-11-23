@@ -16582,6 +16582,108 @@ value = "One. The case file tools/qualification/audit_repairs/test_repository_li
 basis = "Gotcha 4838."
 affects = []
 
+[decision.3912]
+title = "Every request of the stream work of the ranking case helper holds a wait of its own and is sent again inside the deadline of the work"
+value = "One. Every request that the function clean sends to the broker holds a wait of its own of 500 milliseconds and is sent again after 20 milliseconds inside the deadline of the work, in the form of the function brokerFixtureRequest of the provisioning fixture. The requests are the listing of the streams as a whole, each removal of a stream and each read of a stream in the wait after a removal. A listing that is sent again starts from an empty result, and the names of a listing count only when the listing ended without an error. Two. An answer of the broker is an answer: the answer that a stream is absent ends the wait after a removal and counts for a removal as removed, and every other error answer ends the work as it does today. Only a request without an answer inside its own wait is sent again. Three. At the end of the deadline the error of clean names the step and the stream at which the work stood and holds the last error of the request. The two messages of the helper keep their texts and carry that error. Four. Scope: the function rankingStreamDeadline with its two constants, the lock, the callers of RankingBroker and the product code of the module stay as they are. The function that sends one request stands in the package of the helper, is not exported and takes the request as a value, so that a case can give it a stand-in. Five. Target: the verification of task 22.39.1130 passes. It runs the lint, race and coverage targets of the launchpad for the module ranking-algo and requires cases whose names begin with TestRankingStreamRequest. Task 22.39.1130."
+basis = "Gotcha 4839."
+affects = []
+
+[decision.3913]
+title = "The enforcement rows of two platform pages carry declared titles, the hosted beta page links by address and two case files follow the present pages"
+value = "One. The three rows of docs/platform/content/guide/reference-applications.md take the titles that the capability file declares: Exactly-once fulfilment for the row of the stored payment claims, Verified, replay-protected webhooks for the row of the signature and replay checks and Programs never write balances for the row of the transfer authority. The layers and the meaning texts of the rows stay. Two. The page docs/platform/content/environments/emulator.md holds an enforcement table again. Every row carries a title and a layer that the capability file declares. The table holds a row for Beta faucet funding and a row for Scheduled beta resets, each with a meaning text that states what the emulator does in place of the hosted function: the prefund flag and the prefund route in place of a faucet, and state that lives in the process and is lost on restart in place of a schedule. A further row stands in the table only where the emulator source under tools/platform/emulator or the text of the page supports its meaning text. The phrases that tests/ci/test_platform_site_finality_model.py requires of the page stay and the phrases it refuses stay out. Three. The three links of docs/platform/beta-environment.md take an address. The link to the public RPC guide takes the address of the guide that docs/platform/content/beta.md holds. The links to docs/platform/content/beta.md and to docs/platform/beta-resets.ics take the repository address form of the links of docs/platform/content/install.md. The words of the three links stay. Four. The case test_site_generator_reads_moved_samples_and_renders_source_links of tools/qualification/audit_repairs/test_platform_documentation_relocation.py requires that check_links returns no entry. The comment above the requirement follows. The other 6 cases of the file stay. Five. The case of docs/platform/build/test_beta_surfaces.py requires the three column names Surface, Scope and Source and three cells in each row. Its other requirements stay. Six. Scope: the generator, the capability file, the site file, the page docs/platform/content/beta.md, the calendar file, the script services/platform/tools/docs-gate and the three case files under tests/ci stay as they are. Seven. Target: the verification of task 22.39.1131 passes. It runs the script services/platform/tools/docs-gate and the case files tools/qualification/audit_repairs/test_platform_documentation_relocation.py, tests/ci/test_platform_site_finality_model.py, tests/ci/test_docs_canonical_repository_links.py, tests/ci/test_docs_private_service_names.py and docs/platform/build/test_beta_surfaces.py. Task 22.39.1131."
+basis = "Gotcha 4840."
+affects = []
+
+[decision.3914]
+title = "Three document cases of the launchpad require the phrases of the present documents"
+value = "One. The documents deploy/launchpad/production/bootstrap/README.md, deploy/launchpad/production/observability/README.md and apps/launchpad/qualification/account-ui/README.md stay as they are. Two. In the case of deploy/launchpad/production/bootstrap/test_command_paths.py five requirements take phrases of the document. The requirement on the host ports takes the sentence All host ports bind to IPv4 loopback. The requirement on the start of the stack takes the line Start the stack with: in full. The requirement on contract deployment takes the sentence part contract deployment and application address configuration require explicit deployment configuration. The requirement on the pinned images takes the phrase is digest-pinned. The requirement on the fixture stacks takes the phrase The checked-in Compose project is. The four other phrases and the check of the link targets stay. Three. In the case of deploy/launchpad/production/observability/tests/test_command_paths.py four requirements take phrases of the document: Native promtool 3.2.1 is required, then an orphan bundle is verified before retry and never implies activation, then retain false capacity and monthly-availability qualification, then Shared evaluation requires the measured 24-hour workload. The three other phrases, the three strings the case refuses and the two file mentions stay. Four. In the case of apps/launchpad/qualification/account-ui/test_documented_account_commands.py three requirements change. The requirement on the capacity claim takes the code span of the document with the name, the colon and the value. The requirement on the deferral takes the phrase does not measure shared load or restore capacity. The requirement on the sentence part do not run the service journeys, browser or physical-device qualification compares it with the staging section after the words of the section are joined with single blanks. The nine other phrases stay. Five. Scope: the three case files keep their case names and their other cases. No document, no runner and no product source changes. Six. Target: the verification of task 22.39.1132 passes. It runs the three case files, each in a process of its own. Task 22.39.1132."
+basis = "Gotcha 4841."
+affects = []
+
+[decision.3915]
+title = "The reward delivery case requires the constant name that the two Go sources hold"
+value = "One. The named case requires the label case eventClaim: in the strategy switch of the method Rewards and the comparison p.Capability.Strategy != eventClaim in the method PrepareClaim. Two. The named case also requires that services/launchpad/pnl-tracker/internal/production/l18/constants.go binds the name eventClaim to the string literal CLAIM, so that the value of the strategy stays under the case. Three. Scope: the Go sources stay as they are. The other requirements of the case and the other cases of the file stay. The case file measurement_test.py of the same directory requires a private runtime as its input and stays outside the verification. Four. Target: the verification of task 22.39.1133 passes. It runs services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py. Task 22.39.1133."
+basis = "Gotcha 4842."
+affects = []
+
+[decision.3916]
+title = "The source inventory case requires the message with the pattern as the workspace file writes it"
+value = "One. For the parameter missing-manifest the case requires the text Missing npm workspace manifest for ./mobile. Two. Scope: tools/launchpad/production/bootstrap/baseline.py and apps/launchpad/pnpm-workspace.yaml stay as they are. The two other parameters of the case and the other cases of the file stay. Three. Target: the verification of task 22.39.1134 passes. It runs tools/launchpad/production/bootstrap/tests/test_source_inventory.py. Task 22.39.1134."
+basis = "Gotcha 4843."
+affects = []
+
+[decision.3917]
+title = "The journal and activation cases of the topology operator propose a connected plan"
+value = "One. The setUp method that JournalTests and ActivationInterruptionTests share takes its configuration and its plan from the connected inputs: the configuration is the first of the six values and the plan is the result of connected_plan for the six values. Two. The way the six values reach the method is the choice of the participant: a pytest fixture that binds them to the instance before setUp runs, or a plain function in deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py that the fixture connected_inputs and the method both call with a temporary directory. The fixture keeps its name and its six values. Three. Scope: deploy/launchpad/production/topology/phase2/operator.py, deploy/launchpad/production/topology/phase2/providers.py and deploy/launchpad/production/topology/topology.py stay as they are. The fifteen cases of deploy/launchpad/production/topology/phase2/tests/test_operator.py keep their names and their requirements. The cases of deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py and deploy/launchpad/production/topology/phase2/tests/test_connected_journal.py stay. Four. Target: the verification of task 22.39.1135 passes. It runs deploy/launchpad/production/topology/phase2/tests/test_operator.py, deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py and deploy/launchpad/production/topology/phase2/tests/test_connected_journal.py. Task 22.39.1135."
+basis = "Gotcha 4844."
+affects = []
+
+[decision.3918]
+title = "The interface authority records, the load fixture and the two case files of the launchpad follow the present sources"
+value = "One. The member sources of tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json and the member x-producer of tools/launchpad/production/load/testdata/contract_authority_openapi.json take the sha256 of sdk/launchpad/packages/sdk/src/operations.gen.ts as the file stands. Two. The literal of tools/launchpad/production/interfaces/test_materialize.py takes the sha256 of services/launchpad/api/internal/rest/primitives.go as the file stands. The function derive_authority reads every row of the map v2ErrorRules: a key that is a string literal counts by its text, and a key that is a named constant counts by the string value that the constant declarations of services/launchpad/api/internal/rest/lint_literals.go and services/launchpad/api/internal/rest/primitives.go bind to the name. The keys QUERY_INVALID and INTERNAL_ERROR stay left out by their values. The row of the constant topicNotStartedCode counts as a contract error, and the comment line names seventeen contract errors. Three. The case test_all_catalog_entries_mapped and the case test_materializer_test_authority require the four counts 59, 108, 12 and 17. Four. The row livepeer-config of tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json takes the sha256 of services/launchpad/livestream/internal/config/config.go as the file stands. Five. In tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json the source row of each of the eight contracts of gotcha 4845 part seven takes the sha256 of its source as the file stands. Each inventory lists exactly the names that the function interface_fields returns for its source, in sorted order. Each further name gains one mapping at the place of its name in that order, with the four members in the order of the present mappings, the disposition requires_enrichment, the source of the inventory and the rule text that the requires_enrichment mappings of the record hold. No present mapping changes. Six. Scope: no source, no tool and no other case file changes. The four JSON files keep their form, an indent of two blanks and one newline at the end, so that the output of git diff shows only the named values and the further rows. Seven. Target: the verification of task 22.39.1136 passes. It runs tools/launchpad/production/interfaces/test_materialize.py, tools/launchpad/production/interfaces/test_contract_authority.py, tools/launchpad/production/interfaces/test_suite_authority.py and tools/launchpad/production/load/contract_admission_cases.py. Task 22.39.1136."
+basis = "Gotcha 4845."
+affects = []
+
+[decision.3919]
+title = "The control registry of the launchpad production tooling holds the digests that its tools compute from the present inputs"
+value = "One. The member files of the member retained_inputs takes, for sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json and for sdk/launchpad/packages/sdk/src/operations.gen.ts, the sha256 of the file as it stands. Two. The member sha256 of the member retained_inputs takes the value that the function digest of tools/launchpad/production/control_plane.py returns for the member files with the two new values. Three. The member policy_sha256 of the entry with the key 1.99 takes the value that the function digest of tools/launchpad/production/serial_gate.py returns for the member serial_gate_policy of the same entry. The member serial_gate_policy stays as it is. Four. Scope: the four values are set in the file directly, and no tool that writes the registry is run. No other member of the registry changes, and no tool, no case file and no retained input changes. The file keeps its form, an indent of two blanks and one newline at the end, so that the output of git diff shows four changed lines. Five. Target: the verification of task 22.39.1137 passes. It runs tools/launchpad/production/tests/test_control_plane_transport.py. Task 22.39.1137."
+basis = "Gotcha 4846."
+affects = []
+
+[decision.3920]
+title = "The first case of the receipt state integration test waits for the state checking through its helper"
+value = "One. In the first case of the file use-optimistic-receipt.integration.test.tsx the fixed wait of 2300 milliseconds stays. After it and before the line of four requirements the case waits through the helper waitUntil until the state reads checking, in the form that the second case uses. The four requirements follow unchanged. Two. The title and the bound of the first case, its later steps, the second case, the helper waitUntil and the source file use-optimistic-receipt.ts stay as they are. Three. Scope: the one test file. Four. Target: the verification of task 22.39.1138 passes. It prepares the test environment of the web application and runs the test runner on the test files whose names hold use-optimistic-receipt.integration. Task 22.39.1138."
+basis = "Gotcha 4847."
+affects = []
+
+[decision.3921]
+title = "Each phase of the two replay cases of the launchpad API broker runs under a deadline of its own of five minutes"
+value = "One. In the case TestPostgresRetainedIdentitiesSurviveInterruptedReplay three phases each run under a context of their own with a deadline of five minutes that begins when the phase begins. The append phase holds the first frame, the cursor token and the transaction with its 10000 appends and its commit. The replay phase holds the two calls of PublicResume that follow, every call of Batch and the check of the state Live with 10000 frames seen. The closing phase holds the count query, frame 10002 and the final call of PublicResume. Two. In the case TestPostgresResumePreflightsByteLimitBeforeDelivery two phases each run under a context of their own with a deadline of five minutes likewise. The append phase holds the first frame, the cursor token, the appends and the commit. The resume phase holds the call of PublicResume. Three. The context of a phase is released when the phase ends. The frame counts, the byte limit, the requirements, the messages, the names of the cases, the helpers of the file and every product source stay as they are. The form is the choice of the participant: a small helper of the case file or plain context calls. Four. Scope: the one case file. Five. Target: the verification of task 22.39.1139 passes. It runs the lint target of the launchpad for the module api, runs the cases of the broker package whose names begin with TestPostgres with the flag -race and requires a case whose name begins with TestPostgresRetained. Task 22.39.1139."
+basis = "Gotcha 4848."
+affects = []
+
+[decision.3922]
+title = "The creation request of the object storage fixture step repeats on a transient answer"
+value = "One. In the script under the anchor launchpad_package_storage_run of .github/workflows/launchpad-test.yml the creation request takes the options --retry 30 and --retry-delay 1 on a line of its own after its first line. The first line of the request, its user option and its request option stay as they are, and the three jobs keep the one script. Two. The case test_launchpad_go_job_creates_real_export_bucket_before_tests of tests/ci/test_launchpad_go_tests_wired.py additionally requires that the option --retry-delay 1 stands 2 times in the script of the step, once for the read of the ready path and once for the creation request. Its present requirements stay. Three. The names and conditions of the steps, the anchor and the alias, the release of the server, the read of the ready path and every other step of the file stay as they are. No other case file changes. Four. Scope: the workflow file and the one case file. Five. Target: the verification of task 22.39.1140 passes. It runs the case files under tests/ci that read the launchpad test workflow, names the case of point two and requires that the option --retry-delay stands on 2 lines of the workflow file. Task 22.39.1140."
+basis = "Gotcha 4849."
+affects = []
+
+[decision.3923]
+title = "The credential pattern of the feature acceptance policy tool admits the marker in the two forms the tool writes"
+value = "One. In tools/launchpad/production/feature-acceptance/policy.py the lookahead of the fourth alternative of SECRET_PATTERN names the marker in its literal form and in the escaped form in which the function urlencode writes it, with each of the two square brackets as a percent escape. The credential words, the separator class and the value class of the alternative stay as they are. Two. The first three alternatives, the marker constant, the function redact_value with its call of urlencode, the functions assert_secret_free and redact_json_artifact and every other line of the file stay as they are. The bytes that redact_json_artifact returns for an input do not change. Three. The case test_phase3_secret_redaction_preserves_real_json_identity_and_exact_hashes of tools/launchpad/production/feature-acceptance/tests/test_policy.py additionally requires that the redacted bytes hold the query name access_token, an equals sign and the marker in the escaped form. Its present requirements stay, and no other case changes. Four. Scope: the one pattern line of the tool and the one case. Five. Target: the verification of task 22.39.1141 passes. It runs the case files under tools/launchpad/production/feature-acceptance/tests and names the case of point three. Task 22.39.1141."
+basis = "Gotcha 4850."
+affects = []
+
+[decision.3924]
+title = "The load test job case names the step of the explorer workflow by its present name"
+value = "One. In the branch for the change conditional-runtime of the case test_routing_refuses_fixed_jobs_and_incomplete_runtime both occurrences of the step name read Ensure the container runtime is available. The indentation, the line with the condition and the form of the replacement stay. Two. The three other subtests, the requirements of the case, the other cases of the file, .github/workflows/explorer-images.yml, .github/workflows/launchpad-test.yml and scripts/ci/runner-routing-check.sh stay as they are. Three. Scope: the one case file. Four. Target: the verification of task 22.39.1142 passes. It runs tools/ci/tests/test_ci_loadtest_job.py. Task 22.39.1142."
+basis = "Gotcha 4851."
+affects = []
+
+[decision.3925]
+title = "The go version pins case compares the pins of the launchpad test workflow with the version the launchpad Makefile exports"
+value = "One. The case reads the line of services/launchpad/Makefile that exports GOTOOLCHAIN, requires that the line exists and takes the version that follows the letters go. Two. For a literal value of the key go-version or GO_VERSION in launchpad-test.yml the case requires the version of point one. For every other workflow file it requires the version of the root go.mod as before. The message of a requirement names the version it compares with. Three. The comparison of the two go.mod files, the rule for a value with a workflow expression, the requirement of at least one checked value and the checks of the image files, of .devcontainer/Dockerfile and of the script fixtures stay as they are. Four. Scope: the one case file. .github/workflows/launchpad-test.yml, services/launchpad/Makefile and every go.mod stay as they are. Five. Target: the verification of task 22.39.1143 passes. It runs tools/ci/tests/test_go_toolchain_pins.py. Task 22.39.1143."
+basis = "Gotcha 4852."
+affects = []
+
+[decision.3926]
+title = "The human web image case finds the web build by the line that ends with the words npm run build"
+value = "One. The case collects the lines of docker/web/Dockerfile that end with the words npm run build, requires exactly one and takes its position as the position of the web build. Two. The three other lookups and the two order requirements stay as they are. The other cases of the file stay. Three. Scope: the one case file. docker/web/Dockerfile stays as it is. Four. Target: the verification of task 22.39.1144 passes. It runs tools/ci/tests/test_makefile_human_build.py. Task 22.39.1144."
+basis = "Gotcha 4853."
+affects = []
+
+[decision.3927]
+title = "The three Makefile cases follow the library exclusions and the target line of the root Makefile"
+value = "One. In the case test_library_exclusions_exact of tools/ci/tests/test_makefile_wave1.py and of tools/ci/tests/test_makefile_wave2.py the expected set holds the one path src/storage/lxp_projection.c. The two comment lines on the four other sources leave with them, and the comment line on the projection source stays. Two. The requirements that follow the set in the two cases stay as they are. Three. In the case test_aggregates_dry_run_clean of tools/ci/tests/test_makefile_wave6.py the requirement on the second line takes the target line of the root Makefile in full: the target name, the colon and the reference to the library variable LIBRARY as the Makefile writes it. The requirement on the first line and every other requirement of the case stay. Four. Scope: the three case files. The other cases of the three files and the root Makefile stay as they are. Five. Target: the verification of task 22.39.1145 passes. It runs the three case files. Task 22.39.1145."
+basis = "Gotcha 4854."
+affects = []
+
+[decision.3928]
+title = "The call of the ledger check in the ledger paths case runs under a bound of its own of 600 seconds"
+value = "One. In the case test_ledger_check_reads_layerx_merge_ledger the call of scripts/ci/beta-ledger-check.sh takes a bound of 600 seconds. Two. The call of tools/ci/beta-report.sh keeps its bound of 60 seconds. Three. The arguments, the environment and the requirements of the two calls, the name of the case, scripts/ci/beta-ledger-check.sh and tools/ci/beta-report.sh stay as they are. Four. Scope: the one case file. Five. Target: the verification of task 22.39.1146 passes. It runs tools/ci/tests/test_beta_ledger_paths.py. Task 22.39.1146."
+basis = "Gotcha 4855."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46242,6 +46344,159 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1146]
+title = "Give the call of the ledger check in the ledger paths case a bound of its own"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_beta_ledger_paths.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_beta_ledger_paths.py"
+do_1 = "do_1 Gotcha 4855, decision 3928. Read tools/ci/tests/test_beta_ledger_paths.py whole and, in scripts/ci/beta-ledger-check.sh, the awk program of the variable KVX_PARSER and the two read loops that take its output for the ledger file and for the feature spec file. The final message names the two loops with their lines."
+symbols = []
+
+[capability.22.39.1145]
+title = "Bring three Makefile cases in step with the library exclusions and the python suites target line of the root Makefile"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_makefile_wave1.py", "tools/ci/tests/test_makefile_wave2.py", "tools/ci/tests/test_makefile_wave6.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_makefile_wave1.py tools/ci/tests/test_makefile_wave2.py tools/ci/tests/test_makefile_wave6.py"
+do_1 = "do_1 Gotcha 4854, decision 3927. Read the case test_library_exclusions_exact in tools/ci/tests/test_makefile_wave1.py and in tools/ci/tests/test_makefile_wave2.py, the last lines of the case test_aggregates_dry_run_clean in tools/ci/tests/test_makefile_wave6.py, and in the root Makefile the assignment of LIB_EXCLUDED_SOURCES and the two lines that follow the rule test-harness. The final message lists the value of LIB_EXCLUDED_SOURCES and the two lines."
+symbols = []
+
+[capability.22.39.1144]
+title = "Let the human web image case find the web build by the line that ends with the words npm run build"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_makefile_human_build.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_makefile_human_build.py"
+do_1 = "do_1 Gotcha 4853, decision 3926. Read the case test_web_image_builds_agent_sdk_before_web_build in tools/ci/tests/test_makefile_human_build.py and docker/web/Dockerfile whole. The final message lists the positions of the four lines the case compares."
+symbols = []
+
+[capability.22.39.1143]
+title = "Let the go version pins case compare the pins of the launchpad test workflow with the version of the launchpad Makefile"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_go_toolchain_pins.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_go_toolchain_pins.py"
+do_1 = "do_1 Gotcha 4852, decision 3925. Read tools/ci/tests/test_go_toolchain_pins.py whole, the lines with the key go-version in .github/workflows/launchpad-test.yml and the line of services/launchpad/Makefile that exports GOTOOLCHAIN. The final message lists every workflow file that holds a literal value of one of the two keys, with the value."
+symbols = []
+
+[capability.22.39.1142]
+title = "Bring the load test job case in step with the step name of the explorer workflow"
+reqs = ["22998.1"]
+touches = ["tools/ci/tests/test_ci_loadtest_job.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/ci/tests/test_ci_loadtest_job.py"
+do_1 = "do_1 Gotcha 4851, decision 3924. Read the case test_routing_refuses_fixed_jobs_and_incomplete_runtime in tools/ci/tests/test_ci_loadtest_job.py, the job explorer-backend-test in .github/workflows/explorer-images.yml and the rules of scripts/ci/runner-routing-check.sh that read the steps of a job. The final message names the line of the workflow that holds the step and the rule of the routing check that reads its condition."
+symbols = []
+
+[capability.22.39.1141]
+title = "Let the credential pattern of the feature acceptance policy tool admit the marker in the form its redaction function writes into a query"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/feature-acceptance/policy.py", "tools/launchpad/production/feature-acceptance/tests/test_policy.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/launchpad/production/feature-acceptance/tests && python3 -m pytest -q tools/launchpad/production/feature-acceptance/tests/test_policy.py::PolicyTests::test_phase3_secret_redaction_preserves_real_json_identity_and_exact_hashes"
+do_1 = "do_1 Gotcha 4850, decision 3923. Read the marker constant, the pattern SECRET_PATTERN and the functions redact_value, assert_secret_free and redact_json_artifact of tools/launchpad/production/feature-acceptance/policy.py and the cases of tools/launchpad/production/feature-acceptance/tests/test_policy.py whose names begin with test_phase3. The final message lists the four alternatives of the pattern in words and names the form in which urlencode writes the marker."
+symbols = []
+
+[capability.22.39.1140]
+title = "Let the creation request of the object storage fixture step of the launchpad test workflow repeat on a transient answer"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py tests/ci/test_launchpad_package_job_environment.py && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_go_job_creates_real_export_bucket_before_tests && test $(grep -c -e --retry-delay .github/workflows/launchpad-test.yml) -eq 2"
+do_1 = "do_1 Gotcha 4849, decision 3922. Read the steps named Start object storage fixture of .github/workflows/launchpad-test.yml with the script under the anchor launchpad_package_storage_run, the case test_launchpad_go_job_creates_real_export_bucket_before_tests of tests/ci/test_launchpad_go_tests_wired.py, the case test_launchpad_object_storage_publishes_its_binary_directory of tests/ci/test_launchpad_test_workflow.py and the part of tests/ci/test_launchpad_package_job_environment.py that reads the step. The final message lists the lines of the script with their line numbers."
+symbols = []
+
+[capability.22.39.1139]
+title = "Give each phase of the two replay cases of the launchpad API broker a deadline of its own"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/broker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -race -timeout 20m -run ^TestPostgres ./internal/broker/ && go test -count=1 -list ^TestPostgresRetained ./internal/broker/ | grep -q ^TestPostgresRetained)"
+do_1 = "do_1 Gotcha 4848, decision 3921. Read services/launchpad/api/internal/broker/postgres_stream_test.go whole, the function PublicResume in services/launchpad/api/internal/broker/handoff.go, the functions Resume, Batch and AppendProjectionTx in services/launchpad/api/internal/broker/postgres_stream.go and the lint and race targets of services/launchpad/Makefile. The final message lists for both cases every call that takes the context of the case, with its line."
+symbols = []
+
+[capability.22.39.1138]
+title = "Let the first case of the receipt state integration test wait for the state checking through its helper"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run use-optimistic-receipt.integration"
+do_1 = "do_1 Gotcha 4847, decision 3920. Find the files use-optimistic-receipt.ts and use-optimistic-receipt.integration.test.tsx by their names under apps/launchpad/web/src and read both whole. Read the test script of apps/launchpad/web/package.json, the file apps/launchpad/web/vitest.config.ts and the argument handling of apps/launchpad/web/scripts/prepare-test-environment.py. The final message lists the line of the fixed wait, the line of the four requirements and the line of the second case that waits through the helper."
+symbols = []
+
+[capability.22.39.1137]
+title = "Bring the control registry of the launchpad production tooling in step with its present inputs"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/bootstrap/check-registry.json"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/launchpad/production/tests/test_control_plane_transport.py"
+do_1 = "do_1 Gotcha 4846, decision 3919. Read the functions digest, source_file and retained_inventory in tools/launchpad/production/control_plane.py, the function digest and the two places that read the member policy_sha256 in tools/launchpad/production/serial_gate.py, the named case in tools/launchpad/production/tests/test_control_plane_transport.py and the members retained_inputs and tasks of tools/launchpad/production/bootstrap/check-registry.json."
+symbols = []
+
+[capability.22.39.1136]
+title = "Bring the interface authority records, the load fixture and two case files of the launchpad in step with the present sources"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json", "tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json", "tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json", "tools/launchpad/production/interfaces/test_materialize.py", "tools/launchpad/production/interfaces/test_suite_authority.py", "tools/launchpad/production/load/testdata/contract_authority_openapi.json"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/launchpad/production/interfaces/test_materialize.py && python3 -m pytest -q tools/launchpad/production/interfaces/test_contract_authority.py && python3 -m pytest -q tools/launchpad/production/interfaces/test_suite_authority.py && python3 -m pytest -q tools/launchpad/production/load/contract_admission_cases.py"
+do_1 = "do_1 Gotcha 4845, decision 3918. Read the function derive_authority and the case test_all_catalog_entries_mapped in tools/launchpad/production/interfaces/test_materialize.py, the case test_materializer_test_authority in tools/launchpad/production/interfaces/test_suite_authority.py, the functions interface_fields and check in tools/launchpad/production/interfaces/compatibility_check.py, the source loop of tools/launchpad/production/interfaces/capability_check.py, the case test_route_catalog in tools/launchpad/production/load/contract_admission_cases.py, the map v2ErrorRules in services/launchpad/api/internal/rest/primitives.go and the constant block of services/launchpad/api/internal/rest/lint_literals.go."
+symbols = []
+
+[capability.22.39.1135]
+title = "Give the journal and activation cases of the topology operator a connected plan"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/production/topology/phase2/tests/test_operator.py", "deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/production/topology/phase2/tests/test_operator.py deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py deploy/launchpad/production/topology/phase2/tests/test_connected_journal.py"
+do_1 = "do_1 Gotcha 4844, decision 3917. Read the methods propose, validate and begin_activation of the class Journal in deploy/launchpad/production/topology/phase2/operator.py, the functions connected_plan, validate_connected_plan and safe_diagnostics in deploy/launchpad/production/topology/phase2/providers.py, the function topology_v2 and the fixture connected_inputs in deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py, and the classes JournalTests and ActivationInterruptionTests in deploy/launchpad/production/topology/phase2/tests/test_operator.py."
+symbols = []
+
+[capability.22.39.1134]
+title = "Bring the source inventory case in step with the pattern form of the launchpad workspace file"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/bootstrap/tests/test_source_inventory.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/launchpad/production/bootstrap/tests/test_source_inventory.py"
+do_1 = "do_1 Gotcha 4843, decision 3916. Read the function npm_workspace_manifests in tools/launchpad/production/bootstrap/baseline.py, the file apps/launchpad/pnpm-workspace.yaml, and the fixture npm_root and the named case in tools/launchpad/production/bootstrap/tests/test_source_inventory.py."
+symbols = []
+
+[capability.22.39.1133]
+title = "Bring the reward delivery source case in step with the constant name of the PnL tracker sources"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py"]
+tests = []
+verification_contract = "python3 -m pytest -q services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py"
+do_1 = "do_1 Gotcha 4842, decision 3915. Read the named case and the helper go_body in services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py, the method Rewards in services/launchpad/pnl-tracker/internal/production/l18/journeys.go, the method PrepareClaim in services/launchpad/pnl-tracker/internal/production/l18/creator.go and the constant block of services/launchpad/pnl-tracker/internal/production/l18/constants.go."
+symbols = []
+
+[capability.22.39.1132]
+title = "Bring three document cases of the launchpad in step with the phrases of the present documents"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/production/bootstrap/test_command_paths.py", "deploy/launchpad/production/observability/tests/test_command_paths.py", "apps/launchpad/qualification/account-ui/test_documented_account_commands.py"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/production/bootstrap/test_command_paths.py && python3 -m pytest -q deploy/launchpad/production/observability/tests/test_command_paths.py && python3 -m pytest -q apps/launchpad/qualification/account-ui/test_documented_account_commands.py"
+do_1 = "do_1 Gotcha 4841, decision 3914. Read the three cases named in the gotcha in deploy/launchpad/production/bootstrap/test_command_paths.py, deploy/launchpad/production/observability/tests/test_command_paths.py and apps/launchpad/qualification/account-ui/test_documented_account_commands.py and the documents deploy/launchpad/production/bootstrap/README.md, deploy/launchpad/production/observability/README.md and apps/launchpad/qualification/account-ui/README.md whole. For every phrase a case requires, note whether the document holds it letter for letter in the form the case compares: the document with its words joined by single blanks for the first case, the document as written for the second and the section as written for the third."
+symbols = []
+
+[capability.22.39.1131]
+title = "Bring the enforcement rows and the links of three platform documentation pages to the forms the site generator reads"
+reqs = ["22998.1"]
+touches = ["docs/platform/content/guide/reference-applications.md", "docs/platform/content/environments/emulator.md", "docs/platform/beta-environment.md", "tools/qualification/audit_repairs/test_platform_documentation_relocation.py", "docs/platform/build/test_beta_surfaces.py"]
+tests = []
+verification_contract = "sh services/platform/tools/docs-gate && python3 -m pytest -q tools/qualification/audit_repairs/test_platform_documentation_relocation.py tests/ci/test_platform_site_finality_model.py tests/ci/test_docs_canonical_repository_links.py tests/ci/test_docs_private_service_names.py docs/platform/build/test_beta_surfaces.py"
+do_1 = "do_1 Gotcha 4840, decision 3913. Read docs/platform/build/build_site.py from the function check_links to the end of the function build, docs/platform/capabilities.kvx whole, the pages docs/platform/content/guide/reference-applications.md, docs/platform/content/environments/emulator.md, docs/platform/beta-environment.md and docs/platform/content/beta.md whole, the two page entries of the environments section in docs/platform/site.kvx, the cases named in the gotcha in tools/qualification/audit_repairs/test_platform_documentation_relocation.py and docs/platform/build/test_beta_surfaces.py, and the case files tests/ci/test_platform_site_finality_model.py, tests/ci/test_docs_canonical_repository_links.py and tests/ci/test_docs_private_service_names.py that read the pages. Read in the emulator source under tools/platform/emulator how an account is prefunded and how long the state lives. The final message lists each row of the new table of docs/platform/content/environments/emulator.md with the source file and line that support its meaning text."
+symbols = []
+
+[capability.22.39.1130]
+title = "Bound every request of the stream work of the ranking case helper by a wait of its own"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=ranking-algo && (cd services/launchpad/ranking-algo && go test -count=1 -list ^TestRankingStreamRequest ./internal/internaltest/ | grep -q ^TestRankingStreamRequest)"
+do_1 = "do_1 Gotcha 4839, decision 3912. Read services/launchpad/ranking-algo/internal/internaltest/broker.go whole, services/launchpad/ranking-algo/internal/internaltest/broker_test.go, the places that call RankingBroker in services/launchpad/ranking-algo/internal/app/app_test.go, services/launchpad/ranking-algo/internal/store/production_universe_test.go and services/launchpad/ranking-algo/internal/store/publication_bound_test.go, and the function brokerFixtureRequest with its cases in sdk/launchpad/shared/brokerprovision/provision_fixture_request_test.go as the form to follow. Read in the source of the broker client module that services/launchpad/ranking-algo/go.mod pins how long a request waits when its context holds a deadline and when it holds none. The final message lists each request of the function clean with its line and the context it uses."
+symbols = []
 
 [capability.22.39.1129]
 title = "Bring the licence case, the relocation case of the vendored tree under tools and the client transports case to the present tree"
@@ -211758,6 +212013,126 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1140]
+title = "Let the creation request of the object storage fixture step of the launchpad test workflow repeat on a transient answer"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1140"]
+interfaces = []
+do_1 = "do_1 Gotcha 4849, decision 3922. Read the steps named Start object storage fixture of .github/workflows/launchpad-test.yml with the script under the anchor launchpad_package_storage_run, the case test_launchpad_go_job_creates_real_export_bucket_before_tests of tests/ci/test_launchpad_go_tests_wired.py, the case test_launchpad_object_storage_publishes_its_binary_directory of tests/ci/test_launchpad_test_workflow.py and the part of tests/ci/test_launchpad_package_job_environment.py that reads the step. The final message lists the lines of the script with their line numbers."
+do_2 = "do_2 Change the script under decision 3922 point one: the creation request takes the options --retry 30 and --retry-delay 1 on a line of its own after its first line, in the line continuation form of the script. Add the requirement of point two to the case of tests/ci/test_launchpad_go_tests_wired.py. Point three holds: nothing else in the workflow file changes and no other case file changes."
+do_3 = "do_3 Run the verification. The task changes the workflow file and the one case file only. Decision 3922 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/data/launchpad_go_tests.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py tests/ci/test_launchpad_package_job_environment.py && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_go_job_creates_real_export_bucket_before_tests && test $(grep -c -e --retry-delay .github/workflows/launchpad-test.yml) -eq 2"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1139]
+title = "Give each phase of the two replay cases of the launchpad API broker a deadline of its own"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1139"]
+interfaces = []
+do_1 = "do_1 Gotcha 4848, decision 3921. Read services/launchpad/api/internal/broker/postgres_stream_test.go whole, the function PublicResume in services/launchpad/api/internal/broker/handoff.go, the functions Resume, Batch and AppendProjectionTx in services/launchpad/api/internal/broker/postgres_stream.go and the lint and race targets of services/launchpad/Makefile. The final message lists for both cases every call that takes the context of the case, with its line."
+do_2 = "do_2 Change the case TestPostgresRetainedIdentitiesSurviveInterruptedReplay under decision 3921 point one and the case TestPostgresResumePreflightsByteLimitBeforeDelivery under point two. Each phase takes a context of its own with a deadline of five minutes, and the context of a phase is released when the phase ends. The transaction of an append phase commits inside that phase. Point three holds: no count, requirement, message, name or helper changes, and no product source changes."
+do_3 = "do_3 Run the verification. The 5 cases of the file keep their names and pass, and the linter reports nothing for the module. The task changes the one case file only. Decision 3921 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/broker"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -race -timeout 20m -run ^TestPostgres ./internal/broker/ && go test -count=1 -list ^TestPostgresRetained ./internal/broker/ | grep -q ^TestPostgresRetained)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1138]
+title = "Let the first case of the receipt state integration test wait for the state checking through its helper"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1138"]
+interfaces = []
+do_1 = "do_1 Gotcha 4847, decision 3920. Find the files use-optimistic-receipt.ts and use-optimistic-receipt.integration.test.tsx by their names under apps/launchpad/web/src and read both whole. Read the test script of apps/launchpad/web/package.json, the file apps/launchpad/web/vitest.config.ts and the argument handling of apps/launchpad/web/scripts/prepare-test-environment.py. The final message lists the line of the fixed wait, the line of the four requirements and the line of the second case that waits through the helper."
+do_2 = "do_2 Change the first case of use-optimistic-receipt.integration.test.tsx under decision 3920 point one: after the fixed wait of 2300 milliseconds and before the line of four requirements the case waits through the helper waitUntil until the state reads checking. Nothing else in the file changes, and the task changes no other file. Decision 3920 points two and three hold."
+do_3 = "do_3 Run the verification and give the count of cases that the test runner reports for the file in the final message. Decision 3920 point four holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run use-optimistic-receipt.integration"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1130]
+title = "Bound every request of the stream work of the ranking case helper by a wait of its own"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1130"]
+interfaces = []
+do_1 = "do_1 Gotcha 4839, decision 3912. Read services/launchpad/ranking-algo/internal/internaltest/broker.go whole, services/launchpad/ranking-algo/internal/internaltest/broker_test.go, the places that call RankingBroker in services/launchpad/ranking-algo/internal/app/app_test.go, services/launchpad/ranking-algo/internal/store/production_universe_test.go and services/launchpad/ranking-algo/internal/store/publication_bound_test.go, and the function brokerFixtureRequest with its cases in sdk/launchpad/shared/brokerprovision/provision_fixture_request_test.go as the form to follow. Read in the source of the broker client module that services/launchpad/ranking-algo/go.mod pins how long a request waits when its context holds a deadline and when it holds none. The final message lists each request of the function clean with its line and the context it uses."
+do_2 = "do_2 Add to the package of the helper one function that is not exported, sends one request with a wait of its own of 500 milliseconds and sends it again after 20 milliseconds until the request answers or the deadline of the caller ends. An answer of the broker, an error answer among them, ends the function and is returned. At the end of the deadline the function returns an error that holds the last error of the request. Let the listing as a whole, each removal and each read of the wait after a removal in the function clean go through it under decision 3912 points one to three. The task changes files of the package of the helper only."
+do_3 = "do_3 Add cases to services/launchpad/ranking-algo/internal/internaltest/broker_test.go whose names begin with TestRankingStreamRequest. One gives the function a request that leaves its first two sends without an answer and answers the third and requires that answer well inside the deadline. One gives it a request that answers with an error at once and requires that error after one send. One gives it a request that never answers and a deadline of two seconds and requires the error of the deadline with the last error of the request in it. The cases use a stand-in for the request and start no broker. The 4 present cases of the file keep their names and pass. Decision 3912 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=ranking-algo && (cd services/launchpad/ranking-algo && go test -count=1 -list ^TestRankingStreamRequest ./internal/internaltest/ | grep -q ^TestRankingStreamRequest)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -404173,9 +404548,402 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.1146]
+title = "Give the call of the ledger check in the ledger paths case a bound of its own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1146"]
+interfaces = []
+do_1 = "do_1 Gotcha 4855, decision 3928. Read tools/ci/tests/test_beta_ledger_paths.py whole and, in scripts/ci/beta-ledger-check.sh, the awk program of the variable KVX_PARSER and the two read loops that take its output for the ledger file and for the feature spec file. The final message names the two loops with their lines."
+do_2 = "do_2 Change the bound of the first call under decision 3928 point one. Points two and three hold: the second call keeps its bound and no script changes."
+do_3 = "do_3 Run the verification. The task changes the one case file only. Decision 3928 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_beta_ledger_paths.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_beta_ledger_paths.py && bash -n scripts/ci/beta-ledger-check.sh"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_beta_ledger_paths.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1145]
+title = "Bring three Makefile cases in step with the library exclusions and the python suites target line of the root Makefile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1145"]
+interfaces = []
+do_1 = "do_1 Gotcha 4854, decision 3927. Read the case test_library_exclusions_exact in tools/ci/tests/test_makefile_wave1.py and in tools/ci/tests/test_makefile_wave2.py, the last lines of the case test_aggregates_dry_run_clean in tools/ci/tests/test_makefile_wave6.py, and in the root Makefile the assignment of LIB_EXCLUDED_SOURCES and the two lines that follow the rule test-harness. The final message lists the value of LIB_EXCLUDED_SOURCES and the two lines."
+do_2 = "do_2 Change the expected set and its comment lines in the two exclusion cases under decision 3927 point one and the requirement on the second line in the aggregate case under point three. Take the target line from the root Makefile letter for letter. Point two holds."
+do_3 = "do_3 Run the verification. The task changes the three case files only. Decision 3927 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_makefile_wave1.py", "tools/ci/tests/test_makefile_wave2.py", "tools/ci/tests/test_makefile_wave6.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_makefile_wave1.py tools/ci/tests/test_makefile_wave2.py tools/ci/tests/test_makefile_wave6.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_makefile_wave1.py tools/ci/tests/test_makefile_wave2.py tools/ci/tests/test_makefile_wave6.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1144]
+title = "Let the human web image case find the web build by the line that ends with the words npm run build"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1144"]
+interfaces = []
+do_1 = "do_1 Gotcha 4853, decision 3926. Read the case test_web_image_builds_agent_sdk_before_web_build in tools/ci/tests/test_makefile_human_build.py and docker/web/Dockerfile whole. The final message lists the positions of the four lines the case compares."
+do_2 = "do_2 Change the lookup of the web build under decision 3926 point one. Point two holds: the three other lookups and the two order requirements stay."
+do_3 = "do_3 Run the verification. The task changes the one case file only. Decision 3926 points three and four hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_makefile_human_build.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_makefile_human_build.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_makefile_human_build.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1143]
+title = "Let the go version pins case compare the pins of the launchpad test workflow with the version of the launchpad Makefile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1143"]
+interfaces = []
+do_1 = "do_1 Gotcha 4852, decision 3925. Read tools/ci/tests/test_go_toolchain_pins.py whole, the lines with the key go-version in .github/workflows/launchpad-test.yml and the line of services/launchpad/Makefile that exports GOTOOLCHAIN. The final message lists every workflow file that holds a literal value of one of the two keys, with the value."
+do_2 = "do_2 Change the case under decision 3925 points one and two. The form is the choice of the participant: a small map from the name of a workflow file to its version serves. Point three holds: every other check of the case stays."
+do_3 = "do_3 Run the verification. The task changes the one case file only. Decision 3925 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_go_toolchain_pins.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_go_toolchain_pins.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_go_toolchain_pins.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1142]
+title = "Bring the load test job case in step with the step name of the explorer workflow"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1142"]
+interfaces = []
+do_1 = "do_1 Gotcha 4851, decision 3924. Read the case test_routing_refuses_fixed_jobs_and_incomplete_runtime in tools/ci/tests/test_ci_loadtest_job.py, the job explorer-backend-test in .github/workflows/explorer-images.yml and the rules of scripts/ci/runner-routing-check.sh that read the steps of a job. The final message names the line of the workflow that holds the step and the rule of the routing check that reads its condition."
+do_2 = "do_2 Change the two occurrences of the step name under decision 3924 point one. Point two holds: no other line of the case file changes, and no workflow and no script changes."
+do_3 = "do_3 Run the verification. The task changes the one case file only. Decision 3924 points three and four hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ci/tests/test_ci_loadtest_job.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/tests/test_ci_loadtest_job.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests/test_ci_loadtest_job.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1141]
+title = "Let the credential pattern of the feature acceptance policy tool admit the marker in the form its redaction function writes into a query"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1141"]
+interfaces = []
+do_1 = "do_1 Gotcha 4850, decision 3923. Read the marker constant, the pattern SECRET_PATTERN and the functions redact_value, assert_secret_free and redact_json_artifact of tools/launchpad/production/feature-acceptance/policy.py and the cases of tools/launchpad/production/feature-acceptance/tests/test_policy.py whose names begin with test_phase3. The final message lists the four alternatives of the pattern in words and names the form in which urlencode writes the marker."
+do_2 = "do_2 Change the pattern under decision 3923 point one: the lookahead of the fourth alternative names the literal marker and the escaped marker. Add the requirement of point three to the case. Point two holds: no other line of the tool changes and the redaction function stays."
+do_3 = "do_3 Run the verification. The task changes the one pattern line of tools/launchpad/production/feature-acceptance/policy.py and the one case of tools/launchpad/production/feature-acceptance/tests/test_policy.py only. Decision 3923 points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/feature-acceptance/policy.py", "tools/launchpad/production/feature-acceptance/tests/test_policy.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/launchpad/production/interfaces/requirements.txt"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/feature-acceptance/tests && python3 -m pytest -q tools/launchpad/production/feature-acceptance/tests/test_policy.py::PolicyTests::test_phase3_secret_redaction_preserves_real_json_identity_and_exact_hashes"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1137]
+title = "Bring the control registry of the launchpad production tooling in step with its present inputs"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1137"]
+interfaces = []
+do_1 = "do_1 Gotcha 4846, decision 3919. Read the functions digest, source_file and retained_inventory in tools/launchpad/production/control_plane.py, the function digest and the two places that read the member policy_sha256 in tools/launchpad/production/serial_gate.py, the named case in tools/launchpad/production/tests/test_control_plane_transport.py and the members retained_inputs and tasks of tools/launchpad/production/bootstrap/check-registry.json."
+do_2 = "do_2 Decision 3919 points one and two: compute the two sha256 values from the files and the value of the function digest of tools/launchpad/production/control_plane.py for the map of the eight values, and set the three members."
+do_3 = "do_3 Decision 3919 point three: compute the value of the function digest of tools/launchpad/production/serial_gate.py for the member serial_gate_policy of the entry with the key 1.99 and set the member policy_sha256."
+do_4 = "do_4 Decision 3919 point four holds: read the output of git diff for the file before the commit. The build command installs tools/launchpad/production/interfaces/requirements.txt. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/bootstrap/check-registry.json"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/launchpad/production/interfaces/requirements.txt"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/tests/test_control_plane_transport.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1136]
+title = "Bring the interface authority records, the load fixture and two case files of the launchpad in step with the present sources"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1136"]
+interfaces = []
+do_1 = "do_1 Gotcha 4845, decision 3918. Read the function derive_authority and the case test_all_catalog_entries_mapped in tools/launchpad/production/interfaces/test_materialize.py, the case test_materializer_test_authority in tools/launchpad/production/interfaces/test_suite_authority.py, the functions interface_fields and check in tools/launchpad/production/interfaces/compatibility_check.py, the source loop of tools/launchpad/production/interfaces/capability_check.py, the case test_route_catalog in tools/launchpad/production/load/contract_admission_cases.py, the map v2ErrorRules in services/launchpad/api/internal/rest/primitives.go and the constant block of services/launchpad/api/internal/rest/lint_literals.go."
+do_2 = "do_2 Decision 3918 points one and four: compute the sha256 of the two files and set the three values in tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json, tools/launchpad/production/load/testdata/contract_authority_openapi.json and tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json."
+do_3 = "do_3 Decision 3918 points two and three: change the literal, the reading of the map rows and the comment line of the function derive_authority and the count of the named case in tools/launchpad/production/interfaces/test_materialize.py, and the count of the named case in tools/launchpad/production/interfaces/test_suite_authority.py."
+do_4 = "do_4 Decision 3918 point five: change tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json. Take the names from the function interface_fields of tools/launchpad/production/interfaces/compatibility_check.py and copy the rule text from a requires_enrichment mapping of the record. The contract candles-sdk gains 50 names and mappings, and the contracts indexer-sdk, metadata-sdk and users-sdk gain one each."
+do_5 = "do_5 Decision 3918 point six holds: read the output of git diff for the four JSON files before the commit. The build command installs tools/launchpad/production/interfaces/requirements.txt. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json", "tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json", "tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json", "tools/launchpad/production/interfaces/test_materialize.py", "tools/launchpad/production/interfaces/test_suite_authority.py", "tools/launchpad/production/load/testdata/contract_authority_openapi.json"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/launchpad/production/interfaces/requirements.txt"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/interfaces/test_materialize.py && python3 -m pytest -q tools/launchpad/production/interfaces/test_contract_authority.py && python3 -m pytest -q tools/launchpad/production/interfaces/test_suite_authority.py && python3 -m pytest -q tools/launchpad/production/load/contract_admission_cases.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1135]
+title = "Give the journal and activation cases of the topology operator a connected plan"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1135"]
+interfaces = []
+do_1 = "do_1 Gotcha 4844, decision 3917. Read the methods propose, validate and begin_activation of the class Journal in deploy/launchpad/production/topology/phase2/operator.py, the functions connected_plan, validate_connected_plan and safe_diagnostics in deploy/launchpad/production/topology/phase2/providers.py, the function topology_v2 and the fixture connected_inputs in deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py, and the classes JournalTests and ActivationInterruptionTests in deploy/launchpad/production/topology/phase2/tests/test_operator.py."
+do_2 = "do_2 Change the shared setUp method under decision 3917 points one and two. A case that compares a revision or a deployment digest reads the value from the configuration and the plan of the instance as before."
+do_3 = "do_3 Decision 3917 point three holds: change no product module and no requirement of a case. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/production/topology/phase2/tests/test_operator.py", "deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/production/topology/phase2/tests/test_operator.py deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/production/topology/phase2/tests/test_operator.py deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py deploy/launchpad/production/topology/phase2/tests/test_connected_journal.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1134]
+title = "Bring the source inventory case in step with the pattern form of the launchpad workspace file"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1134"]
+interfaces = []
+do_1 = "do_1 Gotcha 4843, decision 3916. Read the function npm_workspace_manifests in tools/launchpad/production/bootstrap/baseline.py, the file apps/launchpad/pnpm-workspace.yaml, and the fixture npm_root and the named case in tools/launchpad/production/bootstrap/tests/test_source_inventory.py."
+do_2 = "do_2 Change the expected text of the parameter missing-manifest under decision 3916 point one."
+do_3 = "do_3 Decision 3916 point two holds: change no other line of the file. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/bootstrap/tests/test_source_inventory.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/launchpad/production/bootstrap/tests/test_source_inventory.py"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/bootstrap/tests/test_source_inventory.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1133]
+title = "Bring the reward delivery source case in step with the constant name of the PnL tracker sources"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1133"]
+interfaces = []
+do_1 = "do_1 Gotcha 4842, decision 3915. Read the named case and the helper go_body in services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py, the method Rewards in services/launchpad/pnl-tracker/internal/production/l18/journeys.go, the method PrepareClaim in services/launchpad/pnl-tracker/internal/production/l18/creator.go and the constant block of services/launchpad/pnl-tracker/internal/production/l18/constants.go."
+do_2 = "do_2 Change the two requirements under decision 3915 point one and add the requirement of point two to the named case. For point two a pattern that admits any run of blanks between the name and the equals sign serves."
+do_3 = "do_3 Decision 3915 point three holds: change no Go source and no other case. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py"
+verify_cmd = "python3 -m pytest -q services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1132]
+title = "Bring three document cases of the launchpad in step with the phrases of the present documents"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1132"]
+interfaces = []
+do_1 = "do_1 Gotcha 4841, decision 3914. Read the three cases named in the gotcha in deploy/launchpad/production/bootstrap/test_command_paths.py, deploy/launchpad/production/observability/tests/test_command_paths.py and apps/launchpad/qualification/account-ui/test_documented_account_commands.py and the documents deploy/launchpad/production/bootstrap/README.md, deploy/launchpad/production/observability/README.md and apps/launchpad/qualification/account-ui/README.md whole. For every phrase a case requires, note whether the document holds it letter for letter in the form the case compares: the document with its words joined by single blanks for the first case, the document as written for the second and the section as written for the third."
+do_2 = "do_2 Change the requirements under decision 3914 points two to four. Take each new phrase from the document letter for letter, with its code marks and its punctuation. Keep the order of the requirements and every requirement that the document already meets."
+do_3 = "do_3 Decision 3914 points one and five hold: change no document and no other case. The final message lists each changed requirement with the line of the document that holds its phrase. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/production/bootstrap/test_command_paths.py", "deploy/launchpad/production/observability/tests/test_command_paths.py", "apps/launchpad/qualification/account-ui/test_documented_account_commands.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r deploy/launchpad/production/observability/requirements.txt"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/production/bootstrap/test_command_paths.py && python3 -m pytest -q deploy/launchpad/production/observability/tests/test_command_paths.py && python3 -m pytest -q apps/launchpad/qualification/account-ui/test_documented_account_commands.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1131]
+title = "Bring the enforcement rows and the links of three platform documentation pages to the forms the site generator reads"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1131"]
+interfaces = []
+do_1 = "do_1 Gotcha 4840, decision 3913. Read docs/platform/build/build_site.py from the function check_links to the end of the function build, docs/platform/capabilities.kvx whole, the pages docs/platform/content/guide/reference-applications.md, docs/platform/content/environments/emulator.md, docs/platform/beta-environment.md and docs/platform/content/beta.md whole, the two page entries of the environments section in docs/platform/site.kvx, the cases named in the gotcha in tools/qualification/audit_repairs/test_platform_documentation_relocation.py and docs/platform/build/test_beta_surfaces.py, and the case files tests/ci/test_platform_site_finality_model.py, tests/ci/test_docs_canonical_repository_links.py and tests/ci/test_docs_private_service_names.py that read the pages. Read in the emulator source under tools/platform/emulator how an account is prefunded and how long the state lives. The final message lists each row of the new table of docs/platform/content/environments/emulator.md with the source file and line that support its meaning text."
+do_2 = "do_2 Change the three pages under decision 3913 points one to three. In docs/platform/content/guide/reference-applications.md change the three titles only. In docs/platform/content/environments/emulator.md add the heading Enforced by with its table after the last section of the page, in the column form of the table of docs/platform/content/guide/reference-applications.md. In docs/platform/beta-environment.md change the targets of the three links only. Change no other line of the three pages."
+do_3 = "do_3 Change the two case files under decision 3913 points four and five: the requirement of the case of tools/qualification/audit_repairs/test_platform_documentation_relocation.py with its comment, and the column names and the cell count of the case of docs/platform/build/test_beta_surfaces.py. The case names stay. Decision 3913 point six holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/platform/content/guide/reference-applications.md", "docs/platform/content/environments/emulator.md", "docs/platform/beta-environment.md", "tools/qualification/audit_repairs/test_platform_documentation_relocation.py", "docs/platform/build/test_beta_surfaces.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile docs/platform/build/build_site.py docs/platform/build/test_beta_surfaces.py tools/qualification/audit_repairs/test_platform_documentation_relocation.py"
+verify_cmd = "sh services/platform/tools/docs-gate && python3 -m pytest -q tools/qualification/audit_repairs/test_platform_documentation_relocation.py tests/ci/test_platform_site_finality_model.py tests/ci/test_docs_canonical_repository_links.py tests/ci/test_docs_private_service_names.py docs/platform/build/test_beta_surfaces.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1129]
 title = "Bring the licence case, the relocation case of the vendored tree under tools and the client transports case to the present tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404205,7 +404973,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1128]
 title = "Bring the bridge attestor, perps wake and dependency policy case files to the present image file, shell case and dependency configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404235,7 +405003,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1127]
 title = "Bring three agent case files of the qualification directory and the pins fixture to the present Makefile, fuel suite and agent sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404265,7 +405033,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1126]
 title = "Bring the dashboard, hosted endpoint and platform documentation case files and the reference page of the human API to the present sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404295,7 +405063,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1125]
 title = "Bring four wallet case files of the qualification directory to the present documents, image file, workflow and demo sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404325,7 +405093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1124]
 title = "Bring the human bank plan case file and the qualification intent tool to the transfer form of the send leg"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404355,7 +405123,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1123]
 title = "Bring the version pins of three case files, the hosted fact of the gateway readme row and the image retirement case to the present files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404385,7 +405153,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1122]
 title = "Bring three gateway case files of the qualification directory and the two schema document fixtures to the present gateway source and schema document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404415,7 +405183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1121]
 title = "Count px_openSession as a hosted operation in the node root design document, its case file, the transport case file and the schema tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404445,7 +405213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1120]
 title = "Bring the line values of the three chain launch route rows of the interface inventory to the present source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404475,7 +405243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1119]
 title = "Bring the migration registry case file to the approved registry and the present reader functions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404505,7 +405273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1118]
 title = "Take the start time of a coverage run of the launchpad from the clock of the file system of the cover directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
