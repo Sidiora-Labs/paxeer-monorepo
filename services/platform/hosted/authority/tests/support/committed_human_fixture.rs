@@ -360,17 +360,13 @@ pub struct Node {
     worker: Option<thread::JoinHandle<()>>,
 }
 
-fn block(height: u64, app_hash: [u8; 32], changed: bool) -> Value {
-    let now: u64 = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .must()
-        .as_secs();
+fn block(height: u64, app_hash: [u8; 32], changed: bool, timestamp: u64) -> Value {
     let mut hash = [height.to_le_bytes()[0]; 32];
     if changed {
         hash[0] ^= 1;
     }
     document!({"number":format!("0x{height:x}"),"hash":format!("0x{}",hex::encode(&hash)),
-        "parentHash":format!("0x{}",hex::encode(&[(height-1).to_le_bytes()[0];32])),"timestamp":format!("0x{now:x}"),
+        "parentHash":format!("0x{}",hex::encode(&[(height-1).to_le_bytes()[0];32])),"timestamp":format!("0x{timestamp:x}"),
         "transactionsRoot":format!("0x{}",hex::encode(&[3;32])),"receiptsRoot":format!("0x{}",hex::encode(&[4;32])),
         "stateRoot":format!("0x{}",hex::encode(&app_hash)),"transactions":[]})
 }
@@ -512,6 +508,10 @@ impl Node {
         fixture: &Fixture,
         transcript: Option<&[Value]>,
     ) {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .must()
+            .as_secs();
         while !thread_stopped.load(Ordering::Acquire) {
             let (stream, _) = match listener.accept() {
                 Ok(pair) => pair,
@@ -558,6 +558,7 @@ impl Node {
                             number,
                             fixture.store.app_hash,
                             state.fault == "reorg" && state.called && number == height,
+                            timestamp,
                         )
                     }
                     "px_getCommit" => {
