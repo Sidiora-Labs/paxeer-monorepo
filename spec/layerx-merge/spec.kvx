@@ -230886,7 +230886,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1165]
 title = "Let the unit cases of the registry source follow the containers and the egress rule of the deployment documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230948,7 +230948,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1163]
 title = "Let the receipt case file of the agent boundary require that no state directory stands under the boundary directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230979,7 +230979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1162]
 title = "Let the decoder of the web consumer script and the consumer case of the reference ramp follow the member chain_id of the rebalance answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
