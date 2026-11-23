@@ -404610,7 +404610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1147]
 title = "Let the retirement harness leave out four further files and bring the checkpoint settlement case in step with the present readers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
