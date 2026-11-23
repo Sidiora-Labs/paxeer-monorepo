@@ -16732,6 +16732,18 @@ value = "One. The build command of task 22.39.1152 first runs python3 -m pip ins
 basis = "Gotcha 4863. Task 22.43.269."
 affects = []
 
+[decision.3937]
+title = "The fixture of the finalized delivery case file takes its state from the creation route of the market program and its store proof from a state proof under the app hash of the commit"
+value = "One. The source prevails. services/platform/hosted/webhooks/src/ai_market.rs, services/platform/hosted/webhooks/src/chain.rs and programs/crates/layerx-programs-ai-market/src/queries.rs keep their form, and the certify function stays as task 22.31.188 set it. Two. The state of the fixture of services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs is the state that the creation route of the market program produces for the chain, the program and the market of the case file. A helper of the case file builds it in the form of the helper created_state of services/platform/hosted/webhooks/tests/capture_receiver_recovery.rs. Three. The store proof of the fixture is the JSON form of a structure ProgramStateProof for that state and the program of the case file, built in the form of the helper capture_document of services/platform/hosted/webhooks/tests/capture_receiver_recovery.rs. The commit header of the fixture stands over the root of that membership, so the app hash of the verified commit is the root that the state proof verifies against. Four. The helper binding takes the market, the revision, the state digest, the config version, the epoch and the roster from the header read of that state and the policy digest from the policy digest read of that state. It takes the native state root and the app hash from the root of point three, the batch id and the block hash from the hash of the commit header and the store proof digest from the digest of the store proof. Five. The helpers root and store_proof, the method recertify and the cases that set another state, another root or another store proof follow points two to four. Each case still reaches the publication, the refusal or the quarantine cause that it requires in its present form. Fixtures with distinct observed numbers still yield distinct snapshot identifiers. Six. Scope: only services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs changes. services/platform/hosted/webhooks/tests/capture_receiver_recovery.rs, services/platform/hosted/webhooks/tests/authority_and_consumer.rs and services/platform/hosted/webhooks/tests/hosted_delivery_lifecycle.rs keep their form. No source file changes. No case leaves, no requirement of a case leaves and no case gains an ignore mark. Seven. Target: the verification of task 22.39.1154 passes. It runs the case target ai_finalized_delivery of the package layerx-platform-webhooks with its 16 cases. Task 22.39.1154."
+basis = "Gotcha 4864."
+affects = []
+
+[decision.3938]
+title = "The sub-case network of the finalized delivery case file asserts the refusal of the certificate verification"
+value = "One. The source prevails. The files services/platform/hosted/webhooks/src/chain.rs and services/platform/hosted/webhooks/src/ai_market.rs keep their form. Two. The sub-case network of the case conflicting_artifacts_quarantine_with_identifier_only_alerts builds its sample as before through the method recertify with the constant FOREIGN_CHAIN_ID. It asserts through the helper refused_commit that the admission returns the error CommitRejected. Three. The sub-case then asserts that its outbox holds no quarantine for the market and no alert, and that a sample of the same market with the chain id of the policy is admitted after it. Four. The six other sub-cases keep their samples and their quarantine causes, and the helper quarantine_case keeps every assertion. Five. Points five and six of decision 3937 hold for every other case and sub-case. For the sub-case network points two and three of this decision take their place. Six. Scope: only services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs changes. No source file changes, no case leaves and no ignore mark enters. Seven. Target: the verification of task 22.39.1154 passes with 16 cases. Task 22.39.1154."
+basis = "Gotcha 4865."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46392,6 +46404,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1154]
+title = "Let the fixture of the finalized delivery case file take its state from the creation route of the market program and its store proof from a state proof under the app hash of the commit"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test ai_finalized_delivery"
+do_1 = "do_1 Gotcha 4864, decision 3937. Read the function certify in services/platform/hosted/webhooks/src/ai_market.rs, the structure ProgramStateProof with its function verify in services/platform/hosted/webhooks/src/chain.rs, the functions read_header and policy_digest in programs/crates/layerx-programs-ai-market/src/queries.rs, the helpers created_state, membership and capture_document in services/platform/hosted/webhooks/tests/capture_receiver_recovery.rs and the helpers market_state, store_proof, root, binding and fixture with the structure Fixture in services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs. The final message names the helpers of the case file that build the state, the state proof and the binding after the change."
+symbols = []
 
 [capability.22.39.1153]
 title = "Let the helper of the core boundary case file return the recorded account answer with the member height and let both cases take the record from it"
@@ -230698,6 +230719,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1154]
+title = "Let the fixture of the finalized delivery case file take its state from the creation route of the market program and its store proof from a state proof under the app hash of the commit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1154"]
+interfaces = []
+do_1 = "do_1 Gotcha 4864, decision 3937. Read the function certify in services/platform/hosted/webhooks/src/ai_market.rs, the structure ProgramStateProof with its function verify in services/platform/hosted/webhooks/src/chain.rs, the functions read_header and policy_digest in programs/crates/layerx-programs-ai-market/src/queries.rs, the helpers created_state, membership and capture_document in services/platform/hosted/webhooks/tests/capture_receiver_recovery.rs and the helpers market_state, store_proof, root, binding and fixture with the structure Fixture in services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs. The final message names the helpers of the case file that build the state, the state proof and the binding after the change."
+do_2 = "do_2 Change the helpers of services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs under decision 3937 points two to four. Point one holds."
+do_3 = "do_3 Bring the method recertify and the cases that set another state, another root or another store proof in line with point five. The final message lists for each of the 14 cases of the file whether its requirements stayed as they were. No other file changes."
+do_4 = "do_4 Run the verification. Points six and seven hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test ai_finalized_delivery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3938. The sub-case network of the case conflicting_artifacts_quarantine_with_identifier_only_alerts takes the form of points two and three of that decision. The six other sub-cases and every other case stay as decision 3937 sets them. Run the verification."
+
 [task.22.39.1153]
 title = "Let the helper of the core boundary case file return the recorded account answer with the member height and let both cases take the record from it"
 status = "done"
@@ -230730,7 +230783,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1152]
 title = "Let the chain double and the replay case of the core funding case file follow the transfer document and the receipt members of the funding source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
