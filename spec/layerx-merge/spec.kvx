@@ -230694,7 +230694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1153]
 title = "Let the helper of the core boundary case file return the recorded account answer with the member height and let both cases take the record from it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
