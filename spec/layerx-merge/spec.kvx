@@ -16738,6 +16738,12 @@ value = "One. The source prevails. services/platform/hosted/webhooks/src/ai_mark
 basis = "Gotcha 4864."
 affects = []
 
+[decision.3938]
+title = "The sub-case network of the finalized delivery case file asserts the refusal of the certificate verification"
+value = "One. The source prevails. The files services/platform/hosted/webhooks/src/chain.rs and services/platform/hosted/webhooks/src/ai_market.rs keep their form. Two. The sub-case network of the case conflicting_artifacts_quarantine_with_identifier_only_alerts builds its sample as before through the method recertify with the constant FOREIGN_CHAIN_ID. It asserts through the helper refused_commit that the admission returns the error CommitRejected. Three. The sub-case then asserts that its outbox holds no quarantine for the market and no alert, and that a sample of the same market with the chain id of the policy is admitted after it. Four. The six other sub-cases keep their samples and their quarantine causes, and the helper quarantine_case keeps every assertion. Five. Points five and six of decision 3937 hold for every other case and sub-case. For the sub-case network points two and three of this decision take their place. Six. Scope: only services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs changes. No source file changes, no case leaves and no ignore mark enters. Seven. Target: the verification of task 22.39.1154 passes with 16 cases. Task 22.39.1154."
+basis = "Gotcha 4865."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -230743,6 +230749,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3938. The sub-case network of the case conflicting_artifacts_quarantine_with_identifier_only_alerts takes the form of points two and three of that decision. The six other sub-cases and every other case stay as decision 3937 sets them. Run the verification."
 
 [task.22.39.1153]
 title = "Let the helper of the core boundary case file return the recorded account answer with the member height and let both cases take the record from it"
