@@ -16744,6 +16744,30 @@ value = "One. The source prevails. The files services/platform/hosted/webhooks/s
 basis = "Gotcha 4865."
 affects = []
 
+[decision.3939]
+title = "The journal case file of the registry builds its deployment evidence in the form of the admission builder of the committed program transport module"
+value = "One. The source prevails. programs/crates/layerx-programs-registry/src/chain_evidence/deployment.rs, programs/crates/layerx-programs-registry/src/protocol_evidence.rs and programs/crates/layerx-programs-registry/src/deployment_execution.rs keep their form, and services/platform/hosted/registry/tests/committed_program_transport.rs keeps its form. Two. Each deployment proof that services/platform/hosted/registry/tests/journal.rs verifies holds a commitment proof of the interface key as its member interface and a bound deployment execution proof as its member transaction, in the form of the builder admission_abi of services/platform/hosted/registry/tests/committed_program_transport.rs. The case file takes such proofs from the function admission of the included module or builds them in its support module. That is the choice of the participant. Three. A value that a case compares and that the proof fixes follows the proof: the program, the code, the code hashes, the version, the policy and the transaction. Each case still requires the acceptance, the refusal, the projection or the replay answer that it requires in its present form. Four. Scope: only services/platform/hosted/registry/tests/journal.rs, services/platform/hosted/registry/tests/support/journal/mod.rs and services/platform/hosted/registry/tests/support/journal/chain.rs change. No source file changes. No case leaves, no requirement of a case leaves and no case gains an ignore mark. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Five. Target: the verification of task 22.39.1155 passes. It runs the case target journal of the package layerx-platform-registry with its 11 cases. Task 22.39.1155."
+basis = "Gotcha 4866."
+affects = []
+
+[decision.3940]
+title = "The chain trust case file of the registry builds its package document with the one member admission"
+value = "One. The source prevails. services/platform/hosted/registry/src/journal.rs, programs/crates/layerx-programs-registry/src/chain_evidence/deployment.rs, programs/crates/layerx-programs-registry/src/protocol_evidence.rs and programs/crates/layerx-programs-registry/src/deployment_execution.rs keep their form, and services/platform/hosted/registry/tests/committed_program_transport.rs keeps its form. Two. Each package document of services/platform/hosted/registry/tests/journal_chain_trust.rs holds the one member admission. Its value is the canonical encoding of a deployment proof that holds a commitment proof of the interface key as its member interface and a bound deployment execution proof as its member transaction, in the form of the builder admission_abi of services/platform/hosted/registry/tests/committed_program_transport.rs. The case file takes such proofs from the function admission of that module, which it then includes with dead code allowed as services/platform/hosted/registry/tests/journal.rs does, or builds them in its support module. That is the choice of the participant. Three. The case journal_refuses_deployment_outside_the_lxphost_store builds an admission whose commitment stands in another store than the constant HOST_STORE_NAME names. It still requires the text deployment proof must use the lxphost store and an empty journal directory. Four. A value that a case compares and that the proof fixes follows the proof: the program, the version, the code hash, the abi version, the policy, the state height, the state root, the module and the interface. The helpers assert_invalid_proofs and assert_invalid_trust_roots keep each refusal that they require, with the changed value inside the admission where the document held it as a member before. Five. Scope: only services/platform/hosted/registry/tests/journal_chain_trust.rs, services/platform/hosted/registry/tests/support/journal_chain_trust/mod.rs and services/platform/hosted/registry/tests/support/journal_chain_trust/chain.rs change. No source file changes. No case leaves, no requirement of a case leaves and no case gains an ignore mark. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Six. Target: the verification of task 22.39.1156 passes. It runs the case target journal_chain_trust of the package layerx-platform-registry with the 2 cases of the file, and with the 4 cases of the module of services/platform/hosted/registry/tests/committed_program_transport.rs when the file includes it. Task 22.39.1156."
+basis = "Gotcha 4867."
+affects = []
+
+[decision.3941]
+title = "The producer case file of the registry starts the webhooks service with the settings of the receipt verifier and builds its publication from a deployment proof in the form of the admission builder"
+value = "One. The source prevails. services/platform/hosted/webhooks/src/trusted.rs, services/platform/hosted/internal/src/producer_test_support.rs, programs/crates/layerx-programs-registry/src/chain_evidence/deployment.rs, programs/crates/layerx-programs-registry/src/protocol_evidence.rs and programs/crates/layerx-programs-registry/src/deployment_execution.rs keep their form, and services/platform/hosted/registry/tests/committed_program_transport.rs keeps its form. Two. The method start of the structure Webhooks in services/platform/hosted/registry/tests/producer_tls.rs sets what the method start of the structure Webhooks in services/platform/hosted/internal/src/producer_test_support.rs sets for the receipt verifier: the chain policy file setting with a valid chain policy, the node address setting, the comet address setting and the node token. Listeners of the case file stand behind the two addresses and answer what the service asks of them in the case, in the form of the helpers of services/platform/hosted/internal/src/producer_test_support.rs. Three. The helper publication verifies a deployment proof that holds a commitment proof of the interface key as its member interface and a bound deployment execution proof as its member transaction, in the form of the builder admission_abi of services/platform/hosted/registry/tests/committed_program_transport.rs. The case file takes that proof from the function admission of that module, which it then includes with dead code allowed as services/platform/hosted/registry/tests/journal.rs does, or builds it in its support module. That is the choice of the participant. Four. A value of the publication that the proof fixes follows the proof. The case still requires what it requires in its present form: the publication through the identity service, the delivery over TLS and the durable recovery. Five. Scope: only services/platform/hosted/registry/tests/producer_tls.rs, services/platform/hosted/registry/tests/support/producer_tls/mod.rs, services/platform/hosted/registry/tests/support/producer_tls/chain.rs and services/platform/hosted/registry/tests/support/producer_transport.rs change. No source file changes. No case leaves, no requirement of a case leaves and no case gains an ignore mark. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Six. Target: the verification of task 22.39.1157 passes. It runs the case target producer_tls of the package layerx-platform-registry with the 1 case of the file, and with the 4 cases of the module of services/platform/hosted/registry/tests/committed_program_transport.rs when the file includes it. Task 22.39.1157."
+basis = "Gotcha 4868."
+affects = []
+
+[decision.3942]
+title = "The deployment case of the programs chain case file commits an admission to its journal before it requires the answer of the deployment route"
+value = "One. The source prevails. services/platform/hosted/registry/src/routes.rs, services/platform/hosted/registry/src/programs_chain.rs, programs/crates/layerx-programs-registry/src/protocol_evidence.rs and programs/crates/layerx-programs-registry/src/deployment_execution.rs keep their form, and services/platform/hosted/registry/tests/committed_program_transport.rs keeps its form. Two. Before the case registry_deployment_reads_the_program_record requires the status 200, it commits an admission to the journal at the path that it passes to the route. It takes the admission from the function admission of the included module, verifies its proof through the verifier of the admission at the time of the admission and commits the evidence through the method append, in the form that part four of gotcha 4869 names. Three. The values of the case that the function journal compares follow the admission. The deployment that the peer of the case answers holds the program id, the code hash, the version and the abi version of the committed record, and the transaction hash of the request is the SHA-256 digest of the transaction of the bound deployment execution proof. Four. The case keeps its loop over the two upgrade policies and each requirement on the route: the refusals before the journal read, the status 200 with its members, the stored record and the requirements of the helpers assert_deployment_refusals and assert_deployment_rpc_calls. Five. Scope: only services/platform/hosted/registry/tests/programs_chain.rs changes. No source file changes. No case leaves, no requirement of a case leaves and no case gains an ignore mark. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Six. Target: the verification of task 22.39.1158 passes. It runs the case target programs_chain of the package layerx-platform-registry with its 8 cases. Task 22.39.1158."
+basis = "Gotcha 4869."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46404,6 +46428,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1158]
+title = "Let the deployment case of the programs chain case file commit an admission to its journal before it requires the answer of the deployment route"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/registry/tests/programs_chain.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test programs_chain"
+do_1 = "do_1 Gotcha 4869, decision 3942. Read the function route_chain_deployment in services/platform/hosted/registry/src/routes.rs, the function journal of the structure ChainDeployment in services/platform/hosted/registry/src/programs_chain.rs, the function admission and the case that commits evidence through the method append in services/platform/hosted/registry/tests/committed_program_transport.rs and the case registry_deployment_reads_the_program_record with the helpers deployment_case, serve_deployment_peer, assert_deployment_refusals and assert_deployment_rpc_calls in services/platform/hosted/registry/tests/programs_chain.rs. The final message names the place where the case commits the admission."
+symbols = []
+
+[capability.22.39.1157]
+title = "Let the producer case file of the registry start the webhooks service with the settings of the receipt verifier and build its publication from a deployment proof in the form of the admission builder"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/registry/tests/producer_tls.rs", "services/platform/hosted/registry/tests/support/producer_tls/mod.rs", "services/platform/hosted/registry/tests/support/producer_tls/chain.rs", "services/platform/hosted/registry/tests/support/producer_transport.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test producer_tls"
+do_1 = "do_1 Gotcha 4868, decision 3941. Read the function from_environment of the structure ReceiptVerifier in services/platform/hosted/webhooks/src/trusted.rs, the structure Webhooks with its method start and the helpers configure_chain_policy and readiness_listener in services/platform/hosted/internal/src/producer_test_support.rs, the functions admission and admission_abi in services/platform/hosted/registry/tests/committed_program_transport.rs, the helper fixture_with_interface in services/platform/hosted/registry/tests/support/producer_tls/mod.rs and the structure Webhooks with its method start, the helper publication and the helper qualify_delivery in services/platform/hosted/registry/tests/producer_tls.rs. The final message names the settings that the method start sets after the change and the helper that builds the deployment proof."
+symbols = []
+
+[capability.22.39.1156]
+title = "Let the chain trust case file of the registry build its package document with the one member admission"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/registry/tests/journal_chain_trust.rs", "services/platform/hosted/registry/tests/support/journal_chain_trust/mod.rs", "services/platform/hosted/registry/tests/support/journal_chain_trust/chain.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test journal_chain_trust"
+do_1 = "do_1 Gotcha 4867, decision 3940. Read the structure ChainDeploymentPackage and the function verify_chain_deployment_package in services/platform/hosted/registry/src/journal.rs, the function canonical_encoding of the structure DeploymentProof in programs/crates/layerx-programs-registry/src/protocol_evidence.rs, the functions admission and admission_abi in services/platform/hosted/registry/tests/committed_program_transport.rs, the helper fixture_with_interface in services/platform/hosted/registry/tests/support/journal_chain_trust/mod.rs and the helpers package, chain_fixture, assert_invalid_proofs and assert_invalid_trust_roots with the two cases in services/platform/hosted/registry/tests/journal_chain_trust.rs. The final message names the helpers that build the admission and the package document after the change."
+symbols = []
+
+[capability.22.39.1155]
+title = "Let the journal case file of the registry build its deployment evidence in the form of the admission builder of the committed program transport module"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/registry/tests/journal.rs", "services/platform/hosted/registry/tests/support/journal/mod.rs", "services/platform/hosted/registry/tests/support/journal/chain.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test journal"
+do_1 = "do_1 Gotcha 4866, decision 3939. Read the function verify of the structure ChainDeploymentProof in programs/crates/layerx-programs-registry/src/chain_evidence/deployment.rs, the function bind_chain_deployment and the method bind_execution in programs/crates/layerx-programs-registry/src/protocol_evidence.rs, the function decode in programs/crates/layerx-programs-registry/src/deployment_execution.rs, the functions admission and admission_abi in services/platform/hosted/registry/tests/committed_program_transport.rs, the helpers fixture_with_interface, deploy_fixture, verifier_for_fixture and deploy_payload in services/platform/hosted/registry/tests/support/journal/mod.rs and the helpers evidence, project and replay in services/platform/hosted/registry/tests/journal.rs. The final message names the helpers that build the deployment proofs after the change."
+symbols = []
 
 [capability.22.39.1154]
 title = "Let the fixture of the finalized delivery case file take its state from the creation route of the market program and its store proof from a state proof under the app hash of the commit"
@@ -230719,9 +230779,133 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1158]
+title = "Let the deployment case of the programs chain case file commit an admission to its journal before it requires the answer of the deployment route"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1158"]
+interfaces = []
+do_1 = "do_1 Gotcha 4869, decision 3942. Read the function route_chain_deployment in services/platform/hosted/registry/src/routes.rs, the function journal of the structure ChainDeployment in services/platform/hosted/registry/src/programs_chain.rs, the function admission and the case that commits evidence through the method append in services/platform/hosted/registry/tests/committed_program_transport.rs and the case registry_deployment_reads_the_program_record with the helpers deployment_case, serve_deployment_peer, assert_deployment_refusals and assert_deployment_rpc_calls in services/platform/hosted/registry/tests/programs_chain.rs. The final message names the place where the case commits the admission."
+do_2 = "do_2 Change the case and its helpers in services/platform/hosted/registry/tests/programs_chain.rs under decision 3942 points two and three. Point one holds."
+do_3 = "do_3 Point four holds. The final message lists for each of the 4 cases of the file whether its requirements stayed as they were. No other file changes."
+do_4 = "do_4 Run the verification. Points five and six hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/registry/tests/programs_chain.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test programs_chain"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1157]
+title = "Let the producer case file of the registry start the webhooks service with the settings of the receipt verifier and build its publication from a deployment proof in the form of the admission builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1157"]
+interfaces = []
+do_1 = "do_1 Gotcha 4868, decision 3941. Read the function from_environment of the structure ReceiptVerifier in services/platform/hosted/webhooks/src/trusted.rs, the structure Webhooks with its method start and the helpers configure_chain_policy and readiness_listener in services/platform/hosted/internal/src/producer_test_support.rs, the functions admission and admission_abi in services/platform/hosted/registry/tests/committed_program_transport.rs, the helper fixture_with_interface in services/platform/hosted/registry/tests/support/producer_tls/mod.rs and the structure Webhooks with its method start, the helper publication and the helper qualify_delivery in services/platform/hosted/registry/tests/producer_tls.rs. The final message names the settings that the method start sets after the change and the helper that builds the deployment proof."
+do_2 = "do_2 Change the method start of the structure Webhooks in services/platform/hosted/registry/tests/producer_tls.rs under decision 3941 point two. Point one holds."
+do_3 = "do_3 Change the helper publication under points three and four. The final message states whether each requirement of the case stayed as it was. No other file changes."
+do_4 = "do_4 Run the verification. Points five and six hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/registry/tests/producer_tls.rs", "services/platform/hosted/registry/tests/support/producer_tls/mod.rs", "services/platform/hosted/registry/tests/support/producer_tls/chain.rs", "services/platform/hosted/registry/tests/support/producer_transport.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test producer_tls"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1156]
+title = "Let the chain trust case file of the registry build its package document with the one member admission"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1156"]
+interfaces = []
+do_1 = "do_1 Gotcha 4867, decision 3940. Read the structure ChainDeploymentPackage and the function verify_chain_deployment_package in services/platform/hosted/registry/src/journal.rs, the function canonical_encoding of the structure DeploymentProof in programs/crates/layerx-programs-registry/src/protocol_evidence.rs, the functions admission and admission_abi in services/platform/hosted/registry/tests/committed_program_transport.rs, the helper fixture_with_interface in services/platform/hosted/registry/tests/support/journal_chain_trust/mod.rs and the helpers package, chain_fixture, assert_invalid_proofs and assert_invalid_trust_roots with the two cases in services/platform/hosted/registry/tests/journal_chain_trust.rs. The final message names the helpers that build the admission and the package document after the change."
+do_2 = "do_2 Change the helper package and the documents of services/platform/hosted/registry/tests/journal_chain_trust.rs under decision 3940 points two and three. Point one holds."
+do_3 = "do_3 Bring the two cases and the helpers assert_invalid_proofs and assert_invalid_trust_roots in line with point four. The final message lists for each of the 2 cases of the file whether its requirements stayed as they were. No other file changes."
+do_4 = "do_4 Run the verification. Points five and six hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/registry/tests/journal_chain_trust.rs", "services/platform/hosted/registry/tests/support/journal_chain_trust/mod.rs", "services/platform/hosted/registry/tests/support/journal_chain_trust/chain.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test journal_chain_trust"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1155]
+title = "Let the journal case file of the registry build its deployment evidence in the form of the admission builder of the committed program transport module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1155"]
+interfaces = []
+do_1 = "do_1 Gotcha 4866, decision 3939. Read the function verify of the structure ChainDeploymentProof in programs/crates/layerx-programs-registry/src/chain_evidence/deployment.rs, the function bind_chain_deployment and the method bind_execution in programs/crates/layerx-programs-registry/src/protocol_evidence.rs, the function decode in programs/crates/layerx-programs-registry/src/deployment_execution.rs, the functions admission and admission_abi in services/platform/hosted/registry/tests/committed_program_transport.rs, the helpers fixture_with_interface, deploy_fixture, verifier_for_fixture and deploy_payload in services/platform/hosted/registry/tests/support/journal/mod.rs and the helpers evidence, project and replay in services/platform/hosted/registry/tests/journal.rs. The final message names the helpers that build the deployment proofs after the change."
+do_2 = "do_2 Change the helpers of services/platform/hosted/registry/tests/journal.rs and of its support module under decision 3939 point two. Point one holds."
+do_3 = "do_3 Bring the cases of services/platform/hosted/registry/tests/journal.rs in line with point three. The final message lists for each of the 7 cases of the file whether its requirements stayed as they were. No other file changes."
+do_4 = "do_4 Run the verification. Points four and five hold. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/registry/tests/journal.rs", "services/platform/hosted/registry/tests/support/journal/mod.rs", "services/platform/hosted/registry/tests/support/journal/chain.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test journal"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1154]
 title = "Let the fixture of the finalized delivery case file take its state from the creation route of the market program and its store proof from a state proof under the app hash of the commit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
