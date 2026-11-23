@@ -16810,6 +16810,18 @@ value = "One. The documents prevail. services/platform/hosted/registry/deploymen
 basis = "Gotcha 4876."
 affects = []
 
+[decision.3950]
+title = "The retained reference record follows the tree for the lni tree and admits the fourteen places by rows, and the self test of the scan and the catalogue case file follow the record"
+value = "One. The files prevail. .golangci.yml, the files under apps/perps/packages/default-solana-adapter, services/agent/crates/layerx-agentd/src/inference_market/laps.rs, services/agent/crates/layerx-agentd/src/read/program_node.rs, services/platform/hosted/human/README.md, tools/ui-check/surfaces/docs.json and tools/paxeer-x/candidate_contract_test.go keep their form. No source file changes. Two. tools/paxeer-x/retired_callers.json gains four rows: one row with lines for .golangci.yml with its lines 456, 460, 464 and 520, one row with the one symbol depositToken for the directory apps/perps/packages/default-solana-adapter, one row with lines for services/agent/crates/layerx-agentd/src/inference_market/laps.rs with its line 250 and one row with lines for tools/ui-check/surfaces/docs.json with its lines 962 and 963. The row for services/agent/crates/layerx-agentd/src/read/program_node.rs gains line 539 of the file. The row for services/platform/hosted/human/README.md takes lines 376 and 377 of the file in place of its two lines. Each line of a row is the present text of the line without its leading and trailing white space. Each added row holds a citation of one line that names decision 3950. Three. The two rows whose path the tree does not hold leave. The row with the path services/wallet/demo/README.md leaves. Every other row stays. The 172 rows become 173. Four. The component lni of tools/paxeer-x/retired_callers.json holds under deleted_trees the four entries of the Go case in its order and holds no map retiring_trees. Every other member of the component stays. No other component changes and no documentation path is added. Five. In the function self_test of tools/paxeer-x/tests/retired_callers_test.py the synthetic file of the step for the tracked scan takes the path services/platform/hosted/indexer/src/caller.rs at the three places where the file names services/platform/hosted/indexer/src/abi.rs. No row of tools/paxeer-x/retired_callers.json names that path and the tree does not hold it. The directory filter of the step keeps its directory. The step with the comparison name record pattern never hides a pending retirement no longer reads the map of the record. It builds a document of its own from the loaded record in which the component lni holds the map retiring_trees with the one tree services/agent/crates/layerx-client/src/pending for task 9.24.7, writes its file under that tree and runs its scan on that document. The form of its expected hit and its comparison name stay. The function scan and the validation keep their form. Six. In tools/paxeer-x/tests/test_retired_catalogue_deleted.py the constant DELETED_TREES holds for lni the two entries services/agent/crates/layerx-client/src/lni and cmd/layerxd and no longer holds tests/daemon for finality-authority. The first case of the class takes the name test_lni_tree_is_recorded_as_deleted and requires that the component lni holds no map retiring_trees, that services/agent/crates/layerx-client/src/lni is an entry of deleted_trees, that the tree does not hold that path and that a scan with the options deleted, component lni and the path services/agent ends with the exit code 0. The other two cases keep their text. Seven. tests/ci/data/tools_python_suite_baseline.json becomes an empty list. In tests/ci/test_tools_python_suites_wired.py the set remaining of the case test_tools_python_baseline_tracks_exact_cases becomes an empty set and every other line of the case stays. Eight. Scope: only tools/paxeer-x/retired_callers.json, tools/paxeer-x/tests/retired_callers_test.py, tools/paxeer-x/tests/test_retired_catalogue_deleted.py, tests/ci/data/tools_python_suite_baseline.json and tests/ci/test_tools_python_suites_wired.py change. The count of cases of tools/paxeer-x/tests/test_retired_catalogue_deleted.py stays three. No case gains a skip mark. tools/paxeer-x/retired_callers.json keeps its layout with an indent of two spaces and one line break at its end, and no line of it outside the rows and the component named here changes. The final message names each row that was added, changed or removed, any point that cannot be held in this form and any remaining question. Nine. Target: the verification of task 22.39.1166 passes. It runs the self test of the scan, the scan without options, the scan with the option deleted, the case files tools/paxeer-x/tests/test_retired_catalogue_deleted.py and tests/ci/test_tools_python_suites_wired.py with pytest and the case TestCandidateContractLNIGuidance of the Go package under tools/paxeer-x. Task 22.39.1166."
+basis = "Gotcha 4877."
+affects = []
+
+[decision.3951]
+title = "The file lists of the governance suite script follow the release document"
+value = "One. The release document prevails. RELEASE.md keeps its form. Two. The list of the function sid_docs_name_v6120 holds tools/paxeer-x/sid-snapshot/README.md only. The second list no longer holds RELEASE.md and keeps its seven other files. Every required string, the pattern, the requirements for tools/hpx/publish.sh and every other line of tools/paxeer-x/gov/test.sh stay. Three. Scope: only tools/paxeer-x/gov/test.sh changes. tools/paxeer-x/gov/render.sh, tools/paxeer-x/tests/test_gov_templates.py, the templates and the documents keep their form. No case leaves and no requirement for a file other than RELEASE.md leaves. The final message names each changed line, any point that cannot be held in this form and any remaining question. Four. Target: the verification of task 22.39.1167 passes. It asks jq for its version, builds the native libraries with the make target paxd-native-libs and runs the case test_gov_suite_passes_without_retired_templates, in which the suite script builds the node binary itself. Task 22.39.1167."
+basis = "Gotcha 4878."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46470,6 +46482,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1167]
+title = "Let the file lists of the governance suite script follow the release document"
+reqs = ["22998.1"]
+touches = ["tools/paxeer-x/gov/test.sh"]
+tests = []
+verification_contract = "jq --version && make -s paxd-native-libs && python3 tools/paxeer-x/tests/test_gov_templates.py GovTemplatesTest.test_gov_suite_passes_without_retired_templates"
+do_1 = "do_1 Gotcha 4878, decision 3951. Read tools/paxeer-x/gov/test.sh whole, the case of tools/paxeer-x/tests/test_gov_templates.py and RELEASE.md."
+symbols = []
+
+[capability.22.39.1166]
+title = "Let the retained reference record, the self test of its scan and their case files follow the tree for the lni tree and the fourteen places"
+reqs = ["22998.1"]
+touches = ["tools/paxeer-x/retired_callers.json", "tools/paxeer-x/tests/retired_callers_test.py", "tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/test_tools_python_suites_wired.py"]
+tests = []
+verification_contract = "python3 tools/paxeer-x/tests/retired_callers_test.py --self-test && python3 tools/paxeer-x/tests/retired_callers_test.py && python3 tools/paxeer-x/tests/retired_callers_test.py --deleted && python3 -m pytest -q tools/paxeer-x/tests/test_retired_catalogue_deleted.py tests/ci/test_tools_python_suites_wired.py && go test -count=1 -run TestCandidateContractLNIGuidance ./tools/paxeer-x/"
+do_1 = "do_1 Gotcha 4877, decision 3950. Read the function self_test of tools/paxeer-x/tests/retired_callers_test.py at its step for the tracked scan and at its step with the comparison name record pattern never hides a pending retirement, the function scan and the validation of the rows in the same file, the component lni and the rows of tools/paxeer-x/retired_callers.json, tools/paxeer-x/tests/test_retired_catalogue_deleted.py, tests/ci/data/tools_python_suite_baseline.json, the case test_tools_python_baseline_tracks_exact_cases of tests/ci/test_tools_python_suites_wired.py and the case TestCandidateContractLNIGuidance of tools/paxeer-x/candidate_contract_test.go."
+symbols = []
 
 [capability.22.39.1165]
 title = "Let the unit cases of the registry source follow the containers and the egress rule of the deployment documents"
@@ -405369,6 +405399,68 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.1167]
+title = "Let the file lists of the governance suite script follow the release document"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1167"]
+interfaces = []
+do_1 = "do_1 Gotcha 4878, decision 3951. Read tools/paxeer-x/gov/test.sh whole, the case of tools/paxeer-x/tests/test_gov_templates.py and RELEASE.md."
+do_2 = "do_2 Change the two lists under decision 3951 point two. Point one holds."
+do_3 = "do_3 Point three holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point four holds. The build of the native libraries and of the node binary takes several minutes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/paxeer-x/gov/test.sh"]
+tests = []
+planned_paths = []
+build_cmd = "make -s paxd-native-libs && bash -n tools/paxeer-x/gov/render.sh tools/paxeer-x/gov/test.sh"
+verify_cmd = "jq --version && make -s paxd-native-libs && python3 tools/paxeer-x/tests/test_gov_templates.py GovTemplatesTest.test_gov_suite_passes_without_retired_templates"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1166]
+title = "Let the retained reference record, the self test of its scan and their case files follow the tree for the lni tree and the fourteen places"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1166"]
+interfaces = []
+do_1 = "do_1 Gotcha 4877, decision 3950. Read the function self_test of tools/paxeer-x/tests/retired_callers_test.py at its step for the tracked scan and at its step with the comparison name record pattern never hides a pending retirement, the function scan and the validation of the rows in the same file, the component lni and the rows of tools/paxeer-x/retired_callers.json, tools/paxeer-x/tests/test_retired_catalogue_deleted.py, tests/ci/data/tools_python_suite_baseline.json, the case test_tools_python_baseline_tracks_exact_cases of tests/ci/test_tools_python_suites_wired.py and the case TestCandidateContractLNIGuidance of tools/paxeer-x/candidate_contract_test.go."
+do_2 = "do_2 Change tools/paxeer-x/retired_callers.json under decision 3950 points two, three and four. Point one holds."
+do_3 = "do_3 Change tools/paxeer-x/tests/retired_callers_test.py under point five, tools/paxeer-x/tests/test_retired_catalogue_deleted.py under point six, tests/ci/data/tools_python_suite_baseline.json and tests/ci/test_tools_python_suites_wired.py under point seven. Point eight holds. The final message names each row that was added, changed or removed, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point nine holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/paxeer-x/retired_callers.json", "tools/paxeer-x/tests/retired_callers_test.py", "tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/data/tools_python_suite_baseline.json", "tests/ci/test_tools_python_suites_wired.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q pytest PyYAML && python3 -m py_compile tools/paxeer-x/tests/retired_callers_test.py tools/paxeer-x/tests/test_retired_catalogue_deleted.py tests/ci/test_tools_python_suites_wired.py"
+verify_cmd = "python3 tools/paxeer-x/tests/retired_callers_test.py --self-test && python3 tools/paxeer-x/tests/retired_callers_test.py && python3 tools/paxeer-x/tests/retired_callers_test.py --deleted && python3 -m pytest -q tools/paxeer-x/tests/test_retired_catalogue_deleted.py tests/ci/test_tools_python_suites_wired.py && go test -count=1 -run TestCandidateContractLNIGuidance ./tools/paxeer-x/"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1148]
 title = "Let the human web image case require exactly one line that ends with the words npm run build"
