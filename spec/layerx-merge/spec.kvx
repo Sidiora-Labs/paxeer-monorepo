@@ -16780,6 +16780,12 @@ value = "One. The source prevails. services/platform/hosted/authority/src/human.
 basis = "Gotcha 4871."
 affects = []
 
+[decision.3945]
+title = "The version-one migration script of the paxeer boundary writes its domain entries into its own copy of the settlement document, and the directory of the crate keeps holding no file settlement-domain.py"
+value = "One. The source prevails. The directory services/platform/hosted/paxeer keeps holding no file settlement-domain.py and no file prepare-beta.py, as task 22.33.1321 set it. services/platform/hosted/paxeer/tests/settlement_domains.py, services/platform/hosted/paxeer/tests/native_initialization.rs, tests/vectors/checkpoint/generate.py, tests/vectors/checkpoint/fresh.json, contracts/config/checkpoint-settlement.json and tests/bridge/retired/test_retired_checkpoint_settlement.py keep their form. Two. services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py stays the versioned migration case as task 22.33.1324 set it. It keeps its name, its place, its class, its one case with the name test_domain_writer_preserves_vectors_and_generator_binds_signatures and the line that reads contracts/config/checkpoint-settlement.json by that path. It no longer loads a module from a file and no longer imports the module importlib. Three. The script writes a domain entry into its own copy of the settlement document itself: it reads the copy, sets the entry under the given name in the member settlement_domains and writes the copy back. For an entry with a member protocol_version it also sets the member header_encoding_prefix of the entry to the header prefix of the document with its first two bytes replaced by that protocol version. It writes the entries beta and beta3 in this form, the entry beta3 with the protocol version 3. Four. The case keeps these requirements. After each write the entry vectors of the copy equals that of the document. The generator run for the domain beta succeeds, and its vector fresh.json names the domain beta and differs in digest and signature of its first attestation from tests/vectors/checkpoint/fresh.json. The generator run for the domain beta3 succeeds, and its vector holds the protocol version 3 in its header and differs in the same two members from the vector of the domain beta. The protocol version of the copy is 2. Five. For the protocol version 4 the script writes an entry in the form of point three under the name unsupported, starts the generator for that domain with an output directory of its own and reads its status and its error output. It requires a status other than zero and the name protocol_version in the error output, requires that the output directory of that run holds no vector fresh.json and requires once more that the entry vectors of the copy equals that of the document. The requirement of the exception SystemExit for the name vectors leaves the case together with the function write_domain of the loaded module. Six. Scope: only services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py changes. No source file changes. services/platform/hosted/paxeer/tests/real_chain.rs keeps its 4 cases, and no case gains an ignore mark. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Seven. Target: the verification of task 22.39.1161 passes. It asks the tool cast for its version and runs the cases settlement_domains, native_settlement_evidence and qualification_refuses_reentry of the case target real_chain of the package layerx-platform-paxeer-boundary. Task 22.39.1161."
+basis = "Gotcha 4872."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46440,6 +46446,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1161]
+title = "Let the version-one migration script of the paxeer boundary write its domain entries into its own copy of the settlement document"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py"]
+tests = []
+verification_contract = "cast --version && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --test real_chain -- settlement_domains native_settlement_evidence qualification_refuses_reentry"
+do_1 = "do_1 Gotcha 4872, decision 3945. Read services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py, the cases settlement_domains and native_settlement_evidence in services/platform/hosted/paxeer/tests/real_chain.rs, the case of services/platform/hosted/paxeer/tests/settlement_domains.py, the function main with its options and its asserts and the function cast in tests/vectors/checkpoint/generate.py, the members protocol_version, header_encoding_prefix and settlement_domains in contracts/config/checkpoint-settlement.json and the case of tests/bridge/retired/test_retired_checkpoint_settlement.py."
+symbols = []
 
 [capability.22.39.1160]
 title = "Let the fixture export case of the budget proof exports case file take its state from the produced corpus replayed through the transcript mode of the fixture node"
@@ -230805,6 +230820,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1161]
+title = "Let the version-one migration script of the paxeer boundary write its domain entries into its own copy of the settlement document"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1161"]
+interfaces = []
+do_1 = "do_1 Gotcha 4872, decision 3945. Read services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py, the cases settlement_domains and native_settlement_evidence in services/platform/hosted/paxeer/tests/real_chain.rs, the case of services/platform/hosted/paxeer/tests/settlement_domains.py, the function main with its options and its asserts and the function cast in tests/vectors/checkpoint/generate.py, the members protocol_version, header_encoding_prefix and settlement_domains in contracts/config/checkpoint-settlement.json and the case of tests/bridge/retired/test_retired_checkpoint_settlement.py."
+do_2 = "do_2 Change services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py under decision 3945 points two and three. Point one holds."
+do_3 = "do_3 Bring the requirements of the case into the form of points four and five. Point six holds. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. No other file changes."
+do_4 = "do_4 Run the verification. Point seven holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --tests"
+verify_cmd = "cast --version && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --test real_chain -- settlement_domains native_settlement_evidence qualification_refuses_reentry"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
