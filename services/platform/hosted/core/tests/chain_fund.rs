@@ -97,12 +97,13 @@ fn send_raw_response(request: &Value, state: &mut ChainState) -> Option<Value> {
             .unwrap_or_else(|| panic!("required value")),
     )
     .unwrap_or_else(|error| panic!("required value: {error:?}"));
-    let signed: Value = serde_json::from_str(
+    let transfer: Value = serde_json::from_str(
         record["body"]
             .as_str()
             .unwrap_or_else(|| panic!("required value")),
     )
     .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    let signed = &transfer["signed"];
     assert_eq!(signed["raw"], json!(raw));
     assert_eq!(
         signed["transaction_hash"],
@@ -184,7 +185,19 @@ impl Chain {
                         let hash = format!("0x{}", hex_encode(&transaction_hash(raw)));
                         assert_eq!(request["params"][0], hash);
                         if state.mined {
-                            json!({"transactionHash": hash, "status": "0x1"})
+                            let nonce_request = state
+                                .requests
+                                .iter()
+                                .find(|request| request["method"] == "eth_getTransactionCount")
+                                .unwrap_or_else(|| panic!("receipt queried after nonce lookup"));
+                            json!({
+                                "transactionHash": hash,
+                                "status": "0x1",
+                                "blockNumber": "0x1",
+                                "blockHash": format!("0x{}", "01".repeat(32)),
+                                "from": nonce_request["params"][0],
+                                "to": format!("0x{}", hex_encode(&RECIPIENT)),
+                            })
                         } else {
                             Value::Null
                         }
@@ -722,10 +735,6 @@ fn testnet_fund_replays_the_journaled_transaction() {
         .submissions[0]
         .clone();
     assert_transfer(&original);
-    private_file(
-        &harness.root.join("sender.key"),
-        format!("{:064x}", 2).as_bytes(),
-    );
     harness.restart(true, true);
     let (status, pending) = harness.fund("replay-transfer", 123_456);
     assert_eq!(status, 202);
@@ -777,7 +786,7 @@ fn testnet_fund_replays_the_journaled_transaction() {
             .iter()
             .filter(|request| request["method"] == "eth_chainId")
             .count(),
-        2
+        3
     );
 }
 
