@@ -6,6 +6,84 @@
           "disposition": "requires_enrichment",
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "CandlesErrorResponse.code"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "CandlesErrorResponse.details"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "CandlesErrorResponse.fieldErrors"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "CandlesErrorResponse.message"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "CandlesErrorResponse.requestId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "CandlesErrorResponse.retryAfterMs"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "CandlesErrorResponse.retryable"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "ChartWatermark.blockHash"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "ChartWatermark.chainId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "ChartWatermark.height"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "ChartWatermark.integrity"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "ChartWatermark.observedAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "ChartWatermark.projectionRevision"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
           "source_field": "ClientConfiguration.baseUrl"
         },
         {
@@ -84,6 +162,12 @@
           "disposition": "requires_enrichment",
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryRequest.mode"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
           "source_field": "HistoryRequest.resolution"
         },
         {
@@ -115,6 +199,48 @@
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
           "source_field": "RequestOptions.signal"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "SupplySnapshot.alignment"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "SupplySnapshot.decimals"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "SupplySnapshot.supplySourceBlock"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "SupplySnapshot.supplySourceHash"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "SupplySnapshot.token"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "SupplySnapshot.totalSupplyRaw"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "SupplySnapshot.valuationRevision"
         },
         {
           "disposition": "requires_enrichment",
@@ -295,12 +421,199 @@
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
           "source_field": "UdfSymbol.type"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UnavailableHistory.mode"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UnavailableHistory.priceHistory"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UnavailableHistory.s"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UnavailableHistory.t"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UnavailableHistory.v"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UnavailableHistory.valuationAvailable"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedHistoryMetadata.algorithmVersion"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedHistoryMetadata.mode"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedHistoryMetadata.snapshotId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedHistoryMetadata.valuationAvailable"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedHistoryMetadata.valuationBasis"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedHistoryMetadata.valuations"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedHistoryMetadata.watermark"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedNoHistory.c"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedNoHistory.h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedNoHistory.l"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedNoHistory.o"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedNoHistory.s"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedNoHistory.t"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedNoHistory.v"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.baseDecimals"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.chainId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.displayPrecision"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.metadataRevision"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.minmov"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.poolAddress"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.priceScale"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.quoteDecimals"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "VersionedUdfSymbol.tokenAddress"
         }
       ],
       "id": "candles-sdk",
       "interface_inventories": [
         {
           "fields": [
+            "CandlesErrorResponse.code",
+            "CandlesErrorResponse.details",
+            "CandlesErrorResponse.fieldErrors",
+            "CandlesErrorResponse.message",
+            "CandlesErrorResponse.requestId",
+            "CandlesErrorResponse.retryAfterMs",
+            "CandlesErrorResponse.retryable",
+            "ChartWatermark.blockHash",
+            "ChartWatermark.chainId",
+            "ChartWatermark.height",
+            "ChartWatermark.integrity",
+            "ChartWatermark.observedAt",
+            "ChartWatermark.projectionRevision",
             "ClientConfiguration.baseUrl",
             "ClientConfiguration.timeoutMs",
             "HistoryBars.c",
@@ -314,12 +627,20 @@
             "HistoryRequest.countback",
             "HistoryRequest.cursor",
             "HistoryRequest.from",
+            "HistoryRequest.mode",
             "HistoryRequest.resolution",
             "HistoryRequest.symbol",
             "HistoryRequest.to",
             "NoHistory.nextTime",
             "NoHistory.s",
             "RequestOptions.signal",
+            "SupplySnapshot.alignment",
+            "SupplySnapshot.decimals",
+            "SupplySnapshot.supplySourceBlock",
+            "SupplySnapshot.supplySourceHash",
+            "SupplySnapshot.token",
+            "SupplySnapshot.totalSupplyRaw",
+            "SupplySnapshot.valuationRevision",
             "UdfConfig.code",
             "UdfConfig.currency_codes",
             "UdfConfig.desc",
@@ -349,7 +670,36 @@
             "UdfSymbol.supported_resolutions",
             "UdfSymbol.ticker",
             "UdfSymbol.timezone",
-            "UdfSymbol.type"
+            "UdfSymbol.type",
+            "UnavailableHistory.mode",
+            "UnavailableHistory.priceHistory",
+            "UnavailableHistory.s",
+            "UnavailableHistory.t",
+            "UnavailableHistory.v",
+            "UnavailableHistory.valuationAvailable",
+            "VersionedHistoryMetadata.algorithmVersion",
+            "VersionedHistoryMetadata.mode",
+            "VersionedHistoryMetadata.snapshotId",
+            "VersionedHistoryMetadata.valuationAvailable",
+            "VersionedHistoryMetadata.valuationBasis",
+            "VersionedHistoryMetadata.valuations",
+            "VersionedHistoryMetadata.watermark",
+            "VersionedNoHistory.c",
+            "VersionedNoHistory.h",
+            "VersionedNoHistory.l",
+            "VersionedNoHistory.o",
+            "VersionedNoHistory.s",
+            "VersionedNoHistory.t",
+            "VersionedNoHistory.v",
+            "VersionedUdfSymbol.baseDecimals",
+            "VersionedUdfSymbol.chainId",
+            "VersionedUdfSymbol.displayPrecision",
+            "VersionedUdfSymbol.metadataRevision",
+            "VersionedUdfSymbol.minmov",
+            "VersionedUdfSymbol.poolAddress",
+            "VersionedUdfSymbol.priceScale",
+            "VersionedUdfSymbol.quoteDecimals",
+            "VersionedUdfSymbol.tokenAddress"
           ],
           "source": "sdk/launchpad/packages/candles-sdk/src/index.ts"
         }
@@ -373,7 +723,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/candles-sdk/src/index.ts",
-          "sha256": "366111d0b86576e114a8d96dcfbefdc2517674ef5da1b51fc890e9249892fb1f"
+          "sha256": "1a2ed6583ea51e1619aed2df16c5e81624139c2f863514d1792e0543351762f7"
         }
       ],
       "status": "adapter_required",
@@ -702,6 +1052,12 @@
           "disposition": "requires_enrichment",
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.poolAddress"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
           "source_field": "Trade.price"
         },
         {
@@ -733,6 +1089,7 @@
             "Trade.fee",
             "Trade.id",
             "Trade.isBuy",
+            "Trade.poolAddress",
             "Trade.price",
             "Trade.sender",
             "Trade.txHash"
@@ -754,7 +1111,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
-          "sha256": "dc1f74c4303bb9bfddb628201fdae07de9deef15bb3ede23cd591a787fe4abfa"
+          "sha256": "83a49f8246aa642ac78b2906b7a989acb707312e7d6265e45dd78662f3f9e9bc"
         }
       ],
       "status": "adapter_required",
@@ -1207,7 +1564,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
-          "sha256": "fb8dc4f3339a3a21d5f6a3940a23da0aba8b2f0b443ae0a69c8b9ee006a936ba"
+          "sha256": "a3806ebc78e3b62275c3f3c8dd80865392eb9f2b0cb8473944a27d9626182580"
         }
       ],
       "status": "adapter_required",
@@ -1407,6 +1764,12 @@
           "disposition": "requires_enrichment",
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadOptions.accessToken"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
           "source_field": "UploadRequest.banner"
         },
         {
@@ -1505,6 +1868,7 @@
             "UploadMetadata.telegram",
             "UploadMetadata.twitter",
             "UploadMetadata.website",
+            "UploadOptions.accessToken",
             "UploadRequest.banner",
             "UploadRequest.logo",
             "UploadRequest.message",
@@ -1534,7 +1898,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
-          "sha256": "888f6a56395d2c41fc363f4a2618b8a0d5b841444f0fc37e04776c6ef9467b25"
+          "sha256": "075fc657df4fca4ec8054c11d41661382f7b1bf19332926ff3df42c42865d4e7"
         }
       ],
       "status": "adapter_required",
@@ -1603,6 +1967,12 @@
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
           "source_field": "Images.banner"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "OperationSigner.message"
         },
         {
           "disposition": "requires_enrichment",
@@ -1787,6 +2157,7 @@
             "HttpClientConfig.timeoutMs",
             "Images.avatar",
             "Images.banner",
+            "OperationSigner.message",
             "ProfileData.bio",
             "ProfileData.discord",
             "ProfileData.display_name",
@@ -1833,7 +2204,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/users-sdk/src/index.ts",
-          "sha256": "45ae4863d4d9307c03a508599401729b98ae1112b36a2796b99fd2967aa922ff"
+          "sha256": "506dc18dbff2fb0c47e056a4dc960ef4217d91d52d36befde26e8a24e65c3064"
         }
       ],
       "status": "adapter_required",
@@ -1943,7 +2314,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
-          "sha256": "93c8d630c6eba9046bc5b7c138d9b12f0669f7d2c3015761271f4925a8482c32"
+          "sha256": "63a2ffe40e81d7a665ac438d82e5a9ed8e412e5e6d8e901032365213d3770956"
         }
       ],
       "status": "adapter_required",
@@ -2137,7 +2508,7 @@
       "sources": [
         {
           "path": "apps/launchpad/web/src/core/clients/chat-ws.ts",
-          "sha256": "60c402bf893dbd49e39e1610fbf653c3e21611b523efeea80b85f377855d4518"
+          "sha256": "32bd3f7cc69e5ec3a3de8959284ec3d48380defc957c73b1516a775f56be0935"
         }
       ],
       "status": "adapter_required",
@@ -2553,7 +2924,7 @@
       "sources": [
         {
           "path": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
-          "sha256": "ad6e3a7ce5ac3747c411bb7c4d44f7a71ba518896c4bec288113e23f23a30847"
+          "sha256": "9cb0ef7c95ae07defd1d378304e45cf71cddf2849e20c8c07181fd0187d0436e"
         }
       ],
       "status": "adapter_required",

@@ -775996,7 +775996,7 @@ notes = "keeper declaration for the chain launch"
 [interface.22.chainlaunch-route-list]
 kind = "rest_route"
 path = "services/launchpad/api/internal/rest/compatibility.go"
-line = 80
+line = 81
 signature = "GET /v2/chains"
 callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
 status = "served"
@@ -776006,7 +776006,7 @@ notes = "route declaration for the chain launch"
 [interface.22.chainlaunch-route-detail]
 kind = "rest_route"
 path = "services/launchpad/api/internal/rest/compatibility.go"
-line = 81
+line = 82
 signature = "GET /v2/chains/{chain}"
 callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
 status = "served"
@@ -776016,7 +776016,7 @@ notes = "route declaration for the chain launch"
 [interface.22.chainlaunch-route-revenue]
 kind = "rest_route"
 path = "services/launchpad/api/internal/rest/compatibility.go"
-line = 82
+line = 83
 signature = "GET /v2/chains/{chain}/revenue"
 callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
 status = "served"

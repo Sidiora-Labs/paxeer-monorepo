@@ -48,8 +48,7 @@ def topology_v2():
     return v1.validate(config)
 
 
-@pytest.fixture
-def connected_inputs(tmp_path):
+def build_connected_inputs(tmp_path):
     config = topology_v2()
     fixture = v1.load(Path(__file__).with_name('fixtures') / 'runtime_documents.json')
     grants = v1.load(SOURCE_ROOT / 'migrations/grants.json')
@@ -73,6 +72,11 @@ def connected_inputs(tmp_path):
     chain.write_bytes(raw)
     return (config, SOURCE_ROOT, hashlib.sha256(regular_bytes(ADAPTER)).hexdigest(),
             documents, chain, hashlib.sha256(raw).hexdigest())
+
+
+@pytest.fixture
+def connected_inputs(tmp_path):
+    return build_connected_inputs(tmp_path)
 
 
 def test_topology_adapter_path_preserves_digest_verification(tmp_path):

@@ -252,13 +252,9 @@ def test_site_generator_reads_moved_samples_and_renders_source_links(builder):
     known = {identifier.replace("/", "-") + ".html" for identifier in pages} | {"search.js"}
     checked, problems = builder.check_links(pages, rendered, known)
     assert checked > len(pages)
-    # beta-environment.md is outside the generated site and carries repository
-    # references to source pages and its calendar asset.
-    assert problems and all(
-        "use an immutable source URL" in problem
-        or "no page or asset generates" in problem
-        for problem in problems
-    )
+    # Rendered pages resolve site links and use addresses for repository sources
+    # and the beta calendar asset.
+    assert not problems, problems
     page = pages["quickstart/swift"]
     linked = builder.site_links("[iOS](../framework/ios.md?q=1#payment)", page, pages)
     assert linked == "[iOS](framework-ios.html?q=1#payment)"

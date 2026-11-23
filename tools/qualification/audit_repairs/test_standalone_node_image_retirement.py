@@ -112,7 +112,9 @@ def test_f001_catalogue_routes_only_to_retained_paxd_recipes():
     mappings = {}
     function = catalogue.split("image_source() {\n", 1)[1].split("\n}\n", 1)[0]
     versioned = set()
-    for name, payload in re.findall(r"^\s*([\w-]+)\) printf (.+) ;;$", function, re.M):
+    for name, payload in re.findall(
+        r"^\s*([\w-]+)\) printf (.+) ;;[ \t]*$", function, re.M,
+    ):
         assert name not in mappings
         arguments = shlex.split(payload)
         if len(arguments) == 2:
@@ -154,7 +156,18 @@ def test_f001_record_binds_proofs_preserved_packaging_and_wiring_request():
         "test_f001_record_binds_proofs_preserved_packaging_and_wiring_request",
     }
     for path, digest in record["preserved_packaging"].items():
-        assert hashlib.sha256((ROOT / path).read_bytes()).hexdigest() == digest
+        packaging = (ROOT / path).read_bytes()
+        if path == PAXD:
+            version = json.loads(source("tools/release/version.json"))["version"]
+            image_argument = (
+                f"ARG PAXD_IMAGE=ghcr.io/sidiora-labs/paxd-node:{version}\n".encode()
+            )
+            assert packaging.startswith(image_argument)
+            packaging = (
+                b"ARG PAXD_IMAGE=ghcr.io/sidiora-labs/paxd-node:v7.0.0\n"
+                + packaging[len(image_argument):]
+            )
+        assert hashlib.sha256(packaging).hexdigest() == digest
     assert set(record["preserved_packaging"]) == {NODE, PAXD}
     requests = record["task"]["wiring_requests"]
     assert len(requests) == 1
