@@ -230812,7 +230812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1157]
 title = "Let the producer case file of the registry start the webhooks service with the settings of the receipt verifier and build its publication from a deployment proof in the form of the admission builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
