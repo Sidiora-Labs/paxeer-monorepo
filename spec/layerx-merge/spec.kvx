@@ -404550,7 +404550,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1146]
 title = "Give the call of the ledger check in the ledger paths case a bound of its own"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
