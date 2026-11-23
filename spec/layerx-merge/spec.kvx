@@ -230796,7 +230796,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1159]
 title = "Let the retired anchor case take the wire rank of the level COMMITTED for the member verification and the real server cases take the status 503 for the capability scope path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
