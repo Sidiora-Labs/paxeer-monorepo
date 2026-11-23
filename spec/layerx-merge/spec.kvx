@@ -230811,7 +230811,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1160]
 title = "Let the fixture export case of the budget proof exports case file take its state from the produced corpus replayed through the transcript mode of the fixture node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
