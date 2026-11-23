@@ -38,9 +38,11 @@ def test_web_image_builds_agent_sdk_before_web_build():
         "RUN npm --prefix /src/services/agent/sdk/typescript run build"
     )
     web_copy = lines.index("COPY apps/web /src/apps/web")
-    web_build = next(
+    web_builds = [
         index for index, line in enumerate(lines) if line.strip().endswith("npm run build")
-    )
+    ]
+    assert len(web_builds) == 1
+    web_build = web_builds[0]
     assert sdk_build == sdk_install + 1
     assert sdk_install < sdk_build < web_copy < web_build
 
