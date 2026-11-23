@@ -9,7 +9,9 @@ fn documents(manifest: &str) -> Result<Vec<Value>, String> {
         .collect()
 }
 
-/// Bind the webhook verifier to the same `ConfigMap` key the authority consumes.
+/// Bind the webhook verifier to `layerx-node-config/network-name`.
+/// Node documents may omit `LAYERX_AUTHORITY_NETWORK_ID`; a single entry must
+/// reference that same key without a `value` member.
 ///
 /// # Errors
 /// Refuses missing, duplicate, ambiguous or invalid network configuration.
@@ -44,11 +46,13 @@ pub fn bind_network(node: &str, webhooks: &str) -> Result<String, String> {
         .flatten()
         .filter(|entry| entry["name"].as_str() == Some("LAYERX_AUTHORITY_NETWORK_ID"))
         .collect();
-    if bindings.len() != 1
-        || !bindings[0]["value"].is_null()
-        || bindings[0]["valueFrom"]["configMapKeyRef"]["name"].as_str()
-            != Some("layerx-node-config")
-        || bindings[0]["valueFrom"]["configMapKeyRef"]["key"].as_str() != Some("network-name")
+    if bindings.len() > 1
+        || bindings.iter().any(|binding| {
+            binding.get("value").is_some()
+                || binding["valueFrom"]["configMapKeyRef"]["name"].as_str()
+                    != Some("layerx-node-config")
+                || binding["valueFrom"]["configMapKeyRef"]["key"].as_str() != Some("network-name")
+        })
     {
         return Err("authority must reference layerx-node-config/network-name".into());
     }
