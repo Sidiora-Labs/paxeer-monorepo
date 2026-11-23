@@ -16786,6 +16786,30 @@ value = "One. The source prevails. The directory services/platform/hosted/paxeer
 basis = "Gotcha 4872."
 affects = []
 
+[decision.3946]
+title = "The decoder of the web consumer script and the consumer case of the reference ramp follow the rebalance answer of the source with its member chain_id, and the node script of the case follows the rules of the web configuration module"
+value = "One. The source prevails. services/platform/ramps/reference/src/main.rs, services/platform/ramps/journey_contract.py and apps/web/next.config.mjs keep their form. Two. The branch of the function decode_ramp_response for a path that begins with /internal/v1/rebalances requires that the member chain_id is an integer above zero, in the form of its branch for the path /readyz and in the place of its requirement of the member settlement_domain. Every other requirement of the branch stays. Three. The list of the constant READY_CONSUMER for the pending rebalance holds the pair chain_id with the value True in the place of its third pair, and the assertions require that the member chain_id of the pending rebalance is 125. Every other assertion of the constant stays. Four. The node script of the case takes the rules once and neither deletes nor sets a variable. It requires three rules and the rule with the source /readyz and the destination /api/human/readyz. It keeps the requirement that no rule source begins with /internal/ and the requirement of the headers rule. Five. The row of tools/paxeer-x/retired_callers.json with the path apps/web/e2e leaves, since no file under that directory holds the symbol after point two. Every other row and every other key of the file stay. Six. Scope: only apps/web/e2e/prepare-production.py, services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs and tools/paxeer-x/retired_callers.json change. No source file of the reference ramp changes. No case leaves and no case gains an ignore mark. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Seven. Target: the verification of task 22.39.1162 passes. It asks node and curl for their versions, runs the case target proof_ramp_reference_http_routes of the package layerx-reference-ramp with its 1 case and then runs tools/paxeer-x/tests/retired_callers_test.py for the path apps/web/e2e. Task 22.39.1162."
+basis = "Gotcha 4873."
+affects = []
+
+[decision.3947]
+title = "The receipt case file of the agent boundary requires that no state directory stands under the boundary directory, and its start method sets only settings that the source reads"
+value = "One. The source prevails. services/platform/hosted/agent-boundary/src/main.rs keeps its form, and services/platform/hosted/agent-boundary/tests/chain_receipt_lifecycle.rs keeps its form. Two. The last statement of the case boundary_starts_without_an_lni_socket takes the form of the sibling case file: for each of the names state, journal and activities no such directory stands under the boundary directory. Three. The method start sets none of the four settings LAYERX_AGENT_BOUNDARY_NODE_BEARER_TOKEN_FILE, LAYERX_AGENT_BOUNDARY_NODE_URL, LAYERX_AGENT_BOUNDARY_STATE_DIR and LAYERX_AGENT_BOUNDARY_PROTOCOL_NETWORK_ID and writes no token file named node. Every other setting of the method stays. Four. Scope: only services/platform/hosted/agent-boundary/tests/chain_receipt.rs changes. No source file changes. No case leaves and no case gains an ignore mark. Each of the 4 cases keeps every other requirement. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Five. Target: the verification of task 22.39.1163 passes. It runs the case target chain_receipt of the package layerx-platform-agent-boundary with its 4 cases. Task 22.39.1163."
+basis = "Gotcha 4874."
+affects = []
+
+[decision.3948]
+title = "The node of each authority fixture takes the system time once before its loop begins, and every block answer of that node holds that value"
+value = "One. The source prevails. services/platform/hosted/authority/src/human/budget_state.rs keeps its form. Two. In services/platform/hosted/authority/tests/support/committed_human_fixture.rs and in services/platform/hosted/authority/tests/native_budget_authority.rs the node thread takes the system time in whole seconds once before its loop begins. The helper block takes that value as a parameter and writes it as the member timestamp, and it no longer reads the system time itself. Three. Every block answer of one node holds the same timestamp. A node that starts later takes its own value. The maximum age of the policy stays as it is. Four. Scope: only services/platform/hosted/authority/tests/support/committed_human_fixture.rs and services/platform/hosted/authority/tests/native_budget_authority.rs change. No source file changes. No case leaves, no requirement of a case leaves and no case gains an ignore mark. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Five. Target: the verification of task 22.39.1164 passes. It runs the seven case targets budget_proof_exports, committed_budget_exports, human_tls, committed_human_documents, committed_identity_labels, native_budget_authority and lifecycle_budget_finality of the package layerx-platform-authority. Task 22.39.1164."
+basis = "Gotcha 4875."
+affects = []
+
+[decision.3949]
+title = "The unit cases of the registry source follow the registry and gateway deployment documents with the containers registry and chain-indexer and the egress rule in two lines"
+value = "One. The documents prevail. services/platform/hosted/registry/deployment.yaml and services/platform/hosted/gateway/deployment.yaml keep their form. Two. The list of the helper assert_container_delegation_contract holds the names registry and chain-indexer. Three. The first requirement of the case deployment_contract_keeps_https_mtls_and_bearer_roles_aligned, the address of the registry service in the gateway document, leaves. Four. The egress requirement of that case holds the line podSelector with the app label layerx-program-registry directly followed by the ports line for TCP 9420, as services/platform/hosted/gateway/deployment.yaml holds the two lines. Five. Every other requirement of the 5 cases stays. Scope: only the test module of services/platform/hosted/registry/src/main.rs changes, no line before line 1244 of the file changes and no document changes. No case leaves and no case gains an ignore mark. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. Six. Target: the verification of task 22.39.1165 passes. It runs the unit target of the binary layerx-program-registry of the package layerx-platform-registry with its 5 cases. Task 22.39.1165."
+basis = "Gotcha 4876."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46446,6 +46470,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1165]
+title = "Let the unit cases of the registry source follow the containers and the egress rule of the deployment documents"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/registry/src/main.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --bin layerx-program-registry"
+do_1 = "do_1 Gotcha 4876, decision 3949. Read the test module of services/platform/hosted/registry/src/main.rs from line 1244 on with the helper assert_container_delegation_contract and the case deployment_contract_keeps_https_mtls_and_bearer_roles_aligned, the containers of services/platform/hosted/registry/deployment.yaml and the egress rules of services/platform/hosted/gateway/deployment.yaml."
+symbols = []
+
+[capability.22.39.1164]
+title = "Let the node of each authority fixture take the system time once for all of its block answers"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/authority/tests/support/committed_human_fixture.rs", "services/platform/hosted/authority/tests/native_budget_authority.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test budget_proof_exports --test committed_budget_exports --test human_tls --test committed_human_documents --test committed_identity_labels --test native_budget_authority --test lifecycle_budget_finality"
+do_1 = "do_1 Gotcha 4875, decision 3948. Read the functions export, export_at, produce_at and produce_session and the method fresh_at in services/platform/hosted/authority/src/human/budget_state.rs, the helper block and the function run_node in services/platform/hosted/authority/tests/support/committed_human_fixture.rs and the helper block with its call in services/platform/hosted/authority/tests/native_budget_authority.rs."
+symbols = []
+
+[capability.22.39.1163]
+title = "Let the receipt case file of the agent boundary require that no state directory stands under the boundary directory"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/agent-boundary/tests/chain_receipt.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary --test chain_receipt"
+do_1 = "do_1 Gotcha 4874, decision 3947. Read the settings that services/platform/hosted/agent-boundary/src/main.rs reads, the method start of the structure Boundary and the case boundary_starts_without_an_lni_socket in services/platform/hosted/agent-boundary/tests/chain_receipt.rs and the constant RETIRED_CONFIG, the start helper and the loop over the names state, journal and activities in services/platform/hosted/agent-boundary/tests/chain_receipt_lifecycle.rs."
+symbols = []
+
+[capability.22.39.1162]
+title = "Let the decoder of the web consumer script and the consumer case of the reference ramp follow the member chain_id of the rebalance answer"
+reqs = ["22998.1"]
+touches = ["apps/web/e2e/prepare-production.py", "services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs", "tools/paxeer-x/retired_callers.json"]
+tests = []
+verification_contract = "node --version && curl --version && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --test proof_ramp_reference_http_routes && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web/e2e"
+do_1 = "do_1 Gotcha 4873, decision 3946. Read the function rebalance_presentation in services/platform/ramps/reference/src/main.rs, the function observe_rebalance in services/platform/ramps/journey_contract.py, the function decode_ramp_response in apps/web/e2e/prepare-production.py, the function rewrites in apps/web/next.config.mjs, the helper consumer, the constant READY_CONSUMER and the node script of the case method in services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs and the row with the path apps/web/e2e in tools/paxeer-x/retired_callers.json."
+symbols = []
 
 [capability.22.39.1161]
 title = "Let the version-one migration script of the paxeer boundary write its domain entries into its own copy of the settlement document"
@@ -230824,9 +230884,133 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1165]
+title = "Let the unit cases of the registry source follow the containers and the egress rule of the deployment documents"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1165"]
+interfaces = []
+do_1 = "do_1 Gotcha 4876, decision 3949. Read the test module of services/platform/hosted/registry/src/main.rs from line 1244 on with the helper assert_container_delegation_contract and the case deployment_contract_keeps_https_mtls_and_bearer_roles_aligned, the containers of services/platform/hosted/registry/deployment.yaml and the egress rules of services/platform/hosted/gateway/deployment.yaml."
+do_2 = "do_2 Change the list of the helper under decision 3949 point two. Point one holds."
+do_3 = "do_3 Change the case under points three and four. Point five holds. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. No other file changes."
+do_4 = "do_4 Run the verification. Point six holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/registry/src/main.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --bin layerx-program-registry"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1164]
+title = "Let the node of each authority fixture take the system time once for all of its block answers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1164"]
+interfaces = []
+do_1 = "do_1 Gotcha 4875, decision 3948. Read the functions export, export_at, produce_at and produce_session and the method fresh_at in services/platform/hosted/authority/src/human/budget_state.rs, the helper block and the function run_node in services/platform/hosted/authority/tests/support/committed_human_fixture.rs and the helper block with its call in services/platform/hosted/authority/tests/native_budget_authority.rs."
+do_2 = "do_2 Change the helper block and the node thread of services/platform/hosted/authority/tests/support/committed_human_fixture.rs under decision 3948 points two and three. Point one holds."
+do_3 = "do_3 Change the helper block and the node thread of services/platform/hosted/authority/tests/native_budget_authority.rs in the same form. Point four holds. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. No other file changes."
+do_4 = "do_4 Run the verification. Point five holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/authority/tests/support/committed_human_fixture.rs", "services/platform/hosted/authority/tests/native_budget_authority.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test budget_proof_exports --test committed_budget_exports --test human_tls --test committed_human_documents --test committed_identity_labels --test native_budget_authority --test lifecycle_budget_finality"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1163]
+title = "Let the receipt case file of the agent boundary require that no state directory stands under the boundary directory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1163"]
+interfaces = []
+do_1 = "do_1 Gotcha 4874, decision 3947. Read the settings that services/platform/hosted/agent-boundary/src/main.rs reads, the method start of the structure Boundary and the case boundary_starts_without_an_lni_socket in services/platform/hosted/agent-boundary/tests/chain_receipt.rs and the constant RETIRED_CONFIG, the start helper and the loop over the names state, journal and activities in services/platform/hosted/agent-boundary/tests/chain_receipt_lifecycle.rs."
+do_2 = "do_2 Change the last statement of the case under decision 3947 point two. Point one holds."
+do_3 = "do_3 Change the method start under point three. Point four holds. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. No other file changes."
+do_4 = "do_4 Run the verification. Point five holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/agent-boundary/tests/chain_receipt.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary --test chain_receipt"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1162]
+title = "Let the decoder of the web consumer script and the consumer case of the reference ramp follow the member chain_id of the rebalance answer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1162"]
+interfaces = []
+do_1 = "do_1 Gotcha 4873, decision 3946. Read the function rebalance_presentation in services/platform/ramps/reference/src/main.rs, the function observe_rebalance in services/platform/ramps/journey_contract.py, the function decode_ramp_response in apps/web/e2e/prepare-production.py, the function rewrites in apps/web/next.config.mjs, the helper consumer, the constant READY_CONSUMER and the node script of the case method in services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs and the row with the path apps/web/e2e in tools/paxeer-x/retired_callers.json."
+do_2 = "do_2 Change the function decode_ramp_response under decision 3946 point two and the constant READY_CONSUMER under point three. Point one holds."
+do_3 = "do_3 Change the node script of the case under point four and remove the row under point five. Point six holds. The final message names each requirement whose compared value changed, any requirement that cannot be held in this form and any remaining source question. No other file changes."
+do_4 = "do_4 Run the verification. Point seven holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/web/e2e/prepare-production.py", "services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs", "tools/paxeer-x/retired_callers.json"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --tests"
+verify_cmd = "node --version && curl --version && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --test proof_ramp_reference_http_routes && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web/e2e"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1161]
 title = "Let the version-one migration script of the paxeer boundary write its domain entries into its own copy of the settlement document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
