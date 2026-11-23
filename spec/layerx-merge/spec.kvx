@@ -230826,7 +230826,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1161]
 title = "Let the version-one migration script of the paxeer boundary write its domain entries into its own copy of the settlement document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
