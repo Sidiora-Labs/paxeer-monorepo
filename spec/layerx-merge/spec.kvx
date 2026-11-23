@@ -404580,7 +404580,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1148]
 title = "Let the human web image case require exactly one line that ends with the words npm run build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
