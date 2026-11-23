@@ -17,9 +17,7 @@ use layerx_programs::{
     hex, DeploymentJournal as _, ObservedHead, ProtocolDeploymentVerifier, Registry, RegistryError,
     VerifiedDeploymentEvidence,
 };
-use layerx_programs_runtime::UpgradePolicy;
-
-use support::{deploy_fixture, program, verifier_for_fixture, AUTHORITY, NOW, WASM_V1, WASM_V2};
+use support::{committed_deploy_fixture, program, verifier_for_fixture, NOW};
 
 const UNEQUAL_SETS: &str = "every deployment projection must have one protocol admission proof";
 
@@ -37,9 +35,8 @@ impl Evidence {
 }
 
 fn evidence() -> Evidence {
-    let policy = UpgradePolicy::Authority(AUTHORITY);
-    let deploy = deploy_fixture(WASM_V1, policy, 70, NOW);
-    let replacement = deploy_fixture(WASM_V2, policy, 71, NOW);
+    let deploy = committed_deploy_fixture(1, 70, NOW);
+    let replacement = committed_deploy_fixture(5, 71, NOW);
     let verifier = verifier_for_fixture(&deploy, 1_000);
     let deploy_chain = deploy.chain;
     let replacement_chain = replacement.chain;
@@ -49,6 +46,9 @@ fn evidence() -> Evidence {
     let replacement = verifier
         .verify_deployment(&replacement.proof, NOW)
         .unwrap_or_else(|error| panic!("replacement evidence: {error}"));
+    assert_ne!(deploy.receipt_digest(), replacement.receipt_digest());
+    assert_eq!((deploy.version(), replacement.version()), (1, 1));
+    assert_eq!((deploy.abi_version(), replacement.abi_version()), (1, 5));
     Evidence {
         verifier,
         trusted_chains: BTreeMap::from([
