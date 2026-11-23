@@ -895,13 +895,6 @@
       "citation": "Decision 3125 permits the live Treasury.recordDeposit implementation that accounts prior token transfers under DEPOSITOR_ROLE, which is distinct from the retired exchange-intents method."
     },
     {
-      "path": "apps/web/e2e",
-      "symbols": [
-        "settlement_domain"
-      ],
-      "citation": "Decisions 3125 and 3131 retain the live services/platform/ramps/reference rebalance response vocabulary in decode_ramp_response, whose exact paxeer domain validation must continue rejecting malformed producer answers."
-    },
-    {
       "path": "apps/web/src/api/generated",
       "symbols": [
         "SettlementDomain",
