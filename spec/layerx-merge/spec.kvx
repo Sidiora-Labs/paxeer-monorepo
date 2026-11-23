@@ -230725,7 +230725,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1149]
 title = "Let the signup helper of the identity cases expect the stored answer for a repeated verify request with the same token and the same subject"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
