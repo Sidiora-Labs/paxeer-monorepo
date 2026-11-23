@@ -404580,7 +404580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1145]
 title = "Bring three Makefile cases in step with the library exclusions and the python suites target line of the root Makefile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404610,7 +404610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1144]
 title = "Let the human web image case find the web build by the line that ends with the words npm run build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404640,7 +404640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1143]
 title = "Let the go version pins case compare the pins of the launchpad test workflow with the version of the launchpad Makefile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -404670,7 +404670,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1142]
 title = "Bring the load test job case in step with the step name of the explorer workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
