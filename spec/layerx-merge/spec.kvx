@@ -230721,7 +230721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1154]
 title = "Let the fixture of the finalized delivery case file take its state from the creation route of the market program and its store proof from a state proof under the app hash of the commit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
