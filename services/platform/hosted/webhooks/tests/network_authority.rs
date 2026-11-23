@@ -17,6 +17,7 @@ use std::{
 
 const NODE: &str = include_str!("../../node/deployment.yaml");
 const WEBHOOKS: &str = include_str!("../deployment.yaml");
+const AUTHORITY_NETWORK_ENTRY: &str = "- {name: LAYERX_AUTHORITY_NETWORK_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: network-name}}}";
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
@@ -35,6 +36,16 @@ fn configured_network(manifest: &str) -> String {
     }
 }
 
+fn node_with_authority_network() -> String {
+    let node_entry = "- {name: LAYERX_NODE_NETWORK_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: network-id}}}";
+    let node = NODE.replace(
+        node_entry,
+        &format!("{node_entry}\n            {AUTHORITY_NETWORK_ENTRY}"),
+    );
+    assert_ne!(node, NODE);
+    node
+}
+
 #[test]
 fn finding_3_network_is_sourced_from_the_merged_authority_deployment() {
     let rendered = must(bind_network(NODE, WEBHOOKS));
@@ -47,7 +58,12 @@ fn finding_3_network_is_sourced_from_the_merged_authority_deployment() {
         }
     }
 
-    let merged = NODE.replace(
+    let with_authority = node_with_authority_network();
+    assert_eq!(
+        configured_network(&must(bind_network(&with_authority, WEBHOOKS))),
+        "layerx-testnet"
+    );
+    let merged = with_authority.replace(
         "network-name: layerx-testnet",
         "network-name: merged-network",
     );
@@ -81,11 +97,22 @@ fn finding_3_network_is_sourced_from_the_merged_authority_deployment() {
         NODE.replace("  network-name: layerx-testnet\n", ""),
         NODE.replace("network-name: layerx-testnet", "network-name: bad/name"),
         NODE.replace("network-name: layerx-testnet", "network-name: layerx-testnet\n  network-name: other"),
-        NODE.replace("key: network-name", "key: network-id"),
+        with_authority.replace("key: network-name", "key: network-id"),
         format!("{NODE}\n---\napiVersion: v1\nkind: ConfigMap\nmetadata: {{name: layerx-node-config}}\ndata:\n  network-name: other\n"),
         NODE.replace("network-name: layerx-testnet", "network-name: ''"),
         NODE.replace("network-name: layerx-testnet", &format!("network-name: {}", "n".repeat(65))),
-        NODE.replace("name: LAYERX_AUTHORITY_NETWORK_ID, valueFrom:", "name: LAYERX_AUTHORITY_NETWORK_ID, value: override, valueFrom:"),
+        with_authority.replace(
+            "name: LAYERX_AUTHORITY_NETWORK_ID, valueFrom:",
+            "name: LAYERX_AUTHORITY_NETWORK_ID, value: override, valueFrom:",
+        ),
+        with_authority.replace(
+            AUTHORITY_NETWORK_ENTRY,
+            &format!("{AUTHORITY_NETWORK_ENTRY}\n            {AUTHORITY_NETWORK_ENTRY}"),
+        ),
+        with_authority.replace(
+            "name: LAYERX_AUTHORITY_NETWORK_ID, valueFrom:",
+            "name: LAYERX_AUTHORITY_NETWORK_ID, value: null, valueFrom:",
+        ),
     ] {
         assert!(bind_network(&invalid, WEBHOOKS).is_err(), "ambiguous authority configuration was accepted");
     }
