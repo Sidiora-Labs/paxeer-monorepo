@@ -11,6 +11,24 @@ use sha2::{Digest, Sha256};
 
 pub use layerx_programs::chain_evidence::HOST_STORE_NAME as STORE_NAME;
 pub const STATE_HEIGHT: i64 = 37;
+pub const RECEIPT_CHAIN_ID: &str = "producer-integration";
+
+pub fn configure_chain_policy(root: &std::path::Path, command: &mut std::process::Command) {
+    let policy = root.join("chain-policy.json");
+    std::fs::write(
+        &policy,
+        serde_json::to_vec(&serde_json::json!({
+            "chain_id": RECEIPT_CHAIN_ID,
+            "validators": [{
+                "public_key": SigningKey::from_bytes(&[11; 32]).verifying_key().to_bytes(),
+                "voting_power": 1,
+            }],
+        }))
+        .unwrap_or_else(|error| panic!("chain policy encoding: {error}")),
+    )
+    .unwrap_or_else(|error| panic!("chain policy: {error}"));
+    command.env("LAYERX_WEBHOOKS_CHAIN_POLICY_FILE", policy);
+}
 
 pub struct ChainFixture {
     pub verifier: ChainProofVerifier,
