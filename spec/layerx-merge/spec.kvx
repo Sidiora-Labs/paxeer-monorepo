@@ -230664,7 +230664,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1151]
 title = "Let the network binding function of the webhooks service admit a node template without an authority network entry and bring its case file in step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230695,7 +230695,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1150]
 title = "State the height of the validators request in the initialization case of the paxeer boundary as the decimal string"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
