@@ -1290,7 +1290,7 @@ mod tests {
             .lines()
             .filter_map(|line| line.trim().strip_prefix("- name: "))
             .collect();
-        assert_eq!(names, ["registry", "explorer-index", "explorer-boundary"]);
+        assert_eq!(names, ["registry", "chain-indexer"]);
         let contexts: Vec<&str> = containers
             .lines()
             .map(str::trim)
@@ -1372,8 +1372,7 @@ mod tests {
 
     #[test]
     fn deployment_contract_keeps_https_mtls_and_bearer_roles_aligned() {
-        assert!(GATEWAY_DEPLOYMENT
-            .contains("https://layerx-program-registry.layerx-testnet.svc.cluster.local:9420"));
+        assert!(!GATEWAY_DEPLOYMENT.contains("LAYERX_GATEWAY_PROGRAM_REGISTRY_URL"));
         for required in [
             "LAYERX_REGISTRY_TLS_CERT_DER",
             "LAYERX_REGISTRY_TLS_KEY_DER",
@@ -1395,7 +1394,7 @@ mod tests {
         assert!(!REGISTRY_DEPLOYMENT.contains("port: registry, scheme"));
         assert_container_delegation_contract();
         assert!(GATEWAY_DEPLOYMENT.contains(
-            "{app: layerx-program-registry}}}]\n      ports: [{protocol: TCP, port: 9420}]"
+            "podSelector: {matchLabels: {app: layerx-program-registry}}\n      ports: [{protocol: TCP, port: 9420}]"
         ));
         for enforced in [
             "--unshare-all",
