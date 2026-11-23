@@ -16726,6 +16726,12 @@ value = "One. sdk/wallet/test/fixtures/endpoint/available.json keeps its form. T
 basis = "Gotcha 4862."
 affects = []
 
+[decision.3936]
+title = "The build command of task 22.39.1152 puts the module cryptography in place before the cargo build"
+value = "One. The build command of task 22.39.1152 first runs python3 -m pip install -q cryptography and then the cargo build of the test targets of the package layerx-platform-core. Both stand in one command line joined by the and operator of the shell, so the cargo build follows the install. Two. The verification command, the steps and the paths of the task stay as they are. The case file form of decision 3934 holds. Three. Scope: the one key build_cmd of the one task. No source file and no case file changes through this decision. Four. Target: the verification of task 22.39.1152 passes. No new task."
+basis = "Gotcha 4863. Task 22.43.269."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -230694,7 +230700,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1153]
 title = "Let the helper of the core boundary case file return the recorded account answer with the member height and let both cases take the record from it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230739,7 +230745,7 @@ symbols = []
 touches = ["services/platform/hosted/core/tests/chain_fund.rs"]
 tests = []
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests"
+build_cmd = "python3 -m pip install -q cryptography && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests"
 verify_cmd = "anvil --version && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --test chain_fund"
 gate_kind = "planned"
 sandbox_profile = "rust"
