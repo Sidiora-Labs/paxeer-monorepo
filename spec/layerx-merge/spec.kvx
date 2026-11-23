@@ -230730,7 +230730,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1152]
 title = "Let the chain double and the replay case of the core funding case file follow the transfer document and the receipt members of the funding source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
