@@ -230843,7 +230843,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1156]
 title = "Let the chain trust case file of the registry build its package document with the one member admission"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230874,7 +230874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1155]
 title = "Let the journal case file of the registry build its deployment evidence in the form of the admission builder of the committed program transport module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
