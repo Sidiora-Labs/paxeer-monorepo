@@ -405402,7 +405402,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1167]
 title = "Let the file lists of the governance suite script follow the release document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -405433,7 +405433,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1166]
 title = "Let the retained reference record, the self test of its scan and their case files follow the tree for the lni tree and the fourteen places"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
