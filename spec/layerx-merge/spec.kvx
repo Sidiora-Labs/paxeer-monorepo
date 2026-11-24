@@ -405554,7 +405554,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1171]
 title = "Let the kvx case take the five task status values of the workflow file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -405585,7 +405585,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1170]
 title = "Let the activation plan case and the gate manifest case take the section meta of their data files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -405616,7 +405616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1169]
 title = "Let the callers case file follow the function owners and the record for the component verify"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -405647,7 +405647,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1168]
 title = "Let the expected maps of the sweeps summary case file follow the summary section of the module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
