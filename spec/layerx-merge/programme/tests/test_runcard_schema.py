@@ -63,7 +63,7 @@ def test_check_card_refuses_wrong_role(tmp_path: Path) -> None:
         for name, fields in load(ROOT / "spec/layerx-merge/spec.kvx").items()
         if name.startswith("feature.")
     }
-    assert set(domains) == {str(number) for number in range(1, 18)}
+    assert set(domains) == {str(number) for number in range(1, 23)}
     for domain, slug in domains.items():
         valid = {**card, "domain": int(domain), "role": f"fm-{slug}"}
         assert check_card(valid, schema) is None
@@ -72,7 +72,7 @@ def test_check_card_refuses_wrong_role(tmp_path: Path) -> None:
         with pytest.raises(CardError, match="role"):
             check_card({**valid, "role": wrong_role}, schema)
 
-    for domain in (0, 18, True, "unknown", "03", ["3"]):
+    for domain in (0, 23, True, "unknown", "03", ["3"]):
         with pytest.raises(CardError, match="domain"):
             check_card({**card, "domain": domain}, schema)
 

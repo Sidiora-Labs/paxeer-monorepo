@@ -27,4 +27,5 @@ def test_node_merge_constant_is_derived() -> None:
         "modules/layerxcustody/types/retire.go",
         "modules/xweb/keeper/activation.go",
         "precompiles/common/precompiles.go",
+        "sdk/launchpad/shared/config/deployment/attest_surface_test.go",
     ]
