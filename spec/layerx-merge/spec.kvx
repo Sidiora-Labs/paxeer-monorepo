@@ -405492,7 +405492,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1173]
 title = "Let the run card schema case follow the feature sections of the spec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -405523,7 +405523,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1172]
 title = "Let the list of the merge constant case follow the function constant_sites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
