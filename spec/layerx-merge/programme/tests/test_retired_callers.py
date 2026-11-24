@@ -123,3 +123,62 @@ def test_callers_runs_the_scan_for_one_component() -> None:
         "unknown-retired-component",
     ]
     assert "retired-callers: refusal: unknown component" in refusal.value.stderr
+
+
+def test_callers_reports_locations_in_a_temporary_tracked_tree(tmp_path: Path) -> None:
+    catalogue_path = "tools/paxeer-x/retired_callers.json"
+    catalogue = json.loads((ROOT / catalogue_path).read_text(encoding="utf-8"))
+    allowances = [
+        entry for entry in catalogue["allowed_references"] if entry["path"] != "node"
+    ]
+    assert len(catalogue["allowed_references"]) - len(allowances) == 1
+    temporary_catalogue = {
+        "components": catalogue["components"],
+        "allowed_references": allowances,
+    }
+    checker_path = "tools/paxeer-x/tests/retired_callers_test.py"
+    node_path = "node/upgrades.go"
+    for path in (checker_path, node_path):
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / path).read_bytes())
+    (tmp_path / catalogue_path).write_text(
+        json.dumps(temporary_catalogue), encoding="utf-8"
+    )
+    subprocess.run(
+        ["git", "init"],
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "add", "--", checker_path, node_path, catalogue_path],
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
+    )
+
+    found = callers("verify", tmp_path)
+    assert found
+    assert len(found) == len(set(found))
+    symbols = catalogue["components"]["verify"]["symbols"]
+    upgrade_source = (tmp_path / node_path).read_text(encoding="utf-8").splitlines()
+    for location in found:
+        path, number = location.rsplit(":", 1)
+        assert path == node_path, location
+        line_number = int(number)
+        assert 1 <= line_number <= len(upgrade_source), location
+        assert any(
+            symbol in upgrade_source[line_number - 1] for symbol in symbols
+        ), location
+    imports = {
+        f"{node_path}:{number}"
+        for number, line in enumerate(upgrade_source, 1)
+        if line.strip().endswith(
+            '"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"'
+        )
+    }
+    assert imports
+    assert imports.issubset(found)
+    assert owners(found) == {node_path: 5}
+    assert callers("verify", ROOT) == []
