@@ -16858,6 +16858,18 @@ value = "One. The module prevails. spec/layerx-merge/programme/runcards.py and s
 basis = "Gotcha 4884."
 affects = []
 
+[decision.3958]
+title = "The callers case file takes a case that runs the function callers on a temporary tracked tree"
+value = "One. The module, the scan and the record prevail. spec/layerx-merge/programme/retired.py, tools/paxeer-x/tests/retired_callers_test.py, tools/paxeer-x/retired_callers.json and node/upgrades.go keep their form. Two. spec/layerx-merge/programme/tests/test_retired_callers.py takes a third case after its two cases. The case takes the fixture tmp_path and no other fixture. Under the temporary directory it writes three files at the paths they have in the repository: a copy of tools/paxeer-x/tests/retired_callers_test.py, a copy of node/upgrades.go and a record at the path of tools/paxeer-x/retired_callers.json. That record holds the key components with the components of the record of the repository and the key allowed_references with its rows except the row whose path is node, and it holds no key documentation_paths. The case requires that exactly one row leaves in this way. It then makes the temporary directory a git repository with git init and adds the three files to its index with git add. Both are process runs of the git program that must end with the exit code 0. The case makes no commit. Three. The third case calls callers for the component verify with the temporary directory as root. It requires a list that is not empty and holds no place twice. It requires that every place names the path node/upgrades.go and a line number of that file whose line holds a symbol of the component. It requires that at least one line of the file ends with the package path and that every such import line is a found place. It requires that owners gives for the found places a map of the one path node/upgrades.go with the domain 5. As its last step it requires that callers for the component verify with the root of the repository gives an empty list. Four. The case replaces no process start and no function of a module, and it writes no line of a scan output by hand. It reaches the part of callers that reads printed lines through a run of the scan on the temporary tree. Points three and four of decision 3953 give way to this form, and the second case keeps the form it holds. Five. Scope: only spec/layerx-merge/programme/tests/test_retired_callers.py changes. The two cases that the file holds keep every line, and so do the import lines at the head of the file. The count of cases of the file becomes three. No case gains a skip mark. The case writes only under its temporary directory. The final message names each changed line, any point that cannot be held in this form and any remaining question. Six. Target: the verification of task 22.39.1174 passes. It runs the case file with pytest. Task 22.39.1174."
+basis = "Gotcha 4885."
+affects = []
+
+[decision.3959]
+title = "The data file and the case of the precompile activation follow the gate functions and the merge address table"
+value = "One. The gate functions and the table prevail. node/upgrades.go and precompiles/setup.go keep their form. Two. Line 11 of spec/layerx-merge/programme/data/precompile-activation.kvx takes the module upgrade in place of the module layerxanchor, in the form of line 19. Three. spec/layerx-merge/programme/data/precompile-activation.kvx takes a row for the address 0x101E directly after the row of the address 0x101D, which ends at line 59. The new row follows one blank line and holds four lines in the form of lines 56 to 59: the section line of the address 0x101E, the plan v7.0, the one module layerxchains and the member served_at_head with the value false. One blank line stays between the new row and the row of the address 0x0901. Lines 1 to 59 of the file keep their line numbers. Four. In the case test_merge_gate_lists_twelve_addresses of spec/layerx-merge/programme/tests/test_precompile_activation.py line 73 takes the number 13 in place of 12. Line 92 takes the range end 0x101F in place of 0x101E, so that its range holds the address 0x101E. Lines 95 and 103 take the number 13 in place of 12. Every other line of the file stays. Five. Scope: only spec/layerx-merge/programme/data/precompile-activation.kvx and spec/layerx-merge/programme/tests/test_precompile_activation.py change. The member served_at_head keeps its form and the value false for every row of the plan v7.0. Both cases of the case file keep their names. No other row and no comment line of the data file changes. No requirement of a case leaves and no case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Six. Target: the verification of task 22.39.1175 passes. It runs the case file with pytest. Task 22.39.1175."
+basis = "Gotcha 4886."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46518,6 +46530,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1175]
+title = "Let the data file and the case of the precompile activation follow the gate functions and the merge address table"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/data/precompile-activation.kvx", "spec/layerx-merge/programme/tests/test_precompile_activation.py"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_precompile_activation.py"
+do_1 = "do_1 Gotcha 4886, decision 3959. Read the functions activationPrecompileGate and mergePrecompileGate of node/upgrades.go, the table MergeAddressTable of precompiles/setup.go, spec/layerx-merge/programme/data/precompile-activation.kvx whole and the case test_merge_gate_lists_twelve_addresses of spec/layerx-merge/programme/tests/test_precompile_activation.py."
+symbols = []
+
+[capability.22.39.1174]
+title = "Let the callers case file take a case that runs the function callers on a temporary tracked tree"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/tests/test_retired_callers.py"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_retired_callers.py"
+do_1 = "do_1 Gotcha 4885, decision 3958. Read the function callers of spec/layerx-merge/programme/retired.py, lines 12 to 17, 249 to 312 and 1449 to 1484 of tools/paxeer-x/tests/retired_callers_test.py, both cases of spec/layerx-merge/programme/tests/test_retired_callers.py, the component verify and the row with the path node of tools/paxeer-x/retired_callers.json and line 49 of node/upgrades.go."
+symbols = []
 
 [capability.22.39.1173]
 title = "Let the run card schema case follow the feature sections of the spec"
@@ -405489,6 +405519,68 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.1175]
+title = "Let the data file and the case of the precompile activation follow the gate functions and the merge address table"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1175"]
+interfaces = []
+do_1 = "do_1 Gotcha 4886, decision 3959. Read the functions activationPrecompileGate and mergePrecompileGate of node/upgrades.go, the table MergeAddressTable of precompiles/setup.go, spec/layerx-merge/programme/data/precompile-activation.kvx whole and the case test_merge_gate_lists_twelve_addresses of spec/layerx-merge/programme/tests/test_precompile_activation.py."
+do_2 = "do_2 Change line 11 of spec/layerx-merge/programme/data/precompile-activation.kvx under decision 3959 point two and add the row under point three. Point one holds."
+do_3 = "do_3 Change lines 73, 92, 95 and 103 of spec/layerx-merge/programme/tests/test_precompile_activation.py under point four. Point five holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point six holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/data/precompile-activation.kvx", "spec/layerx-merge/programme/tests/test_precompile_activation.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_precompile_activation.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_precompile_activation.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1174]
+title = "Let the callers case file take a case that runs the function callers on a temporary tracked tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1174"]
+interfaces = []
+do_1 = "do_1 Gotcha 4885, decision 3958. Read the function callers of spec/layerx-merge/programme/retired.py, lines 12 to 17, 249 to 312 and 1449 to 1484 of tools/paxeer-x/tests/retired_callers_test.py, both cases of spec/layerx-merge/programme/tests/test_retired_callers.py, the component verify and the row with the path node of tools/paxeer-x/retired_callers.json and line 49 of node/upgrades.go."
+do_2 = "do_2 Write the third case under decision 3958 points two and three. Points one and four hold."
+do_3 = "do_3 Point five holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point six holds. The case file starts the scan four times, which takes some seconds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/tests/test_retired_callers.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_retired_callers.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_retired_callers.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1173]
 title = "Let the run card schema case follow the feature sections of the spec"
