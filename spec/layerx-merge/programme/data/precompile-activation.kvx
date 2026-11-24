@@ -8,7 +8,7 @@ format_version = 1
 
 [address.0x1012]
 plan = "v6.9"
-modules = ["layerxanchor"]
+modules = ["upgrade"]
 
 [address.0x1013]
 plan = "v6.9"
@@ -56,6 +56,11 @@ served_at_head = false
 [address.0x101D]
 plan = "v7.0"
 modules = ["layerxprograms"]
+served_at_head = false
+
+[address.0x101E]
+plan = "v7.0"
+modules = ["layerxchains"]
 served_at_head = false
 
 [address.0x0901]
