@@ -824,8 +824,8 @@ ca="$fx/tools/bringup/ca.sh"
 mkdir -p "$fx/tools/qualification/paxeer-x"
 cp "$root/tools/qualification/paxeer-x/registry-router-bootstrap.py" "$fx/tools/qualification/paxeer-x/"
 fx_checker="$fx/tools/bringup/check-live.sh"
-mkdir -p "$fx/docs/site/docs/reference"
-cp "$root/docs/site/docs/reference/public-rpc.md" "$fx/docs/site/docs/reference/"
+mkdir -p "$fx/docs/readme"
+cp "$root/docs/readme/PUBLIC-RPC.md" "$fx/docs/readme/"
 fx_app() {
 	local app="${1%.toml}"
 	app="${app//\//-}"
@@ -910,6 +910,9 @@ CHECK_LIVE_TEST_PROGRAM="$ca" expect ca_issue_retired_receipt_authority_refused 
 CHECK_LIVE_TEST_PROGRAM="$ca" expect ca_issue_agentd_on_the_volume "$work/hosts-good.env" 0 issue agentd -- \
 	"issued agentd target=box:KERNEL_HOST custody=volume fingerprint=" \
 	"expires_in=39"
+CHECK_LIVE_TEST_PROGRAM="$ca" expect ca_issue_hosted_authority_on_the_volume "$work/hosts-good.env" 0 issue hosted-authority -- \
+	"issued hosted-authority target=box:KERNEL_HOST custody=volume fingerprint=" \
+	"expires_in=39"
 
 tls="$fly/$kernel/app/data/tls/agentd"
 san="$(openssl x509 -in "$tls/cert.pem" -noout -ext subjectAltName 2>/dev/null || true)"
@@ -934,13 +937,33 @@ else
 	failures=$((failures + 1))
 fi
 
-if [ "$(wc -l <"$CHECK_LIVE_TEST_CALLS")" -eq 3 ] && [ "$(grep -c "^up-box-kernel sh -c '" "$CHECK_LIVE_TEST_CALLS")" -eq 3 ] &&
+tls="$fly/$kernel/app/data/tls/hosted-authority"
+san="$(openssl x509 -in "$tls/cert.pem" -noout -ext subjectAltName 2>/dev/null || true)"
+if [ "$(stat -c %a "$tls")" = 700 ] &&
+	[ "$(stat -c %a "$tls/key.pem")$(stat -c %a "$tls/key.der")$(stat -c %a "$tls/identity.p12")$(stat -c %a "$tls/password")" = 600600600600 ] &&
+	[ ! -e "$tls/key.pem.new" ] && [ ! -e "$tls/incoming.new" ] &&
+	cmp -s "$tls/ca.pem" "$work/ca/ca.pem" && cmp -s "$tls/ca.der" "$work/ca/ca.der" &&
+	openssl verify -CAfile "$work/ca/ca.pem" "$tls/cert.pem" >/dev/null 2>&1 &&
+	[ "$(openssl pkey -in "$tls/key.pem" -pubout 2>/dev/null)" = "$(openssl x509 -in "$tls/cert.pem" -noout -pubkey)" ] &&
+	[ "$(openssl pkey -inform DER -in "$tls/key.der" -pubout 2>/dev/null)" = "$(openssl x509 -inform DER -in "$tls/cert.der" -noout -pubkey)" ] &&
+	openssl pkcs12 -in "$tls/identity.p12" -passin "file:$tls/password" -noout >/dev/null 2>&1 &&
+	grep -q 'DNS:layerx-hosted-authority' <<<"$san" && grep -q 'DNS:kernel.paxeer.network' <<<"$san" &&
+	grep -q 'DNS:localhost' <<<"$san" && grep -q 'IP Address:127.0.0.1' <<<"$san" &&
+	[ "$(grep -o 'DNS:\|IP Address:' <<<"$san" | wc -l)" -eq 4 ] &&
+	openssl x509 -in "$tls/cert.pem" -noout -ext extendedKeyUsage | grep -q 'TLS Web Server Authentication'; then
+	echo "ok   ca_issue_hosted_authority_lands_the_material_on_the_volume"
+else
+	echo "FAIL ca_issue_hosted_authority_lands_the_material_on_the_volume: want the hosted authority certificate and key bundle on the kernel volume"
+	failures=$((failures + 1))
+fi
+
+if [ "$(wc -l <"$CHECK_LIVE_TEST_CALLS")" -eq 6 ] && [ "$(grep -c "^up-box-kernel sh -c '" "$CHECK_LIVE_TEST_CALLS")" -eq 6 ] &&
 	! grep -q 'PRIVATE KEY' "$CHECK_LIVE_TEST_CALLS" "$CHECK_LIVE_TEST_STDIN" &&
-	[ "$(grep -c 'BEGIN CERTIFICATE' "$CHECK_LIVE_TEST_STDIN")" -eq 2 ] &&
+	[ "$(grep -c 'BEGIN CERTIFICATE' "$CHECK_LIVE_TEST_STDIN")" -eq 4 ] &&
 	[ "$(ls /dev/shm)" = "$shm_before" ]; then
 	echo "ok   ca_issue_never_moves_a_volume_key"
 else
-	echo "FAIL ca_issue_never_moves_a_volume_key: want three ssh calls to the kernel box (inventory, request, install), the certificate and the CA on stdin, no private key in any call or on stdin and no directory left in /dev/shm"
+	echo "FAIL ca_issue_never_moves_a_volume_key: want six ssh calls for the two kernel box identities, the certificates and CAs on stdin, no private key in any call or on stdin and no directory left in /dev/shm"
 	cat "$CHECK_LIVE_TEST_CALLS"
 	failures=$((failures + 1))
 fi
@@ -975,12 +998,12 @@ else
 	failures=$((failures + 1))
 fi
 
-expected_ca_services=(pending-core pending-core-admin agent-boundary agentd agentd-client
+expected_ca_services=(pending-core pending-core-admin agent-boundary hosted-authority agentd agentd-client
 	paxeer-boundary-loopback paxeer-boundary-public human human-event-client human-attestor-client
 	human-kms human-kms-client human-kms-executor gateway-redis gateway-client identity
 	internal-kms internal-journeys internal-payments internal-approvals internal-programs internal-redis
 	registry registry-event-client indexer interop-client developer developer-client dashboard-client ramp-client)
-approved_ca_set="$(awk '{print $1}' "$root/tools/bringup/tests/fixtures/repair_m794/approved-roster.tsv" | sort)"
+approved_ca_set="$(awk '{print $1}' "$root/tools/bringup/tests/fixtures/service_identities/approved-roster.tsv" | sort)"
 expected_ca_set="$(printf '%s\n' "${expected_ca_services[@]}" | sort)"
 want="${#expected_ca_services[@]}"
 LAYERX_CA_DIR="$work/attestor-ca" "$ca" init >/dev/null
@@ -1921,7 +1944,7 @@ unset CHECK_LIVE_TEST_GAS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_GAS_ACCOUNT_KEYSTO
 # owns the real issued Human client; TLS peers require it at each role's name.
 role_bin="$work/role-bin"
 mkdir -p "$role_bin" "$work/roles"
-cp "$root/tools/bringup/tests/fixtures/repair_m794/railway.sh" "$role_bin/railway"
+cp "$root/tools/bringup/tests/fixtures/service_identities/railway.sh" "$role_bin/railway"
 chmod +x "$role_bin/railway"
 export CHECK_LIVE_TEST_ROLE_ROOTS="$work/roles"
 for service in internal-kms internal-journeys internal-payments internal-approvals internal-programs redis-internal webhooks-ingress router ramp; do
@@ -1935,7 +1958,7 @@ done
 start_role_peer() {
 	local mode="$1" state_dir="$2" identity="$3" kind="${4:-}"
 	mkdir -p "$state_dir"
-	python3 "$root/tools/bringup/tests/fixtures/repair_m794/peers.py" "$mode" "$state_dir" "$identity" "$kind" >"$state_dir/server.log" 2>&1 &
+	python3 "$root/tools/bringup/tests/fixtures/service_identities/peers.py" "$mode" "$state_dir" "$identity" "$kind" >"$state_dir/server.log" 2>&1 &
 	internal_pids="$internal_pids $!"
 	for _ in $(seq 50); do [ ! -s "$state_dir/port" ] || return 0; sleep 0.1; done
 	cat "$state_dir/server.log" >&2

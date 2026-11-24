@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useState } from 'react';
 import { Hexagon, Wallet } from 'lucide-react';
 import { CountPill, DisclosureRow, ShortAddress, Skeleton, UnavailableState } from '@/ui/primitives';
@@ -47,13 +48,13 @@ export default function WalletsExpander({ wallet, isOwner, className }: WalletsE
               <Hexagon aria-hidden="true" className="size-icon-sm text-accent" />
               <span className="sr-only">Paxeer network</span>
             </span>
-            {owner && links.isPending ? <Skeleton variant="pill" width={28} height={20} /> : <CountPill count={wallets.length} label={wallets.length === 1 ? 'wallet' : 'wallets'} />}
+            {owner && links.isPending ? <Skeleton variant="pill" width={surfaceSpacing(7)} height={surfaceSpacing(5)} /> : <CountPill count={wallets.length} label={wallets.length === 1 ? 'wallet' : 'wallets'} />}
           </span>
         )}
       >
         <ul className="flex flex-col gap-1">
           {wallets.map((address, index) => (
-            <li key={address} className="flex h-10 items-center justify-between gap-3 rounded-sm bg-surface-3 px-3">
+            <li key={address} className="flex min-h-12 flex-wrap items-center py-2 justify-between gap-3 rounded-sm bg-surface-3 px-3">
               <span className="text-xs font-bold text-text-muted">{index === 0 ? 'Main wallet' : 'Linked wallet'}</span>
               <ShortAddress address={address} head={6} tail={4} explorerHref={explorerAddress(address)} />
             </li>

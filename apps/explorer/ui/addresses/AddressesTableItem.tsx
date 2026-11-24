@@ -8,6 +8,7 @@ import config from 'configs/app';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
 import { Tag } from 'toolkit/chakra/tag';
+import { ZERO } from 'toolkit/utils/consts';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import SimpleValue from 'ui/shared/value/SimpleValue';
 
@@ -57,7 +58,7 @@ const AddressesTableItem = ({
   return (
     <TableRow data-address-row>
       <TableCell isNumeric>
-        <Skeleton loading={ isLoading } display="inline-block" minW={ 6 } color="text.secondary" lineHeight="24px" data-address-rank>
+        <Skeleton loading={ isLoading } display="inline-block" minW={ 6 } color="text.secondary" textStyle="number" data-address-rank>
           { index }
         </Skeleton>
       </TableCell>
@@ -66,7 +67,7 @@ const AddressesTableItem = ({
           <AddressEntity
             address={ item }
             isLoading={ isLoading }
-            fontWeight={ 600 }
+            fontWeight="semibold"
             truncation="constant"
           />
         </Flex>
@@ -78,21 +79,21 @@ const AddressesTableItem = ({
         <SimpleValue
           value={ addressBalance }
           loading={ isLoading }
-          lineHeight="24px"
+          textStyle="number"
         />
       </TableCell>
       { hasPercentage && (
         <TableCell isNumeric>
           <SimpleValue
-            value={ addressBalance.div(totalSupply).multipliedBy(100) }
+            value={ totalSupply.eq(ZERO) ? ZERO : addressBalance.div(totalSupply).multipliedBy(100) }
             loading={ isLoading }
             postfix="%"
-            lineHeight="24px"
+            textStyle="number"
           />
         </TableCell>
       ) }
       <TableCell isNumeric>
-        <Skeleton loading={ isLoading } display="inline-block" color="text.secondary" lineHeight="24px" data-address-txn-count>
+        <Skeleton loading={ isLoading } display="inline-block" color="text.secondary" textStyle="number" data-address-txn-count>
           { Number(item.transactions_count).toLocaleString() }
         </Skeleton>
       </TableCell>

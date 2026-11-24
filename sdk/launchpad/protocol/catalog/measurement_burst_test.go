@@ -23,7 +23,7 @@ func TestReviewedCatalogDecoderBurstFromCommittedReceipt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	producerModule, err := os.ReadFile("../coverage/testdata/repair28producer/go.mod")
+	producerModule, err := os.ReadFile("../coverage/testdata/emitter_producer/go.mod")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestReviewedCatalogDecoderBurstFromCommittedReceipt(t *testing.T) {
 	producerContext, cancelProducer := context.WithTimeout(context.Background(), 8*time.Minute)
 	t.Cleanup(cancelProducer)
 	command := exec.CommandContext(producerContext, "go", "run", "-modfile="+modfile, "-mod=mod", ".", root)
-	command.Dir = "../coverage/testdata/repair28producer"
+	command.Dir = "../coverage/testdata/emitter_producer"
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)

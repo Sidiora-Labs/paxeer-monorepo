@@ -1,6 +1,8 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { FileText, Globe, Link as LinkIcon, MessageCircle, Send } from 'lucide-react';
-import { Chip, EmptyState, Skeleton, UnavailableState } from '@/ui/primitives';
+import { Chip, EmptyState, ErrorState, Skeleton, UnavailableState } from '@/ui/primitives';
+import { safeExternalDestination } from '@/core/app-foundation/navigation';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 
 export function safeSocialUrl(raw: string, approvedOrigins: readonly string[] = (process.env.NEXT_PUBLIC_MARKET_SOCIAL_ORIGINS ?? '').split(',').map(value => value.trim()).filter(Boolean)): string | null {
@@ -21,7 +23,7 @@ function linkIcon(label: string, url: string) {
 
 export default function TokenDescription({ poolAddress }: { poolAddress: string }) {
   const snapshot = usePoolSnapshot(poolAddress);
-  if (snapshot.isPending) return <Skeleton variant="block" height={96} label="description" />;
+  if (snapshot.isPending) return <Skeleton variant="block" height={surfaceSpacing(24)} label="description" />;
   if (snapshot.isError) {
     // Compact, so the rail Description card keeps its height when the snapshot fails.
     const status = (snapshot.error as { status?: unknown } | null)?.status;
@@ -29,16 +31,17 @@ export default function TokenDescription({ poolAddress }: { poolAddress: string 
   }
   const content = snapshot.data.metadata;
   if (!content) {
+    if (snapshot.data.metadataError) return <ErrorState variant="chip" wrap title="The description can't load right now" message={snapshot.data.metadataError} onRetry={() => { void snapshot.refetch(); }} />;
     const marker = snapshot.data.unavailable.metadata;
     return marker ? <UnavailableState variant="inline" title="The description" operation={marker.operation} status={marker.status} /> : <EmptyState variant="inline" icon={FileText} title="No description yet" body="The creator hasn't added one." />;
   }
   if (content.token.address.toLowerCase() !== snapshot.data.pool.tokenAddress.toLowerCase()) return <p role="alert" className="text-sm text-danger">This description can&apos;t be shown right now.</p>;
   return <section aria-label="Description" className="flex flex-col gap-3">
-    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-text">{content.description || <span className="text-text-faint">No description yet</span>}</p>
+    <p className="whitespace-pre-wrap break-words text-sm leading-[calc(var(--sl-leading-md)/var(--sl-text-sm))] text-text">{content.description || <span className="text-text-faint">No description yet</span>}</p>
     {content.tags.length ? <ul className="flex flex-wrap gap-1.5" aria-label="Tags">{content.tags.map(tag => <li key={tag}><Chip variant="token">{tag}</Chip></li>)}</ul> : null}
     {content.socialLinks.length ? <ul className="flex flex-wrap gap-2" aria-label="Links">
       {content.socialLinks.map(link => {
-        const href = safeSocialUrl(link.url);
+        const href = safeExternalDestination(link.url) ?? safeSocialUrl(link.url);
         const Icon = linkIcon(link.label, link.url);
         return <li key={`${link.label}:${link.url}`}>
           {href

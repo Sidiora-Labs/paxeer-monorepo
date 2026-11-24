@@ -6,6 +6,11 @@ ca=$root/tools/bringup/ca.sh
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
+if [ -z "${BRINGUP_INSPECT_BIN:-}" ] && ! command -v bringup-inspect >/dev/null 2>&1; then
+	BRINGUP_INSPECT_BIN="$work/bringup-inspect"
+	go build -o "$BRINGUP_INSPECT_BIN" ./tools/bringup/cmd/bringup-inspect
+	export BRINGUP_INSPECT_BIN
+fi
 unset LAYERX_CA_NAMES_FILE BRINGUP_HOSTS_FILE LAYERX_ATTESTOR_CA_DIR
 for v in $(env | sed -n 's/^\(LAYERX_EXTRA_SANS_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$v"; done
 
@@ -17,7 +22,7 @@ grep -q 'flyctl\|LAYERX_FLY_TLS_DIR\|fly_ssh\|fly_app\|\.internal"' "$ca" && fai
 "$ca" services >"$work/services"
 # This completed roster was independently reviewed with the merged issuance
 # inventory. Compare all six fields, including ownership and every SAN.
-diff -u "$root/tools/bringup/tests/fixtures/repair_m794/approved-roster.tsv" "$work/services" ||
+diff -u "$root/tools/bringup/tests/fixtures/service_identities/approved-roster.tsv" "$work/services" ||
 	fail "services differ from the approved merged roster"
 awk 'NF != 6 { exit 1 }' "$work/services" || fail "a row is not six fields"
 awk '$2 ~ /^box:/ && $3 != "volume" { exit 1 } $2 ~ /^railway:/ && $3 !~ /^[A-Z][A-Z0-9_]*$/ { exit 1 } $2 !~ /^(box|railway):/ { exit 1 }' \
@@ -41,6 +46,9 @@ san registry DNS:index.paxeer.network
 [ "$(row registry | awk '{print $2, $3}')" = "box:REGISTRY_HOST volume" ] || fail "registry is not a box row"
 [ "$(row human | awk '{print $2}')" = "box:KERNEL_HOST" ] || fail "human is not on the kernel box"
 [ "$(row agentd-client | awk '{print $6}')" = - ] || fail "a client row gained a SAN"
+[ "$(row hosted-authority)" = "hosted-authority box:KERNEL_HOST volume layerx-hosted-authority serverAuth DNS:layerx-hosted-authority,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network" ] ||
+	fail "hosted-authority row is not the kernel server identity"
+[ "$(awk 'END { print NR }' "$work/services")" -eq 31 ] || fail "the service roster does not contain thirty-one rows"
 
 # Extra SANs reach only their row; unknown rows and bad SANs are refused.
 LAYERX_EXTRA_SANS_IDENTITY=DNS:edge-1.proxy.rlwy.net,DNS:edge-2.proxy.rlwy.net "$ca" services >"$work/extra"
@@ -86,6 +94,8 @@ openssl pkcs12 -in "$work/local/operator/identity.p12" -passin "file:$work/local
 set +e
 "$ca" issue no-such-service >/dev/null 2>&1
 [ $? -eq 2 ] || fail "an unknown service is not a usage error"
+"$ca" issue receipt-authority >/dev/null 2>&1
+[ $? -eq 2 ] || fail "the retired receipt authority was accepted"
 set -e
 
 # A box row needs its alias in the private hosts file.

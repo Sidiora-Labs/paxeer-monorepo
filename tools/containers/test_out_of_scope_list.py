@@ -18,10 +18,10 @@ def assert_reviewed_out_of_scope(script: str) -> None:
     out_of_scope = parse_out_of_scope(script)
     assert "consensus/test/docker/Dockerfile" not in out_of_scope
     assert out_of_scope == [
-        "apps/perps/Dockerfile",
         "deploy/launchpad/Dockerfile.native",
         "deploy/launchpad/Dockerfile.svc",
         "deploy/launchpad/Dockerfile.web",
+        "docs/site/paxeer-docs/Dockerfile",
         "services/platform/hosted/feeder/Dockerfile",
         "services/platform/perps-data/deploy/Dockerfile",
         "services/platform/perps-data/deploy/nats/Dockerfile",

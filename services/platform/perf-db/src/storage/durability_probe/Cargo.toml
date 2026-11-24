@@ -1,0 +1,18 @@
+[package]
+license = "Apache-2.0"
+authors = ["Sidiora Labs"]
+name = "perfdb-durability-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "durability-probe"
+path = "main.rs"
+
+[dependencies]
+perfdb = { path = "../../.." }
+crc32fast = "1"
+bincode = "1"
+
+[workspace]

@@ -4,14 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestAccountAndChatClientsReadVerifiedOwnerContracts(t *testing.T) {
 	ctx := context.Background()
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	credentials, err := NewCredentials(ctx, options, "REPAIR958_D11")
 	if err != nil {
 		t.Fatal(err)
@@ -146,6 +148,8 @@ func TestAccountAndChatClientsReadVerifiedOwnerContracts(t *testing.T) {
 	peer.target.Provider = target.Provider
 	if _, err := account.Preferences(ctx, "foreign-account"); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("foreign preference read: %v", err)
+	} else if !strings.Contains(err.Error(), "returned HTTP 404") {
+		t.Fatalf("authority denial cause: %v", err)
 	}
 	if _, err := account.CurrentTarget(ctx, peer.account.AccountID, "foreign-device"); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("foreign target read: %v", err)
@@ -171,14 +175,24 @@ func TestAccountAndChatClientsReadVerifiedOwnerContracts(t *testing.T) {
 	if err := (*ChatClient)(nil).Run(ctx); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("nil chat client running: %v", err)
 	}
+	var invalidShape struct{ Count int }
+	if err := account.rpc.call(ctx, "GET", accountPath(peer.account.AccountID)+"/targets", nil, &invalidShape); !errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "cannot unmarshal array") {
+		t.Fatalf("authority decode cause: %v", err)
+	}
+	peer.server.Close()
+	_, err = account.CurrentDeliveryPreference(ctx, peer.account.AccountID)
+	var transportError *url.Error
+	if !errors.Is(err, ErrUnavailable) || !errors.As(err, &transportError) {
+		t.Fatalf("authority transport cause: %v", err)
+	}
 }
 
 func TestRecipientConsumerPersistsChatThroughOwnerTargets(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	credentials, err := NewCredentials(ctx, options, "REPAIR958_D11")
 	if err != nil {
 		t.Fatal(err)
@@ -204,8 +218,8 @@ func TestRecipientConsumerPersistsChatThroughOwnerTargets(t *testing.T) {
 
 func TestSocialAuthorityReadsVerifiedPublicResourceAndPublishesCallout(t *testing.T) {
 	ctx := context.Background()
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	credentials, err := NewCredentials(ctx, options, "REPAIR958_D11")
 	if err != nil {
 		t.Fatal(err)

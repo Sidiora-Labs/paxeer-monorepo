@@ -1,0 +1,143 @@
+[service.wallet-pwa]
+kind = "repo"
+dockerfile = "docker/wallet-pwa/Dockerfile"
+root = "."
+watch = ["docker/wallet-pwa/**", "apps/wallet/**", "sdk/wallet/**", "services/wallet/**", "services/agent/sdk/typescript/**"]
+health = "/wallet/api/health/live"
+restart = "ON_FAILURE"
+replicas = 1
+volume = "/data/paxport"
+public = 1
+order = 12
+needs = ["wallet-gateway", "gas-station"]
+
+[vars.wallet-pwa]
+PORT = "3001"
+NEXT_PUBLIC_PAXEER_WALLET_API = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_WALLET_API"
+NEXT_PUBLIC_PAXEER_RPC_URL = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_RPC_URL"
+NEXT_PUBLIC_SUPABASE_URL = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_SUPABASE_URL"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+NEXT_PUBLIC_AUTH_REDIRECT_URL = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_AUTH_REDIRECT_URL"
+NEXT_PUBLIC_PAXEER_HUMAN_API = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_HUMAN_API"
+NEXT_PUBLIC_PAXEER_EXPLORER_URL = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_EXPLORER_URL"
+NEXT_PUBLIC_EXPLORER_BASE = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_EXPLORER_BASE"
+NEXT_PUBLIC_EXPLORER_STATUS_URL = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_EXPLORER_STATUS_URL"
+NEXT_PUBLIC_PAXEER_ATTESTOR_URL = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_ATTESTOR_URL"
+NEXT_PUBLIC_PNS_API_BASE = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PNS_API_BASE"
+NEXT_PUBLIC_POINTS_API_BASE = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_POINTS_API_BASE"
+NEXT_PUBLIC_MARKET_DATA_API = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_MARKET_DATA_API"
+NEXT_PUBLIC_FX_RATES_API = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_FX_RATES_API"
+NEXT_PUBLIC_PAXEER_GAS_SPONSOR = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_GAS_SPONSOR"
+NEXT_PUBLIC_PAXEER_GAS_PAYMASTER = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_GAS_PAYMASTER"
+NEXT_PUBLIC_PAXEER_USID_PER_PAX = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_USID_PER_PAX"
+NEXT_PUBLIC_SID = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_SID"
+NEXT_PUBLIC_CHAIN_ID = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_CHAIN_ID"
+NEXT_PUBLIC_VAPID_PUBLIC_KEY = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_VAPID_PUBLIC_KEY"
+NEXT_PUBLIC_MEDIA_STORAGE_ORIGIN = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_MEDIA_STORAGE_ORIGIN"
+NEXT_PUBLIC_SENTRY_DSN = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_SENTRY_DSN"
+NEXT_PUBLIC_USDC = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_USDC"
+NEXT_PUBLIC_USDT = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_USDT"
+NEXT_PUBLIC_USDL = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_USDL"
+NEXT_PUBLIC_WPAX9 = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_WPAX9"
+NEXT_PUBLIC_MTX = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_MTX"
+NEXT_PUBLIC_PAXIE = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_PAXIE"
+NEXT_PUBLIC_FLIP = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_FLIP"
+NEXT_PUBLIC_MISFITZ = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_MISFITZ"
+NEXT_PUBLIC_AGGIE = "env:WALLET_WALLET_PWA_NEXT_PUBLIC_AGGIE"
+OPENAI_API_KEY = "env:WALLET_WALLET_PWA_OPENAI_API_KEY"
+S3_ENDPOINT_URL = "env:WALLET_WALLET_PWA_S3_ENDPOINT_URL"
+S3_ACCESS_KEY_ID = "env:WALLET_WALLET_PWA_S3_ACCESS_KEY_ID"
+S3_SECRET_ACCESS_KEY = "env:WALLET_WALLET_PWA_S3_SECRET_ACCESS_KEY"
+S3_BUCKET = "env:WALLET_WALLET_PWA_S3_BUCKET"
+PNS_API_ORIGIN = "env:WALLET_WALLET_PWA_PNS_API_ORIGIN"
+PORTFOLIO_UPSTREAM_BASE = "env:WALLET_WALLET_PWA_PORTFOLIO_UPSTREAM_BASE"
+PUSH_ADMIN_KEY = "env:WALLET_WALLET_PWA_PUSH_ADMIN_KEY"
+TRUSTED_PROXY_SECRET = "env:WALLET_WALLET_PWA_TRUSTED_PROXY_SECRET"
+TRUSTED_EDGE_CIDRS = "env:WALLET_WALLET_PWA_TRUSTED_EDGE_CIDRS"
+VAPID_PRIVATE_KEY = "env:WALLET_WALLET_PWA_VAPID_PRIVATE_KEY"
+
+[inputs.wallet-pwa]
+# Wallet gateway public base; absolute HTTP(S) URL without credentials.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_WALLET_API = "operator"
+# Paxeer JSON-RPC endpoint; absolute HTTP(S) URL for chain ID 125.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_RPC_URL = "operator"
+# Identity service base; absolute HTTP(S) URL without credentials.
+WALLET_WALLET_PWA_NEXT_PUBLIC_SUPABASE_URL = "operator"
+# Identity provider publishable browser key; provider-issued string.
+WALLET_WALLET_PWA_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "provider"
+# Sign-in callback; absolute HTTP(S) URL or empty to use the browser origin.
+WALLET_WALLET_PWA_NEXT_PUBLIC_AUTH_REDIRECT_URL = "operator"
+# Human service base; absolute HTTP(S) URL without credentials.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_HUMAN_API = "operator"
+# Account explorer base; absolute HTTP(S) URL without credentials.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_EXPLORER_URL = "operator"
+# Transaction explorer base; absolute HTTP(S) URL.
+WALLET_WALLET_PWA_NEXT_PUBLIC_EXPLORER_BASE = "operator"
+# Transfer-status base; absolute HTTP(S) URL or empty for the primary explorer.
+WALLET_WALLET_PWA_NEXT_PUBLIC_EXPLORER_STATUS_URL = "operator"
+# Attestor base for PWA connections; absolute HTTP(S) URL or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_ATTESTOR_URL = "operator"
+# Name-indexer base for PWA connections; absolute HTTP(S) URL or empty for same-origin reads.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PNS_API_BASE = "operator"
+# Points service base; absolute HTTP(S) URL or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_POINTS_API_BASE = "operator"
+# Market-price service base; absolute HTTP(S) URL or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_MARKET_DATA_API = "operator"
+# Fiat exchange-rate service base; absolute HTTP(S) URL or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_FX_RATES_API = "operator"
+# Gas sponsor account; hexadecimal EVM address or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_GAS_SPONSOR = "chain"
+# Gas paymaster contract; hexadecimal EVM address or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_GAS_PAYMASTER = "chain"
+# Fee conversion rate; positive decimal micro-SID per PAX with at most 18 fractional digits or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXEER_USID_PER_PAX = "operator"
+# SID contract build input; hexadecimal EVM address or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_SID = "chain"
+# EVM chain identifier; decimal integer or empty for the application default.
+WALLET_WALLET_PWA_NEXT_PUBLIC_CHAIN_ID = "operator"
+# Web Push public key; base64url P-256 key paired with VAPID_PRIVATE_KEY or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_VAPID_PUBLIC_KEY = "operator"
+# Image-storage origin; HTTP(S) origin or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_MEDIA_STORAGE_ORIGIN = "operator"
+# Browser error-reporting DSN; provider-issued URL or empty to disable reporting.
+WALLET_WALLET_PWA_NEXT_PUBLIC_SENTRY_DSN = "provider"
+# USDC contract build input; hexadecimal EVM address or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_USDC = "chain"
+# USDT contract build input; hexadecimal EVM address or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_USDT = "chain"
+# USDL contract build input; hexadecimal EVM address or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_USDL = "chain"
+# Wrapped PAX contract build input; hexadecimal EVM address or empty.
+WALLET_WALLET_PWA_NEXT_PUBLIC_WPAX9 = "chain"
+# MTX token override; hexadecimal EVM address or empty for the application default.
+WALLET_WALLET_PWA_NEXT_PUBLIC_MTX = "chain"
+# PAXIE token override; hexadecimal EVM address or empty for the application default.
+WALLET_WALLET_PWA_NEXT_PUBLIC_PAXIE = "chain"
+# FLIP token override; hexadecimal EVM address or empty for the application default.
+WALLET_WALLET_PWA_NEXT_PUBLIC_FLIP = "chain"
+# MISFITZ token override; hexadecimal EVM address or empty for the application default.
+WALLET_WALLET_PWA_NEXT_PUBLIC_MISFITZ = "chain"
+# AGGIE token override; hexadecimal EVM address or empty for the application default.
+WALLET_WALLET_PWA_NEXT_PUBLIC_AGGIE = "chain"
+# Chat provider credential; provider-issued API key string.
+WALLET_WALLET_PWA_OPENAI_API_KEY = "provider"
+# Object-storage endpoint; absolute HTTP(S) URL.
+WALLET_WALLET_PWA_S3_ENDPOINT_URL = "operator"
+# Object-storage access credential; provider-issued identifier string.
+WALLET_WALLET_PWA_S3_ACCESS_KEY_ID = "provider"
+# Object-storage signing credential; provider-issued secret string.
+WALLET_WALLET_PWA_S3_SECRET_ACCESS_KEY = "provider"
+# Token metadata and icon bucket; bucket-name string.
+WALLET_WALLET_PWA_S3_BUCKET = "operator"
+# Server name-indexer origin; HTTP(S) origin without a path or trailing slash.
+WALLET_WALLET_PWA_PNS_API_ORIGIN = "operator"
+# Portfolio service base; absolute HTTPS URL.
+WALLET_WALLET_PWA_PORTFOLIO_UPSTREAM_BASE = "operator"
+# Push administration credential; random string of at least 32 characters.
+WALLET_WALLET_PWA_PUSH_ADMIN_KEY = "generated"
+# Proxy and application shared credential; random base64 string of at least 32 characters.
+WALLET_WALLET_PWA_TRUSTED_PROXY_SECRET = "generated"
+# Trusted HTTP edge networks; comma-separated IPv4/IPv6 CIDRs.
+WALLET_WALLET_PWA_TRUSTED_EDGE_CIDRS = "operator"
+# Web Push private key; base64url P-256 key paired with NEXT_PUBLIC_VAPID_PUBLIC_KEY or empty.
+WALLET_WALLET_PWA_VAPID_PRIVATE_KEY = "operator"

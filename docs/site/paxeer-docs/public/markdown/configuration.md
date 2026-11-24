@@ -6,7 +6,7 @@ The current paxd configuration files, node modes, RPC settings, and storage cont
 
 ## Configuration across the unified network
 
-The chain configuration below controls `paxd`. Hosted service configuration is maintained separately under `services/platform/hosted/` and the component workspaces. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel runs within the network. Configure hosted dependencies for that network and preserve their service-specific authorization settings.
+The chain configuration below controls `paxd`. Hosted service configuration is maintained separately under `services/platform/hosted/` and the component workspaces. Paxeer mainnet-beta uses EVM chain ID 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Configure hosted dependencies for that network and preserve their service-specific authorization settings.
 
 | Surface | Configure | Boundary |
 | --- | --- | --- |

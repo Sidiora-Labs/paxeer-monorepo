@@ -1257,7 +1257,7 @@ def receipt_windows(root=None):
     import base64
     if root is None:
         root = os.environ["DRY_REPO_ROOT"]
-    path = os.path.join(root, "services/platform/hosted/node/tests/fixtures/repair_22_31_355/genesis.json")
+    path = os.path.join(root, "services/platform/hosted/node/tests/fixtures/native_lifecycle/genesis.json")
     with open(path, encoding="utf-8") as handle:
         pins = json.load(handle)["app_state"]["sequencer"]["receipt_keys"]
     return [{"key_id": base64.b64decode(pin["key_id"], validate=True).hex(),

@@ -51,7 +51,7 @@ export function DrawCaps({ caps }: Pick<WebDataViewProps, 'caps'>) {
     <section
       aria-label="402 draws"
       data-caps-state={caps.state}
-      className="space-y-2 rounded-2xl bg-[var(--color-surface-raised)] p-4 text-xs"
+      className="space-y-2 rounded-2xl bg-pax-surface p-4 text-xs"
     >
       <h2 className="text-sm font-semibold text-pax-light">402 draws</h2>
       {(!('budgetAvailability' in caps) || caps.budgetAvailability === 'unavailable') && (
@@ -107,7 +107,7 @@ export function DrawCaps({ caps }: Pick<WebDataViewProps, 'caps'>) {
             <div
               key={budget.id}
               data-budget={budget.id}
-              className="space-y-1 rounded-xl bg-[var(--color-surface-card)] p-2"
+              className="space-y-1 rounded-xl bg-pax-card p-2"
             >
               <p className="break-all">Asset {budget.asset}</p>
               <p data-role="budget-cap">
@@ -124,7 +124,7 @@ export function DrawCaps({ caps }: Pick<WebDataViewProps, 'caps'>) {
             <div
               key={grant.id}
               data-grant={grant.id}
-              className="space-y-1 rounded-xl bg-[var(--color-surface-card)] p-2"
+              className="space-y-1 rounded-xl bg-pax-card p-2"
             >
               <p className="break-all">Asset {grant.asset}</p>
               <p data-role="draw-cap">Per-draw cap: {grant.per_draw_maximum} units</p>

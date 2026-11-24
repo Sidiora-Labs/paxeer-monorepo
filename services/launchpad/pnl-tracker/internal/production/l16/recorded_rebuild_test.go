@@ -17,13 +17,13 @@ import (
 
 func recordedRebuildService(t *testing.T, ctx context.Context) (*Service, *pgxpool.Pool) {
 	t.Helper()
-	db, _ := repair63Database(t, ctx)
+	db, _ := coordinatorReplayDatabase(t, ctx)
 	pool, err := pgxpool.New(ctx, db.AdminDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	rpcURL := repair63RecordedRPC(t)
+	rpcURL := coordinatorReplayRecordedRPC(t)
 	primary, err := ethclient.DialContext(ctx, rpcURL)
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestRecordedInventoryRebuildAndPublication(t *testing.T) {
 	if first.Height != 33963733 || first.State.Known == "0" {
 		t.Fatalf("recorded buy inventory = %+v", first)
 	}
-	later := repair63LiveReplay(t, ctx, service, 33963749)
+	later := coordinatorReplayLiveReplay(t, ctx, service, 33963749)
 	if later.Height <= first.Height || later.State == first.State {
 		t.Fatalf("recorded sale inventory = %+v, first = %+v", later, first)
 	}

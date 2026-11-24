@@ -9,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/ante"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"log/slog"
 	"net"
 	"path/filepath"
 	"sync"
@@ -21,10 +22,11 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/paxeer-network/paxlog"
 	"go.opentelemetry.io/otel"
 )
-
 type Node struct {
+	logger           *slog.Logger
 	Config           Config
 	App              *app.App
 	WAL              *wal.WAL
@@ -47,9 +49,14 @@ type Node struct {
 	leaseDone        chan struct{}
 	lifecycle        sync.Mutex
 }
-
 func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	if !cfg.Enable {
+		if option, forward := NewFollowerReceiptOption(cfg); forward {
+			if a == nil {
+				return nil, fmt.Errorf("%w: sequencer needs an app", ErrConfigValue)
+			}
+			a.SetSequencerRPC(evmrpc.SequencerOption{}, option)
+		}
 		return nil, nil
 	}
 	if err := cfg.Validate(); err != nil {
@@ -58,7 +65,12 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	if a == nil {
 		return nil, fmt.Errorf("%w: sequencer needs an app", ErrConfigValue)
 	}
-	n := &Node{Config: cfg, App: a}
+	n := &Node{Config: cfg, App: a, logger: paxlog.NewLogger("app")}
+	n.logger.Info("sequencer settings",
+		"lease-duration", cfg.LeaseDuration,
+		"nonce-queue-lifetime", cfg.NonceQueueLifetime,
+		"nonce-queue-max-per-sender", cfg.NonceQueueMaxPerSender,
+		"nonce-queue-max-total", cfg.NonceQueueMaxTotal)
 	if cfg.Role == RoleStandby {
 		ctx, cancel := context.WithCancel(context.Background())
 		n.Standby, err = StartStandby(ctx, cfg, a)
@@ -164,7 +176,7 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 		func(_ common.Address, _ uint64, tx []byte) error {
 			_, err := n.Accepter.Accept(tx)
 			return err
-		}, cfg.LeaseDuration)
+		}, cfg.NonceQueueLifetime)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +191,6 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	n.ReceiptSource.pending = n.pendingSend
 	return n, nil
 }
-
 type nodeOpenNonces struct{ app *app.App }
 
 func (r nodeOpenNonces) EvmNonce(addr common.Address) uint64 {
@@ -197,6 +208,10 @@ func (n *Node) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	if err != nil {
 		return evmrpc.AcceptedSend{}, err
 	}
+	openCtx, err := n.Executor.Snapshot()
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
 	tx, err := n.App.GetTxConfig().TxDecoder()(txBytes)
 	if err != nil {
 		return evmrpc.AcceptedSend{}, err
@@ -209,7 +224,7 @@ func (n *Node) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	if etx == nil {
 		return evmrpc.AcceptedSend{}, inputErr("missing EVM transaction")
 	}
-	if _, err := ante.ResolveTransactionChain(n.App.LatestCtx(), etx, n.App.EvmKeeper.ChainID(n.App.GetCheckCtx()), n.App.LayerXChainsKeeper); err != nil {
+	if _, err := ante.ResolveTransactionChain(openCtx, etx, n.App.EvmKeeper.ChainID(openCtx), n.App.LayerXChainsKeeper); err != nil {
 		return evmrpc.AcceptedSend{}, err
 	}
 	sender, err := ethtypes.Sender(ethtypes.LatestSignerForChainID(etx.ChainId()), etx)
@@ -392,7 +407,7 @@ func (n *Node) startLease(ctx context.Context, result wal.ReplayResult) error {
 	if err != nil {
 		return err
 	}
-	holder, err := NewLeaseHolder(LeaseHolderConfig{Replicator: n.Replicator, Replay: result, KeyID: keyID, LeaseDuration: n.Config.LeaseDuration})
+	holder, err := NewLeaseHolder(LeaseHolderConfig{Replicator: n.Replicator, Replay: result, KeyID: keyID, LeaseDuration: n.Config.LeaseDuration, Logger: n.logger})
 	if err != nil {
 		return err
 	}
@@ -413,10 +428,15 @@ func (n *Node) startLease(ctx context.Context, result wal.ReplayResult) error {
 				return
 			case <-ticker.C:
 				now := time.Now()
-				if !now.Before(holder.Expiry()) || holder.renew(run, now) != nil {
+				var err error
+				if !n.Replicator.Standalone() && !now.Before(holder.Expiry()) {
+					err = ErrLeaseFenced
+				} else {
+					err = holder.renew(run, now)
+				}
+				if err != nil {
 					n.Accepter.mu.Lock()
-					n.Accepter.halted = true
-					_ = n.Executor.Fence()
+					n.Accepter.fenceLease(now, err)
 					n.Accepter.mu.Unlock()
 					return
 				}

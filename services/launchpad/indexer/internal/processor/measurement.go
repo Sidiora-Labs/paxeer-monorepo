@@ -417,7 +417,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		if h.Replay == nil {
 			return report, errors.New("actual authorized backfill runner required")
 		}
-		if spec.Backfill.Mode != "backfill" {
+		if spec.Backfill.Mode != valueBackfill {
 			return report, errors.New("concurrent job must be explicit backfill")
 		}
 		go func() { backfillDone <- h.Replay.Run(measurementCtx, *spec.Backfill) }()

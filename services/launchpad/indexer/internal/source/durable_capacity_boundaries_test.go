@@ -15,7 +15,7 @@ func TestCapacityDurableEmptyBlocksRequireObservedCommit(t *testing.T) {
 	ctx := context.Background()
 	node := newCapacityChain(t)
 	node.logs = nil
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	_, pool := canonicaltest.New(t)
 	st := store.New(pool)
 	fence, err := st.AcquireLease(ctx, 125, "empty-capacity", "capacity", 30*time.Second)

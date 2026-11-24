@@ -17,7 +17,7 @@ interface Props {
 const HeaderItem = ({ children, isLoading }: { children: React.ReactNode; isLoading?: boolean }) => {
   return (
     <Skeleton
-      fontWeight={ 600 }
+      fontWeight="semibold"
       pb={ 1 }
       display="inline-block"
       width="fit-content"
@@ -74,11 +74,11 @@ const LogDecodedInputDataTable = ({ data, isLoading }: Props) => {
   const hasIndexed = data.some(({ indexed }) => indexed !== undefined);
 
   const gridTemplateColumnsBase = hasIndexed ?
-    '50px 60px 40px minmax(0, 1fr)' :
-    '50px 60px minmax(0, 1fr)';
+    'var(--chakra-spacing-12\\.5) var(--chakra-spacing-15) var(--chakra-spacing-10) minmax(0, 1fr)' :
+    'var(--chakra-spacing-12\\.5) var(--chakra-spacing-15) minmax(0, 1fr)';
   const gridTemplateColumnsLg = hasIndexed ?
-    '80px 80px 80px minmax(0, 1fr)' :
-    '80px 80px minmax(0, 1fr)';
+    'repeat(3, var(--chakra-spacing-20)) minmax(0, 1fr)' :
+    'repeat(2, var(--chakra-spacing-20)) minmax(0, 1fr)';
 
   return (
     <Grid

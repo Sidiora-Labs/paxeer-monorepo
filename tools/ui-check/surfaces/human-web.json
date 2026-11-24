@@ -1,0 +1,2833 @@
+{
+  "name": "LayerX human web application",
+  "directory": "../../../",
+  "build": "npm --prefix apps/web run build",
+  "start": "node tools/ui-check/surfaces/human-web/start.mjs",
+  "address": "http://127.0.0.1:3100",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "settings-devices",
+      "path": "/app/settings/devices",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "settings-devices-empty",
+      "path": "/app/settings/devices?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "settings-devices-error",
+      "path": "/app/settings/devices?state=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://127.0.0.1:3100/human/v1/sessions",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "security-devices",
+      "path": "/app/security/devices",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "security-devices-empty",
+      "path": "/app/security/devices?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "security-devices-error",
+      "path": "/app/security/devices?state=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://127.0.0.1:3100/human/v1/sessions",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "welcome",
+      "path": "/",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Continue\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "welcome-signed-in",
+      "path": "/?signed-in=1",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Go to your account\")"
+        },
+        {
+          "name": "ordered-list-1-first-row",
+          "selector": ":nth-match(main :is(ul, ol):visible, 1) > li:first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "home",
+      "path": "/app",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:has-text(\"Add money\")"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "list-2-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 2) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "home-empty",
+      "path": "/app?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:has-text(\"Add money\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "home-loading",
+      "path": "/app?state=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "home-error",
+      "path": "/app?state=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://127.0.0.1:3100/human/v1/home",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "activity",
+      "path": "/app/activity",
+      "states": [
+        {
+          "name": "filters",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Filter\"), button:has-text(\"Type\")"
+            },
+            {
+              "action": "wait",
+              "text": "All types"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main button:text-is(\"Download statement\"), 1), main:not(:has(button:text-is(\"Download statement\"))) button:text-is(\"Retry\")"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"list\"] > :first-child, main table tbody:first-of-type > tr:nth-child(2), main:not(:has([role=\"list\"], table)) [role=\"alert\"]"
+        },
+        {
+          "name": "activity-collection",
+          "selector": "main [role=\"list\"], main table, main:not(:has([role=\"list\"], table)) [role=\"alert\"]"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "activity-empty",
+      "path": "/app/activity?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main button:text-is(\"Download statement\"), 1), main:not(:has(button:text-is(\"Download statement\"))) button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "activity-loading",
+      "path": "/app/activity?state=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "activity-error",
+      "path": "/app/activity?state=error",
+      "expects": [
+        {
+          "method": "POST",
+          "pattern": "http://127.0.0.1:3100/human/v1/activity/query",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "activity-detail",
+      "path": "/app/activity/act_01j8agh6w7a1b2c3d4e5f6g7h8",
+      "states": [
+        {
+          "name": "technical-details",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Technical details"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Technical details\")"
+            },
+            {
+              "action": "wait",
+              "text": "Entry identifier"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Back to activity\")"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "technical-details",
+          "selector": "main button:has-text(\"Technical details\")"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "agents",
+      "path": "/app/agents",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main button:text-is(\"New agent\"), 1)"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "agents-empty",
+      "path": "/app/agents?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main button:text-is(\"New agent\"), 1)"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "agents-loading",
+      "path": "/app/agents?state=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "agents-error",
+      "path": "/app/agents?state=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://127.0.0.1:3100/human/v1/agents",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "agent-detail",
+      "path": "/app/agents/agt_01j8agd2s3a1b2c3d4e5f6g7h8",
+      "states": [
+        {
+          "name": "pause-confirmation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Pause\"):visible"
+            },
+            {
+              "action": "wait",
+              "text": "The agent stops spending until you resume it."
+            }
+          ]
+        },
+        {
+          "name": "limit-editor",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Change limit\"):visible"
+            },
+            {
+              "action": "wait",
+              "text": "New monthly limit"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Add money\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "agent-create",
+      "path": "/app/agents/new",
+      "states": [
+        {
+          "name": "purpose",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "input[name=\"agent_name\"]",
+              "value": "Research Runner"
+            },
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Continue\")"
+            }
+          ]
+        },
+        {
+          "name": "monthly-limit",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "input[name=\"agent_name\"]",
+              "value": "Research Runner"
+            },
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Continue\")"
+            },
+            {
+              "action": "fill",
+              "selector": "input[name=\"agent_purpose\"]",
+              "value": "Review research datasets"
+            },
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Continue\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Continue\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        },
+        {
+          "name": "wizard-step",
+          "selector": "main div:has(> h2)"
+        },
+        {
+          "name": "wizard-progress-first-row",
+          "selector": "main ol[aria-label=\"Progress\"] > li:first-child, [data-shell=\"mobile\"] main button[aria-label=\"Back\"]"
+        },
+        {
+          "name": "wizard-summary-card",
+          "selector": "main aside, [data-shell=\"mobile\"] main div:has(> h2)"
+        },
+        {
+          "name": "wizard-summary-first-row",
+          "selector": "main aside dl > :first-child, [data-shell=\"mobile\"] main div:has(> h2)"
+        }
+      ]
+    },
+    {
+      "name": "approvals",
+      "path": "/app/approvals",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main [role=\"listitem\"][tabindex]:visible, 1)"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "approvals-empty",
+      "path": "/app/approvals?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "approvals-loading",
+      "path": "/app/approvals?state=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "approvals-error",
+      "path": "/app/approvals?state=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://127.0.0.1:3100/human/v1/approvals",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "approval-detail",
+      "path": "/app/approvals/apr_01j8agf4u5a1b2c3d4e5f6g7h8",
+      "states": [
+        {
+          "name": "approve-confirmation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Approve\")"
+            },
+            {
+              "action": "wait",
+              "text": "Approve this request?"
+            }
+          ]
+        },
+        {
+          "name": "reject-confirmation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Reject\")"
+            },
+            {
+              "action": "wait",
+              "text": "Reject this request?"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Approve\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        },
+        {
+          "name": "facts-1-first-row",
+          "selector": "main dl > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "move",
+      "path": "/app/move",
+      "states": [
+        {
+          "name": "amount",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[role=\"radio\"]:has-text(\"Research Runner\")"
+            },
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Continue\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Continue\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "recipient-first-row",
+          "selector": ":nth-match(main [role=\"radio\"]:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        },
+        {
+          "name": "wizard-step",
+          "selector": "main div:has(> h2)"
+        },
+        {
+          "name": "wizard-progress-first-row",
+          "selector": "main ol[aria-label=\"Progress\"] > li:first-child, [data-shell=\"mobile\"] main button[aria-label=\"Back\"]"
+        },
+        {
+          "name": "wizard-summary-card",
+          "selector": "main aside, [data-shell=\"mobile\"] main div:has(> h2)"
+        },
+        {
+          "name": "wizard-summary-first-row",
+          "selector": "main aside dl > :first-child, [data-shell=\"mobile\"] main div:has(> h2)"
+        }
+      ]
+    },
+    {
+      "name": "notifications",
+      "path": "/app/notifications",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main [role=\"tab\"]:visible, 1)"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "notifications-empty",
+      "path": "/app/notifications?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main [role=\"tab\"]:visible, 1)"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "notifications-loading",
+      "path": "/app/notifications?state=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "notifications-error",
+      "path": "/app/notifications?state=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://127.0.0.1:3100/human/v1/notifications",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "security-recovery",
+      "path": "/app/security/recovery",
+      "states": [
+        {
+          "name": "recovery-details",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Technical details"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Technical details\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Add a passkey\")"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "list-2-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 2) > :first-child"
+        },
+        {
+          "name": "list-3-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 3) > :first-child"
+        },
+        {
+          "name": "list-4-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 4) > :first-child"
+        },
+        {
+          "name": "list-5-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 5) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "card-3",
+          "selector": ":nth-match(div.rounded-lg:visible, 3)"
+        },
+        {
+          "name": "card-4",
+          "selector": ":nth-match(div.rounded-lg:visible, 4)"
+        },
+        {
+          "name": "card-5",
+          "selector": ":nth-match(div.rounded-lg:visible, 5)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "settings",
+      "path": "/app/settings",
+      "states": [
+        {
+          "name": "profile-editor",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[role=\"listitem\"]:has-text(\"Display name\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main [role=\"listitem\"][tabindex]:visible, 1)"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "list-2-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 2) > :first-child"
+        },
+        {
+          "name": "list-3-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 3) > :first-child"
+        },
+        {
+          "name": "list-4-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 4) > :first-child"
+        },
+        {
+          "name": "list-5-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 5) > :first-child"
+        },
+        {
+          "name": "list-6-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 6) > :first-child"
+        },
+        {
+          "name": "list-7-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 7) > :first-child"
+        },
+        {
+          "name": "list-8-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 8) > :first-child"
+        },
+        {
+          "name": "list-9-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 9) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "card-3",
+          "selector": ":nth-match(div.rounded-lg:visible, 3)"
+        },
+        {
+          "name": "card-4",
+          "selector": ":nth-match(div.rounded-lg:visible, 4)"
+        },
+        {
+          "name": "card-5",
+          "selector": ":nth-match(div.rounded-lg:visible, 5)"
+        },
+        {
+          "name": "card-6",
+          "selector": ":nth-match(div.rounded-lg:visible, 6)"
+        },
+        {
+          "name": "card-7",
+          "selector": ":nth-match(div.rounded-lg:visible, 7)"
+        },
+        {
+          "name": "card-8",
+          "selector": ":nth-match(div.rounded-lg:visible, 8)"
+        },
+        {
+          "name": "card-9",
+          "selector": ":nth-match(div.rounded-lg:visible, 9)"
+        },
+        {
+          "name": "card-10",
+          "selector": ":nth-match(div.rounded-lg:visible, 10)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "settings-empty",
+      "path": "/app/settings?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main [role=\"listitem\"][tabindex]:visible, 1)"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "list-2-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 2) > :first-child"
+        },
+        {
+          "name": "list-3-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 3) > :first-child"
+        },
+        {
+          "name": "list-4-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 4) > :first-child"
+        },
+        {
+          "name": "list-5-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 5) > :first-child"
+        },
+        {
+          "name": "list-6-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 6) > :first-child"
+        },
+        {
+          "name": "list-7-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 7) > :first-child"
+        },
+        {
+          "name": "list-8-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 8) > :first-child"
+        },
+        {
+          "name": "list-9-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 9) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "card-3",
+          "selector": ":nth-match(div.rounded-lg:visible, 3)"
+        },
+        {
+          "name": "card-4",
+          "selector": ":nth-match(div.rounded-lg:visible, 4)"
+        },
+        {
+          "name": "card-5",
+          "selector": ":nth-match(div.rounded-lg:visible, 5)"
+        },
+        {
+          "name": "card-6",
+          "selector": ":nth-match(div.rounded-lg:visible, 6)"
+        },
+        {
+          "name": "card-7",
+          "selector": ":nth-match(div.rounded-lg:visible, 7)"
+        },
+        {
+          "name": "card-8",
+          "selector": ":nth-match(div.rounded-lg:visible, 8)"
+        },
+        {
+          "name": "card-9",
+          "selector": ":nth-match(div.rounded-lg:visible, 9)"
+        },
+        {
+          "name": "card-10",
+          "selector": ":nth-match(div.rounded-lg:visible, 10)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "settings-loading",
+      "path": "/app/settings?state=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "settings-error",
+      "path": "/app/settings?state=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://127.0.0.1:3100/human/v1/profile",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "settings-security",
+      "path": "/app/settings/security",
+      "states": [
+        {
+          "name": "sign-out-confirmation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Sign out everywhere\")"
+            }
+          ]
+        },
+        {
+          "name": "authenticator-disable-confirmation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Turn off\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Add a passkey\")"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 1) > :first-child"
+        },
+        {
+          "name": "list-2-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 2) > :first-child"
+        },
+        {
+          "name": "list-3-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 3) > :first-child"
+        },
+        {
+          "name": "list-4-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 4) > :first-child"
+        },
+        {
+          "name": "list-5-first-row",
+          "selector": ":nth-match(main [role=\"list\"]:visible, 5) > :first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "card-3",
+          "selector": ":nth-match(div.rounded-lg:visible, 3)"
+        },
+        {
+          "name": "card-4",
+          "selector": ":nth-match(div.rounded-lg:visible, 4)"
+        },
+        {
+          "name": "card-5",
+          "selector": ":nth-match(div.rounded-lg:visible, 5)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "settings-wallet",
+      "path": "/app/settings/wallet",
+      "states": [
+        {
+          "name": "sidiora-invalid",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[role=\"radio\"]:has-text(\"Pay fees in Sidiora\")"
+            }
+          ]
+        },
+        {
+          "name": "sidiora-maximum",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[role=\"radio\"]:has-text(\"Pay fees in Sidiora\")"
+            },
+            {
+              "action": "fill",
+              "selector": "input[name=\"sidiora_maximum\"]",
+              "value": "12.5"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main [role=\"radio\"]:visible, 1)"
+        },
+        {
+          "name": "fee-options",
+          "selector": "main fieldset"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "support",
+      "path": "/app/support",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Send\")"
+        },
+        {
+          "name": "ordered-list-1-first-row",
+          "selector": ":nth-match(main :is(ul, ol):visible, 1) > li:first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "support-empty",
+      "path": "/app/support?state=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Send\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "support-loading",
+      "path": "/app/support?state=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Search\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "support-error",
+      "path": "/app/support?state=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://127.0.0.1:3100/human/v1/support/conversations",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ":nth-match(header:visible, 1)"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "main",
+          "selector": "main.lx-scroll"
+        },
+        {
+          "name": "footer",
+          "selector": "aside > div:last-child, [data-shell=\"mobile\"] nav[aria-label=\"Primary\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Retry\")"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "bridge",
+      "path": "/bridge",
+      "states": [
+        {
+          "name": "wallet-unavailable",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Connect wallet\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Connect wallet\")"
+        },
+        {
+          "name": "ordered-list-1-first-row",
+          "selector": ":nth-match(main :is(ul, ol):visible, 1) > li:first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "card-3",
+          "selector": ":nth-match(div.rounded-lg:visible, 3)"
+        },
+        {
+          "name": "card-4",
+          "selector": ":nth-match(div.rounded-lg:visible, 4)"
+        },
+        {
+          "name": "card-5",
+          "selector": ":nth-match(div.rounded-lg:visible, 5)"
+        },
+        {
+          "name": "card-6",
+          "selector": ":nth-match(div.rounded-lg:visible, 6)"
+        },
+        {
+          "name": "card-7",
+          "selector": ":nth-match(div.rounded-lg:visible, 7)"
+        },
+        {
+          "name": "card-8",
+          "selector": ":nth-match(div.rounded-lg:visible, 8)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "exchange",
+      "path": "/exchange",
+      "states": [
+        {
+          "name": "wallet-unavailable",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Connect wallet\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Connect wallet\")"
+        },
+        {
+          "name": "table-1-first-row",
+          "selector": ":nth-match(main table:visible, 1) > tbody:first-of-type > tr:first-child, :nth-match(main table:visible, 1):not(:has(tbody tr)) > thead > tr:first-child"
+        },
+        {
+          "name": "table-1-header",
+          "selector": ":nth-match(main table:visible, 1) > thead > tr:first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "card-3",
+          "selector": ":nth-match(div.rounded-lg:visible, 3)"
+        },
+        {
+          "name": "card-4",
+          "selector": ":nth-match(div.rounded-lg:visible, 4)"
+        },
+        {
+          "name": "card-5",
+          "selector": ":nth-match(div.rounded-lg:visible, 5)"
+        },
+        {
+          "name": "card-6",
+          "selector": ":nth-match(div.rounded-lg:visible, 6)"
+        },
+        {
+          "name": "card-7",
+          "selector": ":nth-match(div.rounded-lg:visible, 7)"
+        },
+        {
+          "name": "card-8",
+          "selector": ":nth-match(div.rounded-lg:visible, 8)"
+        },
+        {
+          "name": "card-9",
+          "selector": ":nth-match(div.rounded-lg:visible, 9)"
+        },
+        {
+          "name": "card-10",
+          "selector": ":nth-match(div.rounded-lg:visible, 10)"
+        },
+        {
+          "name": "card-11",
+          "selector": ":nth-match(div.rounded-lg:visible, 11)"
+        },
+        {
+          "name": "card-12",
+          "selector": ":nth-match(div.rounded-lg:visible, 12)"
+        },
+        {
+          "name": "card-13",
+          "selector": ":nth-match(div.rounded-lg:visible, 13)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "launchpad",
+      "path": "/launchpad",
+      "states": [
+        {
+          "name": "wallet-unavailable",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:text-is(\"Connect wallet\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main button:text-is(\"Connect wallet\")"
+        },
+        {
+          "name": "table-1-first-row",
+          "selector": ":nth-match(main table:visible, 1) > tbody:first-of-type > tr:first-child, :nth-match(main table:visible, 1):not(:has(tbody tr)) > thead > tr:first-child"
+        },
+        {
+          "name": "table-1-header",
+          "selector": ":nth-match(main table:visible, 1) > thead > tr:first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "card-3",
+          "selector": ":nth-match(div.rounded-lg:visible, 3)"
+        },
+        {
+          "name": "card-4",
+          "selector": ":nth-match(div.rounded-lg:visible, 4)"
+        },
+        {
+          "name": "card-5",
+          "selector": ":nth-match(div.rounded-lg:visible, 5)"
+        },
+        {
+          "name": "card-6",
+          "selector": ":nth-match(div.rounded-lg:visible, 6)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "explorer",
+      "path": "/explorer",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": ":nth-match(main button:text-is(\"Look up\"), 1)"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "card-2",
+          "selector": ":nth-match(div.rounded-lg:visible, 2)"
+        },
+        {
+          "name": "card-3",
+          "selector": ":nth-match(div.rounded-lg:visible, 3)"
+        },
+        {
+          "name": "card-4",
+          "selector": ":nth-match(div.rounded-lg:visible, 4)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "explorer-account",
+      "path": "/explorer/accounts/0x1111111111111111111111111111111111111111",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main nav[aria-label=\"Account activity pages\"] a:text-is(\"Refresh this snapshot\")"
+        },
+        {
+          "name": "table-1-first-row",
+          "selector": ":nth-match(main table:visible, 1) > tbody:first-of-type > tr:first-child, :nth-match(main table:visible, 1):not(:has(tbody tr)) > thead > tr:first-child"
+        },
+        {
+          "name": "table-1-header",
+          "selector": ":nth-match(main table:visible, 1) > thead > tr:first-child"
+        },
+        {
+          "name": "table-2-first-row",
+          "selector": ":nth-match(main table:visible, 2) > tbody:first-of-type > tr:first-child, :nth-match(main table:visible, 2):not(:has(tbody tr)) > thead > tr:first-child"
+        },
+        {
+          "name": "table-2-header",
+          "selector": ":nth-match(main table:visible, 2) > thead > tr:first-child"
+        },
+        {
+          "name": "facts-1-first-term",
+          "selector": ":nth-match(main dl:visible, 1) > dt:first-of-type"
+        },
+        {
+          "name": "facts-1-first-value",
+          "selector": ":nth-match(main dl:visible, 1) > dd:first-of-type"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "explorer-account-empty",
+      "path": "/explorer/accounts/0x2222222222222222222222222222222222222222",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main nav[aria-label=\"Account activity pages\"] a:text-is(\"Refresh this snapshot\")"
+        },
+        {
+          "name": "table-1-first-row",
+          "selector": ":nth-match(main table:visible, 1) > tbody:first-of-type > tr:first-child, :nth-match(main table:visible, 1):not(:has(tbody tr)) > thead > tr:first-child"
+        },
+        {
+          "name": "table-1-header",
+          "selector": ":nth-match(main table:visible, 1) > thead > tr:first-child"
+        },
+        {
+          "name": "table-2-first-row",
+          "selector": ":nth-match(main table:visible, 2) > tbody:first-of-type > tr:first-child, :nth-match(main table:visible, 2):not(:has(tbody tr)) > thead > tr:first-child"
+        },
+        {
+          "name": "table-2-header",
+          "selector": ":nth-match(main table:visible, 2) > thead > tr:first-child"
+        },
+        {
+          "name": "facts-1-first-term",
+          "selector": ":nth-match(main dl:visible, 1) > dt:first-of-type"
+        },
+        {
+          "name": "facts-1-first-value",
+          "selector": ":nth-match(main dl:visible, 1) > dd:first-of-type"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "explorer-account-missing",
+      "path": "/explorer/accounts/0x3333333333333333333333333333333333333333",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main nav[aria-label=\"Explorer sections\"] a"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "explorer-account-unavailable",
+      "path": "/explorer/accounts/0x4444444444444444444444444444444444444444",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main nav[aria-label=\"Explorer sections\"] a"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "explorer-program",
+      "path": "/explorer/programs/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main nav[aria-label=\"Explorer sections\"] a"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "explorer-receipt",
+      "path": "/explorer/receipts/0xabababababababababababababababababababababababababababababababab",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main nav[aria-label=\"Explorer sections\"] a"
+        },
+        {
+          "name": "table-1-first-row",
+          "selector": ":nth-match(main table:visible, 1) > tbody:first-of-type > tr:first-child, :nth-match(main table:visible, 1):not(:has(tbody tr)) > thead > tr:first-child"
+        },
+        {
+          "name": "table-1-header",
+          "selector": ":nth-match(main table:visible, 1) > thead > tr:first-child"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    },
+    {
+      "name": "explorer-receipt-missing",
+      "path": "/explorer/receipts/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "parts": [
+        {
+          "name": "navigation",
+          "selector": ":nth-match(nav:visible, 1)"
+        },
+        {
+          "name": "main",
+          "selector": ":nth-match(main:visible, 1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": ":nth-match(main :is(h1, h2, h3, legend):visible, 1)"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main nav[aria-label=\"Explorer sections\"] a"
+        },
+        {
+          "name": "card-1",
+          "selector": ":nth-match(div.rounded-lg:visible, 1)"
+        },
+        {
+          "name": "navigation-first-item",
+          "selector": ":nth-match(nav:visible, 1) > :first-child"
+        }
+      ]
+    }
+  ],
+  "answers": [],
+  "typeScale": [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 32],
+  "geometry": {
+    "file": "human-web/geometry.json",
+    "widths": [390, 1280, 1440, 1920, 2560]
+  }
+}

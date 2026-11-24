@@ -34,7 +34,7 @@ func TestDurableMarketRecoveryPreservesCommittedSourceCoordinates(t *testing.T) 
 	if err != nil || len(markets) != 0 {
 		t.Fatalf("empty market recovery: %+v %v", markets, err)
 	}
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	for _, market := range input.Markets {
 		if market.Creation == nil {
 			t.Fatal("source creation proof absent")

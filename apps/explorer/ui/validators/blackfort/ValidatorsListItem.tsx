@@ -1,10 +1,8 @@
-import { Flex } from '@chakra-ui/react';
 import React from 'react';
 
 import type { ValidatorBlackfort } from 'types/api/validators';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
-import { TruncatedText } from 'toolkit/components/truncation/TruncatedText';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
@@ -17,7 +15,9 @@ interface Props {
 const ValidatorsListItem = ({ data, isLoading }: Props) => {
 
   return (
-    <ListItemMobileGrid.Container gridTemplateColumns="130px auto" borderColor="hairline">
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr)" borderColor="hairline"
+      css={{ '& a': { display: 'inline-flex', alignItems: 'center' },
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } } }}>
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Validator</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
@@ -32,7 +32,7 @@ const ValidatorsListItem = ({ data, isLoading }: Props) => {
         <>
           <ListItemMobileGrid.Label isLoading={ isLoading }>Name</ListItemMobileGrid.Label>
           <ListItemMobileGrid.Value>
-            <Flex><TruncatedText text={ data.name } loading={ isLoading }/></Flex>
+            <Skeleton loading={ isLoading } whiteSpace="normal" overflowWrap="anywhere">{ data.name }</Skeleton>
           </ListItemMobileGrid.Value>
         </>
       ) }

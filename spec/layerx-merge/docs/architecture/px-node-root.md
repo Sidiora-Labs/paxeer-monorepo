@@ -88,6 +88,8 @@ These methods validate fixed-width producer encodings and pin nested calls to on
 
 ## Hosted operations and errors
 
+`px_openSession` is served by the hosted gateway alone. The node registers no method of that name.
+
 `px_register` requires an unprefixed lowercase 32-byte signer and 64-byte signature. `px_requestFunds` requires a syntactically valid DID of at most 512 bytes and a nonzero unprefixed lowercase 32-byte signer. Valid parameters receive `-32004`, message `Hosted gateway service operation`, with `data.code = "hosted_gateway_service_required"` and the method name. The node performs neither hosted action.
 
 | Code | Meaning |

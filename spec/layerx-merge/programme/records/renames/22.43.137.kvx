@@ -1,0 +1,176 @@
+[manifest]
+task = "22.43.137"
+records_moved = 8
+files_renamed = 33
+
+[file.1]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_378_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/hosted_route_admission_test.exs"
+
+[file.2]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_388_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/token_instance_socket_delivery_test.exs"
+
+[file.3]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_390_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/verified_contract_cursor_pagination_test.exs"
+
+[file.4]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_391_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/restricted_api_access_test.exs"
+
+[file.5]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_393_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/contract_creation_recipient_test.exs"
+
+[file.6]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_394_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/raw_trace_response_schema_test.exs"
+
+[file.7]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/receipt_authority_and_identity_test.exs"
+
+[file.8]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_403_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/health_response_schema_test.exs"
+
+[file.9]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_378_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/example_configuration_restoration_test.exs"
+
+[file.10]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_389_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/redis_session_revocation_test.exs"
+
+[file.11]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_391_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/historical_balance_pagination_test.exs"
+
+[file.12]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_393_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/account_session_authorization_test.exs"
+
+[file.13]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_394_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/contract_interaction_access_test.exs"
+
+[file.14]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_395_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/contract_visualization_access_test.exs"
+
+[file.15]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_396_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/token_interaction_access_test.exs"
+
+[file.16]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_397_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/abi_import_response_test.exs"
+
+[file.17]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_398_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/api_input_validation_test.exs"
+
+[file.18]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_399_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/interop_trust_key_rotation_test.exs"
+
+[file.19]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_400_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/contract_audit_report_response_test.exs"
+
+[file.20]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_401_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/token_instance_access_test.exs"
+
+[file.21]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_410_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/unified_account_schema_test.exs"
+
+[file.22]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_411_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/unified_asset_schema_test.exs"
+
+[file.23]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_416_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/capability_feed_identity_test.exs"
+
+[file.24]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_417_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/home_feed_scarcity_test.exs"
+
+[file.25]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_426_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/response_schema_and_cache_lifecycle_test.exs"
+
+[file.26]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_461_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/account_api_blueprint_test.exs"
+
+[file.27]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_475_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/contract_verification_form_test.exs"
+
+[file.28]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/account_api_guide_test.exs"
+
+[file.29]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_486_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/block_notification_ordering_test.exs"
+
+[file.30]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_510_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/ajax_and_endpoint_paths_test.exs"
+
+[file.31]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/consensus_block_statistics_test.exs"
+
+[file.32]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_11_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/secondary_coin_statistics_test.exs"
+
+[file.33]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12_test.exs"
+to = "services/explorer/backend/apps/block_scout_web/test/repair/transaction_price_update_statistics_test.exs"
+
+[file.34]
+from = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/repair_22_31_388.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/repair_22_31_388.kvx"
+
+[file.35]
+from = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/repair_22_33_398.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/repair_22_33_398.kvx"
+
+[file.36]
+from = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/repair_22_33_399.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/repair_22_33_399.kvx"
+
+[file.37]
+from = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/repair_22_31_396.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/repair_22_31_396.kvx"
+
+[file.38]
+from = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/repair_22_33_416.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/repair_22_33_416.kvx"
+
+[file.39]
+from = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/repair_22_33_475.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/repair_22_33_475.kvx"
+
+[file.40]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12.kvx"
+
+[file.41]
+from = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_378_test.exs"
+
+[reference.2]
+file = "tools/paxeer-x/route-catalogue.json"
+name = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_378_test.exs"

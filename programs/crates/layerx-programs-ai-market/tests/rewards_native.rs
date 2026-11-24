@@ -8,12 +8,12 @@
 //! Program activity, where the transfer, the next state and the replay record commit or
 //! refuse together.
 #[allow(dead_code)]
-#[path = "repair_22_33_261.rs"]
-mod repair_22_33_261;
+#[path = "reward_finality_and_execution.rs"]
+mod reward_finality_and_execution;
 
 #[path = "support/native_replay.rs"]
 mod native_replay;
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod repair;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_program_sdk::{Field, HostRefusal, ProgramError, Reason, ValueError};
@@ -2654,14 +2654,16 @@ fn sustained_retention() -> TestResult {
 
 #[test]
 fn reward_reopen_preserves_recipient_balances() -> Checked {
-    repair_22_33_261::reward_native_reopen();
+    reward_finality_and_execution::reward_native_reopen();
     let mut n = Native::start()?;
     let principals = n.principals;
-    let calls = repair_22_33_261::native_reward_calls(repair_22_33_261::NativeRewardDomain {
-        chain: n.chain,
-        program: n.program,
-        principals,
-    });
+    let calls = reward_finality_and_execution::native_reward_calls(
+        reward_finality_and_execution::NativeRewardDomain {
+            chain: n.chain,
+            program: n.program,
+            principals,
+        },
+    );
     let mut payouts = Vec::new();
     for produced in calls {
         let operation = decode_envelope(&produced.envelope)?.envelope.operation;
@@ -2770,7 +2772,10 @@ fn verify_reward_replay_balances(
     Ok(amount)
 }
 
-fn apply_reward_lifecycle(n: &mut Native, produced: &repair_22_33_261::RewardCall) -> Checked {
+fn apply_reward_lifecycle(
+    n: &mut Native,
+    produced: &reward_finality_and_execution::RewardCall,
+) -> Checked {
     let operation = decode_envelope(&produced.envelope)?.envelope.operation;
 
     let line = n.submit(produced.actor, produced.height, &produced.envelope)?;
@@ -2802,7 +2807,7 @@ fn apply_reward_lifecycle(n: &mut Native, produced: &repair_22_33_261::RewardCal
 }
 fn read_reward_replay(
     n: &mut Native,
-    produced: &repair_22_33_261::RewardCall,
+    produced: &reward_finality_and_execution::RewardCall,
 ) -> Checked<(Line, Line)> {
     let principals = n.principals;
     let input = n.input.as_mut().ok_or_else(|| harness("closed"))?;
@@ -2842,7 +2847,7 @@ fn read_reward_replay(
 /// the rewards account balance unchanged.
 #[allow(clippy::too_many_lines)]
 fn native_recovery_and_capacity() -> Checked {
-    repair_22_33_261::reward_native_reopen();
+    reward_finality_and_execution::reward_native_reopen();
     reward_signed_replay_authentication()?;
     let mut n = Native::start()?;
     n.create(1000)?;
@@ -2968,7 +2973,7 @@ fn native_recovery_and_capacity() -> Checked {
 
 #[test]
 fn reward_finality_recovery_and_capacity() -> Checked {
-    repair_22_33_261::reward_finality_proof_origin();
+    reward_finality_and_execution::reward_finality_proof_origin();
     late_settlement_and_close()?;
     finality_recovery()?;
     dictionary_capacity()?;

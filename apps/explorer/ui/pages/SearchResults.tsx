@@ -26,6 +26,7 @@ import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
 import ExternalSearchItem from 'ui/shared/search/ExternalSearchItem';
 import type { SearchResultAppItem } from 'ui/shared/search/utils';
+import useInitialLoadingReady from 'ui/shared/useInitialLoadingReady';
 import HeaderAlert from 'ui/snippets/header/HeaderAlert';
 import HeaderDesktop from 'ui/snippets/header/HeaderDesktop';
 import HeaderMobile from 'ui/snippets/header/HeaderMobile';
@@ -116,6 +117,7 @@ const SearchResultsPageContent = () => {
   }, [ ]);
 
   const isLoading = marketplaceApps.isPlaceholderData || isPlaceholderData;
+  const isInitialContentReady = useInitialLoadingReady(isLoading);
 
   const displayedItems: Array<SearchResultItem | SearchResultAppItem> = React.useMemo(() => {
     const apiData = (data?.items || []).filter((item) => {
@@ -196,13 +198,13 @@ const SearchResultsPageContent = () => {
           )) }
         </Box>
         <Box hideBelow="lg">
-          <TableRoot fontWeight={ 500 }>
+          <TableRoot fontWeight="medium" aria-label="Search results">
             <TableHeaderSticky top={ pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }>
               <TableRow>
                 <TableColumnHeader width="30%">Search result</TableColumnHeader>
                 <TableColumnHeader width="35%"/>
                 <TableColumnHeader width="35%" pr={ 10 }/>
-                <TableColumnHeader width="150px">Category</TableColumnHeader>
+                <TableColumnHeader width={ 'var(--chakra-spacing-37\\.5)' }>Category</TableColumnHeader>
               </TableRow>
             </TableHeaderSticky>
             <TableBody>
@@ -231,7 +233,7 @@ const SearchResultsPageContent = () => {
 
     const text = (() => {
       if (isLoading && pagination.page === 1) {
-        return <Skeleton loading h={ 6 } w="280px" borderRadius="full" mb={ pagination.isVisible ? 0 : 6 }/>;
+        return <Skeleton loading h={ 6 } w="var(--chakra-spacing-65)" maxW="100%" borderRadius="full" mb={ pagination.isVisible ? 0 : 6 }/>;
       }
 
       if (resultsCount === 0 && externalSearchItem) {
@@ -240,13 +242,13 @@ const SearchResultsPageContent = () => {
 
       return (
         <>
-          <Box mb={ pagination.isVisible ? 0 : 6 } lineHeight="32px">
+          <Box mb={ pagination.isVisible ? 0 : 6 } lineHeight="h1">
             <span>Found </span>
-            <chakra.span fontWeight={ 700 }>
+            <chakra.span fontWeight="bold">
               { resultsCount }
             </chakra.span>
             <span> matching result{ (((displayedItems.length || 0) + marketplaceApps.displayedApps.length) > 1) || pagination.page > 1 ? 's' : '' } for </span>
-            “<chakra.span fontWeight={ 700 }>{ debouncedSearchTerm }</chakra.span>”
+            “<chakra.span fontWeight="bold">{ debouncedSearchTerm }</chakra.span>”
           </Box>
           { resultsCount === 0 && regexp.BLOCK_HEIGHT.test(debouncedSearchTerm) &&
             <SearchBarSuggestBlockCountdown blockHeight={ debouncedSearchTerm } mt={ -4 }/> }
@@ -261,7 +263,7 @@ const SearchResultsPageContent = () => {
     return (
       <>
         <Box hideFrom="lg">{ text }</Box>
-        <ActionBar mt={{ base: 0, lg: -6 }} alignItems="center">
+        <ActionBar mt={{ base: 0, lg: -6 }} alignItems="center" w="100%" mx={ 0 } px={ 0 }>
           <Box hideBelow="lg">{ text }</Box>
           <Pagination { ...pagination }/>
         </ActionBar>
@@ -279,7 +281,7 @@ const SearchResultsPageContent = () => {
     );
   }, [ handleSearchTermChange, handleSubmit, searchTerm ]);
 
-  const pageContent = !showContent ? <ContentLoader/> : (
+  const pageContent = !showContent || !isInitialContentReady ? <ContentLoader/> : (
     <>
       <PageTitle title="Search results"/>
       { bar }
@@ -302,7 +304,7 @@ const SearchResultsPageContent = () => {
           </AppErrorBoundary>
         </Layout.MainColumn>
       </Layout.MainArea>
-      <Layout.Footer/>
+      { showContent && isInitialContentReady && <Layout.Footer/> }
     </>
   );
 };

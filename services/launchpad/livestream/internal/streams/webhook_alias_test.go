@@ -30,7 +30,7 @@ func TestPostgresProviderWebhookAliasVerifiesSignature(t *testing.T) {
 	h := New(Deps{Lifecycle: s, StudioWebhook: true, WebhookMilliseconds: true, WebhookSecret: secret, Clock: func() time.Time { return now }, ObserveOutcome: func(outcome string) { lastOutcome = outcome }})
 	router := chi.NewRouter()
 	h.RegisterRoutes(router)
-	repairM1001AssertAliases(t, router, secret, now, &lastOutcome)
+	studioRecoveryAssertAliases(t, router, secret, now, &lastOutcome)
 	var count int
 	if err = s.pool.QueryRow(ctx, "SELECT count(*) FROM "+s.schema+".stream_inbox").Scan(&count); err != nil || count != 1 {
 		t.Fatalf("signed event must be persisted once: count=%d err=%v", count, err)

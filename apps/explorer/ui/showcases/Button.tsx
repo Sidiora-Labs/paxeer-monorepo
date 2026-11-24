@@ -3,16 +3,19 @@ import React from 'react';
 import { Button, ButtonGroupRadio } from 'toolkit/chakra/button';
 import { Checkbox } from 'toolkit/chakra/checkbox';
 import { Link } from 'toolkit/chakra/link';
-import { PopoverContent, PopoverRoot, PopoverTrigger, PopoverBody } from 'toolkit/chakra/popover';
-import { Tooltip } from 'toolkit/chakra/tooltip';
 import { BACKGROUND_DEFAULT } from 'ui/home/HeroBanner';
+import { PopoverContent, PopoverRoot, PopoverTrigger, PopoverBody } from 'ui/marketplace/NativePopover';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import IconSvg from 'ui/shared/IconSvg';
 
 import { Section, Container, SectionHeader, SamplesStack, Sample, SectionSubHeader } from './parts';
 
 const ButtonShowcase = () => {
   return (
-    <Container value="button">
+    <Container
+      value="button"
+      css={{ '& button': { maxWidth: 'full', whiteSpace: 'normal', height: 'auto', paddingBlock: 'var(--chakra-spacing-1)' } }}
+    >
       <Section>
         <SectionHeader>Size</SectionHeader>
         <SamplesStack>
@@ -252,12 +255,12 @@ const ButtonShowcase = () => {
         <SectionSubHeader>Button Group Radio</SectionSubHeader>
         <SamplesStack>
           <Sample>
-            <ButtonGroupRadio>
+            <ButtonGroupRadio maxW="full" h="auto" flexWrap="wrap">
               <Button value="option-1">Option 1</Button>
               <Button value="option-2">Option 2</Button>
               <Button value="option-3">Option 3</Button>
             </ButtonGroupRadio>
-            <ButtonGroupRadio loading>
+            <ButtonGroupRadio loading maxW="full" h="auto" flexWrap="wrap">
               <Button value="option-1">Option 1</Button>
               <Button value="option-2">Option 2</Button>
               <Button value="option-3">Option 3</Button>

@@ -1,7 +1,7 @@
 defmodule Explorer.Market.Source.CoinMarketCapTest do
   use ExUnit.Case
 
-  alias Explorer.Market.Source
+  alias Explorer.Market.Fetcher.Coin
   alias Explorer.Market.Source.CoinMarketCap
   alias Plug.Conn
 
@@ -10,6 +10,8 @@ defmodule Explorer.Market.Source.CoinMarketCapTest do
 
     coin_market_cap_configuration = Application.get_env(:explorer, CoinMarketCap)
     source_configuration = Application.get_env(:explorer, Explorer.Market.Source)
+    coin_configuration = Application.get_env(:explorer, Coin)
+    adapter_configuration = Application.get_env(:tesla, :adapter)
 
     Application.put_env(:explorer, Explorer.Market.Source,
       native_coin_source: CoinMarketCap,
@@ -28,12 +30,14 @@ defmodule Explorer.Market.Source.CoinMarketCapTest do
       currency_id: "2781"
     )
 
+    Application.put_env(:explorer, Coin, Keyword.put(coin_configuration, :fetch_btc_value, false))
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
     on_exit(fn ->
       Application.put_env(:explorer, Explorer.Market.Source, source_configuration)
       Application.put_env(:explorer, CoinMarketCap, coin_market_cap_configuration)
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
+      Application.put_env(:explorer, Coin, coin_configuration)
+      Application.put_env(:tesla, :adapter, adapter_configuration)
     end)
 
     {:ok, bypass: bypass}

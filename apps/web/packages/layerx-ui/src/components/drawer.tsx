@@ -10,7 +10,7 @@ export interface DrawerProps {
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
   portalContainer?: HTMLElement | null;
-  /** Width of the right-side panel. Default 420px. */
+  /** Width of the right-side panel. Defaults to the surface drawer token. */
   width?: number | string;
 }
 
@@ -18,19 +18,50 @@ export interface DrawerProps {
  * Right-side drawer — the desktop detail/education surface.
  * Esc + overlay dismiss, focus-trapped.
  */
-export function Drawer({ open, onOpenChange, children, portalContainer, width = 420 }: DrawerProps) {
+export function Drawer({ open, onOpenChange, children, portalContainer, width = "var(--drawer-width)" }: DrawerProps) {
+  const widthClass = typeof width === "number"
+    ? ({ 320: "w-[320px]", 400: "w-[400px]", 480: "w-[480px]", 560: "w-[560px]", 640: "w-[640px]", 720: "w-[720px]" } as Record<number, string>)[width] ?? "w-full"
+    : "w-[min(var(--drawer-width),100vw)]";
+  const contentRef = React.useRef<HTMLDialogElement>(null);
+  React.useEffect(() => {
+    const content = contentRef.current;
+    if (content === null) return;
+    if (open) {
+      if (content.matches(":modal")) return;
+      if (content.open) content.close();
+      content.showModal();
+    } else if (content.open) {
+      content.close();
+    }
+  }, [open]);
+  const setContentRef = React.useCallback(
+    (content: HTMLDialogElement | null) => {
+      contentRef.current = content;
+      if (content !== null && open && !content.matches(":modal")) {
+        content.showModal();
+      }
+    },
+    [open],
+  );
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={portalContainer ?? undefined}>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
-        <Dialog.Content
-          style={{ width: `min(${typeof width === "number" ? `${width}px` : width}, 100vw)` }}
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay-subtle data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
+        <Dialog.Content asChild>
+          <dialog
+            ref={setContentRef}
+            onCancel={(event) => {
+              event.preventDefault();
+              onOpenChange(false);
+            }}
           className={cn(
-            "fixed top-0 right-0 z-50 flex h-dvh flex-col overscroll-contain bg-surface pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-overlay outline-none",
+            "fixed top-0 right-0 z-50 flex h-dvh flex-col overscroll-contain bg-surface lx-safe-top lx-safe-bottom shadow-overlay outline-none",
+            widthClass,
             "data-[state=open]:animate-drawer-in data-[state=closed]:animate-drawer-out",
           )}
-        >
-          {children}
+          >
+            {children}
+          </dialog>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

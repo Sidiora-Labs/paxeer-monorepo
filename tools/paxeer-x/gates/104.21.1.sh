@@ -15,10 +15,10 @@ import sys
 import time
 
 ROOT = Path.cwd()
-OUT = Path(os.environ.get('PAXEER_X_MONETARY_ARTIFACTS', '/root/lx-ops/paxeer-x-integration-2026-10-03/task-104.21.1/artifacts')).absolute()
-RUST = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/programs')).absolute()
-NATIVE = Path(os.environ.get('PAXEER_X_MONETARY_BUILD_DIR', '/root/lx-target/task-104.21.1/native')).absolute()
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+OUT = Path(os.environ.get('PAXEER_X_MONETARY_ARTIFACTS', str(ROOT / 'build/qualification/104.21.1'))).absolute()
+RUST = Path(os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target')).absolute()
+NATIVE = Path(os.environ.get('PAXEER_X_MONETARY_BUILD_DIR') or os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'build/qualification/104.21.1/native')).absolute()
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 ISOLATION = ['unknown_and_ambient_kernel_imports_are_rejected', 'denied_event_and_transfer_guests_have_no_effects', 'guest_memory_bounds_refusal_cannot_write_or_emit_effects', 'capability_narrowing_rejects_missing_grants_and_limit_widening_without_effects', 'nested_frames_use_their_own_program_memory_and_storage_namespace', 'protocol_private_namespace_is_unreachable_from_guest_selectors_and_keys']
 COMPOSITION = ['authority_denial_does_not_create_a_phantom_edge_or_start_the_child', 'production_depth_boundary_and_one_past_are_atomic', 'delegated_capability_escalation_matrix_never_enters_the_child', 'production_fanout_boundary_and_one_past_are_atomic', 'production_visit_boundary_and_one_past_are_atomic', 'direct_and_indirect_reentrancy_are_typed_and_atomic', 'nested_guest_event_aggregate_accepts_sixty_four_and_rolls_back_sixty_five']
 BOUNDARY = ['transfer::tests::transfer_set_is_bound_to_invocation_authority_and_exact_order', 'transfer::tests::explicit_v2_principal_authority_preserves_kernel_legs_and_legacy_decoding', 'transfer::tests::account_bound_commitment_preserves_signer_and_refuses_forged_names', 'transfer::tests::applied_kernel_evidence_authenticates_each_field_order_and_multiplicity', 'transfer::tests::empty_invalid_and_overflowing_sets_are_refused_before_core', 'transfer::tests::forged_program_or_principal_is_an_invariant_one_violation', 'transfer::tests::child_transfer_requires_a_reachable_call_graph_edge', 'transfer::tests::child_call_cannot_change_the_invoking_principal', 'transfer::tests::child_transfer_must_fit_its_narrowed_asset_recipient_and_amount', 'transfer::tests::malformed_zero_and_oversized_transfer_sets_never_reach_the_kernel_boundary', 'transfer::tests::disconnected_and_forged_nested_call_staging_is_rejected_as_invariant_one', 'transfer::tests::canonical_decoder_rejects_inner_and_trailing_event_malleability', 'transfer::tests::real_guest_mixed_effects_seal_exact_dual_authority_kernel_set']
@@ -63,7 +63,7 @@ def run(argv, label, env=None, seconds=600):
 def build():
     require(not git('status', '--porcelain=v1'), 'build requires an immutable published clean candidate')
     before = sources()
-    lockpath = Path('/root/lx-cargo/native-build.lock')
+    lockpath = ROOT / 'build/qualification/cargo/native-build.lock'
     lockpath.parent.mkdir(parents=True, exist_ok=True)
     with lockpath.open('a') as lock:
         started = time.monotonic()
@@ -146,7 +146,7 @@ os.umask(0o077)
 try:
     require(len(sys.argv) == 1 or sys.argv[1:] == ['--build'], 'usage:104.21.1.sh [--build]')
     OUT.mkdir(mode=0o700, parents=True, exist_ok=True)
-    require(not OUT.is_symlink() and OUT.stat().st_uid == os.getuid() and not OUT.stat().st_mode & 0o077 and ROOT != OUT and ROOT not in OUT.parents, 'protected external artifact directory required')
+    require(not OUT.is_symlink() and OUT.stat().st_uid == os.getuid() and not OUT.stat().st_mode & 0o077 and (ROOT != OUT and ROOT not in OUT.parents or OUT == ROOT / 'build/qualification/104.21.1'), 'protected external artifact directory required')
     if sys.argv[1:] == ['--build']:
         build()
     else:

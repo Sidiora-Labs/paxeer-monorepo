@@ -2,10 +2,10 @@
 //! Every market is produced by the real F01/F02/F03/F06/F08/F09 producers, `OPEN_EPOCH` and the
 //! F01 task-set lifecycle; every score is admitted through real `CommitScore`/`RevealScore`
 //! calls, and `BeginAggregation`, `ProcessAggregation` and `FinalizeAggregation` go through
-//! `aggregation::apply` with real envelopes. A missing, expired or refused report is no vote;
+//! `epoch::aggregate` with real envelopes. A missing, expired or refused report is no vote;
 //! an explicit zero is a vote.
 use layerx_ai_market_test_values::RequiredValue as _;
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod repair;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
@@ -25,7 +25,7 @@ use layerx_programs_ai_market::{
     },
     commit_reveal::{self as cr, commitment, Outcome as F04, Status},
     dispatch::{self, Operation},
-    epoch::{self, Frozen, Outcome as Opening, ADVANCE_SCRATCH_BYTES, OPEN_SCRATCH_BYTES},
+    epoch::{self, Frozen, ADVANCE_SCRATCH_BYTES},
     errors::{
         ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_NONCANONICAL_VECTOR,
         F03_SCORE_RANGE, F05_REPORT_INVARIANT, F06_EPOCH_TERMINAL, NON_CANONICAL, NOT_FOUND,
@@ -87,7 +87,11 @@ const SETTLE_AT: u64 = 1120;
 /// The lowest frozen worker.
 const LOW: u8 = 0x20;
 /// Caller buffers able to hold every aggregation output.
-const FULL: [usize; 3] = [MAX_STATE_BYTES, agg::SCRATCH_BYTES, MAX_EVENT_BYTES];
+const FULL: [usize; 3] = [
+    MAX_STATE_BYTES,
+    epoch::AGGREGATE_SCRATCH_BYTES,
+    MAX_EVENT_BYTES,
+];
 
 fn principal(n: u8) -> CodecResult<PrincipalId> {
     let mut bytes = [0x50; 32];
@@ -577,34 +581,7 @@ impl World {
     /// Permissionless object-local `OPEN_EPOCH` of the clock epoch of `at`.
     fn open(&mut self, at: u64) -> CodecResult<Frozen> {
         let mut candidate = self.clone();
-        repair::refresh_workers(&mut candidate.bytes, at)?;
-        let mut next = vec![0; MAX_STATE_BYTES];
-        let mut scratch = vec![0; OPEN_SCRATCH_BYTES];
-        let preview = epoch::preview_open(&candidate.bytes, at, &mut next, &mut scratch)?;
-        let call = Req {
-            epoch: preview.epoch,
-            config: preview.config.get(),
-            roster: Presence::Present(preview.roster),
-            request: tag(0x60, 0, preview.epoch),
-            ..req(dispatch::OPEN_EPOCH, principal(KEEPER)?, Vec::new())
-        };
-        let encoded = call.encode()?;
-        let mut event = vec![0; MAX_EVENT_BYTES];
-        let Opening::Opened {
-            frozen, state_len, ..
-        } = epoch::open_epoch(
-            &call.context(at)?,
-            &decode_envelope(&encoded)?,
-            &candidate.bytes,
-            &mut next,
-            &mut scratch,
-            &mut event,
-        )?
-        else {
-            return Err(NON_CANONICAL);
-        };
-        next.truncate(state_len);
-        candidate.bytes = next;
+        let frozen = repair::open(&mut candidate.bytes, at)?;
         *self = candidate;
         Ok(frozen)
     }
@@ -1184,9 +1161,8 @@ const fn output_at(reports: usize, index: usize) -> usize {
     45 + reports * 64 + 2 + index * 50
 }
 
-/// One revision: only the F01 header revision and the joint F05/F06 settlement section change;
-/// identity, reports, admission and control bytes are byte-identical, and the operation event
-/// carries the response as its suffix.
+/// One revision updates aggregation and its reputation seal or completion; identity,
+/// reports, admission and control bytes remain intact. The event carries the response.
 fn check_applied(
     previous: &[u8],
     current: &[u8],
@@ -1216,7 +1192,38 @@ fn check_applied(
     section.encode(&mut policy)?;
     assert_eq!(after.feature_sections[0], policy.as_slice());
     assert_eq!(after.feature_sections[1..3], before.feature_sections[1..3]);
-    assert_eq!(after.feature_sections[4], before.feature_sections[4]);
+    let (old_region, old_table) =
+        layerx_programs_ai_market::reputation_transition::split_joint(before.feature_sections[4])?;
+    let (new_region, new_table) =
+        layerx_programs_ai_market::reputation_transition::split_joint(after.feature_sections[4])?;
+    assert_eq!(new_table, old_table);
+    let old = old_region.ok_or(NOT_FOUND)?;
+    let new = new_region.ok_or(NOT_FOUND)?;
+    if envelope.envelope.operation == dispatch::BeginAggregation {
+        assert_eq!(new.state, old.state);
+        assert_eq!(old.seal, Presence::Absent);
+        let Presence::Present(seal) = new.seal else {
+            return Err(NON_CANONICAL);
+        };
+        assert_eq!(seal.epoch, progress.epoch);
+    } else if progress.phase == AggregationPhase::Terminal {
+        assert_eq!(new.seal, Presence::Absent);
+        assert_eq!(
+            new.state.latest_completed(),
+            Presence::Present(progress.epoch)
+        );
+        assert_eq!(
+            Presence::Present(
+                new.state
+                    .lookup_epoch(progress.epoch)
+                    .map_err(|_| NOT_FOUND)?
+                    .result
+            ),
+            progress.root
+        );
+    } else {
+        assert_eq!(new, old);
+    }
     assert_eq!(after.control.feature_bytes, before.control.feature_bytes);
     assert_eq!(agg::progress(current)?, progress);
     let e = &envelope.envelope;
@@ -1289,7 +1296,7 @@ impl Market {
         let mut next = vec![0; next_len];
         let mut scratch = vec![0; scratch_len];
         let mut event = vec![0; event_len];
-        let outcome = agg::apply(
+        let outcome = epoch::aggregate(
             &call.context(at)?,
             &envelope,
             &self.world.bytes,
@@ -1377,20 +1384,26 @@ impl Market {
         );
         Ok(progress)
     }
-    /// A fresh `FinalizeAggregation`.
+    /// Finalize every bounded participant chunk of the committed aggregation.
     fn finalize(&mut self, at: u64) -> CodecResult<Progress> {
         let input = input_of(&self.progress()?)?;
         let call = self.finalize_call(input)?;
-        let Agg::Applied {
-            progress, response, ..
-        } = self.aggregate(&call, at)?
-        else {
-            return Err(NON_CANONICAL);
-        };
-        assert_eq!(response.as_bytes().len(), FINALIZE_RESPONSE_BYTES);
-        assert_eq!(progress.phase, AggregationPhase::Terminal);
-        assert_eq!(self.reward_row()?.status, EpochStatus::Terminal);
-        Ok(progress)
+        let mut cursor = 0;
+        loop {
+            let Agg::Applied {
+                progress, response, ..
+            } = self.aggregate(&call, at)?
+            else {
+                return Err(NON_CANONICAL);
+            };
+            assert_eq!(response.as_bytes().len(), FINALIZE_RESPONSE_BYTES);
+            cursor = repair::finalization_cursor(response.as_bytes(), cursor, &progress)?;
+            if progress.phase == AggregationPhase::Terminal {
+                assert_eq!(self.reward_row()?.status, EpochStatus::Terminal);
+                return Ok(progress);
+            }
+            assert_eq!(self.reward_row()?.status, EpochStatus::Reserved);
+        }
     }
     /// Every remaining Process chunk, then Finalize.
     fn complete(&mut self, at: u64) -> CodecResult<Progress> {
@@ -1408,7 +1421,18 @@ impl Market {
     /// The committed F05 current record and history bytes after the reward state.
     fn tail(&self) -> CodecResult<(Vec<u8>, Vec<u8>)> {
         let state = decode_shared_state(&self.world.bytes)?;
-        let section = state.feature_sections[Section::SettlementClaims.index()];
+        let section = state.room_market()?.0;
+        let section = if let Some(staged) = section.strip_suffix(b"FN17") {
+            let footer = staged.len().checked_sub(4).ok_or(NON_CANONICAL)?;
+            let mut reader = codec::Reader::new(&staged[footer..]);
+            let journal_len = usize::try_from(reader.u32()?).map_err(|_| CAPACITY)?;
+            reader.finish()?;
+            assert!(journal_len > 0);
+            let end = footer.checked_sub(journal_len).ok_or(NON_CANONICAL)?;
+            &staged[..end]
+        } else {
+            section
+        };
         let tail = section.get(REWARD_STATE_BYTES..).ok_or(NOT_FOUND)?;
         let (record, history) = tail.split_at(record_len(tail)?);
         Ok((record.to_vec(), history.to_vec()))
@@ -1428,7 +1452,7 @@ impl Market {
     }
     fn reward_row(&self) -> CodecResult<RewardEpoch> {
         let state = decode_shared_state(&self.world.bytes)?;
-        let section = state.feature_sections[Section::SettlementClaims.index()];
+        let section = state.room_market()?.0;
         decode_reward_state(section.get(..REWARD_STATE_BYTES).ok_or(NOT_FOUND)?)?
             .row(self.frozen.epoch)
     }
@@ -1475,7 +1499,7 @@ fn f05_a01_three_distinct_scores_select_the_median() -> TestResult {
     m.admit(&plan)?;
     let free = |m: &Market| -> CodecResult<u128> {
         let state = decode_shared_state(&m.world.bytes)?;
-        let section = state.feature_sections[Section::SettlementClaims.index()];
+        let section = state.room_market()?.0;
         Ok(decode_reward_state(&section[..REWARD_STATE_BYTES])?
             .ledger()?
             .free)
@@ -2014,9 +2038,21 @@ fn f05_a16_refused_steps_keep_committed_progress() -> TestResult {
     let frozen = terminalized.frozen;
     let workers = terminalized.workers.clone();
     terminalized.process(at)?;
+    let call = terminalized.finalize_call(input_of(&sealed)?)?;
+    let Agg::Applied {
+        progress, response, ..
+    } = terminalized.aggregate(&call, at)?
+    else {
+        return Err(NON_CANONICAL);
+    };
+    assert_eq!(progress.phase, AggregationPhase::Processing);
+    assert_eq!(
+        repair::finalization_cursor(response.as_bytes(), 0, &progress)?,
+        8
+    );
+    assert_eq!(terminalized.tail()?.1, initial_history_bytes);
     terminalized.world.terminalize(&frozen, &workers, at + 1)?;
     let before = terminalized.tail()?;
-    let call = terminalized.finalize_call(input_of(&sealed)?)?;
     assert_eq!(
         terminalized.aggregation_refused(&call, at + 2)?,
         F06_EPOCH_TERMINAL

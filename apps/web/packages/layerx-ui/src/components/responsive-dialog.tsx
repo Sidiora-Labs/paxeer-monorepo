@@ -10,7 +10,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from "./modal";
 import { Button, type ButtonProps } from "./button";
 
 /**
- * One overlay, two bodies: bottom sheet on mobile, centered 440px modal on
+ * One overlay, two bodies: bottom sheet on mobile, centered modal on
  * desktop. This is the LayerX confirmation/detail contract from the pattern
  * table — consequence copy included, Esc/overlay dismiss, focus-trapped.
  */
@@ -127,7 +127,7 @@ export function ConfirmDialog({
           {icon}
         </span>
       )}
-      <p className="text-[15px] leading-relaxed text-foreground-secondary">{consequence}</p>
+      <p className="text-body-sm leading-relaxed text-foreground-secondary">{consequence}</p>
     </div>
   );
 

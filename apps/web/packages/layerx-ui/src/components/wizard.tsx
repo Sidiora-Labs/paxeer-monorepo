@@ -59,10 +59,17 @@ export function Wizard({
 
   if (!step) {
     return (
-      <div className={cn("flex flex-1 flex-col items-center justify-center gap-4 p-4", className)}>
+      <div
+        className={cn(
+          "flex flex-1 flex-col items-center justify-center gap-4 p-4",
+          className,
+        )}
+      >
         <p role="status">No steps available.</p>
         {onCancel && (
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
         )}
       </div>
     );
@@ -84,7 +91,9 @@ export function Wizard({
     <div className="flex flex-col gap-2">
       <h2 className="text-xl font-bold text-foreground">{step.title}</h2>
       {step.description && (
-        <p className="text-[15px] leading-relaxed text-muted-foreground">{step.description}</p>
+        <p className="text-body-sm leading-relaxed text-muted-foreground">
+          {step.description}
+        </p>
       )}
       <div className="pt-4">{step.render()}</div>
     </div>
@@ -95,7 +104,12 @@ export function Wizard({
       <div className={cn("flex h-full min-h-0 flex-1 flex-col", className)}>
         {/* progress + back */}
         <div className="flex items-center gap-3 px-4 pt-2 pb-4">
-          <IconButton variant="outline" size="sm" onClick={back} aria-label="Back">
+          <IconButton
+            variant="outline"
+            size="sm"
+            onClick={back}
+            aria-label="Back"
+          >
             <ArrowLeft />
           </IconButton>
           <div className="flex flex-1 items-center gap-1.5" aria-hidden>
@@ -116,7 +130,11 @@ export function Wizard({
 
         <div className="lx-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-4">
           {stepBody}
-          <PrimaryAction onClick={next} disabled={!canContinue} platform="mobile">
+          <PrimaryAction
+            onClick={next}
+            disabled={!canContinue}
+            platform="mobile"
+          >
             {isLast ? completeLabel : "Continue"}
           </PrimaryAction>
         </div>
@@ -126,10 +144,13 @@ export function Wizard({
 
   // Desktop split pane
   return (
-    <div className={cn("grid min-h-0 flex-1 grid-cols-[1fr_340px] gap-8", className)}>
-      <div className="flex min-h-0 flex-col">
+    <div className={cn("grid min-h-0 flex-1 lx-wizard-grid gap-8", className)}>
+      <div className="flex min-h-0 min-w-0 flex-col">
         {/* step rail */}
-        <ol className="flex items-center gap-2 pb-6" aria-label="Progress">
+        <ol
+          className="flex flex-wrap items-center gap-2 pb-6"
+          aria-label="Progress"
+        >
           {steps.map((s, i) => (
             <li key={s.id} className="flex items-center gap-2">
               <span
@@ -152,18 +173,22 @@ export function Wizard({
               >
                 {s.label}
               </span>
-              {i < steps.length - 1 && <span className="mx-1 h-px w-6 bg-border" aria-hidden />}
+              {i < steps.length - 1 && (
+                <span className="mx-1 h-px w-6 bg-border" aria-hidden />
+              )}
             </li>
           ))}
         </ol>
 
-        <div className="lx-scroll min-h-0 flex-1 overflow-y-auto pr-2">{stepBody}</div>
+        <div className="lx-scroll min-h-0 flex-1 overflow-y-auto pr-2">
+          {stepBody}
+        </div>
 
-        <div className="flex items-center gap-3 border-t border-border pt-4">
+        <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
           <Button variant="secondary" onClick={back}>
             {index === 0 ? "Cancel" : "Back"}
           </Button>
-          <Button onClick={next} disabled={!canContinue} className="min-w-[160px]">
+          <Button onClick={next} disabled={!canContinue} className="min-w-40">
             {isLast ? completeLabel : "Continue"}
           </Button>
         </div>
@@ -176,9 +201,14 @@ export function Wizard({
         </h3>
         <dl className="mt-3 flex flex-col divide-y divide-border/70">
           {(summary ?? []).map((item) => (
-            <div key={item.label} className="flex items-center justify-between gap-4 py-3">
+            <div
+              key={item.label}
+              className="flex items-center justify-between gap-4 py-3"
+            >
               <dt className="text-sm text-muted-foreground">{item.label}</dt>
-              <dd className="text-right text-sm font-semibold text-foreground">{item.value}</dd>
+              <dd className="text-right text-sm font-semibold text-foreground">
+                {item.value}
+              </dd>
             </div>
           ))}
           {(!summary || summary.length === 0) && (

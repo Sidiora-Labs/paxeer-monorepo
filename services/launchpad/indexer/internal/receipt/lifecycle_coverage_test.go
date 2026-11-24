@@ -18,10 +18,10 @@ import (
 )
 
 func TestQualifiedBatchRechecksRecordedIdentitiesAndPrefetch(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -134,9 +134,9 @@ func TestQualifiedBatchRechecksRecordedIdentitiesAndPrefetch(t *testing.T) {
 }
 
 func TestReceiptBundleAndPolicyRejectChangedEvidence(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx := context.Background()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -193,7 +193,7 @@ func TestReceiptBundleAndPolicyRejectChangedEvidence(t *testing.T) {
 
 func TestPrivateFixtureAdmissionRequiresActualDeploymentBindings(t *testing.T) {
 	ctx, client := realReceiptNode(t)
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	fixture := PrivateFixtureRPCOptions{DeploymentVersion: "private-fixture-admission", ActivationHeight: input.Options.Manifest.ActivationHeight, Roles: input.Options.Manifest.Roles, CatalogJSON: input.Options.CatalogJSON, Epochs: input.Options.Epochs, GenesisHash: common.HexToHash("0xabc"), CreationTransactions: map[common.Address]common.Hash{common.HexToAddress("0x123"): common.HexToHash("0x456")}}
 	for _, change := range []func(*PrivateFixtureRPCOptions){
 		func(f *PrivateFixtureRPCOptions) { f.DeploymentVersion = "public" },

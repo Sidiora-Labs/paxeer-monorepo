@@ -1,7 +1,9 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAccount, useSignMessage } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
 import type { MetadataV2Data } from '@/core/clients/metadata';
@@ -23,6 +25,7 @@ export default function TokenMetadataPage() {
   const query = useMetadataV2(token);
   const metadata = query.data;
   const [audience, setAudience] = useState('');
+  const [savedDetails, setSavedDetails] = useState('');
   const signedImageRevision = useRef<string | null>(null);
   const imageIdentity = useRef({ scope: '', revision: '', assetId: null as string | null, key: '' });
   const scope = `${token}:${address}:${session?.epoch}`;
@@ -56,20 +59,23 @@ export default function TokenMetadataPage() {
   }, [token, metadata, address, isConnected, chainId, session, signMessageAsync, audience]);
   const committed = (value: MetadataV2Data) => {
     cache.setQueryData(['metadata-v2', 125, token], value);
+    setSavedDetails(`${token}:${address}:${session?.epoch}:${value.revision}`);
     void cache.invalidateQueries({ queryKey: ['metadata-media-v2', 125, token] });
   };
   const error = !validToken ? 'This is not a valid coin address' : query.isError ? "Can't load coin details right now" : !query.isPending && !metadata ? 'No details found for this coin' : '';
   const identity = `${token}:${address}:${metadata?.revision}:${session?.epoch}`;
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 text-white">
-      <h1 className="text-2xl font-semibold">Coin details</h1>
+    <div className="mx-auto min-w-0 max-w-2xl break-words px-4 py-8 text-text">
+      <h1 className="text-balance text-2xl font-semibold">Coin details</h1>
       {validToken && query.isPending && <p role="status">Loading...</p>}
-      {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => void query.refetch()}>Try again</button></div>}
+      {error && <div role="alert"><p>{error}</p>{validToken && <button type="button" onClick={() => void query.refetch()}>Try again</button>}</div>}
+      <Link href="/explore">Back to coins</Link>
+      {metadata && savedDetails === `${token}:${address}:${session?.epoch}:${metadata.revision}` && <p role="status">Coin details saved</p>}
+      {metadata && <p className="[overflow-wrap:anywhere]">{displayCoinText(metadata.token.name, token)} ({displayCoinText(metadata.token.symbol, token)})</p>}
+      {validToken && <p className="break-all">{metadata ? metadata.token.address : token}</p>}
       {metadata && <>
-        <p>{metadata.token.name} ({metadata.token.symbol})</p><p className="break-all">{metadata.token.address}</p>
         {!isConnected || !address ? <><p>Connect the creator wallet to edit coin details</p><WalletButton /></> : chainId !== 125 ? <><p role="alert">Switch your wallet to Paxeer to edit coin details</p><WalletButton /></> : <>
-          <MetadataV2Editor key={identity} tokenAddress={token} wallet={address} audience={audience} metadata={metadata} signMessage={message => signMessageAsync({ message, account: address })} onCommitted={committed} />
-          {authority ? <CreatorMetadataMedia key={imageIdentity.current.key} authority={authority} /> : <><p>Sign in with the creator wallet to upload a coin image</p><WalletButton /></>}
+          {authority ? <><MetadataV2Editor key={identity} tokenAddress={token} wallet={address} audience={audience} metadata={metadata} signMessage={message => signMessageAsync({ message, account: address })} onCommitted={committed} /><CreatorMetadataMedia key={imageIdentity.current.key} authority={authority} /></> : <><p>Sign in with the creator wallet to upload a coin image</p><WalletButton /></>}
         </>}
       </>}
     </div>

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { Chains, SdkClient, CHAIN_ROUTE_STATUS, routeStatus } from '../dist/index.js';
+import { Chains, Operations, SdkClient, CHAIN_ROUTE_STATUS, routeStatus } from '../dist/index.js';
 import { validateChainsResponse, validateChainDetailResponse, validateChainRevenueResponse } from '../dist/validate.js';
 
 const holder = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -51,6 +51,35 @@ async function chainsListRequestsAndValidatesPage() {
   });
   assert.deepEqual(validateChainsResponse(sample), sample);
 }
+
+async function generatedOperationsConsumeChainRoutes() {
+  const list = envelope({ items: [chain] });
+  const detail = envelope({ chain });
+  const revenue = envelope({ chain: chain.chain, epochs: [epoch], holder, claims: [claim] });
+  await withChainServer({
+    '/v2/chains?limit=2': list,
+    '/v2/chains/7': detail,
+    [`/v2/chains/7/revenue?holder=${holder}`]: revenue,
+    '/v2/chains/8': envelope({ chain: { ...chain, chainId: 1007 } }),
+  }, async (chains, requests) => {
+    const operations = new Operations(chains.client);
+    assert.deepEqual(await operations.call('IF_CHAINS', { query: { limit: 2 } }), list);
+    assert.deepEqual(await operations.call('IF_CHAIN_DETAIL', { path: { chain: '7' } }), detail);
+    assert.deepEqual(await operations.call('IF_CHAIN_REVENUE', { path: { chain: '7' }, query: { holder } }), revenue);
+    assert.deepEqual(requests, [
+      { method: 'GET', path: '/v2/chains?limit=2' },
+      { method: 'GET', path: '/v2/chains/7' },
+      { method: 'GET', path: `/v2/chains/7/revenue?holder=${holder}` },
+    ]);
+    await assert.rejects(operations.call('IF_CHAIN_DETAIL', { path: { chain: '8' } }), /Invalid v2 contract ChainDetailResponse/);
+    const count = requests.length;
+    await assert.rejects(operations.call('IF_CHAINS', { query: { limit: 101 } }), /Invalid IF_CHAINS query/);
+    await assert.rejects(operations.call('IF_CHAIN_DETAIL', { path: { chain: '0' } }), /Invalid IF_CHAIN_DETAIL path/);
+    assert.equal(requests.length, count);
+  });
+}
+
+test(generatedOperationsConsumeChainRoutes);
 
 async function chainDetailRequestsAndValidatesRow() {
   const sample = envelope({ chain });

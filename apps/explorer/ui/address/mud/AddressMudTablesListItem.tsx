@@ -71,7 +71,7 @@ const AddressMudTablesListItem = ({ item, isLoading, scrollRef, hash }: Props) =
               <Link
                 onClick={ onTableClick }
                 data-id={ item.table.table_id }
-                fontWeight={ 500 }
+                fontWeight="medium"
                 href={ route({ pathname: '/address/[hash]', query: { hash, tab: 'mud', table_id: item.table.table_id } }) }
               >
                 { item.table.table_full_name }
@@ -88,25 +88,25 @@ const AddressMudTablesListItem = ({ item, isLoading, scrollRef, hash }: Props) =
       </Flex>
 
       { isOpened && (
-        <Grid templateColumns="48px 1fr" gap="8px 24px" fontWeight={ 500 } w="100%">
+        <Grid templateColumns="48px 1fr" gap="8px 24px" fontWeight="medium" w="100%">
           { Boolean(item.schema.key_names.length) && (
             <>
-              <Text lineHeight="24px">Key</Text>
+              <Text textStyle="body">Key</Text>
               <VStack gap={ 1 } alignItems="start">
                 { item.schema.key_names.map((name, index) => (
                   <Badge key={ name }>
-                    <chakra.span fontWeight={ 700 }>{ item.schema.key_types[index] }</chakra.span> { name }
+                    <chakra.span fontWeight="bold">{ item.schema.key_types[index] }</chakra.span> { name }
                   </Badge>
                 )) }
               </VStack>
             </>
           ) }
           <GridItem colSpan={ 2 }><Separator/></GridItem>
-          <Text lineHeight="24px">Value</Text>
+          <Text textStyle="body">Value</Text>
           <VStack gap={ 1 } alignItems="start">
             { item.schema.value_names.map((name, index) => (
               <Text key={ name }>
-                <chakra.span fontWeight={ 700 }>{ item.schema.value_types[index] }</chakra.span> { name }
+                <chakra.span fontWeight="bold">{ item.schema.value_types[index] }</chakra.span> { name }
               </Text>
             )) }
           </VStack>

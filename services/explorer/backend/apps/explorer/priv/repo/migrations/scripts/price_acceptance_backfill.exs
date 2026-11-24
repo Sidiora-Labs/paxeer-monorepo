@@ -42,7 +42,7 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   @impl GenServer
-  def init(options), do: {:ok, options}
+  def init(options), do: {:ok, Keyword.put_new(options, :acceptance_backfill_concurrency, 4)}
 
   @impl GenServer
   def handle_call({:retain, number, transactions, results}, _from, options) do
@@ -69,48 +69,93 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   defp run_step(batch_size, options) do
-    case next_job() do
-      nil ->
+    concurrency = Keyword.get(options, :acceptance_backfill_concurrency, 4)
+
+    case next_jobs(concurrency) do
+      [] ->
         case Repo.query!("SELECT EXISTS (SELECT 1 FROM #{@table} WHERE completed = false)").rows do
           [[true]] -> :deferred
           [[false]] -> :complete
         end
 
-      job ->
-        replay(job, batch_size, options)
+      jobs ->
+        jobs
+        |> read_jobs(options, concurrency)
+        |> apply_jobs(batch_size)
     end
   rescue
     error -> {:error, {:replay_failed, Exception.message(error)}}
   end
 
-  defp next_job do
-    case Repo.query!("""
-         SELECT j.block_hash, j.block_number, j.transactions, j.results
-         FROM #{@table} j JOIN blocks b ON b.hash = j.block_hash
-         WHERE j.completed = false AND b.consensus = true
-         ORDER BY (j.error IS NOT NULL), j.block_number, j.block_hash LIMIT 1
-         """).rows do
-      [] -> nil
-      [job] -> job
-    end
+  defp read_jobs(jobs, options, concurrency) do
+    results =
+      Task.async_stream(jobs, &read_job(&1, options),
+        max_concurrency: concurrency,
+        ordered: true,
+        timeout: :infinity
+      )
+
+    jobs
+    |> Enum.zip(results)
+    |> Enum.map(fn {job, result} ->
+      case result do
+        {:ok, read_result} -> {job, read_result}
+        {:exit, reason} -> {job, {:error, {:replay_failed, inspect(reason)}}}
+      end
+    end)
+    |> Enum.sort_by(fn {[hash, number, _transactions, _results], _result} -> {number, hash} end)
   end
 
-  defp replay([hash, number, transactions, results], batch_size, options) do
-    result =
-      with {:ok, transactions, results} <- retained(hash, transactions, results, number, options),
-           {:ok, updates} <- decode(transactions, results) do
-        apply_batch(hash, updates, batch_size)
-      end
+  defp apply_jobs(reads, batch_size) do
+    {count, reason} =
+      Enum.reduce(reads, {0, nil}, fn {[_hash, _number, _transactions, _results] = job, result}, {count, reason} ->
+        case apply_job(job, result, batch_size) do
+          {:ok, completed} -> {count + completed, reason}
+          {:error, failure} -> {count, reason || failure}
+          :deferred -> {count, reason || :deferred}
+        end
+      end)
 
-    case result do
-      {:error, reason} ->
-        hold_job(hash, reason)
+    finalize_step(count, reason)
+  end
 
-      _ ->
-        result
+  defp apply_job([hash, _number, _transactions, _results], {:ok, updates}, batch_size) do
+    case apply_batch(hash, updates, batch_size) do
+      {:error, reason} -> hold_job(hash, reason)
+      result -> result
     end
   rescue
     error -> hold_job(hash, {:replay_failed, Exception.message(error)})
+  end
+
+  defp apply_job([hash, _number, _transactions, _results], {:error, reason}, _batch_size),
+    do: hold_job(hash, reason)
+
+  defp read_job([hash, number, transactions, results], options) do
+    with {:ok, transactions, results} <- retained(hash, transactions, results, number, options),
+         {:ok, updates} <- decode(transactions, results) do
+      {:ok, updates}
+    end
+  rescue
+    error -> {:error, {:replay_failed, Exception.message(error)}}
+  end
+
+  defp finalize_step(_count, :deferred), do: :deferred
+  defp finalize_step(_count, reason) when not is_nil(reason), do: {:error, reason}
+  defp finalize_step(count, nil), do: {:ok, count}
+
+  defp next_jobs(limit) do
+    case Repo.query!(
+           """
+           SELECT j.block_hash, j.block_number, j.transactions, j.results
+           FROM #{@table} j JOIN blocks b ON b.hash = j.block_hash
+           WHERE j.completed = false AND b.consensus = true
+           ORDER BY (j.error IS NOT NULL), j.block_number, j.block_hash LIMIT $1
+           """,
+           [limit]
+         ).rows do
+      jobs -> jobs
+    end
   end
 
   defp hold_job(hash, reason) do
@@ -119,7 +164,7 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   defp retained(hash, nil, nil, number, options) do
-    with {:ok, transactions} <- CosmosRest.fetch_block_txs(Keyword.get(options, :cosmos_rest_urls, []), number),
+    with {:ok, transactions} <- CosmosRest.fetch_block_txs(Keyword.get(options, :cometbft_rpc_urls, []), number),
          {:ok, results} <- CosmosRest.fetch_block_results(Keyword.get(options, :cometbft_rpc_urls, []), number),
          {:ok, _updates} <- decode(transactions, results) do
       Repo.query!(
@@ -141,13 +186,21 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
     do: {:ok, transactions, results}
 
   defp decode(%{"txs" => txs, "raw" => raw} = transactions, results)
-       when is_list(txs) and is_list(raw) and is_list(results) and length(txs) == length(raw) do
-    with {:ok, submissions} <- CosmosRest.decode_block_txs(transactions) do
-      CosmosRest.decode_price_updates(submissions, results, length(raw))
-    end
-  end
+       when is_list(txs) and is_list(raw) and is_list(results) and length(txs) == length(raw),
+       do: decode_entries(transactions, results)
+
+  defp decode(%{"txs" => _}, _results), do: {:error, :malformed_retained_block}
+
+  defp decode(%{"raw" => raw} = transactions, results) when is_list(raw) and is_list(results),
+    do: decode_entries(transactions, results)
 
   defp decode(_transactions, _results), do: {:error, :malformed_retained_block}
+
+  defp decode_entries(transactions, results) do
+    with {:ok, submissions} <- CosmosRest.decode_block_txs(transactions) do
+      CosmosRest.decode_price_updates(submissions, results, length(transactions["raw"]))
+    end
+  end
 
   defp apply_batch(hash, updates, batch_size) do
     decoded =

@@ -1,6 +1,7 @@
 use layerx_human_test_support as support;
 
 use std::fs;
+use std::os::unix::fs::PermissionsExt as _;
 
 use layerx_human_service::store::{
     AgentTenantId, AuditDisposition, EvidenceRef, MigrationError, PrincipalId, PrincipalStore,
@@ -460,6 +461,10 @@ fn foreign_entries_in_the_principals_tree_are_refused() {
     drop(store);
     let evil_dir = root.join("principals").join("EVIL");
     fs::create_dir_all(&evil_dir).unwrap_or_else(|error| panic!("mkdir: {error}"));
+    for path in [&root.join("principals"), &evil_dir] {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+            .unwrap_or_else(|error| panic!("private principal directory: {error}"));
+    }
     let refused = PrincipalStore::open(&root, retention_uniform(1_000), digest);
     assert!(matches!(refused, Err(StoreError::Corrupt(_))));
     fs::remove_dir(&evil_dir).unwrap_or_else(|error| panic!("rmdir: {error}"));

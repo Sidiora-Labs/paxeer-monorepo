@@ -47,6 +47,9 @@ const NavigationDesktop = () => {
   }, [ handleTogglerClick ]);
 
   const isExpanded = isCollapsed === false;
+  const expandedWidth = 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-16) + var(--chakra-spacing-1) + var(--chakra-spacing-0\\.25))';
+  const collapsedWidth = 'calc(var(--chakra-spacing-20) + var(--chakra-spacing-3))';
+  const expandedToggleOffset = 'calc(var(--chakra-spacing-30) + var(--chakra-spacing-24))';
 
   return (
     <Flex
@@ -55,19 +58,28 @@ const NavigationDesktop = () => {
       position="relative"
       flexDirection="column"
       alignItems="stretch"
-      borderRight="1px solid"
+      borderRightWidth="var(--chakra-border-widths-1)"
       borderColor="border.divider"
       px={{ lg: isExpanded ? 6 : 4, xl: isCollapsed ? 4 : 6 }}
       pt={ 12 }
       pb={ 6 }
-      width={{ lg: isExpanded ? '229px' : '92px', xl: isCollapsed ? '92px' : '229px' }}
+      width={{ lg: isExpanded ? expandedWidth : collapsedWidth, xl: isCollapsed ? collapsedWidth : expandedWidth }}
       onClick={ handleContainerClick }
       transitionProperty="width, padding"
-      transitionDuration="normal"
+      _motionSafe={{ transitionDuration: 'normal' }}
       transitionTimingFunction="ease"
     >
-      <TestnetBadge position="absolute" pl={ 3 } w="49px" top="34px"/>
-      <RollupStageBadge position="absolute" ml={{ lg: isExpanded ? 3 : '10px', xl: isCollapsed ? '10px' : 3 }} top="34px"/>
+      <TestnetBadge
+        position="absolute"
+        pl={ 3 }
+        w="calc(var(--chakra-spacing-12) + var(--chakra-spacing-1) / 4)"
+        top={ 'var(--chakra-spacing-8\\.5)' }
+      />
+      <RollupStageBadge
+        position="absolute"
+        ml={{ lg: isExpanded ? 3 : 'var(--chakra-spacing-2\\.5)', xl: isCollapsed ? 'var(--chakra-spacing-2\\.5)' : 3 }}
+        top={ 'var(--chakra-spacing-8\\.5)' }
+      />
       <Box
         as="header"
         display="flex"
@@ -75,11 +87,11 @@ const NavigationDesktop = () => {
         alignItems="center"
         flexDirection="row"
         w="100%"
-        pl={{ lg: isExpanded ? 3 : '15px', xl: isCollapsed ? '15px' : 3 }}
-        pr={{ lg: isExpanded ? 0 : '15px', xl: isCollapsed ? '15px' : 0 }}
+        pl={{ lg: isExpanded ? 3 : 'var(--chakra-spacing-3\\.75)', xl: isCollapsed ? 'var(--chakra-spacing-3\\.75)' : 3 }}
+        pr={{ lg: isExpanded ? 0 : 'var(--chakra-spacing-3\\.75)', xl: isCollapsed ? 'var(--chakra-spacing-3\\.75)' : 0 }}
         h={ 10 }
         transitionProperty="padding"
-        transitionDuration="normal"
+        _motionSafe={{ transitionDuration: 'normal' }}
         transitionTimingFunction="ease"
       >
         <Box display={{ base: 'none', lg: isCollapsed === false ? 'block' : 'none', xl: isCollapsed ? 'none' : 'block' }}>
@@ -101,7 +113,7 @@ const NavigationDesktop = () => {
         </VStack>
       </Box>
       { isAuth && (
-        <Box as="nav" borderTopWidth="1px" borderColor="border.divider" w="100%" mt={ 3 } pt={ 3 }>
+        <Box as="nav" borderTopWidth="var(--chakra-border-widths-1)" borderColor="border.divider" w="100%" mt={ 3 } pt={ 3 }>
           <VStack as="ul" gap="1" alignItems="flex-start">
             <NavLinkRewards isCollapsed={ isCollapsed }/>
             { accountNavItems.map((item) => <NavLink key={ item.text } item={ item } isCollapsed={ isCollapsed }/>) }
@@ -116,21 +128,24 @@ const NavigationDesktop = () => {
         _hover={{ color: 'hover' }}
         borderRadius="base"
         bgColor="bg.primary"
-        color={{ base: 'blackAlpha.400', _dark: 'whiteAlpha.400' }}
-        borderWidth="1px"
+        color="icon.secondary"
+        borderWidth="var(--chakra-border-widths-1)"
         borderColor="border.divider"
         transform={{ lg: isExpanded ? 'rotate(0)' : 'rotate(180deg)', xl: isCollapsed ? 'rotate(180deg)' : 'rotate(0)' }}
         transformOrigin="center"
         position="absolute"
-        top="104px"
-        left={{ lg: isExpanded ? '216px' : '80px', xl: isCollapsed ? '80px' : '216px' }}
+        top="calc(var(--chakra-spacing-24) + var(--chakra-spacing-2))"
+        left={{
+          lg: isExpanded ? expandedToggleOffset : 'var(--chakra-spacing-20)',
+          xl: isCollapsed ? 'var(--chakra-spacing-20)' : expandedToggleOffset,
+        }}
         cursor="pointer"
         onClick={ handleTogglerClick }
         aria-label="Expand/Collapse menu"
         display="none"
         _groupHover={{ display: 'block' }}
         transitionProperty="transform, left"
-        transitionDuration="normal"
+        _motionSafe={{ transitionDuration: 'normal' }}
         transitionTimingFunction="ease"
       />
     </Flex>

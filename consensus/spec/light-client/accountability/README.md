@@ -9,8 +9,7 @@ parent:
 
 This page retains the useful attack taxonomy from the upstream **classic
 Tendermint** research, with explicit limits on its applicability to this tree.
-Paxeer mainnet-beta is one BFT network run by `paxd` (EVM chain ID 125). The
-kernel is part of the network and proposes blocks; receipts are final once their
+Paxeer mainnet-beta uses EVM chain ID 125. The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Receipts are final once their
 blocks commit. Accountability concerns detecting violations of consensus
 assumptions, rather than adding another finality stage.
 

@@ -2,9 +2,9 @@
 
 `layerx-mirror` archives committed Paxeer blocks, publishes retrievable archive
 bytes to Ethereum or Solana, and verifies receipts retrieved from configured
-mirror sources. Paxeer is one BFT network with EVM chain id `125`; its kernel
-proposes blocks, and a receipt is final once its block is committed. External
-publication provides another evidence source and has its own confirmation and
+mirror sources. Paxeer uses EVM chain id `125`. The LayerX kernel inside `paxd`
+executes and orders each transaction and builds each block; validators check and
+commit it. A receipt is final once its block is committed. External publication provides another evidence source and has its own confirmation and
 freshness policy.
 
 The binaries are `layerx-mirror-publisher` and `layerx-mirror-verify`.

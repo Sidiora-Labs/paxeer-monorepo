@@ -107,13 +107,14 @@ const AddressVerificationStepAddress = ({ defaultAddress, onContinue }: Props) =
   return (
     <FormProvider { ...formApi }>
       <form noValidate onSubmit={ onSubmit }>
-        <Box>Enter the contract address you are verifying ownership for.</Box>
-        { rootError && <Alert status="warning" mt={ 3 }>{ rootError }</Alert> }
+        <Box as="p" id="verification-address-help">Enter the contract address you are verifying ownership for.</Box>
+        { rootError && <Alert status="warning" mt={ 3 } aria-live="assertive">{ rootError }</Alert> }
         <FormFieldAddress<Fields>
           name="address"
           required
           bgColor="dialog.bg"
           placeholder="Smart contract address (0x...)"
+          inputProps={{ 'aria-describedby': 'verification-address-help', autoComplete: 'off' }}
           mt={ 8 }
         />
         <Flex alignItems={{ base: 'flex-start', lg: 'center' }} mt={ 8 } columnGap={ 5 } rowGap={ 2 } flexDir={{ base: 'column', lg: 'row' }}>

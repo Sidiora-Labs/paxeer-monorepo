@@ -18,9 +18,6 @@ import { TokenBadge } from './TokenBadge';
 import { paxscanToSwapToken } from './util';
 import Image from 'next/image';
 
-const ACCENT_FILTER =
-  'brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(7388%) hue-rotate(222deg) brightness(98%) contrast(101%)';
-
 export interface TokenSelectorViewProps {
   title: string;
   tokens: SwapToken[];
@@ -106,37 +103,46 @@ export function TokenSelectorView({
     <div className="px-4 pt-4 pb-24">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold">{title}</h2>
-        <button onClick={onClose} className="p-1.5 rounded-full bg-white/5 press-scale">
-          <SvgIcon name="x" className="w-4 h-4" style={{ filter: 'brightness(0) invert(0.6)' }} />
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close ${title}`}
+          className="min-h-[var(--touch-target)] min-w-[var(--touch-target)] p-2 rounded-full bg-pax-control press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
+        >
+          <SvgIcon name="x" className="w-4 h-4" />
         </button>
       </div>
 
       <div className="relative mb-4">
+        <label htmlFor="swap-token-search" className="sr-only">
+          {enableSearch ? 'Search tokens' : 'Filter tokens'}
+        </label>
         <Image
           src="/wallet/ui_icons/search.svg"
           alt=""
           className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4"
-          style={{ filter: 'brightness(0) invert(0.6)' }}
           width={16}
           height={16}
         />
         <input
+          id="swap-token-search"
           type="text"
+          name="token-search"
+          autoComplete="off"
+          aria-label={enableSearch ? 'Search tokens' : 'Filter tokens'}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={enableSearch ? 'Search by name or paste address...' : 'Filter tokens...'}
-          className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5   text-sm outline-none  transition-colors placeholder:text-white/20"
+          className="w-full pl-10 pr-4 py-3 rounded-xl bg-pax-control   text-sm outline-none  transition-colors placeholder:text-pax-muted"
         />
         {query && (
           <button
+            type="button"
+            aria-label="Clear token search"
             onClick={() => setQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5"
+            className="absolute right-2 top-1/2 min-h-[var(--touch-target)] min-w-[var(--touch-target)] -translate-y-1/2 p-2"
           >
-            <SvgIcon
-              name="x"
-              className="w-3.5 h-3.5"
-              style={{ filter: 'brightness(0) invert(0.6)' }}
-            />
+            <SvgIcon name="x" className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
@@ -160,35 +166,34 @@ export function TokenSelectorView({
             const sel = isSelected(t);
             return (
               <button
+                type="button"
                 key={t.address || 'native'}
                 onClick={() => onSelect(t)}
-                className={`w-full flex items-center gap-3 px-3.5 py-3.5 rounded-xl transition-all press-scale ${
-                  sel ? 'bg-pax-accent/10' : 'bg-white/5 hover:bg-white/8'
+                className={`min-h-[var(--touch-target)] w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all press-scale focus-visible:ring-2 focus-visible:ring-pax-accent ${
+                  sel ? 'bg-pax-accent/10' : 'bg-pax-control hover:bg-pax-overlay'
                 }`}
               >
                 <TokenBadge token={t} />
                 <div className="flex-1 text-left min-w-0">
                   <p className="text-sm font-medium">{t.symbol}</p>
-                  <p className="text-[11px] text-pax-muted truncate">{t.name}</p>
+                  <p className="text-size-11 text-pax-muted truncate">{t.name}</p>
                 </div>
                 {t.isStablecoin && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-info-muted text-pax-info">
                     Stable
                   </span>
                 )}
                 {t.isNative && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
                     Native
                   </span>
                 )}
                 {t.isLaunchpad && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
                     Launchpad
                   </span>
                 )}
-                {sel && (
-                  <SvgIcon name="check" className="w-4 h-4" style={{ filter: ACCENT_FILTER }} />
-                )}
+                {sel && <SvgIcon name="check" className="w-4 h-4" />}
               </button>
             );
           })}

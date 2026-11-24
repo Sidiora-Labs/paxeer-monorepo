@@ -9,8 +9,8 @@ in Paxeer. The [discussion notes](discussions.md) explain the trust decisions;
 the [IBC function drafts](draft-functions.md) describe historical proposals and
 map them to the current IBC types.
 
-Paxeer is one BFT network, run by `paxd`, with EVM chain ID 125 (`0x7d`).
-The kernel is part of the network and participates in block proposal. A receipt
+Paxeer uses EVM chain ID 125 (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt
 is final once its block is committed. The light client's local trust decisions
 below concern what a remote observer can verify; they do not add another
 settlement or finality stage to the network.

@@ -10,6 +10,7 @@ export type SocialKind = 'website' | 'twitter' | 'telegram' | 'discord';
 export interface RailSocial { kind: SocialKind; url: string }
 
 export interface RailPairRow {
+  tokenAddress?: string | null;
   poolAddress: string;
   href: string;
   name: string;
@@ -24,6 +25,7 @@ export interface RailPairRow {
 }
 
 export interface RecentRow {
+  tokenAddress?: string | null;
   poolAddress: string;
   href: string;
   name: string;
@@ -53,6 +55,7 @@ export function railSocials(metadata: TokenMetadata | null | undefined, approved
 
 export function toRailPairRow(row: ExploreRow, metadata: TokenMetadata | null, timeframe: RailTimeframe, approvedOrigins?: readonly string[]): RailPairRow {
   return {
+    tokenAddress: row.tokenAddress,
     poolAddress: row.poolAddress,
     href: terminalPoolPath(row.poolAddress),
     name: row.name,
@@ -76,6 +79,7 @@ export function toRailPairRow(row: ExploreRow, metadata: TokenMetadata | null, t
 export function toRecentRow(row: ExploreRow, price: string | null, priceReason: string | null = null): RecentRow {
   const plain = price !== null && /^\d+(\.\d+)?$/.test(price.trim()) ? price.trim() : null;
   return {
+    tokenAddress: row.tokenAddress,
     poolAddress: row.poolAddress,
     href: terminalPoolPath(row.poolAddress),
     name: row.name,

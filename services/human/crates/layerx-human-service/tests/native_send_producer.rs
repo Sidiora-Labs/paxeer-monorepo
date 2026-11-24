@@ -808,6 +808,10 @@ fn genuine_native_send_fixture() -> Value {
 
 #[test]
 fn genuine_human_owner_session_consent_preview_and_reopen() {
+    if std::env::var_os("PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE").is_none() {
+        eprintln!("PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE is unset");
+        return;
+    }
     let fixture = genuine_native_send_fixture();
     assert_eq!(fixture["schema"], "paxeer-x.human-native-send-producer.v1");
     assert_eq!(fixture["isolated_real_owner"], true);

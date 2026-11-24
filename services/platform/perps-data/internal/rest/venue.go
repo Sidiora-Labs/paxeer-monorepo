@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/feeds"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/records"
@@ -141,7 +143,11 @@ func (v *Venue) openInterest(w http.ResponseWriter, r *http.Request) {
 		venueUnavailable(w)
 		return
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			slog.Error(closeRowsMessage, "err", closeErr)
+		}
+	}()
 	data := []venueOI{}
 	for rows.Next() {
 		var (
@@ -182,6 +188,8 @@ type venueTicker struct {
 	Symbol                string   `json:"symbol"`
 	IndexPrice            *float64 `json:"index_price"`
 	MarkPrice             *float64 `json:"mark_price"`
+	Price24h              *float64 `json:"price_24h"`
+	UpdatedAt             *int64   `json:"updated_at"`
 	LastFundingRateHourly *string  `json:"last_funding_rate_hourly"`
 	LastFundingRate       *float64 `json:"last_funding_rate"`
 	OpenInterest          *float64 `json:"open_interest"`
@@ -192,6 +200,8 @@ type venueTickerEntry struct {
 	Symbol                string   `json:"symbol"`
 	PaxeerSymbol          string   `json:"paxeerSymbol"`
 	MarkPrice             *float64 `json:"mark_price"`
+	Price24h              *float64 `json:"price_24h"`
+	UpdatedAt             *int64   `json:"updated_at"`
 	IndexPrice            *float64 `json:"index_price"`
 	OpenInterest          *float64 `json:"open_interest"`
 	LastFundingRateHourly *string  `json:"last_funding_rate_hourly"`
@@ -209,7 +219,7 @@ type venueTickerEntry struct {
 // the last funding rate, the latest
 // open interest, the 24 hour prices and volume of market_stats_rolling and the
 // contracts filled in the last 24 hours.
-const venueTickersSQL = `SELECT m.symbol,
+const venueTickersSQL = `SELECT m.symbol, m.market_id::text, mp.block_time,
     (mp.mark_price / $1::numeric)::text, (ip.index_price / $1::numeric)::text,
     ((oi.long_oi + oi.short_oi) / $1::numeric)::text,
     fs.hourly,
@@ -218,7 +228,7 @@ const venueTickersSQL = `SELECT m.symbol,
     (s.high_24h / $1::numeric)::text, (s.low_24h / $1::numeric)::text,
     COALESCE(amount.contracts, 0)::text, (COALESCE(s.volume_24h, 0) / $1::numeric)::text
 FROM perps.markets m
-LEFT JOIN LATERAL (SELECT mark_price FROM perps.mark_prices WHERE market_id = m.market_id
+LEFT JOIN LATERAL (SELECT mark_price, block_time FROM perps.mark_prices WHERE market_id = m.market_id
     ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) mp ON true
 LEFT JOIN LATERAL (SELECT index_price FROM (
     (SELECT block, tx_index, log_index, sub, index_price FROM perps.mark_prices
@@ -228,7 +238,7 @@ LEFT JOIN LATERAL (SELECT index_price FROM (
         WHERE market_id = m.market_id AND kind = 'aggregate' AND index_price IS NOT NULL
         ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1)
 ) latest_index ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) ip ON true
-LEFT JOIN LATERAL (SELECT funding_rate, ` + records.LastFundingRateHourlySQL + ` AS hourly FROM perps.funding_settlements WHERE market_id = m.market_id
+LEFT JOIN LATERAL (SELECT funding_rate, ` + lastFundingRateHourlySQL + ` AS hourly FROM perps.funding_settlements WHERE market_id = m.market_id
     ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) fs ON true
 LEFT JOIN LATERAL (SELECT long_oi, short_oi FROM perps.open_interest WHERE market_id = m.market_id
     ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) oi ON true
@@ -257,21 +267,31 @@ func venueNumber(raw sql.NullString) (*float64, error) {
 	return &v, nil
 }
 
-func (v *Venue) readTickers(ctx context.Context, symbol string) ([]venueTickerEntry, error) {
+func (v *Venue) readTickers(ctx context.Context, symbol string) (result0 []venueTickerEntry, resultErr error) {
+	prices, err := records.PriceWindow(ctx, v.db, time.Now())
+	if err != nil {
+		return nil, err
+	}
 	rows, err := v.db.QueryContext(ctx, venueTickersSQL, usdScale, symbol)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	data := []venueTickerEntry{}
 	for rows.Next() {
 		var (
 			entry  venueTickerEntry
+			market string
+			at     sql.NullTime
 			raw    [11]sql.NullString
 			amount *float64
 			volume *float64
 		)
-		dest := []any{&entry.PaxeerSymbol}
+		dest := []any{&entry.PaxeerSymbol, &market, &at}
 		for i := range raw {
 			dest = append(dest, &raw[i])
 		}
@@ -295,6 +315,11 @@ func (v *Venue) readTickers(ctx context.Context, symbol string) ([]venueTickerEn
 		if amount == nil || volume == nil {
 			return nil, errors.New("rest: missing ticker volume")
 		}
+		entry.Price24h = prices[market].MarkPrice
+		if at.Valid {
+			ms := at.Time.UnixMilli()
+			entry.UpdatedAt = &ms
+		}
 		entry.Amount24h, entry.Volume24h = *amount, *volume
 		entry.Symbol = "PERP_" + entry.PaxeerSymbol + "_USDC"
 		data = append(data, entry)
@@ -316,7 +341,8 @@ func (v *Venue) ticker(w http.ResponseWriter, r *http.Request) {
 	entry := data[0]
 	body := venueTicker{Symbol: entry.PaxeerSymbol, IndexPrice: entry.IndexPrice, MarkPrice: entry.MarkPrice,
 		LastFundingRateHourly: entry.LastFundingRateHourly, LastFundingRate: entry.LastFundingRate,
-		OpenInterest: entry.OpenInterest, Volume24h: entry.Volume24h}
+		OpenInterest: entry.OpenInterest, Volume24h: entry.Volume24h,
+		Price24h: entry.Price24h, UpdatedAt: entry.UpdatedAt}
 	writeJSON(w, http.StatusOK, venueResponse{Success: true, Data: body})
 }
 

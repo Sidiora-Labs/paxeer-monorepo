@@ -1,0 +1,19 @@
+{
+  "sourceStream": "chain125-canonical",
+  "consumerId": "pnl_inventory",
+  "generation": "g1",
+  "owner": "pnl-1",
+  "projectionVersion": "inventory-v1",
+  "epoch": 1,
+  "region": "mainnet-beta",
+  "consumer": {
+    "stream": "KINDLE_INDEXER_V1",
+    "durable": "pnl_inventory",
+    "batch": 16,
+    "maxAckPending": 32,
+    "maxWaiting": 1,
+    "maxDeliver": 5,
+    "fetchWaitMS": 250,
+    "ackWaitMS": 30000
+  }
+}

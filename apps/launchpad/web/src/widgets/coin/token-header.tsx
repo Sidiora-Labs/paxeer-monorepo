@@ -1,4 +1,6 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useState, type ReactNode } from 'react';
 import { ArrowLeftRight, AtSign, Coins, Globe, Link as LinkIcon, MessageCircle, Send, Share2, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -62,7 +64,7 @@ function explorerHref(address: string): string | null {
 function HeaderStat({ label, value, unit }: { label: string; value: string | null; unit?: string }) {
   return (
     <div className="flex min-w-0 flex-col">
-      <dt className="text-2xs font-bold uppercase tracking-[.04em] text-text-faint">{label}</dt>
+      <dt className="text-2xs font-bold uppercase tracking-wider text-text-faint">{label}</dt>
       <dd data-numeric className={`truncate text-sm font-bold tabular-nums ${value ? 'text-text' : 'text-text-faint'}`}>
         {value === null ? <span aria-label="No data">—</span> : <>{value}{unit ? <span className="ml-1 text-xs font-normal text-text-faint">{unit}</span> : null}</>}
       </dd>
@@ -74,21 +76,21 @@ function HeaderStat({ label, value, unit }: { label: string; value: string | nul
 function ValuationCluster({ headline, onToggle, value, reason, secondary, change, volume24h, holders }: { headline: Headline; onToggle: () => void; value: string | null; reason: string | null; secondary?: string | null; change: StatValue<number> | null; volume24h: string | null; holders: string | null }) {
   const label = headline === 'mcap' ? 'Market cap' : 'Price';
   return (
-    <div className="flex flex-wrap items-end gap-x-5 gap-y-2 lg:justify-end">
+    <div className="flex min-w-0 flex-wrap items-end gap-x-5 gap-y-2 lg:justify-end">
       <div className="flex items-end gap-2">
         <button
           type="button"
           onClick={onToggle}
           aria-label={`${label} ${value ?? `not available yet${reason ? `: ${reason}` : ''}`}. Switch to ${headline === 'mcap' ? 'price' : 'market cap'}`}
           title={value === null ? reason ?? undefined : secondary ?? undefined}
-          className="-mx-1 flex flex-col items-start rounded-sm px-1 text-left transition-colors hover:bg-surface-hover"
+          className="-mx-1 flex flex-col items-start rounded-sm border-x border-transparent px-[calc(var(--sl-space-1)-var(--sl-edge-width))] text-left transition-colors hover:border-control-edge hover:bg-surface-hover"
         >
-          <span className="flex items-center gap-1 text-2xs font-bold uppercase tracking-[.04em] text-text-faint">{label}<ArrowLeftRight aria-hidden="true" className="size-3" /></span>
+          <span className="flex items-center gap-1 text-2xs font-bold uppercase tracking-wider text-text-faint">{label}<ArrowLeftRight aria-hidden="true" className="size-3" /></span>
           <span data-numeric data-headline={headline} className={`text-xl font-extrabold tabular-nums ${value ? 'text-text' : 'text-text-faint'}`}>{value ?? '—'}</span>
         </button>
         {change ? <span data-change="24h" className="pb-1"><StatChange change={change} variant="text" size="sm" align="start" decimals={2} /></span> : null}
       </div>
-      <dl className="flex items-end gap-5">
+      <dl className="flex flex-wrap items-end gap-5">
         <HeaderStat label="24h vol" value={volume24h} unit="USDL" />
         <HeaderStat label="Holders" value={holders} />
       </dl>
@@ -108,9 +110,9 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
 
   if (snapshot.isPending) {
     return (
-      <header data-coin-header="loading" aria-busy="true" className="flex min-h-[72px] items-center gap-3 rounded-md bg-surface-1 p-3">
-        <Skeleton variant="block" width={64} height={64} label="coin image" />
-        <div className="flex flex-1 flex-col gap-2"><Skeleton variant="text" width={160} /><Skeleton variant="text" width={240} /></div>
+      <header data-coin-header="loading" aria-busy="true" className="flex min-h-18 items-center gap-3 rounded-md bg-surface-1 p-3">
+        <Skeleton variant="block" width={surfaceSpacing(16)} height={surfaceSpacing(16)} label="coin image" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2 [&>*]:max-w-full"><Skeleton variant="text" width={surfaceSpacing(40)} /><Skeleton variant="text" width={surfaceSpacing(60)} /></div>
       </header>
     );
   }
@@ -121,16 +123,16 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
     const starredByUrl = watchlist.check(poolAddress);
     return (
       <header data-coin-header="degraded" aria-label="Coin header" className={headerClass}>
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
           <span aria-hidden="true" className="flex size-avatar-2xl shrink-0 items-center justify-center rounded-md bg-surface-2 text-text-faint"><Coins className="size-6" /></span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <h1 className="truncate text-lg font-extrabold text-text"><span className="sr-only">Coin </span>{shortAddress(poolAddress)}</h1>
+              <h1 className="min-w-0 [overflow-wrap:anywhere] text-lg font-extrabold text-text"><span className="sr-only">Coin </span>{shortAddress(poolAddress)}</h1>
               {notice}
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <ShortAddress address={poolAddress} explorerHref={explorerHref(poolAddress)} onCopied={() => toast.success('Address copied')} />
-              <div className="flex items-center gap-0.5">
+              <div className="flex max-w-full flex-wrap items-center gap-0.5">
                 <IconButton label={starredByUrl ? 'Remove from watchlist' : 'Add to watchlist'} pressed={starredByUrl} icon={<Star className={starredByUrl ? 'fill-current text-accent' : undefined} />} size="sm" onClick={() => watchlist.toggle(poolAddress)} />
                 <IconButton label="Share coin link" icon={<Share2 />} size="sm" onClick={() => { void shareCurrentPage('Coin on Sidiora'); }} />
               </div>
@@ -143,8 +145,8 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
     );
   }
 
-  const symbol = data.metadata?.displaySymbol ?? token?.symbol ?? 'Coin';
-  const name = data.metadata?.displayName ?? token?.name ?? '';
+  const symbol = displayCoinText(data.metadata?.displaySymbol ?? token?.symbol, data.pool.tokenAddress);
+  const name = displayCoinText(data.metadata?.displayName ?? token?.name, data.pool.tokenAddress);
   const pool = data.pool.poolAddress;
   const starred = watchlist.check(pool);
   // Market cap is price x total supply (pump.fun's figure); the circulating valuation is the secondary value on hover.
@@ -164,12 +166,12 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
 
   return (
     <header data-coin-header="ready" aria-label={`${symbol} header`} className={headerClass}>
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
         <Avatar src={logo} name={symbol} size="2xl" shape="square" decorative />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <h1 className="truncate text-lg font-extrabold text-text">{symbol}</h1>
-            {name ? <span className="truncate text-sm text-text-muted">{name}</span> : null}
+            <h1 title={symbol} className="min-w-0 [overflow-wrap:anywhere] text-lg font-extrabold text-text">{symbol}</h1>
+            {name ? <span className="min-w-0 truncate text-sm text-text-muted" title={name}>{name}</span> : null}
             {data.createdAt ? <AgeChip iso={data.createdAt} now={now} /> : null}
             {devShare ? (
               devShare.value !== null ? (
@@ -198,7 +200,7 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
                 })}
               </ul>
             ) : null}
-            <div className="flex items-center gap-0.5">
+            <div className="flex max-w-full flex-wrap items-center gap-0.5">
               <IconButton label={starred ? 'Remove from watchlist' : 'Add to watchlist'} pressed={starred} icon={<Star className={starred ? 'fill-current text-accent' : undefined} />} size="sm" onClick={() => watchlist.toggle(pool)} />
               <IconButton label="Share coin link" icon={<Share2 />} size="sm" onClick={() => { void shareCurrentPage(`${symbol} on Sidiora`); }} />
               <ReportMenu subject={{ targetType: 'token', targetId: data.pool.tokenAddress, label: symbol }} size="sm" />

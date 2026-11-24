@@ -1,0 +1,56 @@
+[manifest]
+task = "22.43.50"
+records_moved = 4
+files_renamed = 9
+
+[file.1]
+from = "layerxproof/codec/repair_1_test.go"
+to = "layerxproof/codec/native_state_witness_test.go"
+
+[file.2]
+from = "layerxproof/codec/repair_m1_test.go"
+to = "layerxproof/codec/native_witness_compatibility_test.go"
+
+[file.3]
+from = "layerxproof/codec/testdata/record_repair_m1.py"
+to = "layerxproof/codec/testdata/record_native_host.py"
+
+[file.4]
+from = "layerxproof/codec/testdata/repair_1.c"
+to = "layerxproof/codec/testdata/native_state_witness.c"
+
+[file.5]
+from = "layerxproof/codec/testdata/repair_m1_compat.c"
+to = "layerxproof/codec/testdata/reserved_module_witness.c"
+
+[file.6]
+from = "layerxproof/verify/repair_m2_test.go"
+to = "layerxproof/verify/native_host_recovery_test.go"
+
+[file.7]
+from = "layerxproof/verify/testdata/record_repair_m2.py"
+to = "layerxproof/verify/testdata/record_native_host_recovery.py"
+
+[file.8]
+from = "layerxproof/verify/testdata/repair_m2.c"
+to = "layerxproof/verify/testdata/native_host_recovery.c"
+
+[file.9]
+from = "layerxproof/verify/testdata/repair_m2.json"
+to = "layerxproof/verify/testdata/native_host_recovery.json"
+
+[file.10]
+from = "layerxproof/codec/repair_1.kvx"
+to = "spec/layerx-merge/programme/records/layerxproof/codec/repair_1.kvx"
+
+[file.11]
+from = "layerxproof/codec/repair_m1.kvx"
+to = "spec/layerx-merge/programme/records/layerxproof/codec/repair_m1.kvx"
+
+[file.12]
+from = "layerxproof/verify/repair_m2.kvx"
+to = "spec/layerx-merge/programme/records/layerxproof/verify/repair_m2.kvx"
+
+[file.13]
+from = "layerxproof/repair_22_39_326.kvx"
+to = "spec/layerx-merge/programme/records/layerxproof/repair_22_39_326.kvx"

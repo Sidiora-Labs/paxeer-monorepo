@@ -87,7 +87,7 @@ defmodule Explorer.SmartContract.VyperDownloader do
   end
 
   defp file_path(version) do
-    Path.join(compiler_dir(), "#{version}")
+    CompilerDownload.file_path(compiler_dir(), "#{version}")
   end
 
   defp compiler_dir do

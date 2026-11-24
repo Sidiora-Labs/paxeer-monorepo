@@ -20,12 +20,13 @@ const IframeBanner = ({ contentUrl, linkUrl }: { contentUrl: string; linkUrl: st
     <Skeleton
       loading={ isFrameLoading }
       position="relative"
-      h="100px"
+      h="calc(var(--chakra-spacing-1) * 25)"
       w="100%"
       borderRadius="md"
       overflow="hidden"
     >
       <Link
+        aria-label="Open featured marketplace app"
         href={ linkUrl }
         external
         noIcon

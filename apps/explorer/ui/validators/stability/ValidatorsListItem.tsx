@@ -15,7 +15,14 @@ interface Props {
 const ValidatorsListItem = ({ data, isLoading }: Props) => {
 
   return (
-    <ListItemMobileGrid.Container>
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr)" textStyle="small"
+      css={{
+        '& > *': { minWidth: 0, overflowWrap: 'anywhere' },
+        '& a': { display: 'inline-flex', alignItems: 'center' },
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
+        '& [data-status="error"] > span': { color: 'text.primary' },
+      }}
+    >
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Validator</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>

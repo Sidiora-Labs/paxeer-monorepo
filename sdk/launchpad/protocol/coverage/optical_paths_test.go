@@ -17,7 +17,7 @@ import (
 
 func TestReviewedOpticalEventsAdvanceCanonicalInvalidation(t *testing.T) {
 	base, _, _ := sourceRegistry(t)
-	raw, err := os.ReadFile("../catalog/testdata/repair-m924/review.json")
+	raw, err := os.ReadFile("../catalog/testdata/optical_registry/review.json")
 	if err != nil {
 		t.Fatal(err)
 	}

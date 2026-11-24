@@ -3,6 +3,8 @@ import React from 'react';
 
 import { Heading } from 'toolkit/chakra/heading';
 
+import { verificationColumns } from './styles';
+
 interface Props {
   title: string;
   children: React.ReactNode;
@@ -19,7 +21,11 @@ const ContractVerificationMethod = ({ title, children, disableScroll }: Props) =
   return (
     <section ref={ ref }>
       <Heading level="2" mt={ 12 } mb={ 5 }>{ title }</Heading>
-      <Grid columnGap="30px" rowGap={{ base: 2, lg: 5 }} templateColumns={{ base: '1fr', lg: 'minmax(0, 680px) minmax(0, 340px)' }}>
+      <Grid
+        columnGap={ 7.5 }
+        rowGap={{ base: 2, lg: 5 }}
+        templateColumns={ verificationColumns }
+      >
         { children }
       </Grid>
     </section>

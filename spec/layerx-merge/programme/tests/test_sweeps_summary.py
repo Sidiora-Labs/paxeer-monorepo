@@ -74,6 +74,7 @@ def test_sweeps_summary_counts_and_copies_failures(tmp_path: Path) -> None:
         "targets_passed": 2,
         "targets_failed": 1,
         "targets_not_run": 2,
+        "targets_no_tests": 0,
     }
     expected = [
         {
@@ -123,6 +124,7 @@ def test_sweeps_summary_counts_and_copies_failures(tmp_path: Path) -> None:
             "targets_passed": 0,
             "targets_failed": 0,
             "targets_not_run": 0,
+            "targets_no_tests": 0,
         }
     }
 
@@ -152,6 +154,7 @@ def test_sweeps_summary_accepts_decimal_values(tmp_path: Path, elapsed: str) -> 
         "targets_passed": 0,
         "targets_failed": 1,
         "targets_not_run": 0,
+        "targets_no_tests": 0,
     }
     assert sections["failing.1"] == {
         "sweep": "decimal",
@@ -207,6 +210,7 @@ def test_sweeps_summary_second_pass_replaces_not_run(tmp_path: Path, name: str) 
         "targets_passed": 1,
         "targets_failed": 2,
         "targets_not_run": 2,
+        "targets_no_tests": 0,
     }
     failures = [row for key, row in sections.items() if key.startswith("failing.")]
     assert len(failures) == 4

@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "network_id": "paxeer-degraded",
+    "paxeer": {
+      "chain_id": "0x7d",
+      "latest_block": "0x10"
+    },
+    "consensus": null,
+    "reason": "consensus_unavailable"
+  }
+}

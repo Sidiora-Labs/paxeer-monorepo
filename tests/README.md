@@ -1,6 +1,6 @@
 # Paxeer network tests
 
-This directory holds native kernel tests, chain and API integration suites, SDK checks, contract tests, shared harnesses, and fixtures for the Paxeer network. The suites exercise execution, encoding, balances, authority, programs, storage recovery, and consumer behavior. The kernel participates in block proposal inside `paxd`; receipts become final when their blocks are committed.
+This directory holds native kernel tests, chain and API integration suites, SDK checks, contract tests, shared harnesses, and fixtures for the Paxeer network. The suites exercise execution, encoding, balances, authority, programs, storage recovery, and consumer behavior. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when their blocks are committed.
 
 ## Layout
 

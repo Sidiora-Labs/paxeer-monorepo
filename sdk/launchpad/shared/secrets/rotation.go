@@ -95,14 +95,21 @@ func NewRotation(ctx context.Context, source VersionSource, interval time.Durati
 func (r *Rotation) Refresh(ctx context.Context) (result error) {
 	r.refreshMu.Lock()
 	defer r.refreshMu.Unlock()
-	defer func() { r.mu.Lock(); r.unavailable = result != nil; r.mu.Unlock() }()
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer func() {
+		if result != nil && ctx.Err() != nil {
+			return
+		}
+		r.mu.Lock()
+		r.unavailable = result != nil
+		r.mu.Unlock()
+	}()
+	refreshCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	values, err := r.source.Load(ctx)
+	values, err := r.source.Load(refreshCtx)
 	if err != nil {
 		return err
 	}
-	if err = ctx.Err(); err != nil {
+	if err = refreshCtx.Err(); err != nil {
 		return err
 	}
 	if err = r.apply(values); err != nil {
@@ -129,6 +136,9 @@ func (r *Rotation) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			_ = r.Refresh(ctx)
 		}
 	}

@@ -59,8 +59,8 @@ func TestArchiveRoutingRejectsUnprovenFloorsAndBlockIdentities(t *testing.T) {
 
 func TestScalarReadAdmissionCancelsQueuedCallsWithoutRetainingPermits(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	authority, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	capacity := cap(authority.reads.calls)
 	for i := 0; i < capacity; i++ {

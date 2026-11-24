@@ -22,16 +22,17 @@ var ErrReplicationHalted = errors.New("sequencer: replication halted")
 var _ evmrpc.SequencerAccepter = (*Accepter)(nil)
 
 type Accepter struct {
-	mu      sync.Mutex
-	r       *Receipter
-	rep     *Replicator
-	src     *ReceiptSource
-	m       *Metrics
-	halted  bool
-	lease   *LeaseHolder
-	gmu     sync.Mutex
-	pending *acceptGroup
-	last    chan struct{}
+	mu          sync.Mutex
+	r           *Receipter
+	rep         *Replicator
+	src         *ReceiptSource
+	m           *Metrics
+	halted      bool
+	leaseFenced bool
+	lease       *LeaseHolder
+	gmu         sync.Mutex
+	pending     *acceptGroup
+	last        chan struct{}
 }
 
 // NewAccepter releases signed receipts and records their execution outputs only
@@ -113,14 +114,30 @@ func (a *Accepter) admission() error {
 	if a.halted {
 		return ErrReplicationHalted
 	}
-	if a.lease != nil && !time.Now().Before(a.lease.Expiry()) {
-		a.halted = true
-		_ = a.r.exec.Fence()
-		return ErrLeaseFenced
+	if a.lease != nil {
+		now := time.Now()
+		if !now.Before(a.lease.Expiry()) {
+			err := error(ErrLeaseFenced)
+			if a.rep.Standalone() {
+				err = a.lease.RenewAt(now)
+			}
+			if err != nil {
+				a.fenceLease(now, err)
+				return err
+			}
+		}
 	}
 	return nil
 }
-
+func (a *Accepter) fenceLease(now time.Time, cause error) {
+	if a.leaseFenced {
+		return
+	}
+	a.leaseFenced = true
+	a.halted = true
+	_ = a.r.exec.Fence()
+	logLeaseFence(a.lease.logger, a.lease.Epoch(), a.lease.Expiry(), now, cause)
+}
 func (a *Accepter) runGroup(g *acceptGroup) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

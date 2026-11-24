@@ -7,14 +7,14 @@ function walk(path: string): unknown {
 }
 
 describe('semantic tokens on the data visualisation palette', () => {
-  it('draws the stat indicators from the green and red ramps', () => {
+  it('draws the stat indicators from the positive and negative roles', () => {
     expect(walk('colors.stat.indicator.up.value')).toEqual({
-      _light: '{colors.datavis.green.high}',
-      _dark: '{colors.datavis.green.low}',
+      _light: '{colors.positive}',
+      _dark: '{colors.positive}',
     });
     expect(walk('colors.stat.indicator.down.value')).toEqual({
-      _light: '{colors.datavis.red.high}',
-      _dark: '{colors.datavis.red.low}',
+      _light: '{colors.negative}',
+      _dark: '{colors.negative}',
     });
   });
 
@@ -24,20 +24,27 @@ describe('semantic tokens on the data visualisation palette', () => {
       _dark: '{colors.datavis.pink.highest}',
     });
     expect(walk('colors.badge.yellow.fg.value')).toEqual({
-      _light: '{colors.feedback.warning.fg}',
-      _dark: '{colors.datavis.yellow.low}',
+      _light: '{colors.warning}',
+      _dark: '{colors.warning}',
     });
   });
 
-  it('greys every placeholder and field indicator with one neutral tone in both appearances', () => {
+  it('uses readable neutral text for field and select placeholders in each appearance', () => {
     [
       'colors.input.placeholder.DEFAULT.value',
-      'colors.input.element.DEFAULT.value',
       'colors.field.placeholder.DEFAULT.value',
-      'colors.select.indicator.fg.DEFAULT.value',
       'colors.select.placeholder.fg.DEFAULT.value',
     ].forEach((path) => {
-      expect(walk(path)).toBe('{colors.gray.500}');
+      expect(walk(path)).toEqual({ _light: '{colors.text.muted}', _dark: '{colors.gray.500}' });
+    });
+  });
+
+  it('keeps field and select indicators on the neutral ramp', () => {
+    [
+      'colors.input.element.DEFAULT.value',
+      'colors.select.indicator.fg.DEFAULT.value',
+    ].forEach((path) => {
+      expect(walk(path)).toEqual({ _light: '{colors.gray.500}', _dark: '{colors.gray.500}' });
     });
   });
 });

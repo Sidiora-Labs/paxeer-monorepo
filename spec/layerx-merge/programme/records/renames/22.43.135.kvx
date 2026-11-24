@@ -1,0 +1,308 @@
+[manifest]
+task = "22.43.135"
+records_moved = 10
+files_renamed = 28
+
+[file.1]
+from = "services/bridge/deploy/appenv/repair_277_app.mjs"
+to = "services/bridge/deploy/appenv/bridge_app_config_reader.mjs"
+
+[file.2]
+from = "services/bridge/deploy/appenv/repair_277_test.go"
+to = "services/bridge/deploy/appenv/deployment_readiness_test.go"
+
+[file.3]
+from = "services/bridge/deploy/appenv/repair_m484_test.go"
+to = "services/bridge/deploy/appenv/deployment_records_test.go"
+
+[file.4]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/evm-ready.json"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/evm-ready.json"
+
+[file.5]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/solana-deployed.json"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/solana-deployed.json"
+
+[file.6]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/solana-registered.json"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/solana-registered.json"
+
+[file.7]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/LICENSE"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/LICENSE"
+
+[file.8]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/errors/address.js"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/errors/address.js"
+
+[file.9]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/errors/address.js.map"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/errors/address.js.map"
+
+[file.10]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/errors/base.js"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/errors/base.js"
+
+[file.11]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/errors/base.js.map"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/errors/base.js.map"
+
+[file.12]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/errors/version.js"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/errors/version.js"
+
+[file.13]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/errors/version.js.map"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/errors/version.js.map"
+
+[file.14]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/utils/address/getAddress.js"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/utils/address/getAddress.js"
+
+[file.15]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/utils/address/getAddress.js.map"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/utils/address/getAddress.js.map"
+
+[file.16]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/utils/address/isAddress.js"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/utils/address/isAddress.js"
+
+[file.17]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/utils/address/isAddress.js.map"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/utils/address/isAddress.js.map"
+
+[file.18]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/utils/lru.js"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/utils/lru.js"
+
+[file.19]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/_cjs/utils/lru.js.map"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/_cjs/utils/lru.js.map"
+
+[file.20]
+from = "services/bridge/deploy/appenv/testdata/repair_m484/viem/provenance.json"
+to = "services/bridge/deploy/appenv/testdata/deployment_record_fixtures/viem/provenance.json"
+
+[file.21]
+from = "services/bridge/deploy/chainconfig/repair_m336_test.go"
+to = "services/bridge/deploy/chainconfig/asset_identity_test.go"
+
+[file.22]
+from = "services/bridge/deploy/chainconfig/repair_268_test.go"
+to = "services/bridge/deploy/chainconfig/cap_width_test.go"
+
+[file.23]
+from = "services/bridge/deploy/proposals/repair_270_test.go"
+to = "services/bridge/deploy/proposals/asset_binding_test.go"
+
+[file.24]
+from = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373_test.go"
+to = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/publication_contract_test.go"
+
+[file.25]
+from = "services/bridge/deploy/proposals/repair_m365_test.go"
+to = "services/bridge/deploy/proposals/publication_recovery_test.go"
+
+[file.26]
+from = "services/bridge/deploy/proposals/testdata/repair_270/compile-vault.cjs"
+to = "services/bridge/deploy/proposals/testdata/vault_compiler_fixtures/compile-vault.cjs"
+
+[file.27]
+from = "services/bridge/deploy/proposals/testdata/repair_270/npm-shrinkwrap.json"
+to = "services/bridge/deploy/proposals/testdata/vault_compiler_fixtures/npm-shrinkwrap.json"
+
+[file.28]
+from = "services/bridge/deploy/proposals/testdata/repair_270/package.json"
+to = "services/bridge/deploy/proposals/testdata/vault_compiler_fixtures/package.json"
+
+[file.29]
+from = "services/bridge/deploy/appenv/repair_277.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/appenv/repair_277.kvx"
+
+[file.30]
+from = "services/bridge/deploy/appenv/repair_m484.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/appenv/repair_m484.kvx"
+
+[file.31]
+from = "services/bridge/deploy/chainconfig/repair_268.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/chainconfig/repair_268.kvx"
+
+[file.32]
+from = "services/bridge/deploy/chainconfig/repair_m336.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/chainconfig/repair_m336.kvx"
+
+[file.33]
+from = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373.kvx"
+
+[file.34]
+from = "services/bridge/deploy/proposals/repair_270.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/proposals/repair_270.kvx"
+
+[file.35]
+from = "services/bridge/deploy/proposals/repair_m365.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/proposals/repair_m365.kvx"
+
+[file.36]
+from = "services/bridge/deploy/repair_22_31_402.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/repair_22_31_402.kvx"
+
+[file.37]
+from = "services/bridge/deploy/repair_22_31_446.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/repair_22_31_446.kvx"
+
+[file.38]
+from = "services/bridge/deploy/repair_22_39_212.kvx"
+to = "spec/layerx-merge/programme/records/services/bridge/deploy/repair_22_39_212.kvx"
+
+[reference.1]
+file = ".github/workflows/bridge-test.yml"
+name = "services/bridge/deploy/proposals/testdata/repair_270"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_270_test.go"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_277_app.mjs"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_277_test.go"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_m484_test.go"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "services/bridge/deploy/proposals/testdata/repair_270/package.json"
+
+[reference.7]
+file = "GOTCHA.kvx"
+name = "testdata/repair_270/compile-vault.cjs"
+
+[reference.8]
+file = "GOTCHA.kvx"
+name = "testdata/repair_m484"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/programme/issues/1926.kvx"
+name = "services/bridge/deploy/repair_22_31_402.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/programme/issues/input/1912.md"
+name = "services/bridge/deploy/repair_22_31_402.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/programme/records/renames/22.43.233.kvx"
+name = "services/bridge/deploy/repair_22_39_212.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_270_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_277_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m373_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_446.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_268_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_270"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_270_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_277_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m336_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m365_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m373_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m484_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/appenv/repair_277_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/appenv/repair_m484_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/chainconfig/repair_268_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/chainconfig/repair_m336_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/proposals/repair_270_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/proposals/repair_m365_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/proposals/testdata/repair_270"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/repair_22_31_402.kvx"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/repair_22_31_446.kvx"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/bridge/deploy/repair_22_39_212.kvx"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "testdata/repair_m484"
+
+[reference.38]
+file = "tools/qualification/audit_repairs/test_attestor_manifest_guard.py"
+name = "repair_22_31_446.kvx"

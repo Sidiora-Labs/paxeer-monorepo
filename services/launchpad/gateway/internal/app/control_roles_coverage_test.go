@@ -48,6 +48,9 @@ func connectedControlRolePools(t *testing.T) (*pgxpool.Pool, *pgxpool.Pool, *pgx
 		if role == "control_runtime" {
 			t.Setenv("GATEWAY_TEST_CONTROL_ROLE_DSN", endpoint.String())
 		} else {
+			parameters := endpoint.Query()
+			parameters.Set("search_path", "users,pg_catalog")
+			endpoint.RawQuery = parameters.Encode()
 			t.Setenv("GATEWAY_TEST_IDENTITY_ROLE_DSN", endpoint.String())
 		}
 	}

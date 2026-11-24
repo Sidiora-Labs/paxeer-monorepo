@@ -1,6 +1,7 @@
 import { HttpError, type Operations, type V2ContractTypes } from '@kindle/sdk';
 import { marketAddress } from '@/page-modules/token/market-session';
 import { toUnsupported, type Unsupported } from './unsupported';
+import { userFacingMessage } from '@/core/user-facing-error';
 import type { PoolStats } from './use-stats-batch';
 
 export type { PoolStats };
@@ -14,6 +15,7 @@ export interface PoolSnapshot {
   pool: PoolIdentity;
   token: Token | null;
   metadata: MetadataGetData | null;
+  metadataError?: string;
   stats: PoolStats | null;
   /** Pool creator and creation time from the IF_POOL_DETAIL registry row; null when the detail is not served. */
   creator: string | null;
@@ -31,6 +33,14 @@ export class PoolNotFoundError extends Error {
   readonly code = 'POOL_NOT_FOUND';
   readonly status = 404;
   constructor(readonly address: string) { super(`No pool or token on chain 125 at ${address}`); }
+}
+
+export class PoolUnavailableError extends Error {
+  readonly code = 'CAPABILITY_UNAVAILABLE';
+  constructor(readonly operation: string, readonly status: number | null) {
+    super('This coin is not available yet');
+    this.name = 'PoolUnavailableError';
+  }
 }
 
 const address = (value: unknown): string | null => typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value) ? value.toLowerCase() : null;
@@ -86,15 +96,17 @@ export async function resolvePoolIdentity(input: string, deps: ResolverDeps, sig
   const direct = await fetchPoolDetail(candidate, deps, signal);
   const detail = direct.value;
   if (detail) return { identity: { chainId: '125', poolAddress: candidate, tokenAddress: marketAddress(detail.data.pool.tokenAddress) }, detail, resolvedBy: 'detail', detailUnavailable: null };
-  const byToken = await searchHit(candidate, 'token', deps, signal);
-  if (byToken) {
-    const pool = address(byToken.poolAddress) as string;
+  const byToken = await optional('IF_SEARCH', () => searchHit(candidate, 'token', deps, signal));
+  if (byToken.value) {
+    const pool = address(byToken.value.poolAddress) as string;
     const resolved = await fetchPoolDetail(pool, deps, signal);
     if (resolved.value && marketAddress(resolved.value.data.pool.tokenAddress) !== candidate) throw new Error('Pool identity disagreement');
     return { identity: { chainId: '125', poolAddress: pool, tokenAddress: candidate }, detail: resolved.value, resolvedBy: 'search', detailUnavailable: resolved.unavailable };
   }
-  const byPool = await searchHit(candidate, 'pool', deps, signal);
-  if (byPool) return { identity: { chainId: '125', poolAddress: candidate, tokenAddress: address(byPool.tokenAddress) as string }, detail: null, resolvedBy: 'search', detailUnavailable: direct.unavailable };
+  const byPool = await optional('IF_SEARCH', () => searchHit(candidate, 'pool', deps, signal));
+  if (byPool.value) return { identity: { chainId: '125', poolAddress: candidate, tokenAddress: address(byPool.value.tokenAddress) as string }, detail: null, resolvedBy: 'search', detailUnavailable: direct.unavailable };
+  const unavailable = direct.unavailable?.status !== 404 ? direct.unavailable : byToken.unavailable ?? byPool.unavailable;
+  if (unavailable) throw new PoolUnavailableError(unavailable.operation, unavailable.status);
   throw new PoolNotFoundError(candidate);
 }
 
@@ -113,7 +125,8 @@ async function optionalMetadata(token: string, deps: ResolverDeps, signal?: Abor
     response = await deps.operations.call('IF_METADATA_GET', { path: { tokenAddress: token } }, { signal });
   } catch (error) {
     if (signal?.aborted) throw error;
-    return { value: null, unavailable: toUnsupported('IF_METADATA_GET', error) };
+    const unavailable = toUnsupported('IF_METADATA_GET', error);
+    return { value: null, unavailable, error: unavailable ? undefined : userFacingMessage(error) };
   }
   if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined' || marketAddress(response.data.token.address) !== token) throw new Error('Metadata identity disagreement or integrity quarantine');
   return { value: response, unavailable: null };
@@ -144,6 +157,7 @@ export async function resolvePoolSnapshot(input: string, deps: ResolverDeps, sig
     pool: resolved.identity,
     token: metadata.value?.data.token ?? detail?.data.token ?? null,
     metadata: metadata.value?.data ?? null,
+    ...(metadata.error ? { metadataError: metadata.error } : {}),
     stats: (stats.value?.data.stats as PoolStats | undefined) ?? null,
     creator: registry ? marketAddress(registry.creator) : null,
     createdAt: registry?.createdAt ?? null,

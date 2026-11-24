@@ -1152,7 +1152,7 @@ func TestSequencerReceiptViewCarriesPaymentDenom(t *testing.T) {
 	}
 }
 
-func repairM1297CommittedReceiptNilView(t *testing.T) {
+func rpcBehaviorCommittedReceiptNilView(t *testing.T) {
 	var missing *evmrpc.SequencerReceiptResult
 	require.ErrorIs(t, missing.Verify(), evmrpc.ErrSequencerReceiptMismatch)
 	block := common.HexToHash("0x1234")
@@ -1207,5 +1207,5 @@ func repairM1297CommittedReceiptNilView(t *testing.T) {
 }
 
 func init() {
-	evmrpc.RepairM1297Proofs["committed-receipt-nil-view"] = repairM1297CommittedReceiptNilView
+	evmrpc.RPCBehaviorProofs["committed-receipt-nil-view"] = rpcBehaviorCommittedReceiptNilView
 }

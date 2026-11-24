@@ -6,17 +6,18 @@ import os
 import re
 from pathlib import Path
 import stat
+import shutil
 import subprocess
 import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
-NODE = Path('/root/lx-toolchains/node24/bin/node')
-NPM = Path('/root/lx-toolchains/node24/bin/npm')
+NODE = 'node'
+NPM = 'npm'
 WEB = ROOT / 'apps/web'
 SDK = ROOT / 'sdk/wallet'
 EVIDENCE = Path(os.environ.get('PRIVATE_HUMAN_CUSTODY_EVIDENCE_ROOT',
-    '/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task1412'))
+    ROOT / "build/qualification/private-human-custody"))
 MANIFEST = EVIDENCE / 'build-manifest.json'
 
 
@@ -57,7 +58,6 @@ def artifact_paths():
 def run(argv, name, timeout):
     log = EVIDENCE / (name + '.log')
     environment = dict(os.environ)
-    environment['PATH'] = str(NODE.parent) + os.pathsep + environment.get('PATH', '')
     with log.open('wb') as output:
         log.chmod(0o600)
         result = subprocess.run(argv, cwd=ROOT, env=environment, stdout=output,
@@ -107,7 +107,7 @@ def main():
     parser.add_argument('--build', action='store_true')
     options = parser.parse_args()
     EVIDENCE.mkdir(parents=True, exist_ok=True, mode=0o700)
-    require(NODE.is_file() and NPM.is_file(), 'existing Node 24 toolchain required; no installation permitted')
+    require(shutil.which(NODE) is not None and shutil.which(NPM) is not None, 'existing Node 24 toolchain required; no installation permitted')
     sources = hashes(source_paths())
     if options.build:
         sdk_owner = upstream_sdk_manifest()

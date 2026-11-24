@@ -6,7 +6,7 @@ import '@/styles/doc-figures.css'
 
 export type DocFigureKind = 'terrain' | 'exploded' | 'branches' | 'vault' | 'router' | 'plot' | 'terminal' | 'cabinet' | 'riffle' | 'padlock' | 'drawer' | 'plug' | 'basket' | 'loupe' | 'dish'
 
-/** The supplied Hairline engines, mounted only near the viewport. */
+/** The supplied Hairline engines, with an offscreen-aware frame loop. */
 export function DocFigure({ kind = 'exploded', label, caption, compact = false }: { kind?: DocFigureKind; label: string; caption?: string; compact?: boolean }) {
   const host = useRef<HTMLDivElement>(null)
   const [paused, setPaused] = useState(false)
@@ -15,23 +15,16 @@ export function DocFigure({ kind = 'exploded', label, caption, compact = false }
     if (!element) return
     let figure: Figure | undefined
     let disposed = false
-    let visible = false
     const mount = async () => {
-      if (disposed || !visible || paused || figure) return
+      if (disposed || paused || figure) return
       const library = await import('@/lib/hairline')
-      if (disposed || !visible || paused || figure) return
+      if (disposed || paused || figure) return
       element.replaceChildren()
       figure = library[kind](element, { label, intensity: 0.35, theme: 'auto' })
     }
-    const observer = new IntersectionObserver(entries => {
-      visible = entries[0]?.isIntersecting || false
-      if (visible) void mount()
-      // Engines also share an offscreen-aware frame loop; retain their pose.
-    }, { rootMargin: '120px' })
-    observer.observe(element)
+    void mount()
     return () => {
       disposed = true
-      observer.disconnect()
       const snapshot = element.querySelector('svg')?.cloneNode(true)
       figure?.destroy()
       element.replaceChildren()
@@ -40,7 +33,7 @@ export function DocFigure({ kind = 'exploded', label, caption, compact = false }
   }, [kind, label, paused])
   return <figure className={`doc-figure${compact ? ' doc-figure--compact' : ''}`}>
     <div className="doc-figure-stage" ref={host} data-hairline={kind} role={kind === 'riffle' && !paused ? 'group' : 'img'} aria-label={label} />
-    <figcaption><span>{caption || label}</span><button type="button" onClick={() => setPaused(value => !value)} aria-pressed={paused} aria-label={`${paused ? 'Resume' : 'Pause'} illustration motion`}>{paused ? 'Resume motion' : 'Pause motion'}</button></figcaption>
+    <figcaption><span>{caption || label}</span><button type="button" onClick={() => setPaused(value => !value)} aria-label={`${paused ? 'Resume' : 'Pause'} illustration motion`}>{paused ? 'Resume motion' : 'Pause motion'}</button></figcaption>
   </figure>
 }
 

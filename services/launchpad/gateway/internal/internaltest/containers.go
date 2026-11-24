@@ -29,7 +29,15 @@ import (
 // tests. The test fails immediately when the variable is unset.
 func NewRedis(t *testing.T) (*goredis.Client, string) {
 	t.Helper()
-	ctx := context.Background()
+	rdb, uri := RedisClient(t)
+	if err := rdb.FlushDB(context.Background()).Err(); err != nil {
+		t.Fatalf("flush GATEWAY_TEST_REDIS_URL: %v", err)
+	}
+	return rdb, uri
+}
+
+func RedisClient(t *testing.T) (*goredis.Client, string) {
+	t.Helper()
 	uri := os.Getenv("GATEWAY_TEST_REDIS_URL")
 	if uri == "" {
 		t.Fatal("GATEWAY_TEST_REDIS_URL is not set: point it at a running Redis logical database reserved for these tests (redis://:password@host:port/N); tests never start containers")
@@ -39,8 +47,8 @@ func NewRedis(t *testing.T) (*goredis.Client, string) {
 		t.Fatalf("GATEWAY_TEST_REDIS_URL: %v", err)
 	}
 	t.Cleanup(func() { _ = rdb.Close() })
-	if err = rdb.FlushDB(ctx).Err(); err != nil {
-		t.Fatalf("flush GATEWAY_TEST_REDIS_URL: %v", err)
+	if err = rdb.Ping(context.Background()).Err(); err != nil {
+		t.Fatalf("GATEWAY_TEST_REDIS_URL: %v", err)
 	}
 	return rdb, uri
 }

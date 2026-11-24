@@ -201,20 +201,22 @@ defmodule Explorer.ThirdPartyIntegrations.Sourcify do
   end
 
   defp process_sourcify_response(url, body) do
+    path = URI.parse(url).path || ""
+
     cond do
-      url =~ "check-by-addresses" ->
+      String.ends_with?(path, "/check-by-addresses") ->
         parse_check_by_address_http_response(body)
 
-      url =~ "/verify" ->
+      String.ends_with?(path, "/verify") ->
         parse_verify_http_response(body)
 
-      url =~ "/sourcify/sources:verify" ->
+      String.ends_with?(path, "/sourcify/sources:verify") ->
         parse_verify_http_response(body)
 
-      url =~ "/files/any" ->
+      path =~ "/files/any/" ->
         parse_get_metadata_any_http_response(body)
 
-      url =~ "/files/" ->
+      path =~ "/files/" ->
         parse_get_metadata_http_response(body)
 
       true ->

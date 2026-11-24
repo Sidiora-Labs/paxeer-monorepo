@@ -437,6 +437,9 @@ func (c *caller) fees(ctx context.Context) (fees, error) {
 func writeMarkets(ctx context.Context, tx *sql.Tx, list []chainMarket, height int64) error {
 	for _, m := range list {
 		config := m.config
+		if config.ListedAt > math.MaxInt64 {
+			return fmt.Errorf("%w: listing height %d above bigint", ErrChainValue, config.ListedAt)
+		}
 		args := []any{m.id, m.name, m.maxLeverage, m.maintenanceMarginBps, m.maxOpenInterest, m.enabled, height,
 			config.OracleSymbol, config.SzDecimals, config.PxDecimals, config.TickSize.String(), config.LotSize.String(), config.TierClass,
 			config.ImpactNotionalUsd.String(), config.OiCapUsd.String(), config.FundingCapPpmPerHour.String(), int64(config.ListedAt)}

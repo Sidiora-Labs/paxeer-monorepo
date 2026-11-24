@@ -8,6 +8,7 @@ SDK or the layerx-client inference_room_writes example. No public node is used.
 
 import argparse
 import base64
+from dataclasses import replace
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import http.client
@@ -36,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import agent_operation_envelope as envelope
 from fixtures.merged_runtime_fixture import RuntimeFixture, RootRpc, ChainWriter, reserve_ports, read_lap_settlement, read_payout_credits
 from layerx_sdk.account_derivation import keccak256
-from layerx_sdk.evm_transaction import decode_signed
+from layerx_sdk.evm_transaction import decode_signed, decode_signed_transaction
 from merged_qualification import decode_abi as decode_full_abi
 from layerx_sdk.evm_transaction import Type2Transaction, encode_call, decode_abi
 from layerx_sdk import account_derivation as accounts
@@ -107,8 +108,9 @@ import {LapTracker, lapReceiptBytes, lapSigningDigest, lapCountersignDigest} fro
 import {encodeFrame, decodeFrame, MAX_FRAME_BYTES} from '@PEER@/src/wire.mjs';
 import {scriptedModelSource, scriptedEmbedding, scriptedToken} from '@PEER@/tests/scripted_model.mjs';
 import {ScriptedRuntime} from '@PEER@/tests/scripted_model.mjs';
+import {encodeFixedPointLogits} from '@PEER@/src/canary.mjs';
 
-const [mode, configPath, peerNumber] = process.argv.slice(2);
+const [mode, configPath, peerNumber, faultFlag] = process.argv.slice(2);
 const hex = value => Buffer.from(value).toString('hex');
 const sha = value => createHash('sha256').update(value).digest();
 const fatal = error => { console.error(error.stack ?? error); process.exit(1); };
@@ -134,10 +136,12 @@ async function save(path, value) {
 async function read(path) { return JSON.parse(await readFile(path, 'utf8')); }
 async function waitFor(predicate, seconds=20) {
   const until = Date.now() + seconds * 1000;
-  while (Date.now() < until) {
+  while (true) {
     const result = await predicate();
     if (result) return result;
-    await sleep(25);
+    const remaining = until - Date.now();
+    if (remaining <= 0) break;
+    await sleep(Math.min(25, remaining));
   }
   throw new Error('Native room deadline');
 }
@@ -176,6 +180,12 @@ async function rpc(url, method, params) {
   return value.result;
 }
 function text(token) { return `[${token}]`; }
+function canaryLogits(values) {
+  const scores = Array.from({length:19}, (_,i) => values.reduce(
+    (sum,value,j) => sum + value * Math.cos((i+1)*(j+1)), 0));
+  const encoded = encodeFixedPointLogits(scores);
+  return Array.from({length:8}, (_,i) => new DataView(encoded.buffer).getInt32(i*4,false));
+}
 if (mode === 'model') {
   const source = await scriptedModelSource();
   await mkdir(configPath, {mode:0o700});
@@ -189,9 +199,15 @@ if (mode === 'model') {
     token = scriptedToken(await source.model.runActivation(scriptedEmbedding(token),i+1,cache));
     tokens.push({token_id:token,text:text(token)});
   }
-  source.model.dropCache(cache); source.model.close();
+  source.model.dropCache(cache);
   await save(configPath + '/reference.json', {model_digest:hex(source.digest),
     prompt:'5', prompt_tokens:1, tokens});
+  const canaryCache = source.model.createCache('canary-reference');
+  const canaryValues = await source.model.runActivation(scriptedEmbedding(5),0,canaryCache);
+  await save(configPath + '/canary.json', {model_digest:Array.from(source.digest),
+    entries:[{prompt_tokens:[5],expected_logits:canaryLogits(canaryValues)}]});
+  source.model.dropCache(canaryCache); source.model.close();
+
 } else {
   const c = await read(configPath);
   class NativeMesh extends EventTarget {
@@ -215,7 +231,51 @@ if (mode === 'model') {
     }
     close() { this.socket?.destroy(); this.dispatchEvent(new Event('close')); }
   }
-  if (mode === 'peer') {
+  if (mode === 'enrol') {
+    const index = Number(peerNumber), peer = c.peers[index];
+    const identity = await PeerIdentity.open({mode:'native',path:peer.identity});
+    if (c.proof === 'canary') {
+      const document = await readFile(peer.enrolment);
+      const enrol = (timeoutMs=2000) => identity.enrolPeer(
+        c.signal_url.replace('ws://','http://') + 'enrol_peer', {document,timeoutMs});
+      let outcome;
+      await waitFor(async () => {
+        try {
+          const response = await fetch(c.signal_url.replace('ws://','http://') + 'healthz',
+            {signal:AbortSignal.timeout(1000)});
+          return response.status === 200;
+        } catch (_) { return false; }
+      });
+      try { outcome = await enrol(); }
+      catch (error) {
+        if (error.name !== 'TimeoutError' && !String(error.message).includes('chain_unavailable')) throw error;
+        if (String(error.message).includes('chain_unavailable')) {
+          await waitFor(async () => {
+            try { outcome = await enrol(2000); return true; }
+            catch (retry) {
+              if (String(retry.message).includes('chain_unavailable') || retry.name === 'TimeoutError') return false;
+              throw retry;
+            }
+          });
+        } else {
+        await save(c.run + `/peer${index}-enrolment-pending-${peer.enrolment_bid_hash}.json`,
+          {transaction:peer.enrolment_bid_hash});
+        await waitFor(async () => {
+          try {
+            await access(c.run + `/enrolment-admission-${peer.enrolment_bid_hash.slice(2)}.json`);
+          } catch (_) { return false; }
+          try { outcome = await enrol(); return true; }
+          catch (retry) {
+            if (retry.name === 'TimeoutError' || String(retry.message).includes('chain_unavailable')) return false;
+            throw retry;
+          }
+        });
+        }
+      }
+      assert.equal(outcome.manifest_digest,peer.metadata_digest);
+      await save(c.run + `/peer${index}-enrolment-outcome-${peer.enrolment_bid_hash}.json`,outcome);
+    }
+  } else if (mode === 'peer') {
     const index = Number(peerNumber), peer = c.peers[index];
     assert(index === 0 || index === 1);
     await access(peer.identity);
@@ -241,6 +301,35 @@ if (mode === 'model') {
       throw new Error('Signalling admission deadline');
     }
     const {signal,offer:initialOffer} = await connectSignal();
+    if (c.proof === 'canary' && index === 1) {
+      assert.equal(faultFlag,'--fault-logit');
+      signal.addEventListener('canary-refusal', ({detail}) =>
+        fatal(new Error('Canary answer refused: ' + detail.reason)));
+      signal.addEventListener('canary', ({detail}) => {
+        void save(c.run + `/peer${index}-canary-answer.json`,detail).catch(fatal);
+      });
+      const original = mesh.send.bind(mesh);
+      mesh.send = async (to,kind,payload) => {
+        if (kind === 'activation') {
+          const output = decodeActivation(payload);
+          if (output.layer === 4) {
+            const plan = await read(c.run + '/canary-injection.json').catch(error => {
+              if (error.code === 'ENOENT') return null; throw error;
+            });
+            if (plan && output.requestId === plan.request_id && output.position === plan.position) {
+              const logits = canaryLogits(output.values);
+              logits[0] += 65536;
+              signal.recordCanaryLogits({lapIndex:plan.lap_index,
+                position:plan.position,logits:logits.map(value => value/65536)});
+              await save(c.run + '/faulty-canary-logits.json',
+                {peer_key:peer.peer_key,logits,position:plan.position});
+            }
+          }
+        }
+        return original(to,kind,payload);
+      };
+    }
+
     signal.addEventListener('error', ({detail}) => fatal(detail));
     signal.addEventListener('close', () => queueMicrotask(() => fatal(new Error('Signalling closed during room proof'))));
     let client, queue = Promise.resolve();
@@ -337,9 +426,130 @@ if (mode === 'model') {
       socket.on('close',() => { if (owner) sockets.delete(owner); });
     });
     router.listen(c.router_port,'127.0.0.1'); await once(router,'listening');
+    async function activationForDeal(deal,id,token,position) {
+      const binding = await dealDigest(deal);
+      const route = deal.plan.layers.map(split => hex(split.peer_key));
+      assert(route.every(key => sockets.has(key)));
+      const payload = encodeActivation({requestId:id,digest:binding,position,layer:0,values:scriptedEmbedding(token)});
+      const frame = encodeFrame({kind:'activation',roomId:c.room.room_id,sequence:sequence++,payload});
+      await packet(sockets.get(route[0]),{type:'frame',from:c.room.host_peer_key,frame:hex(frame)});
+      const key = id + ':' + position;
+      const output = await waitFor(() => outputs.get(key)); outputs.delete(key);
+      assert.equal(output.layer,4); assert.equal(hex(output.digest),hex(binding)); return output.values;
+    }
+    async function finalizeLap(deal,tokens,rangeDigests) {
+      const issueLap = () => fetch(c.completion_url + '/internal/inference/laps',{
+        method:'POST',redirect:'error',headers:{'content-type':'application/json',authorization:'Bearer ' + c.agent_bearer},
+        body:JSON.stringify({deal_id:deal.deal_id,lap_index:0,prompt_tokens:1,generated_tokens:4,
+          layer_range_digests:rangeDigests,deal_end:true}),signal:AbortSignal.timeout(10000)});
+      let response = await issueLap();
+      if (c.proof === 'canary' && response.status === 409) {
+        assert.deepEqual(await response.json(),{error:'lap_output_refused'});
+        const pending = await read(c.journal + '/canary-' + hex(deal.deal_id) + '-0.json');
+        assert(pending.task && pending.answer);
+        assert.equal(pending.issued,false); assert.equal(pending.audited,false);
+        await save(c.run + '/canary-commitment-pending.json',
+          {deal_id:deal.deal_id,lap_index:0,answer:pending.answer});
+        response = await waitFor(async () => {
+          await sleep(250);
+          const ready = await issueLap();
+          if (ready.status === 409) {
+            assert.deepEqual(await ready.json(),{error:'lap_output_refused'});
+            return false;
+          }
+          assert.equal(ready.status,200); return ready;
+        });
+      }
+      assert.equal(response.status,200); const issued = await response.json();
+      await lapCountersignDigest(issued);
+      assert.equal(hex(issued.deal_digest),hex(await dealDigest(deal)));
+      assert.deepEqual(issued.host_meter_key,c.host_meter_key);
+      assert.deepEqual(issued.receipt.deal_id,deal.deal_id);
+      assert.equal(issued.receipt.lap_index,0);
+      assert.equal(issued.receipt.prompt_tokens,1);
+      assert.equal(issued.receipt.generated_tokens,4);
+      assert.equal(issued.receipt.cumulative_tokens,5);
+      assert.deepEqual(issued.receipt.layer_range_digests,rangeDigests);
+      const receipt = await waitFor(async () => {
+        const session = await read(c.journal + '/lap-' + hex(deal.deal_id) + '.json');
+        const match = session.receipts.find(r => r.lap_index === 0);
+        if (match) return match;
+        try { return (await read(c.journal + '/lap-' + hex(deal.deal_id) + '.batch-0.json')).receipts[0]; }
+        catch (error) { if(error.code !== 'ENOENT') throw error; }
+      });
+      assert.equal(receipt.peer_countersignatures,3);
+      assert.deepEqual(receipt.layer_range_digests,rangeDigests);
+      const key = await crypto.subtle.importKey('raw',Uint8Array.from(c.host_meter_key),'Ed25519',false,['verify']);
+      assert(await crypto.subtle.verify('Ed25519',key,Uint8Array.from(receipt.host_signature),await lapSigningDigest(receipt)));
+      await save(c.run + '/model-output.json',{tokens,receipt,range_digests:rangeDigests});
+      return receipt;
+    }
     const resources = new Set(['manifest.json',...Array.from({length:4},(_,i) => `layer-${i}.json`)]);
     const models = httpServer(async (request,response) => {
       try {
+        if (c.proof === 'canary' && request.method === 'POST' && request.url === '/canary-receipt') {
+          let body = '';
+          for await (const chunk of request) { body += chunk; assert(body.length <= 2); }
+          assert.equal(body,'{}');
+          const deal = await read(c.run + '/peer0-deal.json');
+          assert.deepEqual(deal,await read(c.run + '/peer1-deal.json'));
+          const probe = await read(c.run + '/canary-probe-output.json');
+          const receipt = await finalizeLap(deal,probe.tokens,probe.range_digests);
+          const result = Buffer.from(JSON.stringify({deal_id:receipt.deal_id,lap_index:receipt.lap_index}));
+          response.writeHead(200,{'content-type':'application/json','content-length':result.length});
+          response.end(result); return;
+        }
+        if (c.proof === 'canary' && request.method === 'POST' && request.url === '/canary-probe') {
+          let body = '';
+          for await (const chunk of request) { body += chunk; assert(body.length <= 2); }
+          assert.equal(body,'{}');
+          const deal = await read(c.run + '/peer0-deal.json');
+          assert.deepEqual(deal,await read(c.run + '/peer1-deal.json'));
+          const id = hex(sha(Buffer.concat([Buffer.from('canary-probe'),Buffer.from(deal.deal_id)])));
+          const prepared = await fetch(c.completion_url + '/internal/inference/canaries/prepare',{
+            method:'POST',headers:{'content-type':'application/json',authorization:'Bearer ' + c.agent_bearer},
+            body:JSON.stringify({deal_id:deal.deal_id,lap_index:0,generated_tokens:4}),
+            signal:AbortSignal.timeout(10000)});
+          assert.equal(prepared.status,200);
+          const plan = await prepared.json();
+          assert.equal(hex(plan.peer_key),c.peers[1].peer_key);
+          assert.equal(plan.lap_index,0); assert.equal(plan.position,0);
+          assert.deepEqual(plan.prompt_tokens,[5]);
+          await save(c.run + '/canary-injection.json',
+            {request_id:id,lap_index:0,position:plan.position,plan});
+          let token = 5;
+          await activationForDeal(deal,id,token,0);
+          const tokens = [];
+          for (let i=0;i<4;i++) {
+            token = scriptedToken(await activationForDeal(deal,id,token,i+1));
+            tokens.push({token_id:token,text:text(token)});
+          }
+          const rangeDigests = deal.plan.layers.map(split => {
+            const values = ranges.get(hex(split.peer_key) + ':' + id);
+            assert.equal(values.length,5);
+            return Array.from(sha(Buffer.concat(values)));
+          });
+          const preflight = await fetch(c.completion_url + '/internal/inference/laps',{
+            method:'POST',redirect:'error',headers:{'content-type':'application/json',authorization:'Bearer ' + c.agent_bearer},
+            body:JSON.stringify({deal_id:deal.deal_id,lap_index:0,prompt_tokens:1,generated_tokens:4,
+              layer_range_digests:rangeDigests,deal_end:true}),signal:AbortSignal.timeout(10000)});
+          assert.equal(preflight.status,409);
+          assert.deepEqual(await preflight.json(),{error:'lap_output_refused'});
+          const pending = await read(c.journal + '/canary-' + hex(deal.deal_id) + '-0.json');
+          assert(pending.task && pending.answer);
+          assert.equal(pending.issued,false); assert.equal(pending.audited,false);
+          await save(c.run + '/canary-probe-output.json',
+            {tokens,range_digests:rangeDigests,answer:pending.answer});
+          const result = Buffer.from(JSON.stringify({deal_id:deal.deal_id,lap_index:0}));
+          response.writeHead(200,{'content-type':'application/json','content-length':result.length});
+          response.end(result); return;
+        }
+        if (c.proof === 'canary' && request.method === 'GET' && request.url === '/bandwidth') {
+          const body = Buffer.alloc(65536, 42);
+          await sleep(200);
+          response.writeHead(200,{'content-type':'application/octet-stream','content-length':body.length});
+          response.end(body); return;
+        }
         const name = request.url.slice(1);
         if (request.method !== 'GET' || !resources.has(name)) { response.writeHead(404).end(); return; }
         const body = await readFile(c.model_directory + '/' + name);
@@ -362,46 +572,37 @@ if (mode === 'model') {
         const route = deal.plan.layers.map(split => hex(split.peer_key));
         assert(route.every(key => sockets.has(key)));
         async function activation(token, position) {
-          const payload = encodeActivation({requestId:id,digest:binding,position,layer:0,values:scriptedEmbedding(token)});
-          const frame = encodeFrame({kind:'activation',roomId:c.room.room_id,sequence:sequence++,payload});
-          await packet(sockets.get(route[0]),{type:'frame',from:c.room.host_peer_key,frame:hex(frame)});
-          const key = id + ':' + position;
-          const output = await waitFor(() => outputs.get(key)); outputs.delete(key);
-          assert.equal(output.layer,4); assert.equal(hex(output.digest),hex(binding)); return output.values;
+          return activationForDeal(deal,id,token,position);
         }
-        let token = 5; await activation(token,0);
+        let activationId = id;
         const tokens = [];
-        for (let i=0;i<4;i++) { token = scriptedToken(await activation(token,i+1)); tokens.push({token_id:token,text:text(token)}); }
+        if (c.proof === 'canary') {
+          const injection = await read(c.run + '/canary-injection.json');
+          assert.deepEqual(injection.plan.deal_id,deal.deal_id);
+          assert.equal(injection.plan.lap_index,0);
+          const probe = await read(c.run + '/canary-probe-output.json');
+          assert.equal(probe.tokens.length,4);
+          tokens.push(...probe.tokens);
+          activationId = injection.request_id;
+        } else {
+          let token = 5; await activation(token,0);
+          for (let i=0;i<4;i++) {
+            token = scriptedToken(await activation(token,i+1));
+            tokens.push({token_id:token,text:text(token)});
+          }
+        }
         const rangeDigests = route.map(key => {
-          const values = ranges.get(key + ':' + id); assert.equal(values.length,5);
+          const values = ranges.get(key + ':' + activationId); assert.equal(values.length,5);
           return Array.from(sha(Buffer.concat(values)));
         });
-        const response = await fetch(c.completion_url + '/internal/inference/laps',{
-          method:'POST',redirect:'error',headers:{'content-type':'application/json',authorization:'Bearer ' + c.agent_bearer},
-          body:JSON.stringify({deal_id:deal.deal_id,lap_index:0,prompt_tokens:1,generated_tokens:4,
-            layer_range_digests:rangeDigests,deal_end:true}),signal:AbortSignal.timeout(10000)});
-        assert.equal(response.status,200); const issued = await response.json();
-        await lapCountersignDigest(issued);
-        assert.equal(hex(issued.deal_digest),hex(binding));
-        assert.deepEqual(issued.host_meter_key,c.host_meter_key);
-        assert.deepEqual(issued.receipt.deal_id,deal.deal_id);
-        assert.equal(issued.receipt.lap_index,0);
-        assert.equal(issued.receipt.prompt_tokens,1);
-        assert.equal(issued.receipt.generated_tokens,4);
-        assert.equal(issued.receipt.cumulative_tokens,5);
-        assert.deepEqual(issued.receipt.layer_range_digests,rangeDigests);
-        const receipt = await waitFor(async () => {
-          const session = await read(c.journal + '/lap-' + hex(deal.deal_id) + '.json');
-          const match = session.receipts.find(r => r.lap_index === 0);
-          if (match) return match;
-          try { return (await read(c.journal + '/lap-' + hex(deal.deal_id) + '.batch-0.json')).receipts[0]; }
-          catch (error) { if(error.code !== 'ENOENT') throw error; }
-        });
-        assert.equal(receipt.peer_countersignatures,3);
+        if (c.proof === 'canary')
+          assert.deepEqual(rangeDigests,(await read(c.run + '/canary-probe-output.json')).range_digests);
+        const receipt = c.proof === 'canary'
+          ? (await read(c.run + '/model-output.json')).receipt
+          : await finalizeLap(deal,tokens,rangeDigests);
+        assert.deepEqual(receipt.deal_id,deal.deal_id);
+        assert.equal(receipt.lap_index,request.next_lap_index);
         assert.deepEqual(receipt.layer_range_digests,rangeDigests);
-        const key = await crypto.subtle.importKey('raw',Uint8Array.from(c.host_meter_key),'Ed25519',false,['verify']);
-        assert(await crypto.subtle.verify('Ed25519',key,Uint8Array.from(receipt.host_signature),await lapSigningDigest(receipt)));
-        await save(c.run + '/model-output.json',{tokens,receipt,range_digests:rangeDigests});
         await packet(socket,{type:'lap',request_id:request.request_id,receipt:Array.from(lapReceiptBytes(receipt)),tokens});
         await packet(socket,{type:'done',request_id:request.request_id,reason:'length'}); socket.end();
       });
@@ -543,6 +744,135 @@ func proof(p merkle.Proof) map[string]any {
 '''
 
 
+CANARY_CONSENT = r'''
+use std::io::{Read, Write};
+use layerx_programs_ai_market as market;
+use market::types::{MetadataDigest, PrincipalId, PublicKey32, WorkerId};
+
+fn take<const N: usize>(input: &[u8], offset: &mut usize) -> Result<[u8; N], String> {
+    let end = offset.checked_add(N).ok_or("consent input length")?;
+    let value = input.get(*offset..end).ok_or("consent input fields")?;
+    *offset = end;
+    value.try_into().map_err(|_| "consent input field".to_owned())
+}
+
+fn run() -> Result<(), String> {
+    let mode = std::env::args().nth(1).ok_or("consent mode")?;
+    let mut input = Vec::new();
+    std::io::stdin().read_to_end(&mut input).map_err(|e| e.to_string())?;
+    let mut at = 0;
+    if mode == "proposal-lifetime" {
+        std::io::stdout().write_all(&market::workers::DEFAULT_PROPOSAL_LIFETIME.to_be_bytes())
+            .map_err(|e| e.to_string())?;
+    } else if mode == "owner-sequence" {
+        let shared = market::state::decode_shared_state(&input)
+            .map_err(|e| format!("{e:?}"))?;
+        let actor = shared.control.replay.actor(market::state::ActorSlot::OWNER)
+            .ok_or("owner replay actor")?;
+        let sequence = actor.last.map_or(Ok(1), |last|
+            last.sequence.checked_add(1).ok_or("owner sequence overflow"))?;
+        std::io::stdout().write_all(&sequence.to_be_bytes()).map_err(|e| e.to_string())?;
+    } else if mode == "digest" {
+        let size = u32::from_be_bytes(take::<4>(&input, &mut at)?) as usize;
+        if size > 1_048_576 { return Err("consent state bound".into()); }
+        let end = at.checked_add(size).ok_or("consent state length")?;
+        let state = input.get(at..end).ok_or("consent state bytes")?;
+        at = end;
+        let worker = WorkerId::new(take::<32>(&input, &mut at)?)
+            .map_err(|e| format!("{e:?}"))?;
+        let owner = PrincipalId::new(take::<32>(&input, &mut at)?)
+            .map_err(|e| format!("{e:?}"))?;
+        let delegate = PublicKey32(take::<32>(&input, &mut at)?);
+        let metadata = MetadataDigest::new(take::<32>(&input, &mut at)?)
+            .map_err(|e| format!("{e:?}"))?;
+        let expiry = u64::from_be_bytes(take::<8>(&input, &mut at)?);
+        if at != input.len() { return Err("consent trailing input".into()); }
+        let shared = market::state::decode_shared_state(state)
+            .map_err(|e| format!("{e:?}"))?;
+        let policy = market::registry_ops::PolicySection::decode(
+            shared.section(market::state::Section::PolicyLifecycle)
+                .map_err(|e| format!("{e:?}"))?)
+            .map_err(|e| format!("{e:?}"))?;
+        let digest = market::workers::consent_digest(&policy.header, worker, owner,
+            delegate, 1, 1, metadata, expiry).map_err(|e| format!("{e:?}"))?;
+        std::io::stdout().write_all(digest.as_bytes()).map_err(|e| e.to_string())?;
+    } else if mode == "payload" {
+        let worker = take::<32>(&input, &mut at)?;
+        let metadata = take::<32>(&input, &mut at)?;
+        let signature = take::<64>(&input, &mut at)?;
+        if at != input.len() { return Err("consent trailing input".into()); }
+        let mut payload = [0; 144];
+        let mut writer = market::codec::Writer::new(&mut payload);
+        writer.put(&worker).map_err(|e| format!("{e:?}"))?;
+        writer.u64(1).map_err(|e| format!("{e:?}"))?;
+        writer.u64(1).map_err(|e| format!("{e:?}"))?;
+        writer.put(&metadata).map_err(|e| format!("{e:?}"))?;
+        writer.put(&signature).map_err(|e| format!("{e:?}"))?;
+        if writer.len() != payload.len() { return Err("consent payload length".into()); }
+        std::io::stdout().write_all(&payload).map_err(|e| e.to_string())?;
+    } else { return Err("consent mode".into()); }
+    Ok(())
+}
+
+fn main() {
+    if let Err(error) = run() {
+        eprintln!("{error}");
+        std::process::exit(1);
+    }
+}
+'''
+
+
+CANARY_HOST_ENROL = r'''
+use std::{io::Read, path::Path, time::Duration};
+use layerx_agentd::finality::inference_enrol::{EnrolmentRelay, SignedManifest};
+use layerx_client::{ai_market::{market_envelope, market_program, OperationJournal, OperationRecord},
+                    sequencer::SequencerEndpoint};
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let mut input = String::new();
+    std::io::stdin().read_to_string(&mut input)?;
+    let config: serde_json::Value = serde_json::from_str(&input)?;
+    let text = |name: &str| config[name].as_str().ok_or("host enrolment setting");
+    let document: serde_json::Value = serde_json::from_slice(&std::fs::read(text("document")?)?)?;
+    let bytes = |name: &str| -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let value = document[name].as_str().ok_or("host enrolment record")?;
+        let value = value.strip_prefix("0x").unwrap_or(value);
+        if value.len() % 2 != 0 { return Err("host enrolment hex length".into()); }
+        (0..value.len()).step_by(2).map(|at|
+            u8::from_str_radix(&value[at..at+2], 16).map_err(Into::into)).collect()
+    };
+    let expiry = document["expiry"].as_u64().ok_or("host enrolment expiry")?;
+    let record = |name: &str| -> Result<OperationRecord, Box<dyn std::error::Error>> {
+        let raw = bytes(name)?;
+        let first = OperationRecord::from_signed_transaction(raw.clone(), [0;32], expiry)
+            .map_err(|e| format!("{e:?}"))?;
+        let packed = market_envelope(&first).map_err(|e| format!("{e:?}"))?;
+        let digest = market_program::codec::decode_envelope(&packed)
+            .and_then(|envelope| envelope.request_digest()).map_err(|e| format!("{e:?}"))?.bytes();
+        OperationRecord::from_signed_transaction(raw, digest, expiry)
+            .map_err(|e| format!("{e:?}").into())
+    };
+    let mut manifest = SignedManifest {manifest:bytes("manifest_v2")?, proposal:record("enroll")?,
+        acceptance:record("accept")?, publication:record("publish")?};
+    let ca = std::fs::read(text("ca")?)?;
+    let endpoint = SequencerEndpoint::new(text("endpoint")?, &[&ca]).map_err(|e| format!("{e:?}"))?;
+    let keys = endpoint.receipt_keys().map_err(|e| format!("{e:?}"))?;
+    let journal = OperationJournal::open(Path::new(text("journal")?)).map_err(|e| format!("{e:?}"))?;
+    manifest.validate()?;
+    let relay = EnrolmentRelay {endpoint:&endpoint, journal:&journal, receipt_keys:&keys,
+        timeout:Duration::from_secs(30)};
+    relay.submit_and_accept(&mut manifest.proposal)?;
+    relay.submit_and_accept(&mut manifest.acceptance)?;
+    println!("host identity accepted");
+    Ok(())
+}
+fn main() {
+    if let Err(error) = run() { eprintln!("{error}"); std::process::exit(1); }
+}
+'''
+
+
 def fingerprint():
     paths = ('apps/inference-peer', 'services/agent/crates', 'services/agent/Cargo.toml',
              'services/agent/Cargo.lock', 'services/platform/hosted',
@@ -603,6 +933,28 @@ def build():
     with os.fdopen(descriptor, 'w') as stream:
         stream.write(NATIVE.replace('@PEER@', (ROOT / 'apps/inference-peer').as_uri()))
     encoder = Path(metadata['target_directory']) / 'debug/examples/inference_room_writes'
+    consent_source = directory / 'canary-consent.rs'
+    protected_bytes(consent_source, CANARY_CONSENT.encode())
+    consent_encoder = directory / 'canary-consent'
+    dependencies = Path(metadata['target_directory']) / 'debug/deps'
+    market_library = dependencies / 'liblayerx_programs_ai_market.rlib'
+    host_source = directory / 'canary-host-enrol.rs'
+    protected_bytes(host_source, CANARY_HOST_ENROL.encode())
+    host_encoder = directory / 'canary-host-enrol'
+    agent_library = max(dependencies.glob('liblayerx_agentd-*.rlib'), key=lambda path: path.stat().st_mtime_ns)
+    cargo_fingerprints = dependencies.parent / '.fingerprint'
+    agent_tag = agent_library.stem.removeprefix('liblayerx_agentd-')
+    linked = json.loads((cargo_fingerprints / ('layerx-agentd-' + agent_tag)
+                         / 'lib-layerx_agentd.json').read_text())['deps']
+    host_libraries = ['--extern', 'layerx_agentd=' + str(agent_library)]
+    for package, crate in (('layerx-client', 'layerx_client'), ('serde_json', 'serde_json')):
+        expected, = [row[3] for row in linked if row[1] == crate]
+        matches = [path for path in cargo_fingerprints.glob(package + '-*/lib-' + crate)
+                   if int.from_bytes(bytes.fromhex(path.read_text().strip()), 'little') == expected]
+        require(len(matches) == 1, 'one native host dependency instance')
+        tag = matches[0].parent.name.removeprefix(package + '-')
+        host_libraries.extend(['--extern', crate + '=' + str(dependencies / ('lib' + crate + '-' + tag + '.rlib'))])
+
     platform = json.loads(envelope.capture(['cargo', 'metadata', '--locked', '--no-deps',
                                             '--format-version=1', '--manifest-path', 'services/platform/Cargo.toml']))
     platform_target = Path(platform['target_directory']) / 'debug'
@@ -636,8 +988,13 @@ def build():
     require(paxd is not None, 'native paxd prerequisite executable missing')
     paxd = Path(paxd).resolve(strict=True)
     commands = [
+        ['rustc', '--edition=2021', '-L', 'dependency=' + str(dependencies),
+         *host_libraries, str(host_source), '-o', str(host_encoder)],
         ['cargo', 'build', '--locked', '--manifest-path', 'services/agent/Cargo.toml',
          '-p', 'layerx-client', '--example', 'inference_room_writes'],
+        ['rustc', '--edition=2021', '-L', 'dependency=' + str(dependencies),
+         '--extern', 'layerx_programs_ai_market=' + str(market_library),
+         str(consent_source), '-o', str(consent_encoder)],
         ['cargo', 'build', '--locked', '--manifest-path', 'services/platform/Cargo.toml',
          '-p', 'layerx-indexer', '--bin', 'layerx-indexer', '--bin', 'layerx-ai-source'],
         ['cargo', 'build', '--locked', '--manifest-path', 'services/platform/Cargo.toml',
@@ -659,13 +1016,14 @@ def build():
             require(result.returncode == 0, 'room producer build failed; inspect ' + str(directory / 'build.log'))
     for index, name in enumerate(name for name in OWN if name.endswith('.py')):
         py_compile.compile(str(ROOT / name), cfile=str(directory / (str(index) + '.pyc')), doraise=True)
-    artifacts = [agent, encoder, paxd, *map(Path, support.values()), ROOT / 'build/liblayerx.a', native,
+    artifacts = [agent, encoder, consent_source, consent_encoder, host_source, host_encoder, paxd, *map(Path, support.values()), ROOT / 'build/liblayerx.a', native,
                  ROOT / 'programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex',
                  *sorted((directory / 'model').iterdir())]
     require(start['source_digest'] == fingerprint(), 'room sources changed during artifact production')
     save(directory / 'manifest.json', {**start, 'commands': commands,
                                       'artifacts': [envelope.record(path) for path in artifacts],
                                       'agent': str(agent), 'native': str(native), 'encoder': str(encoder),
+                                      'consent_encoder': str(consent_encoder), 'host_encoder': str(host_encoder),
                                       'support': support,
                                       'paxd': {**envelope.record(paxd),
                                                'source_revision': start['source_revision']}})
@@ -703,6 +1061,105 @@ def protected_bytes(path, value):
         stream.write(value)
         stream.flush()
         os.fsync(stream.fileno())
+
+
+def replace_private_json(path, document):
+    temporary = path.with_name(path.name + '.' + uuid.uuid4().hex)
+    save(temporary, document)
+    temporary.replace(path)
+
+
+def select_canary_peer(config, directory):
+    identity = hashlib.sha256()
+    identity.update(b'PAXAI/inference-deal-id/v1\0')
+    for value in (config['market_id'], config['room']['room_id'], config['ask_id']):
+        identity.update(bytes.fromhex(value))
+    identity.update((1).to_bytes(8, 'big'))
+    for peer in config['peers']:
+        identity.update(bytes.fromhex(peer['bid_id']))
+    deal_id = identity.digest()
+    def sample(key, domain, bound):
+        ceiling = (2**64 - 1) - (2**64 - 1) % bound
+        for counter in range(100):
+            digest = hashlib.sha256(b'PAXAI/canary-position/v1\0' + key + domain
+                                    + counter.to_bytes(8, 'big')).digest()
+            value = int.from_bytes(digest[:8], 'big')
+            if value < ceiling:
+                return value % bound
+        raise RuntimeError('canary sampling counter bound')
+    for _ in range(100):
+        seed = os.urandom(32)
+        signer = envelope.Ed25519PrivateKey.from_private_bytes(seed)
+        digest = hashlib.sha256(b'PAXAI/canary-sampling/v1\0' + deal_id
+                                + (0).to_bytes(8, 'big')).digest()
+        key = hashlib.sha256(signer.sign(digest)).digest()
+        if sample(key, b'peer', 2) == 1 and sample(key, b'position', 4) == 0:
+            target = Path(directory) / 'keys/host-meter.ed25519'
+            temporary = target.with_name(target.name + '.' + uuid.uuid4().hex)
+            protected_bytes(temporary, seed)
+            temporary.replace(target)
+            config['host_meter_key'] = signer.public_key().public_bytes(
+                envelope.Encoding.Raw, envelope.PublicFormat.Raw).hex()
+            config['canary_deal_id'] = deal_id.hex()
+            replace_private_json(Path(directory) / 'configuration.json', config)
+            return
+    raise RuntimeError('canary peer selection bound')
+
+
+def canary_host_capabilities():
+    cards = [path for path in Path('/sys/class/drm').glob('card[0-9]*')
+             if path.name[4:].isdigit()]
+    require(not cards, 'scripted CPU host requires no accelerator device')
+    memory = Path('/proc/meminfo').read_text().splitlines()
+    total = next(int(line.split()[1]) * 1024 for line in memory if line.startswith('MemTotal:'))
+    for path in ('/sys/fs/cgroup/memory.max', '/sys/fs/cgroup/memory/memory.limit_in_bytes'):
+        limit = Path(path)
+        if limit.is_file() and limit.read_text().strip() != 'max':
+            total = min(total, int(limit.read_text().strip()))
+    return {'accelerator_memory_mib': 0, 'system_memory_mib': total // 1_048_576,
+            'bandwidth_class': 1, 'region_code': 'ZZ', 'attestation_family': 0,
+            'runtime_kind': 2}
+
+
+def canary_host_identity(config, directory, manifest):
+    keys = Path(directory) / 'keys'
+    seed = os.urandom(64)
+    derived = accounts.derive_from_seed(seed)
+    require(derived.evm_private_key is not None, 'native host worker signer')
+    secret, delegate, identity = (keys / ('host-worker.' + suffix)
+                                  for suffix in ('secp256k1', 'ed25519', 'pkcs8'))
+    protected_bytes(secret, derived.evm_private_key.hex().encode())
+    protected_bytes(delegate, derived.layerx_seed)
+    key = envelope.Ed25519PrivateKey.from_private_bytes(derived.layerx_seed)
+    protected_bytes(identity, key.private_bytes(envelope.Encoding.DER, PrivateFormat.PKCS8,
+                                               NoEncryption()))
+    identifiers = encoded(manifest, 'Identity', {'did': derived.did,
+                                                'public_key': derived.layerx_public_key})
+    config['accounts']['host_worker'] = {**identifiers, 'address': derived.evm_address.lower(),
+        'did': derived.did, 'peer_key': derived.layerx_public_key, 'secret': str(secret),
+        'delegate_seed': str(delegate), 'identity': str(identity)}
+
+
+def canary_acceptance_payload(manifest, state, peer, expiry):
+    worker = bytes.fromhex(peer['worker'])
+    metadata = bytes.fromhex(peer['metadata_digest'])
+    fields = (worker + bytes.fromhex(peer['owner']) + bytes.fromhex(peer['peer_key'])
+              + metadata + expiry.to_bytes(8, 'big'))
+    state_bytes = bytes.fromhex(state)
+    require(len(state_bytes) <= 1_048_576, 'bounded enrolment consent state')
+    digest = subprocess.run([manifest['consent_encoder'], 'digest'],
+                            input=len(state_bytes).to_bytes(4, 'big') + state_bytes + fields,
+                            capture_output=True, timeout=30)
+    require(digest.returncode == 0 and len(digest.stdout) == 32,
+            'product worker consent digest')
+    key = envelope.Ed25519PrivateKey.from_private_bytes(
+        Path(peer['delegate_seed']).read_bytes())
+    payload = subprocess.run([manifest['consent_encoder'], 'payload'],
+                             input=worker + metadata + key.sign(digest.stdout),
+                             capture_output=True, timeout=30)
+    require(payload.returncode == 0 and len(payload.stdout) == 144,
+            'product enrolment acceptance payload')
+    return {'selector': 0x0209, 'payload': payload.stdout.hex()}
 
 
 class RoomCustody:
@@ -1062,12 +1519,20 @@ class GeneratedRoomWrites:
                 'generated signed write belongs to its funded account')
         return row
 
-    def submit(self, name, account, target, data, phase=None, value=0):
+    def submit(self, name, account, target, data, phase=None, value=0, window=None):
         row = self.signed(account, target, data, value)
         save(self.driver.directory / ('prepared-' + name + '.json'), row)
         if phase is not None:
             self.config['writes'][phase].append(row)
+        if window is not None:
+            start, end = window
+            self.runtime.wait(lambda: int(self.runtime.rpc.request('eth_blockNumber', []), 16) >= start)
+            height = int(self.runtime.rpc.request('eth_blockNumber', []), 16)
+            require(start <= height and height + 1 < end, 'market submission inside its commit window')
         receipt = self.runtime.recorded_submit(name, row['raw'])
+        if window is not None:
+            require(start <= int(receipt['blockNumber'], 16) < end,
+                    'market inclusion inside its commit window')
         self.driver.last_write_height = int(receipt['blockNumber'], 16)
         require(receipt['transactionHash'] == '0x' + keccak256(bytes.fromhex(row['raw'][2:])).hex(),
                 'native receipt differs from the generated signed write')
@@ -1173,7 +1638,7 @@ class GeneratedRoomWrites:
               'get_program': program_read})
 
     def operation(self, name, parameters, account, state=None, phase=None, delegate=False,
-                  payload=None, frozen=None):
+                  payload=None, frozen=None, window=None):
         version, ceiling, asset = self.view(PROGRAMS, 'quoteCallFee', ['uint64[7]'],
                                             [RESOURCES], ['uint32', 'uint128', 'bytes32'])
         require(version > 0 and asset.hex() == self.config['asset'],
@@ -1252,7 +1717,7 @@ class GeneratedRoomWrites:
         call = encoded(self.driver.manifest, 'NativeCall', call_terms)
         try:
             return self.submit(name.lower() + '-' + request['request'][:12], account,
-                               '0x' + call['to'], bytes.fromhex(call['payload']), phase)
+                               '0x' + call['to'], bytes.fromhex(call['payload']), phase, window=window)
         except RuntimeError:
             native = decode_native_program_call(bytes.fromhex(call['native_call']))
             simulation = encode_call('simulateCall',
@@ -1551,6 +2016,358 @@ class InferenceRoomDriver:
         self.runtime.config["inference_reader"] = config["accounts"]["host"]["address"]
         self.processes = envelope.ParticipantProcesses(self.directory)
         self.results = []
+
+    def sign_canary_operation(self, account, target, data, nonce):
+        require(self.runtime.rpc.request('eth_chainId', []) == '0x7d', 'owned canary chain')
+        price = int(self.runtime.rpc.request('eth_gasPrice', []), 16)
+        transaction = Type2Transaction(125, nonce, 0, price * 2, 20_000_000,
+            bytes.fromhex(target.removeprefix('0x')), 0, data)
+        raw = sign_transaction(int(Path(account['secret']).read_text().strip(), 16), transaction)
+        decoded, signature = decode_signed(raw)
+        require(decoded.recover_signer(signature).lower() == account['address'],
+                'canary enrolment signed by its funded owner')
+        return '0x' + raw.hex()
+
+    def advance_canary_epoch(self, generated):
+        host = self.config['accounts']['host']
+        journey = encoded(self.manifest, 'EpochJourney', {'state': generated.snapshot()['state']})
+        self.runtime.wait(lambda: int(self.runtime.rpc.request('eth_blockNumber', []), 16)
+                          >= journey['settlement_height'], seconds=300)
+        generated.operation('SEAL_TASK_SET', {}, host, generated.snapshot()['state'], 'open_market')
+        generated.operation('BeginAggregation', {}, host, generated.snapshot()['state'], 'open_market')
+        for _ in range(32):
+            state = generated.snapshot()['state']
+            progress = encoded(self.manifest, 'AggregationProgress', {'state': state})
+            if progress['cursor'] == progress['workers']:
+                break
+            generated.operation('ProcessAggregation', {}, host, state, 'open_market')
+        else:
+            require(False, 'bootstrap aggregation did not cover its bounded worker roster')
+        for _ in range(32):
+            state = generated.snapshot()['state']
+            progress = encoded(self.manifest, 'AggregationProgress', {'state': state})
+            if progress['phase'] == 2:
+                break
+            generated.operation('FinalizeAggregation', {}, host, state, 'open_market')
+        else:
+            require(False, 'bootstrap aggregation did not reach its terminal phase')
+        self.runtime.wait(lambda: int(self.runtime.rpc.request('eth_blockNumber', []), 16)
+                          >= journey['next_epoch_height'], seconds=300)
+        generated.open_room()
+        generated.open_epoch()
+
+    def setup_canary_room(self, generated):
+        self.enrol_canary_evaluators(generated, range(3))
+        generated.fund_market()
+        state = generated.snapshot()
+        activation = state['info']['revision'].to_bytes(8, 'big') + (1).to_bytes(8, 'big')
+        generated.operation('SCHEDULE_ACTIVATION', {}, self.config['accounts']['host'],
+                            state['state'], payload=activation.hex())
+        self.materialize()
+        self.prepare_canary_enrolments(('host',))
+        for sock in self.ports:
+            sock.close()
+        self.processes.start('host', ['node', self.manifest['native'], 'host', self.native_config], self.runtime.env)
+        self.processes.wait(lambda: (self.directory / 'host-ready.json').exists())
+        self.start_canary_rpc()
+        with (self.directory / 'host-identity-enrol.log').open('xb') as log:
+            result = subprocess.run([self.manifest['host_encoder']], input=json.dumps({
+                'document': str(self.directory / 'host-enrolment-document.json'),
+                'endpoint': self.agent_env['LAYERX_AGENT_NODE_ENDPOINT'], 'ca': str(self.ca.ca_der),
+                'journal': str(self.directory / 'enrolment-journal')}).encode(),
+                env=self.runtime.env, cwd=ROOT, stdout=log, stderr=log, timeout=120)
+        require(result.returncode == 0, 'native host identity enrolment')
+        self.observe_canary_enrolment('host', ('enroll', 'accept'))
+        generated.operation('ApproveAdmission', {**self.canary_host_peer, 'kind': 'worker'},
+                            self.config['accounts']['host'], generated.snapshot()['state'])
+        generated.operation('AdmitWorker', self.canary_host_peer, self.canary_host_peer,
+                            generated.snapshot()['state'])
+        generated.open_epoch()
+        generated.open_room()
+        self.prepare_canary_enrolments(('host',), quotes_only=True)
+        self.processes.start('agentd', [self.manifest['support']['layerx-runtime-clock'],
+                                      '--', self.manifest['agent']], self.agent_env)
+        self.processes.wait(lambda: http_json(self.native['completion_url'] + '/healthz')[0] == 200)
+        self.prepare_canary_enrolments(('peer0', 'peer1'))
+        self.observe_canary_enrolment('host', ('publish', 'lock_bond', 'post_bid'))
+        for index in range(2):
+            path = self.directory / ('peer' + str(index) + '-enrol.log')
+            with path.open('xb') as log:
+                result = subprocess.run(['node', self.manifest['native'], 'enrol', self.native_config, str(index)],
+                    env=self.runtime.env, cwd=ROOT, stdout=log, stderr=log, timeout=120)
+            require(result.returncode == 0, 'native peer enrolment refused; inspect ' + str(path))
+            self.observe_canary_enrolment('peer' + str(index))
+        peer_epoch = self.admit_canary_peers(generated)
+        self.advance_canary_epoch(generated)
+        require(generated.snapshot()['info']['admission_epoch'] == peer_epoch,
+                'canary peers must join the opened epoch')
+        opened = decode_envelope(generated.last_envelope)
+        state = generated.snapshot()
+        activation = state['info']['revision'].to_bytes(8, 'big') + (1).to_bytes(8, 'big')
+        generated.operation('ADVANCE_ACTIVATION', {}, self.config['accounts']['host'],
+                            state['state'], payload=activation.hex(),
+                            frozen={'epoch': opened.epoch, 'config': opened.config,
+                                    'roster_digest': opened.roster})
+        self.prepare_canary_enrolments(('peer0', 'peer1'), quotes_only=True)
+        for index in range(2):
+            path = self.directory / ('peer' + str(index) + '-epoch-quotes.log')
+            with path.open('xb') as log:
+                result = subprocess.run(['node', self.manifest['native'], 'enrol', self.native_config, str(index)],
+                    env=self.runtime.env, cwd=ROOT, stdout=log, stderr=log, timeout=120)
+            require(result.returncode == 0, 'native peer epoch quotes refused; inspect ' + str(path))
+            self.observe_canary_enrolment('peer' + str(index), ('lock_bond', 'post_bid'))
+        generated.observe_peers()
+
+    def admit_canary_peers(self, generated):
+        host = self.config['accounts']['host']
+        state = generated.snapshot()['state']
+        height = int(self.runtime.rpc.request('eth_blockNumber', []), 16)
+        info = encoded(self.manifest, 'StateInfo', {'state': state, 'height': height})
+        boundary = info['origin_height'] + (info['epoch'] + 1) * 128
+        if boundary - height < 16:
+            self.runtime.wait(lambda: int(self.runtime.rpc.request('eth_blockNumber', []), 16)
+                              >= boundary)
+            height = int(self.runtime.rpc.request('eth_blockNumber', []), 16)
+            info = encoded(self.manifest, 'StateInfo', {'state': state, 'height': height})
+        admission_epoch = info['epoch']
+        for operation in ('ApproveAdmission', 'AdmitWorker'):
+            state = generated.snapshot()['state']
+            height = int(self.runtime.rpc.request('eth_blockNumber', []), 16)
+            info = encoded(self.manifest, 'StateInfo', {'state': state, 'height': height})
+            require(info['epoch'] == admission_epoch,
+                    'peer approval and admission use one clock epoch')
+            owner = subprocess.run([self.manifest['consent_encoder'], 'owner-sequence'],
+                input=bytes.fromhex(state), capture_output=True, timeout=30)
+            require(owner.returncode == 0 and len(owner.stdout) == 8, 'native owner replay sequence')
+            owner_sequence = int.from_bytes(owner.stdout, 'big')
+            nonces = {}
+            for index, peer in enumerate(self.config['peers']):
+                account = host if operation == 'ApproveAdmission' else peer
+                request = os.urandom(32).hex()
+                payload = encoded(self.manifest, operation, {**peer, 'kind': 'worker',
+                    'state': state, 'height': height, 'request': request})['payload']
+                sequence = owner_sequence + index if operation == 'ApproveAdmission' else info['actors'][peer['principal']]
+                packed = encoded(self.manifest, 'Envelope', {'operation': operation,
+                    'payload': payload, 'program': self.config['program'],
+                    'actor': account['principal'], 'state': state, 'height': height + 1,
+                    'expiry': height + 256, 'request': request, 'sequence': sequence})['payload']
+                call = encoded(self.manifest, 'NativeCall', {'operation': operation,
+                    'program': self.config['program'], 'actor': account['principal'],
+                    'payload': packed, 'resources': RESOURCES,
+                    'fee_limit': str(self.config['owner_fee_limit'] if account is host else self.config['execution_fee_limit'])})
+                address = account['address']
+                if address not in nonces:
+                    nonces[address] = int(self.runtime.rpc.request('eth_getTransactionCount', [address, 'latest']), 16)
+                raw = self.sign_canary_operation(account, '0x' + call['to'], bytes.fromhex(call['payload']), nonces[address])
+                nonces[address] += 1
+                identifier = self.runtime.rpc.request('eth_sendRawTransaction', [raw])
+                require(identifier == '0x' + keccak256(bytes.fromhex(raw[2:])).hex(), 'signed native admission transaction')
+                receipt = self.processes.wait(lambda: self.runtime.rpc.request('eth_getTransactionReceipt', [identifier]))
+                require(receipt['status'] == '0x1', 'committed native peer admission ' + operation)
+                self.last_write_height = max(self.last_write_height, int(receipt['blockNumber'], 16))
+                save(self.directory / ('peer-admission-' + identifier[2:] + '.json'),
+                    {'operation': operation, 'raw': raw, 'receipt': receipt})
+        return admission_epoch + 1
+
+    def fund_canary_ask(self, generated):
+        host = self.config['accounts']['host']
+        market = encoded(self.manifest, 'CreateMarket', {
+            'program': self.config['program'], 'owner': host['principal'],
+            'asset': self.config['asset'], 'refund': host['main_account'],
+            'model_digest': self.config['model_digest'],
+            'commitment_digest': self.config['commitment_digest'],
+            'epoch_budget_cap': '1000000', 'minimum_epoch_funding': '1'})
+        self.config.update(market_id=market['market'], rewards=market['rewards'])
+        select_canary_peer(self.config, self.directory)
+        account = self.config['accounts']['asker']
+        require(int(self.config['price']) % 1000 == 0, 'exact integer per-token ask rate required')
+        generated.submit('fund-canary-ask-stream', account, PAY,
+            encode_call('streamOpenForAsk',
+                ['bytes32', 'address', 'uint256', 'uint8', 'uint256', 'bytes32'],
+                [bytes.fromhex(self.config['ask_id']),
+                 bytes.fromhex(self.config['accounts']['host']['address'][2:]),
+                 int(self.config['price']) // 1000, 1, 1000000,
+                 bytes.fromhex(self.config['host_meter_key'])]), 'fund_ask_stream')
+        stream, = generated.view(PAY, 'askStreamOf', ['bytes32'],
+            [bytes.fromhex(self.config['ask_id'])], ['bytes32'])
+        stream_id = int.from_bytes(stream, 'big')
+        require(0 < stream_id < 1 << 128, 'native canary ask stream identifier')
+        self.config['stream_id'] = str(stream_id)
+        save(self.directory / 'ask-stream.json', {'ask': self.config['ask_id'], 'stream': stream.hex()})
+
+    def start_canary_rpc(self):
+        sock, = reserve_ports(1)
+        port = sock.getsockname()[1]
+        path = self.directory / 'canary-rpc.json'
+        save(path, {'port': port, 'canary_enrolments': str(self.directory),
+                    'canary_chain_rpc': self.runtime.rpc_url})
+        sock.close()
+        self.processes.start('canary-rpc', [sys.executable, str(Path(__file__).resolve()),
+                                          '--canary-rpc', str(path)], self.runtime.env)
+        self.processes.wait(lambda: http_json('http://127.0.0.1:' + str(port), 'POST',
+            {'jsonrpc': '2.0', 'id': 1, 'method': 'eth_chainId', 'params': []})[1].get('result') == '0x7d')
+        self.agent_env['LAYERX_AGENT_NODE_ENDPOINT'] = 'http://127.0.0.1:' + str(port)
+
+    def enrol_canary_evaluators(self, generated, indices):
+        host = self.config['accounts']['host']
+        for index in indices:
+            evaluator = self.config['accounts']['evidence' + str(index)]
+            terms = {**evaluator, 'kind': 'evaluator', 'nonce': os.urandom(32).hex(),
+                     'delegate_seed': Path(evaluator['delegate_seed']).read_bytes().hex()}
+            generated.operation('ScheduleEvaluator', terms, host, generated.snapshot()['state'])
+            generated.operation('ApproveAdmission', terms, host, generated.snapshot()['state'])
+            generated.operation('AdmitEvaluator', terms, evaluator, generated.snapshot()['state'])
+
+    def observe_canary_enrolment(self, name, operations=('enroll', 'accept', 'publish', 'lock_bond', 'post_bid')):
+        document = load(self.directory / (name + '-enrolment-document.json'), 'signed canary enrolment')
+        for operation in operations:
+            identifier = '0x' + keccak256(bytes.fromhex(document[operation][2:])).hex()
+            receipt = self.processes.wait(lambda: self.runtime.rpc.request(
+                'eth_getTransactionReceipt', [identifier]))
+            require(receipt['status'] == '0x1', 'committed canary enrolment ' + operation)
+            self.last_write_height = int(receipt['blockNumber'], 16)
+            save(self.directory / (name + '-committed-' + operation + '-' + identifier[2:] + '.json'), receipt)
+
+    def prepare_canary_enrolments(self, names, quotes_only=False):
+        writer = GeneratedRoomWrites(self)
+        state = writer.snapshot()['state']
+        height = int(self.runtime.rpc.request('eth_blockNumber', []), 16)
+        info = encoded(self.manifest, 'StateInfo', {'state': state, 'height': height})
+        host = self.config['accounts']['host']
+        sequence = subprocess.run([self.manifest['consent_encoder'], 'owner-sequence'],
+            input=bytes.fromhex(state), capture_output=True, timeout=30)
+        require(sequence.returncode == 0 and len(sequence.stdout) == 8, 'native owner replay sequence')
+        host_sequence = int.from_bytes(sequence.stdout, 'big')
+        next_nonce = {account['address']: int(self.runtime.rpc.request(
+            'eth_getTransactionCount', [account['address'], 'latest']), 16)
+            for account in self.config['accounts'].values()}
+        host_worker = self.config['accounts']['host_worker']
+        candidates = [('host', {**host_worker, 'owner': host_worker['principal'],
+                                 'nonce': os.urandom(32).hex(), 'bid_id': os.urandom(32).hex()})]
+        candidates.extend(('peer' + str(index), peer) for index, peer in enumerate(self.config['peers']))
+        for name, peer in candidates:
+            if name not in names:
+                continue
+            if name == 'host':
+                if quotes_only:
+                    peer = self.canary_host_peer
+                else:
+                    self.canary_host_peer = peer
+            worker = encoded(self.manifest, 'DeriveWorker', {
+                'market': self.config['market_id'], 'owner': peer['owner'], 'nonce': peer['nonce']})
+            peer.update(worker)
+            manifest = encoded(self.manifest, 'Manifest', {
+                **self.config, **peer, 'market': self.config['market_id'],
+                'valid_from': height, 'expiry': height + 256,
+                'runtime_digest': self.config['room']['runtime_digest'],
+                'endpoint': 'https://room-peer.example/paxai/v1',
+                **(canary_host_capabilities() if name == 'host' else {
+                    'accelerator_memory_mib': 0,
+                    'system_memory_mib': 1024 if name == 'peer0' else 512,
+                    'bandwidth_class': 4, 'region_code': 'ZZ', 'attestation_family': 0,
+                    'runtime_kind': 2})})
+            if not quotes_only:
+                peer['metadata_digest'] = manifest['metadata_digest']
+            if name != 'host' and not quotes_only:
+                protected_bytes(Path(peer['manifest']), bytes.fromhex(manifest['manifest_v2']))
+            retained = load(self.directory / (name + '-enrolment-document.json'), 'signed enrolment') if quotes_only else None
+            if retained is not None:
+                manifest = {key: retained[key] for key in ('manifest_v1', 'manifest_v2')}
+            lifetime = subprocess.run([self.manifest['consent_encoder'], 'proposal-lifetime'],
+                capture_output=True, timeout=30)
+            require(lifetime.returncode == 0 and len(lifetime.stdout) == 8, 'native proposal lifetime')
+            expiry = retained['expiry'] if retained is not None else height + int.from_bytes(lifetime.stdout, 'big')
+            def signed_operation(operation, parameters, signer, sequence, delegate=False,
+                                 operation_bytes=None):
+                if operation_bytes is None:
+                    operation_bytes = encoded(self.manifest, operation, parameters)
+                request = os.urandom(32).hex()
+                market_envelope = PaxaiEnvelope(
+                    selector=operation_bytes['selector'],
+                    chain=bytes.fromhex(self.support['chain']),
+                    program=bytes.fromhex(self.config['program']),
+                    market=bytes.fromhex(self.config['market_id']),
+                    actor=bytes.fromhex(signer['principal']),
+                    epoch=info['epoch'], config=info['config'],
+                    roster=None if info['admission_epoch'] is None else bytes.fromhex(info['roster']), sequence=sequence,
+                    expiry=expiry, request=bytes.fromhex(request),
+                    payload=bytes.fromhex(operation_bytes['payload']))
+                if delegate:
+                    key = envelope.Ed25519PrivateKey.from_private_bytes(
+                        Path(signer['delegate_seed']).read_bytes())
+                    market_envelope = replace(market_envelope, delegate=(
+                        key.public_key().public_bytes(envelope.Encoding.Raw, envelope.PublicFormat.Raw),
+                        key.sign(market_envelope.request_digest())))
+                if operation in ('LockBond', 'PostBid'):
+                    terms = {'operation': operation, 'payload': operation_bytes['payload'],
+                        'program': self.config['program'], 'actor': signer['principal'],
+                        'height': height, 'expiry': expiry, 'request': request, 'sequence': sequence}
+                    if info['admission_epoch'] is not None:
+                        terms['state'] = state
+                    packed = encoded(self.manifest, 'Envelope', terms)['payload']
+                else:
+                    packed = market_envelope.encode().hex()
+                call_terms = {'operation': operation, 'program': self.config['program'],
+                    'actor': signer['principal'], 'payload': packed, 'resources': RESOURCES,
+                    'fee_limit': str(self.config['owner_fee_limit'] if signer['principal'] == host['principal'] else self.config['execution_fee_limit'])}
+                if operation == 'LockBond':
+                    call_terms.update(asset=self.config['asset'], rewards=self.config['rewards'],
+                                      amount=parameters['amount'])
+                call = encoded(self.manifest, 'NativeCall', call_terms)
+                nonce = next_nonce[signer['address']]
+                next_nonce[signer['address']] += 1
+                return self.sign_canary_operation(signer, '0x' + call['to'], bytes.fromhex(call['payload']), nonce)
+            if retained is None:
+                proposal = signed_operation('EnrollWorker', {
+                    **peer, 'delegate': peer['peer_key'], 'expiry': expiry}, host, host_sequence)
+                host_sequence += 1
+                peer_sequence = 1 if name == 'host' else info['actors'].get(peer['principal'], 1)
+                acceptance = signed_operation('AcceptEnrollment', peer, peer, peer_sequence,
+                    operation_bytes=canary_acceptance_payload(self.manifest, state, peer, expiry))
+                publication = signed_operation('PublishMetadata', {
+                    'manifest': manifest['manifest_v2']}, peer, peer_sequence + 1, delegate=True)
+                document = {'manifest_v1': manifest['manifest_v1'], 'manifest_v2': manifest['manifest_v2'],
+                    'enroll': proposal, 'accept': acceptance, 'publish': publication, 'expiry': expiry}
+                quote_sequence = peer_sequence + 2
+            else:
+                document = retained
+                quote_sequence = info['actors'][peer['principal']]
+                if name == 'host':
+                    document['publish'] = signed_operation('PublishMetadata', {
+                        'manifest': manifest['manifest_v2']}, peer, quote_sequence, delegate=True)
+                    quote_sequence += 1
+            if info['admission_epoch'] is not None:
+                document['lock_bond'] = signed_operation('LockBond', {**peer, **self.config['room'],
+                    'amount': self.config['room']['profile']['minimum_bond']}, peer, quote_sequence)
+                document['post_bid'] = signed_operation('PostBid', {**peer, **self.config['room'],
+                    'capability_digest': peer['metadata_digest'],
+                    'minimum_price_per_thousand_tokens': (str(int(self.config['price']) * 100)
+                        if name == 'host' else self.config['price']),
+                    'bond_amount': self.config['room']['profile']['minimum_bond'],
+                    'layer_capacity': 2}, peer, quote_sequence + 1)
+            path = self.directory / (name + '-enrolment-document.json')
+            if quotes_only:
+                replace_private_json(path, document)
+            else:
+                save(path, document)
+            if name != 'host':
+                peer['enrolment'] = str(path)
+                peer['enrolment_bid_hash'] = '0x' + keccak256(bytes.fromhex(document['post_bid'][2:])).hex()
+        self.agent_env.update(LAYERX_AGENT_INFERENCE_ENROLMENT=str(self.directory / 'host-enrolment-document.json'),
+            LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL=str(self.directory / 'enrolment-journal'),
+            LAYERX_AGENT_INFERENCE_REGION='ZZ',
+            LAYERX_AGENT_INFERENCE_ATTESTATION_FAMILY='0',
+            LAYERX_AGENT_INFERENCE_BANDWIDTH_PROBE=self.native['model_url'] + '/bandwidth')
+        (self.directory / 'enrolment-journal').mkdir(mode=0o700, exist_ok=True)
+        terms_path = self.directory / 'agent-files/deals.json'
+        terms = load(terms_path, 'native deal terms')
+        terms['laps']['canary_table_source'] = str(self.build_directory / 'model/canary.json')
+        terms['gas_limit'] = 5_000_000
+        replace_private_json(terms_path, terms)
+        self.native['proof'] = 'canary'
+        self.native['peers'] = [{**peer, 'transport_token': self.native['peers'][i]['transport_token']}
+                                for i, peer in enumerate(self.config['peers'])]
+        replace_private_json(self.native_config, self.native)
 
     def native_source(self):
         """Read the product source process, retaining its first refused response."""
@@ -1946,6 +2763,9 @@ class InferenceRoomDriver:
         self.processes.wait(published)
 
     def run(self):
+        if self.config.get('proof') == 'canary':
+            record = (ROOT / 'spec/layerx-merge/programme/records/rpc/repair_22_39_388.kvx').read_text()
+            require('without a BalanceView grant, receipt authority or anchor' in record, 'value call authority record')
         self.runtime.generate()
         self.runtime.start()
         self.runtime.readiness()
@@ -1958,31 +2778,36 @@ class InferenceRoomDriver:
         self.config['execution_fee_limit'] = ceiling + 1_000_000
         self.custody = RoomCustody(self)
         generated.deploy()
+        if self.config.get('proof') == 'canary':
+            self.fund_canary_ask(generated)
         generated.open_market()
         self.support_services()
-        generated.enrol_evaluators()
-        generated.enrol_peers(self.config['peers'][:1], publish=False)
-        generated.fund_market()
-        generated.open_epoch()
-        generated.publish_manifests(generated.pending_manifests)
-        generated.enrol_peers(self.config['peers'][1:])
-        if self.config.get('proof_mode') == 'settlement':
-            state = generated.snapshot()
-            activation = state['info']['revision'].to_bytes(8, 'big') + (1).to_bytes(8, 'big')
-            generated.operation('SCHEDULE_ACTIVATION', {}, self.config['accounts']['host'],
-                                state['state'], payload=activation.hex())
-        generated.advance_epoch()
-        if self.config.get('proof_mode') == 'settlement':
-            opened = decode_envelope(generated.last_envelope)
-            state = generated.snapshot()
-            activation = state['info']['revision'].to_bytes(8, 'big') + (1).to_bytes(8, 'big')
-            generated.operation('ADVANCE_ACTIVATION', {}, self.config['accounts']['host'],
-                                state['state'], payload=activation.hex(),
-                                frozen={'epoch': opened.epoch, 'config': opened.config,
-                                        'roster_digest': opened.roster})
-        generated.quote_peers()
-        generated.observe_peers()
-        self.materialize()
+        if self.config.get('proof') == 'canary':
+            self.setup_canary_room(generated)
+        else:
+            generated.enrol_evaluators()
+            generated.enrol_peers(self.config['peers'][:1], publish=False)
+            generated.fund_market()
+            generated.open_epoch()
+            generated.publish_manifests(generated.pending_manifests)
+            generated.enrol_peers(self.config['peers'][1:])
+            if self.config.get('proof_mode') == 'settlement':
+                state = generated.snapshot()
+                activation = state['info']['revision'].to_bytes(8, 'big') + (1).to_bytes(8, 'big')
+                generated.operation('SCHEDULE_ACTIVATION', {}, self.config['accounts']['host'],
+                                    state['state'], payload=activation.hex())
+            generated.advance_epoch()
+            if self.config.get('proof_mode') == 'settlement':
+                opened = decode_envelope(generated.last_envelope)
+                state = generated.snapshot()
+                activation = state['info']['revision'].to_bytes(8, 'big') + (1).to_bytes(8, 'big')
+                generated.operation('ADVANCE_ACTIVATION', {}, self.config['accounts']['host'],
+                                    state['state'], payload=activation.hex(),
+                                    frozen={'epoch': opened.epoch, 'config': opened.config,
+                                            'roster_digest': opened.roster})
+            generated.quote_peers()
+            generated.observe_peers()
+            self.materialize()
         room = self.runtime.rpc.request('px_getInferenceRoom', [self.config['room']['room_id']])
         profile = {key: self.config['room']['profile'][key] for key in (
             'minimum_bond', 'canary_ratio_bps', 'lap_size_tokens', 'challenge_window_blocks',
@@ -1994,27 +2819,35 @@ class InferenceRoomDriver:
                 and room['host_key'] == self.config['room']['host_peer_key']
                 and room['profile'] == profile, 'opened native room differs from profile')
         save(self.directory / 'room.json', room)
-        for sock in self.ports:
-            sock.close()
-        self.processes.start('host', ['node', self.manifest['native'], 'host', self.native_config], self.runtime.env)
-        self.processes.wait(lambda: (self.directory / 'host-ready.json').exists())
-        self.processes.start('agentd', [self.manifest['support']['layerx-runtime-clock'],
-                                      '--', self.manifest['agent']], self.agent_env)
-        self.processes.wait(lambda: http_json(self.native['completion_url'] + '/healthz')[0] == 200)
+        if self.config.get('proof') != 'canary':
+            for sock in self.ports:
+                sock.close()
+            self.processes.start('host', ['node', self.manifest['native'], 'host', self.native_config], self.runtime.env)
+            self.processes.wait(lambda: (self.directory / 'host-ready.json').exists())
+            self.processes.start('agentd', [self.manifest['support']['layerx-runtime-clock'],
+                                          '--', self.manifest['agent']], self.agent_env)
+            self.processes.wait(lambda: http_json(self.native['completion_url'] + '/healthz')[0] == 200)
         for index in range(2):
-            self.processes.start('peer' + str(index), ['node', self.manifest['native'], 'peer', self.native_config, str(index)], self.runtime.env)
+            command = ['node', self.manifest['native'], 'peer', self.native_config, str(index)]
+            if self.config.get('proof') == 'canary' and index == 1:
+                command.append('--fault-logit')
+            self.processes.start('peer' + str(index), command, self.runtime.env)
         self.processes.wait(lambda: all((self.directory / ('peer' + str(i) + '-offered.json')).exists() for i in range(2)))
         ask = {**self.config, 'rpc_url': self.runtime.rpc_url,
                'run': str(self.directory), 'completion_url': self.native['completion_url'],
                'runtime_manifest': self.runtime.manifest, 'artifacts': self.manifest,
                'support': self.support, 'gateway_ca': str(self.ca.ca_pem),
                'gateway_credential': self.gateway_credential}
+        if self.config.get('proof') == 'canary':
+            ask['canary_probe_url'] = self.native['model_url'] + '/canary-probe'
         ask_path = self.directory / 'asker.json'
         save(ask_path, ask)
         descriptor = os.open(self.directory / 'asker.log', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         with os.fdopen(descriptor, 'wb') as log:
             result = subprocess.run([sys.executable, str(Path(__file__).resolve()), '--asker', str(ask_path)],
                                     cwd=ROOT, env=self.runtime.env, stdout=log, stderr=log, timeout=180)
+        if self.config.get('proof') == 'canary':
+            self.processes.check()
         require(result.returncode == 0, 'asker failed; inspect ' + str(self.directory / 'asker.log'))
         self.processes.check()
         expected = load(self.build_directory / 'model/reference.json', 'serial scripted model output')
@@ -2046,6 +2879,9 @@ class InferenceRoomDriver:
         save(self.directory / 'deal-on-chain.json', recorded)
         generated.snapshot()
         self.results.append({'case': 'two_native_peers_recorded_on_chain', 'passed': True})
+        if self.config.get('proof') == 'canary':
+            require(identifier == self.config['canary_deal_id'], 'native deal matches canary peer selection')
+            proof_canary_slash(self)
         save(self.directory / 'case-results.json', self.results)
 
     def stop(self):
@@ -2093,8 +2929,46 @@ def asker(path):
                              gateway_credential=config['gateway_credential'],
                              last_write_height=int(rpc.request('eth_blockNumber', []), 16) - 1)
     driver.gateway_rpc = lambda method, params: InferenceRoomDriver.gateway_rpc(driver, method, params)
-    GeneratedRoomWrites(driver).fund_ask()
+    generated = GeneratedRoomWrites(driver)
+    if config.get('proof') == 'canary':
+        generated.operation('PostAsk', {**config['room'], 'ask_id': config['ask_id'],
+            'model_digest': config['model_digest'], 'stream_id': config['stream_id'],
+            'maximum_price_per_thousand_tokens': config['price']},
+            config['accounts']['asker'], generated.snapshot()['state'], 'post_ask')
+    else:
+        generated.fund_ask()
     wait(lambda: all((directory / ('peer' + str(index) + '-live.json')).exists() for index in range(2)))
+    if config.get('proof') == 'canary':
+        probe_height = int(rpc.request('eth_blockNumber', []), 16)
+        status, probe = http_json(config['canary_probe_url'], 'POST', {})
+        require(status == 200 and bytes(probe['deal_id']).hex() == config['canary_deal_id']
+                and probe['lap_index'] == 0, 'native canary probe binds the live deal')
+        journey = encoded(config['artifacts'], 'EpochJourney', {'state': generated.snapshot()['state']})
+        generated.operation('SEAL_TASK_SET', {}, config['accounts']['asker'], generated.snapshot()['state'],
+                            window=(journey['settlement_height'] - 32, journey['settlement_height'] - 16))
+        def committed_canary():
+            rows, _ = canary_market_writes(runtime, probe_height)
+            commits = [row for row in rows if row['operation'] == 0x0401
+                       and row['payload'][8:40].hex() == config['canary_deal_id']
+                       and int.from_bytes(row['payload'][40:48], 'big') == 0]
+            require(len(commits) <= 1, 'one committed canary for the deal lap')
+            if not commits:
+                return False
+            driver.last_write_height = int(commits[0]['receipt']['blockNumber'], 16)
+            save(directory / 'canary-commit.json', {
+                'transaction_hash': commits[0]['transaction_hash'],
+                'receipt': commits[0]['receipt'],
+                'commit_window': {
+                    'start': journey['settlement_height'] - 32,
+                    'end': journey['settlement_height'] - 16,
+                },
+            })
+            return True
+        wait(committed_canary)
+        status, ready = http_json(config['canary_probe_url'].removesuffix('canary-probe') + 'canary-receipt', 'POST', {})
+        require(status == 200 and bytes(ready['deal_id']).hex() == config['canary_deal_id']
+                and ready['lap_index'] == 0, 'countersigned native canary lap binds the live deal')
+        generated.snapshot()
     request = {'model': config['model_digest'], 'messages': [{'role': 'user', 'content': '5'}],
                'max_tokens': 4, 'stream': False}
     save(directory / 'completion-request.json', {'ask_id': config['ask_id'], 'body': request})
@@ -2120,6 +2994,96 @@ def identity_issuer(path):
             pass
 
     with ThreadingHTTPServer(('127.0.0.1', config['port']), Issuer) as server:
+        server.serve_forever()
+
+
+def canary_enrolment_admission(config, body):
+    if not body:
+        return
+    request = json.loads(body)
+    if request.get('method') != 'eth_sendRawTransaction':
+        return
+    raw = request['params'][0]
+    matches = []
+    directory = Path(config['canary_enrolments'])
+    for name in ('host', 'peer0', 'peer1'):
+        path = directory / (name + '-enrolment-document.json')
+        if not path.exists():
+            continue
+        document = load(path, 'signed canary enrolment')
+        for operation in ('enroll', 'accept', 'publish', 'lock_bond', 'post_bid'):
+            if raw == document.get(operation):
+                matches.append((operation, document))
+    if not matches:
+        return
+    require(len(matches) == 1, 'one signed canary enrolment operation')
+    operation, document = matches[0]
+    transaction, signature = decode_signed(bytes.fromhex(raw.removeprefix('0x')))
+    sender = transaction.recover_signer(signature).lower()
+    rpc = RootRpc(config['canary_chain_rpc'])
+    operations = ('enroll', 'accept', 'publish', 'lock_bond', 'post_bid')
+    previous = operations.index(operation) - 1
+    prior_hash = ('0x' + keccak256(bytes.fromhex(document[operations[previous]][2:])).hex()) if previous >= 0 else None
+    proposal_hash = '0x' + keccak256(bytes.fromhex(document['enroll'].removeprefix('0x'))).hex()
+    until = time.monotonic() + 20
+    while time.monotonic() < until:
+        nonce = int(rpc.request('eth_getTransactionCount', [sender, 'latest']), 16)
+        height = int(rpc.request('eth_blockNumber', []), 16)
+        proposal = rpc.request('eth_getTransactionReceipt', [proposal_hash]) if operation == 'publish' else None
+        prior = rpc.request('eth_getTransactionReceipt', [prior_hash]) if prior_hash else None
+        predecessor_ready = prior_hash is None or (prior is not None and prior['status'] == '0x1')
+        metadata_ready = operation != 'publish' or (proposal is not None
+            and proposal['status'] == '0x1' and height + 1 >= int(proposal['blockNumber'], 16) + 8)
+        if nonce == transaction.nonce and predecessor_ready and metadata_ready:
+            save(directory / ('enrolment-admission-' + keccak256(bytes.fromhex(raw[2:])).hex() + '.json'),
+                {'operation': operation, 'nonce': nonce, 'height': height, 'proposal': proposal})
+            return
+        require(nonce <= transaction.nonce, 'canary enrolment nonce has not been consumed')
+        time.sleep(.1)
+    raise RuntimeError('canary enrolment committed admission deadline')
+
+
+def canary_rpc_tunnel(path):
+    config = load(path, 'canary node transport')
+    upstream = urlsplit(config['canary_chain_rpc'])
+
+    class Tunnel(BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get('Content-Length', '0'))
+            require(0 < length <= 1_048_576 and self.headers.get('Transfer-Encoding') is None,
+                    'bounded canary node request')
+            body = self.rfile.read(length)
+            require(len(body) == length, 'complete canary node request')
+            canary_enrolment_admission(config, body)
+            connection = http.client.HTTPConnection(upstream.hostname, upstream.port, timeout=30)
+            try:
+                connection.request('POST', '/', body,
+                                   {'Content-Type': 'application/json', 'Connection': 'close'})
+                response = connection.getresponse()
+                request = json.loads(body)
+                if request.get('method') == 'eth_getBlockByNumber':
+                    result = response.read(16 * 1_048_576 + 1)
+                    require(len(result) <= 16 * 1_048_576,
+                            'native client full block response budget')
+                else:
+                    result = response.read(1_048_577)
+                    require(len(result) <= 1_048_576, 'bounded canary node response')
+                save(Path(path).parent / ('canary-node-' + uuid.uuid4().hex + '.json'),
+                     {'request': body.hex(), 'status': response.status, 'response': result.hex()})
+                self.send_response(response.status)
+                self.send_header('Content-Type', response.getheader('Content-Type'))
+                self.send_header('Content-Length', str(len(result)))
+                self.send_header('Connection', 'close')
+                self.end_headers()
+                self.wfile.write(result)
+                self.close_connection = True
+            finally:
+                connection.close()
+
+        def log_message(self, *arguments):
+            pass
+
+    with ThreadingHTTPServer(('127.0.0.1', config['port']), Tunnel) as server:
         server.serve_forever()
 
 
@@ -2445,14 +3409,247 @@ def proof_settlement(driver):
     save(driver.directory / 'settlement-case-results.json', driver.results)
 
 
+def canary_market_writes(runtime, first_height):
+    references, last = runtime.committed_transaction_hashes(first_height)
+    selector = keccak256(b'call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)')[:4]
+    rows = []
+    for reference in references:
+        raw = runtime.rpc.request('eth_getRawTransactionByHash', [reference])
+        transaction, signature = decode_signed_transaction(bytes.fromhex(raw[2:]))
+        if transaction.to != bytes.fromhex(PROGRAMS[2:]) or transaction.data[:4] != selector:
+            continue
+        arguments = transaction.data[4:]
+        require(len(arguments) >= 15 * 32, 'bounded market call header')
+        offset = int.from_bytes(arguments[3 * 32:4 * 32], 'big')
+        require(offset + 32 <= len(arguments), 'bounded market envelope offset')
+        size = int.from_bytes(arguments[offset:offset + 32], 'big')
+        require(size <= 1_048_576 and offset + 32 + size <= len(arguments),
+                'bounded market envelope')
+        envelope_bytes = arguments[offset + 32:offset + 32 + size]
+        require(envelope_bytes[:6] == b'PAXAI1' and len(envelope_bytes) >= 239,
+                'canonical market envelope')
+        payload_size = int.from_bytes(envelope_bytes[234:238], 'big')
+        require(238 + payload_size < len(envelope_bytes), 'bounded market operation payload')
+        receipt = runtime.rpc.request('eth_getTransactionReceipt', [reference])
+        operation = int.from_bytes(envelope_bytes[8:10], 'big')
+        replay = None
+        if receipt['status'] != '0x1' or receipt['transactionHash'] != reference:
+            simulation = runtime.rpc.exchange('eth_call', [{
+                'from': transaction.recover_signer(signature),
+                'to': '0x' + transaction.to.hex(),
+                'data': '0x' + transaction.data.hex(),
+                'gas': '0x' + format(transaction.gas_limit, 'x'),
+            }, receipt['blockNumber']])
+            replay = simulation.get('error') if isinstance(simulation, dict) else simulation
+            save(runtime.directory / ('market-write-' + reference[2:] + '.json'),
+                 {'operation': operation, 'transaction_hash': reference,
+                  'raw_transaction': raw, 'receipt': receipt,
+                  'replay': replay})
+            if operation not in (0x0b06, 0x0402, 0x0b07):
+                continue
+        require(receipt['status'] == '0x1' and receipt['transactionHash'] == reference,
+                'successful included market operation ' + hex(operation)
+                + ': status=' + receipt['status']
+                + ', reference=' + reference + ', receipt=' + receipt['transactionHash']
+                + (', replay=' + str(replay) if replay is not None else ''))
+        rows.append({'operation': operation,
+                     'actor': envelope_bytes[106:138].hex(),
+                     'epoch': int.from_bytes(envelope_bytes[138:146], 'big'),
+                     'payload': envelope_bytes[238:238 + payload_size],
+                     'sender': transaction.recover_signer(signature).lower(),
+                     'receipt': receipt, 'transaction_hash': reference})
+    return rows, last
+
+
+def canary_bond_amount(state, peer, room):
+    marker = b'F11B' + (3).to_bytes(2, 'big')
+    start = state.find(marker)
+    require(start >= 0 and state.find(marker, start + 1) < 0,
+            'one native room book')
+    counts = [int.from_bytes(state[start + 6 + 2 * i:start + 8 + 2 * i], 'big')
+              for i in range(7)]
+    widths = (247, 193, 162, 1298, 169, 72, 57)
+    require(counts[0] == 1 and counts[2] >= 2 and counts[6] <= counts[2]
+            and all(count <= maximum for count, maximum in
+                    zip(counts, (16, 64, 128, 16, 128, 128, 128))),
+            'bounded native room book tables')
+    table = start + 20
+    bid = adjustment = None
+    for index, (count, width) in enumerate(zip(counts, widths)):
+        end = table + count * width
+        require(end <= len(state), 'bounded native room book row')
+        for at in range(table, end, width):
+            row = state[at:at + width]
+            if index == 2 and row[32:64] == bytes.fromhex(peer['bid_id']):
+                require(row[:32] == bytes.fromhex(room['room_id'])
+                        and row[64:96] == bytes.fromhex(peer['owner'])
+                        and row[96:128] == bytes.fromhex(peer['metadata_digest']),
+                        'native bond bid belongs to faulty peer')
+                require(bid is None, 'one faulty peer bid')
+                bid = int.from_bytes(row[144:160], 'big')
+            if index == 6 and row[:32] == bytes.fromhex(peer['bid_id']):
+                require(adjustment is None and row[56] == 0,
+                        'one active faulty peer bond adjustment')
+                adjustment = int.from_bytes(row[32:48], 'big')
+        table = end
+    require(bid is not None and (adjustment is None or adjustment <= bid),
+            'native faulty peer bond exists')
+    return bid, adjustment or 0
+
+
+def canary_reward_balance(state, worker, epoch):
+    marker = b'PAXAI/P1\0'
+    index = state.find(marker)
+    if index < 0:
+        return 0
+    journal_offset = 206 + 256 * 67 + 22 * (174 + 32 * 19)
+    require(state.find(marker, index + 1) < 0 and index >= journal_offset,
+            'one native reward payout journal')
+    reward_start = index - journal_offset
+    dictionary = state[reward_start + 206:reward_start + 206 + 256 * 67]
+    slots = [slot for slot in range(256) if dictionary[slot * 67] == 1
+             and dictionary[slot * 67 + 1:slot * 67 + 33] == bytes.fromhex(worker)]
+    require(len(slots) <= 1, 'one honest peer reward slot')
+    if not slots:
+        return 0
+    credits = state[index + len(marker):index + len(marker) + 64 * 99]
+    require(len(credits) == 64 * 99, 'complete native reward credit journal')
+    balances = []
+    for offset in range(0, len(credits), 99):
+        entry = credits[offset:offset + 99]
+        if entry == bytes(99):
+            continue
+        if int.from_bytes(entry[:8], 'big') == epoch and int.from_bytes(entry[8:10], 'big') == slots[0]:
+            amount = int.from_bytes(entry[10:26], 'big')
+            paid = int.from_bytes(entry[26:42], 'big')
+            require(amount > 0 and paid <= amount and entry[98] in (0, 1),
+                    'valid native peer payout credit')
+            balances.append(0 if entry[98] else amount - paid)
+    require(len(balances) <= 1, 'one honest peer credit per epoch')
+    return sum(balances)
+
+
+def proof_canary_slash(driver):
+    runtime, config = driver.runtime, driver.config
+    plan = load(driver.directory / 'canary-injection.json', 'host canary injection')['plan']
+    faulty = load(driver.directory / 'faulty-canary-logits.json', 'faulty peer canary answer')
+    require(bytes(plan['peer_key']).hex() == config['peers'][1]['peer_key']
+            and faulty['peer_key'] == config['peers'][1]['peer_key']
+            and faulty['position'] == plan['position'], 'second peer signed the faulty canary')
+    deal = load(driver.directory / 'peer1-deal.json', 'faulty peer deal')
+    deal_id = bytes(deal['deal_id']).hex()
+    matched = {}
+    committed = load(driver.directory / 'canary-commit.json', 'committed canary task')
+    first = int(committed['receipt']['blockNumber'], 16)
+    window = committed['commit_window']
+    require(window['start'] <= first and first + 1 < window['end'],
+            'canary commit is inside its epoch commit window')
+    until = time.monotonic() + 420
+    while time.monotonic() < until and len(matched) < 3:
+        rows, last = canary_market_writes(runtime, first)
+        first = last + 1
+        for row in rows:
+            if row['operation'] in (0x0b06, 0x0402, 0x0b07):
+                matched.setdefault(row['operation'], row)
+        if len(matched) < 3:
+            driver.processes.check()
+            time.sleep(1)
+    require(set(matched) == {0x0b06, 0x0402, 0x0b07},
+            'committed ChallengeLap, RevealScore and ResolveChallenge writes')
+    challenge, reveal, resolve = (matched[operation] for operation in (0x0b06, 0x0402, 0x0b07))
+    identifier = challenge['payload'][40:72]
+    expected = load(driver.build_directory / 'model/canary.json', 'scripted canary logits')['entries'][0]['expected_logits']
+    require(len(expected) == len(faulty['logits']) == 8
+            and faulty['logits'][0] == expected[0] + 65536
+            and faulty['logits'][1:] == expected[1:],
+            'one signed canary logit differs from the scripted model')
+    signed_logits = lambda values: b''.join(int(value).to_bytes(4, 'big', signed=True) for value in values)
+    require(challenge['payload'][:32].hex() == deal_id
+            and int.from_bytes(challenge['payload'][32:40], 'big') == 0
+            and int.from_bytes(challenge['payload'][72:88], 'big')
+            == int(config['room']['profile']['minimum_bond'])
+            and reveal['payload'][8:40] == identifier
+            and reveal['payload'][-32:] == signed_logits(expected)
+            and resolve['payload'][:32].hex() == deal_id
+            and resolve['payload'][40:72] == identifier
+            and resolve['payload'][72:] == signed_logits(faulty['logits'])
+            and int.from_bytes(resolve['payload'][32:40], 'big') == 0
+            and int(challenge['receipt']['blockNumber'], 16) < int(reveal['receipt']['blockNumber'], 16)
+            < int(resolve['receipt']['blockNumber'], 16),
+            'one resolved canary challenge for the faulty lap')
+    receipt = load(driver.directory / 'model-output.json', 'countersigned canary lap')['receipt']
+    driver.last_write_height = max(int(resolve['receipt']['blockNumber'], 16),
+                                  int(runtime.rpc.request('eth_blockNumber', []), 16) - 1)
+    writer = GeneratedRoomWrites(driver)
+    driver.processes.wait(lambda: int(runtime.rpc.request(
+        'px_getInferenceDeal', [deal_id])['settled_tokens']) == receipt['cumulative_tokens'])
+    before = writer.snapshot()
+    peer = config['peers'][1]
+    honest = config['peers'][0]
+    bond, slashed = canary_bond_amount(bytes.fromhex(before['state']), peer, config['room'])
+    prior = canary_reward_balance(bytes.fromhex(before['state']), honest['worker'], challenge['epoch'])
+    fraction = bond * config['room']['profile']['slash_fraction_bps'] // 10000
+    require(bond == int(config['room']['profile']['minimum_bond'])
+            and slashed == 0 and fraction > 0, 'faulty peer bond before slash')
+    payload = bytes.fromhex(deal_id + peer['bid_id']) + (0).to_bytes(8, 'big') + identifier
+    receipt = writer.operation('SlashBond', {}, config['accounts']['host'], before['state'],
+                               payload=payload.hex())
+    slash_rows, _ = canary_market_writes(runtime, int(receipt['blockNumber'], 16))
+    require(len([row for row in slash_rows if row['transaction_hash'] == receipt['transactionHash']
+                 and row['operation'] == 0x0b0a and row['payload'] == payload
+                 and row['actor'] == config['accounts']['host']['principal']]) == 1,
+            'committed SlashBond write binds the faulty peer bid and resolved evidence')
+    after = writer.snapshot()
+    amount, slashed_after = canary_bond_amount(bytes.fromhex(after['state']), peer, config['room'])
+    credited = canary_reward_balance(bytes.fromhex(after['state']), honest['worker'], challenge['epoch'])
+    require(amount == bond and slashed_after - slashed == fraction
+            and credited - prior == fraction,
+            'slashed bond fraction reached honest peer reward ledger')
+    save(driver.directory / 'canary-slash.json', {
+        'challenge': challenge['transaction_hash'], 'reveal': reveal['transaction_hash'],
+        'resolution': resolve['transaction_hash'], 'slash': receipt['transactionHash'],
+        'faulty_bid': peer['bid_id'], 'bond': str(bond), 'slashed': str(fraction),
+        'honest_worker': honest['worker'], 'reward_before': str(prior),
+        'reward_after': str(credited)})
+    driver.results.append({'case': 'faulty_canary_slashes_peer_bond_to_honest_reward', 'passed': True})
+
+
+def isolate_canary_memory(directory):
+    root = Path('/sys/fs/cgroup')
+    membership = [line.removeprefix('0::') for line in Path('/proc/self/cgroup').read_text().splitlines()
+                  if line.startswith('0::')]
+    require(len(membership) == 1, 'one unified canary resource hierarchy')
+    parent = (root / membership[0].lstrip('/')).parent
+    require(parent.is_relative_to(root) and 'memory' in (parent / 'cgroup.subtree_control').read_text().split(),
+            'delegated canary memory controller')
+    group = parent / ('inference-canary-' + uuid.uuid4().hex)
+    group.mkdir(mode=0o700)
+    save(Path(directory) / 'canary-resources.json', {'cgroup': str(group), 'memory_bytes': 2 * 1024**3})
+    (group / 'memory.max').write_text(str(2 * 1024**3))
+    (group / 'cgroup.procs').write_text(str(os.getpid()))
+    subprocess.run(['mount', '--bind', str(group), str(root)], check=True)
+    require((root / 'memory.max').read_text().strip() == str(2 * 1024**3),
+            'enforced canary memory budget')
+
+
 def worker(directory, mode='room'):
     for name in ('net', 'pid', 'mnt'):
         require(os.readlink('/proc/self/ns/' + name) != os.environ['PAXEER_X_PARENT_' + name.upper()], 'isolated native room namespace required')
     subprocess.run(['ip', 'link', 'set', 'lo', 'up'], check=True)
+    if mode == 'canary':
+        isolate_canary_memory(directory)
     build_directory, manifest = built_artifacts()
-    driver = InferenceRoomDriver(directory, configuration(directory, build_directory, manifest, mode),
+    config = configuration(directory, build_directory, manifest, mode)
+    config['proof'] = mode
+    if mode == 'canary':
+        config['room']['profile']['canary_ratio_bps'] = 10000
+        canary_host_identity(config, directory, manifest)
+        replace_private_json(Path(directory) / 'configuration.json', config)
+    driver = InferenceRoomDriver(directory, config,
                                  build_directory, manifest)
     driver.config['proof_mode'] = mode
+    if mode == 'canary':
+        driver.runtime.config['block_interval_ns'] = 2_000_000_000
     if mode == 'settlement':
         driver.runtime.config['mirror_native_balances'] = True
         driver.runtime.config['block_interval_ns'] = 2_000_000_000
@@ -2473,7 +3670,8 @@ def proof(mode='room'):
     directory = evidence / ('inference-room-' + uuid.uuid4().hex)
     directory.mkdir(mode=0o700)
     revision = envelope.capture(['git', 'rev-parse', 'HEAD'])
-    save(directory / 'invocation.json', {'schema': SCHEMA, 'task': TASK if mode == 'room' else '22.38.38', 'revision': revision,
+    task = {'room': TASK, 'canary': '22.38.37', 'settlement': '22.38.38'}[mode]
+    save(directory / 'invocation.json', {'schema': SCHEMA, 'task': task, 'revision': revision,
                                        'command': 'python3 tools/qualification/paxeer-x/inference_market_room.py --proof ' + mode,
                                        'evidence': str(directory)})
     env = dict(os.environ)
@@ -2482,7 +3680,15 @@ def proof(mode='room'):
     argv = ['unshare', '--mount', '--net', '--pid', '--fork', '--kill-child=KILL', '--mount-proc',
             '--propagation', 'private', sys.executable, str(Path(__file__).resolve()), '--worker', str(directory), mode]
     print('INFERENCE_ROOM_EVIDENCE ' + str(directory), flush=True)
-    return envelope.run_participant(argv, env, directory, revision, directory, timeout=900, log_name='native.log')
+    try:
+        return envelope.run_participant(argv, env, directory, revision, directory, timeout=900, log_name='native.log')
+    finally:
+        resources = directory / 'canary-resources.json'
+        if resources.exists():
+            group = Path(load(resources, 'canary resource budget')['cgroup'])
+            require(group.name.startswith('inference-canary-') and group.is_relative_to('/sys/fs/cgroup'),
+                    'owned canary resource group')
+            group.rmdir()
 
 
 def main():
@@ -2491,10 +3697,11 @@ def main():
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument('--begin-build', action='store_true')
     modes.add_argument('--build', action='store_true')
-    modes.add_argument('--proof', choices=('room', 'settlement'))
+    modes.add_argument('--proof', choices=('room', 'canary', 'settlement'))
     modes.add_argument('--worker', nargs='+', help=argparse.SUPPRESS)
     modes.add_argument('--asker', help=argparse.SUPPRESS)
     modes.add_argument('--tls-tunnel', help=argparse.SUPPRESS)
+    modes.add_argument('--canary-rpc', help=argparse.SUPPRESS)
     modes.add_argument('--identity-issuer', help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.begin_build:
@@ -2502,11 +3709,13 @@ def main():
     elif args.build:
         build()
     elif args.worker:
-        require(len(args.worker) == 2 and args.worker[1] in ('room', 'settlement'),
+        require(len(args.worker) == 2 and args.worker[1] in ('room', 'canary', 'settlement'),
                 'native proof worker mode')
         worker(*args.worker)
     elif args.asker:
         asker(args.asker)
+    elif args.canary_rpc:
+        canary_rpc_tunnel(args.canary_rpc)
     elif args.tls_tunnel:
         tls_tunnel(args.tls_tunnel)
     elif args.identity_issuer:

@@ -1,4 +1,5 @@
 import pathlib
+import json
 import shutil
 import unittest
 
@@ -30,3 +31,8 @@ def test_examples_paths_use_monorepo_layout(tmp_path):
     assert "SnapshotStreamV2" in snapshot
     assert recorded_operations["IF_TRADES"] == ("GET", "/v2/pools/{poolAddress}/trades")
     assert recorded_operations["IF_TOPIC_SNAPSHOT_READ"] == ("GET", "/v2/snapshots")
+    admitted = json.loads((package / "scripts/operation-catalog.json").read_bytes())["operations"]
+    sources = module.example_sources(json.loads(copied.read_bytes()), admitted)
+    assert set(sources) == {"pagination.mjs", "snapshot-resume.mjs"}
+    for name, source in sources.items():
+        assert (package / "examples" / name).read_text() == source, name

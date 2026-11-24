@@ -13,7 +13,7 @@ import (
 )
 
 func TestValuationHistoryChecksCandleBoundsAndSupplyAvailability(t *testing.T) {
-	frame, err := interfaces.DecodeCandleEvent(repairM1050CandleFrames(t)[0])
+	frame, err := interfaces.DecodeCandleEvent(webhookDeliveryCandleFrames(t)[0])
 	if err != nil {
 		t.Fatal(err)
 	}

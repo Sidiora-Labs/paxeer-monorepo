@@ -1,6 +1,13 @@
 defmodule BlockScoutWeb.Account.API.V2.AuthenticateControllerTest do
   use BlockScoutWeb.ConnCase, async: false
 
+  setup do
+    previous = Application.get_env(:explorer, Explorer.Account)
+    Application.put_env(:explorer, Explorer.Account, Keyword.put(previous, :enabled, true))
+    on_exit(fn -> Application.put_env(:explorer, Explorer.Account, previous) end)
+    :ok
+  end
+
   alias Explorer.Account.Identity
   alias Explorer.Chain.Address
   alias Explorer.ThirdPartyIntegrations.Dynamic

@@ -18,16 +18,11 @@ names=$(sed -n 's/^ARG \(\(NEXT_PUBLIC\|WEB\)_[A-Z0-9_]*\).*/\1/p' "$repo/deploy
 grep -qx WEB_API_UPSTREAM <<<"$names" || fail "Dockerfile.web declares no WEB_API_UPSTREAM arg"
 jq --arg names "$names" '.web.buildArgs = ([$names | splits("\n") | {key: ., value: "https://\(. | ascii_downcase).example"}] | from_entries)' \
 	"$repo/deploy/launchpad/railway/variables.json" > "$work/deploy/launchpad/railway/variables.json"
-# the perps frontend Dockerfile (until it lands, one ARG per name of the committed build args file) and the committed
-# values with the gateway origin filled in
+# The trading workspace image uses the committed Dockerfile and build values.
 mkdir -p "$work/apps/perps/deploy"
 perps_src="$repo/apps/perps/deploy/build-args.production.env"
 perps_env="$work/apps/perps/deploy/build-args.production.env"
-if [ -f "$repo/apps/perps/Dockerfile" ]; then
-	cp "$repo/apps/perps/Dockerfile" "$work/apps/perps/"
-else
-	sed -n 's/^\(NEXT_PUBLIC_[A-Z0-9_]*\)=.*/ARG \1=/p' "$perps_src" > "$work/apps/perps/Dockerfile"
-fi
+cp "$repo/apps/perps/Dockerfile" "$work/apps/perps/"
 sed 's|^NEXT_PUBLIC_PERPS_GATEWAY_URL=$|NEXT_PUBLIC_PERPS_GATEWAY_URL=https://gateway.example|' "$perps_src" > "$perps_env"
 perps_pristine=$(cat "$perps_env")
 script="$work/tools/deploy/offchain-images.sh"
@@ -37,6 +32,16 @@ pristine=$(cat "$manifest")
 sha=0123456789ab
 run() { env -u REVIEWED_BUILD_IMAGE -u REVIEWED_RUNTIME_IMAGE -u PERPS_BUILD_IMAGE -u PERPS_RUNTIME_IMAGE BUILD_SHA=$sha "$@"; }
 args_of() { jq -r --arg n "$2" '.[] | select(.name == $n) | .build_args' <<<"$1"; }
+
+# The repository inputs plan the trading workspace image with its production gateway.
+repository_plan=$(run bash "$repo/tools/deploy/offchain-images.sh" --plan 2> "$work/repository-plan.err") ||
+	fail "--plan must pass on repository inputs: $(cat "$work/repository-plan.err")"
+repository_images=$(sed -n 's/^images=//p' <<<"$repository_plan")
+repository_unbuilt=$(sed -n 's/^unbuilt=//p' <<<"$repository_plan")
+jq -e 'any(.[]; .name == "perps-web")' <<<"$repository_images" >/dev/null ||
+	fail "repository plan must build perps-web: $repository_plan"
+jq -e 'index("perps-web") == null' <<<"$repository_unbuilt" >/dev/null ||
+	fail "repository plan must not leave perps-web unbuilt: $repository_plan"
 
 run bash "$script" --check || fail "--check must pass on a complete tree"
 
@@ -58,6 +63,9 @@ lp_names=$(jq -r '.[] | select(.name | startswith("launchpad-")) | .name' <<<"$m
 ! jq -r '.[].build_args' <<<"$m" | grep -E '^[A-Z_]+=$' || fail "matrix carries an empty build arg"
 ! jq -r '.[].build_args' <<<"$m" | grep -E '^(BUILD|RUNTIME)_IMAGE=' || fail "unset base images must be omitted"
 [ "$(args_of "$m" launchpad-core-api)" = $'SERVICE=api\nBIN=apid' ] || fail "api args: $(args_of "$m" launchpad-core-api)"
+
+jq -e '.[] | select(.name == "perps-web") | .context == "apps/perps" and .dockerfile == "apps/perps/Dockerfile" and .target == ""' <<<"$m" >/dev/null ||
+	fail "perps-web must build the workspace Dockerfile from its workspace root"
 
 # the repository variable names reach the launchpad and perps rows
 m=$(run env REVIEWED_BUILD_IMAGE=rb@sha256:1 REVIEWED_RUNTIME_IMAGE=rr@sha256:2 PERPS_BUILD_IMAGE=pb@sha256:3 bash "$script" --matrix)
@@ -156,6 +164,17 @@ run bash "$script" --matrix >/dev/null 2>&1; rc=$?
 set -e
 [ "$rc" -eq 2 ] || fail "a perps value with a space must exit 2, got $rc"
 printf '%s\n' "$perps_pristine" > "$perps_env"
+
+# Every optional public setting must still have an explicit deployment input.
+sed -i '/^NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS=/d' "$perps_env"
+if out=$(run bash "$script" --check 2>&1); then fail "--check must require the direct-feed input declaration"; fi
+grep -q 'perps-web: .*NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS' <<<"$out" || fail "--check must name the direct-feed input: $out"
+printf '%s\n' "$perps_pristine" > "$perps_env"
+
+mv "$work/apps/perps/Dockerfile" "$work/apps/perps/Dockerfile.away"
+if out=$(run bash "$script" --check 2>&1); then fail "--check must require the perps workspace Dockerfile"; fi
+grep -q 'perps-web: missing context apps/perps or dockerfile apps/perps/Dockerfile' <<<"$out" || fail "--check must name the workspace recipe: $out"
+mv "$work/apps/perps/Dockerfile.away" "$work/apps/perps/Dockerfile"
 
 # a missing Dockerfile of a required row fails --check
 rm "$work/deploy/launchpad/Dockerfile.native"

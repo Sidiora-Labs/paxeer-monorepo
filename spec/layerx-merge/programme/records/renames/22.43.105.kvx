@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.105"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "sdk/cosmovisor/repair_189.kvx"
+to = "spec/layerx-merge/programme/records/sdk/cosmovisor/repair_189.kvx"
+
+[file.2]
+from = "sdk/cosmovisor/repair_m1406.kvx"
+to = "spec/layerx-merge/programme/records/sdk/cosmovisor/repair_m1406.kvx"
+
+[file.3]
+from = "sdk/cosmovisor/repair_189_test.go"
+to = "sdk/cosmovisor/selection_persistence_test.go"
+
+[file.4]
+from = "sdk/cosmovisor/repair_m1406_test.go"
+to = "sdk/cosmovisor/supervisor_lifecycle_test.go"

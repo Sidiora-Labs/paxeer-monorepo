@@ -4,8 +4,9 @@ This directory holds the Next.js and React frontend of the Paxeer X Network bloc
 explorer, derived from Blockscout. It reads indexed chain data from the
 [explorer backend](../../services/explorer/backend) and presents blocks,
 transactions, accounts, contracts and the embedded LayerX kernel domain under
-the `/explorer` base path. Paxeer mainnet-beta is one BFT network with EVM chain
-id `125`; receipts are final when their block is committed. The presets identify
+the `/explorer` base path. Paxeer mainnet-beta uses EVM chain id `125`; the LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. Receipts are final when their block is committed. The presets identify
 the network as Paxeer X Network, shortened to Paxeer X, and its native coin as
 Paxeer (`PAX`) with 18 decimals.
 
@@ -107,11 +108,17 @@ variable inventory. Core names include:
 | Currency | `NEXT_PUBLIC_NETWORK_CURRENCY_NAME`, `NEXT_PUBLIC_NETWORK_CURRENCY_SYMBOL`, `NEXT_PUBLIC_NETWORK_CURRENCY_DECIMALS`, `NEXT_PUBLIC_NETWORK_SECONDARY_COIN_SYMBOL` |
 | Branding | `NEXT_PUBLIC_NETWORK_LOGO`, `NEXT_PUBLIC_NETWORK_LOGO_DARK`, `NEXT_PUBLIC_NETWORK_ICON`, `NEXT_PUBLIC_NETWORK_ICON_DARK`, `NEXT_PUBLIC_COLOR_THEME_OVERRIDES`, `NEXT_PUBLIC_COLOR_THEME_DEFAULT` |
 | Fonts and navigation | `NEXT_PUBLIC_FONT_FAMILY_HEADING`, `NEXT_PUBLIC_FONT_FAMILY_BODY`, `NEXT_PUBLIC_NAVIGATION_LAYOUT`, `NEXT_PUBLIC_OTHER_LINKS`, `NEXT_PUBLIC_FOOTER_LINKS` |
-| Feature surfaces | `NEXT_PUBLIC_PAXEER_X_ENABLED`, `NEXT_PUBLIC_ASSISTANT_ENABLED`, `NEXT_PUBLIC_MARKETPLACE_ENABLED`, `NEXT_PUBLIC_AD_BANNER_PROVIDER`, `NEXT_PUBLIC_AD_TEXT_PROVIDER` |
+| Feature surfaces | `NEXT_PUBLIC_PAXEER_X_ENABLED`, `NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST`, `NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH`, `NEXT_PUBLIC_ASSISTANT_ENABLED`, `NEXT_PUBLIC_MARKETPLACE_ENABLED`, `NEXT_PUBLIC_AD_BANNER_PROVIDER`, `NEXT_PUBLIC_AD_TEXT_PROVIDER` |
 | Build metadata | `NEXT_PUBLIC_GIT_COMMIT_SHA`, `NEXT_PUBLIC_GIT_TAG`, `NEXT_PUBLIC_ICON_SPRITE_HASH`, `BUNDLE_ANALYZER` |
 | Instrumentation | `NEXT_RUNTIME`, `NEXT_OPEN_TELEMETRY_ENABLED`, `OTEL_SDK_ENABLED`, `NODE_ENV` |
 | Assistant server | `EXPLORER_ASSISTANT_BASE_URL`, `EXPLORER_ASSISTANT_MODEL`, `EXPLORER_ASSISTANT_API_KEY` |
 | Container preset | `ENVS_PRESET` |
+
+With `NEXT_PUBLIC_PAXEER_X_ENABLED=true`, the chain list and chain detail views
+read the network's chain indexer through the `paxeerXIndexer` API entry.
+Set `NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST` to its URL and optionally set
+`NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH` to its path prefix; a trailing slash
+is removed. Both settings require `NEXT_PUBLIC_PAXEER_X_ENABLED=true`.
 
 The tracked presets are [paxeer-x.env](configs/envs/paxeer-x.env) for a public
 deployment and [paxeer-x-dev.env](configs/envs/paxeer-x-dev.env) for development.

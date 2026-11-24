@@ -1,0 +1,48 @@
+[manifest]
+task = "22.43.59"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "modules/layerxcustody/keeper/repair_338.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxcustody/keeper/repair_338.kvx"
+
+[file.2]
+from = "modules/layerxcustody/keeper/repair_m1228.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxcustody/keeper/repair_m1228.kvx"
+
+[file.3]
+from = "modules/layerxcustody/keeper/repair_338_test.go"
+to = "modules/layerxcustody/keeper/governance_retirement_test.go"
+
+[file.4]
+from = "modules/layerxcustody/keeper/repair_m1228_test.go"
+to = "modules/layerxcustody/keeper/pointer_authority_recovery_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "modules/layerxcustody/keeper/repair_m1228_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/layerxcustody/keeper/repair_m1228_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1228_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxcustody/keeper/repair_338_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxcustody/keeper/repair_m1228_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_338_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1228_"

@@ -12,6 +12,7 @@ from rollout import SECRET, URL_WITH_PASSWORD, graphql_error, mask, redact  # no
 from rollout import gql as http_transport  # noqa: E402
 
 MANIFEST = ROOT / "deploy/launchpad/railway/variables.json"
+PUBLIC_LISTEN_ADDRESS = re.compile(r"_PRIVATE_LISTEN_ADDRESS$")
 USAGE = ("usage: railway-apply-variables.py <project-id> <environment> --plan|--apply "
          "[--values <values.json>] [--from-env] [--registry-credentials] [--replay <responses.json>] [--manifest <json>]")
 
@@ -57,6 +58,12 @@ def load_manifest(path):
         fixed = svc.get("fixed", {})
         if not isinstance(fixed, dict) or not all(isinstance(v, str) for v in fixed.values()):
             raise ValueError(f"{name}: fixed must map names to strings")
+        optional = svc.get("optional", {})
+        if not isinstance(optional, dict) or not all(isinstance(v, bool) for v in optional.values()):
+            raise ValueError(f"{name}: optional must map names to flags")
+        defaults = svc.get("defaults", {})
+        if not isinstance(defaults, dict) or not all(isinstance(v, str) for v in defaults.values()):
+            raise ValueError(f"{name}: defaults must map names to strings")
         # Every list of names other than the secret marker is a set of names that need a value.
         needed = []
         for key, value in svc.items():
@@ -68,17 +75,55 @@ def load_manifest(path):
         marked = svc.get("secret", svc.get("secrets", []))
         if not isinstance(marked, list) or not all(isinstance(n, str) for n in marked):
             raise ValueError(f"{name}: secrets must list names")
+        sources = svc.get("documentSources", {})
+        if not isinstance(sources, dict) or any(
+            not isinstance(document, str) or not document.endswith("_DOCUMENT")
+            or path != document[:-len("_DOCUMENT")] + "_FILE"
+            or document[:-len("_DOCUMENT")] + "_SHA256" not in [*fixed, *needed]
+            for document, path in sources.items()
+        ):
+            raise ValueError(f"{name}: invalid documentSources contract")
+        # A document source pair is selected as a unit below, even when the
+        # inline document name remains in the required list for the contract.
+        alternatives = [n for pair in sources.items() for n in pair]
+        needed = [n for n in needed if n not in alternatives]
         # The explicit list is the authority; a name the pattern flags but the list omits is refused.
-        unlisted = [n for n in [*fixed, *needed] if SECRET.search(n) and n not in marked]
+        unlisted = [n for n in [*fixed, *needed, *alternatives]
+                    if SECRET.search(n) and not PUBLIC_LISTEN_ADDRESS.search(n) and n not in marked]
         if unlisted:
             raise ValueError(f"{name}: {', '.join(unlisted)} match the secret name pattern "
                              "but are not in the service's secrets list")
-        out[name] = {"fixed": fixed, "needed": needed, "secrets": set(marked)}
+        known = set(fixed) | set(needed) | set(marked) | set(alternatives) | set(optional) | set(defaults)
+        out[name] = {"fixed": fixed, "needed": needed, "secrets": set(marked), "sources": sources,
+                     "optional": known - set(fixed) - set(needed) - set(alternatives),
+                     "defaults": defaults, "known": known}
     return out
 
 
+def validate_values(values, manifest):
+    known = set().union(*(svc["known"] for svc in manifest.values()))
+    for name, value in values.items():
+        if name.startswith("$"):
+            continue
+        if isinstance(value, dict):
+            if name not in manifest:
+                raise ValueError(f"--values: unknown service {name}")
+            for key, setting in value.items():
+                if key.startswith("$"):
+                    continue
+                if key not in manifest[name]["known"]:
+                    raise ValueError(f"{name}: unknown variable {key}")
+                if not isinstance(setting, str):
+                    raise ValueError(f"{name}: {key} must be a string")
+        else:
+            if name not in known:
+                raise ValueError(f"--values: unknown variable {name}")
+            if not isinstance(value, str):
+                raise ValueError(f"--values: {name} must be a string")
+
+
 def is_secret(svc, name, value):
-    return name in svc["secrets"] or bool(SECRET.search(name) or URL_WITH_PASSWORD.search(value or ""))
+    return name in svc["secrets"] or bool((SECRET.search(name) and not PUBLIC_LISTEN_ADDRESS.search(name)) or URL_WITH_PASSWORD.search(value or ""))
 
 
 def show(svc, name, value):
@@ -92,14 +137,41 @@ def show(svc, name, value):
 def desired(name, svc, values, from_env):
     scoped = values.get(name) if isinstance(values.get(name), dict) else {}
     want, problems = dict(svc["fixed"]), []
-    for key in svc["needed"]:
+    def resolve(key):
+        if key in svc["fixed"]:
+            return svc["fixed"][key]
         value = scoped.get(key, values.get(key) if isinstance(values.get(key), str) else None)
         if value is None and from_env:
             value = os.environ.get(key)
         if value is None:
+            value = svc["defaults"].get(key)
+        return value
+
+    for key in svc["needed"]:
+        value = resolve(key)
+        if value is None:
             problems.append(f"{key} has no value (manifest, --values{' or environment' if from_env else '; --from-env not given'})")
             continue
         want[key] = value
+    for key in sorted(svc["optional"]):
+        value = resolve(key)
+        if value is not None:
+            want[key] = value
+    for document, path in svc["sources"].items():
+        selected = []
+        for key in (document, path):
+            value = resolve(key)
+            if value is None or value == "":
+                continue
+            if not isinstance(value, str) or not value.strip():
+                problems.append(f"{key} must be a non-empty string")
+                continue
+            want[key] = value
+            selected.append(key)
+        if len(selected) == 2:
+            problems.append(f"{document} and {path} are both set; exactly one is required")
+        elif not selected:
+            problems.append(f"{document} has no value (exactly one of {document} or {path} is required)")
     for key, value in want.items():
         if "\n" in value and not key.endswith(("_DOCUMENT", "_PEM")):
             problems.append(f"{key} contains a newline")
@@ -140,6 +212,7 @@ def main(argv, transport=None):
         values = json.loads(Path(opts["--values"]).read_text()) if opts["--values"] else {}
         if not isinstance(values, dict):
             raise ValueError("--values must be a JSON object")
+        validate_values(values, manifest)
     except (OSError, ValueError, AttributeError) as e:
         say(f"bad input: {e}", file=sys.stderr)
         return 2
@@ -184,6 +257,15 @@ def main(argv, transport=None):
             have = gql("query Variables($p: String!, $e: String!, $s: String!) { "
                        "variables(projectId: $p, environmentId: $e, serviceId: $s, unrendered: true) }",
                        pv)["variables"] or {}
+            bound = dict(have, **want)
+            for document, path in svc["sources"].items():
+                if bound.get(document) and bound.get(path):
+                    problem = f"{document} and {path} are both set; exactly one is required"
+                    if apply:
+                        say(f"refused {name}: {problem}; nothing written", file=sys.stderr)
+                        return 2
+                    if problem not in problems[name]:
+                        problems[name].append(problem)
             mask(*(v for k, v in have.items()
                    if isinstance(v, str) and is_secret(svc, k, v) and svc["fixed"].get(k) != v))
             upsert = {}
@@ -198,7 +280,7 @@ def main(argv, transport=None):
                     else:
                         lines.append(f"  differs {key} {show(svc, key, have[key])} -> {show(svc, key, want[key])}")
                     upsert[key] = want[key]
-            extra = set(have) - set(want) - set(svc["needed"])
+            extra = set(have) - svc["known"]
             lines += [f"  extra {key} (kept)" for key in sorted(extra)]
             say(f"service {name} {'update' if upsert else 'unchanged'} missing={sum(k not in have for k in upsert)} "
                   f"differs={sum(k in have for k in upsert)} extra={len(extra)}")

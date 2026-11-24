@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useRankings, type RankingCategory, type RankingsResponse } from '@/core/market/use-rankings';
@@ -11,7 +12,6 @@ import { useTokenMetadataBatch } from '@/hooks/market/use-token-metadata';
 import type { TokenMetadata } from '@/widgets/home/types';
 import { appendRankingPage, marketLimits } from '@/page-modules/token/market-session';
 import { usdlNumber } from '@/page-modules/token/market-presentation';
-import { shortAddress } from '@/utils/format';
 import { poolPath } from '@/core/app-foundation/navigation';
 import type { Stage } from '@/ui/primitives';
 
@@ -85,15 +85,15 @@ export function buildExploreRow({ poolAddress, rank, stats, listing = null, meta
   const tokenAddress = listing?.tokenAddress ?? metadata?.token_address?.toLowerCase() ?? null;
   const mcap = statsMarketCap(stats);
   const volume24hRaw = stats?.volume24hRaw ?? null;
-  const createdAtMs = listing?.createdAtMs ?? (metadata?.created_at ? metadata.created_at * 1000 : null);
+  const createdAtMs = listing?.createdAtMs ?? (metadata?.created_at ? metadata.created_at : null);
   const ageMs = createdAtMs === null ? null : Math.max(0, now - createdAtMs);
   const buys = countNumber(stats?.buys24h), sells = countNumber(stats?.sells24h);
   const txns = countNumber(stats?.txCount24h) ?? (buys !== null && sells !== null ? buys + sells : null);
   const changes = statsChanges(stats);
   const price = statsSpotPrice(stats);
   const top10 = statsShare(stats, 'top10'), dev = statsShare(stats, 'creator');
-  const name = metadata?.name?.trim() || shortAddress(pool, 6, 4);
-  const symbol = metadata?.symbol?.trim() || shortAddress(tokenAddress ?? pool, 4, 4);
+  const name = displayCoinText(metadata?.name, tokenAddress ?? pool);
+  const symbol = displayCoinText(metadata?.symbol, tokenAddress ?? pool);
   return {
     poolAddress: pool,
     tokenAddress,
@@ -143,6 +143,7 @@ export interface ExploreRowsState {
   loadMore(): void;
   retryMore(): void;
   reload(): void;
+  retrySources(): void;
   stats: Loadable<ReadonlyMap<string, PoolStats>>;
   /** Pool registry facts (token, creation time): IF_POOL_LIST / IF_POOL_DETAIL. */
   listings: Loadable<Record<string, PoolListing>>;
@@ -179,14 +180,14 @@ export function useExploreRows(category: RankingCategory): ExploreRowsState {
   }, [category]);
 
   useEffect(() => {
-    if (!query.data) return;
+    if (!query.data || query.data.data.snapshot.category !== category) return;
     try {
       const next = appendRankingPage(cursor === null ? null : snapshotRef.current, query.data);
       snapshotRef.current = next; setSnapshot(next); setConflict(null);
     } catch (error) {
       setConflict(error instanceof Error ? error : new Error(String(error)));
     }
-  }, [query.data, cursor]);
+  }, [query.data, query.dataUpdatedAt, cursor, category]);
 
   const pools = useMemo(() => snapshot?.data.snapshot.items.map(item => item.poolAddress.toLowerCase()) ?? [], [snapshot]);
   const first = useMemo(() => chunk(pools, 0), [pools]);
@@ -218,9 +219,9 @@ export function useExploreRows(category: RankingCategory): ExploreRowsState {
     if (next !== null && !query.isFetching) setCursor(next);
   }, [query.isFetching]);
   const reload = useCallback(() => {
-    setCursor(null); setSnapshot(null); setConflict(null); snapshotRef.current = null;
-    void query.refetch();
-  }, [query]);
+    setCursor(null); setConflict(null);
+    if (cursor === null) void query.refetch();
+  }, [cursor, query]);
   const retryMore = useCallback(() => { void query.refetch(); }, [query]);
 
   const firstPageFailed = cursor === null && query.status === 'error';
@@ -248,6 +249,12 @@ export function useExploreRows(category: RankingCategory): ExploreRowsState {
     loadMore,
     retryMore,
     reload,
+    retrySources() {
+      if (first.length) void statsA.refetch();
+      if (second.length) void statsB.refetch();
+      if (pools.length) void listings.refetch();
+      if (tokens.length) void metadata.refetch();
+    },
     stats: statsReady,
     listings: pools.length === 0 ? { state: 'ready', data: {} } : loadable(listings, 'IF_POOL_DETAIL'),
     metadata: tokens.length === 0 ? { state: 'ready', data: {} } : loadable(metadata, 'LEGACY_METADATA_BATCH'),

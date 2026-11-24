@@ -12,16 +12,18 @@ use layerx_platform_webhooks::ai_market::{
     MarketConsumer, MarketEventError, MarketOutbox, OperatorAlert, ProducerGrant, QuarantineCause,
     ResumePage, SignedDelivery, UpstreamManifest,
 };
+use layerx_platform_webhooks::chain::{bytes, number, varint, Membership, ProgramStateProof};
 use layerx_platform_webhooks::encoding::hex_encode;
 use layerx_platform_webhooks::trusted::{OPERATOR_ROLE, PRODUCER_ROLE};
 use layerx_platform_webhooks::{
     EndpointId, EventKind, Presentation, Principal, ProtocolEvent, SubjectId, Verification,
     WebhookError,
 };
-use layerx_programs_ai_market::codec::{encode_state, state_digest, StateFrame};
-use layerx_programs_ai_market::queries::SnapshotBinding;
+use layerx_programs_ai_market::policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES};
+use layerx_programs_ai_market::queries::{policy_digest, read_header, SnapshotBinding};
 use layerx_programs_ai_market::{
-    ChainDomain, Digest32, MarketId, PolicyDigest, Presence, ProgramId, RosterDigest, Version,
+    codec, dispatch, registry, registry_ops, state, AssetId, Authentication, ChainDomain, Digest32,
+    Presence, PrincipalId, ProgramId, RequestId, RubricDigest, MAX_EVENT_BYTES, SHARED_STATE_KEY,
 };
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -37,7 +39,6 @@ const BINARY: &str = env!("CARGO_BIN_EXE_layerx-webhooks");
 const CHILD: &str = "PAXAI_CONSUMER_CHILD";
 const CHAIN: [u8; 32] = [0x11; 32];
 const PROGRAM: [u8; 32] = [0x22; 32];
-const MARKET: [u8; 32] = [0x33; 32];
 const CHAIN_ID: &str = "ai-market-finality";
 const FOREIGN_CHAIN_ID: &str = "foreign-ai-market-finality";
 const SIGNED: [(u8, u8); 3] = [(1, 1), (2, 2), (3, 3)];
@@ -128,8 +129,46 @@ fn commit_header(chain_id: &str, observed: u64, app_hash: [u8; 32]) -> Header {
     }
 }
 
-fn store_proof(observed: u64) -> Vec<u8> {
-    observed.to_be_bytes().to_vec()
+fn store_proof(state: &[u8]) -> (Vec<u8>, [u8; 32]) {
+    fn leaf(key: &[u8], value: &[u8], prefix: &[u8]) -> (Vec<u8>, [u8; 32]) {
+        let mut op = Vec::new();
+        number(1, 1, &mut op);
+        number(3, 1, &mut op);
+        number(4, 1, &mut op);
+        bytes(5, prefix, &mut op);
+        let mut proof = Vec::new();
+        bytes(1, key, &mut proof);
+        bytes(2, value, &mut proof);
+        bytes(3, &op, &mut proof);
+        let mut preimage = prefix.to_vec();
+        varint(key.len() as u64, &mut preimage);
+        preimage.extend(key);
+        varint(32, &mut preimage);
+        preimage.extend(Sha256::digest(value));
+        (proof, Sha256::digest(&preimage).into())
+    }
+
+    let mut manifest = vec![0, 1];
+    manifest.extend(1_u32.to_be_bytes());
+    manifest.extend(ok(u16::try_from(SHARED_STATE_KEY.len()), "state key length").to_be_bytes());
+    manifest.extend(SHARED_STATE_KEY);
+    manifest.extend(Sha256::digest(state));
+    manifest.extend(ok(u32::try_from(state.len()), "state length").to_be_bytes());
+    let mut value = vec![0, 1];
+    value.extend(1_u32.to_be_bytes());
+    value.extend(Sha256::digest(&manifest));
+    let mut key = b"\x01\x00\x09progstor".to_vec();
+    key.extend(PROGRAM);
+    key.push(1);
+    let (proof, root) = leaf(&key, &value, &[0, 2, 2]);
+    let (outer, app_hash) = leaf(b"lxphost", &root, &[0]);
+    let mut multistore = Vec::new();
+    bytes(1, &outer, &mut multistore);
+    let proof = ProgramStateProof {
+        membership: Membership { proof, multistore },
+        manifest,
+    };
+    (ok(serde_json::to_vec(&proof), "state proof"), app_hash)
 }
 
 /// A block commit with `(validator position, signing key)` slots, numbered from 1.
@@ -195,14 +234,104 @@ fn signed(header: &Header, slots: &[(u8, u8)]) -> Commit {
     commit
 }
 
-fn market_state(revision: u64, section: &[u8]) -> Vec<u8> {
-    let frame = StateFrame {
-        revision,
-        sections: [section, &[], &[], &[], &[], &[]],
+fn market() -> [u8; 32] {
+    ok(
+        codec::derive_market(
+            ok(ChainDomain::new(CHAIN), "chain"),
+            ok(ProgramId::new(PROGRAM), "program"),
+        ),
+        "market",
+    )
+    .bytes()
+}
+
+fn market_state(metadata: &[u8]) -> Vec<u8> {
+    let chain = ok(ChainDomain::new(CHAIN), "chain");
+    let program = ok(ProgramId::new(PROGRAM), "program");
+    let actor = ok(PrincipalId::new([12; 32]), "actor");
+    let asset = ok(AssetId::new([13; 32]), "asset");
+    let policy = ok(
+        TaskPolicyV1::bounded_default(
+            1,
+            1,
+            PolicyCommitments {
+                model_artifact: digest([1; 32]),
+                dataset_artifact: [2; 32],
+                benchmark_suite: digest([3; 32]),
+                rubric: ok(RubricDigest::new([4; 32]), "rubric"),
+                task_schema: digest([5; 32]),
+                result_schema: digest([6; 32]),
+                service_terms: digest([7; 32]),
+            },
+            100,
+            1,
+        ),
+        "task policy",
+    );
+    let mut payload = actor.bytes().to_vec();
+    payload.extend(asset.bytes());
+    payload.extend(
+        ok(
+            registry::derive_rewards_account(program, asset),
+            "rewards account",
+        )
+        .bytes(),
+    );
+    payload.extend([14; 32]);
+    payload.push(0);
+    let mut encoded = vec![0; TASK_POLICY_BYTES];
+    ok(policy.encode(&mut encoded), "policy encoding");
+    payload.extend(encoded);
+    payload.extend(Sha256::digest(metadata));
+    let envelope = codec::Envelope {
+        operation: dispatch::CREATE,
+        chain,
+        program,
+        market: ok(codec::derive_market(chain, program), "market"),
+        actor,
+        epoch: 0,
+        config: 1,
+        roster: Presence::Absent,
+        sequence: 1,
+        expiry: 10_000,
+        request: ok(RequestId::new([17; 32]), "request"),
+        payload: &payload,
+        authentication: Authentication::Native,
     };
-    let mut bytes = vec![0; ok(frame.encoded_len(), "state frame length")];
-    ok(encode_state(&frame, &mut bytes), "state frame");
-    bytes
+    let mut envelope_bytes = vec![0; 16_384];
+    let n = ok(
+        codec::encode_envelope(&envelope, &mut envelope_bytes),
+        "CREATE envelope",
+    );
+    envelope_bytes.truncate(n);
+    let decoded = ok(codec::decode_envelope(&envelope_bytes), "decoded CREATE");
+    let mut section = vec![0; registry::F01_SECTION_CAP];
+    let mut event = vec![0; MAX_EVENT_BYTES];
+    let outcome = ok(
+        registry_ops::apply(
+            &registry_ops::CallContext {
+                chain,
+                program,
+                principal: actor,
+                height: 1000,
+            },
+            None,
+            &decoded,
+            &mut section,
+            &mut event,
+        ),
+        "CREATE applies",
+    );
+    let registry_ops::Outcome::Applied { state, .. } = outcome else {
+        panic!("CREATE must apply")
+    };
+    let mut out = vec![0; ok(state.encoded_len(), "state length")];
+    let mut scratch = vec![0; state::Section::Control.payload_cap()];
+    ok(
+        state::encode_shared_state(&state, &mut out, &mut scratch),
+        "created state",
+    );
+    out
 }
 
 fn digest(bytes: [u8; 32]) -> Digest32 {
@@ -243,57 +372,65 @@ impl Fixture {
     fn recertify(&mut self, chain_id: &str, root: [u8; 32], observed: u64, slots: &[(u8, u8)]) {
         self.header = commit_header(chain_id, observed, root);
         self.commit = signed(&self.header, slots);
-        self.store_proof = store_proof(observed);
+        self.store_proof = store_proof(&self.state).0;
         self.registered = Sha256::digest(&self.store_proof).into();
         self.row.binding.store_proof_digest = digest(self.registered);
     }
 }
 
-fn root(observed: u64) -> [u8; 32] {
-    let mut value = [0x90; 32];
-    value[..8].copy_from_slice(&observed.to_be_bytes());
-    value
+fn root(state: &[u8]) -> [u8; 32] {
+    store_proof(state).1
 }
 
-fn batch(observed: u64) -> [u8; 32] {
-    commit_header(CHAIN_ID, observed, root(observed)).hash()
+fn batch(observed: u64, state: &[u8]) -> [u8; 32] {
+    commit_header(CHAIN_ID, observed, root(state)).hash()
 }
 
-fn binding(observed: u64, state: &[u8], checkpoint: [u8; 32], rank: u8) -> SnapshotBinding {
+fn binding(
+    observed: u64,
+    state: &[u8],
+    commit: &Header,
+    store_proof: &[u8],
+    rank: u8,
+) -> SnapshotBinding {
+    let chain = ok(ChainDomain::new(CHAIN), "chain");
+    let program = ok(ProgramId::new(PROGRAM), "program");
+    let header = ok(read_header(state, chain, program), "market header");
+    let height = ok(u64::try_from(commit.height), "committed height");
     SnapshotBinding {
-        chain: ok(ChainDomain::new(CHAIN), "chain"),
-        program: ok(ProgramId::new(PROGRAM), "program"),
-        market: ok(MarketId::new(MARKET), "market"),
+        chain,
+        program,
+        market: header.market,
         observed_sequence: observed,
-        execution_height: observed + 100,
-        batch_id: digest(batch(observed)),
-        native_state_root: digest(root(observed)),
-        revision: observed,
-        state_digest: ok(state_digest(state), "state digest"),
-        epoch: Presence::Present(3),
-        config: ok(Version::new(2), "config"),
-        policy: ok(PolicyDigest::new([0xab; 32]), "policy"),
-        roster: Presence::Present(ok(RosterDigest::new([0xcd; 32]), "roster")),
-        block_height: observed + 100,
-        block_hash: digest(batch(observed)),
-        app_hash: digest(root(observed)),
-        store_proof_digest: digest(checkpoint),
+        execution_height: height,
+        batch_id: digest(commit.hash()),
+        native_state_root: digest(root(state)),
+        revision: header.revision,
+        state_digest: header.digest,
+        epoch: header.epoch,
+        config: header.config,
+        policy: ok(policy_digest(state), "policy digest"),
+        roster: header.roster,
+        block_height: height,
+        block_hash: digest(commit.hash()),
+        app_hash: digest(root(state)),
+        store_proof_digest: digest(Sha256::digest(store_proof).into()),
         rank,
         publication_time_ms: 1_700_000_000_000 + observed,
     }
 }
 
 fn fixture(observed: u64, ordinal: u16, rank: u8) -> Fixture {
-    let state = market_state(observed, format!("market-state-{observed}").as_bytes());
-    let header = commit_header(CHAIN_ID, observed, root(observed));
+    let state = market_state(format!("market-state-{observed}").as_bytes());
+    let (store_proof, app_hash) = store_proof(&state);
+    let header = commit_header(CHAIN_ID, observed, app_hash);
     let commit = signed(&header, &SIGNED);
-    let store_proof = store_proof(observed);
     let registered = Sha256::digest(&store_proof).into();
-    let binding = binding(observed, &state, registered, rank);
+    let binding = binding(observed, &state, &header, &store_proof, rank);
     let mut activity = [0x5c; 32];
     activity[24..].copy_from_slice(&observed.to_be_bytes());
     let event_id = ok(
-        market_event_id(&MARKET, &activity, ordinal, TAG),
+        market_event_id(&market(), &activity, ordinal, TAG),
         "event id",
     );
     Fixture {
@@ -330,7 +467,7 @@ fn endpoint() -> EndpointId {
 
 fn subject() -> SubjectId {
     ok(
-        SubjectId::new(format!("paxai_market_{}", hex_encode(&MARKET))),
+        SubjectId::new(format!("paxai_market_{}", hex_encode(&market()))),
         "subject",
     )
 }
@@ -358,7 +495,7 @@ fn open(directory: &Path) -> MarketOutbox {
 
 fn granted(directory: &Path) -> MarketOutbox {
     let outbox = open(directory);
-    ok(outbox.grant(&MARKET), "grant");
+    ok(outbox.grant(&market()), "grant");
     outbox
 }
 
@@ -446,22 +583,40 @@ fn independent_snapshot_id(binding: &SnapshotBinding, frame: &[u8]) -> [u8; 32] 
     bytes.extend_from_slice(&1_u16.to_be_bytes());
     bytes.extend_from_slice(&CHAIN);
     bytes.extend_from_slice(&PROGRAM);
-    bytes.extend_from_slice(&MARKET);
+    bytes.extend_from_slice(&market());
     bytes.extend_from_slice(&binding.observed_sequence.to_be_bytes());
     bytes.extend_from_slice(&binding.execution_height.to_be_bytes());
-    bytes.extend_from_slice(&batch(binding.observed_sequence));
-    bytes.extend_from_slice(&root(binding.observed_sequence));
+    bytes.extend_from_slice(&batch(binding.observed_sequence, frame));
+    bytes.extend_from_slice(&root(frame));
     bytes.extend_from_slice(&binding.revision.to_be_bytes());
     let mut state = b"PAXAI/view-state/v1".to_vec();
     state.push(0);
     state.extend_from_slice(frame);
     bytes.extend_from_slice(&Sha256::digest(&state));
-    bytes.push(1);
-    bytes.extend_from_slice(&3_u64.to_be_bytes());
-    bytes.extend_from_slice(&2_u64.to_be_bytes());
-    bytes.extend_from_slice(&[0xab; 32]);
-    bytes.push(1);
-    bytes.extend_from_slice(&[0xcd; 32]);
+    let header = ok(
+        read_header(
+            frame,
+            ok(ChainDomain::new(CHAIN), "chain"),
+            ok(ProgramId::new(PROGRAM), "program"),
+        ),
+        "market header",
+    );
+    match header.epoch {
+        Presence::Absent => bytes.push(0),
+        Presence::Present(epoch) => {
+            bytes.push(1);
+            bytes.extend_from_slice(&epoch.to_be_bytes());
+        }
+    }
+    bytes.extend_from_slice(&header.config.get().to_be_bytes());
+    bytes.extend_from_slice(ok(policy_digest(frame), "policy digest").as_bytes());
+    match header.roster {
+        Presence::Absent => bytes.push(0),
+        Presence::Present(roster) => {
+            bytes.push(1);
+            bytes.extend_from_slice(roster.as_bytes());
+        }
+    }
     Sha256::digest(&bytes).into()
 }
 
@@ -469,7 +624,7 @@ fn independent_event_id(fixture: &Fixture) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"PAXAI/view-event/v1");
     hasher.update([0]);
-    hasher.update(MARKET);
+    hasher.update(market());
     hasher.update(fixture.row.source_activity_id);
     hasher.update(fixture.row.effect_ordinal.to_be_bytes());
     hasher.update(TAG.to_be_bytes());
@@ -482,6 +637,16 @@ fn finalized_event_carries_exact_identity_and_public_content_only() {
     let outbox = granted(&scratch.0.join("outbox"));
     let grant = producer(&scratch.0);
     let fixture = fixture(10, 0, 4);
+    let proof: ProgramStateProof = ok(serde_json::from_slice(&fixture.store_proof), "state proof");
+    ok(
+        proof.verify(root(&fixture.state), &PROGRAM, &fixture.state),
+        "state membership",
+    );
+    assert_eq!(fixture.header.app_hash, root(&fixture.state));
+    assert_ne!(
+        fixture.row.snapshot_id,
+        self::fixture(11, 0, 4).row.snapshot_id
+    );
     let expected_id = independent_event_id(&fixture);
     assert_eq!(fixture.row.event_id, expected_id);
     assert_eq!(expected_id.len(), 66);
@@ -506,20 +671,32 @@ fn finalized_event_carries_exact_identity_and_public_content_only() {
         .iter()
         .map(|fact| (fact.name(), fact.value()))
         .collect();
-    assert_eq!(facts.len(), 17);
+    assert_eq!(facts.len(), 21);
     assert_eq!(facts["ai_action"], "COMMIT_TASK_RESULT");
     assert_eq!(facts["ai_event_tag"], "1025");
-    assert_eq!(facts["market_id"], "33".repeat(32));
+    assert_eq!(facts["market_id"], hex_encode(&market()));
     assert_eq!(facts["snapshot_id"], hex_encode(&fixture.row.snapshot_id));
-    assert_eq!(facts["epoch"], "3");
+    assert_eq!(facts["epoch"], "absent");
+    assert_eq!(facts["config_version"], "1");
+    assert_eq!(facts["market_state_revision"], "1");
     assert_eq!(
         facts["source_activity_id"],
         hex_encode(&fixture.row.source_activity_id)
     );
     assert_eq!(facts["effect_ordinal"], "0");
     assert_eq!(facts["chain_domain"], "11".repeat(32));
-    assert_eq!(facts["native_state_root"], hex_encode(&root(10)));
-    assert_eq!(facts["checkpoint_id"], hex_encode(&fixture.registered));
+    assert_eq!(
+        facts["native_state_root"],
+        hex_encode(&root(&fixture.state))
+    );
+    assert_eq!(facts["store_proof_digest"], hex_encode(&fixture.registered));
+    assert_eq!(facts["program_id"], hex_encode(&PROGRAM));
+    assert_eq!(facts["observed_sequence"], "10");
+    assert_eq!(facts["execution_height"], "110");
+    assert_eq!(facts["batch_id"], hex_encode(&fixture.header.hash()));
+    assert_eq!(facts["block_height"], "110");
+    assert_eq!(facts["block_hash"], hex_encode(&fixture.header.hash()));
+    assert_eq!(facts["app_hash"], hex_encode(&root(&fixture.state)));
     assert_eq!(facts["achieved_rank"], "4");
     let delivery = deliver(&event, now());
     let body = ok(String::from_utf8(delivery.body), "body is UTF-8");
@@ -542,7 +719,7 @@ fn missing_finality_delays_publication_and_retries_are_idempotent() {
         ),
         Admission::Delayed
     );
-    assert!(ok(outbox.pending(&MARKET), "pending").is_empty());
+    assert!(ok(outbox.pending(&market()), "pending").is_empty());
     let proven = fixture(20, 1, 4);
     assert_eq!(proven.row.snapshot_id, observed.row.snapshot_id);
     assert_eq!(proven.row.event_id, observed.row.event_id);
@@ -560,7 +737,10 @@ fn missing_finality_delays_publication_and_retries_are_idempotent() {
     );
     let second = admit(&outbox, &grant, &fixture(20, 2, 4));
     assert_eq!(second.subject_sequence(), 2);
-    assert_eq!(ok(outbox.pending(&MARKET), "pending"), vec![event, second]);
+    assert_eq!(
+        ok(outbox.pending(&market()), "pending"),
+        vec![event, second]
+    );
 }
 
 fn refused_commit(outbox: &MarketOutbox, grant: &ProducerGrant, label: &str, sample: &Fixture) {
@@ -577,10 +757,10 @@ fn bonded_guarantor_signatures_gate_finalized_publication() {
     let grant = producer(&scratch.0);
     let outbox = granted(&scratch.0.join("outbox"));
     let mut unsigned = fixture(30, 0, 4);
-    unsigned.recertify(CHAIN_ID, root(30), 30, &[]);
+    unsigned.recertify(CHAIN_ID, root(&unsigned.state), 30, &[]);
     refused_commit(&outbox, &grant, "unsigned", &unsigned);
     let mut forged = fixture(30, 0, 4);
-    forged.recertify(CHAIN_ID, root(30), 30, &[(1, 1), (2, 9), (3, 3)]);
+    forged.recertify(CHAIN_ID, root(&forged.state), 30, &[(1, 1), (2, 9), (3, 3)]);
     refused_commit(&outbox, &grant, "wrong key", &forged);
     let mut unbonded = fixture(30, 0, 4);
     let mut unpinned = validators();
@@ -594,19 +774,19 @@ fn bonded_guarantor_signatures_gate_finalized_publication() {
         &unbonded,
     );
     let mut short = fixture(30, 0, 4);
-    short.recertify(CHAIN_ID, root(30), 30, &[(1, 1), (2, 2)]);
+    short.recertify(CHAIN_ID, root(&short.state), 30, &[(1, 1), (2, 2)]);
     refused_commit(&outbox, &grant, "below threshold", &short);
     let mut unregistered = fixture(30, 0, 4);
-    unregistered.store_proof = b"unregistered-store-proof".to_vec();
+    unregistered.store_proof = store_proof(&market_state(b"another-state")).0;
     refused_commit(&outbox, &grant, "unregistered store proof", &unregistered);
     let mut other_batch = fixture(30, 0, 4);
-    other_batch.recertify(CHAIN_ID, root(30), 31, &SIGNED);
+    other_batch.recertify(CHAIN_ID, root(&other_batch.state), 31, &SIGNED);
     refused_commit(&outbox, &grant, "another batch", &other_batch);
     let mut malformed = fixture(30, 0, 4);
     malformed.header.time.nanos = 1_000_000_000;
     refused_commit(&outbox, &grant, "malformed header", &malformed);
-    assert!(ok(outbox.pending(&MARKET), "nothing admitted").is_empty());
-    assert_eq!(ok(outbox.quarantine(&MARKET), "quarantine"), None);
+    assert!(ok(outbox.pending(&market()), "nothing admitted").is_empty());
+    assert_eq!(ok(outbox.quarantine(&market()), "quarantine"), None);
     assert!(ok(outbox.alerts(), "alerts").is_empty());
     let signed = fixture(30, 0, 4);
     assert_eq!(
@@ -621,7 +801,7 @@ fn bonded_guarantor_signatures_gate_finalized_publication() {
     let event = admit(&outbox, &grant, &signed);
     assert_eq!(event.subject_sequence(), 1);
     assert_eq!(event.verification(), Verification::BlockCommitted);
-    assert_eq!(ok(outbox.pending(&MARKET), "published"), vec![event]);
+    assert_eq!(ok(outbox.pending(&market()), "published"), vec![event]);
 }
 
 fn publish_three(directory: &Path, grant: &ProducerGrant, first: u64) -> Vec<ProtocolEvent> {
@@ -638,7 +818,7 @@ fn restart_after_commit_publishes_the_same_events_and_receiver_applies_once() {
     let directory = scratch.0.join("outbox");
     let admitted = publish_three(&directory, &grant, 40);
     let restarted = open(&directory);
-    let pending = ok(restarted.pending(&MARKET), "pending after restart");
+    let pending = ok(restarted.pending(&market()), "pending after restart");
     assert_eq!(pending, admitted);
     let sequences: Vec<u64> = pending
         .iter()
@@ -690,10 +870,10 @@ fn restart_after_commit_publishes_the_same_events_and_receiver_applies_once() {
     }
     assert_eq!(ok(receiver.applied(&subject()), "applied"), 3);
     ok(
-        restarted.acknowledge(&MARKET, pending[0].id()),
+        restarted.acknowledge(&market(), pending[0].id()),
         "acknowledge",
     );
-    assert_eq!(ok(restarted.pending(&MARKET), "pending").len(), 2);
+    assert_eq!(ok(restarted.pending(&market()), "pending").len(), 2);
     let behind = consumer(&scratch.0.join("behind"));
     ok(behind.resynchronize(&subject(), 2), "resync");
     assert!(matches!(
@@ -723,38 +903,38 @@ fn rollback_removes_provisional_rows_and_refuses_crossing_finality() {
         );
     }
     assert_eq!(
-        ok(outbox.rollback(&MARKET, 51), "rollback above finality"),
+        ok(outbox.rollback(&market(), 51), "rollback above finality"),
         1
     );
-    assert_eq!(ok(outbox.rollback(&MARKET, 51), "repeat rollback"), 0);
+    assert_eq!(ok(outbox.rollback(&market(), 51), "repeat rollback"), 0);
     assert!(matches!(
-        outbox.rollback(&MARKET, 49),
+        outbox.rollback(&market(), 49),
         Err(MarketEventError::Quarantined(
             QuarantineCause::FinalityBoundary
         ))
     ));
     assert_eq!(
-        ok(outbox.quarantine(&MARKET), "quarantine"),
+        ok(outbox.quarantine(&market()), "quarantine"),
         Some(QuarantineCause::FinalityBoundary)
     );
-    assert_eq!(ok(outbox.pending(&MARKET), "history kept"), vec![event]);
+    assert_eq!(ok(outbox.pending(&market()), "history kept"), vec![event]);
     let later = fixture(51, 0, 4);
     assert!(matches!(
         outbox.admit(&grant, &later.row, &later.evidence()),
         Err(MarketEventError::StreamQuarantined)
     ));
     assert!(matches!(
-        outbox.rollback(&MARKET, 60),
+        outbox.rollback(&market(), 60),
         Err(MarketEventError::StreamQuarantined)
     ));
     assert_eq!(
-        ok(outbox.pending(&MARKET), "no compensating event").len(),
+        ok(outbox.pending(&market()), "no compensating event").len(),
         1
     );
     assert_eq!(
         ok(outbox.alerts(), "alerts"),
         vec![OperatorAlert {
-            market_id: "33".repeat(32),
+            market_id: hex_encode(&market()),
             event_id: None,
             snapshot_id: None,
             category: "finality_boundary_crossed".to_owned(),
@@ -778,12 +958,12 @@ fn quarantine_case(
         matches!(refusal, Err(MarketEventError::Quarantined(cause)) if cause == expected),
         "{label}: {refusal:?}"
     );
-    assert_eq!(ok(outbox.quarantine(&MARKET), label), Some(expected));
+    assert_eq!(ok(outbox.quarantine(&market()), label), Some(expected));
     let alerts = ok(outbox.alerts(), label);
     assert_eq!(
         alerts,
         vec![OperatorAlert {
-            market_id: "33".repeat(32),
+            market_id: hex_encode(&market()),
             event_id: Some(sample.row.event_id.clone()),
             snapshot_id: Some(hex_encode(&sample.row.snapshot_id)),
             category: expected.as_str().to_owned(),
@@ -820,7 +1000,7 @@ fn conflicting_artifacts_quarantine_with_identifier_only_alerts() {
         &leaf,
         "state",
         |fixture| {
-            fixture.state = market_state(70, b"market-state-forged");
+            fixture.state = market_state(b"market-state-forged");
         },
         QuarantineCause::StateDigest,
     );
@@ -843,13 +1023,19 @@ fn conflicting_artifacts_quarantine_with_identifier_only_alerts() {
         },
         QuarantineCause::ChainDomain,
     );
-    quarantine_case(
-        root_directory,
-        &leaf,
-        "network",
-        |fixture| fixture.recertify(FOREIGN_CHAIN_ID, root(70), 70, &SIGNED),
-        QuarantineCause::CommitChain,
-    );
+    {
+        let outbox = granted(&root_directory.join("network"));
+        let grant = ok(ProducerGrant::from_certificate(&leaf), "producer grant");
+        let mut sample = fixture(70, 0, 4);
+        sample.recertify(FOREIGN_CHAIN_ID, root(&sample.state), 70, &SIGNED);
+        refused_commit(&outbox, &grant, "network", &sample);
+        assert_eq!(ok(outbox.quarantine(&market()), "quarantine"), None);
+        assert!(ok(outbox.alerts(), "alerts").is_empty());
+        assert_eq!(
+            admit(&outbox, &grant, &fixture(70, 0, 4)).subject_sequence(),
+            1
+        );
+    }
     quarantine_case(
         root_directory,
         &leaf,
@@ -892,7 +1078,7 @@ fn reused_event_identifier_with_changed_content_quarantines() {
             QuarantineCause::EventConflict
         ))
     ));
-    assert_eq!(ok(outbox.pending(&MARKET), "kept"), vec![event]);
+    assert_eq!(ok(outbox.pending(&market()), "kept"), vec![event]);
     assert_eq!(
         ok(outbox.alerts(), "alerts")[0].category,
         "event_conflict".to_owned()
@@ -915,7 +1101,7 @@ fn restored_rows_reproduce_canonical_events_without_new_entitlement() {
         );
     }
     let outbox = open(&restored);
-    assert_eq!(ok(outbox.pending(&MARKET), "restored pending"), admitted);
+    assert_eq!(ok(outbox.pending(&market()), "restored pending"), admitted);
     for (observed, event) in (60..63).zip(&admitted) {
         let row = fixture(observed, 0, 4);
         assert_eq!(
@@ -926,7 +1112,7 @@ fn restored_rows_reproduce_canonical_events_without_new_entitlement() {
             }
         );
     }
-    assert_eq!(ok(outbox.pending(&MARKET), "no new rows").len(), 3);
+    assert_eq!(ok(outbox.pending(&market()), "no new rows").len(), 3);
     assert_eq!(
         admit(&outbox, &grant, &fixture(63, 0, 4)).subject_sequence(),
         4
@@ -945,7 +1131,7 @@ fn revoked_tenant_cannot_resume_with_an_unexpired_cursor() {
         next_cursor,
         has_more,
     } = ok(
-        outbox.resume(&principal(), &endpoint(), &MARKET, None, 32),
+        outbox.resume(&principal(), &endpoint(), &market(), None, 32),
         "first page",
     )
     else {
@@ -954,19 +1140,19 @@ fn revoked_tenant_cannot_resume_with_an_unexpired_cursor() {
     assert_eq!((events, has_more), (vec![event], false));
     assert!(matches!(
         ok(
-            outbox.resume(&principal(), &endpoint(), &MARKET, Some(&next_cursor), 32),
+            outbox.resume(&principal(), &endpoint(), &market(), Some(&next_cursor), 32),
             "resume"
         ),
         ResumePage::Events { events, .. } if events.is_empty()
     ));
     let other = ok(Principal::new("tenant:other"), "other principal");
     assert!(matches!(
-        outbox.resume(&other, &endpoint(), &MARKET, Some(&next_cursor), 32),
+        outbox.resume(&other, &endpoint(), &market(), Some(&next_cursor), 32),
         Err(MarketEventError::Revoked)
     ));
     let foreign = ok(EndpointId::new("whep_foreign"), "endpoint");
     assert!(matches!(
-        outbox.resume(&principal(), &foreign, &MARKET, Some(&next_cursor), 32),
+        outbox.resume(&principal(), &foreign, &market(), Some(&next_cursor), 32),
         Err(MarketEventError::Webhook(WebhookError::InvalidCursor))
     ));
     let mut tampered = next_cursor.clone();
@@ -974,16 +1160,16 @@ fn revoked_tenant_cannot_resume_with_an_unexpired_cursor() {
     tampered.pop();
     tampered.push_str(last);
     assert!(matches!(
-        outbox.resume(&principal(), &endpoint(), &MARKET, Some(&tampered), 32),
+        outbox.resume(&principal(), &endpoint(), &market(), Some(&tampered), 32),
         Err(MarketEventError::Webhook(WebhookError::InvalidCursor))
     ));
-    ok(outbox.revoke(&MARKET), "revoke");
+    ok(outbox.revoke(&market()), "revoke");
     assert!(matches!(
-        outbox.resume(&principal(), &endpoint(), &MARKET, Some(&next_cursor), 32),
+        outbox.resume(&principal(), &endpoint(), &market(), Some(&next_cursor), 32),
         Err(MarketEventError::Revoked)
     ));
     assert!(matches!(
-        outbox.pending(&MARKET),
+        outbox.pending(&market()),
         Err(MarketEventError::Revoked)
     ));
     let later = fixture(74, 0, 4);
@@ -1012,25 +1198,25 @@ fn expired_cursor_answers_explicit_gap_and_snapshot_resync() {
     let admitted = publish_three(&directory, &grant, 80);
     let outbox = open(&directory);
     for event in &admitted {
-        ok(outbox.acknowledge(&MARKET, event.id()), "acknowledge");
+        ok(outbox.acknowledge(&market(), event.id()), "acknowledge");
     }
     let ResumePage::Events {
         next_cursor,
         has_more,
         ..
     } = ok(
-        outbox.resume(&principal(), &endpoint(), &MARKET, None, 1),
+        outbox.resume(&principal(), &endpoint(), &market(), None, 1),
         "page",
     )
     else {
         panic!("first page must list events");
     };
     assert!(has_more);
-    assert_eq!(ok(outbox.prune(&MARKET, 2), "prune"), 2);
+    assert_eq!(ok(outbox.prune(&market(), 2), "prune"), 2);
     let latest = fixture(82, 0, 4).row.snapshot_id;
     assert_eq!(
         resync_through(&ok(
-            outbox.resume(&principal(), &endpoint(), &MARKET, Some(&next_cursor), 32),
+            outbox.resume(&principal(), &endpoint(), &market(), Some(&next_cursor), 32),
             "expired cursor"
         )),
         (Some(latest), 3)
@@ -1039,7 +1225,7 @@ fn expired_cursor_answers_explicit_gap_and_snapshot_resync() {
         next_cursor: current,
         ..
     } = ok(
-        outbox.resume(&principal(), &endpoint(), &MARKET, None, 32),
+        outbox.resume(&principal(), &endpoint(), &market(), None, 32),
         "retained page",
     )
     else {
@@ -1051,7 +1237,7 @@ fn expired_cursor_answers_explicit_gap_and_snapshot_resync() {
     );
     assert!(matches!(
         ok(
-            overlap.resume(&principal(), &endpoint(), &MARKET, Some(&current), 32),
+            overlap.resume(&principal(), &endpoint(), &market(), Some(&current), 32),
             "overlap"
         ),
         ResumePage::Events { events, .. } if events.is_empty()
@@ -1059,7 +1245,7 @@ fn expired_cursor_answers_explicit_gap_and_snapshot_resync() {
     let retired = open_with(&directory, ok(CursorKeys::new((2, [2; 32]), &[]), "keys"));
     assert_eq!(
         resync_through(&ok(
-            retired.resume(&principal(), &endpoint(), &MARKET, Some(&current), 32),
+            retired.resume(&principal(), &endpoint(), &market(), Some(&current), 32),
             "retired key"
         )),
         (Some(latest), 3)
@@ -1073,7 +1259,7 @@ fn expired_cursor_answers_explicit_gap_and_snapshot_resync() {
         Consumed::Applied { sequence: 4, .. }
     ));
     assert!(matches!(
-        outbox.prune(&MARKET, 4),
+        outbox.prune(&market(), 4),
         Err(MarketEventError::InvalidRequest)
     ));
 }
@@ -1285,16 +1471,16 @@ fn bounds_refuse_before_any_quarantine_or_cryptographic_work() {
     ));
     for limit in [0, 33] {
         assert!(matches!(
-            outbox.resume(&principal(), &endpoint(), &MARKET, None, limit),
+            outbox.resume(&principal(), &endpoint(), &market(), None, limit),
             Err(MarketEventError::InvalidRequest)
         ));
     }
     let long = "p".repeat(65);
     assert!(matches!(
-        outbox.resume(&principal(), &endpoint(), &MARKET, Some(&long), 32),
+        outbox.resume(&principal(), &endpoint(), &market(), Some(&long), 32),
         Err(MarketEventError::InvalidRequest)
     ));
-    assert_eq!(ok(outbox.quarantine(&MARKET), "quarantine"), None);
+    assert_eq!(ok(outbox.quarantine(&market()), "quarantine"), None);
     assert!(ok(outbox.alerts(), "alerts").is_empty());
 }
 
@@ -1542,7 +1728,7 @@ fn public_process_refuses_private_producer_route_and_role_mismatch() {
         );
     }
     let outbox = granted(&scratch.0.join("outbox"));
-    assert!(ok(outbox.pending(&MARKET), "nothing published").is_empty());
+    assert!(ok(outbox.pending(&market()), "nothing published").is_empty());
     let leaf = role_leaf(&scratch.0, "producer", PRODUCER_ROLE, "clientAuth");
     assert!(ProducerGrant::from_certificate(&leaf).is_ok());
 }

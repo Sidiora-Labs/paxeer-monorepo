@@ -5,20 +5,17 @@ import React from 'react';
 import PageNextJs from 'nextjs/PageNextJs';
 
 import config from 'configs/app';
+import BlocksPageContent from 'ui/pages/Blocks';
 
-const Blocks = dynamic(() => {
-  if (config.features.multichain.isEnabled) {
-    return import('ui/multichain/blocks/MultichainBlocks');
-  }
-
-  return import('ui/pages/Blocks');
-}, { ssr: false });
+const Blocks = config.features.multichain.isEnabled ?
+  dynamic(() => import('ui/multichain/blocks/MultichainBlocks'), { ssr: false }) : BlocksPageContent;
 
 const Page: NextPage = () => {
   return (
-    <PageNextJs pathname="/blocks">
+    <>
+      <PageNextJs pathname="/blocks">{ null }</PageNextJs>
       <Blocks/>
-    </PageNextJs>
+    </>
   );
 };
 

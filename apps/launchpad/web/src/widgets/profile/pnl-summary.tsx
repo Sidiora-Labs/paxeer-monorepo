@@ -44,7 +44,7 @@ export function PnlSummary({ wallet, isOwner, className }: PnlSummaryProps) {
 
   return (
     <section aria-label="Profit and loss summary" className={cn('rounded-lg bg-surface-1 px-4 py-3', className)}>
-      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <StatTile
           label="Realized"
           size="row"
@@ -60,6 +60,7 @@ export function PnlSummary({ wallet, isOwner, className }: PnlSummaryProps) {
           value={unrealized && unrealized.counted > 0 ? <MaskedAmount>{formatUsdl(unrealized.raw, { signed: true })}</MaskedAmount> : null}
         />
       </dl>
+      <div className="min-h-5">
       {issue ? <PortfolioIssueState issue={issue} variant="inline" className="mt-2 px-2 pb-1" /> : null}
       {showNote || (page && page.summary.realizedPnlRaw === null) || unrealized?.partial ? (
         <ul className="mt-2 flex flex-col gap-0.5 px-2 pb-1 text-xs text-text-faint">
@@ -68,6 +69,7 @@ export function PnlSummary({ wallet, isOwner, className }: PnlSummaryProps) {
           {unrealized?.partial ? <li>Unrealized covers {unrealized.counted} of {page?.positions.length ?? 0} positions; some prices are missing.</li> : null}
         </ul>
       ) : null}
+      </div>
     </section>
   );
 }

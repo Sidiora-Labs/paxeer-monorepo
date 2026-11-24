@@ -13,6 +13,7 @@ export interface SignedOutStateProps {
   icon?: LucideIcon;
   variant?: EmptyStateProps['variant'];
   colSpan?: number;
+  headingLevel?: EmptyStateProps['headingLevel'];
   className?: string;
 }
 
@@ -21,7 +22,7 @@ export interface SignedOutStateProps {
  * (including a 401/403 answered to an anonymous request). It is an empty state
  * with a sign-in action, never an error.
  */
-export function SignedOutState({ title, body = 'Connect your wallet to continue', icon = Wallet, variant = 'panel', colSpan, className }: SignedOutStateProps) {
+export function SignedOutState({ title, body = 'Connect your wallet to continue', icon = Wallet, variant = 'panel', colSpan, headingLevel, className }: SignedOutStateProps) {
   const { openModal } = useAuthModal();
   if (variant === 'inline') {
     return (
@@ -35,6 +36,7 @@ export function SignedOutState({ title, body = 'Connect your wallet to continue'
     <EmptyState
       icon={icon}
       title={title}
+      headingLevel={headingLevel}
       body={body}
       variant={variant}
       colSpan={colSpan}

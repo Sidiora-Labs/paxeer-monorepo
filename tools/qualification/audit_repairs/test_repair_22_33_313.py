@@ -14,8 +14,12 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
-RECORD = Path(__file__).with_name("repair_22_33_313.kvx")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RECORD = (
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs"
+    / "repair_22_33_313.kvx"
+)
 
 
 def source(path):
@@ -45,13 +49,16 @@ def section(heading, level=3):
 def test_merged_paxd_network_and_tenant_namespaces():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "Sub-chains are tenant domains stored in the database",
         "does not require new node infrastructure",
-        "no router and no separate LayerX interface", "outside consensus",
+        "outside consensus",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -70,33 +77,20 @@ def test_merged_paxd_network_and_tenant_namespaces():
 def test_root_json_rpc_hosts_and_chain_125_probe():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
+        "Set `PAXEER_RPC_URL` to a node root URL",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
         "Confirm the chain ID before signing or broadcasting",
         "compare `eth_blockNumber`",
         "gateway contract does not establish method availability at public node URLs",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
     ):
         assert fact in quickstart, fact
-    hosts = {"api-mainnet-beta.paxeer.network"}
-    hosts.update(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15))
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    node_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
-    assert node_urls
-    for url in node_urls:
-        assert url.scheme == "https" and url.hostname in hosts
-        assert url.path in ("", "/") and not url.query and not url.fragment
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " "))
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
@@ -186,10 +180,10 @@ def test_current_node_build_operations_and_no_separate_deployment():
     assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     for target in re.findall(r"\]\(([^)]+)\)", build):
-        assert (ROOT / target.split("#", 1)[0]).exists(), target
+        assert (NETWORK_PAGE.parent / target.split("#", 1)[0]).resolve().exists(), target
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "no separate kernel daemon, sequencer service or checkpoint deployment" in README
     assert "External checkpoint settlement is retired" in README
     assert not re.search(r"\blayerxd\b", README, re.I)

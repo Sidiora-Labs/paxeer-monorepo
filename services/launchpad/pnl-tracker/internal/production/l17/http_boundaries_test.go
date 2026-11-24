@@ -1,9 +1,11 @@
 package l17
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -15,6 +17,10 @@ import (
 )
 
 func TestPortfolioHTTPRequiresIdentityAndValidResources(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previous)
 	r := chi.NewRouter()
 	service := Service{}
 	service.RegisterHTTP(r)
@@ -24,10 +30,14 @@ func TestPortfolioHTTPRequiresIdentityAndValidResources(t *testing.T) {
 		{"POST", "/v2/me/portfolio/cards"}, {"GET", "/v2/me/portfolio/cards/id"}, {"DELETE", "/v2/me/portfolio/cards/id"},
 	}
 	for _, route := range routes {
+		logs.Reset()
 		out := httptest.NewRecorder()
 		r.ServeHTTP(out, httptest.NewRequest(route.method, route.path, nil))
 		if out.Code != 503 || !strings.Contains(out.Body.String(), "DEPENDENCY_UNAVAILABLE") {
 			t.Fatal(route, out.Code, out.Body.String())
+		}
+		if !strings.Contains(logs.String(), ErrUnavailable.Error()) {
+			t.Fatal(route, "dependency cause missing", logs.String())
 		}
 	}
 	repository := phase2Repository(t)

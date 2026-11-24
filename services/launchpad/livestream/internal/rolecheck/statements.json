@@ -1,0 +1,2783 @@
+[
+  {
+    "id": "sdk/launchpad/shared/auth/ledger:AppendAudit:1",
+    "package": "sdk/launchpad/shared/auth",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "AppendAudit",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.security_audit_outbox"
+    ],
+    "sequences": [
+      "livestream.security_audit_outbox_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "action",
+      "actor_pseudonym",
+      "policy_version",
+      "request_digest",
+      "request_id",
+      "result"
+    ],
+    "sha256": "9b4433fbb4166df5975d5b5d317dfcadff48ed35e06d7cd9f39a8cc8cd85b6f8"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger:Ledger.ExecuteValidatedTx:1",
+    "package": "sdk/launchpad/shared/auth",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "Ledger.ExecuteValidatedTx",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger:Ledger.ExecuteValidatedTx:2",
+    "package": "sdk/launchpad/shared/auth",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "Ledger.ExecuteValidatedTx",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [],
+    "sha256": "2461f8bb8070d8f1e4e669943dfb1cc042ed3e05c56721efdd125ae68b55f78c"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger:Ledger.ExecuteValidatedTx:3",
+    "package": "sdk/launchpad/shared/auth",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "Ledger.ExecuteValidatedTx",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.operation_ledger"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "action",
+      "actor",
+      "body_digest",
+      "envelope_digest",
+      "nonce",
+      "response",
+      "response_digest"
+    ],
+    "sha256": "425a10dd5354d628f83cafd2053c91b59c3c075ded38f6783540e98cc395aeb5"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger:Ledger.ExecuteValidatedTx:4",
+    "package": "sdk/launchpad/shared/auth",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "Ledger.ExecuteValidatedTx",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.operation_ledger"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "action",
+      "actor",
+      "body_digest",
+      "envelope_digest",
+      "nonce",
+      "request_id",
+      "response",
+      "response_digest"
+    ],
+    "sha256": "9d82f9172f9f4aef9930ec794a2bf3878714519791958f2f390a6b70c7bb622d"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:CatalogFingerprint:1",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CatalogFingerprint",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_attrdef",
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_constraint",
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_proc",
+      "pg_catalog.pg_trigger"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.concat_ws",
+      "pg_catalog.format_type",
+      "pg_catalog.pg_get_constraintdef",
+      "pg_catalog.pg_get_expr",
+      "pg_catalog.pg_get_function_identity_arguments",
+      "pg_catalog.pg_get_functiondef",
+      "pg_catalog.pg_get_indexdef",
+      "pg_catalog.pg_get_triggerdef",
+      "pg_catalog.pg_get_userbyid",
+      "pg_catalog.pg_get_viewdef"
+    ],
+    "columns": [
+      "adbin",
+      "adnum",
+      "adrelid",
+      "attidentity",
+      "attisdropped",
+      "attname",
+      "attnotnull",
+      "attnum",
+      "attrelid",
+      "atttypid",
+      "atttypmod",
+      "conname",
+      "conrelid",
+      "definition",
+      "identity",
+      "kind",
+      "nspname",
+      "oid",
+      "proname",
+      "pronamespace",
+      "proowner",
+      "relforcerowsecurity",
+      "relkind",
+      "relname",
+      "relnamespace",
+      "relowner",
+      "relrowsecurity",
+      "tgisinternal",
+      "tgname",
+      "tgrelid"
+    ],
+    "sha256": "1fe6597d9b18359a9d660503897d5f8e6e80975ecf41d13d0ec8eb359ccbcc07"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:CheckReadiness:1",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SET",
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "61c76c8e91835753ad815b5ede1f69c482545fa445aa1dd64dd9bd49ebd58739"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:CheckReadiness:2",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_roles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_schema_privilege",
+      "pg_catalog.pg_has_role"
+    ],
+    "columns": [
+      "nspname",
+      "nspowner",
+      "oid",
+      "relnamespace",
+      "relowner",
+      "rolbypassrls",
+      "rolcreatedb",
+      "rolcreaterole",
+      "rolname",
+      "rolsuper"
+    ],
+    "sha256": "42dd3a2afc5eb35c837b4322e0345d95332463054549bd9f5bcc0a63639b8d2b"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:CheckReadiness:3",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "migration_control.readiness"
+    ],
+    "columns": [
+      "interface_digest",
+      "migrations",
+      "reader_min_version",
+      "registry_digest"
+    ],
+    "sha256": "353e202ed3da1bdef8d25cc68d67020ccaf5b6cae54e048862b79bbd6c1f917b"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:CheckReadiness:4",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_schema_privilege",
+      "pg_catalog.pg_has_role"
+    ],
+    "columns": [
+      "nspname",
+      "nspowner"
+    ],
+    "sha256": "5270e61437fbfd155ad089b16dc9db455ceb07ba0e5fc06e73f3f212ca5cf068"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:CheckReadiness:5",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "ordinal": 5,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "recovery.current_epoch"
+    ],
+    "columns": [
+      "epoch",
+      "region"
+    ],
+    "sha256": "deef3fc412d0d1ee65feecc3822d1c20fc3e99ac58410541081379c27452a827"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:checkPrivilege:1",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_function_privilege"
+    ],
+    "columns": [],
+    "sha256": "3beb4d6a343e168fdcb1b0b657060c833a7c0aae6e62b98500cd626ec1c93c66"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:checkPrivilege:2",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_sequence_privilege"
+    ],
+    "columns": [],
+    "sha256": "671f1e2a076545b665c4ea6e9d6cf724e91f93ee447ef9ffb56432e789b84284"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:checkPrivilege:3",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_column_privilege"
+    ],
+    "columns": [],
+    "sha256": "8972cb0abdb55b37be889aa2686ed0a2f910088e80c2763526e36d2e2cea546c"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:checkPrivilege:4",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_table_privilege"
+    ],
+    "columns": [],
+    "sha256": "7873aae4ce247fb183b637179f0ff947014748465b4ebf8ef98210f9ea296d0c"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:checkUnexpectedPrivileges:1",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_table_privilege"
+    ],
+    "columns": [
+      "nspname",
+      "oid",
+      "privilege",
+      "relkind",
+      "relname",
+      "relnamespace"
+    ],
+    "sha256": "50818cb4337fd78ff79795f475e1d9e784fea6895bf9c0907b6cbc0df8d09cdc"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:checkUnexpectedPrivileges:2",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_column_privilege"
+    ],
+    "columns": [
+      "attisdropped",
+      "attname",
+      "attnum",
+      "attrelid",
+      "nspname",
+      "oid",
+      "privilege",
+      "relkind",
+      "relname",
+      "relnamespace"
+    ],
+    "sha256": "91cc1667dd2d56a5bbeff837af246838be25367013d60f40f97cbc28220bc1f5"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:checkUnexpectedPrivileges:3",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_proc"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_function_privilege",
+      "pg_catalog.oidvectortypes"
+    ],
+    "columns": [
+      "nspname",
+      "oid",
+      "proargtypes",
+      "proname",
+      "pronamespace"
+    ],
+    "sha256": "cfdfc1f689082a9242b380f57f6f7444b3dc7d87efff142b1b144f2fa878bf7d"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations:checkUnexpectedPrivileges:4",
+    "package": "sdk/launchpad/shared/db/production",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_sequence_privilege"
+    ],
+    "columns": [
+      "nspname",
+      "oid",
+      "privilege",
+      "relkind",
+      "relname",
+      "relnamespace"
+    ],
+    "sha256": "e1d3fa26ec71cc96400cf8022bfce5085dbf48d4736b39a23c8f19fffa42840a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/app/app:New:1",
+    "package": "services/launchpad/livestream/internal/app",
+    "file": "services/launchpad/livestream/internal/app/app.go",
+    "function": "New",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "chat.safety_bans",
+      "indexer.indexer_canonical_creations_v1",
+      "livestream.operation_ledger",
+      "livestream.security_audit_outbox",
+      "livestream.stream_budget_alerts",
+      "livestream.stream_credentials",
+      "livestream.stream_key_rotations",
+      "livestream.stream_operations",
+      "livestream.stream_usage",
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.to_regclass"
+    ],
+    "columns": [],
+    "sha256": "abff4d3f115bf8abdf1c0233a699b5a3b68de5f804bede931501a90a5e47fa3f"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/connected_routes:Handlers.connectedCredential:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/connected_routes.go",
+    "function": "Handlers.connectedCredential",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2a17490d125a1f5630c768c05230616eb4689f8cc6b54e12526fd9439e897d7a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/connected_routes:LifecycleStore.EditTx:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/connected_routes.go",
+    "function": "LifecycleStore.EditTx",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2a17490d125a1f5630c768c05230616eb4689f8cc6b54e12526fd9439e897d7a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/connected_routes:LifecycleStore.EditTx:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/connected_routes.go",
+    "function": "LifecycleStore.EditTx",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "e35fe65e49f8b8b60f9e8fc3f017720d4317cf503db59a8475a60cf1a72feacf"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/connected_routes:LifecycleStore.EditTx:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/connected_routes.go",
+    "function": "LifecycleStore.EditTx",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "5e6474e407db0d3c00dda18a2bd558eb59c7e36df9ba8cfb4fdedb936f4e5fa8"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/connected_routes:NewConnectedRuntime:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/connected_routes.go",
+    "function": "NewConnectedRuntime",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "creator",
+      "pool"
+    ],
+    "sha256": "b0754d01478364c18717ee68ea48c66e6e3d3a5744cefc5e2858a7eaae1a9bbd"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/connected_routes:RestrictionReader.Allowed:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/connected_routes.go",
+    "function": "RestrictionReader.Allowed",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "chat.safety_bans_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "expires_at",
+      "resource",
+      "revoked_at",
+      "scope",
+      "wallet"
+    ],
+    "sha256": "1c8bab2d1d31213073becd8ab69dfd38f883c04982ce3b7a73a67a8a87bf3c37"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/connected_routes:RestrictionReader.AllowedTx:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/connected_routes.go",
+    "function": "RestrictionReader.AllowedTx",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "chat.safety_bans_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "expires_at",
+      "resource",
+      "revoked_at",
+      "scope",
+      "wallet"
+    ],
+    "sha256": "1c8bab2d1d31213073becd8ab69dfd38f883c04982ce3b7a73a67a8a87bf3c37"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:EncryptedCredentials.LoadKey:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "EncryptedCredentials.LoadKey",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_credentials"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "ciphertext",
+      "key_ref",
+      "operation_id",
+      "provider_id",
+      "revision"
+    ],
+    "sha256": "d9ac6673a29db190163f60a532b8d765bb957cdb18cf99fc01645bf4531b11ed"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:EncryptedCredentials.Rewrap:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "EncryptedCredentials.Rewrap",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_credentials"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "ciphertext",
+      "key_ref",
+      "operation_id",
+      "provider_id",
+      "revision"
+    ],
+    "sha256": "28b688946bee8fe584747cb49f888ec5aed89ec5d4fb7858681c1e92eaf31017"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:EncryptedCredentials.Rewrap:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "EncryptedCredentials.Rewrap",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_credentials"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "ciphertext",
+      "key_ref",
+      "operation_id",
+      "provider_id"
+    ],
+    "sha256": "443293b6b7221ae156bbdfa324cea2eb7f8650992b1c06769832a03d29b84c4d"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:EncryptedCredentials.Rewrap:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "EncryptedCredentials.Rewrap",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "c7acddebe999ca5457952dac262b7caa68cfca77517394a9156dd8ca4a503361"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.GetKeyRotation:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.GetKeyRotation",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_key_rotations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "new_stream_id",
+      "old_stream_id",
+      "revision",
+      "status"
+    ],
+    "sha256": "a42c7fdea453a3b9f9454095b73ee4114dac447c2362fad821d68d7d1482e123"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.PlaybackPrivacy:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.PlaybackPrivacy",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_playback_privacy"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "operation_id",
+      "private",
+      "revision"
+    ],
+    "sha256": "749f6567dda027126a53c18fcb76c7d7c673f1528205d2544fb912efb60f3ff4"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.SetPlaybackPrivacyTx:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.SetPlaybackPrivacyTx",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_playback_privacy"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "operation_id",
+      "private",
+      "revision"
+    ],
+    "sha256": "ac92a3561854c5e66e024a93c7ec7eee18d0b95fc72921b07c989c01908421bf"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.SetPlaybackPrivacyTx:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.SetPlaybackPrivacyTx",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "e880997bc67c5dc28e7c3ae0e15165ec3701a873dd18136de39a9911a66925da"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.bindEncryptedProvider:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.bindEncryptedProvider",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2a17490d125a1f5630c768c05230616eb4689f8cc6b54e12526fd9439e897d7a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.bindEncryptedProvider:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.bindEncryptedProvider",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_credentials"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "operation_id",
+      "provider_id"
+    ],
+    "sha256": "fde1a4f2a9734b328816f5097e86dd5f0ddafec10c43616a904d67d51974633b"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.bindEncryptedProvider:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.bindEncryptedProvider",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "530b32f33c1e8314b17a543d29edcd64c67dcdbf7656d7af6143b46499af84c0"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.bindEncryptedProvider:4",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.bindEncryptedProvider",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_credentials"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "ciphertext",
+      "key_ref",
+      "operation_id",
+      "provider_id",
+      "revision"
+    ],
+    "sha256": "9397777d5bbe5b5ab860948680364a6aa5bbcb2dcbee7d8f7cfd4e49eeb128d9"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.bindEncryptedProvider:5",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.bindEncryptedProvider",
+    "ordinal": 5,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "54f9f90520514b3cb9489346c551a1d87e58180bd51cbf700c7556c15d6dd1da"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.bindEncryptedProvider:6",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.bindEncryptedProvider",
+    "ordinal": 6,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "bf422360ee2e20f80713930608a0a843595bff278327fc10ba921adc777dca34"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.requestReplacementTx:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.requestReplacementTx",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2a17490d125a1f5630c768c05230616eb4689f8cc6b54e12526fd9439e897d7a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.requestReplacementTx:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.requestReplacementTx",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "kind",
+      "operation_id"
+    ],
+    "sha256": "ff358bffd5f5558c2c38fe74df5429351bf5d6e3cf0506e2e3f402dfe49e57f7"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.requestReplacementTx:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.requestReplacementTx",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_key_rotations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "old_stream_id",
+      "status",
+      "wallet"
+    ],
+    "sha256": "217a9b1c1fbc3a8fceca0ab85f4743b757a08ee36c0851210186fe45c5bb82aa"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.requestReplacementTx:4",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.requestReplacementTx",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "e016a2ec04ea778f4817a93ca1723101e850e4d9e5058533ea4753478daf70c3"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/credentials:LifecycleStore.requestReplacementTx:5",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/credentials.go",
+    "function": "LifecycleStore.requestReplacementTx",
+    "ordinal": 5,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "5e60af499cf6299384261e81fb89185cf1602fae3d80508c637a66497e961b03"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/development_reads:ReadSchemaReady:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/development_reads.go",
+    "function": "ReadSchemaReady",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations",
+      "livestream.stream_playback_privacy"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.to_regclass"
+    ],
+    "columns": [],
+    "sha256": "00ce749c8b01c6bb8a611756036d719492f5d42182ace93210b4d0538da125d6"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/directory:MarketCapReader.MarketCaps:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/directory.go",
+    "function": "MarketCapReader.MarketCaps",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1",
+      "stats.pool_market_caps_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "market_cap",
+      "pool",
+      "pool_address"
+    ],
+    "sha256": "96902408b6b36e0728736d5194e2c55da7086b966b573fd889c81f456a2c2fea"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.BeginProvision:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.BeginProvision",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "48f196f0e9a4e03beab942fc129c55ddd6e6bad58a9a639208f30e89d42d8d04"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.BindProvider:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.BindProvider",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "3f4b9fa61cb90ba7420f0661af503e24493b3fbcbc220b4297219b47de238106"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.CreateTx:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.CreateTx",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.CreateTx:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.CreateTx",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "idem_key",
+      "request_hash",
+      "wallet"
+    ],
+    "sha256": "44cbc18efcd3cc41f428cd1564aefffec3e9adeef0cafad796d747bc05bd22db"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.CreateTx:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.CreateTx",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "idem_key",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "8cbda55af80479d6b135f0117674bf9db1b1cbf2fb0e7eb456543bc82a948bf0"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.CreateTx:4",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.CreateTx",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "state",
+      "wallet"
+    ],
+    "sha256": "80f02085fddd5dfb46749223a85e3f1e50b1668b4081fb358ec6f9bca61ccfc3"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.CreateTx:5",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.CreateTx",
+    "ordinal": 5,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "idem_key",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "request_hash",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "6a774cd24d762d4e1bc76c911708844ae795c84ca6f185c0e8c0d1609ef0f0af"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.CreateTx:6",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.CreateTx",
+    "ordinal": 6,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "c1b31be9204bcfcaaf1ce29ee595ce8864a1f70e47aea2152e2a33ad06611520"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.ExpireTerminalKeys:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.ExpireTerminalKeys",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_audit",
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "id",
+      "idem_key",
+      "operation_id",
+      "revision",
+      "state",
+      "terminal_at"
+    ],
+    "sha256": "4e96d9ac4246c4a098839332d0654bf30c659479c0c89073d6f5de43c04a3211"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.ExpireTerminalKeys:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.ExpireTerminalKeys",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "ed46d969f089e85fbc8376fa6b324acca1c0ae35734a56eeccffcd82212d48f8"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.ExpireTerminalKeys:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.ExpireTerminalKeys",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "idem_key"
+    ],
+    "sha256": "faf675b15e641fe23b81086987b64e1c19b10ee3ec7887bf15d0388339006803"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Get:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Get",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "fdd109cab0fbcced79fcd9ba0d7621f01ff6feb4017df87b59a84875ed369c9d"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.List:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.List",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "created_at",
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "9d1894a3cc2f941340eb114563ee253fd41a9ad7d3692664253dda99bb98c1e3"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Observe:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Observe",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "event_id",
+      "observed_at",
+      "outcome",
+      "provider_id",
+      "request_hash"
+    ],
+    "sha256": "2fabf674332c08112cce9bd6ecdb54e07df805fa26cd0ef8f69250a46b774faf"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Observe:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Observe",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "event_id",
+      "request_hash"
+    ],
+    "sha256": "3d140db16ed7d494da58825e31c092644481b0e0c0ccdc2b47bd40410dc24653"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Observe:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Observe",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "02a8b16d1a3cae52845c242fa339cfa26299562888e228e31cc5577e54fb1c8f"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Observe:4",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Observe",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "terminal_at",
+      "title",
+      "wallet"
+    ],
+    "sha256": "9d44bb44db474e7eef9bf51a6bc47ac57819662eeea62752d4bf847cc1ade134"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Observe:5",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Observe",
+    "ordinal": 5,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "bed4e799e41f4151aca099a9efcf0a1bb3623e099c574c3fa663c1bea4c8c035"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Observe:6",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Observe",
+    "ordinal": 6,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "event_id",
+      "outcome"
+    ],
+    "sha256": "7dd47884b2c5196a96c4e47646c4372446b4ba590af967271f241b4ab5b0661d"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Suspend:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Suspend",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2a17490d125a1f5630c768c05230616eb4689f8cc6b54e12526fd9439e897d7a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Suspend:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Suspend",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2d5ba673f5867ea3a8066900dc44a2a5b3f6460e38e14fbc94f465eeb67cd3f3"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.Suspend:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.Suspend",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "bf076f2de684cc272d53ba94b4237dca7aa1ac0989ef0363e70a101a875cd56c"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.TerminationFailed:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.TerminationFailed",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "id",
+      "last_reason",
+      "retry_at",
+      "state"
+    ],
+    "sha256": "a4980901199deaf22a10defb23e9d5282c3ed595838cef1ca585047f5a9a47da"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.TransitionTx:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.TransitionTx",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2a17490d125a1f5630c768c05230616eb4689f8cc6b54e12526fd9439e897d7a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.TransitionTx:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.TransitionTx",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "492dfc015d0cb2c83d12770079f8ee761e953a51a13d226b11a336bd3fcf654b"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.TransitionTx:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.TransitionTx",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "bf076f2de684cc272d53ba94b4237dca7aa1ac0989ef0363e70a101a875cd56c"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/lifecycle:LifecycleStore.enqueue:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/lifecycle.go",
+    "function": "LifecycleStore.enqueue",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_outbox"
+    ],
+    "sequences": [
+      "livestream.stream_outbox_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "kind",
+      "operation_id",
+      "payload",
+      "revision"
+    ],
+    "sha256": "8d01e966dbd0246b432909c44dab6beb9a88b10373f62949a0b79833824cf2d2"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_failure:LifecycleStore.FailBeforeProvision:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_failure.go",
+    "function": "LifecycleStore.FailBeforeProvision",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2a17490d125a1f5630c768c05230616eb4689f8cc6b54e12526fd9439e897d7a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_failure:LifecycleStore.FailBeforeProvision:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_failure.go",
+    "function": "LifecycleStore.FailBeforeProvision",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "last_reason"
+    ],
+    "sha256": "599f7a32bfdb9e2be5fd0123c4758baab0fe46c4c8c02a75649df15e95f3d5a7"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_failure:LifecycleStore.FailBeforeProvision:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_failure.go",
+    "function": "LifecycleStore.FailBeforeProvision",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "last_reason",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "terminal_at",
+      "title",
+      "wallet"
+    ],
+    "sha256": "29f09cb4f641335ff8b46389e3492b91b4b8fab2838b5b624bd6bd6f49e1b342"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_failure:LifecycleStore.FailBeforeProvision:4",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_failure.go",
+    "function": "LifecycleStore.FailBeforeProvision",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "b3edf5bcff6f28caa89959d2e2472a33563c9e5f987c1c6a2253c8e134881c65"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_resolution:LifecycleStore.applyProvisionResolution:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_resolution.go",
+    "function": "LifecycleStore.applyProvisionResolution",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "last_reason",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "terminal_at",
+      "title",
+      "wallet"
+    ],
+    "sha256": "a7240d959cc056bec63962514d5463dcc1e3f2c17aff743a2299ece5964e9255"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_resolution:LifecycleStore.applyProvisionResolution:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_resolution.go",
+    "function": "LifecycleStore.applyProvisionResolution",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "create_sent",
+      "last_reason",
+      "lease_until",
+      "operation_id",
+      "owner",
+      "retry_at"
+    ],
+    "sha256": "71be700bb5ee80b4d916f5482c0795ce3f52c9e906144d1217ffa12755e1b5e0"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_resolution:LifecycleStore.applyProvisionResolution:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_resolution.go",
+    "function": "LifecycleStore.applyProvisionResolution",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "e880997bc67c5dc28e7c3ae0e15165ec3701a873dd18136de39a9911a66925da"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_resolution:LifecycleStore.latestProvisionResolutionQuery:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_resolution.go",
+    "function": "LifecycleStore.latestProvisionResolutionQuery",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "9a56538d8a1de28188ae3cf53b85f3eb7476b8e6a49d38adf88995fab6090de4"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_resolution:LifecycleStore.provisionRecoveryTx:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_resolution.go",
+    "function": "LifecycleStore.provisionRecoveryTx",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "2a17490d125a1f5630c768c05230616eb4689f8cc6b54e12526fd9439e897d7a"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_resolution:LifecycleStore.provisionRecoveryTx:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_resolution.go",
+    "function": "LifecycleStore.provisionRecoveryTx",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempt",
+      "create_sent",
+      "last_reason",
+      "lease_until",
+      "operation_id"
+    ],
+    "sha256": "24d5928a5ea67d70a2643abc3ed89e67cc305d2fabb377e99dc7eac0c7cecb31"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:LifecycleStore.claimWorker:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "LifecycleStore.claimWorker",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempt",
+      "lease_until",
+      "operation_id",
+      "owner",
+      "retry_at"
+    ],
+    "sha256": "2a8051160c024761ec994d252ddbf28b4c0be149e7527355841f4c7a676ab78c"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:LifecycleStore.finishUnallocated:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "LifecycleStore.finishUnallocated",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations",
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "create_sent",
+      "id",
+      "intent",
+      "last_reason",
+      "lease_until",
+      "operation_id",
+      "owner",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "terminal_at",
+      "title",
+      "wallet"
+    ],
+    "sha256": "1a16c65ace5e4b6cf9d051c241976599f5ca879fc38328e62638db0eb5a5ec04"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:LifecycleStore.finishUnallocated:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "LifecycleStore.finishUnallocated",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "22b2d979b0cc9e7d8b03869234a3737463c804f8a5ec451e89e1cb3cf715b747"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:LifecycleStore.releaseWorker:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "LifecycleStore.releaseWorker",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations",
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "LEAST",
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.power",
+      "pg_catalog.random"
+    ],
+    "columns": [
+      "attempt",
+      "id",
+      "last_reason",
+      "lease_until",
+      "operation_id",
+      "owner",
+      "retry_at"
+    ],
+    "sha256": "fbd92f622b66f19d515b5cd2e2b0aa74272359e3aa5fc4aacc0eb3b557a91f81"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:LifecycleStore.reserveProviderCreate:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "LifecycleStore.reserveProviderCreate",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_operations",
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "create_sent",
+      "id",
+      "lease_until",
+      "operation_id",
+      "owner",
+      "revision",
+      "state"
+    ],
+    "sha256": "8d406efe076b74839f2de1ac9968f3afd55212b419ab0004bcdb2b0fddc1b669"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:ProvisionWorker.RotationStep:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "ProvisionWorker.RotationStep",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_key_rotations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "old_stream_id",
+      "revision",
+      "status"
+    ],
+    "sha256": "92632b568b4cadd5c03c1b6d97bf66c6c8d749b9f379381837dfeb1ca556fb12"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:ProvisionWorker.RotationStep:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "ProvisionWorker.RotationStep",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_key_rotations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "new_stream_id",
+      "old_stream_id"
+    ],
+    "sha256": "07e219df2c88df3f3db55b09034967415ddac5a0c1ae62fc726a2b7c70b67dfc"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:ProvisionWorker.RotationStep:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "ProvisionWorker.RotationStep",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "creator",
+      "pool"
+    ],
+    "sha256": "b0754d01478364c18717ee68ea48c66e6e3d3a5744cefc5e2858a7eaae1a9bbd"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:ProvisionWorker.RotationStep:4",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "ProvisionWorker.RotationStep",
+    "ordinal": 4,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_key_rotations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "new_stream_id",
+      "old_stream_id",
+      "revision",
+      "status"
+    ],
+    "sha256": "bff98841ebce3c16209a59664a8c06be6fa4a2610f79608e0a26c432efa02deb"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:ProvisionWorker.RotationStep:5",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "ProvisionWorker.RotationStep",
+    "ordinal": 5,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_audit"
+    ],
+    "sequences": [
+      "livestream.stream_audit_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "actor",
+      "operation_id",
+      "reason",
+      "revision"
+    ],
+    "sha256": "9f9510cadd58afa53c642e589e78e778ea4ec172c7dd7931338312202af1a75b"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:ProvisionWorker.Run:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "ProvisionWorker.Run",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations",
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "created_at",
+      "id",
+      "operation_id",
+      "provider_id",
+      "retry_at",
+      "state"
+    ],
+    "sha256": "c86cd7b51e2765ebc320d3081d937f18aadf5e74f6d7fe322f0c993654dfdacc"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/provision_worker:ProvisionWorker.rotations:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/provision_worker.go",
+    "function": "ProvisionWorker.rotations",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_key_rotations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "created_at",
+      "old_stream_id",
+      "status"
+    ],
+    "sha256": "4fa276677f6c5e1bc857c217128af5995885cc8e40c3c9104ceb44934323a092"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/public_projection:LifecycleStore.Page:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/public_projection.go",
+    "function": "LifecycleStore.Page",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE"
+    ],
+    "columns": [
+      "created_at",
+      "id",
+      "intent",
+      "pool",
+      "provider_id",
+      "provider_time",
+      "retry_at",
+      "revision",
+      "state",
+      "title",
+      "wallet"
+    ],
+    "sha256": "8d1bbf49ff9b1baabf20e6b7fe1570b34de2db47ffa46310088053472b4f0345"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/reconcile_worker:ReconcileWorker.Run:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/reconcile_worker.go",
+    "function": "ReconcileWorker.Run",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_operations",
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "created_at",
+      "id",
+      "lease_until",
+      "operation_id",
+      "provider_id",
+      "retry_at",
+      "state"
+    ],
+    "sha256": "38e042ac1604c4311e3ee70761bc25e80cbcf163c028190f81a9b81b641b4275"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/reconcile_worker:ReconcileWorker.Step:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/reconcile_worker.go",
+    "function": "ReconcileWorker.Step",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "disagreement_at",
+      "operation_id"
+    ],
+    "sha256": "5b4db82a73015869a278fef1e19f4bcb103d7d32066b6f6b936b3f6692e94a69"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/reconcile_worker:ReconcileWorker.Step:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/reconcile_worker.go",
+    "function": "ReconcileWorker.Step",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "disagreement_at",
+      "operation_id"
+    ],
+    "sha256": "1c17345148497b2195f5a4d256e1476179a5359449fca010cfd4dad8685bfa86"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/reconcile_worker:ReconcileWorker.Step:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/reconcile_worker.go",
+    "function": "ReconcileWorker.Step",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_worker_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "disagreement_at",
+      "operation_id"
+    ],
+    "sha256": "d926d8f4873c3e97409f896652db6055d2129bedd486fcbd15fc8b6393de5f52"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:BudgetPolicy.admit:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "BudgetPolicy.admit",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_usage"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.date_trunc",
+      "pg_catalog.sum",
+      "pg_catalog.timezone"
+    ],
+    "columns": [
+      "cost_units",
+      "received_at"
+    ],
+    "sha256": "1f9c705e9bb7fc1b8f472e6127b35eae9dba90f53a3ff240b0976e77d4a9494b"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:BudgetPolicy.admit:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "BudgetPolicy.admit",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_vendor_usage"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.date_trunc",
+      "pg_catalog.timezone"
+    ],
+    "columns": [
+      "cost_units",
+      "fetched_at",
+      "period_start",
+      "vendor_user_id"
+    ],
+    "sha256": "2598163004ecbeac699a187ddaa7f15e1e090f7d4a5fc1d5434cb89b5727491c"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:LifecycleStore.EmitBudgetAlerts:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "LifecycleStore.EmitBudgetAlerts",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_budget_alerts",
+      "livestream.stream_vendor_usage"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.date_trunc",
+      "pg_catalog.timezone",
+      "pg_catalog.unnest"
+    ],
+    "columns": [
+      "approval_reference",
+      "budget_units",
+      "cost_units",
+      "currency",
+      "fetched_at",
+      "period_start",
+      "spent_units",
+      "t",
+      "threshold",
+      "units",
+      "vendor_user_id"
+    ],
+    "sha256": "a20e35994cdc81d56c52917460604aabb7ad8c0291f40740d2fd82326d84279c"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:LifecycleStore.EmitBudgetAlerts:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "LifecycleStore.EmitBudgetAlerts",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_budget_alerts",
+      "livestream.stream_usage"
+    ],
+    "sequences": [],
+    "functions": [
+      "COALESCE",
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.date_trunc",
+      "pg_catalog.sum",
+      "pg_catalog.timezone",
+      "pg_catalog.unnest"
+    ],
+    "columns": [
+      "approval_reference",
+      "budget_units",
+      "cost_units",
+      "currency",
+      "period_start",
+      "received_at",
+      "spent_units",
+      "t",
+      "threshold",
+      "units"
+    ],
+    "sha256": "ea20203931bcbbc2f3f0d014672bd1aa0ce6cac7ec46a670bb151456f89407b4"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:LifecycleStore.RecordUsage:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "LifecycleStore.RecordUsage",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_usage"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "cost_units",
+      "delivery_bytes",
+      "operation_id",
+      "provider_event",
+      "storage_bytes",
+      "transcode_minutes",
+      "viewer_minutes"
+    ],
+    "sha256": "b14a4351a1e6e1e68614ff7b5eff0c864589bc2eff03677a8269def2e01a9349"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:LifecycleStore.RecordUsage:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "LifecycleStore.RecordUsage",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_usage"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "cost_units",
+      "delivery_bytes",
+      "operation_id",
+      "provider_event",
+      "storage_bytes",
+      "transcode_minutes",
+      "viewer_minutes"
+    ],
+    "sha256": "486f6dde188d6d3b87ab2036cf963fdf7654858ce2a17d0a21f13d7bf16dc5a4"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:VendorUsageWorker.DeliverAlert:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "VendorUsageWorker.DeliverAlert",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_budget_alerts"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "approval_reference",
+      "budget_units",
+      "created_at",
+      "currency",
+      "delivered_at",
+      "period_start",
+      "retry_at",
+      "spent_units",
+      "threshold"
+    ],
+    "sha256": "baf54eac721a54d33db1b93a98299f62927b99cbf3db2e1e07f7af24aff4fce7"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:VendorUsageWorker.DeliverAlert:2",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "VendorUsageWorker.DeliverAlert",
+    "ordinal": 2,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_budget_alerts"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempt",
+      "currency",
+      "delivered_at",
+      "period_start",
+      "threshold"
+    ],
+    "sha256": "1338d617a1821abfff0799c7421d78a83ebcd61931b1be36e18022e58b4dce75"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:VendorUsageWorker.DeliverAlert:3",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "VendorUsageWorker.DeliverAlert",
+    "ordinal": 3,
+    "role": "livestream_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "livestream.stream_budget_alerts"
+    ],
+    "sequences": [],
+    "functions": [
+      "LEAST",
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.power",
+      "pg_catalog.random"
+    ],
+    "columns": [
+      "attempt",
+      "currency",
+      "period_start",
+      "retry_at",
+      "threshold"
+    ],
+    "sha256": "6cd569a226062ab261485b86af43dbfcd36ad4801f54132cfed336d794b9b5bf"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:VendorUsageWorker.Ready:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "VendorUsageWorker.Ready",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "livestream.stream_budget_alerts",
+      "livestream.stream_vendor_usage"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.date_trunc",
+      "pg_catalog.timezone"
+    ],
+    "columns": [
+      "created_at",
+      "delivered_at",
+      "fetched_at",
+      "period_start",
+      "vendor_user_id"
+    ],
+    "sha256": "14322d7fb1c18284e33c2dc90d5682a40749bcb47a271effecef366664636ab4"
+  },
+  {
+    "id": "services/launchpad/livestream/internal/streams/usage:VendorUsageWorker.Step:1",
+    "package": "services/launchpad/livestream/internal/streams",
+    "file": "services/launchpad/livestream/internal/streams/usage.go",
+    "function": "VendorUsageWorker.Step",
+    "ordinal": 1,
+    "role": "livestream_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "livestream.stream_vendor_usage"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "cost_units",
+      "delivery_bytes",
+      "delivery_minutes",
+      "period_start",
+      "query_from",
+      "query_to",
+      "source_revision",
+      "storage_bytes",
+      "storage_minutes",
+      "transcode_minutes",
+      "vendor_user_id",
+      "viewer_minutes"
+    ],
+    "sha256": "ee5ba77e421a2fc8c9f6ef7b3d9b90c50e756c582aeffd1dad9d1bff79a1cedf"
+  }
+]

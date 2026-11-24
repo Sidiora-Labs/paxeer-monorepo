@@ -125,7 +125,7 @@ func TestCmdQueryPriceNetwork(t *testing.T) {
 	defaultGenesis, err := json.Marshal(types.DefaultGenesis())
 	require.NoError(t, err)
 	require.JSONEq(t, string(defaultGenesis), string(cfg.GenesisState[types.ModuleName]))
-	genesis, evmGenesis, market := repair35State(t)
+	genesis, evmGenesis, market := fundedQuoteGenesis(t)
 	cfg.GenesisState[types.ModuleName], err = json.Marshal(genesis)
 	require.NoError(t, err)
 	cfg.GenesisState[evmtypes.ModuleName], err = cfg.Codec.MarshalAsJSON(evmGenesis)

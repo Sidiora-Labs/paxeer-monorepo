@@ -1,0 +1,412 @@
+[manifest]
+task = "22.43.159"
+records_moved = 20
+files_renamed = 24
+
+[file.1]
+from = "services/launchpad/livestream/internal/app/repair_m1002_test.go"
+to = "services/launchpad/livestream/internal/app/studio_webhook_lifecycle_test.go"
+
+[file.2]
+from = "services/launchpad/livestream/internal/livepeer/repair_m1003_test.go"
+to = "services/launchpad/livestream/internal/livepeer/provider_boundary_test.go"
+
+[file.3]
+from = "services/launchpad/livestream/internal/streams/repair_57_integration_test.go"
+to = "services/launchpad/livestream/internal/streams/stream_contract_recovery_integration_test.go"
+
+[file.4]
+from = "services/launchpad/livestream/internal/streams/repair_57_test.go"
+to = "services/launchpad/livestream/internal/streams/stream_contract_test.go"
+
+[file.5]
+from = "services/launchpad/livestream/internal/streams/repair_m1001_integration_test.go"
+to = "services/launchpad/livestream/internal/streams/studio_webhook_recovery_integration_test.go"
+
+[file.6]
+from = "services/launchpad/livestream/internal/streams/repair_m1001_test.go"
+to = "services/launchpad/livestream/internal/streams/studio_webhook_recovery_test.go"
+
+[file.7]
+from = "services/launchpad/livestream/internal/streams/testdata/repair57-sdk/consumer.mjs"
+to = "services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/consumer.mjs"
+
+[file.8]
+from = "services/launchpad/livestream/internal/streams/testdata/repair57-sdk/package-lock.json.fixture"
+to = "services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/package-lock.json.fixture"
+
+[file.9]
+from = "services/launchpad/livestream/internal/streams/testdata/repair57-sdk/package.json.fixture"
+to = "services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/package.json.fixture"
+
+[file.10]
+from = "services/launchpad/metadata/internal/app/repair_m1006_test.go"
+to = "services/launchpad/metadata/internal/app/metadata_maintenance_test.go"
+
+[file.11]
+from = "services/launchpad/metadata/internal/app/testdata/repair_m1006_factory.json"
+to = "services/launchpad/metadata/internal/app/testdata/metadata_maintenance_factory.json"
+
+[file.12]
+from = "services/launchpad/metadata/internal/app/testdata/repair_m1006_indexer.json"
+to = "services/launchpad/metadata/internal/app/testdata/metadata_maintenance_indexer.json"
+
+[file.13]
+from = "services/launchpad/metadata/internal/image/repair_m1009_test.go"
+to = "services/launchpad/metadata/internal/image/image_codec_test.go"
+
+[file.14]
+from = "services/launchpad/metadata/internal/metadata/repair_m1007_test.go"
+to = "services/launchpad/metadata/internal/metadata/publication_recovery_test.go"
+
+[file.15]
+from = "services/launchpad/metadata/internal/metadata/repair_59_test.go"
+to = "services/launchpad/metadata/internal/metadata/visibility_revocation_test.go"
+
+[file.16]
+from = "services/launchpad/notifications/repair_m958_test.go"
+to = "services/launchpad/notifications/notification_delivery_test.go"
+
+[file.17]
+from = "services/launchpad/notifications/repair_40_test.go"
+to = "services/launchpad/notifications/notification_runtime_test.go"
+
+[file.18]
+from = "services/launchpad/notifications/testdata/repair40identity/main.go"
+to = "services/launchpad/notifications/testdata/identity_fixture/main.go"
+
+[file.19]
+from = "services/launchpad/notifications/testdata/repair40identity/module.mod"
+to = "services/launchpad/notifications/testdata/identity_fixture/module.mod"
+
+[file.20]
+from = "services/launchpad/notifications/testdata/repair40identity/module.sum"
+to = "services/launchpad/notifications/testdata/identity_fixture/module.sum"
+
+[file.21]
+from = "services/launchpad/notifications/testdata/repair40sdk/dependencies-lock.json"
+to = "services/launchpad/notifications/testdata/notification_sdk/dependencies-lock.json"
+
+[file.22]
+from = "services/launchpad/notifications/testdata/repair40sdk/dependencies.json"
+to = "services/launchpad/notifications/testdata/notification_sdk/dependencies.json"
+
+[file.23]
+from = "services/launchpad/notifications/testdata/repair40sdk/run.mjs"
+to = "services/launchpad/notifications/testdata/notification_sdk/run.mjs"
+
+[file.24]
+from = "services/launchpad/notifications/repair_461_test.go"
+to = "services/launchpad/notifications/workspace_version_test.go"
+
+[file.25]
+from = "services/launchpad/livestream/internal/app/repair_m1002.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/livestream/internal/app/repair_m1002.kvx"
+
+[file.26]
+from = "services/launchpad/livestream/internal/livepeer/repair_m1003.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/livestream/internal/livepeer/repair_m1003.kvx"
+
+[file.27]
+from = "services/launchpad/livestream/internal/streams/repair_57.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/livestream/internal/streams/repair_57.kvx"
+
+[file.28]
+from = "services/launchpad/livestream/internal/streams/repair_m1001.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/livestream/internal/streams/repair_m1001.kvx"
+
+[file.29]
+from = "services/launchpad/livestream/repair_22_39_468.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/livestream/repair_22_39_468.kvx"
+
+[file.30]
+from = "services/launchpad/livestream/repair_22_39_484.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/livestream/repair_22_39_484.kvx"
+
+[file.31]
+from = "services/launchpad/livestream/repair_22_39_75.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/livestream/repair_22_39_75.kvx"
+
+[file.32]
+from = "services/launchpad/metadata/internal/app/repair_m1006.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/metadata/internal/app/repair_m1006.kvx"
+
+[file.33]
+from = "services/launchpad/metadata/internal/image/repair_m1009.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/metadata/internal/image/repair_m1009.kvx"
+
+[file.34]
+from = "services/launchpad/metadata/internal/metadata/repair_59.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/metadata/internal/metadata/repair_59.kvx"
+
+[file.35]
+from = "services/launchpad/metadata/internal/metadata/repair_m1007.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/metadata/internal/metadata/repair_m1007.kvx"
+
+[file.36]
+from = "services/launchpad/metadata/repair_22_39_469.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/metadata/repair_22_39_469.kvx"
+
+[file.37]
+from = "services/launchpad/metadata/repair_22_39_485.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/metadata/repair_22_39_485.kvx"
+
+[file.38]
+from = "services/launchpad/metadata/repair_22_39_75.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/metadata/repair_22_39_75.kvx"
+
+[file.39]
+from = "services/launchpad/notifications/repair_22_39_168.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/notifications/repair_22_39_168.kvx"
+
+[file.40]
+from = "services/launchpad/notifications/repair_22_39_473.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/notifications/repair_22_39_473.kvx"
+
+[file.41]
+from = "services/launchpad/notifications/repair_22_39_489.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/notifications/repair_22_39_489.kvx"
+
+[file.42]
+from = "services/launchpad/notifications/repair_40.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/notifications/repair_40.kvx"
+
+[file.43]
+from = "services/launchpad/notifications/repair_461.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/notifications/repair_461.kvx"
+
+[file.44]
+from = "services/launchpad/notifications/repair_m958.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/notifications/repair_m958.kvx"
+
+[reference.1]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairIntegration_57_001_PrivateIngestKeyRecovery"
+
+[reference.2]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1006_FactoryReceiptChainBinding"
+
+[reference.3]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1007_CanonicalRetentionRestart"
+
+[reference.4]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "repair_57_test.go"
+
+[reference.5]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_22_39_75.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "services/launchpad/notifications/repair_40_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "services/launchpad/metadata/internal/metadata/repair_59_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair40identity"
+
+[reference.9]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_40_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_59_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/metadata/internal/metadata/repair_59_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/notifications/repair_40_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_57_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_59_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1001_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1002_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1003_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1006_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1007_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1009_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m958_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/livestream/internal/app/repair_m1002_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/livestream/internal/livepeer/repair_m1003_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/livestream/internal/streams/repair_57_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/livestream/internal/streams/repair_m1001_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/livestream/repair_22_39_468.kvx"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/livestream/repair_22_39_484.kvx"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/metadata/internal/app/repair_m1006_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/metadata/internal/image/repair_m1009_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/metadata/internal/metadata/repair_59_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/metadata/internal/metadata/repair_m1007_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/metadata/repair_22_39_469.kvx"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/metadata/repair_22_39_485.kvx"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/notifications/repair_22_39_473.kvx"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/notifications/repair_22_39_489.kvx"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/notifications/repair_40_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/notifications/repair_461_test.go"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/notifications/repair_m958_test.go"
+
+[reference.39]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "repair_22_39_75.kvx"
+
+[reference.40]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairIntegration_57_001_PrivateIngestKeyRecovery"
+
+[reference.41]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairIntegration_57_002_CreateEnvelopeReplay"
+
+[reference.42]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairIntegration_57_003_OperationPollingRecovery"
+
+[reference.43]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairIntegration_57_004_BodylessRetirement"
+
+[reference.44]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairIntegration_57_005_NormalizedStudioWebhookRecovery"
+
+[reference.45]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_40_NotificationWalletBoundary"
+
+[reference.46]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_40_RuntimeAuthorities"
+
+[reference.47]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_57_001_RetiredCredentialRecovery"
+
+[reference.48]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_57_002_CreateEnvelopeTransportReplay"
+
+[reference.49]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_57_003_OperationPollingEnvelope"
+
+[reference.50]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_57_004_BodylessRetirement"
+
+[reference.51]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_57_005_NormalizedStudioWebhookContract"
+
+[reference.52]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_59_AuthorityUnavailable"
+
+[reference.53]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_59_RevocationAfterRestart"
+
+[reference.54]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_59_RevocationLegacyRoutes"
+
+[reference.55]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/livestream/internal/streams/repair_57_integration_test.go"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/livestream/internal/streams/repair_57_test.go"
+
+[reference.57]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/metadata/internal/metadata/repair_59_test.go"
+
+[reference.58]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/notifications/repair_40_test.go"

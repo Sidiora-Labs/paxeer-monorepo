@@ -1,8 +1,9 @@
 # Programs contract
 
-Programs execute deterministic WebAssembly inside the Paxeer network. `paxd` hosts the
-kernel, which participates in block proposal; a receipt is final when its block is
-committed. The EVM chain ID is **125 (`0x7d`)**. Program execution and monetary effects
+Programs execute deterministic WebAssembly inside the Paxeer network. The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it; a receipt is final when its block is committed.
+The EVM chain ID is **125 (`0x7d`)**. Program execution and monetary effects
 belong to this same chain.
 
 Use HTTPS JSON-RPC at the configured node origin's root path. Check

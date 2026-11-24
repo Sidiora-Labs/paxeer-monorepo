@@ -1,19 +1,26 @@
 package notifications
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestWorkerPersistsConsentRevocationAndProviderRetry(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	var diagnostics bytes.Buffer
+	previousOutput := log.Writer()
+	log.SetOutput(&diagnostics)
+	defer log.SetOutput(previousOutput)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	credentials, err := NewCredentials(ctx, options, "REPAIR958_D11")
 	if err != nil {
 		t.Fatal(err)
@@ -112,6 +119,9 @@ func TestWorkerPersistsConsentRevocationAndProviderRetry(t *testing.T) {
 	}
 	if got := state(preferenceUnavailable); got.State != stateRetry || got.Reason != reasonConsentUnavailable {
 		t.Fatalf("preference authority unavailable: %+v", got)
+	}
+	if !strings.Contains(diagnostics.String(), "notification delivery preference failed:") || !strings.Contains(diagnostics.String(), "unknown time zone") || !strings.Contains(diagnostics.String(), "notification delivery target failed:") || !strings.Contains(diagnostics.String(), "notification delivery decision failed:") {
+		t.Fatalf("delivery dependency diagnostics: %s", diagnostics.String())
 	}
 	peer.preference.Timezone = "UTC"
 	missingTarget, created, err := store.CommitTrigger(ctx, InboxItem{Identity: Identity{AccountID: peer.account.AccountID, TriggerEventID: "missing-target", TemplateVersion: "v2"}, Category: categoryWatchlist, Summary: "Watched pool changed", CreatedAt: time.Now().UTC()}, []DeliveryAttempt{{Channel: channelPush, TargetID: "foreign-device", TargetRevision: peer.target.Revision, ConsentRevision: peer.target.ConsentRevision}})

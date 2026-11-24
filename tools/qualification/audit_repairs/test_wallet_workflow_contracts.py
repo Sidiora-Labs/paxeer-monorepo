@@ -117,7 +117,12 @@ def test_pages_discovery_builds_actual_standalone_image_and_transports_it():
     ))
     supplied = dict(line.split("=", 1) for line in build["build-args"].splitlines())
     assert supplied == {
-        key: default or "${{ vars." + key + " }}" for key, default in declared.items()
+        key: (
+            "/wallet/api/pns"
+            if key == "NEXT_PUBLIC_PNS_API_BASE"
+            else default or "${{ vars." + key + " }}"
+        )
+        for key, default in declared.items()
     }
     upload = action(job, "actions/upload-artifact@v4")["with"]
     assert upload == {

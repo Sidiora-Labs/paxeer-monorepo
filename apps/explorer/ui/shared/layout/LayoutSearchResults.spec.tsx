@@ -5,7 +5,7 @@ import React, { type ComponentProps } from 'react';
 
 import { expect, test, vi } from 'vitest';
 
-import './testWrapper';
+vi.setConfig({ testTimeout: 30_000 });
 
 function setViewport(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
@@ -75,7 +75,7 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
 
   try {
     for (const multichain of [ false, true ]) {
-      vi.resetModules();
+      if (multichain) vi.resetModules();
       window.__envs = {
         ...envs.parsed,
         NEXT_PUBLIC_NAVIGATION_LAYOUT: 'horizontal',
@@ -84,6 +84,7 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
         NEXT_PUBLIC_API_PORT: '',
         NEXT_PUBLIC_USE_NEXT_JS_PROXY: 'false',
         NEXT_PUBLIC_MARKETPLACE_CONFIG_URL: '',
+        NEXT_PUBLIC_WEB3_WALLETS: 'none',
         NEXT_PUBLIC_MULTICHAIN_ENABLED: String(multichain),
         NEXT_PUBLIC_MULTICHAIN_CLUSTER: 'superchain',
         NEXT_PUBLIC_MULTICHAIN_AGGREGATOR_API_HOST: 'https://multichain-aggregator.services.blockscout.com',
@@ -91,6 +92,7 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
         NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED: 'true',
         NEXT_PUBLIC_ACCOUNT_AUTH_PROVIDER: 'auth0',
       };
+      await import('./testWrapper');
       const React = await import('react');
       Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
       const { render, cleanup, fireEvent, getRoles, screen, waitFor, within } = await import('@testing-library/react');
@@ -172,7 +174,7 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
         }
         const mounted = render(<RoutedResults/>);
         try {
-          await screen.findByRole('heading', { name: 'Search results' });
+          await screen.findByRole('heading', { name: 'Search results' }, { timeout: 15_000 });
           const banners = within(mounted.container).getAllByRole('banner', { hidden: true })
             .filter(header => responsiveDisplay(header) !== 'none');
           expect(banners).toHaveLength(1);
@@ -180,8 +182,8 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
           const mobileHeaders = mounted.container.querySelectorAll<HTMLElement>('[data-label="mobile-header"]');
           expect(desktopHeaders).toHaveLength(1);
           expect(mobileHeaders).toHaveLength(1);
-          const desktop = desktopHeaders[0];
-          const mobile = mobileHeaders[0];
+          let desktop = desktopHeaders[0];
+          let mobile = mobileHeaders[0];
           expect(banners[0]).toBe(width >= 1024 ? desktop : mobile);
           expect(responsiveDisplay(desktop)).toBe(width >= 1024 ? 'block' : 'none');
           expect(responsiveDisplay(mobile)).toBe(width >= 1024 ? 'none' : 'block');
@@ -197,13 +199,14 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
             fireEvent.submit(input.closest('form')!);
           } else {
             fireEvent.click(within(mobile).getByRole('button', { name: 'Search' }));
-            const search = await screen.findByRole('dialog', { name: 'Search' });
+            const search = await screen.findByRole('dialog', { name: 'Search' }, { timeout: 15_000 });
             const input = within(search).getByLabelText('Search', { selector: 'input' });
             fireEvent.change(input, { target: { value: term } });
             fireEvent.submit(input.closest('form')!);
-            await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull());
+            await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull(), { timeout: 15_000 });
           }
-          await waitFor(() => expect(router.query.q).toBe(term));
+          await waitFor(() => expect(router.query.q).toBe(term), { timeout: 15_000 });
+          desktop = mounted.container.querySelector<HTMLElement>('[data-label="desktop-header"]')!;
           expect(new URLSearchParams(window.location.search).get('q')).toBe(term);
           expect((within(desktop).getByLabelText('Search', { selector: 'input' }) as HTMLInputElement).value).toBe(term);
           await waitFor(() => {
@@ -214,10 +217,10 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
             expect(searches, `Search query keys for ${ term }: ${ JSON.stringify(searches.map(query => query.queryKey)) }`)
               .toHaveLength(multichain ? 7 : 1);
             searches.forEach(query => expect(query.state.status).toBe('success'));
-          }, { timeout: 15000 });
+          }, { timeout: 15_000 });
           if (multichain) {
             fireEvent.click(screen.getByRole('tab', { name: 'Tokens (ERC-20)' }));
-            await waitFor(() => expect(router.query.tab).toBe('tokens'));
+            await waitFor(() => expect(router.query.tab).toBe('tokens'), { timeout: 15_000 });
             const filters = width >= 1024 ? screen.getByRole('tablist') : screen.getByRole('tabpanel', { name: 'Tokens (ERC-20)' });
             const chainSelect = await waitFor(() => {
               const triggers = within(filters).queryAllByRole('combobox', { name: 'Chain' });
@@ -227,10 +230,10 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
               ]));
               expect(triggers, `Chain select roles inside filters: ${ JSON.stringify(roles) }`).toHaveLength(1);
               return triggers[0];
-            });
+            }, { timeout: 15_000 });
             fireEvent.click(chainSelect);
-            fireEvent.click(await screen.findByRole('option', { name: /Optimism/ }));
-            await waitFor(() => expect(router.query.chain_id).toBe('10'));
+            fireEvent.click(await screen.findByRole('option', { name: /Optimism/ }, { timeout: 15_000 }));
+            await waitFor(() => expect(router.query.chain_id).toBe('10'), { timeout: 15_000 });
             expect(router.query.q).toBe(term);
             expect(router.query.tab).toBe('tokens');
             expect(screen.getByRole('tab', { name: 'Tokens (ERC-20)' }).getAttribute('aria-selected')).toBe('true');
@@ -238,16 +241,19 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
               query.queryKey[0] === 'multichainAggregator:search_tokens' && query.queryKey.some(part =>
                 typeof part === 'object' && part !== null && 'chain_id' in part && part.chain_id === '10' && 'q' in part && part.q === term,
               ) && query.state.status === 'success',
-            )).toBe(true), { timeout: 15000 });
+            )).toBe(true), { timeout: 15_000 });
           } else {
-            await screen.findByText(term, { exact: true });
+            await screen.findByText(term, { exact: true }, { timeout: 15_000 });
           }
+          mobile = mounted.container.querySelector<HTMLElement>('[data-label="mobile-header"]')!;
           if (width < 1024) {
             fireEvent.click(within(mobile).getByRole('button', { name: 'Menu button' }));
-            const navigation = await screen.findByRole('navigation', { name: 'Mobile navigation' });
-            const explore = within(navigation).getByRole('button', { name: 'Explore' });
+            const navigation = await screen.findByRole('navigation', { name: 'Mobile navigation' }, { timeout: 15_000 });
+            const explore = within(navigation).getByText('Explore', { selector: 'summary' });
+            const explorePanel = explore.parentElement as HTMLDetailsElement;
+            expect(explorePanel.open).toBe(false);
             fireEvent.click(explore);
-            expect(explore.getAttribute('aria-expanded')).toBe('true');
+            expect(explorePanel.open).toBe(true);
             expect(within(navigation).getByRole('link', { name: /Browse the latest blocks/ }).getAttribute('href')).toBe('/blocks');
           }
           expect(mounted.container.querySelectorAll('[data-label="desktop-header"]')).toHaveLength(1);
@@ -280,4 +286,4 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
   }
 }
 
-test(searchResultsRoutesKeepOneHeaderAndLiveSearch.name, searchResultsRoutesKeepOneHeaderAndLiveSearch, 120000);
+test(searchResultsRoutesKeepOneHeaderAndLiveSearch.name, searchResultsRoutesKeepOneHeaderAndLiveSearch, 120_000);

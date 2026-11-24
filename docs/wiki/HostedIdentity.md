@@ -7,9 +7,9 @@ Its contract is implemented in
 [`src/main.rs`](../../services/platform/hosted/identity/src/main.rs) and
 [`src/store.rs`](../../services/platform/hosted/identity/src/store.rs).
 
-Paxeer is one BFT network with EVM chain id **125** (`0x7d`); its kernel
-proposes blocks as part of that network. Hosted identity manages application
-credentials, while [hosted authority](HostedAuthority.md) verifies receipt and
+Paxeer uses EVM chain id **125** (`0x7d`). The LayerX kernel inside `paxd`
+executes and orders each transaction and builds each block; validators check and
+commit it. Hosted identity manages application credentials, while [hosted authority](HostedAuthority.md) verifies receipt and
 committed-state evidence. A session grants no block finality. Sub-chains are
 tenant domains in the database, and identity binds every principal and session
 to a tenant namespace.

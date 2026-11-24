@@ -72,10 +72,10 @@ for cover in sdk/chainflow/rust/Cargo.lock \
     tools/benchmark/loadtest/contracts/jupiter/Cargo.lock \
     wasm-runtime/libwasmvm/Cargo.lock \
     wasm-runtime/libwasmvm/vendor/cosmwasm-crypto/NOTICE \
-    sdk/chainflow/go/repair_m1306_test.go \
-    sdk/launchpad/protocol/bindings/repair_37_test.go \
-    sdk/launchpad/protocol/coverage/repair_28_test.go \
-    sdk/platform/dotnet/repair_138_test.go; do
+    sdk/chainflow/go/consumer_examples_test.go \
+    sdk/launchpad/protocol/bindings/event_bindings_integration_test.go \
+    sdk/launchpad/protocol/coverage/emitter_caller_evidence_test.go \
+    sdk/platform/dotnet/agent_transport_conformance_test.go; do
     mv "$fixture/$cover" "$work/cover"
     reject_fixture "a missing classification cover: $cover"
     mv "$work/cover" "$fixture/$cover"
@@ -101,7 +101,7 @@ sed 's/|covered-by-package-build$/|unknown-class/' "$work/original-inventory" > 
 reject_fixture 'an unknown classification'
 sed 's/^npm|sdk\/chainflow\/typescript\//rust|sdk\/chainflow\/typescript\//' "$work/original-inventory" > "$work/inventory"
 reject_fixture 'a classification with the wrong manifest kind'
-sed 's#|covered-by-test:sdk/platform/dotnet/repair_138_test.go$#|build_test_lint#' "$work/original-inventory" > "$work/inventory"
+sed 's#|covered-by-test:sdk/platform/dotnet/agent_transport_conformance_test.go$#|build_test_lint#' "$work/original-inventory" > "$work/inventory"
 reject_fixture 'an independent Rust root without its own lock'
 sed '/^npm|sdk\/chainflow\/typescript\/package.json|/d' "$work/original-inventory" > "$work/inventory"
 reject_fixture 'an omitted source manifest'

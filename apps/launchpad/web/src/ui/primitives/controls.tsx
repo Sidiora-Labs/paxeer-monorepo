@@ -13,11 +13,16 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from 'react';
-import { createPortal } from 'react-dom';
-import { Check, ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert, LoaderCircle, Lock } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+  CircleAlert,
+  LoaderCircle,
+  Lock,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCount } from '@/utils/format';
-import { useDismiss, useMounted, usePopoverPosition } from './use-popover';
 
 /* ---------------------------------------------------- SegmentedControl */
 
@@ -48,11 +53,22 @@ export interface SegmentedControlProps<T extends string> {
   className?: string;
 }
 
-export function SegmentedControl<T extends string>({ options, value, onChange, label, size = 'sm', shape = 'pill', tone = 'neutral', fullWidth = false, compact = false, className }: SegmentedControlProps<T>) {
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+  size = 'sm',
+  shape = 'pill',
+  tone = 'neutral',
+  fullWidth = false,
+  compact = false,
+  className,
+}: SegmentedControlProps<T>) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
 
   function move(from: number, delta: number) {
-    const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter(i => i >= 0);
+    const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i >= 0);
     if (enabled.length === 0) return;
     const pos = enabled.indexOf(from);
     const next = enabled[(pos + delta + enabled.length) % enabled.length];
@@ -61,12 +77,18 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); move(index, 1); }
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); move(index, -1); }
-    else if (event.key === 'Home') { event.preventDefault(); move(-1, 1); }
-    else if (event.key === 'End') {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
       event.preventDefault();
-      const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter(i => i >= 0);
+      move(index, 1);
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      move(index, -1);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      move(-1, 1);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i >= 0);
       const next = enabled[enabled.length - 1];
       if (next === undefined) return;
       onChange(options[next].value);
@@ -76,14 +98,30 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
 
   const radius = shape === 'pill' ? 'rounded-pill' : 'rounded-sm';
   return (
-    <div role="radiogroup" aria-label={label} className={cn('inline-flex bg-surface-2 p-0.5', radius, fullWidth && 'flex w-full', className)}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cn(
+        'inline-flex min-w-0 max-w-full flex-wrap bg-surface-2 p-0.5',
+        radius,
+        fullWidth && 'flex w-full',
+        className
+      )}
+    >
       {options.map((option, index) => {
         const selected = option.value === value;
-        const tradeTone = tone === 'trade' ? (index === 0 ? 'bg-accent text-on-accent' : 'bg-danger text-on-danger') : 'bg-surface-active text-text';
+        const tradeTone =
+          tone === 'trade'
+            ? index === 0
+              ? 'bg-accent text-on-accent'
+              : 'bg-danger text-on-danger'
+            : 'border-[var(--sl-control-edge)] bg-surface-active text-text';
         return (
           <button
             key={option.value}
-            ref={el => { refs.current[index] = el; }}
+            ref={(el) => {
+              refs.current[index] = el;
+            }}
             type="button"
             role="radio"
             aria-checked={selected}
@@ -92,20 +130,35 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
             tabIndex={selected ? 0 : -1}
             disabled={option.disabled}
             onClick={() => onChange(option.value)}
-            onKeyDown={event => onKeyDown(event, index)}
+            onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-sm font-bold transition-colors duration-fast',
-              compact ? 'px-1.5' : 'px-3',
+              'inline-flex items-center justify-center gap-1.5 border border-transparent py-0.5 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold transition-colors duration-fast',
+              compact
+                ? 'whitespace-nowrap px-[calc(var(--sl-space-1)*1.5-var(--sl-edge-width))]'
+                : 'px-[calc(var(--sl-space-3)-var(--sl-edge-width))]',
               radius,
-              size === 'sm' ? 'h-[24px]' : 'h-[32px]',
+              size === 'sm' ? 'min-h-6' : 'min-h-8',
               fullWidth && 'flex-1',
-              selected ? tradeTone : 'text-text-muted hover:bg-surface-hover hover:text-text',
-              option.disabled && 'cursor-not-allowed text-text-disabled hover:bg-transparent',
+              selected
+                ? `${tradeTone} underline underline-offset-[var(--sl-focus-offset)]`
+                : 'text-text-muted hover:bg-surface-hover hover:text-text',
+              option.disabled && 'cursor-not-allowed text-text-disabled hover:bg-transparent'
             )}
           >
-            {option.icon ? <span aria-hidden="true" className="inline-flex [&>svg]:size-icon-sm">{option.icon}</span> : null}
+            {option.icon ? (
+              <span aria-hidden="true" className="inline-flex [&>svg]:size-icon-sm">
+                {option.icon}
+              </span>
+            ) : null}
             {option.label}
-            {option.count !== undefined ? <span className={cn('text-xs tabular-nums', selected ? 'opacity-80' : 'text-text-faint')} data-numeric>{formatCount(option.count)}</span> : null}
+            {option.count !== undefined ? (
+              <span
+                className={cn('text-xs tabular-nums', selected ? 'opacity-80' : 'text-text-faint')}
+                data-numeric
+              >
+                {formatCount(option.count)}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -142,21 +195,32 @@ export function tabIds(idPrefix: string, id: string) {
   return { tab: `${idPrefix}-tab-${id}`, panel: `${idPrefix}-panel-${id}` };
 }
 
-export function TabStrip<T extends string>({ tabs, active, onChange, label, variant = 'underline', manual = false, trailing, idPrefix, className }: TabStripProps<T>) {
+export function TabStrip<T extends string>({
+  tabs,
+  active,
+  onChange,
+  label,
+  variant = 'underline',
+  manual = false,
+  trailing,
+  idPrefix,
+  className,
+}: TabStripProps<T>) {
   const generated = useId();
   const prefix = idPrefix ?? `tabs${generated}`;
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
 
   function focusIndex(index: number, activate: boolean) {
-    const enabled = tabs.map((t, i) => (t.disabled ? -1 : i)).filter(i => i >= 0);
+    const enabled = tabs.map((t, i) => (t.disabled ? -1 : i)).filter((i) => i >= 0);
     if (enabled.length === 0) return;
     const target = enabled.includes(index) ? index : enabled[0];
     refs.current[target]?.focus();
+    refs.current[target]?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     if (activate) onChange(tabs[target].id);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    const enabled = tabs.map((t, i) => (t.disabled ? -1 : i)).filter(i => i >= 0);
+    const enabled = tabs.map((t, i) => (t.disabled ? -1 : i)).filter((i) => i >= 0);
     const pos = enabled.indexOf(index);
     let next: number | null = null;
     if (event.key === 'ArrowRight') next = enabled[(pos + 1) % enabled.length];
@@ -175,15 +239,24 @@ export function TabStrip<T extends string>({ tabs, active, onChange, label, vari
   }
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
-      <div role="tablist" aria-label={label} className={cn('flex min-w-0 flex-1 items-end overflow-x-auto scrollbar-none', variant === 'filled' && 'gap-1')}>
+    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+      <div
+        role="tablist"
+        aria-label={label}
+        className={cn(
+          '-m-1 flex min-w-0 flex-1 basis-40 items-end overflow-x-auto p-1',
+          variant === 'filled' && 'gap-1'
+        )}
+      >
         {tabs.map((tab, index) => {
           const selected = tab.id === active;
           const ids = tabIds(prefix, tab.id);
           return (
             <button
               key={tab.id}
-              ref={el => { refs.current[index] = el; }}
+              ref={(el) => {
+                refs.current[index] = el;
+              }}
               id={ids.tab}
               type="button"
               role="tab"
@@ -193,29 +266,43 @@ export function TabStrip<T extends string>({ tabs, active, onChange, label, vari
               tabIndex={selected ? 0 : -1}
               disabled={tab.disabled}
               onClick={() => onChange(tab.id)}
-              onKeyDown={event => onKeyDown(event, index)}
+              onKeyDown={(event) => onKeyDown(event, index)}
               className={cn(
                 'relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 font-bold transition-colors duration-fast',
-                variant === 'underline' ? 'h-11 text-base' : 'h-control-height-md rounded-sm text-sm',
+                variant === 'underline'
+                  ? 'min-h-11 py-2 text-base'
+                  : 'min-h-control-height-md border border-control-edge px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-2)-var(--sl-edge-width))] rounded-sm text-sm',
                 selected
-                  ? variant === 'underline' ? 'text-text' : 'bg-surface-3 text-text'
+                  ? variant === 'underline'
+                    ? 'text-text'
+                    : 'bg-surface-3 text-text'
                   : 'text-text-muted hover:text-text',
                 variant === 'filled' && !selected && 'hover:bg-surface-hover',
-                tab.disabled && 'cursor-not-allowed text-text-disabled hover:text-text-disabled',
+                tab.disabled && 'cursor-not-allowed text-text-disabled hover:text-text-disabled'
               )}
             >
               {tab.locked ? <Lock aria-hidden="true" className="size-icon-sm" /> : null}
               <span>{tab.label}</span>
               {tab.count !== undefined ? (
-                <span data-numeric className="inline-flex h-5 items-center rounded-pill bg-surface-3 px-1.5 text-xs tabular-nums text-text-muted">{formatCount(tab.count)}</span>
+                <span
+                  data-numeric
+                  className="inline-flex h-5 items-center rounded-pill bg-surface-3 px-1.5 text-xs tabular-nums text-text-muted"
+                >
+                  {formatCount(tab.count)}
+                </span>
               ) : null}
               {tab.locked ? <span className="sr-only">, sign in required</span> : null}
-              {variant === 'underline' && selected ? <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-0.5 rounded-pill bg-accent" /> : null}
+              {selected ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-3 bottom-0 h-0.5 rounded-pill bg-accent"
+                />
+              ) : null}
             </button>
           );
         })}
       </div>
-      {trailing ? <div className="shrink-0">{trailing}</div> : null}
+      {trailing ? <div className="max-w-full shrink-0">{trailing}</div> : null}
     </div>
   );
 }
@@ -256,132 +343,88 @@ export interface SelectPillProps<T extends string> {
   className?: string;
 }
 
-export function SelectPill<T extends string>({ options, value, onChange, label, showLabel = false, placeholder = 'Select', size = 'sm', disabled = false, loading = false, error = null, compact = false, className }: SelectPillProps<T>) {
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const listRef = useRef<HTMLUListElement | null>(null);
-  const mounted = useMounted();
-  const listId = useId();
-  const position = usePopoverPosition(triggerRef, listRef, open);
-  const close = useCallback(() => setOpen(false), []);
-  useDismiss(open, close, [triggerRef, listRef]);
-
-  const selected = options.find(option => option.value === value) ?? null;
-
-  useEffect(() => {
-    if (!open) return;
-    const index = Math.max(0, options.findIndex(option => option.value === value));
-    setActiveIndex(index);
-    const frame = requestAnimationFrame(() => listRef.current?.focus());
-    return () => cancelAnimationFrame(frame);
-  }, [open, options, value]);
-
-  function choose(index: number) {
-    const option = options[index];
-    if (!option || option.disabled) return;
-    onChange(option.value);
-    setOpen(false);
-    triggerRef.current?.focus();
-  }
-
-  function onListKey(event: KeyboardEvent<HTMLUListElement>) {
-    const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter(i => i >= 0);
-    const pos = enabled.indexOf(activeIndex);
-    if (event.key === 'ArrowDown') { event.preventDefault(); setActiveIndex(enabled[(pos + 1) % enabled.length] ?? 0); }
-    else if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex(enabled[(pos - 1 + enabled.length) % enabled.length] ?? 0); }
-    else if (event.key === 'Home') { event.preventDefault(); setActiveIndex(enabled[0] ?? 0); }
-    else if (event.key === 'End') { event.preventDefault(); setActiveIndex(enabled[enabled.length - 1] ?? 0); }
-    else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(activeIndex); }
-    else if (event.key === 'Tab') { setOpen(false); }
-    else if (event.key.length === 1 && /\S/.test(event.key)) {
-      const needle = event.key.toLowerCase();
-      const found = options.findIndex((option, i) => !option.disabled && i > activeIndex && (option.text ?? String(option.label)).toLowerCase().startsWith(needle));
-      const wrap = found === -1 ? options.findIndex(option => !option.disabled && (option.text ?? String(option.label)).toLowerCase().startsWith(needle)) : found;
-      if (wrap >= 0) setActiveIndex(wrap);
-    }
-  }
-
+export function SelectPill<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+  showLabel = false,
+  placeholder = 'Select',
+  size = 'sm',
+  disabled = false,
+  loading = false,
+  error = null,
+  compact = false,
+  className,
+}: SelectPillProps<T>) {
+  const id = useId();
+  const errorId = `${id}-error`;
+  const selected = options.find((option) => option.value === value);
   return (
-    <div className={cn('inline-flex flex-col gap-1', className)}>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? listId : undefined}
-        aria-label={showLabel ? undefined : label}
-        aria-invalid={error ? true : undefined}
-        title={compact ? `${label}: ${selected?.text ?? (typeof selected?.label === 'string' ? selected.label : placeholder)}` : undefined}
-        disabled={disabled}
-        onClick={() => setOpen(v => !v)}
-        onKeyDown={event => {
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true); }
-        }}
+    <div className={cn('inline-flex min-w-0 max-w-full flex-col gap-1', className)}>
+      <div
         className={cn(
-          'inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill text-sm font-bold transition-colors duration-fast',
-          compact ? 'px-2' : 'px-3',
-          size === 'sm' ? 'h-control-height-sm' : 'h-control-height-md',
-          error ? 'bg-danger-soft text-text' : open ? 'bg-surface-3 text-text' : 'bg-surface-2 text-text hover:bg-surface-hover',
-          disabled && 'cursor-not-allowed text-text-disabled hover:bg-surface-2',
+          'sl-field relative inline-flex min-h-control-height-sm min-w-0 items-center gap-1.5 rounded-pill px-3',
+          compact && 'px-2 py-0',
+          error ? 'bg-danger-soft' : 'bg-surface-2'
         )}
       >
-        {showLabel ? <span className="font-semibold text-text-faint">{label}:</span> : null}
-        {selected?.icon ? <span aria-hidden="true" className="inline-flex [&>svg]:size-icon-sm">{selected.icon}</span> : null}
-        <span className={cn(!selected && 'text-text-faint')}>{selected ? selected.text ?? selected.label : placeholder}</span>
-        {loading
-          ? <LoaderCircle aria-hidden="true" className="size-icon-sm animate-spin text-text-faint" />
-          : compact ? null : <ChevronDown aria-hidden="true" className={cn('size-icon-sm text-text-faint transition-transform duration-fast', open && 'rotate-180')} />}
-      </button>
+        {showLabel ? (
+          <label htmlFor={id} className="text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] text-text-faint">
+            {label}:
+          </label>
+        ) : null}
+        <select
+          id={id}
+          name={label}
+          value={value ?? ''}
+          aria-label={showLabel ? undefined : label}
+          title={
+            compact
+              ? `${label}: ${selected?.text ?? (typeof selected?.label === 'string' ? selected.label : placeholder)}`
+              : undefined
+          }
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          aria-busy={loading || undefined}
+          disabled={disabled || loading}
+          onChange={(event) => {
+            const option = options.find((item) => item.value === event.target.value);
+            if (option && !option.disabled) onChange(option.value);
+          }}
+          className={cn(
+            'sl-native-select min-w-0 max-w-full flex-1 cursor-pointer rounded-sm bg-transparent py-0 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] [field-sizing:content] font-bold text-text disabled:cursor-not-allowed disabled:text-text-disabled',
+            compact && 'min-w-0 flex-none appearance-none whitespace-nowrap px-0 py-0 text-sm [field-sizing:content] [&::picker-icon]:hidden',
+            size === 'md' && 'min-h-control-height-md'
+          )}
+        >
+          <option value="" disabled>
+            {placeholder}
+          </option>
+          {options.length === 0 ? <option disabled>No matches</option> : null}
+          {options.map((option) => (
+            <option key={option.value} value={option.value} disabled={option.disabled}>
+              {option.text ?? option.label}
+            </option>
+          ))}
+        </select>
+        {loading ? (
+          <LoaderCircle
+            aria-hidden="true"
+            className="size-icon-sm shrink-0 animate-spin text-text-faint"
+          />
+        ) : null}
+      </div>
       {error ? (
-        <span role="alert" className="inline-flex items-center gap-1 text-xs text-danger">
-          <CircleAlert aria-hidden="true" className="size-icon-sm" />
+        <span
+          id={errorId}
+          role="alert"
+          className="inline-flex items-center gap-1 text-xs text-danger"
+        >
+          <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0" />
           {error}
         </span>
       ) : null}
-      {mounted && open && position
-        ? createPortal(
-          <ul
-            ref={listRef}
-            id={listId}
-            role="listbox"
-            tabIndex={-1}
-            aria-label={label}
-            aria-activedescendant={`${listId}-opt-${activeIndex}`}
-            onKeyDown={onListKey}
-            style={{ top: position.top, left: position.left, minWidth: Math.max(position.minWidth, 160) }}
-            className="fixed z-[var(--sl-z-dropdown)] max-h-80 overflow-y-auto rounded-md bg-surface-3 p-1 shadow-pop outline-none"
-          >
-            {options.length === 0 ? <li className="px-3 py-2 text-sm text-text-faint">No matches</li> : null}
-            {options.map((option, index) => {
-              const isSelected = option.value === value;
-              const isActive = index === activeIndex;
-              return (
-                <li
-                  key={option.value}
-                  id={`${listId}-opt-${index}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  aria-disabled={option.disabled || undefined}
-                  onMouseEnter={() => !option.disabled && setActiveIndex(index)}
-                  onClick={() => choose(index)}
-                  className={cn(
-                    'flex h-10 cursor-pointer items-center gap-2 rounded-sm px-3 text-sm',
-                    isActive && 'bg-surface-hover',
-                    isSelected && 'bg-surface-active text-text',
-                    option.disabled && 'cursor-not-allowed text-text-disabled',
-                  )}
-                >
-                  {option.icon ? <span aria-hidden="true" className="inline-flex [&>svg]:size-icon-sm">{option.icon}</span> : null}
-                  <span className="flex-1">{option.label}</span>
-                  {isSelected ? <Check aria-hidden="true" className="size-icon-sm text-accent" /> : null}
-                </li>
-              );
-            })}
-          </ul>,
-          document.body,
-        )
-        : null}
     </div>
   );
 }
@@ -401,41 +444,59 @@ export interface ToggleProps {
   className?: string;
 }
 
-export function Toggle({ checked, onChange, label, labelledBy, describedBy, size = 'md', disabled = false, loading = false, className }: ToggleProps) {
-  const track = size === 'md' ? 'h-6 w-10' : 'h-5 w-8';
-  const thumb = size === 'md' ? 'size-5' : 'size-4';
-  const shift = size === 'md' ? 'translate-x-4' : 'translate-x-3';
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  labelledBy,
+  describedBy,
+  size = 'md',
+  disabled = false,
+  loading = false,
+  className,
+}: ToggleProps) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      aria-labelledby={labelledBy}
-      aria-describedby={describedBy}
-      aria-busy={loading || undefined}
-      disabled={disabled || loading}
-      onClick={() => onChange(!checked)}
+    <span
       className={cn(
-        'relative inline-flex shrink-0 items-center rounded-pill p-0.5 transition-colors duration-fast',
-        track,
-        disabled ? 'bg-surface-3' : checked ? 'bg-accent' : 'bg-surface-active hover:bg-surface-hover',
-        disabled && 'cursor-not-allowed',
-        className,
+        'relative inline-flex max-[834px]:min-h-touch-target-min max-[834px]:min-w-touch-target-min shrink-0 items-center justify-center',
+        className
       )}
     >
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        aria-label={label}
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        aria-busy={loading || undefined}
+        disabled={disabled || loading}
+        onChange={(event) => onChange(event.target.checked)}
+        className={cn(
+          'peer absolute inset-0 m-auto h-full w-full cursor-pointer appearance-none rounded-pill disabled:cursor-not-allowed',
+          size === 'md' ? 'min-w-10' : 'min-w-8'
+        )}
+      />
       <span
         aria-hidden="true"
         className={cn(
-          'inline-flex items-center justify-center rounded-pill transition-transform duration-fast ease-sl',
-          thumb,
-          disabled ? 'bg-text-disabled' : checked ? 'bg-on-accent' : 'bg-text-muted',
-          checked && shift,
+          'sl-field pointer-events-none inline-flex items-center rounded-pill p-0.5 transition-colors duration-fast',
+          size === 'md' ? 'h-6 w-10' : 'h-5 w-8',
+          disabled ? 'bg-surface-3' : checked ? 'bg-accent' : 'bg-surface-active'
         )}
       >
-        {loading ? <LoaderCircle className="size-3 animate-spin text-text" /> : null}
+        <span
+          className={cn(
+            'inline-flex items-center justify-center rounded-pill transition-transform duration-fast ease-sl',
+            size === 'md' ? 'size-5' : 'size-4',
+            disabled ? 'bg-text-disabled' : checked ? 'bg-on-accent' : 'bg-text-muted',
+            checked && (size === 'md' ? 'translate-x-4' : 'translate-x-3')
+          )}
+        >
+          {loading ? <LoaderCircle className="size-3 animate-spin text-text" /> : null}
+        </span>
       </span>
-    </button>
+    </span>
   );
 }
 
@@ -457,13 +518,39 @@ export interface SliderProps {
   className?: string;
 }
 
-export function Slider({ value, onChange, min = 0, max = 100, step = 1, label, unit = '', ticks, disabled = false, outOfRange = false, showValue = true, className }: SliderProps) {
+export function Slider({
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  label,
+  unit = '',
+  ticks,
+  disabled = false,
+  outOfRange = false,
+  showValue = true,
+  className,
+}: SliderProps) {
   const pct = max === min ? 0 : Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   return (
     <div className={cn('flex items-center gap-3', className)}>
-      <div className="relative flex h-4 flex-1 items-center">
-        <span aria-hidden="true" className={cn('absolute inset-x-0 h-1 rounded-pill', disabled ? 'bg-surface-3' : 'bg-track')} />
-        <span aria-hidden="true" style={{ width: `${pct}%` }} className={cn('absolute left-0 h-1 rounded-pill', disabled ? 'bg-surface-3' : outOfRange ? 'bg-warning' : 'bg-track-fill')} />
+      <div className="relative flex min-h-touch-target-min min-w-0 flex-1 items-center">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute inset-x-0 h-1 rounded-pill',
+            disabled ? 'bg-surface-3' : 'bg-track'
+          )}
+        />
+        <span
+          aria-hidden="true"
+          style={{ width: `${pct}%` }}
+          className={cn(
+            'absolute left-0 h-1 rounded-pill',
+            disabled ? 'bg-surface-3' : outOfRange ? 'bg-warning' : 'bg-track-fill'
+          )}
+        />
         <input
           type="range"
           min={min}
@@ -474,38 +561,65 @@ export function Slider({ value, onChange, min = 0, max = 100, step = 1, label, u
           aria-label={label}
           aria-valuetext={`${value}${unit}`}
           onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(Number(event.target.value))}
-          onKeyDown={event => {
-            if (event.shiftKey && (event.key === 'ArrowRight' || event.key === 'ArrowUp')) { event.preventDefault(); onChange(Math.min(max, value + step * 10)); }
-            if (event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowDown')) { event.preventDefault(); onChange(Math.max(min, value - step * 10)); }
+          onKeyDown={(event) => {
+            if (event.shiftKey && (event.key === 'ArrowRight' || event.key === 'ArrowUp')) {
+              event.preventDefault();
+              onChange(Math.min(max, value + step * 10));
+            }
+            if (event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowDown')) {
+              event.preventDefault();
+              onChange(Math.max(min, value - step * 10));
+            }
           }}
           className={cn(
-            'relative h-4 w-full cursor-pointer appearance-none bg-transparent outline-none',
+            'relative h-touch-target-min w-full cursor-pointer appearance-none bg-transparent',
             '[&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:bg-transparent',
             '[&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-pill [&::-webkit-slider-thumb]:transition-transform',
             '[&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-pill [&::-moz-range-thumb]:border-0',
             'focus-visible:[&::-webkit-slider-thumb]:outline-2 focus-visible:[&::-webkit-slider-thumb]:outline-focus focus-visible:[&::-webkit-slider-thumb]:outline-offset-2',
             disabled
               ? 'cursor-not-allowed [&::-webkit-slider-thumb]:bg-text-disabled [&::-moz-range-thumb]:bg-text-disabled'
-              : '[&::-webkit-slider-thumb]:bg-accent hover:[&::-webkit-slider-thumb]:scale-110 active:[&::-webkit-slider-thumb]:bg-accent-active [&::-moz-range-thumb]:bg-accent',
+              : '[&::-webkit-slider-thumb]:bg-accent hover:[&::-webkit-slider-thumb]:scale-110 active:[&::-webkit-slider-thumb]:bg-accent-active [&::-moz-range-thumb]:bg-accent'
           )}
         />
         {ticks && ticks.length > 0 ? (
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-full h-1.5">
-            {ticks.map(tick => (
-              <span key={tick} style={{ left: `${max === min ? 0 : ((tick - min) / (max - min)) * 100}%` }} className="absolute h-1.5 w-0.5 -translate-x-1/2 rounded-pill bg-surface-active" />
+            {ticks.map((tick) => (
+              <span
+                key={tick}
+                style={{ left: `${max === min ? 0 : ((tick - min) / (max - min)) * 100}%` }}
+                className="absolute h-1.5 w-0.5 -translate-x-1/2 rounded-pill bg-surface-active"
+              />
             ))}
           </div>
         ) : null}
       </div>
-      {showValue ? <span data-numeric className={cn('w-10 text-right text-xs tabular-nums', outOfRange ? 'text-warning' : 'text-text-muted')}>{value}{unit}</span> : null}
+      {showValue ? (
+        <span
+          data-numeric
+          className={cn(
+            'w-10 text-right text-xs tabular-nums',
+            outOfRange ? 'text-warning' : 'text-text-muted'
+          )}
+        >
+          {value}
+          {unit}
+        </span>
+      ) : null}
     </div>
   );
 }
 
 /* ----------------------------------------------------------- FormField */
 
-type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 'className' | 'aria-describedby' | 'aria-invalid'>;
-type TextareaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'id' | 'className' | 'aria-describedby' | 'aria-invalid'>;
+type InputProps = Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  'id' | 'className' | 'aria-describedby' | 'aria-invalid'
+>;
+type TextareaProps = Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  'id' | 'className' | 'aria-describedby' | 'aria-invalid'
+>;
 
 export interface FormFieldProps {
   id: string;
@@ -513,6 +627,8 @@ export interface FormFieldProps {
   optional?: boolean;
   helper?: ReactNode;
   error?: string | null;
+  describedBy?: string;
+  invalid?: boolean;
   multiline?: boolean;
   size?: 'md' | 'lg';
   /** Surface the field sits on; the control takes the next step. */
@@ -528,59 +644,143 @@ export interface FormFieldProps {
   className?: string;
 }
 
-const controlSurface = { canvas: 'bg-surface-1', 'surface-1': 'bg-surface-2', 'surface-2': 'bg-surface-3' } as const;
+const controlSurface = {
+  canvas: 'bg-surface-1',
+  'surface-1': 'bg-surface-2',
+  'surface-2': 'bg-surface-3',
+} as const;
 
-export function FormField({ id, label, optional = false, helper, error = null, multiline = false, size = 'md', surface = 'surface-1', leading, trailing, counter, loading = false, mono = false, uppercase = false, inputProps, textareaProps, className }: FormFieldProps) {
+export function FormField({
+  id,
+  label,
+  optional = false,
+  helper,
+  error = null,
+  describedBy: externalDescription,
+  invalid = false,
+  multiline = false,
+  size = 'md',
+  surface = 'surface-1',
+  leading,
+  trailing,
+  counter,
+  loading = false,
+  mono = false,
+  uppercase = false,
+  inputProps,
+  textareaProps,
+  className,
+}: FormFieldProps) {
   const helperId = `${id}-helper`;
   const errorId = `${id}-error`;
   const counterId = `${id}-counter`;
-  const describedBy = [error ? errorId : helper ? helperId : null, counter ? counterId : null].filter(Boolean).join(' ') || undefined;
+  const describedBy =
+    [
+      externalDescription,
+      error ? errorId : helper ? helperId : null,
+      counter ? counterId : null,
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined;
   const disabled = Boolean(inputProps?.disabled ?? textareaProps?.disabled);
   const readOnly = Boolean(inputProps?.readOnly ?? textareaProps?.readOnly);
   const counterTone = counter
-    ? counter.count >= counter.max ? 'text-danger' : counter.count >= counter.max * 0.9 ? 'text-warning' : 'text-text-faint'
+    ? counter.count >= counter.max
+      ? 'text-danger'
+      : counter.count >= counter.max * 0.9
+        ? 'text-warning'
+        : 'text-text-faint'
     : '';
   const shell = cn(
-    'flex items-center gap-2 rounded-sm px-3 transition-colors duration-fast',
-    error ? 'bg-danger-soft' : readOnly ? 'bg-transparent' : disabled ? 'bg-surface-2' : controlSurface[surface],
+    'sl-field flex min-w-0 items-center gap-2 rounded-sm px-3 transition-colors duration-fast',
+    error
+      ? 'bg-danger-soft'
+      : readOnly
+        ? 'bg-transparent'
+        : disabled
+          ? 'bg-surface-2'
+          : controlSurface[surface],
     'focus-within:outline-2 focus-within:outline-focus',
-    multiline ? 'items-start py-2' : size === 'lg' ? 'h-control-height-lg' : 'h-control-height-md',
+    multiline
+      ? 'items-start py-[calc(var(--sl-space-2)-var(--sl-edge-width))]'
+      : size === 'lg'
+        ? 'min-h-control-height-lg py-0'
+        : 'min-h-control-height-md py-0'
   );
   const control = cn(
     'min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-faint',
     'disabled:text-text-disabled read-only:text-text-muted',
     mono && 'font-[family-name:var(--sl-font-mono)]',
     uppercase && 'uppercase',
-    multiline && 'min-h-24 resize-y leading-5',
+    multiline && 'min-h-24! resize-y leading-[var(--sl-leading-base)]'
   );
 
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
+    <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
       <label htmlFor={id} className="text-sm font-bold text-text">
         {label}
-        {optional ? <span className="ml-1 font-semibold text-text-faint">(Optional)</span> : null}
+        {optional ? <span className="ml-1 inline-block font-semibold text-text-faint">(Optional)</span> : null}
       </label>
       <div className={shell}>
-        {leading ? <span aria-hidden="true" className="inline-flex shrink-0 text-text-faint [&>svg]:size-icon-md">{leading}</span> : null}
+        {leading ? (
+          <span
+            aria-hidden="true"
+            className="inline-flex shrink-0 text-text-faint [&>svg]:size-icon-md"
+          >
+            {leading}
+          </span>
+        ) : null}
         {multiline ? (
-          <textarea id={id} aria-describedby={describedBy} aria-invalid={error ? true : undefined} className={control} {...textareaProps} />
+          <textarea
+            id={id}
+            name={id}
+            aria-describedby={describedBy}
+            aria-invalid={error || invalid ? true : undefined}
+            className={control}
+            {...textareaProps}
+          />
         ) : (
-          <input id={id} aria-describedby={describedBy} aria-invalid={error ? true : undefined} className={control} {...inputProps} />
+          <input
+            id={id}
+            name={id}
+            aria-describedby={describedBy}
+            aria-invalid={error || invalid ? true : undefined}
+            className={control}
+            {...inputProps}
+          />
         )}
-        {loading ? <LoaderCircle aria-hidden="true" className="size-icon-md shrink-0 animate-spin text-text-faint" /> : null}
+        {loading ? (
+          <LoaderCircle
+            aria-hidden="true"
+            className="size-icon-md shrink-0 animate-spin text-text-faint"
+          />
+        ) : null}
         {trailing ? <span className="inline-flex shrink-0 items-center">{trailing}</span> : null}
       </div>
       <div className="flex items-start justify-between gap-3">
         {error ? (
-          <p id={errorId} role="alert" className="inline-flex items-center gap-1 text-xs text-danger">
+          <p
+            id={errorId}
+            role="alert"
+            className="inline-flex items-center gap-1 text-xs text-danger"
+          >
             <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0" />
             {error}
           </p>
         ) : helper ? (
-          <p id={helperId} className="text-xs text-text-faint">{helper}</p>
-        ) : <span />}
+          <p id={helperId} className="text-xs text-text-faint">
+            {helper}
+          </p>
+        ) : (
+          <span />
+        )}
         {counter ? (
-          <span id={counterId} data-numeric aria-live={counter.count >= counter.max * 0.9 ? 'polite' : 'off'} className={cn('shrink-0 text-xs tabular-nums', counterTone)}>
+          <span
+            id={counterId}
+            data-numeric
+            aria-live={counter.count >= counter.max * 0.9 ? 'polite' : 'off'}
+            className={cn('shrink-0 text-xs tabular-nums', counterTone)}
+          >
             {counter.count}/{counter.max}
           </span>
         ) : null}
@@ -604,16 +804,32 @@ export interface SortHeaderProps {
   className?: string;
 }
 
-export function SortHeader({ label, sort = null, onSort, align = 'left', width, className }: SortHeaderProps) {
-  const alignClass = align === 'right' ? 'justify-end text-right' : align === 'center' ? 'justify-center text-center' : 'justify-start text-left';
-  const ariaSort = sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : onSort ? 'none' : undefined;
+export function SortHeader({
+  label,
+  sort = null,
+  onSort,
+  align = 'left',
+  width,
+  className,
+}: SortHeaderProps) {
+  const alignClass =
+    align === 'right'
+      ? 'justify-end text-right'
+      : align === 'center'
+        ? 'justify-center text-center'
+        : 'justify-start text-left';
+  const ariaSort = sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : undefined;
   const content = (
     <span className={cn('inline-flex items-center gap-1', alignClass)}>
       <span>{label}</span>
       {onSort ? (
-        sort === 'asc' ? <ChevronUp aria-hidden="true" className="size-3 text-accent" />
-          : sort === 'desc' ? <ChevronDown aria-hidden="true" className="size-3 text-accent" />
-            : <ChevronsUpDown aria-hidden="true" className="size-3 opacity-60" />
+        sort === 'asc' ? (
+          <ChevronUp aria-hidden="true" className="size-3 text-accent" />
+        ) : sort === 'desc' ? (
+          <ChevronDown aria-hidden="true" className="size-3 text-accent" />
+        ) : (
+          <ChevronsUpDown aria-hidden="true" className="size-3 opacity-60" />
+        )
       ) : null}
     </span>
   );
@@ -622,12 +838,30 @@ export function SortHeader({ label, sort = null, onSort, align = 'left', width, 
       scope="col"
       aria-sort={ariaSort}
       style={width !== undefined ? { width } : undefined}
-      className={cn('h-table-header-height px-3 text-2xs font-bold uppercase tracking-[.04em]', sort ? 'text-text' : 'text-text-faint', className)}
+      className={cn(
+        'h-table-header-height px-3 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)]',
+        sort ? 'text-text' : 'text-text-faint',
+        align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left',
+        className
+      )}
     >
       {onSort ? (
-        <button type="button" onClick={onSort} className={cn('flex h-full w-full items-center rounded-xs uppercase tracking-[.04em] transition-colors hover:text-text', alignClass)}>
+        <button
+          type="button"
+          onClick={onSort}
+          className={cn(
+            'flex h-full w-full scroll-mx-3 items-center rounded-xs uppercase tracking-[var(--sl-tracking-label)] transition-colors hover:text-text',
+            alignClass
+          )}
+        >
           {content}
-          <span className="sr-only">{sort === 'asc' ? ', sorted ascending' : sort === 'desc' ? ', sorted descending' : ', sortable'}</span>
+          <span className="sr-only">
+            {sort === 'asc'
+              ? ', sorted ascending'
+              : sort === 'desc'
+                ? ', sorted descending'
+                : ', sortable'}
+          </span>
         </button>
       ) : (
         <div className={cn('flex h-full items-center', alignClass)}>{content}</div>
@@ -654,13 +888,25 @@ export interface ResizeHandleProps {
   inverted?: boolean;
 }
 
-export function ResizeHandle({ value, min, max, onChange, defaultValue, step = 16, label = 'Resize chart', className, orientation = 'horizontal', inverted = false }: ResizeHandleProps) {
+export function ResizeHandle({
+  value,
+  min,
+  max,
+  onChange,
+  defaultValue,
+  step = 16,
+  label = 'Resize chart',
+  className,
+  orientation = 'horizontal',
+  inverted = false,
+}: ResizeHandleProps) {
   const [dragging, setDragging] = useState(false);
   const start = useRef<{ at: number; value: number } | null>(null);
   const clamp = useCallback((v: number) => Math.max(min, Math.min(max, Math.round(v))), [min, max]);
   const vertical = orientation === 'vertical';
   const direction = inverted ? -1 : 1;
-  const coordinate = (event: ReactPointerEvent<HTMLDivElement>) => (vertical ? event.clientX : event.clientY);
+  const coordinate = (event: ReactPointerEvent<HTMLDivElement>) =>
+    vertical ? event.clientX : event.clientY;
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     start.current = { at: coordinate(event), value };
@@ -674,14 +920,26 @@ export function ResizeHandle({ value, min, max, onChange, defaultValue, step = 1
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     start.current = null;
     setDragging(false);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
   }
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') { event.preventDefault(); onChange(clamp(value - direction * step)); }
-    else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') { event.preventDefault(); onChange(clamp(value + direction * step)); }
-    else if (event.key === 'Home') { event.preventDefault(); onChange(min); }
-    else if (event.key === 'End') { event.preventDefault(); onChange(max); }
-    else if (event.key === 'Enter' && defaultValue !== undefined) { event.preventDefault(); onChange(clamp(defaultValue)); }
+    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      onChange(clamp(value - direction * step));
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      onChange(clamp(value + direction * step));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      onChange(min);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      onChange(max);
+    } else if (event.key === 'Enter' && defaultValue !== undefined) {
+      event.preventDefault();
+      onChange(clamp(defaultValue));
+    }
   }
 
   return (
@@ -701,12 +959,21 @@ export function ResizeHandle({ value, min, max, onChange, defaultValue, step = 1
       onKeyDown={onKeyDown}
       data-dragging={dragging ? '' : undefined}
       className={cn(
-        'group flex touch-none select-none items-center justify-center',
-        vertical ? 'h-full w-2 cursor-col-resize' : 'h-6 w-full cursor-row-resize',
-        className,
+        'group flex touch-none select-none items-center justify-center focus-visible:bg-surface-active focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
+        vertical
+          ? 'h-full min-w-2 cursor-col-resize'
+          : 'min-h-6 w-full cursor-row-resize',
+        className
       )}
     >
-      <span aria-hidden="true" className={cn('rounded-pill transition-colors duration-fast', vertical ? 'h-8 w-1' : 'h-1 w-8', dragging ? 'bg-accent' : 'bg-surface-3 group-hover:bg-surface-hover')} />
+      <span
+        aria-hidden="true"
+        className={cn(
+          'rounded-pill transition-colors duration-fast group-focus-visible:bg-accent',
+          vertical ? 'h-8 w-1' : 'h-1 w-8',
+          dragging ? 'bg-accent' : 'bg-surface-3 group-hover:bg-surface-hover'
+        )}
+      />
     </div>
   );
 }

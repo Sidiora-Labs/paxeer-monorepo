@@ -1,0 +1,83 @@
+[service.receipt-authority]
+kind = "repo"
+dockerfile = "docker/platform-authority/Dockerfile"
+root = "/"
+watch = ["/docker/platform-authority/**", "/docker/common/**", "/services/**", "/programs/**"]
+health = "/readyz"
+restart = "ALWAYS"
+replicas = 1
+public = 0
+order = 4
+needs = ["sequencer-primary"]
+# The TLS listener and loopback-only node and replica peers require a shared network namespace.
+target = "other"
+
+[vars.receipt-authority]
+PORT = "9445"
+LAYERX_AUTHORITY_LISTEN = "[::]:${{PORT}}"
+LAYERX_AUTHORITY_TLS_CERT_DER = "/run/layerx-authority/cert.der"
+LAYERX_AUTHORITY_TLS_KEY_DER = "/run/layerx-authority/key.der"
+LAYERX_AUTHORITY_TOKEN_FILES = "/run/layerx-authority/router-token:/run/layerx-authority/registry-token:/run/layerx-authority/webhooks-token"
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE = "/run/layerx-authority/replica-token"
+LAYERX_AUTHORITY_RECEIPT_KEYS_FILE = "/run/layerx-authority/receipt-keys.json"
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# LAYERX_AUTHORITY_REPLICA_URL = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_REPLICA_URL"
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# LAYERX_AUTHORITY_REPLICA_ID = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_REPLICA_ID"
+LAYERX_AUTHORITY_CHAIN_RPC_URL = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_CHAIN_RPC_URL"
+LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID"
+LAYERX_AUTHORITY_NETWORK_ID = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_NETWORK_ID"
+LAYERX_AUTHORITY_SEQUENCER_ID = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_SEQUENCER_ID"
+LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY"
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# LAYERX_AUTHORITY_FIRST_BATCH = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_FIRST_BATCH"
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# LAYERX_AUTHORITY_LAST_BATCH = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_LAST_BATCH"
+LAYERX_AUTHORITY_TLS_CERT_B64 = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_TLS_CERT_B64"
+LAYERX_AUTHORITY_TLS_KEY_B64 = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_TLS_KEY_B64"
+LAYERX_AUTHORITY_ROUTER_TOKEN_B64 = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_ROUTER_TOKEN_B64"
+LAYERX_AUTHORITY_REGISTRY_TOKEN_B64 = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_REGISTRY_TOKEN_B64"
+LAYERX_AUTHORITY_WEBHOOKS_TOKEN_B64 = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_WEBHOOKS_TOKEN_B64"
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# LAYERX_AUTHORITY_REPLICA_TOKEN_B64 = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_REPLICA_TOKEN_B64"
+LAYERX_AUTHORITY_RECEIPT_KEYS_B64 = "env:PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_RECEIPT_KEYS_B64"
+
+[inputs.receipt-authority]
+# Local independent replica root endpoint, as an HTTP URL with a loopback host and nonzero port.
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_REPLICA_URL = "operator"
+# Independent replica identity, as 64 hexadecimal characters without a prefix and not all zero.
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_REPLICA_ID = "operator"
+# Local node endpoint, as a loopback HTTP URL with a nonzero port; native proofs use the same origin.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_CHAIN_RPC_URL = "operator"
+# Protocol network identifier in signed evidence, as a positive decimal u32.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID = "operator"
+# Network identifier, as 1..64 ASCII letters, digits, dots, underscores or hyphens.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_NETWORK_ID = "operator"
+# Sequencer identity pin, as 64 hexadecimal characters without a prefix and not all zero.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_SEQUENCER_ID = "chain"
+# Sequencer public key pin, as 64 hexadecimal characters without a prefix and not all zero.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY = "chain"
+# First authorized batch, as a positive decimal u64.
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_FIRST_BATCH = "operator"
+# Last authorized batch, as a decimal u64 at least equal to the first batch.
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_LAST_BATCH = "operator"
+# TLS server certificate, as base64-encoded X.509 DER bytes.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_TLS_CERT_B64 = "operator"
+# Server private key, as base64-encoded PKCS#8 DER bytes.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_TLS_KEY_B64 = "operator"
+# Bearer shared with the router, as base64 of 32..4096 random printable ASCII bytes without whitespace.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_ROUTER_TOKEN_B64 = "generated"
+# Bearer shared with the program registry, as base64 of 32..4096 random printable ASCII bytes without whitespace.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_REGISTRY_TOKEN_B64 = "generated"
+# Bearer shared with webhooks, as base64 of 32..4096 random printable ASCII bytes without whitespace.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_WEBHOOKS_TOKEN_B64 = "generated"
+# Existing independent replica bearer, as base64 of bounded printable ASCII bytes without whitespace.
+# Optional batch evidence origin group: enable all five service settings and the encoded bearer.
+# PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_REPLICA_TOKEN_B64 = "operator"
+# Pinned receipt key list, as base64 of a JSON array with keyId, publicKey, firstHeight and lastHeight.
+PLATFORM_RECEIPT_AUTHORITY_LAYERX_AUTHORITY_RECEIPT_KEYS_B64 = "chain"

@@ -39,9 +39,11 @@ def git(*args):
 
 
 def private_directory(name, default):
-    path = Path(os.environ.get(name, default)).absolute()
+    configured = os.environ.get(name)
+    path = Path(configured or default).absolute()
     require(path.resolve() == path, f"symlinked private directory: {path}")
-    require(ROOT != path and ROOT not in path.parents,
+    require((ROOT != path and ROOT not in path.parents)
+            or configured is None,
             f"private directory inside checkout: {path}")
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
     info = path.stat()
@@ -120,11 +122,14 @@ def build():
     manifest_path = evidence / "artifacts.json"
     require(not manifest_path.is_symlink(), "symlinked artifact manifest")
     manifest_path.unlink(missing_ok=True)
+    configured_target = os.environ.get("PAXEER_X_MODULE_REGISTRATION_TARGET")
     target = private_directory("PAXEER_X_MODULE_REGISTRATION_TARGET",
-                               "/root/lx-target/task104194")
-    rust_target = Path(os.environ.get("PAXEER_X_MODULE_REGISTRATION_RUST_TARGET",
-                                     str(target / "rust"))).absolute()
-    require(rust_target.resolve() == rust_target and ROOT not in rust_target.parents,
+                               configured_target or os.environ.get("CARGO_TARGET_DIR")
+                               or str(ROOT / "build/qualification/104.19.4"))
+    configured_rust_target = os.environ.get("PAXEER_X_MODULE_REGISTRATION_RUST_TARGET")
+    rust_target = Path(configured_rust_target or str(target / "rust")).absolute()
+    require(rust_target.resolve() == rust_target
+            and (configured_rust_target is None or ROOT not in rust_target.parents),
             "canonical external Rust target required")
     env = os.environ.copy()
     env["CARGO_TARGET_DIR"] = str(rust_target)
@@ -207,9 +212,9 @@ records = []
 try:
     require(sys.argv[1:] in ([], ["--build"]), "usage: 104.19.4.sh [--build]")
     evidence = private_directory("PAXEER_X_MODULE_REGISTRATION_ARTIFACTS",
-                                 "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task104194")
+                                 str(ROOT / "build/qualification/104.19.4"))
     if sys.argv[1:] == ["--build"]:
-        lock = Path("/root/lx-cargo/native-build.lock")
+        lock = ROOT / "build/qualification/cargo/native-build.lock"
         lock.parent.mkdir(parents=True, exist_ok=True)
         with lock.open("a") as stream:
             fcntl.flock(stream, fcntl.LOCK_EX)

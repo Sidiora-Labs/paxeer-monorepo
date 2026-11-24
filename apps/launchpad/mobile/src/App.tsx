@@ -3,12 +3,8 @@ import NetInfo from '@react-native-community/netinfo';
 import {
   AccessibilityInfo,
   AppState,
-  KeyboardAvoidingView,
   Linking,
   Platform,
-  SafeAreaView,
-  ScrollView,
-  Text,
   View,
 } from 'react-native';
 import {
@@ -36,6 +32,7 @@ import {
   releaseConfiguration,
   publicSnapshotStorage,
   nativePush,
+  consumeNotificationLink,
 } from './platform/protected-storage.ts';
 import {
   LocalPrivacyController,
@@ -43,8 +40,12 @@ import {
 } from './platform/privacy.ts';
 import {
   Button,
+  Text,
   ErrorNotice,
-  ui,
+  useSurface,
+  Page,
+  ScreenChrome,
+  SurfaceFrame,
   type Runtime,
   type Route,
   showAction,
@@ -70,11 +71,17 @@ export default function App({
   pushProofIssuer?: DeviceProofIssuer;
   deviceAuthorization?: MobileServices['deviceAuthorization'];
 } = {}) {
+  const { ui } = useSurface();
   const [config, setConfig] = useState<PublicConfiguration>(),
     [error, setError] = useState<string>();
+  const [configurationRevision, retryConfiguration] = useReducer(
+    (n) => n + 1,
+    0,
+  );
   useEffect(() => {
     let active = true;
-    void Promise.resolve(configuration ?? releaseConfiguration())
+    void Promise.resolve()
+      .then(() => configuration ?? releaseConfiguration())
       .then((value) => {
         if (active) setConfig(readConfiguration(value));
       })
@@ -87,7 +94,7 @@ export default function App({
     return () => {
       active = false;
     };
-  }, [configuration]);
+  }, [configuration, configurationRevision]);
   return config ? (
     <ConnectedApp
       config={config}
@@ -97,18 +104,26 @@ export default function App({
       deviceAuthorization={deviceAuthorization}
     />
   ) : (
-    <SafeAreaView style={ui.page}>
-      <View style={ui.content}>
-        <Text accessibilityRole="header" style={ui.heading}>
-          Sidiora
-        </Text>
+    <SurfaceFrame>
+      <Page title="Sidiora">
         {error ? (
-          <ErrorNotice message={error} />
+          <>
+            <ErrorNotice message={error} />
+            <Button
+              label="Retry configuration"
+              onPress={() => {
+                setError(undefined);
+                retryConfiguration();
+              }}
+            />
+          </>
         ) : (
-          <Text style={ui.text}>Opening secure service configuration…</Text>
+          <Text style={ui.text}>
+            Opening secure service configuration…
+          </Text>
         )}
-      </View>
-    </SafeAreaView>
+      </Page>
+    </SurfaceFrame>
   );
 }
 function ConnectedApp({
@@ -124,6 +139,7 @@ function ConnectedApp({
   pushProofIssuer?: DeviceProofIssuer;
   deviceAuthorization?: MobileServices['deviceAuthorization'];
 }) {
+  const { ui } = useSurface();
   const [, render] = useReducer((n) => n + 1, 0),
     [route, setRoute] = useState<Route>({ name: 'discovery' }),
     [error, setError] = useState<string>();
@@ -137,7 +153,10 @@ function ConnectedApp({
       ),
       session = new SessionController(protectedStorage, cache),
       services = new MobileServices(config, () => session.token),
-      pending = new PendingOperations(protectedStorage, config.canonicalOrigin),
+      pending = new PendingOperations(
+        protectedStorage,
+        config.canonicalOrigin,
+      ),
       lifecycle = new ForegroundLifecycle(
         services,
         session,
@@ -165,11 +184,21 @@ function ConnectedApp({
                   try {
                     await current.session.logout(services);
                   } finally {
-                    await current.pending.clearForAccountSwitch();
-                    await current.approval?.purgeForAccountSwitch();
+                    const cleanup = await Promise.allSettled([
+                      current.pending.clearForAccountSwitch(),
+                      current.approval?.purgeForAccountSwitch(),
+                    ]);
                     current.routeState.clear();
                     current.marketData.clear();
                     render();
+                    if (
+                      cleanup.some(
+                        (result) => result.status === 'rejected',
+                      )
+                    )
+                      throw new Error(
+                        'Protected account cleanup unavailable',
+                      );
                   }
                 })().catch(() =>
                   setError(
@@ -218,7 +247,8 @@ function ConnectedApp({
         render,
         () => !privacy.enabled || privacy.unlocked,
       );
-      lifecycle.additionalExecutionAllowed = () => !value.approval?.blocking;
+      lifecycle.additionalExecutionAllowed = () =>
+        !value.approval?.blocking;
       lifecycle.reconcileFinancial = async (signal) =>
         value.approval?.hasOutstanding
           ? value.approval.reconcile(signal)
@@ -308,7 +338,9 @@ function ConnectedApp({
         void runtime.lifecycle
           .foreground()
           .catch(() =>
-            setError('Foreground refresh failed. Execution remains disabled.'),
+            setError(
+              'Foreground refresh failed. Execution remains disabled.',
+            ),
           );
       else {
         runtime.privacy.lock();
@@ -348,14 +380,23 @@ function ConnectedApp({
           await runtime.lifecycle.foreground();
           setRoute({ name: 'portfolio' });
         } else setRoute(runtime.pending.route(url));
-      })().catch(() => setError('Invalid or unrelated application link.'));
+      })().catch(() =>
+        setError('Invalid or unrelated application link.'),
+      );
     };
     const links = Linking.addEventListener('url', (event) =>
       receive(event.url),
     );
-    void Linking.getInitialURL().then((url) => {
-      if (active && url) receive(url);
-    });
+    void Promise.all([Linking.getInitialURL(), consumeNotificationLink()])
+      .then(([url, notification]) => {
+        if (active && (url || notification))
+          receive(url || notification!);
+      })
+      .catch(() =>
+        setError(
+          'Application link unavailable. Open notifications from navigation.',
+        ),
+      );
     return () => {
       active = false;
       state.remove();
@@ -389,9 +430,13 @@ function ConnectedApp({
   }, [runtime, route.name, route.name === 'token' ? route.address : '']);
   useEffect(() => {
     void setPrivatePreview(
-      ['portfolio', 'watchlists', 'chat', 'profile', 'notifications'].includes(
-        route.name,
-      ),
+      [
+        'portfolio',
+        'watchlists',
+        'chat',
+        'profile',
+        'notifications',
+      ].includes(route.name),
     ).catch(() =>
       setError(
         'Native preview privacy unavailable. Private screen release qualification is blocked.',
@@ -409,7 +454,10 @@ function ConnectedApp({
         setError(
           'Network unavailable. Financial actions are disabled; reconnect and refresh before signing.',
         );
-      } else if (reachable === false && AppState.currentState === 'active') {
+      } else if (
+        reachable === false &&
+        AppState.currentState === 'active'
+      ) {
         void runtime.lifecycle
           .foreground()
           .then(() => {
@@ -462,14 +510,18 @@ function ConnectedApp({
   }, [runtime, config]);
   const login = async () => {
     if (!runtime.wallet)
-      throw new Error('A supported native external wallet adapter is required');
+      throw new Error(
+        'A supported native external wallet adapter is required',
+      );
     const signal = runtime.session.signal,
       connected = await runtime.wallet.connect(signal),
-      challenge = (await runtime.services.challenge(connected.address, signal))
-        .data.challenge;
+      challenge = (
+        await runtime.services.challenge(connected.address, signal)
+      ).data.challenge;
     if (
       challenge.purpose !== 'login' ||
-      challenge.wallet.toLowerCase() !== connected.address.toLowerCase() ||
+      challenge.wallet.toLowerCase() !==
+        connected.address.toLowerCase() ||
       challenge.uri !== config.identityURI ||
       challenge.chainId !== '125' ||
       challenge.domain !== new URL(config.identityURI).host ||
@@ -513,39 +565,165 @@ function ConnectedApp({
     'live',
   ] as const;
   return (
-    <SafeAreaView style={ui.page}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          horizontal
-          style={{ flexGrow: 0 }}
-          contentContainerStyle={{ padding: 8, gap: 8 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {names
-            .filter((name) => name !== 'chat' || config.optionalFeatures.chat)
-            .filter((name) => name !== 'live' || config.optionalFeatures.live)
-            .map((name) => (
+    <SurfaceFrame>
+      <ScreenChrome
+        header={
+          <>
+            <View style={ui.navigation}>
+              {names
+                .filter(
+                  (name) =>
+                    name !== 'chat' || config.optionalFeatures.chat,
+                )
+                .filter(
+                  (name) =>
+                    name !== 'live' || config.optionalFeatures.live,
+                )
+                .map((name) => (
+                  <Button
+                    key={name}
+                    selected={route.name === name}
+                    label={
+                      name === 'discovery'
+                        ? 'Discover'
+                        : name[0].toUpperCase() + name.slice(1)
+                    }
+                    onPress={() => setRoute({ name })}
+                  />
+                ))}
+            </View>
+            {error && (
+              <View style={ui.stack}>
+                <ErrorNotice message={error} />
+                <Button
+                  label="Refresh services and authorization"
+                  onPress={() =>
+                    showAction(
+                      async () => {
+                        if (!runtime.session.current)
+                          await runtime.session.restore(runtime.services);
+                        await runtime.lifecycle.foreground();
+                      },
+                      setError,
+                      () => {
+                        setError(undefined);
+                        render();
+                      },
+                    )
+                  }
+                />
+              </View>
+            )}
+          </>
+        }
+        footer={
+          <View style={ui.footer}>
+            {runtime.session.account ? (
+              <>
+                <Button
+                  label="Reconnect external wallet"
+                  onPress={() =>
+                    showAction(
+                      async () => {
+                        if (!runtime.wallet)
+                          throw new Error('Native wallet unavailable');
+                        const connected = await runtime.wallet.connect(
+                          runtime.session.signal,
+                        );
+                        if (
+                          connected.address.toLowerCase() !==
+                          runtime.session.account?.toLowerCase()
+                        )
+                          throw new Error(
+                            'Connected wallet differs from current account; sign out before switching',
+                          );
+                        await runtime.lifecycle.foreground();
+                      },
+                      setError,
+                      render,
+                    )
+                  }
+                />
+                <Button
+                  label="My profile"
+                  onPress={() =>
+                    setRoute({
+                      name: 'profile',
+                      address: runtime.session.account!,
+                    })
+                  }
+                />
+                <Button
+                  label="Sign out and purge private data"
+                  onPress={() =>
+                    showAction(
+                      async () => {
+                        runtime.lifecycle.background();
+                        runtime.market?.background();
+                        runtime.marketData.clear();
+                        try {
+                          await runtime.session.logout(runtime.services);
+                        } finally {
+                          const results = await Promise.allSettled([
+                            runtime.wallet?.disconnect?.(),
+                            runtime.pending.clearForAccountSwitch(),
+                            runtime.approval?.purgeForAccountSwitch(),
+                          ]);
+                          runtime.routeState.clear();
+                          runtime.privacy.reset();
+                          setRoute({ name: 'discovery' });
+                          render();
+                          if (
+                            results.some(
+                              (result) => result.status === 'rejected',
+                            )
+                          )
+                            throw new Error(
+                              'Sign out completed. Reopen the app to retry protected storage cleanup.',
+                            );
+                        }
+                      },
+                      setError,
+                      render,
+                    )
+                  }
+                />
+              </>
+            ) : (
               <Button
-                key={name}
-                label={
-                  name === 'discovery'
-                    ? 'Discover'
-                    : name[0].toUpperCase() + name.slice(1)
-                }
-                onPress={() => setRoute({ name })}
+                label="Sign in with external wallet"
+                disabled={!runtime.wallet}
+                onPress={() => showAction(login, setError, render)}
               />
-            ))}
-        </ScrollView>
-        {error && (
-          <View style={{ padding: 12 }}>
-            <ErrorNotice message={error} />
+            )}
+            <Button
+              label={
+                runtime.privacy.enabled
+                  ? 'Disable biometric reopening'
+                  : 'Enable biometric reopening'
+              }
+              onPress={() =>
+                showAction(
+                  () =>
+                    runtime.privacy.setEnabled(!runtime.privacy.enabled),
+                  setError,
+                )
+              }
+            />
+            {runtime.cache.persistenceError && (
+              <ErrorNotice message={runtime.cache.persistenceError} />
+            )}
+            <Button
+              label="Purge snapshots"
+              onPress={() =>
+                showAction(() => runtime.cache.clear(), setError, render)
+              }
+            />
           </View>
-        )}
+        }
+      >
         {privateRoute && (!runtime.session.token || localLocked) ? (
-          <View style={ui.content}>
+          <Page title={route.name[0].toUpperCase() + route.name.slice(1)}>
             <Text style={ui.text}>
               {!runtime.session.token
                 ? 'Sign in to view private account content.'
@@ -555,130 +733,61 @@ function ConnectedApp({
               <Button
                 label="Unlock private screens"
                 onPress={() =>
-                  void showAction(() => runtime.privacy.unlock(), setError)
+                  showAction(() => runtime.privacy.unlock(), setError)
                 }
               />
             )}
-          </View>
+          </Page>
         ) : (
           <>
-            {route.name === 'discovery' && <Discovery runtime={runtime} />}{' '}
+            {route.name === 'discovery' && (
+              <Discovery runtime={runtime} />
+            )}
             {route.name === 'token' && (
               <Token
                 key={route.address}
                 runtime={runtime}
                 address={route.address}
               />
-            )}{' '}
-            {route.name === 'portfolio' && <Portfolio runtime={runtime} />}{' '}
-            {route.name === 'watchlists' && <Watchlists runtime={runtime} />}{' '}
+            )}
+            {route.name === 'portfolio' && (
+              <Portfolio runtime={runtime} />
+            )}
+            {route.name === 'watchlists' && (
+              <Watchlists runtime={runtime} />
+            )}
             {route.name === 'profile' && (
-              <Profile runtime={runtime} address={route.address} />
-            )}{' '}
+              <Profile
+                key={route.address}
+                runtime={runtime}
+                address={route.address}
+              />
+            )}
             {route.name === 'notifications' && (
               <Notifications runtime={runtime} />
-            )}{' '}
+            )}
             {route.name === 'chat' && config.optionalFeatures.chat && (
               <Chat runtime={runtime} />
-            )}{' '}
+            )}
+            {((route.name === 'chat' && !config.optionalFeatures.chat) ||
+              (route.name === 'live' &&
+                !config.optionalFeatures.live)) && (
+              <Page title="Unavailable">
+                <Text style={ui.text}>
+                  This feature is unavailable in this deployment.
+                </Text>
+                <Button
+                  label="Back to discovery"
+                  onPress={() => setRoute({ name: 'discovery' })}
+                />
+              </Page>
+            )}
             {route.name === 'live' && config.optionalFeatures.live && (
               <Live runtime={runtime} />
             )}
           </>
         )}
-        <View style={[ui.row, { padding: 12 }]}>
-          {runtime.session.account ? (
-            <>
-              <Button
-                label="Reconnect external wallet"
-                onPress={() =>
-                  void showAction(
-                    async () => {
-                      if (!runtime.wallet)
-                        throw new Error('Native wallet unavailable');
-                      const connected = await runtime.wallet.connect(
-                        runtime.session.signal,
-                      );
-                      if (
-                        connected.address.toLowerCase() !==
-                        runtime.session.account?.toLowerCase()
-                      )
-                        throw new Error(
-                          'Connected wallet differs from current account; sign out before switching',
-                        );
-                      await runtime.lifecycle.foreground();
-                    },
-                    setError,
-                    render,
-                  )
-                }
-              />
-              <Button
-                label="My profile"
-                onPress={() =>
-                  setRoute({
-                    name: 'profile',
-                    address: runtime.session.account!,
-                  })
-                }
-              />
-              <Button
-                label="Sign out and purge private data"
-                onPress={() =>
-                  void showAction(
-                    async () => {
-                      runtime.lifecycle.background();
-                      runtime.market?.background();
-                      runtime.marketData.clear();
-                      try {
-                        await runtime.session.logout(runtime.services);
-                      } finally {
-                        await runtime.wallet?.disconnect?.();
-                        await runtime.pending.clearForAccountSwitch();
-                        await runtime.approval?.purgeForAccountSwitch();
-                        runtime.routeState.clear();
-                        runtime.privacy.reset();
-                        setRoute({ name: 'discovery' });
-                        render();
-                      }
-                    },
-                    setError,
-                    render,
-                  )
-                }
-              />
-            </>
-          ) : (
-            <Button
-              label="Sign in with external wallet"
-              disabled={!runtime.wallet}
-              onPress={() => void showAction(login, setError, render)}
-            />
-          )}
-          <Button
-            label={
-              runtime.privacy.enabled
-                ? 'Disable biometric reopening'
-                : 'Enable biometric reopening'
-            }
-            onPress={() =>
-              void showAction(
-                () => runtime.privacy.setEnabled(!runtime.privacy.enabled),
-                setError,
-              )
-            }
-          />
-          {runtime.cache.persistenceError && (
-            <ErrorNotice message={runtime.cache.persistenceError} />
-          )}
-          <Button
-            label="Purge snapshots"
-            onPress={() =>
-              void showAction(() => runtime.cache.clear(), setError, render)
-            }
-          />
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </ScreenChrome>
+    </SurfaceFrame>
   );
 }

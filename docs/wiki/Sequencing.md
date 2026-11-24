@@ -1,9 +1,8 @@
 # Sequencing and block finality
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID **125** (`0x7d`).
-The kernel runs inside `paxd` and participates in block production. The proposer
-executes transactions, signs receipts, and proposes those transactions in the
-same order. A transaction receipt is final when its block is committed.
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction receipt is final when its block is committed.
 
 Sequencing is an integrated node role implemented in `node/sequencer/`.
 If the network cannot commit blocks, new receipts cannot progress to committed
@@ -61,6 +60,12 @@ The node implementation in `rpc/sequencer_receipt.go` defines
 | `receipted` | Signed execution receipt; its batch is not yet committed |
 | `committed` | The receipt's sequence is covered by a committed block's batch; the result includes block number and hash |
 
+Held transactions release in sender nonce order when a gap fills. Opening a
+block expires held transactions, then releases each sender's consecutive next
+nonces. A refusal drops that transaction and records a drain failure; later
+nonces wait. Sends between seal and open wait for the next block and retry
+acceptance once before their nonce is compared.
+
 Receipt release follows execution and durable WAL acknowledgement through
 `Accepter.Accept`. A signed early receipt is useful execution evidence, but the
 BFT block commit supplies finality. Pending reads observe the open speculative
@@ -109,9 +114,12 @@ Microbatch mode additionally requires positive `sequencer.microbatch-window`
 and `sequencer.microbatch-max-count`. Enabled roles require positive nonce-queue
 bounds (`sequencer.nonce-queue-max-per-sender` and
 `sequencer.nonce-queue-max-total`), with the total at least the per-sender bound.
+`sequencer.nonce-queue-lifetime` bounds how long future-nonce transactions are held;
+it must be positive when enabled and defaults to `3s`, independently of the lease.
 Lease duration must also be positive. These settings configure the integrated
-node role. Replication additionally requires mutual TLS credentials and an
-authorized peer configured through `sequencer.replication-tls-cert`,
+node role. Enabled nodes log the effective lease duration, nonce queue lifetime
+and both queue bounds once at start. Replication additionally requires mutual TLS
+credentials and an authorized peer configured through `sequencer.replication-tls-cert`,
 `sequencer.replication-tls-key`, `sequencer.replication-tls-ca`,
 `sequencer.replication-peer-name` and `sequencer.replication-peer-spki`.
 `sequencer.receipt-forward-url` configures receipt forwarding when sequencing

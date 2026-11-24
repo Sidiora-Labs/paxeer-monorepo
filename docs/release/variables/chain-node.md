@@ -1,6 +1,6 @@
 # Chain node variables
 
-The chain node is `paxd`, with command utilities in `cmd/` and application and proposer execution in `node/`. Paxeer mainnet-beta is one BFT network with EVM chain ID 125; the kernel proposes blocks inside the node, and receipts become final when their block commits. Node JSON-RPC uses the root path. The settings below cover environment reads and configuration readers used by these directories.
+The chain node is `paxd`, with command utilities in `cmd/` and application and proposer execution in `node/`. Paxeer mainnet-beta uses EVM chain ID 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when their block commits. Node JSON-RPC uses the root path. The settings below cover environment reads and configuration readers used by these directories.
 
 Environment names are uppercase. TOML rows identify the file relative to the node home, section and key; `[root]` means a top-level key. JSON rows identify the file selected by `BENCHMARK_CONFIG`, its object and key. Required includes settings required only when the named feature is enabled. Empty means an empty string; none means no supplied default. Secret-file paths are not secrets themselves; their private contents must remain protected. Host addresses, account values and key values are omitted.
 
@@ -20,6 +20,7 @@ Storage rows distinguish generated `config/app.toml` defaults from absent-key co
 | `config/app.toml` / `[sequencer]` / `microbatch-window` | Positive group waiting interval in microbatch mode. | `0s` | No | `node/sequencer/config.go` |
 | `config/app.toml` / `[sequencer]` / `nonce-queue-max-per-sender` | Positive future-nonce queue bound per sender when enabled. | `0` | No | `node/sequencer/config.go` |
 | `config/app.toml` / `[sequencer]` / `nonce-queue-max-total` | Positive total queue bound, at least the per-sender bound, when enabled. | `0` | No | `node/sequencer/config.go` |
+| `config/app.toml` / `[sequencer]` / `nonce-queue-lifetime` | Maximum time to hold future-nonce transactions; positive when enabled and independent of the lease duration. | `3s` | No | `node/sequencer/config.go` |
 | `config/app.toml` / `[sequencer]` / `receipt-key-file` | Receipt signing seed file when enabled; separate from the consensus key and restricted to mode `0600`. | Empty | No; file contents are secret | `node/sequencer/config.go`, `node/sequencer/receiptkey.go` |
 | `config/app.toml` / `[sequencer]` / `replication-peer-name` | Authorized peer certificate DNS identity for replication. | Empty | No | `node/sequencer/config.go`, `node/sequencer/dial.go` |
 | `config/app.toml` / `[sequencer]` / `replication-peer-spki` | Peer certificate SHA-256 public-key digest for replication. | Empty | No | `node/sequencer/config.go`, `node/sequencer/dial.go` |

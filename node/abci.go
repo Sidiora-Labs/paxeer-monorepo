@@ -222,9 +222,9 @@ func (app *App) DeliverTx(ctx sdk.Context, req abci.RequestDeliverTxV2, tx sdk.T
 		resultStr = "failed"
 		// if we have a result, use those events instead of just the anteEvents
 		if result != nil {
-			return sdkerrors.ResponseDeliverTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, sdk.MarkEventsToIndex(result.Events, app.IndexEvents), false)
+			return sdkerrors.ResponseDeliverTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, sdk.MarkEventsToIndex(result.Events, app.IndexEvents), app.GetBaseApp().Trace())
 		}
-		return sdkerrors.ResponseDeliverTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, sdk.MarkEventsToIndex(anteEvents, app.IndexEvents), false)
+		return sdkerrors.ResponseDeliverTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, sdk.MarkEventsToIndex(anteEvents, app.IndexEvents), app.GetBaseApp().Trace())
 	}
 
 	res := abci.ResponseDeliverTx{
@@ -317,6 +317,7 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 	start := time.Now()
 	res, err = app.BaseApp.Commit(ctx)
 	if err == nil {
+		app.publishLeaderSchedule()
 		logStore := func(name string, hash []byte) {
 			logger.Info("committed store", "height", app.LastBlockHeight(), "store", name, "hash", fmt.Sprintf("%X", hash))
 		}

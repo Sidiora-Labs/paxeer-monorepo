@@ -34,13 +34,13 @@ const ChartsWidgetsList = ({ isError, isPlaceholderData, charts, interval, initi
   const [ isSomeChartLoadingError, setIsSomeChartLoadingError ] = useState(false);
   const hasCharts = sections?.some((section) => section.charts.length > 0);
   const hasDisplayedCharts = charts?.some((section) => section.charts.length > 0);
-  const sectionRef = React.useRef<HTMLUListElement | null>(null);
+  const sectionRef = React.useRef<HTMLElement | null>(null);
 
   const shouldScrollToSection = Boolean(initialFilterQuery);
 
   React.useEffect(() => {
     if (shouldScrollToSection) {
-      sectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+      sectionRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
     }
   }, [ shouldScrollToSection ]);
 
@@ -116,7 +116,10 @@ const ChartsWidgetsList = ({ isError, isPlaceholderData, charts, interval, initi
 
               <Grid
                 data-stats-section-charts
-                templateColumns={{ base: 'repeat(1, minmax(0, 1fr))', lg: 'repeat(2, minmax(0, 1fr))' }}
+                templateColumns={{
+                  base: 'minmax(0, 1fr)',
+                  lg: 'repeat(auto-fit, minmax(min(100%, max(calc((100% - var(--chakra-spacing-4)) / 2), 32ch)), 1fr))',
+                }}
                 gap={{ base: 3, lg: 4 }}
               >
                 { section.charts.map((chart) => {

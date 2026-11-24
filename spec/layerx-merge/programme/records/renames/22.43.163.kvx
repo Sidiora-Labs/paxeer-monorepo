@@ -1,0 +1,384 @@
+[manifest]
+task = "22.43.163"
+records_moved = 12
+files_renamed = 18
+
+[file.1]
+from = "services/launchpad/trading-charts/cmd/charts-rebuild/repair_m1052_test.go"
+to = "services/launchpad/trading-charts/cmd/charts-rebuild/runtime_binding_test.go"
+
+[file.2]
+from = "services/launchpad/trading-charts/internal/app/repair_73_test.go"
+to = "services/launchpad/trading-charts/internal/app/committed_candle_publication_test.go"
+
+[file.3]
+from = "services/launchpad/trading-charts/internal/app/repair_m1049_test.go"
+to = "services/launchpad/trading-charts/internal/app/legacy_routes_test.go"
+
+[file.4]
+from = "services/launchpad/trading-charts/internal/consumer/repair_22_39_314_test.go"
+to = "services/launchpad/trading-charts/internal/consumer/development_source_test.go"
+
+[file.5]
+from = "services/launchpad/trading-charts/internal/consumer/repair_m1048_runtime_test.go"
+to = "services/launchpad/trading-charts/internal/consumer/completeness_runtime_test.go"
+
+[file.6]
+from = "services/launchpad/trading-charts/internal/consumer/repair_m1048_test.go"
+to = "services/launchpad/trading-charts/internal/consumer/completeness_refresh_test.go"
+
+[file.7]
+from = "services/launchpad/trading-charts/internal/engine/repair_74_test.go"
+to = "services/launchpad/trading-charts/internal/engine/archive_checkpoint_test.go"
+
+[file.8]
+from = "services/launchpad/trading-charts/internal/engine/repair_m1051_test.go"
+to = "services/launchpad/trading-charts/internal/engine/development_transactions_test.go"
+
+[file.9]
+from = "services/launchpad/trading-charts/internal/httpapi/repair_m1050_test.go"
+to = "services/launchpad/trading-charts/internal/httpapi/webhook_delivery_test.go"
+
+[file.10]
+from = "services/launchpad/trading-charts/internal/store/repair_75_test.go"
+to = "services/launchpad/trading-charts/internal/store/rebuild_publication_test.go"
+
+[file.11]
+from = "services/launchpad/trading-charts/internal/app/testdata/repair_m1049/postgres.json"
+to = "services/launchpad/trading-charts/internal/app/testdata/legacy_routes/postgres.json"
+
+[file.12]
+from = "services/launchpad/trading-charts/internal/engine/testdata/repair74/manifests.json"
+to = "services/launchpad/trading-charts/internal/engine/testdata/retained_archive/manifests.json"
+
+[file.13]
+from = "services/launchpad/trading-charts/internal/engine/testdata/repair74/segment.json"
+to = "services/launchpad/trading-charts/internal/engine/testdata/retained_archive/segment.json"
+
+[file.14]
+from = "services/launchpad/trading-charts/internal/engine/testdata/repair_m1051/block.json"
+to = "services/launchpad/trading-charts/internal/engine/testdata/development_candles/block.json"
+
+[file.15]
+from = "services/launchpad/trading-charts/internal/engine/testdata/repair_m1051/redis-ack.resp"
+to = "services/launchpad/trading-charts/internal/engine/testdata/development_candles/redis-ack.resp"
+
+[file.16]
+from = "services/launchpad/trading-charts/internal/engine/testdata/repair_m1051/redis-duplicate.resp"
+to = "services/launchpad/trading-charts/internal/engine/testdata/development_candles/redis-duplicate.resp"
+
+[file.17]
+from = "services/launchpad/trading-charts/internal/engine/testdata/repair_m1051/redis-error.resp"
+to = "services/launchpad/trading-charts/internal/engine/testdata/development_candles/redis-error.resp"
+
+[file.18]
+from = "services/launchpad/trading-charts/internal/httpapi/testdata/repair_m1050/postgres.json"
+to = "services/launchpad/trading-charts/internal/httpapi/testdata/webhook_delivery/postgres.json"
+
+[file.19]
+from = "services/launchpad/trading-charts/cmd/charts-rebuild/repair_m1052.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/cmd/charts-rebuild/repair_m1052.kvx"
+
+[file.20]
+from = "services/launchpad/trading-charts/internal/app/repair_73.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/internal/app/repair_73.kvx"
+
+[file.21]
+from = "services/launchpad/trading-charts/internal/app/repair_m1049.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/internal/app/repair_m1049.kvx"
+
+[file.22]
+from = "services/launchpad/trading-charts/internal/consumer/repair_m1048.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/internal/consumer/repair_m1048.kvx"
+
+[file.23]
+from = "services/launchpad/trading-charts/internal/engine/repair_74.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/internal/engine/repair_74.kvx"
+
+[file.24]
+from = "services/launchpad/trading-charts/internal/engine/repair_m1051.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/internal/engine/repair_m1051.kvx"
+
+[file.25]
+from = "services/launchpad/trading-charts/internal/httpapi/repair_m1050.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/internal/httpapi/repair_m1050.kvx"
+
+[file.26]
+from = "services/launchpad/trading-charts/internal/store/repair_75.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/internal/store/repair_75.kvx"
+
+[file.27]
+from = "services/launchpad/trading-charts/repair_22_39_314.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/repair_22_39_314.kvx"
+
+[file.28]
+from = "services/launchpad/trading-charts/repair_22_39_466.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/repair_22_39_466.kvx"
+
+[file.29]
+from = "services/launchpad/trading-charts/repair_22_39_482.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/repair_22_39_482.kvx"
+
+[file.30]
+from = "services/launchpad/trading-charts/repair_22_39_75.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/repair_22_39_75.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "TestRepairM_1051"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_22_39_314_test.go"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_m1051"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_m1051.kvx"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_m1051_test.go"
+
+[reference.6]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1049_AppNewRetiresLegacyStreamBeforeUpgrade"
+
+[reference.7]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1049_HistoryRetirementAndVersionedMigration"
+
+[reference.8]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1050_PartialFailureRetry"
+
+[reference.9]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1051_CommittedOutboxRetry"
+
+[reference.10]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1051_ConcurrentDistinctSwaps"
+
+[reference.11]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1051_LateSourceOrder"
+
+[reference.12]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1051_RollbackAndRedisRestart"
+
+[reference.13]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "repair_m1051_test.go"
+
+[reference.14]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_22_39_75.kvx"
+
+[reference.15]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_m1051"
+
+[reference.16]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_74_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1049_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepairM_1051"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_39_314_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_74_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1049_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1048_"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1049_"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1050_"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1051"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1051_"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1051_CommittedOutboxRetry"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1051_ConcurrentDistinctSwaps"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1051_LateSourceOrder"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1051_RollbackAndRedisRestart"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1052_"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_314"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_314_DevelopmentSchemaMigrates"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_314_DevelopmentSwapCarriesPosition"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_73_"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_74_"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_74_RetainedParitySurvivesRestart"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_75_"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_314.kvx"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_314_test.go"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_466.kvx"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_482.kvx"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_75.kvx"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_73_test.go"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_74_test.go"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_75_test.go"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1048_test.go"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1049_test.go"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1050_test.go"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1051"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1051.kvx"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1051_test.go"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1052_test.go"
+
+[reference.54]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "repair_22_39_75.kvx"
+
+[reference.55]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_73_AdmissionAndShutdown"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_73_CommittedOnlyPublication"
+
+[reference.57]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_73_RetryRestartAndGuardedRetention"
+
+[reference.58]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_74_DeleteCloseReopenReconstructArchive"
+
+[reference.59]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_74_RejectsInvalidRetainedAuthority"
+
+[reference.60]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_74_RetainedParitySurvivesRestart"
+
+[reference.61]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_75_HistorySnapshotReplayConvergeAfterRestart"
+
+[reference.62]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_75_PromotionRollbackPreservesPublicationAuthority"
+
+[reference.63]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_73_test.go"
+
+[reference.64]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_74_test.go"
+
+[reference.65]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_75_test.go"

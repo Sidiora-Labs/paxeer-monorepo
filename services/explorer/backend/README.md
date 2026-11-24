@@ -5,9 +5,9 @@ Elixir umbrella application with package version `10.2.6`. It indexes
 Paxeer mainnet-beta over node EVM JSON-RPC, stores indexed data in PostgreSQL,
 and serves the explorer frontend in [`apps/explorer`](../../../apps/explorer).
 
-Paxeer is one BFT `paxd` network, with EVM chain id **125** (`0x7d`). Its kernel
-is part of the network and proposes blocks; a receipt is final once its block
-is committed. The explorer's indexed view can lag the node. Public node
+Paxeer uses `paxd` with EVM chain id **125** (`0x7d`). The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final once its block is committed. The explorer's indexed view can lag the node. Public node
 JSON-RPC uses each configured node's root URL. The
 [explorer overview](../README.md#network-and-interfaces) describes node access
 and links to the hosted gateway's `px_` contract. Sub-chains are tenant
@@ -60,13 +60,13 @@ the current native account, transaction and feed APIs.
 Historical anchor and old receipt rows are read-only data. Archive APIs serve
 these frozen items with no live settlement status; use the current capability,
 feed and native transaction-status routes linked separately above for live data.
-The three registered archive routes below use full paths:
+The three registered archive routes below are relative to `/api/v2`:
 
 | Path | Purpose |
 | --- | --- |
-| `/api/v2/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
-| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts and their recorded verification status |
-| `/api/v2/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
+| `/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
+| `/paxeer-x/archive/receipts` | Frozen historical receipts and their recorded verification status |
+| `/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
 
 ### Frontend integration
 
@@ -138,6 +138,9 @@ loses consensus disappears from these reads.
 Enabling collection with `PAXEER_X_PRICE_FEED_ENABLED=true` requires
 `PAXEER_X_COSMOS_REST_URLS`, `PAXEER_X_COMETBFT_RPC_URLS` (comma-separated
 HTTP or HTTPS URL lists) and a non-negative `PAXEER_X_PRICE_FEED_START_BLOCK`.
+`PAXEER_X_PRICE_FEED_CONCURRENCY` controls live block scanning, while
+`PAXEER_X_PRICE_FEED_REPLAY_CONCURRENCY` controls the number of acceptance
+replay block reads performed side by side; both default to `4`.
 The market-discovery precompile is configured by
 `PAXEER_X_PRICE_FEED_PRECOMPILE`, default
 `0x0000000000000000000000000000000000001020`.
@@ -209,12 +212,32 @@ mix compile
 ```
 
 From the monorepo root,
-`services/explorer/deploy/tools/mix-in-builder.sh` runs one mix command inside
-the pinned builder image with a disposable PostgreSQL sidecar. For example:
+`services/explorer/deploy/tools/mix-in-builder.sh` runs mix commands inside
+the pinned builder image with disposable PostgreSQL and Redis sidecars. The
+image includes Node 22.16.0, solc 0.8.17 and 0.4.24, Vyper 0.4.3, Rust 1.85.1 and Chromium
+with ChromeDriver. It builds the wallet sign-in native library for Linux.
+Compiled Elixir code is retained in a named volume unique to the working tree.
+
+Tests that reach `block_scout_web` first install page dependencies with `npm ci`
+and run the assets package's `deploy` script. The endpoint serves the resulting
+static files from the same build volume. Unchanged asset sources, lockfiles,
+JavaScript toolchain and analytics settings reuse that output. Tests limited to
+another umbrella application do not build page assets. Changes to the builder
+recipe or dependency manifests cause the image to be rebuilt.
+
+The optional `--retry-failed` flag comes before the `test` command and is accepted
+only for tests. If the first run records failed tests, the tool reports the retry
+on stderr and runs `mix test --failed` once with the original test arguments,
+inside the same container and against the same database. The retry's exit code
+becomes the tool's exit code. A passing first run, or a nonzero exit without
+recorded failed tests, returns immediately with the first exit code.
+
+For example:
 
 ```sh
 services/explorer/deploy/tools/mix-in-builder.sh compile
 services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x
+services/explorer/deploy/tools/mix-in-builder.sh --retry-failed test apps/block_scout_web/test
 ```
 
 `scripts/explorer/gate-test.sh` runs the Paxeer X suites per umbrella

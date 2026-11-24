@@ -4,7 +4,9 @@
 # [service.<name>] rows:
 #   kind = "database": Railway's postgres template image, used as-is (public image).
 #   kind = "image": ghcr.io/sidiora-labs/<image>@<digest> from the --digests map,
-#     pulled with registry credentials from $GHCR_USERNAME / $GHCR_TOKEN.
+#     pulled without credentials by default; credentials = 1 pulls it with
+#     $GHCR_USERNAME / $GHCR_TOKEN. The tool requires those variables only for
+#     rows that set credentials = 1.
 #     config names a services/platform/perps-data/deploy/railway/*.json file that
 #     supplies healthcheckPath, healthcheckTimeout, restartPolicyType, numReplicas
 #     and the exact variable name set; rows without config carry health, restart
@@ -40,11 +42,12 @@ PGPASSWORD = "${{POSTGRES_PASSWORD}}"
 PGDATABASE = "${{POSTGRES_DB}}"
 DATABASE_URL = "postgresql://${{PGUSER}}:${{POSTGRES_PASSWORD}}@${{RAILWAY_PRIVATE_DOMAIN}}:5432/${{PGDATABASE}}"
 
+# Each perps broker reserves at least 40G for 72 hours of events plus the longest outbox publication delay at the event rate and stored message size, with a larger volume.
 [service.nats]
 kind = "image"
 image = "perps-data-nats"
 railway_service = "nats"
-health = "/healthz"
+health = "/varz"
 restart = "ALWAYS"
 replicas = 1
 volume = "/data"
@@ -55,14 +58,15 @@ PORT = "8222"
 NATS_CLUSTER_PASSWORD = "env:PERPS_NATS_CLUSTER_PASSWORD"
 NATS_INDEXER_PASSWORD = "env:PERPS_NATS_INDEXER_PASSWORD"
 NATS_GATEWAY_PASSWORD = "env:PERPS_NATS_GATEWAY_PASSWORD"
-NATS_MAX_FILE_STORE = "8G"
-NATS_ROUTES = "nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:6222,nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:6222"
+NATS_MAX_FILE_STORE = "40G"
+NATS_ROUTES = "[nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:6222, nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:6222]"
+RAILWAY_RUN_UID = "0"
 
 [service.nats-2]
 kind = "image"
 image = "perps-data-nats"
 railway_service = "nats-2"
-health = "/healthz"
+health = "/varz"
 restart = "ALWAYS"
 replicas = 1
 volume = "/data"
@@ -73,14 +77,15 @@ PORT = "8222"
 NATS_CLUSTER_PASSWORD = "env:PERPS_NATS_CLUSTER_PASSWORD"
 NATS_INDEXER_PASSWORD = "env:PERPS_NATS_INDEXER_PASSWORD"
 NATS_GATEWAY_PASSWORD = "env:PERPS_NATS_GATEWAY_PASSWORD"
-NATS_MAX_FILE_STORE = "8G"
-NATS_ROUTES = "nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:6222,nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:6222"
+NATS_MAX_FILE_STORE = "40G"
+NATS_ROUTES = "[nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:6222, nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:6222]"
+RAILWAY_RUN_UID = "0"
 
 [service.nats-3]
 kind = "image"
 image = "perps-data-nats"
 railway_service = "nats-3"
-health = "/healthz"
+health = "/varz"
 restart = "ALWAYS"
 replicas = 1
 volume = "/data"
@@ -91,8 +96,9 @@ PORT = "8222"
 NATS_CLUSTER_PASSWORD = "env:PERPS_NATS_CLUSTER_PASSWORD"
 NATS_INDEXER_PASSWORD = "env:PERPS_NATS_INDEXER_PASSWORD"
 NATS_GATEWAY_PASSWORD = "env:PERPS_NATS_GATEWAY_PASSWORD"
-NATS_MAX_FILE_STORE = "8G"
-NATS_ROUTES = "nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:6222,nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:6222"
+NATS_MAX_FILE_STORE = "40G"
+NATS_ROUTES = "[nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:6222, nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:6222]"
+RAILWAY_RUN_UID = "0"
 
 [service.indexer]
 kind = "image"
@@ -129,10 +135,14 @@ order = 4
 # Callers on the private network (the portal over RAILWAY_PRIVATE_DOMAIN)
 # bypass the edge and are keyed by their own private address. /healthz/* is
 # served ahead of the per-IP limiter on both services, so probes are unaffected.
+# PERPS_ALLOWED_ORIGINS: comma-separated http or https origins without paths,
+# queries, fragments, credentials or a trailing slash; spaces around entries
+# are trimmed.
 [vars.gateway]
 DATABASE_URL = "${{Postgres.DATABASE_URL}}"
 NATS_URL = "nats://perps-gateway:${{nats.NATS_GATEWAY_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:4222,nats://perps-gateway:${{nats.NATS_GATEWAY_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:4222,nats://perps-gateway:${{nats.NATS_GATEWAY_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:4222"
 PERPS_AUTH_SECRET = "env:PERPS_AUTH_SECRET"
+PERPS_ALLOWED_ORIGINS = "env:PERPS_ALLOWED_ORIGINS"
 PERPS_CHAIN_ID = "125"
 PERPS_RPC_URLS = "env:PERPS_RPC_URLS"
 PERPS_TRUSTED_PROXY_CIDRS = "100.64.0.0/10"
@@ -173,7 +183,7 @@ kind = "image"
 image = "perps-web"
 railway_service = "web"
 health = "/api/build-id"
-restart = "ALWAYS"
+restart = "ON_FAILURE"
 replicas = 1
 public = 1
 order = 6
@@ -181,3 +191,10 @@ order = 6
 [vars.web]
 PORT = "3000"
 MARKET_PROXY_ORIGIN = "https://${{RAILWAY_PUBLIC_DOMAIN}}"
+NODE_ENV = "production"
+HOSTNAME = "0.0.0.0"
+PRICE_FEED_ORIGIN = "env:PRICE_FEED_ORIGIN"
+PRICE_FEED_REST_API_KEY = "env:PRICE_FEED_REST_API_KEY"
+PRICE_FEED_WS_API_KEY = "env:PRICE_FEED_WS_API_KEY"
+CANDLE_TRUSTED_PROXY_IPS = "env:CANDLE_TRUSTED_PROXY_IPS"
+PRESENCE_TRUSTED_PROXY_IPS = "env:PRESENCE_TRUSTED_PROXY_IPS"

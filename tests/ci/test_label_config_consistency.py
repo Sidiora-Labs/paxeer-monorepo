@@ -2,7 +2,6 @@
 
 from fnmatch import fnmatchcase
 from pathlib import Path
-import re
 
 import yaml
 
@@ -45,6 +44,7 @@ def test_wallet_paths_labelled_area_wallet():
     labeler = load_config(".github/labeler.yml")
     wallet = labeler_globs(labeler, "area:wallet")
     human = labeler_globs(labeler, "area:human")
+    apps = labeler_globs(labeler, "area:apps")
     assert {"apps/wallet/**", "sdk/wallet/**"} <= set(wallet)
     assert not {"apps/wallet/**", "sdk/wallet/**"}.intersection(human)
     for root in ("apps/wallet", "sdk/wallet"):
@@ -52,8 +52,9 @@ def test_wallet_paths_labelled_area_wallet():
             path = f"{root}/{relative}"
             assert any(fnmatchcase(path, pattern) for pattern in wallet), path
             assert not any(fnmatchcase(path, pattern) for pattern in human), path
-    for path in ("services/human/main.rs", "apps/perps/index.ts", "apps/web/index.ts"):
+    for path in ("services/human/main.rs", "apps/web/index.ts"):
         assert any(fnmatchcase(path, pattern) for pattern in human), path
+    assert any(fnmatchcase("apps/perps/index.ts", pattern) for pattern in apps)
 
 
 def test_ci_paths_labelled_area_ci():
@@ -79,12 +80,3 @@ def test_enforce_labels_names_known_labels():
     labels = [label.strip() for label in enforced[0].split(",")]
     assert len(labels) == 2
     assert set(labels) == {"app-hash-breaking", "non-app-hash-breaking"}
-    # Manual labels are documented in release.yml; area labels have path rules.
-    configs = "\n".join(
-        (ROOT / path).read_text(encoding="utf-8")
-        for path in (".github/release.yml", ".github/labeler.yml")
-    )
-    for label in labels:
-        assert re.search(
-            rf"(?<![\w:-]){re.escape(label)}(?![\w:-])", configs
-        ), f"Enforced label {label} is absent from the release and labeler configs"

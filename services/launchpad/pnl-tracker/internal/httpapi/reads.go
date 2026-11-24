@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -48,6 +49,7 @@ func getPosition(st *store.Store) http.HandlerFunc {
 		pool := strings.ToLower(chi.URLParam(r, "poolAddress"))
 		pos, err := st.GetPosition(r.Context(), user, pool)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "position lookup failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "position lookup failed")
 			return
 		}
@@ -74,6 +76,7 @@ func listTrades(st *store.Store) http.HandlerFunc {
 		}
 		trades, err := st.ListTrades(r.Context(), user, filter)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "trades lookup failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "trades lookup failed")
 			return
 		}

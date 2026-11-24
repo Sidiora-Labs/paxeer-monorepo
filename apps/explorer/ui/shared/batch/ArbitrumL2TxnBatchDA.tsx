@@ -38,7 +38,11 @@ const ArbitrumL2TxnBatchDA = ({ dataContainer, isLoading }: Props) => {
   }
 
   return (
-    <Badge loading={ isLoading } colorPalette={ dataContainer === 'in_blob4844' ? 'yellow' : 'gray' }>
+    <Badge
+      loading={ isLoading }
+      colorPalette={ dataContainer === 'in_blob4844' ? 'yellow' : 'gray' }
+      aria-label={ `Data availability: ${ text }` }
+    >
       { text }
     </Badge>
   );

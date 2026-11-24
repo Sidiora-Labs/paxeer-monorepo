@@ -8,9 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"math/big"
 	"net/http"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
@@ -24,6 +27,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// PinnedRPCReader supports concurrent reads through its concurrency-safe RPC client.
+// Its client references are immutable after construction.
 type PinnedRPCReader struct {
 	*ethclient.Client
 	rpc *rpc.Client
@@ -264,12 +269,134 @@ type Preflight struct {
 }
 
 type PreflightEngine struct {
-	reader      deployment.Reader
-	manifest    deployment.Manifest
-	poolRuntime common.Hash
-	revision    deployment.Revision
-	maxAge      time.Duration
-	timeout     time.Duration
+	reader       deployment.Reader
+	manifest     deployment.Manifest
+	poolRuntime  common.Hash
+	revision     deployment.Revision
+	maxAge       time.Duration
+	timeout      time.Duration
+	attestations *preflightAttestations
+}
+
+const preflightAttestationLimit = 16
+
+type preflightAttestations struct {
+	mu              sync.Mutex
+	concurrentReads int
+	kept            map[common.Hash]deployment.ActivationAttestation
+	reading         map[common.Hash]*preflightAttestationRead
+}
+
+type preflightAttestationRead struct {
+	done        chan struct{}
+	attestation deployment.ActivationAttestation
+	err         error
+}
+
+func newPreflightAttestations() *preflightAttestations {
+	return &preflightAttestations{
+		kept:    make(map[common.Hash]deployment.ActivationAttestation),
+		reading: make(map[common.Hash]*preflightAttestationRead),
+	}
+}
+
+// SetAttestationReads bounds concurrent reads within each new attestation.
+// Zero and one preserve serial reads. Higher limits require a concurrent reader.
+func (e *PreflightEngine) SetAttestationReads(reads int) error {
+	if e == nil || e.attestations == nil {
+		return deployment.Issue{Code: valuePreflightEngineMissing}
+	}
+	if reads < 0 || reads > 16 {
+		return deployment.Issue{Code: "attestation_policy_invalid"}
+	}
+	e.attestations.mu.Lock()
+	e.attestations.concurrentReads = reads
+	e.attestations.mu.Unlock()
+	return nil
+}
+
+// Attestation shares the identity read for a block hash and checks its block
+// time at now. The engine supplies the age and timeout bounds; now is the
+// asking time used by the caller's subsequent policy checks.
+func (e *PreflightEngine) Attestation(ctx context.Context, block common.Hash, now time.Time) (deployment.ActivationAttestation, error) {
+	if e == nil || e.attestations == nil {
+		return deployment.ActivationAttestation{}, deployment.Issue{Code: valuePreflightEngineMissing}
+	}
+	if err := ctx.Err(); err != nil {
+		return deployment.ActivationAttestation{}, err
+	}
+	if now.IsZero() {
+		return deployment.ActivationAttestation{}, deployment.Issue{Code: "attestation_policy_invalid"}
+	}
+	cache := e.attestations
+	cache.mu.Lock()
+	if attestation, ok := cache.kept[block]; ok {
+		cache.mu.Unlock()
+		if err := ctx.Err(); err != nil {
+			return deployment.ActivationAttestation{}, err
+		}
+		return e.attestationAt(attestation, now)
+	}
+	flight := cache.reading[block]
+	if flight == nil {
+		flight = &preflightAttestationRead{done: make(chan struct{})}
+		cache.reading[block] = flight
+		go e.readAttestation(context.WithoutCancel(ctx), block, now, flight, cache.concurrentReads)
+	}
+	cache.mu.Unlock()
+	select {
+	case <-ctx.Done():
+		return deployment.ActivationAttestation{}, ctx.Err()
+	case <-flight.done:
+		if err := ctx.Err(); err != nil {
+			return deployment.ActivationAttestation{}, err
+		}
+		if flight.err != nil {
+			return clonePreflightAttestation(flight.attestation), flight.err
+		}
+		return e.attestationAt(flight.attestation, now)
+	}
+}
+
+func (e *PreflightEngine) readAttestation(ctx context.Context, block common.Hash, now time.Time, flight *preflightAttestationRead, reads int) {
+	policy := deployment.Policy{Now: now, MaxAge: e.maxAge, Timeout: e.timeout, ConcurrentReads: reads}
+	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
+	cache := e.attestations
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if err == nil && len(attestation.Issues) == 0 {
+		cache.kept[block] = attestation
+		if len(cache.kept) > preflightAttestationLimit {
+			lowest := block
+			for hash, kept := range cache.kept {
+				if kept.BlockNumber < cache.kept[lowest].BlockNumber {
+					lowest = hash
+				}
+			}
+			delete(cache.kept, lowest)
+		}
+	}
+	flight.attestation, flight.err = attestation, err
+	delete(cache.reading, block)
+	close(flight.done)
+}
+
+func (e *PreflightEngine) attestationAt(attestation deployment.ActivationAttestation, now time.Time) (deployment.ActivationAttestation, error) {
+	if now.Unix() < 0 || attestation.BlockTime.After(now) || now.Sub(attestation.BlockTime) > e.maxAge {
+		return deployment.ActivationAttestation{}, deployment.Issue{Code: "attestation_stale"}
+	}
+	return clonePreflightAttestation(attestation), nil
+}
+
+func clonePreflightAttestation(attestation deployment.ActivationAttestation) deployment.ActivationAttestation {
+	attestation.Identities = maps.Clone(attestation.Identities)
+	for role, identity := range attestation.Identities {
+		identity.Issues = slices.Clone(identity.Issues)
+		attestation.Identities[role] = identity
+	}
+	attestation.PolicyValues = maps.Clone(attestation.PolicyValues)
+	attestation.Issues = slices.Clone(attestation.Issues)
+	return attestation
 }
 
 type PublishedFamily struct {
@@ -294,17 +421,35 @@ func NewPreflightEngine(reader deployment.Reader, m deployment.Manifest, reviewe
 	if reader == nil || maxAge <= 0 || maxAge > time.Hour || timeout <= 0 || timeout > time.Minute || len(reviewedPoolRuntime) != 66 || !strings.HasPrefix(reviewedPoolRuntime, "0x") {
 		return nil, deployment.Issue{Code: "preflight_configuration_invalid"}
 	}
+	manifest, poolRuntime, revision, err := preflightIdentity(m, reviewedPoolRuntime, serialInterfaceSHA256)
+	if err != nil {
+		return nil, err
+	}
+	return &PreflightEngine{reader: reader, manifest: manifest, poolRuntime: poolRuntime, revision: revision, maxAge: maxAge, timeout: timeout, attestations: newPreflightAttestations()}, nil
+}
+
+// NewPreflightRevision derives the engine revision from reviewed configuration
+// without a chain reader.
+func NewPreflightRevision(m deployment.Manifest, reviewedPoolRuntime, serialInterfaceSHA256 string) (deployment.Revision, error) {
+	_, _, revision, err := preflightIdentity(m, reviewedPoolRuntime, serialInterfaceSHA256)
+	return revision, err
+}
+
+func preflightIdentity(m deployment.Manifest, reviewedPoolRuntime, serialInterfaceSHA256 string) (deployment.Manifest, common.Hash, deployment.Revision, error) {
+	if len(reviewedPoolRuntime) != 66 || !strings.HasPrefix(reviewedPoolRuntime, "0x") {
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, deployment.Issue{Code: "preflight_configuration_invalid"}
+	}
 	runtimeBytes, err := hexutil.Decode(reviewedPoolRuntime)
 	if err != nil || len(runtimeBytes) != 32 || common.BytesToHash(runtimeBytes) == (common.Hash{}) {
-		return nil, deployment.Issue{Code: "pool_runtime_identity_missing"}
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, deployment.Issue{Code: "pool_runtime_identity_missing"}
 	}
 	encoded, err := json.Marshal(m)
 	if err != nil {
-		return nil, err
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, err
 	}
 	m, err = deployment.Parse(encoded)
 	if err != nil {
-		return nil, err
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, err
 	}
 	catalog, _ := json.Marshal(struct {
 		Catalog     Catalog `json:"catalog"`
@@ -314,9 +459,9 @@ func NewPreflightEngine(reader deployment.Reader, m deployment.Manifest, reviewe
 	capHash, supportHash := sha256.Sum256(catalog), sha256.Sum256(support)
 	revision, err := deployment.NewRevision(m, hex.EncodeToString(capHash[:]), hex.EncodeToString(supportHash[:]), serialInterfaceSHA256)
 	if err != nil {
-		return nil, err
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, err
 	}
-	return &PreflightEngine{reader: reader, manifest: m, poolRuntime: common.BytesToHash(runtimeBytes), revision: revision, maxAge: maxAge, timeout: timeout}, nil
+	return m, common.BytesToHash(runtimeBytes), revision, nil
 }
 
 func (e *PreflightEngine) Revision() deployment.Revision { return e.revision }
@@ -326,7 +471,7 @@ func (e *PreflightEngine) Capabilities(ctx context.Context, block common.Hash) (
 		return CapabilityPublication{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
-	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
+	attestation, err := e.Attestation(ctx, block, policy.Now)
 	if err != nil {
 		return CapabilityPublication{}, err
 	}
@@ -385,7 +530,7 @@ func (e *PreflightEngine) SerialExport(ctx context.Context, block common.Hash, e
 		return deployment.SerialExport{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
-	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
+	attestation, err := e.Attestation(ctx, block, policy.Now)
 	if err != nil {
 		return deployment.SerialExport{}, err
 	}
@@ -413,7 +558,7 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 	ctx, cancel := context.WithTimeout(ctx, e.timeout)
 	defer cancel()
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
-	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, request.BlockHash, policy)
+	attestation, err := e.Attestation(ctx, request.BlockHash, policy.Now)
 	if err != nil {
 		return result, err
 	}
@@ -781,7 +926,7 @@ func (e *PreflightEngine) nativeDeployment() (bool, error) {
 		}
 	}
 	authority := approved.Roles[deployment.LaunchpadPrecompileRole]
-	if approved.Roles[valueSidioraFactory].Kind != "surface" || authority.Kind != "precompile" || authority.Address != deployment.LaunchpadPrecompileAddress {
+	if approved.Roles[valueSidioraFactory].Kind != valueSurface || authority.Kind != "precompile" || authority.Address != deployment.LaunchpadPrecompileAddress {
 		return false, refuse("identity_unverified", deployment.LaunchpadPrecompileRole)
 	}
 	return true, nil
@@ -799,7 +944,16 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	if err != nil {
 		return PoolState{}, failed
 	}
-	if len(code) == 0 || len(code) > 128<<10 || crypto.Keccak256Hash(code) != e.poolRuntime {
+	if len(code) == 0 || len(code) > 128<<10 {
+		return PoolState{}, bad
+	}
+	runtime := crypto.Keccak256Hash(code)
+	factory := e.manifest.Roles[valueSidioraFactory]
+	if factory.Kind == valueSurface {
+		if !factory.AcceptsRuntimeHash(runtime.Hex()) {
+			return PoolState{}, bad
+		}
+	} else if runtime != e.poolRuntime {
 		return PoolState{}, bad
 	}
 	native, err := e.nativeDeployment()
@@ -808,10 +962,7 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	}
 	version := e.manifest.Roles[valuePoolBeacon].ImplementationHash
 	if native {
-		if !e.manifest.Roles[valueSidioraFactory].AcceptsRuntimeHash(e.poolRuntime.Hex()) {
-			return PoolState{}, bad
-		}
-		version = e.manifest.DeploymentVersion + "/Pool/" + e.poolRuntime.Hex()
+		version = e.manifest.DeploymentVersion + "/Pool/" + runtime.Hex()
 	} else {
 		slot, err := e.reader.StorageAtHash(ctx, pool, deployment.BeaconSlot, block)
 		if err != nil {
@@ -1197,7 +1348,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 		if err != nil || len(implementation) == 0 || len(implementation) > 128<<10 || crypto.Keccak256Hash(implementation).Hex() != treasuryIdentity.ImplementationHash {
 			return CreationFeeReconciliation{}, bad
 		}
-	} else if (treasuryIdentity.Kind != "direct" && treasuryIdentity.Kind != "surface") || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
+	} else if (treasuryIdentity.Kind != "direct" && treasuryIdentity.Kind != valueSurface) || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
 		return CreationFeeReconciliation{}, bad
 	}
 	usdl := common.HexToAddress(e.manifest.Roles[valueUSDL].Address)

@@ -50,7 +50,7 @@ func (s *MarketSet) ID(ctx context.Context, symbol string) (string, bool, error)
 	return id, ok, nil
 }
 
-func (s *MarketSet) reload(ctx context.Context) error {
+func (s *MarketSet) reload(ctx context.Context) (resultErr error) {
 	if s.db == nil {
 		return errors.New("records: nil database")
 	}
@@ -58,7 +58,11 @@ func (s *MarketSet) reload(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	ids := make(map[string]string)
 	for rows.Next() {
 		var symbol, id string

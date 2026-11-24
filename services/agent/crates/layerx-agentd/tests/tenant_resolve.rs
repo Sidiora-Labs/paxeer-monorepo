@@ -425,8 +425,9 @@ fn every_generated_token_gated_operation_refuses_closed_revoked_and_restarted_se
     fixture.reload();
     assert_reloaded_generations(&fixture);
 
-    let mut refused = TenantObservability::default();
+    let mut refused_entries = Vec::new();
     for (operation, class) in &operations {
+        let mut refused = TenantObservability::default();
         for (label, token) in [
             ("closed", &closed),
             ("revoked", &revoked),
@@ -452,26 +453,27 @@ fn every_generated_token_gated_operation_refuses_closed_revoked_and_restarted_se
         )
         .unwrap_or_else(|error| panic!("{operation:?} live session: {error:?}"));
         assert_eq!(resolved.session_id, SessionId([4; 32]));
+        refused_entries.extend_from_slice(refused.audit());
     }
-    assert_eq!(refused.audit().len(), operations.len() * 4);
+    assert_eq!(refused_entries.as_slice().len(), operations.len() * 4);
     assert_eq!(
-        refused
-            .audit()
+        refused_entries
+            .as_slice()
             .iter()
             .filter(|entry| entry.outcome == AuthorizationOutcome::Revoked)
             .count(),
         operations.len() * 3
     );
     assert_eq!(
-        refused
-            .audit()
+        refused_entries
+            .as_slice()
             .iter()
             .filter(|entry| entry.outcome == AuthorizationOutcome::Allowed)
             .count(),
         operations.len()
     );
-    assert!(refused
-        .audit()
+    assert!(refused_entries
+        .as_slice()
         .iter()
         .all(|entry| entry.tenant == fixture.tenant));
     let _ = fs::remove_dir_all(root);
@@ -594,8 +596,9 @@ fn assert_operations_admitted(
     operations: &[(Operation, OperationClass)],
     tokens: [&Token; 4],
 ) {
-    let mut admitted = TenantObservability::default();
+    let mut admitted_entries = Vec::new();
     for (operation, class) in operations {
+        let mut admitted = TenantObservability::default();
         for token in tokens {
             let resolved = resolve(
                 token,
@@ -606,10 +609,10 @@ fn assert_operations_admitted(
             .unwrap_or_else(|error| panic!("{operation:?} before any change: {error:?}"));
             assert_eq!(resolved.tenant, fixture.tenant);
         }
+        admitted_entries.extend_from_slice(admitted.audit());
     }
-    assert_eq!(admitted.audit().len(), operations.len() * 4);
-    assert!(admitted
-        .audit()
+    assert_eq!(admitted_entries.len(), operations.len() * 4);
+    assert!(admitted_entries
         .iter()
         .all(|entry| entry.outcome == AuthorizationOutcome::Allowed));
 }

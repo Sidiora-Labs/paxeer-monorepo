@@ -14,7 +14,7 @@ import (
 )
 
 func TestCommittedCreatorRejectsUnattestedRuntime(t *testing.T) {
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	ctx := context.Background()
 	origin := httptest.NewServer(http.HandlerFunc(f.db.rpcResponse))
 	defer origin.Close()

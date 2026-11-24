@@ -1,0 +1,148 @@
+[manifest]
+task = "22.43.23"
+records_moved = 18
+files_renamed = 6
+
+[file.1]
+from = "apps/web/test/repair-22-33-419.test.mjs"
+to = "apps/web/test/dependency-policy.test.mjs"
+
+[file.2]
+from = "apps/web/test/repair-22-33-896.test.mjs"
+to = "apps/web/test/human-runtime-origin.test.mjs"
+
+[file.3]
+from = "apps/web/test/repair-22-34-6.test.mjs"
+to = "apps/web/test/node-root-routing.test.mjs"
+
+[file.4]
+from = "apps/web/test/fixtures/repair-22-34-6-node-root.json"
+to = "apps/web/test/fixtures/node-root-responses.json"
+
+[file.5]
+from = "apps/web/src/explorer/fixtures/repair-22-31-383-native-http.json"
+to = "apps/web/src/explorer/fixtures/account-history-http.json"
+
+[file.6]
+from = "apps/web/src/explorer/fixtures/repair-22-33-347-native-http.json"
+to = "apps/web/src/explorer/fixtures/transaction-status-http.json"
+
+[file.7]
+from = "apps/web/src/api/repair-22-33-349.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/api/repair-22-33-349.kvx"
+
+[file.8]
+from = "apps/web/src/app/exchange/repair-22-33-897.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/app/exchange/repair-22-33-897.kvx"
+
+[file.9]
+from = "apps/web/src/app/explorer/accounts/[accountId]/repair-22-33-361.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/app/explorer/accounts/[accountId]/repair-22-33-361.kvx"
+
+[file.10]
+from = "apps/web/src/app/explorer/programs/[programId]/repair-22-33-348.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/app/explorer/programs/[programId]/repair-22-33-348.kvx"
+
+[file.11]
+from = "apps/web/src/app/explorer/receipts/[receiptId]/repair-22-33-362.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/app/explorer/receipts/[receiptId]/repair-22-33-362.kvx"
+
+[file.12]
+from = "apps/web/src/explorer/repair-22-31-383.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/explorer/repair-22-31-383.kvx"
+
+[file.13]
+from = "apps/web/src/explorer/repair-22-33-347.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/explorer/repair-22-33-347.kvx"
+
+[file.14]
+from = "apps/web/src/journeys/activity/repair-22-31-386.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/journeys/activity/repair-22-31-386.kvx"
+
+[file.15]
+from = "apps/web/src/journeys/activity/repair-22-33-353.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/journeys/activity/repair-22-33-353.kvx"
+
+[file.16]
+from = "apps/web/src/journeys/agents/repair-22-33-351.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/journeys/agents/repair-22-33-351.kvx"
+
+[file.17]
+from = "apps/web/src/journeys/approvals/repair-22-31-384.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/journeys/approvals/repair-22-31-384.kvx"
+
+[file.18]
+from = "apps/web/src/journeys/move/repair-22-33-352.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/journeys/move/repair-22-33-352.kvx"
+
+[file.19]
+from = "apps/web/src/journeys/onboarding/repair-22-31-385.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/journeys/onboarding/repair-22-31-385.kvx"
+
+[file.20]
+from = "apps/web/src/perf/repair-22-33-354.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/perf/repair-22-33-354.kvx"
+
+[file.21]
+from = "apps/web/src/settings/security/repair-22-33-356.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/settings/security/repair-22-33-356.kvx"
+
+[file.22]
+from = "apps/web/src/states/repair-22-31-387.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/states/repair-22-31-387.kvx"
+
+[file.23]
+from = "apps/web/src/states/repair-22-33-355.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/src/states/repair-22-33-355.kvx"
+
+[file.24]
+from = "apps/web/test/repair-22-33-896.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/test/repair-22-33-896.kvx"
+
+[reference.1]
+file = "apps/web/e2e/repair-22-31-383.test.ts"
+name = "repair-22-31-383-native-http.json"
+
+[reference.2]
+file = "apps/web/e2e/repair-22-33-347.test.ts"
+name = "repair-22-31-383-native-http.json"
+
+[reference.3]
+file = "apps/web/e2e/repair-22-33-347.test.ts"
+name = "repair-22-33-347-native-http.json"
+
+[reference.4]
+file = "apps/web/e2e/repair-22-33-361.test.ts"
+name = "repair-22-31-383-native-http.json"
+
+[reference.5]
+file = "apps/web/e2e/repair-22-33-362.test.ts"
+name = "repair-22-31-383-native-http.json"
+
+[reference.6]
+file = "services/human/tools/repair_22_39_441.kvx"
+name = "apps/web/test/repair-22-33-419.test.mjs"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/web/test/repair-22-33-419.test.mjs"
+
+[reference.8]
+file = "spec/layerx-merge/programme/issues/1883.kvx"
+name = "apps/web/test/repair-22-33-896.test.mjs"
+
+[reference.9]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/web/test/repair-22-33-419.test.mjs"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/test/repair-22-33-419.test.mjs"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/test/repair-22-33-896.test.mjs"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/test/repair-22-34-6.test.mjs"

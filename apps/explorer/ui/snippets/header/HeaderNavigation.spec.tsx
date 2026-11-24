@@ -30,6 +30,7 @@ vi.hoisted(() => {
   window.__envs = {
     ...window.__envs,
     NEXT_PUBLIC_NAVIGATION_LAYOUT: 'vertical',
+    NEXT_PUBLIC_PAXEER_X_ENABLED: 'false',
     NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED: 'false',
     NEXT_PUBLIC_MARKETPLACE_CONFIG_URL: '',
     NEXT_PUBLIC_FOOTER_LINKS: 'https://localhost:3000/footer-links.json',
@@ -142,6 +143,7 @@ async function groupPanelsUseTheHookLinks() {
   const producer = JSON.parse(screen.getByTestId('nav-items').textContent || '[]') as ReturnType<typeof useNavItems>['shellNavItems'];
   expect(producer.map((item) => item.text)).toEqual([ 'Explore', 'Network', 'Developers' ]);
   const header = container.querySelector('header') as HTMLElement;
+  header.style.display = 'block';
 
   for (const item of producer) {
     expect(isGroupItem(item)).toBe(true);
@@ -191,18 +193,22 @@ async function searchShortcutFocusesTheRealInput() {
 
 test(searchShortcutFocusesTheRealInput, searchShortcutFocusesTheRealInput);
 
-function mobileGroupsAreAnAccordion() {
+async function mobileGroupsAreAnAccordion() {
   renderShell(<NavigationMobile/>);
   const navigation = screen.getByRole('navigation', { name: 'Mobile navigation' });
-  const explore = within(navigation).getByRole('button', { name: 'Explore' });
-  const developers = within(navigation).getByRole('button', { name: 'Developers' });
-  expect(explore.getAttribute('aria-expanded')).toBe('false');
+  const explore = within(navigation).getByText('Explore', { selector: 'summary' });
+  const developers = within(navigation).getByText('Developers', { selector: 'summary' });
+  const explorePanel = explore.parentElement as HTMLDetailsElement;
+  const developersPanel = developers.parentElement as HTMLDetailsElement;
+  expect(explorePanel.open).toBe(false);
   fireEvent.click(explore);
-  expect(explore.getAttribute('aria-expanded')).toBe('true');
+  expect(explorePanel.open).toBe(true);
   expect(within(navigation).getByRole('link', { name: /Browse the latest blocks/ }).getAttribute('href')).toBe('/blocks');
   fireEvent.click(developers);
-  expect(explore.getAttribute('aria-expanded')).toBe('false');
-  expect(developers.getAttribute('aria-expanded')).toBe('true');
+  await waitFor(() => expect(explorePanel.open).toBe(false));
+  expect(developersPanel.open).toBe(true);
+  expect(explorePanel.getAttribute('name')).toBe(developersPanel.getAttribute('name'));
+  expect(explorePanel.getAttribute('name')?.length).toBeGreaterThan(0);
   expect(within(navigation).getByRole('link', { name: /Publish and verify contract source/ }).getAttribute('href'))
     .toBe('/contract-verification');
 }

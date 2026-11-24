@@ -152,7 +152,6 @@ function journey_evidence_carries_an_optional_transaction_hash(): void {
     evidence_id: 'receipt-evidence',
     class: 'layerx-receipt',
     verification: 'receipt-verified',
-    settlement_domain: 'paxeer',
   };
   const journey: Journey = {
     journey_id: 'evidence-journey',

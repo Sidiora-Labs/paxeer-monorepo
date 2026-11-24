@@ -140,6 +140,9 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
 	cfg.registerInlineDocuments()
+	if err := cfg.validateInlineDocuments(); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
 	return cfg, nil
 }
 
@@ -303,21 +306,39 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	var mu sync.Mutex
 	var failure error
 	check := func(checkCtx context.Context) error {
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		mu.Lock()
 		defer mu.Unlock()
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		if failure != nil {
 			return failure
 		}
 		for key, old := range consumed {
+			if err := checkCtx.Err(); err != nil {
+				return err
+			}
 			value, err := provider.GetRequired(checkCtx, key)
 			if err != nil {
+				if contextErr := checkCtx.Err(); contextErr != nil {
+					return contextErr
+				}
 				failure = fmt.Errorf("required_secret_unavailable: %s", key)
 				return failure
+			}
+			if contextErr := checkCtx.Err(); contextErr != nil {
+				return contextErr
 			}
 			if value != old {
 				failure = fmt.Errorf("required_secret_rotated_restart_required: %s", key)
 				return failure
 			}
+		}
+		if err := checkCtx.Err(); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -381,7 +402,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 		return nil, err
 	}
 	if err = c.CheckRuntimeSchema(ctx, pool); err != nil {
-		pool.Close()
+		runtimedb.ClosePool(pool)
 		return nil, err
 	}
 	return pool, nil
@@ -437,6 +458,21 @@ func (c *Config) registerInlineDocuments() {
 			inlineDocuments.Store(d[2], d[1])
 		}
 	}
+}
+
+// validateInlineDocuments verifies every inline document before startup. File
+// sources remain checked by the operation that consumes them, while inline
+// values are already available to Load and can be bound immediately.
+func (c *Config) validateInlineDocuments() error {
+	for _, d := range c.boundDocuments() {
+		if d[1] == "" {
+			continue
+		}
+		if _, err := boundBytes(d[0], d[1], d[2]); err != nil {
+			return fmt.Errorf("%s_DOCUMENT binding invalid: %w", d[3], err)
+		}
+	}
+	return nil
 }
 
 // boundBytes returns the exact bytes of a digest-bound runtime document,
@@ -502,31 +538,40 @@ type RuntimePoolSplit struct {
 	ControlCredentialReference string `json:"controlCredentialReference"`
 }
 
-func (c *Config) OpenSplitRuntimePools(ctx context.Context, split RuntimePoolSplit) (*pgxpool.Pool, *pgxpool.Pool, error) {
+// RuntimePoolOptions validates the split against its bound connection budget.
+func (c *Config) RuntimePoolOptions(split RuntimePoolSplit) (runtimedb.PoolOptions, error) {
 	if c.NodeEnv != nodeEnvironmentProduction || split.IdentityPoolID != c.RuntimePoolID || split.ControlPoolID == "" || split.ControlPoolID == split.IdentityPoolID || split.IdentityMaxConnections < 1 || split.ControlMaxConnections < 1 || split.ControlCredentialReference == "" {
-		return nil, nil, fmt.Errorf("explicit_runtime_pool_split_required")
+		return runtimedb.PoolOptions{}, fmt.Errorf("explicit_runtime_pool_split_required")
 	}
 	if c.RuntimeProfile == "container" {
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
-			return nil, nil, fmt.Errorf("container_bind_mismatch")
+			return runtimedb.PoolOptions{}, fmt.Errorf("container_bind_mismatch")
 		}
 	} else if c.RuntimeProfile != "owned_local" || c.BindAddress != "127.0.0.1" {
-		return nil, nil, fmt.Errorf("runtime_profile_required")
+		return runtimedb.PoolOptions{}, fmt.Errorf("runtime_profile_required")
 	}
 	data, err := boundBytes(c.RuntimeBudgetFile, c.RuntimeBudgetDocument, c.RuntimeBudgetSHA256)
 	if err != nil {
-		return nil, nil, fmt.Errorf("runtime_budget_binding_mismatch")
+		return runtimedb.PoolOptions{}, fmt.Errorf("runtime_budget_binding_mismatch")
 	}
 	budget, err := dbproduction.ParseConnectionBudget(data)
 	if err != nil {
-		return nil, nil, err
+		return runtimedb.PoolOptions{}, err
 	}
 	options, err := budget.BudgetPoolOptions("mediagatewayd", c.RuntimePoolID, c.RuntimeInstanceID)
 	if err != nil {
-		return nil, nil, err
+		return runtimedb.PoolOptions{}, err
 	}
 	if options.Transport != runtimedb.TransportDirect || options.DatabaseUser != "identity_runtime" || int64(split.IdentityMaxConnections)+int64(split.ControlMaxConnections) > int64(options.MaxConns) {
-		return nil, nil, fmt.Errorf("runtime_pool_split_exceeds_reviewed_allocation")
+		return runtimedb.PoolOptions{}, fmt.Errorf("runtime_pool_split_exceeds_reviewed_allocation")
+	}
+	return options, nil
+}
+
+func (c *Config) OpenSplitRuntimePools(ctx context.Context, split RuntimePoolSplit) (*pgxpool.Pool, *pgxpool.Pool, error) {
+	options, err := c.RuntimePoolOptions(split)
+	if err != nil {
+		return nil, nil, err
 	}
 	provider, err := sharedsecrets.NewChecked(sharedsecrets.Options{Provider: sharedsecrets.ProviderType(c.SecretsProvider), CacheTTL: 0})
 	if err != nil {
@@ -542,19 +587,34 @@ func (c *Config) OpenSplitRuntimePools(ctx context.Context, split RuntimePoolSpl
 	controlOptions.MaxConns = split.ControlMaxConnections
 	controlOptions.PoolID = split.ControlPoolID
 	controlOptions.DatabaseUser = "control_runtime"
-	identity, err := runtimedb.NewPool(ctx, c.DatabaseURL, identityOptions)
+	identityURL, err := identityRuntimeURL(c.DatabaseURL)
+	if err != nil {
+		return nil, nil, err
+	}
+	identity, err := runtimedb.NewPool(ctx, identityURL, identityOptions)
 	if err != nil {
 		return nil, nil, err
 	}
 	control, err := runtimedb.NewPool(ctx, credential, controlOptions)
 	if err != nil {
-		identity.Close()
+		runtimedb.ClosePool(identity)
 		return nil, nil, err
 	}
 	if err = c.CheckRuntimeSchema(ctx, identity); err != nil {
-		identity.Close()
-		control.Close()
+		runtimedb.ClosePool(identity)
+		runtimedb.ClosePool(control)
 		return nil, nil, err
 	}
 	return identity, control, nil
+}
+
+func identityRuntimeURL(raw string) (string, error) {
+	endpoint, err := url.Parse(raw)
+	if err != nil || (endpoint.Scheme != "postgres" && endpoint.Scheme != "postgresql") || endpoint.Host == "" {
+		return "", fmt.Errorf("identity_database_url_invalid")
+	}
+	parameters := endpoint.Query()
+	parameters.Set("search_path", "users,pg_catalog")
+	endpoint.RawQuery = parameters.Encode()
+	return endpoint.String(), nil
 }

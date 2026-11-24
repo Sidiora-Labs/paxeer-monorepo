@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SidioraGasQuote } from "../src/api/gas-station.ts";
-import { wallet, HASH, SECOND_RECEIPT, expectedReceipt, withSubmission, withSponsoredSends } from "./repair-22-33-338-sponsored.ts";
+import { wallet, HASH, SECOND_RECEIPT, expectedReceipt, withSubmission, withSponsoredSends } from "./sponsored-submission-fixture.ts";
 
 async function completed_sponsored_submission_does_not_answer_a_new_call(): Promise<void> {
   for (const identical of [false, true]) {

@@ -7,6 +7,9 @@ import type { AnimationType } from '../utils/animations';
 import { ANIMATIONS } from '../utils/animations';
 import { getIncompleteDataLineSource } from '../utils/formatters';
 
+import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import { motionDuration } from '../../../theme/motion';
+
 export interface ChartLineProps extends React.SVGProps<SVGPathElement> {
   xScale: d3.ScaleTime<number, number> | d3.ScaleLinear<number, number>;
   yScale: d3.ScaleTime<number, number> | d3.ScaleLinear<number, number>;
@@ -15,31 +18,32 @@ export interface ChartLineProps extends React.SVGProps<SVGPathElement> {
 }
 
 export const ChartLine = React.memo(({ xScale, yScale, data, animation, strokeDasharray, ...props }: ChartLineProps) => {
+  const reducedMotion = useReducedMotion();
   const dataPathRef = React.useRef<SVGPathElement>(null);
   const incompleteDataPathRef = React.useRef<SVGPathElement>(null);
 
   React.useEffect(() => {
-    const animationFn = ANIMATIONS[animation];
+    const animationFn = ANIMATIONS[reducedMotion ? 'none' : animation];
     const timeoutId = window.setTimeout(() => {
       dataPathRef.current && animationFn(dataPathRef.current);
       incompleteDataPathRef.current && animationFn(incompleteDataPathRef.current);
-    }, 100);
+    }, reducedMotion ? 0 : motionDuration('faster'));
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [ animation ]);
+  }, [ animation, reducedMotion ]);
 
   // Recalculate line length if scale has changed
   React.useEffect(() => {
-    if (animation === 'left') {
+    if (animation === 'left' && !reducedMotion) {
       const totalLength = dataPathRef.current?.getTotalLength();
       d3.select(dataPathRef.current).attr(
         'stroke-dasharray',
         `${ totalLength },${ totalLength }`,
       );
     }
-  }, [ xScale, yScale, animation ]);
+  }, [ xScale, yScale, animation, reducedMotion ]);
 
   const line = d3.line<TimeChartItem>()
     .x((d) => xScale(d.date))

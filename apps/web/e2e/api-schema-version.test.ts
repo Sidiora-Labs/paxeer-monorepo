@@ -41,9 +41,9 @@ registerHooks({
 const api = await import("../src/api/generated/index.ts");
 const { conformance } = await import("../src/api/generated/conformance.ts");
 
-function generated_client_reports_schema_minor_10() {
-  assert.deepEqual(api.schemaVersion, { major: 1, minor: 10 });
-  for (const level of ["paxeer-finalised", "settlement-anchored"]) {
+function generated_client_reports_schema_minor_11() {
+  assert.deepEqual(api.schemaVersion, { major: 1, minor: 11 });
+  for (const level of ["committed", "checkpoint-finalised", "paxeer-finalised", "settlement-anchored"]) {
     assert.equal(api.decodeVerificationLevel(level, "stored verification"), level);
   }
   const binding = { state: "bound", address: `0x${"11".repeat(20)}` };
@@ -76,5 +76,5 @@ function generated_client_has_no_binding_operations() {
   }
 }
 
-test(generated_client_reports_schema_minor_10);
+test(generated_client_reports_schema_minor_11);
 test(generated_client_has_no_binding_operations);

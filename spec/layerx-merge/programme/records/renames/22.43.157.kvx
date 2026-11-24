@@ -1,0 +1,360 @@
+[manifest]
+task = "22.43.157"
+records_moved = 11
+files_renamed = 16
+
+[file.1]
+from = "services/launchpad/gateway/internal/app/repair_m991_test.go"
+to = "services/launchpad/gateway/internal/app/identity_ingress_readiness_test.go"
+
+[file.2]
+from = "services/launchpad/gateway/internal/auth/repair_49_test.go"
+to = "services/launchpad/gateway/internal/auth/challenge_idempotency_test.go"
+
+[file.3]
+from = "services/launchpad/gateway/internal/auth/repair_m990_test.go"
+to = "services/launchpad/gateway/internal/auth/identity_lifecycle_measurement_test.go"
+
+[file.4]
+from = "services/launchpad/gateway/internal/proxy/repair_48_test.go"
+to = "services/launchpad/gateway/internal/proxy/connected_authority_workflows_test.go"
+
+[file.5]
+from = "services/launchpad/gateway/internal/proxy/repair_m989_test.go"
+to = "services/launchpad/gateway/internal/proxy/connected_recording_recovery_test.go"
+
+[file.6]
+from = "services/launchpad/gateway/internal/proxy/testdata/repair48_livestream.go"
+to = "services/launchpad/gateway/internal/proxy/testdata/livestream_authority.go"
+
+[file.7]
+from = "services/launchpad/gateway/internal/proxy/testdata/repair48_user.go"
+to = "services/launchpad/gateway/internal/proxy/testdata/user_authority.go"
+
+[file.8]
+from = "services/launchpad/gateway/internal/proxy/testdata/repair_m989_silence.ogg"
+to = "services/launchpad/gateway/internal/proxy/testdata/recording_silence.ogg"
+
+[file.9]
+from = "services/launchpad/gateway/internal/serve/repair_50_test.go"
+to = "services/launchpad/gateway/internal/serve/approved_response_cache_test.go"
+
+[file.10]
+from = "services/launchpad/gateway/internal/storage/repair_51_test.go"
+to = "services/launchpad/gateway/internal/storage/initial_visibility_test.go"
+
+[file.11]
+from = "services/launchpad/gateway/internal/storage/repair_m993_test.go"
+to = "services/launchpad/gateway/internal/storage/reconciliation_recovery_test.go"
+
+[file.12]
+from = "services/launchpad/gateway/internal/storage/testdata/repair_51.package.json"
+to = "services/launchpad/gateway/internal/storage/testdata/visibility.package.json"
+
+[file.13]
+from = "services/launchpad/gateway/internal/storage/testdata/repair_51.package-lock.json"
+to = "services/launchpad/gateway/internal/storage/testdata/visibility.package-lock.json"
+
+[file.14]
+from = "services/launchpad/gateway/internal/storage/testdata/repair_51_database.mjs"
+to = "services/launchpad/gateway/internal/storage/testdata/visibility_database.mjs"
+
+[file.15]
+from = "services/launchpad/gateway/internal/storage/testdata/repair_51_metadata.go"
+to = "services/launchpad/gateway/internal/storage/testdata/visibility_metadata.go"
+
+[file.16]
+from = "services/launchpad/gateway/internal/upload/repair_52_test.go"
+to = "services/launchpad/gateway/internal/upload/connected_error_schema_test.go"
+
+[file.17]
+from = "services/launchpad/gateway/internal/app/repair_m991.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/app/repair_m991.kvx"
+
+[file.18]
+from = "services/launchpad/gateway/internal/auth/repair_49.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/auth/repair_49.kvx"
+
+[file.19]
+from = "services/launchpad/gateway/internal/auth/repair_m990.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/auth/repair_m990.kvx"
+
+[file.20]
+from = "services/launchpad/gateway/internal/proxy/repair_48.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/proxy/repair_48.kvx"
+
+[file.21]
+from = "services/launchpad/gateway/internal/proxy/repair_m989.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/proxy/repair_m989.kvx"
+
+[file.22]
+from = "services/launchpad/gateway/internal/serve/repair_50.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/serve/repair_50.kvx"
+
+[file.23]
+from = "services/launchpad/gateway/internal/storage/repair_51.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/storage/repair_51.kvx"
+
+[file.24]
+from = "services/launchpad/gateway/internal/storage/repair_m993.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/storage/repair_m993.kvx"
+
+[file.25]
+from = "services/launchpad/gateway/internal/upload/repair_52.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/internal/upload/repair_52.kvx"
+
+[file.26]
+from = "services/launchpad/gateway/repair_22_39_467.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/repair_22_39_467.kvx"
+
+[file.27]
+from = "services/launchpad/gateway/repair_22_39_483.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/gateway/repair_22_39_483.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "TestRepair_48"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "TestRepair_48_export_capability"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_48_test.go"
+
+[reference.4]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepair_48"
+
+[reference.5]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepair_48_ingest_response"
+
+[reference.6]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepair_50"
+
+[reference.7]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepair_50_ApprovedCachePurge"
+
+[reference.8]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair48"
+
+[reference.9]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_48_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "repair_49_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "repair_51_metadata.go"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_48"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_48_export_capability"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_49_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_51_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_989"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_990"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_991"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_993"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_48"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_49"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_50"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_51"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_52"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_467.kvx"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_483.kvx"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_48_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_49_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_50_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_51_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_52_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m989_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m990_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m991_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m993_test.go"
+
+[reference.36]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_48"
+
+[reference.37]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_48_deletion_receipt"
+
+[reference.38]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_48_export_capability"
+
+[reference.39]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_48_ingest_response"
+
+[reference.40]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_48_ticket_only_socket"
+
+[reference.41]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_48_v2_recovery"
+
+[reference.42]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_49"
+
+[reference.43]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_49_ChallengeRequiresUUID"
+
+[reference.44]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_49_ChallengeRetryAndVerification"
+
+[reference.45]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_49_ChallengeRetryRequiresExactBody"
+
+[reference.46]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_50"
+
+[reference.47]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_50_ApprovedCachePurge"
+
+[reference.48]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_50_ApprovedDenials"
+
+[reference.49]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_50_HeaderCommitment"
+
+[reference.50]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_50_ResponsePaths"
+
+[reference.51]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_51"
+
+[reference.52]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_51_initial_delivery_visibility"
+
+[reference.53]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_51_initial_explicit_denials"
+
+[reference.54]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_51_initial_lineage_visibility"
+
+[reference.55]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_52"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_52_IdentityUnavailable"
+
+[reference.57]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_52_UploadErrorSchema"
+
+[reference.58]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_48_test.go"
+
+[reference.59]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_49_test.go"
+
+[reference.60]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_50_test.go"
+
+[reference.61]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_51_test.go"
+
+[reference.62]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_52_test.go"

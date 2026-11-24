@@ -22,7 +22,7 @@ const TokenInventoryItem = ({ item, token, isLoading }: Props) => {
 
   const mediaElement = (
     <NftMedia
-      mb="18px"
+      mb="4.5"
       data={ item }
       isLoading={ isLoading }
       autoplayVideo={ false }
@@ -35,18 +35,18 @@ const TokenInventoryItem = ({ item, token, isLoading }: Props) => {
   return (
     <Box
       data-inventory-item={ item.id }
-      w={{ base: '100%', lg: '210px' }}
+      w={{ base: '100%', lg: '52' }}
       bg="bg.surface"
-      borderWidth="1px"
+      borderWidth="1"
       borderStyle="solid"
       borderColor="border.divider"
       borderRadius="md"
       boxShadow="card"
-      p="10px"
+      p="2.5"
       textStyle="sm"
-      fontWeight={ 500 }
+      fontWeight="medium"
     >
-      <Link href={ isLoading ? undefined : url } display="inline">
+      <Link href={ isLoading ? undefined : url } display="inline" aria-label={ `View NFT #${ item.id }` }>
         { mediaElement }
       </Link>
       { item.id && (
@@ -70,7 +70,7 @@ const TokenInventoryItem = ({ item, token, isLoading }: Props) => {
       ) }
       { item.owner && (
         <Flex mb={ 2 } ml={ 1 }>
-          <Text whiteSpace="pre" color="text.secondary" mr={ 2 } lineHeight="24px">Owner</Text>
+          <Text whiteSpace="pre" color="text.secondary" mr={ 2 } lineHeight="h2">Owner</Text>
           <AddressEntity
             address={ item.owner }
             isLoading={ isLoading }

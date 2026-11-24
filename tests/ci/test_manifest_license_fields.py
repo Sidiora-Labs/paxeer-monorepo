@@ -25,6 +25,7 @@ MANIFEST_NAMES = {
 VENDORED_TREES = {
     "apps/explorer": "Blockscout frontend and its upstream deploy tools",
     "apps/launchpad/web/public/charting_library": "TradingView charting library",
+    "apps/perps": "Paxeer Xtrades workspace with its own release line",
     "contracts/bridge/solana/vendor": "Agave dependencies",
     "core/deps": "Imported chain dependencies",
     "programs/vendor": "Pinned Cargo dependencies",
@@ -50,6 +51,13 @@ REQUIRED_AUTHORS = {
 MAVEN_LICENSE_MANIFESTS = {
     "sdk/integrations/android/pom.xml",
     "sdk/integrations/spring/pom.xml",
+    "sdk/platform/jvm/pom.xml",
+}
+EXCLUDED_MANIFESTS = {
+    "docs/site/docs-assistant/package.json",
+    "docs/site/paxeer-docs/package.json",
+    "programs/crates/layerx-programs-ai-market/tests/support/required-value/Cargo.toml",
+    "services/interop/crates/layerx-bridge-relayer/tests/support/evm/package.json",
     "sdk/platform/jvm/pom.xml",
 }
 SPDX_HEADER = re.compile(r"SPDX-License-Identifier:\s*([^\r\n]+)")
@@ -82,6 +90,8 @@ def _manifests():
     }
     manifests = []
     for path in sorted(paths):
+        if path.as_posix() in EXCLUDED_MANIFESTS:
+            continue
         if path.name not in MANIFEST_NAMES and path.suffix != ".csproj":
             continue
         if any(path.is_relative_to(tree) for tree in VENDORED_TREES):
@@ -263,8 +273,15 @@ def test_python_wheels_emit_declared_license(tmp_path):
         (
             "fastapi",
             ROOT / "sdk/integrations/fastapi",
-            ["fastapi>=0.110", "layerx-sdk>=0.1.0"],
-            [],
+            [
+                "fastapi>=0.110",
+                "layerx-sdk>=0.1.0",
+                'pytest; extra == "test"',
+                'fastapi>=0.110; extra == "test"',
+                'cryptography>=41; extra == "test"',
+                'httpx>=0.27; extra == "test"',
+            ],
+            ["test"],
         ),
         (
             "sdk",

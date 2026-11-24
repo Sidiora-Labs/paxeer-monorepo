@@ -1,3 +1,4 @@
+import { Flex } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TxsSocketType } from './socket/types';
@@ -10,9 +11,10 @@ import useInitialList from 'lib/hooks/useInitialList';
 import useIsMobile from 'lib/hooks/useIsMobile';
 import useLazyRenderedList from 'lib/hooks/useLazyRenderedList';
 import { currencyUnits } from 'lib/units';
-import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeader, TableRow } from 'toolkit/chakra/table';
 import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import type { TxsTranslationQuery } from './noves/useDescribeTxs';
 import TxsSocketNotice from './socket/TxsSocketNotice';
@@ -65,22 +67,32 @@ const TxsTable = ({
   const showValue = !config.UI.views.tx.hiddenFields?.value;
   const showFee = !config.UI.views.tx.hiddenFields?.tx_fee;
 
-  const columnNum = [ showBlockInfo, true, showValue, showFee ].filter(Boolean).length;
-  const baseWidth = `${ 100 / columnNum }%`;
+  const columnCount = 5 + Number(Boolean(chainData)) + Number(showBlockInfo) + Number(showValue) + Number(showFee);
+
+  const fixedColumnsWidth = 3 + 10 + 14 + 8 + (chainData ? 2 : 0) + (showBlockInfo ? 7 : 0) + (showValue ? 7 : 0) + (showFee ? 7.5 : 0);
+  const minTableWidth = `${ fixedColumnsWidth + 19.5 }rem`;
 
   return (
     <AddressHighlightProvider>
-      <TableRoot variant="scan" css={ LIST_TABLE_STYLES } minWidth={{ base: '1200px', lg: '1080px' }}>
+      <ActivityTable
+        label="Transactions"
+        variant="scan"
+        css={{
+          ...LIST_TABLE_STYLES,
+          '& thead th': { whiteSpace: 'nowrap', verticalAlign: 'middle' },
+        }}
+        minWidth={{ base: minTableWidth, lg: minTableWidth }}
+      >
         <TableHeaderComponent top={ stickyHeader ? top : undefined }>
           <TableRow>
-            <TableColumnHeader width="48px"></TableColumnHeader>
-            { chainData && <TableColumnHeader width="32px"></TableColumnHeader> }
-            <TableColumnHeader width="200px">Transaction hash</TableColumnHeader>
-            <TableColumnHeader width="150px">Action</TableColumnHeader>
+            <TableColumnHeader width="var(--chakra-spacing-12)"></TableColumnHeader>
+            { chainData && <TableColumnHeader width="var(--chakra-spacing-8)"></TableColumnHeader> }
+            <TableColumnHeader width="var(--chakra-spacing-40)">Transaction hash</TableColumnHeader>
+            <TableColumnHeader width="14rem">Action</TableColumnHeader>
             { showBlockInfo && (
               onSortToggle ? (
                 <TableColumnHeaderSortable
-                  width="110px"
+                  width="var(--chakra-spacing-28)"
                   isNumeric
                   sortField="block_number"
                   sortValue={ sort }
@@ -89,18 +101,22 @@ const TxsTable = ({
                   Block
                 </TableColumnHeaderSortable>
               ) : (
-                <TableColumnHeader width="110px" isNumeric>Block</TableColumnHeader>
+                <TableColumnHeader width="var(--chakra-spacing-28)" isNumeric>Block</TableColumnHeader>
               )
             ) }
-            <TableColumnHeader width="130px">
-              Age
-              <TimeFormatToggle/>
+            <TableColumnHeader width="var(--chakra-spacing-32)">
+              <Flex flexDirection="row" alignItems="center" flexWrap="nowrap" whiteSpace="nowrap">
+                Age
+                <TimeFormatToggle flexShrink={ 0 }/>
+              </Flex>
             </TableColumnHeader>
-            <TableColumnHeader width={ columnNum <= 2 ? baseWidth : '300px' }>From / To</TableColumnHeader>
+            <TableColumnHeader>
+              From / To
+            </TableColumnHeader>
             { showValue && (
               onSortToggle ? (
                 <TableColumnHeaderSortable
-                  width={ baseWidth }
+                  width="var(--chakra-spacing-28)"
                   isNumeric
                   sortField="value"
                   sortValue={ sort }
@@ -109,13 +125,13 @@ const TxsTable = ({
                   { `Amount ${ currencyUnits.ether }` }
                 </TableColumnHeaderSortable>
               ) : (
-                <TableColumnHeader width={ baseWidth } isNumeric>Amount</TableColumnHeader>
+                <TableColumnHeader width="var(--chakra-spacing-28)" isNumeric>Amount</TableColumnHeader>
               )
             ) }
             { showFee && (
               onSortToggle ? (
                 <TableColumnHeaderSortable
-                  width={ baseWidth }
+                  width="7.5rem"
                   isNumeric
                   pr={ 5 }
                   sortField="fee"
@@ -125,13 +141,13 @@ const TxsTable = ({
                   { `Txn fee${ feeCurrency }` }
                 </TableColumnHeaderSortable>
               ) : (
-                <TableColumnHeader width={ baseWidth } isNumeric pr={ 5 }>Txn fee</TableColumnHeader>
+                <TableColumnHeader width="7.5rem" isNumeric pr={ 5 }>Txn fee</TableColumnHeader>
               )
             ) }
           </TableRow>
         </TableHeaderComponent>
         <TableBody>
-          { socketType && <TxsSocketNotice type={ socketType } place="table" isLoading={ isLoading }/> }
+          { socketType && <TxsSocketNotice type={ socketType } place="table" isLoading={ isLoading } columnCount={ columnCount }/> }
           { txs.slice(0, renderedItemsNum).map((item, index) => {
             return (
               <TxsTableItem
@@ -149,9 +165,9 @@ const TxsTable = ({
               />
             );
           }) }
+          { renderedItemsNum < txs.length && <TableRow ref={ cutRef }/> }
         </TableBody>
-      </TableRoot>
-      <div ref={ cutRef }/>
+      </ActivityTable>
     </AddressHighlightProvider>
   );
 };

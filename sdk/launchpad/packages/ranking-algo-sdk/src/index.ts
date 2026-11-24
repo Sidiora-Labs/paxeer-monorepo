@@ -19,8 +19,8 @@ export interface RankingFreshness {
 }
 export interface RankingsResponse {
   data: { snapshot: RankingSnapshot }; requestId: string; generatedAt: string;
-  nextCursor: string | null; revision: string | null; watermark: RankingWatermark | null;
-  quality: 'complete' | 'partial' | 'stale' | 'quarantined'; freshness?: RankingFreshness;
+  nextCursor: string | null; revision: string; watermark: RankingWatermark;
+  quality: 'complete' | 'stale'; freshness: RankingFreshness;
 }
 export interface RankingErrorResponse {
   code: string; message: string; requestId: string; retryable: boolean; retryAfterMs: number | null;
@@ -111,10 +111,10 @@ function rankings(value: unknown, requested: RankingCategory): value is Rankings
   return object(value) && object(value.data) && snapshot(value.data.snapshot, requested)
     && uuid(value.requestId) && timestamp(value.generatedAt)
     && (value.nextCursor === null || (typeof value.nextCursor === 'string' && value.nextCursor.length <= 2048))
-    && (value.revision === null || uint256(value.revision, true))
-    && (value.watermark === null || watermark(value.watermark))
-    && ['complete', 'partial', 'stale', 'quarantined'].some((quality) => value.quality === quality)
-    && (value.freshness === undefined || freshness(value.freshness));
+    && uint256(value.revision, true)
+    && watermark(value.watermark)
+    && (value.quality === 'complete' || value.quality === 'stale')
+    && freshness(value.freshness);
 }
 function errorDetails(value: unknown): value is RankingErrorResponse['details'] {
   if (value === null) return true;
@@ -180,7 +180,7 @@ export class RankingHttpClient {
   async getRankings(requested: RankingCategory, query: RankingQuery = {}): Promise<RankingsResponse> {
     if (!this.config) throw new Error('Ranking HTTP client is not configured');
     if (!category(requested)) throw new TypeError('Invalid ranking category');
-    if ('offset' in query) throw new TypeError('Ranking snapshots require cursor pagination');
+    if ('offset' in query) throw new RangeError('offset is not supported; ranking snapshots require cursor pagination');
     const url = new URL(`${this.config.baseUrl}/rankings/${requested}`);
     if (query.limit !== undefined) {
       if (!nonnegativeInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new RangeError('limit must be an integer from 1 to 100');

@@ -1,0 +1,152 @@
+[manifest]
+task = "22.43.109"
+records_moved = 5
+files_renamed = 14
+
+[file.1]
+from = "sdk/launchpad/packages/candles-sdk/test/repair-22-31-72.test.mjs"
+to = "sdk/launchpad/packages/candles-sdk/test/history-pagination.test.mjs"
+
+[file.2]
+from = "sdk/launchpad/packages/candles-sdk/test/repair-22-33-1045.test.mjs"
+to = "sdk/launchpad/packages/candles-sdk/test/go-handler-journey.test.mjs"
+
+[file.3]
+from = "sdk/launchpad/packages/candles-sdk/test/repair-22-33-1061.test.mjs"
+to = "sdk/launchpad/packages/candles-sdk/test/response-limits.test.mjs"
+
+[file.4]
+from = "sdk/launchpad/packages/indexer-sdk/test/repair-22-33-1055.test.mjs"
+to = "sdk/launchpad/packages/indexer-sdk/test/transport-bounds.test.mjs"
+
+[file.5]
+from = "sdk/launchpad/packages/metadata-sdk/test/repair-22-33-1056.test.mjs"
+to = "sdk/launchpad/packages/metadata-sdk/test/transport-bounds.test.mjs"
+
+[file.6]
+from = "sdk/launchpad/packages/ranking-algo-sdk/test/repair-22-33-1057.test.mjs"
+to = "sdk/launchpad/packages/ranking-algo-sdk/test/transport-bounds.test.mjs"
+
+[file.7]
+from = "sdk/launchpad/packages/users-sdk/test/repair-22-33-1058.test.mjs"
+to = "sdk/launchpad/packages/users-sdk/test/transport-bounds.test.mjs"
+
+[file.8]
+from = "sdk/launchpad/packages/stats-sdk/test/repair-22-33-1060.test.mjs"
+to = "sdk/launchpad/packages/stats-sdk/test/response-limits.test.mjs"
+
+[file.9]
+from = "sdk/launchpad/packages/sidiora-launchpad-v3/test/repair-22-33-1054.test.mjs"
+to = "sdk/launchpad/packages/sidiora-launchpad-v3/test/abi-provenance-http.test.mjs"
+
+[file.10]
+from = "sdk/launchpad/packages/sdk/scripts/test_repair_22_33_1046.py"
+to = "sdk/launchpad/packages/sdk/scripts/test_bundle_consumers.py"
+
+[file.11]
+from = "sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs"
+to = "sdk/launchpad/packages/sdk/test/release-generation.test.mjs"
+
+[file.12]
+from = "sdk/launchpad/packages/sdk/test/repair-22-33-1047-loader.mjs"
+to = "sdk/launchpad/packages/sdk/test/sdk-source-loader.mjs"
+
+[file.13]
+from = "sdk/launchpad/packages/sdk/test/repair-22-33-1047-python.mjs"
+to = "sdk/launchpad/packages/sdk/test/python-proof-runtime.mjs"
+
+[file.14]
+from = "sdk/launchpad/packages/sdk/test/repair-22-33-1059.test.mjs"
+to = "sdk/launchpad/packages/sdk/test/response-limits.test.mjs"
+
+[file.15]
+from = "sdk/launchpad/packages/candles-sdk/test/repair-22-33-1045.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/packages/candles-sdk/test/repair-22-33-1045.kvx"
+
+[file.16]
+from = "sdk/launchpad/packages/metadata-sdk/src/repair-22-33-1056.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/packages/metadata-sdk/src/repair-22-33-1056.kvx"
+
+[file.17]
+from = "sdk/launchpad/packages/sdk/scripts/repair_22_33_1046.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/packages/sdk/scripts/repair_22_33_1046.kvx"
+
+[file.18]
+from = "sdk/launchpad/packages/sdk/test/repair-22-33-1047.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/packages/sdk/test/repair-22-33-1047.kvx"
+
+[file.19]
+from = "sdk/launchpad/packages/sidiora-launchpad-v3/test/repair-22-33-1054.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/packages/sidiora-launchpad-v3/test/repair-22-33-1054.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "test_repair_22_33_1046.py"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair-22-33-1047.test.mjs"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair-22-33-1054.test.mjs"
+
+[reference.4]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_1046.py"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-1047.test.mjs"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-1054.test.mjs"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-72.test.mjs"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1045.test.mjs"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1061.test.mjs"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1055.test.mjs"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1056.test.mjs"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1057.test.mjs"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1058.test.mjs"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1060.test.mjs"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1054.test.mjs"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_1046.py"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1047.test.mjs"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1059.test.mjs"

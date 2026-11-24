@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
 func TestClientKey_PrefersAPIKeyThenIP(t *testing.T) {
@@ -49,6 +51,15 @@ func TestLimiter_LoadShedsOverCapacity(t *testing.T) {
 	}
 	if rec.Header().Get("Retry-After") == "" {
 		t.Error("503 should set Retry-After")
+	}
+
+	for _, path := range []string{"/v2/pools", "/v2/pools/stats:batch"} {
+		response := httptest.NewRecorder()
+		blocking.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		failure, err := v2.DecodeError(response.Body.Bytes())
+		if err != nil || response.Code != 503 || failure.Code != "DEPENDENCY_UNAVAILABLE" || !failure.Retryable || failure.RetryAfterMs == nil || *failure.RetryAfterMs != 1000 || failure.RequestId != response.Header().Get("X-Request-ID") || response.Header().Get("Retry-After") != "1" || response.Header().Get("X-Schema-Version") != "2" || response.Header().Get("Cache-Control") != "no-store" {
+			t.Fatalf("v2 overload response: %d %s %v: %v", response.Code, response.Body, response.Header(), err)
+		}
 	}
 
 	// Free the slot; a subsequent request succeeds.

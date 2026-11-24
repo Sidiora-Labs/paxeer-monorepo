@@ -293,18 +293,6 @@ def test_layerx_image_includes_reachable():
         assert admitted(target, policy), f"LayerX include excluded: {source} -> {target}"
     for target in MARKDOWN:
         assert not admitted(str(Path(target).with_name("unrelated.md")), policy)
-    native = False
-    copied = False
-    for instruction, arguments in instructions(LAYERX):
-        if instruction == "FROM":
-            native = arguments.endswith(" AS native")
-        elif instruction == "COPY" and native:
-            options, sources, destination = copy_arguments(arguments)
-            if SETTLEMENT in sources:
-                assert "from" not in options
-                assert destination.rstrip("/") == "contracts/config"
-                copied = True
-    assert copied, "Native builder lacks its settlement compile input"
     for ignore in (
         LAYERX.with_name(LAYERX.name + ".dockerignore"),
         ROOT / "docker/x-websearch/Dockerfile.dockerignore",

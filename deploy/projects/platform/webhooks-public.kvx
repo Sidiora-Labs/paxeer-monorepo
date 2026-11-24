@@ -1,0 +1,90 @@
+[service.webhooks-public]
+kind = "repo"
+dockerfile = "docker/platform-webhooks/Dockerfile"
+root = "."
+watch = ["docker/platform-webhooks/**", "docker/common/**", "services/platform/**"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 3
+public = 1
+order = 8
+needs = ["redis-internal", "internal-kms", "identity"]
+
+[vars.webhooks-public]
+LAYERX_WEBHOOKS_NETWORK_ID = "env:PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID"
+LAYERX_FILES_OWNER = "65532:65532"
+LAYERX_ROLE = "public"
+PORT = "9444"
+LAYERX_WEBHOOKS_LISTEN = "[::]:9444"
+LAYERX_WEBHOOKS_ROLE = "public"
+LAYERX_WEBHOOKS_LISTENER = "plain"
+LAYERX_WEBHOOKS_INTERNAL_CA_DER = "/run/layerx/ca/internal.der"
+LAYERX_WEBHOOKS_PUBLIC_CA_DER = "/run/layerx/ca/public.der"
+LAYERX_WEBHOOKS_CLIENT_IDENTITY_PKCS12 = "/run/layerx/client/identity.p12"
+LAYERX_WEBHOOKS_CLIENT_IDENTITY_PASSWORD_FILE = "/run/layerx/client/password"
+LAYERX_WEBHOOKS_REDIS_USERNAME_FILE = "/run/layerx/redis/username"
+LAYERX_WEBHOOKS_REDIS_PASSWORD_FILE = "/run/layerx/redis/password"
+LAYERX_WEBHOOKS_KMS_TOKEN_FILE = "/run/layerx/tokens/kms"
+LAYERX_WEBHOOKS_CURSOR_KEY_FILE = "/run/layerx/keys/cursor"
+LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE = "/run/layerx/tokens/identity"
+LAYERX_WEBHOOKS_REDIS_URL = "env:PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_REDIS_URL"
+LAYERX_WEBHOOKS_KMS_URL = "env:PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_KMS_URL"
+LAYERX_WEBHOOKS_IDENTITY_URL = "env:PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_IDENTITY_URL"
+LAYERX_WEBHOOKS_INSTANCE_ID = "env:PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_INSTANCE_ID"
+RAILWAY_REPLICA_ID = "env:PLATFORM_WEBHOOKS_PUBLIC_RAILWAY_REPLICA_ID"
+SOURCE_REVISION = "env:PLATFORM_WEBHOOKS_PUBLIC_SOURCE_REVISION"
+PACKAGING_REVISION = "env:PLATFORM_WEBHOOKS_PUBLIC_PACKAGING_REVISION"
+WEBHOOKS_SHA256 = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_SHA256"
+WEBHOOKS_INGRESS_TLS_CERT_DER = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_INGRESS_TLS_CERT_DER"
+WEBHOOKS_INGRESS_TLS_KEY_DER = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_INGRESS_TLS_KEY_DER"
+WEBHOOKS_CLIENT_P12 = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CLIENT_P12"
+WEBHOOKS_CLIENT_PASSWORD = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CLIENT_PASSWORD"
+WEBHOOKS_CLIENT_CA_DER = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CLIENT_CA_DER"
+WEBHOOKS_PUBLIC_CA = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_PUBLIC_CA"
+WEBHOOKS_REDIS_USERNAME = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_REDIS_USERNAME"
+WEBHOOKS_REDIS_PASSWORD = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_REDIS_PASSWORD"
+WEBHOOKS_KMS_TOKEN = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_KMS_TOKEN"
+WEBHOOKS_IDENTITY_TOKEN = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_IDENTITY_TOKEN"
+WEBHOOKS_CURSOR_KEY = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CURSOR_KEY"
+
+[inputs.webhooks-public]
+# Network label used by the project gateway: 1-64 printable ASCII bytes without spaces.
+PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID = "operator"
+# Redis TLS origin used by the durable delivery store.
+PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_REDIS_URL = "operator"
+# KMS HTTPS origin used for webhook signing operations.
+PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_KMS_URL = "operator"
+# Identity HTTPS origin used for developer session introspection.
+PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_IDENTITY_URL = "operator"
+# Stable per-replica lease identifier.
+PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_INSTANCE_ID = "operator"
+# Provider replica identifier used to derive the instance identifier.
+PLATFORM_WEBHOOKS_PUBLIC_RAILWAY_REPLICA_ID = "provider"
+# Source revision recorded in a prebuilt image label.
+PLATFORM_WEBHOOKS_PUBLIC_SOURCE_REVISION = "operator"
+# Packaging revision recorded in a prebuilt image label.
+PLATFORM_WEBHOOKS_PUBLIC_PACKAGING_REVISION = "operator"
+# SHA-256 digest of the prebuilt webhook binary.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_SHA256 = "operator"
+# Base64 DER server certificate material written to the runtime certificate file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_INGRESS_TLS_CERT_DER = "generated"
+# Base64 PKCS#8 server key material written to the runtime key file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_INGRESS_TLS_KEY_DER = "generated"
+# Base64 client identity material written to the runtime PKCS#12 file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CLIENT_P12 = "generated"
+# Base64 client identity password written to the runtime password file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CLIENT_PASSWORD = "generated"
+# Base64 internal CA material written to the runtime CA file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CLIENT_CA_DER = "generated"
+# Base64 public CA material written to the runtime CA file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_PUBLIC_CA = "generated"
+# Base64 Redis username written to the runtime credential file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_REDIS_USERNAME = "generated"
+# Base64 Redis password written to the runtime credential file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_REDIS_PASSWORD = "generated"
+# Base64 KMS token written to the runtime credential file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_KMS_TOKEN = "generated"
+# Base64 developer identity token written to the runtime credential file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_IDENTITY_TOKEN = "generated"
+# Base64 cursor key written to the runtime key file.
+PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CURSOR_KEY = "generated"

@@ -4,6 +4,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_crypto::disclosure::call::ledger_selector;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
+use layerx_human_kms::export::ExportRecipient;
 use layerx_human_service::custody::{
     CustodyError, EvmAcknowledgement, EvmAction, EvmExternalSignature, EvmPlanAuthorization,
     EvmTransaction, GatewayLimits, GatewayPolicy, GatewayTls, KeyClass, KeyId, Keystore, KmsError,
@@ -115,7 +116,13 @@ impl Host {
         let identity_public: [u8; 32] = identity.public_key().as_ref().try_into()?;
         host.write(
             "attestor.json",
-            &serde_json::to_vec(&json!({
+            &serde_json::to_vec(&json!({"bindings":[{
+                "binding": PrincipalKeyBinding::new(
+                    b"layerx-human-custody/v1\0alice\0primary\0human-primary".to_vec(),
+                    125, KeyClass::HumanPrimary, PROVIDER,
+                )?.digest(),
+                "tenant": "tenant", "principal": "alice",
+                "assertion_file": host.path("owner.jwt"), "config": {
                 "nodes": nodes,
                 "trust_anchors": [host.path("ca.der")],
                 "client_certificate_chain": [host.path("client.der")],
@@ -124,7 +131,7 @@ impl Host {
                 "evm_key_id": "external-wallet", "evm_address": host.wallet,
                 "signers": ["node-1", "node-2", "node-3"],
                 "network_id": 125, "timeout_seconds": 1
-            }))?,
+            }}]}))?,
         )?;
         // A genuine signed owner assertion is configuration only on this
         // external-signature route; no remote service consumes it.
@@ -385,6 +392,7 @@ impl Host {
     }
 
     fn gateway(&self) -> Result<GatewayHost> {
+        let clock: Arc<dyn Clock> = RuntimeClock::connect(self.clock_service.binding.clone())?;
         let gateway = LxkpGateway::new(
             Arc::new(self.remote(self.address, "client")?),
             GatewayTls::new(
@@ -405,7 +413,7 @@ impl Host {
                     operation_window: Duration::from_secs(60),
                 },
             },
-            Arc::clone(&self.clock),
+            clock,
         )?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
@@ -527,21 +535,32 @@ fn proof_human_kms_wire() -> Result {
     assert_tls_material_refusals(&host)?;
     let principal = PrincipalId::new("alice")?;
     let key = KeyId::new("primary")?;
-    let gateway = host.gateway()?;
+    let gateway = host
+        .gateway()
+        .map_err(|error| format!("gateway admission: {error}"))?;
     let relay = host.remote(gateway.address, "client")?;
-    relay.probe()?;
+    relay
+        .probe()
+        .map_err(|error| format!("gateway probe: {error}"))?;
     assert!(host.remote(gateway.address, "foreign")?.probe().is_err());
     assert!(host.remote(host.address, "foreign")?.probe().is_err());
-    let store = Keystore::open_production(
+    let store = Keystore::open(
         host.path("client-state"),
         125,
         host.remote(host.address, "client")?,
-    )?;
-    let public = store.create(&principal, &key, KeyClass::HumanPrimary)?;
-    let (wallet, binding, reference) = store.public_wallet_identity(&principal, &key)?;
+    )
+    .map_err(|error| format!("custody admission: {error}"))?;
+    let public = store
+        .create(&principal, &key, KeyClass::HumanPrimary)
+        .map_err(|error| format!("primary key creation: {error}"))?;
+    let (wallet, binding, reference) = store
+        .public_wallet_identity(&principal, &key)
+        .map_err(|error| format!("public wallet identity: {error}"))?;
     assert_eq!(wallet, host.wallet);
     let direct = host.remote(host.address, "client")?;
-    let created = direct.describe_key(&binding, &reference)?;
+    let created = direct
+        .describe_key(&binding, &reference)
+        .map_err(|error| format!("primary key description: {error}"))?;
     assert_eq!(created.public_key(), public);
     assert_eq!(relay.describe_key(&binding, &reference)?, created);
     assert_eq!(direct.create_key(&binding)?, created);
@@ -563,7 +582,7 @@ fn proof_human_kms_wire() -> Result {
     conflicting.tenant = "other-tenant".into();
     assert!(matches!(
         store.authorize_evm_plan(&principal, &key, &conflicting),
-        Err(CustodyError::Kms(KmsError::Conflict))
+        Err(CustodyError::Kms(KmsError::Refused))
     ));
 
     let (expected_raw, external, signed) =
@@ -612,13 +631,21 @@ fn proof_human_kms_wire() -> Result {
         public,
         created: &created,
     };
-    evidence.verify_frames()?;
-    evidence.verify_bounds()?;
+    evidence
+        .verify_frames()
+        .map_err(|error| format!("wire contracts: {error}"))?;
+    evidence
+        .verify_bounds()
+        .map_err(|error| format!("wire bounds: {error}"))?;
     let persisted = fs::read(evidence.host.path("state/state.aead"))?;
     assert!(persisted.len() > 28);
     drop(store);
-    evidence.verify_recovery(&persisted)?;
-    evidence.verify_handover()?;
+    evidence
+        .verify_recovery(&persisted)
+        .map_err(|error| format!("custody recovery: {error}"))?;
+    evidence
+        .verify_handover()
+        .map_err(|error| format!("recipient handover: {error}"))?;
     Ok(())
 }
 
@@ -895,7 +922,7 @@ impl ProofWire<'_> {
         host.stop();
         assert_eq!(fs::read(host.path("state/state.aead"))?, persisted);
         host.start()?;
-        let store = Keystore::open_production(
+        let store = Keystore::open(
             host.path("client-state"),
             125,
             host.remote(host.address, "client")?,
@@ -946,7 +973,22 @@ impl ProofWire<'_> {
         let recipient = self.recipient;
         let amount = self.amount;
         // Handover must keep its specific refusal across the encrypted-file restart.
-        drop(direct.export_primary_key(binding, reference)?);
+        assert_eq!(
+            direct.export_primary_key(binding, reference).err(),
+            Some(KmsError::Refused)
+        );
+        let export_recipient = ExportRecipient::new([0x72; 32])?;
+        let ceremony = export_recipient.ceremony([0x73; 32])?;
+        let envelope = direct.export_envelope(binding, reference, &ceremony)?;
+        let (seed, acknowledgement) =
+            export_recipient.open(PROVIDER, binding.digest(), reference.as_bytes(), &envelope)?;
+        let exported = ring::signature::Ed25519KeyPair::from_seed_unchecked(seed.as_ref())
+            .map_err(|_| "recipient key representation")?;
+        assert_eq!(exported.public_key().as_ref(), self.public);
+        host.write("recipient-key", seed.as_ref())?;
+        fs::File::open(host.path("recipient-key"))?.sync_all()?;
+        fs::File::open(&host.root)?.sync_all()?;
+        direct.acknowledge_export(binding, reference, &acknowledgement)?;
         assert_eq!(direct.evm_operation(11,binding,reference,&serde_json::to_vec(&json!({
         "authorization":plan,"disclosure":{"recipient":recipient,"denom":"apax","amount":amount}
     }))?),Err(KmsError::SelfCustodied));
@@ -969,7 +1011,11 @@ impl ProofWire<'_> {
         );
         assert_eq!(
             direct.export_primary_key(binding, reference).err(),
-            Some(KmsError::SelfCustodied)
+            Some(KmsError::Refused)
+        );
+        assert_eq!(
+            direct.export_envelope(binding, reference, &ceremony),
+            Err(KmsError::SelfCustodied)
         );
         assert_eq!(direct.create_key(binding), Err(KmsError::Conflict));
         let agent =

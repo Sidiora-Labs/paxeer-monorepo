@@ -12,6 +12,7 @@ package rest
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -35,6 +36,7 @@ func RegisterV2SearchProxy(r chi.Router, origin string) error {
 		req.Out.Header.Del("X-Forwarded-Host")
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		slog.ErrorContext(req.Context(), "search upstream unavailable", "reason", err.Error(), "request_id", responseRequestID(w))
 		WriteV2APIError(w, req, http.StatusServiceUnavailable, literalDEPENDENCYUNAVAILABLE)
 	}
 	r.Method(http.MethodGet, "/v2/search", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

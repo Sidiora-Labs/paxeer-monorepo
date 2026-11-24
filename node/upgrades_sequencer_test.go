@@ -364,7 +364,7 @@ func TestUpgradesSequencerSwitchAtActivation(t *testing.T) {
 		t.Helper()
 		height := a.LastBlockHeight() + 1
 		_, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-			Header: &tmproto.Header{ChainID: "pax-test", Height: height},
+			Header: &tmproto.Header{ChainID: "pax-test", Height: height, Time: time.Unix(1700000000+height, 0).UTC()},
 			Txs:    txs,
 		})
 		require.NoError(t, err)
@@ -373,6 +373,7 @@ func TestUpgradesSequencerSwitchAtActivation(t *testing.T) {
 		_, err = a.Commit(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, height, a.LastBlockHeight())
+		WaitForTestQueryHeight(t, a, a.LastBlockHeight())
 	}
 	commit(func(ctx sdk.Context) { rewindBeforeMerge(t, a, ctx) })
 
@@ -393,6 +394,7 @@ func TestUpgradesSequencerSwitchAtActivation(t *testing.T) {
 			"receipt_keys": seqkeeper.ReceiptKeys{mergeReceiptKey(uint64(firstSequenced))},
 		})
 		a.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeAt, Info: info})
+		require.NoError(t, a.finalizeProgramsOccupancy(ctx))
 		require.Equal(t, mergeAt, a.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade))
 		require.False(t, a.Sequenced(ctx, mergeAt))
 		require.True(t, a.Sequenced(ctx, firstSequenced))

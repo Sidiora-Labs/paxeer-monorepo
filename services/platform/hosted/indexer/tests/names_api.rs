@@ -87,31 +87,40 @@ fn node(head: Arc<AtomicU64>) -> Checked<PaxeerIngester> {
             let Some(request) = request(&mut stream) else {
                 continue;
             };
-            let result = match request["method"].as_str() {
-                Some("eth_chainId") => chain["chain_id"].clone(),
-                Some("eth_blockNumber") => json!(format!("0x{:x}", head.load(Ordering::SeqCst))),
-                Some("eth_getBlockByNumber") => {
-                    let height = u64::from_str_radix(
-                        request["params"][0]
-                            .as_str()
-                            .unwrap_or_else(|| panic!("height missing"))
-                            .trim_start_matches("0x"),
-                        16,
-                    )
-                    .unwrap_or_else(|error| panic!("{error}"));
-                    if height > head.load(Ordering::SeqCst) {
-                        Value::Null
-                    } else {
-                        chain["blocks"][height.to_string()].clone()
+            let answer = |request: &Value| {
+                let result = match request["method"].as_str() {
+                    Some("eth_chainId") => chain["chain_id"].clone(),
+                    Some("eth_blockNumber") => {
+                        json!(format!("0x{:x}", head.load(Ordering::SeqCst)))
                     }
-                }
-                Some("eth_getTransactionReceipt") => chain["receipts"][request["params"][0]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("hash missing"))]
-                .clone(),
-                other => panic!("unexpected method {other:?}"),
+                    Some("eth_getBlockByNumber") => {
+                        let height = u64::from_str_radix(
+                            request["params"][0]
+                                .as_str()
+                                .unwrap_or_else(|| panic!("height missing"))
+                                .trim_start_matches("0x"),
+                            16,
+                        )
+                        .unwrap_or_else(|error| panic!("{error}"));
+                        if height > head.load(Ordering::SeqCst) {
+                            Value::Null
+                        } else {
+                            chain["blocks"][height.to_string()].clone()
+                        }
+                    }
+                    Some("eth_getTransactionReceipt") => chain["receipts"][request["params"][0]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("hash missing"))]
+                    .clone(),
+                    other => panic!("unexpected method {other:?}"),
+                };
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
             };
-            let body = json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+            let body = match request.as_array() {
+                Some(batch) => Value::Array(batch.iter().map(answer).collect()),
+                None => answer(&request),
+            }
+            .to_string();
             write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
                 .unwrap_or_else(|error| panic!("response: {error}"));
         }

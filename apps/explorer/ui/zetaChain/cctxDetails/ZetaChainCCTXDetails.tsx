@@ -54,7 +54,7 @@ const ZetaChainCCTXDetails = ({ data, isLoading }: Props) => {
   const { transactionsBefore, transactionsAfter } = getTransactionsBeforeAndAfter(data);
 
   return (
-    <DetailedInfo.Container templateColumns={{ base: 'minmax(0, 1fr)', lg: 'max-content minmax(728px, auto)' }}>
+    <DetailedInfo.Container templateColumns={{ base: 'minmax(0, 1fr)', lg: 'max-content minmax(0, 1fr)' }}>
       { data.inbound_params?.sender && (
         <>
           <DetailedInfo.ItemLabel
@@ -129,7 +129,7 @@ const ZetaChainCCTXDetails = ({ data, isLoading }: Props) => {
           <DetailedInfo.ItemValue>
             <RawDataSnippet
               data={ data.relayed_message }
-              textareaMaxHeight="100px"
+              textareaMaxHeight="calc(var(--chakra-spacing-1) * 25)"
               w="100%"
               isLoading={ isLoading }
               showCopy={ false }
@@ -144,7 +144,7 @@ const ZetaChainCCTXDetails = ({ data, isLoading }: Props) => {
         CCTX hash
       </DetailedInfo.ItemLabel>
       <DetailedInfo.ItemValue>
-        <Skeleton loading={ isLoading } display="flex" flexWrap="nowrap" alignItems="center" overflow="hidden">
+        <Skeleton loading={ isLoading } display="flex" flexWrap="nowrap" alignItems="center" minW={ 0 } maxW="full">
           <TxEntityZetaChainCC hash={ data.index } isLoading={ isLoading } noIcon noLink/>
         </Skeleton>
       </DetailedInfo.ItemValue>
@@ -155,7 +155,7 @@ const ZetaChainCCTXDetails = ({ data, isLoading }: Props) => {
         Status and state
       </DetailedInfo.ItemLabel>
       <DetailedInfo.ItemValue flexWrap="wrap">
-        <Flex alignItems="center" gap={ 2 }>
+        <Flex alignItems="center" gap={ 2 } flexWrap="wrap" maxW="full">
           <ZetaChainCCTXReducedStatus status={ data.cctx_status_reduced } isLoading={ isLoading } type="full"/>
           { data.cctx_status?.status && <ZetaChainCCTXStatusTag status={ data.cctx_status.status } isLoading={ isLoading }/> }
         </Flex>
@@ -211,8 +211,15 @@ const ZetaChainCCTXDetails = ({ data, isLoading }: Props) => {
         Lifecycle
       </DetailedInfo.ItemLabel>
       <DetailedInfo.ItemValue position="relative" mb={ 7 } pl={ 0 } mt={{ base: 2, lg: 1 }}>
-        <Box position="absolute" top="4px" left="9px" width="2px" height="100%" bg="border.divider"/>
-        <Grid templateColumns="20px 1fr" rowGap={ 6 } columnGap={ 2 } w="100%">
+        <Box
+          position="absolute"
+          top="var(--chakra-spacing-1)"
+          left="calc(var(--chakra-spacing-1) * 2.25)"
+          width="calc(var(--chakra-spacing-1) * 0.5)"
+          height="100%"
+          bg="border.divider"
+        />
+        <Grid templateColumns="var(--chakra-spacing-5) minmax(0, 1fr)" rowGap={ 6 } columnGap={ 2 } w="100%">
           { transactionsBefore.length > 0 && (
             <>
               <IconSvg name="verification-steps/finalized" boxSize={ 5 } bg="bg.primary" zIndex={ 1 } color="text.secondary"/>
@@ -278,12 +285,12 @@ const ZetaChainCCTXDetails = ({ data, isLoading }: Props) => {
           </DetailedInfo.ItemLabel>
           <DetailedInfo.ItemValue gap={ 2 } flexWrap="wrap">
             <Grid
-              templateColumns="130px 1fr"
+              templateColumns="calc(var(--chakra-spacing-1) * 32.5) minmax(0, 1fr)"
               gap={ 3 }
               overflow="hidden"
               p={ 4 }
               w="100%"
-              bg={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+              bg="surface"
               borderRadius="md"
               fontSize="sm"
             >

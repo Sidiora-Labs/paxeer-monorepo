@@ -1,9 +1,9 @@
 # Quickstart
 
 Connect to Paxeer mainnet-beta, fund a wallet, submit a transaction and check
-its committed outcome. Paxeer is one BFT network run by `paxd`, with EVM chain
-ID `125` (`0x7d`). The kernel is part of the network and proposes blocks; a
-receipt is final when its block is committed. See
+its committed outcome. Paxeer runs `paxd` with EVM chain ID `125` (`0x7d`). The
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it. A receipt is final when its block is committed. See
 [Unified network](UnifiedNetwork.md) for the execution and evidence model.
 
 The public walkthrough below uses node JSON-RPC and an EVM signing wallet.

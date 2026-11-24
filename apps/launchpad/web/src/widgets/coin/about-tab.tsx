@@ -1,13 +1,13 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
 import PremiumErrorBoundary from '@/ui/common/error-boundary';
 import { AgeChip, KeyValueRow, ShortAddress, Skeleton } from '@/ui/primitives';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { safeExternalDestination } from '@/core/app-foundation/navigation';
 import TokenDescription from '@/widgets/trading/token-description';
-
-const PoolChat = dynamic(() => import('@/widgets/trading/pool-chat'), { ssr: false });
+import PoolChat from '@/widgets/trading/pool-chat';
+import TabUnavailable from './tab-unavailable';
 
 function explorerAddress(address: string): string | null {
   return safeExternalDestination(`https://paxscan.paxeer.app/address/${address}`);
@@ -30,8 +30,8 @@ export default function AboutTab({ poolAddress }: { poolAddress: string }) {
     <section aria-label="Coin chat" className="flex flex-col gap-2">
       <h3 className="text-sm font-bold text-text">Chat</h3>
       <PremiumErrorBoundary area="PoolChat">
-        <Suspense fallback={<Skeleton variant="block" height={200} label="chat" />}>
-          {data ? <PoolChat poolAddress={data.pool.poolAddress} /> : <p role="status" className="text-sm text-text-faint">Chat opens once this coin finishes loading.</p>}
+        <Suspense fallback={<Skeleton variant="block" height={surfaceSpacing(50)} label="chat" />}>
+          {data ? <PoolChat poolAddress={data.pool.poolAddress} /> : snapshot.isError ? <TabUnavailable title="Chat" error={snapshot.error} onRetry={() => { void snapshot.refetch(); }} /> : <p role="status" className="text-sm text-text-faint">Chat opens once this coin finishes loading.</p>}
         </Suspense>
       </PremiumErrorBoundary>
     </section>

@@ -19,7 +19,7 @@ import (
 
 func TestLiveTransferRangeSplitsAndReceiptRecovery(t *testing.T) {
 	ctx := context.Background()
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	reference, err := ethclient.DialContext(ctx, origin)
 	if err != nil {
 		t.Fatal(err)
@@ -154,7 +154,7 @@ func TestCheckpointRejectsInvalidArchiveFrontiers(t *testing.T) {
 
 func inventoryDisagreeingNode(t *testing.T) *ethclient.Client {
 	t.Helper()
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, err := io.ReadAll(r.Body)
 		if err != nil {

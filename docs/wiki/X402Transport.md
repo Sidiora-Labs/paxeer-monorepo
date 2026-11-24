@@ -9,10 +9,10 @@ requires a caller-supplied conformance suite and checks the vendored
 against `X402_SPEC_SHA256`.
 
 The adapter translates payment semantics; it does not write balances. Payment
-execution belongs to the merged Paxeer network: one BFT chain with EVM chain id
-`125` (`0x7d`), whose kernel participates in block proposal. A receipt is final
-once its block is committed. Signed receipt evidence and proof of commitment
-are distinct verification steps within that network.
+execution belongs to the merged Paxeer network with EVM chain id `125` (`0x7d`).
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final once its block is
+committed. Signed receipt evidence and proof of commitment are distinct verification steps within that network.
 
 This page covers the Rust adapter, its hosted interop routes, and the related
 seller middleware. [Interop](Interop.md) indexes the service;

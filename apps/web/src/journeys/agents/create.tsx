@@ -35,12 +35,14 @@ import { useAgentsShell } from "./shell.ts";
 function DraftField({
   labelKey,
   helpKey,
+  name,
   value,
   numeric,
   onChange,
 }: Readonly<{
   labelKey: string;
   helpKey: string;
+  name: string;
   value: string;
   numeric?: boolean;
   onChange: (value: string) => void;
@@ -49,6 +51,7 @@ function DraftField({
     <div className="flex flex-col gap-2">
       <KitTextField
         label={copyEntry(labelKey).message}
+        name={name}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
@@ -291,6 +294,7 @@ function BoundAgentCreateJourney() {
         <DraftField
           labelKey={steps[0].labelKey}
           helpKey={steps[0].helpKey}
+          name="agent_name"
           value={draft.name}
           onChange={(value) => {
             setDraft((current) => ({ ...current, name: value }));
@@ -308,6 +312,7 @@ function BoundAgentCreateJourney() {
         <DraftField
           labelKey={steps[1].labelKey}
           helpKey={steps[1].helpKey}
+          name="agent_purpose"
           value={draft.purpose}
           onChange={(value) => {
             setDraft((current) => ({ ...current, purpose: value }));
@@ -326,6 +331,7 @@ function BoundAgentCreateJourney() {
           <DraftField
             labelKey={steps[2].labelKey}
             helpKey={steps[2].helpKey}
+            name="agent_monthly_limit"
             value={draft.limitInput}
             numeric
             onChange={(value) => {

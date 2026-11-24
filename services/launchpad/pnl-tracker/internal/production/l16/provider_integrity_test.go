@@ -67,7 +67,7 @@ func inventoryProviderVariant(t *testing.T, origin string, match func(inventoryR
 func TestRecordedInventoryRejectsProviderInconsistency(t *testing.T) {
 	ctx := context.Background()
 	service, pool := recordedRebuildService(t, ctx)
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	rpcError := func(out map[string]any) {
 		delete(out, "result")
 		out["error"] = map[string]any{"code": -32000, "message": "provider unavailable"}
@@ -181,7 +181,7 @@ func TestBaselineAheadDistinguishesRefusalAndArchiveRecovery(t *testing.T) {
 			service, pool := recordedRebuildService(t, ctx)
 			primary, archive := *service.authority, *service.authority
 			archive.rpc = service.second
-			origin := repair63RecordedRPC(t)
+			origin := coordinatorReplayRecordedRPC(t)
 			match := func(r inventoryRPCRequest) bool { return r.Method == "eth_chainId" }
 			unavailable := func(out map[string]any) {
 				delete(out, "result")

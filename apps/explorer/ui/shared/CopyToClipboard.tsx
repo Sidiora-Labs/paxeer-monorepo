@@ -41,12 +41,18 @@ const CopyToClipboard = (props: Props) => {
   const button = (
     <IconButton
       aria-label="copy"
+      data-touch-inline
+      css={{ '--touch-line-size': typeof boxSize === 'number' ? `var(--chakra-sizes-${ boxSize })` : boxSize }}
       boxSize={ boxSize }
       onClick={ handleClick }
       ml={ 1 }
       flexShrink={ 0 }
       borderRadius="sm"
       loadingSkeleton={ isLoading }
+      _focusVisible={{
+        outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))',
+        boxShadow: 'inset 0 0 0 var(--chakra-border-widths-2) var(--chakra-colors-focus-ring)',
+      }}
       variant="icon_secondary"
       size="2xs"
       { ...rest }
@@ -74,6 +80,7 @@ const CopyToClipboard = (props: Props) => {
   return (
     <Tooltip
       content={ tooltipContent }
+      disabled={ isLoading }
       contentProps={{ zIndex: 'tooltip2' }}
       open={ disclosure.open }
       onOpenChange={ disclosure.onOpenChange }

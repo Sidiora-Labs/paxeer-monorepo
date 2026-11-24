@@ -83,7 +83,7 @@ func TestDevelopmentNetworkReadsMountOnlyFrozenOperations(t *testing.T) {
 		}
 		return nil
 	})
-	if err != nil || count != 6+len(developmentUnservedOperations) {
+	if err != nil || count != 19 || count != 6+len(developmentUnservedOperations) {
 		t.Fatalf("walk: %v, %d operations", err, count)
 	}
 }

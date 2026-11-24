@@ -339,7 +339,7 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
   const account = signer.address.toLowerCase();
   const usdl = `0x${"88".repeat(20)}`;
   const fixture = await quoteFixture();
-  const { committedReceipt, committedRecording } = await import("./repair-22-33-338-receipts.ts");
+  const { committedReceipt, committedRecording } = await import("./native-receipt-fixture.ts");
   const approveHash = committedReceipt.txHash;
   const writeHash = `0x${"bb".repeat(32)}`;
   const order = { pool: `0x${"99".repeat(20)}`, amountIn: 5_000_000n, minOut: 1n, deadline: 2_000_000_000n };

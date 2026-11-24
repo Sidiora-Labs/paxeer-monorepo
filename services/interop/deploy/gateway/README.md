@@ -1,8 +1,9 @@
 # Interop gateway deployment
 
 The `layerx-interop-gateway` binary is the hosted protocol adapter service for
-one Paxeer network. `paxd` includes the kernel that proposes blocks; EVM chain
-id 125 (`0x7d`) identifies mainnet-beta. Public node JSON-RPC uses the root
+Paxeer mainnet-beta. It uses EVM chain id 125 (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Public node JSON-RPC uses the root
 path. The hosted gateway in `services/platform/hosted/gateway` supplies the
 `px_*` methods, registration and funding; its contract is `openrpc.json`.
 Sub-chains are tenant domains in the database, not additional node deployments.
@@ -107,9 +108,9 @@ repeating an id makes that selection ambiguous. The renderer refuses repeated
 ids before writing the manifest. Different ids may share a public key, and
 every distinct public key still appears in the advertised signer set.
 
-The service and renderer reject overlapping ranges, including ranges assigned
-to different keys. At startup the service fetches `px_getReceiptKeys` using
-the configured endpoint and requires every local pin's id, public key and
+Distinct key ids may have overlapping inclusive height ranges, including primary
+and standby sequencer keys. The service and renderer preserve the file order.
+At startup the service fetches `px_getReceiptKeys` using the configured endpoint and requires every local pin's id, public key and
 height bounds to match a published entry. This check does not require every
 published key to be pinned. Deploy the complete signer set needed for current
 and retained receipts, and render `x402_supported` from that same file. The

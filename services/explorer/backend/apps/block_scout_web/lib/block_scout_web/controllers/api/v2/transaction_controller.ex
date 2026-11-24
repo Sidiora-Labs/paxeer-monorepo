@@ -147,6 +147,14 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
     description: "Retrieves detailed information for a specific transaction identified by its hash.",
     parameters: [transaction_hash_param() | base_params()],
     responses: [
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"Detailed information about the specified transaction, or the native price-feed submission with that hash.",
          "application/json", %Schema{anyOf: [Schemas.Transaction.Response, Schemas.PaxeerX.PriceFeed.Update]}},
@@ -678,6 +686,13 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
       "Retrieves the raw execution trace for a transaction, showing the step-by-step execution path and all contract interactions.",
     parameters: [transaction_hash_param() | base_params()],
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
+      internal_server_error:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :string,
+           enum: ["Error while raw trace fetching"]
+         }},
       ok: {"Raw execution trace for the specified transaction.", "application/json", Schemas.Transaction.RawTrace},
       not_found: NotFoundResponse.response(),
       unprocessable_entity: JsonErrorResponse.response()
@@ -726,6 +741,7 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
           "index_in_batch"
         ]),
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Token transfers within the specified transaction, with pagination.", "application/json",
          paginated_response(
@@ -784,6 +800,7 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
       [transaction_hash_param() | base_params()] ++
         define_paging_params(["index", "block_number", "transaction_index", "items_count"]),
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Internal transactions for the specified transaction, with pagination.", "application/json",
          paginated_response(
@@ -835,6 +852,7 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
       [transaction_hash_param() | base_params()] ++
         define_paging_params(["index", "block_number", "items_count"]),
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Event logs for the specified transaction, with pagination.", "application/json",
          paginated_response(
@@ -889,6 +907,7 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
     parameters:
       [transaction_hash_param() | base_params()] ++ define_state_changes_paging_params(["state_changes", "items_count"]),
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok: {
         "State changes caused by the specified transaction, with pagination.",
         "application/json",
@@ -936,6 +955,14 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
     description: "Retrieves transactions in the authenticated user's watchlist.",
     parameters: base_params() ++ define_paging_params(["block_number", "index", "items_count"]),
     responses: [
+      unauthorized:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"Watchlist transactions.", "application/json",
          paginated_response(
@@ -985,6 +1012,14 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
     description: "Retrieves a human-readable summary of what a transaction did, presented in natural language.",
     parameters: base_params() ++ [transaction_hash_param(), just_request_body_param()],
     responses: [
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"Human-readable summary of the specified transaction.", "application/json",
          %Schema{
@@ -1055,6 +1090,7 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
     description: "Retrieves blobs for a specific transaction (Ethereum only).",
     parameters: [transaction_hash_param() | base_params()],
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Blobs for transaction.", "application/json",
          %Schema{
@@ -1148,6 +1184,7 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
     description: "Retrieves beacon deposits included in a specific transaction with pagination support.",
     parameters: [transaction_hash_param() | base_params()] ++ define_paging_params(["index", "items_count"]),
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Beacon deposits for transaction.", "application/json",
          paginated_response(

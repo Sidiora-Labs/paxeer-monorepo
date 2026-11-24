@@ -3,7 +3,7 @@ package upload
 import (
 	"bytes"
 	"context"
-	redis "github.com/redis/go-redis/v9"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +14,7 @@ import (
 
 func TestDurableAdmission(t *testing.T) {
 	ctx := context.Background()
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	defer db.Close()
 	ns := "kd-fec98588ef6fe4334797a5de-a" + time.Now().Format("150405000000000")
 	a, e := NewAdmission(db, ns, 3)
@@ -59,7 +59,7 @@ type countingBody struct{ reads int }
 func (b *countingBody) Read(p []byte) (int, error) { b.reads++; return 0, io.EOF }
 func (b *countingBody) Close() error               { return nil }
 func TestConfiguredAdmissionRejectsUnauthenticatedBeforeBody(t *testing.T) {
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	defer db.Close()
 	a, e := NewAdmission(db, "kd-fec98588ef6fe4334797a5de", 2)
 	if e != nil {

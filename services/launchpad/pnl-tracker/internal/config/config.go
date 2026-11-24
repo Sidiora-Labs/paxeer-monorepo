@@ -37,14 +37,15 @@ const maxReconcileIntervalMS = int64(1<<63-1) / int64(time.Millisecond)
 
 // Config is the parsed pnl environment.
 type Config struct {
-	JourneyConfigFile     string `env:"PNL_JOURNEY_CONFIG_FILE"`
-	JourneyConfigDocument string `env:"PNL_JOURNEY_CONFIG_DOCUMENT"`
-	JourneyConfigSHA256   string `env:"PNL_JOURNEY_CONFIG_SHA256"`
-	IdentityURL           string `env:"IDENTITY_SERVICE_URL"`
-	IdentitySigningKey    string `env:"IDENTITY_SIGNING_KEY"`
-	IdentityServiceToken  string `env:"IDENTITY_SERVICE_TOKEN"`
-	PortfolioCursorKey    string `env:"PNL_CURSOR_KEY"`
-	PortfolioCDNToken     string `env:"PNL_CDN_TOKEN"`
+	JourneyConfigFile        string `env:"PNL_JOURNEY_CONFIG_FILE"`
+	JourneyConfigDocument    string `env:"PNL_JOURNEY_CONFIG_DOCUMENT"`
+	JourneyConfigSHA256      string `env:"PNL_JOURNEY_CONFIG_SHA256"`
+	IdentityURL              string `env:"IDENTITY_SERVICE_URL"`
+	IdentitySigningKey       string `env:"IDENTITY_SIGNING_KEY"`
+	IdentityMTLSClientKeyPEM string `env:"IDENTITY_MTLS_CLIENT_KEY_PEM"`
+	IdentityServiceToken     string `env:"IDENTITY_SERVICE_TOKEN"`
+	PortfolioCursorKey       string `env:"PNL_CURSOR_KEY"`
+	PortfolioCDNToken        string `env:"PNL_CDN_TOKEN"`
 
 	RuntimeZone               string `env:"ZONE"`
 	RuntimeMetricsEnvironment string `env:"METRICS_ENVIRONMENT" envDefault:"production"`
@@ -192,6 +193,9 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	if c.JourneyConfigFile != "" || c.JourneyConfigDocument != "" {
 		bindings["IDENTITY_SIGNING_KEY"] = &c.IdentitySigningKey
 		bindings["PNL_CURSOR_KEY"] = &c.PortfolioCursorKey
+		if c.IdentityMTLSClientKeyPEM != "" {
+			bindings["IDENTITY_MTLS_CLIENT_KEY_PEM"] = &c.IdentityMTLSClientKeyPEM
+		}
 		// PNL_CDN_TOKEN is bound only with a Cloudflare zone in front of the
 		// public origin; an origin served directly has no CDN credential.
 		if c.PortfolioCDNToken != "" {
@@ -227,21 +231,39 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	var mu sync.Mutex
 	var failure error
 	check := func(checkCtx context.Context) error {
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		mu.Lock()
 		defer mu.Unlock()
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		if failure != nil {
 			return failure
 		}
 		for key, old := range consumed {
+			if err := checkCtx.Err(); err != nil {
+				return err
+			}
 			value, err := provider.GetRequired(checkCtx, key)
 			if err != nil {
+				if contextErr := checkCtx.Err(); contextErr != nil {
+					return contextErr
+				}
 				failure = fmt.Errorf("required_secret_unavailable: %s", key)
 				return failure
+			}
+			if contextErr := checkCtx.Err(); contextErr != nil {
+				return contextErr
 			}
 			if value != old {
 				failure = fmt.Errorf("required_secret_rotated_restart_required: %s", key)
 				return failure
 			}
+		}
+		if err := checkCtx.Err(); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -319,7 +341,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 		return nil, err
 	}
 	if err = c.CheckRuntimeSchema(ctx, pool); err != nil {
-		pool.Close()
+		runtimedb.ClosePool(pool)
 		return nil, err
 	}
 	return pool, nil
@@ -328,21 +350,32 @@ func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) err
 	if c.NodeEnv != runtimeProduction {
 		return pool.Ping(ctx)
 	}
+	want, err := c.runtimeExpectedSchema()
+	if err != nil {
+		return err
+	}
+	return dbproduction.CheckReadiness(ctx, pool, want)
+}
+
+func (c *Config) runtimeExpectedSchema() (dbproduction.ExpectedSchema, error) {
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
-		return fmt.Errorf("runtime_schema_configuration_missing")
+		return dbproduction.ExpectedSchema{}, fmt.Errorf("runtime_schema_configuration_missing")
 	}
 	data, err := boundBytes(c.ExpectedSchemaFile, c.ExpectedSchemaDocument, c.ExpectedSchemaSHA256)
 	if err != nil {
-		return err
+		return dbproduction.ExpectedSchema{}, err
 	}
 	want, err := dbproduction.LoadExpectedSchema(data, c.ExpectedSchemaSHA256)
 	if err != nil {
-		return err
+		return dbproduction.ExpectedSchema{}, err
+	}
+	if want.Service == "pnl" {
+		want.Service = "core/pnl-tracker"
 	}
 	if want.Service != "core/pnl-tracker" {
-		return fmt.Errorf("runtime_schema_service_mismatch")
+		return dbproduction.ExpectedSchema{}, fmt.Errorf("runtime_schema_service_mismatch")
 	}
-	return dbproduction.CheckReadiness(ctx, pool, want)
+	return want, nil
 }
 
 // inlineDocuments holds the inline *_DOCUMENT values of the last Load, keyed
@@ -371,7 +404,10 @@ func (c *Config) registerInlineDocuments() error {
 		if p.file != "" && p.inline != "" {
 			return fmt.Errorf("%s_FILE and %s_DOCUMENT are both set", p.name, p.name)
 		}
-		if p.inline != "" {
+		if p.file == "" && (p.inline != "" || p.digest != "") {
+			if _, err := boundBytes("", p.inline, p.digest); err != nil {
+				return fmt.Errorf("%s_DOCUMENT: %w", p.name, err)
+			}
 			documents[p.digest] = p.inline
 		}
 	}

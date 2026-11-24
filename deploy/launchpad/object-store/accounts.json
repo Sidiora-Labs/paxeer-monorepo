@@ -1,0 +1,618 @@
+{
+  "schemaVersion": 1,
+  "accounts": {
+    "gateway": {
+      "accessKey": "S3_ACCESS_KEY_ID",
+      "secretKey": "S3_SECRET_ACCESS_KEY",
+      "sourceDirectories": [
+        "services/launchpad/gateway/internal/serve",
+        "services/launchpad/gateway/internal/storage"
+      ],
+      "buckets": [
+        {
+          "name": "METADATA_BUCKET",
+          "actions": [
+            "s3:DeleteObject",
+            "s3:GetObject",
+            "s3:ListBucket"
+          ],
+          "prefixes": [
+            "approved/",
+            "private/",
+            "quarantine/",
+            "temporary/"
+          ]
+        },
+        {
+          "name": "USER_BUCKET",
+          "actions": [
+            "s3:GetObject"
+          ],
+          "prefixes": [
+            "avatars/",
+            "banners/"
+          ]
+        },
+        {
+          "name": "OG_BUCKET",
+          "actions": [
+            "s3:GetObject"
+          ],
+          "prefixes": [
+            ""
+          ]
+        }
+      ]
+    },
+    "user": {
+      "accessKey": "S3_ACCESS_KEY_ID",
+      "secretKey": "S3_SECRET_ACCESS_KEY",
+      "sourceDirectories": [
+        "services/launchpad/user/internal/user",
+        "services/launchpad/user/internal/account"
+      ],
+      "buckets": [
+        {
+          "name": "S3_BUCKET",
+          "actions": [
+            "s3:DeleteObject",
+            "s3:GetObject",
+            "s3:PutObject"
+          ],
+          "prefixes": [
+            "avatars/",
+            "banners/"
+          ]
+        },
+        {
+          "name": "ACCOUNT_EXPORT_BUCKET",
+          "actions": [
+            "s3:DeleteObject",
+            "s3:GetObject",
+            "s3:PutObject"
+          ],
+          "prefixes": [
+            "account-exports/"
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "accessKey": "S3_ACCESS_KEY_ID",
+      "secretKey": "S3_SECRET_ACCESS_KEY",
+      "sourceDirectories": [
+        "services/launchpad/metadata/internal/metadata",
+        "services/launchpad/metadata/internal/app"
+      ],
+      "buckets": [
+        {
+          "name": "S3_BUCKET",
+          "actions": [],
+          "prefixes": []
+        },
+        {
+          "name": "S3_APPROVED_BUCKET",
+          "actions": [
+            "s3:DeleteObject",
+            "s3:GetObject",
+            "s3:ListBucket",
+            "s3:PutObject"
+          ],
+          "prefixes": [
+            "approved/"
+          ]
+        },
+        {
+          "name": "S3_QUARANTINE_BUCKET",
+          "actions": [
+            "s3:DeleteObject",
+            "s3:GetBucketAcl",
+            "s3:GetBucketPolicyStatus",
+            "s3:GetObject",
+            "s3:PutObject"
+          ],
+          "prefixes": [
+            "quarantine/"
+          ]
+        }
+      ]
+    }
+  },
+  "calls": [
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/serve/serve.go",
+      "occurrence": 1,
+      "call": "hr.Head",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/serve/serve.go",
+      "occurrence": 1,
+      "call": "hr.Head",
+      "bucket": "USER_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "avatars/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/serve/serve.go",
+      "occurrence": 1,
+      "call": "hr.Head",
+      "bucket": "USER_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "banners/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/serve/serve.go",
+      "occurrence": 1,
+      "call": "hr.Head",
+      "bucket": "OG_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": ""
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/serve/serve.go",
+      "occurrence": 1,
+      "call": "reader.Get",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/serve/serve.go",
+      "occurrence": 1,
+      "call": "reader.Get",
+      "bucket": "USER_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "avatars/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/serve/serve.go",
+      "occurrence": 1,
+      "call": "reader.Get",
+      "bucket": "USER_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "banners/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/serve/serve.go",
+      "occurrence": 1,
+      "call": "reader.Get",
+      "bucket": "OG_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": ""
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/inventory.go",
+      "occurrence": 1,
+      "call": "client.ListObjectsV2",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:ListBucket",
+      "prefix": "approved/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/inventory.go",
+      "occurrence": 1,
+      "call": "client.ListObjectsV2",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:ListBucket",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/inventory.go",
+      "occurrence": 1,
+      "call": "client.ListObjectsV2",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:ListBucket",
+      "prefix": "temporary/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/inventory.go",
+      "occurrence": 1,
+      "call": "client.GetObject",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/inventory.go",
+      "occurrence": 1,
+      "call": "client.GetObject",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/inventory.go",
+      "occurrence": 1,
+      "call": "client.GetObject",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "temporary/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/retention.go",
+      "occurrence": 1,
+      "call": "store.Delete",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/retention.go",
+      "occurrence": 1,
+      "call": "store.Delete",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/retention.go",
+      "occurrence": 1,
+      "call": "store.Delete",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "temporary/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/retention.go",
+      "occurrence": 1,
+      "call": "store.Delete",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "private/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/retention.go",
+      "occurrence": 1,
+      "call": "w.Stores[originalKind].Delete",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "private/"
+    },
+    {
+      "service": "gateway",
+      "source": "services/launchpad/gateway/internal/storage/retention.go",
+      "occurrence": 1,
+      "call": "client.PresignGetObject",
+      "bucket": "METADATA_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "private/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/user/handlers.go",
+      "occurrence": 1,
+      "call": "h.store.Put",
+      "bucket": "S3_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "avatars/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/user/handlers.go",
+      "occurrence": 1,
+      "call": "h.store.Put",
+      "bucket": "S3_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "banners/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/user/handlers.go",
+      "occurrence": 1,
+      "call": "h.store.Get",
+      "bucket": "S3_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "avatars/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/user/handlers.go",
+      "occurrence": 1,
+      "call": "h.store.Get",
+      "bucket": "S3_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "banners/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/account/jobs_http.go",
+      "occurrence": 1,
+      "call": "h.Runtime.Objects.GetBytes",
+      "bucket": "ACCOUNT_EXPORT_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "account-exports/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/account/jobs_worker.go",
+      "occurrence": 1,
+      "call": "w.Runtime.Objects.Delete",
+      "bucket": "ACCOUNT_EXPORT_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "account-exports/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/account/jobs_worker.go",
+      "occurrence": 1,
+      "call": "w.Runtime.Objects.Put",
+      "bucket": "ACCOUNT_EXPORT_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "account-exports/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/account/jobs_worker.go",
+      "occurrence": 2,
+      "call": "w.Runtime.Objects.Delete",
+      "bucket": "ACCOUNT_EXPORT_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "account-exports/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/account/jobs_worker.go",
+      "occurrence": 1,
+      "call": "p.Exports.Delete",
+      "bucket": "ACCOUNT_EXPORT_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "account-exports/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/account/jobs_worker.go",
+      "occurrence": 1,
+      "call": "p.Objects.Delete",
+      "bucket": "S3_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "avatars/"
+    },
+    {
+      "service": "user",
+      "source": "services/launchpad/user/internal/account/jobs_worker.go",
+      "occurrence": 1,
+      "call": "p.Objects.Delete",
+      "bucket": "S3_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "banners/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/assets.go",
+      "occurrence": 1,
+      "call": "pub.PutImmutable",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.Client.GetBucketAcl",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:GetBucketAcl",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.Client.GetBucketPolicyStatus",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:GetBucketPolicyStatus",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.Client.HeadBucket",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:ListBucket",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.Client.PutObject",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.Client.PutObject",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.read",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.read",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.Client.GetObject",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.Client.GetObject",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "c.Objects.put",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "c.Objects.read",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "c.Objects.Client.DeleteObject",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 2,
+      "call": "c.Objects.put",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "c.Objects.Client.GetObject",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "c.Objects.PutImmutable",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 2,
+      "call": "c.Objects.Client.DeleteObject",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 3,
+      "call": "c.Objects.Client.DeleteObject",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 4,
+      "call": "c.Objects.Client.DeleteObject",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:DeleteObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/edge.go",
+      "occurrence": 1,
+      "call": "o.Client.GetObject",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/app/app.go",
+      "occurrence": 1,
+      "call": "media.Objects.Client.GetObject",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 2,
+      "call": "o.read",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "approved/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 2,
+      "call": "o.read",
+      "bucket": "S3_QUARANTINE_BUCKET",
+      "action": "s3:GetObject",
+      "prefix": "quarantine/"
+    },
+    {
+      "service": "metadata",
+      "source": "services/launchpad/metadata/internal/metadata/connected.go",
+      "occurrence": 1,
+      "call": "o.put",
+      "bucket": "S3_APPROVED_BUCKET",
+      "action": "s3:PutObject",
+      "prefix": "approved/"
+    }
+  ]
+}

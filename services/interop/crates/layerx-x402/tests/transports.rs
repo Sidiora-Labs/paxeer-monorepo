@@ -1002,7 +1002,7 @@ fn hex(bytes: &[u8; 32]) -> String {
     output
 }
 
-#[path = "support/repair_22_33_105.rs"]
+#[path = "support/native_settlement_support.rs"]
 mod repair_path;
 
 #[test]

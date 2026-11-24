@@ -12,7 +12,8 @@ import { Select } from 'toolkit/chakra/select';
 import AddButton from 'toolkit/components/buttons/AddButton';
 import { ClearButton } from 'toolkit/components/buttons/ClearButton';
 import { ADDRESS_REGEXP } from 'toolkit/utils/regexp';
-import TableColumnFilter from 'ui/shared/filters/TableColumnFilter';
+
+import TableColumnFilter from '../ActivityFilter';
 
 const FILTER_PARAM_TO_INCLUDE = 'to_address_hashes_to_include';
 const FILTER_PARAM_FROM_INCLUDE = 'from_address_hashes_to_include';
@@ -60,19 +61,26 @@ function addressFilterToKey(filter: AddressFilter) {
 }
 
 const AddressFilterInput = ({ address, mode, onModeChange, onChange, onBlur, onClear, isLast, onAddFieldClick, isInvalid }: InputProps) => {
+  const id = React.useId();
   return (
-    <Flex alignItems="flex-start" w="100%">
+    <Flex alignItems="flex-start" w="100%" flexWrap="wrap" gap={ 2 }>
       <Select
+        name={ `${ id }-mode` }
+        triggerProps={{ 'aria-label': 'Address filter mode' }}
         collection={ collection }
         placeholder="Select mode"
         defaultValue={ [ mode || 'include' ] }
         onValueChange={ onModeChange }
         portalled={ false }
-        w="105px"
+        w="var(--chakra-spacing-28)"
         flexShrink={ 0 }
         mr={ 3 }
       />
       <Field
+        label="Smart contract / Address (0x...)"
+        size="sm"
+        minW={ 0 }
+        flexBasis="var(--chakra-spacing-40)"
         flexGrow={ 1 }
         invalid={ isInvalid }
         errorText="Invalid address format"
@@ -80,7 +88,17 @@ const AddressFilterInput = ({ address, mode, onModeChange, onChange, onBlur, onC
         <InputGroup
           endElement={ <ClearButton onClick={ onClear } mx={ 2 } disabled={ !address }/> }
         >
-          <Input value={ address } onChange={ onChange } onBlur={ onBlur } placeholder="Smart contract / Address (0x...)*" size="sm" autoComplete="off"/>
+          <Input
+            name={ `${ id }-address` }
+            value={ address }
+            onChange={ onChange }
+            onBlur={ onBlur }
+            placeholder="Smart contract / Address (0x...)*"
+            size="sm"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={ false }
+          />
         </InputGroup>
       </Field>
       { isLast && (

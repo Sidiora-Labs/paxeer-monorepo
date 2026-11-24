@@ -20,7 +20,11 @@ interface Props {
 
 const ValidatorDetails = ({ data, isLoading }: Props) => {
   return (
-    <DetailedInfo.Container>
+    <DetailedInfo.Container css={{
+      '& a': { display: 'inline-flex', alignItems: 'center' },
+      '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
+      '& [data-detailed-info-label], & [data-detailed-info-label] > div > div': { minWidth: 0, overflowWrap: 'anywhere' },
+    }}>
       <DetailedInfo.ItemLabel
         hint="Index of the staker in the committee"
         isLoading={ isLoading }
@@ -55,7 +59,7 @@ const ValidatorDetails = ({ data, isLoading }: Props) => {
       </DetailedInfo.ItemLabel>
       <DetailedInfo.ItemValue>
         <Flex alignItems="center" w="100%" minWidth={ 0 }>
-          <Skeleton loading={ isLoading } maxW="calc(100% - 28px)" overflow="hidden">
+          <Skeleton loading={ isLoading } minW={ 0 } flex="1" overflow="hidden">
             <HashStringShortenDynamic hash={ data.peer_id }/>
           </Skeleton>
           <CopyToClipboard text={ data.peer_id } isLoading={ isLoading }/>

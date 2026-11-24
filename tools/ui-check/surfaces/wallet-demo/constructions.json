@@ -1,0 +1,70 @@
+{
+  "typedData": {
+    "domain": {
+      "name": "Paxeer X Exchange",
+      "version": "1",
+      "chainId": 125,
+      "verifyingContract": "0x9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b"
+    },
+    "types": {
+      "EIP712Domain": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "version",
+          "type": "string"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256"
+        },
+        {
+          "name": "verifyingContract",
+          "type": "address"
+        }
+      ],
+      "Order": [
+        {
+          "name": "maker",
+          "type": "address"
+        },
+        {
+          "name": "market",
+          "type": "uint32"
+        },
+        {
+          "name": "size",
+          "type": "uint256"
+        },
+        {
+          "name": "price",
+          "type": "uint256"
+        },
+        {
+          "name": "nonce",
+          "type": "uint64"
+        }
+      ]
+    },
+    "primaryType": "Order",
+    "message": {
+      "maker": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04",
+      "market": 1,
+      "size": "1500000",
+      "price": "2750000000",
+      "nonce": "9"
+    }
+  },
+  "transaction": {
+    "to": "0x3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c",
+    "value": "1000000000000000",
+    "data": "0x",
+    "gas": "21000",
+    "maxFeePerGas": "2000000000",
+    "maxPriorityFeePerGas": "1000000000",
+    "nonce": 11,
+    "chainId": 125
+  }
+}

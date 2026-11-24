@@ -24,12 +24,12 @@ const ZkSyncTxnBatchesTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BatchEntityL2
           isLoading={ isLoading }
           number={ item.number }
           textStyle="sm"
-          fontWeight={ 600 }
+          fontWeight="semibold"
           noIcon
         />
       </TableCell>
@@ -44,11 +44,11 @@ const ZkSyncTxnBatchesTableItem = ({ item, isLoading }: Props) => {
           color="text.secondary"
         />
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <Link
           href={ route({ pathname: '/batches/[number]', query: { number: item.number.toString(), tab: 'txs' } }) }
           loading={ isLoading }
-          minW="40px"
+          minW="var(--chakra-spacing-10)"
           my={ 1 }
         >
           { item.transactions_count }

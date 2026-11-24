@@ -26,10 +26,11 @@ export interface FillsTableProps {
   wallets: FillFilterWallets;
   /** False while snapshot/replay continuity is unconfirmed. */
   contiguous: boolean;
+  loading?: boolean;
 }
 
 /** Dense fills table (header 24, rows 36): Block | Side | Amount | Total USDL | Maker | Tx. */
-export function FillsTable({ rows, token, filter, wallets }: FillsTableProps) {
+export function FillsTable({ rows, token, filter, wallets, loading = false }: FillsTableProps) {
   const [sort, setSort] = useState<FillSort>('desc');
   const [limit, setLimit] = useState(pageSize);
   const matching = useMemo(() => visibleFills(rows, filter, wallets, sort), [rows, filter, wallets, sort]);
@@ -41,7 +42,7 @@ export function FillsTable({ rows, token, filter, wallets }: FillsTableProps) {
   const identities = useWalletIdentities(shown.map(fillMaker));
   const decimals = token.decimalsQuality === 'verified' ? token.decimals : null;
 
-  if (matching.length === 0) {
+  if (!loading && matching.length === 0) {
     return filter === 'all'
       ? <EmptyState icon={ArrowLeftRight} title="No trades yet" body="Trades appear here as soon as someone buys or sells this coin." className="py-6" />
       : <EmptyState icon={Filter} announce title="No trades match this filter" body="Switch back to All to see every trade on this pair." className="py-6" />;
@@ -49,11 +50,11 @@ export function FillsTable({ rows, token, filter, wallets }: FillsTableProps) {
   return (
     <div className="flex flex-col">
       <p className="sr-only">{noTimeNote} {noValuationNote}</p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-xs [&_td]:whitespace-nowrap [&_td]:px-3" aria-label="Trades">
-          <thead className="sticky top-0 z-[1] bg-surface-1">
+      <div role="region" aria-label="Trades table" tabIndex={0} className="relative overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
+        <table className="w-full min-w-144 text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_td]:px-3" aria-label="Trades" aria-busy={loading || undefined}>
+          <thead className="sticky top-0 z-[var(--sl-z-raised)] bg-surface-1">
             <tr>
-              <SortHeader className="h-6" label={<Tooltip content={noTimeNote}><span tabIndex={0}>Block</span></Tooltip>} sort={sort} onSort={() => setSort(sort === 'desc' ? 'asc' : 'desc')} />
+              <SortHeader className="h-6" align="right" label={<Tooltip content={noTimeNote}><span tabIndex={0}>Block</span></Tooltip>} sort={sort} onSort={() => setSort(sort === 'desc' ? 'asc' : 'desc')} />
               <SortHeader className="h-6" label="Type" />
               <SortHeader className="h-6" label="Amount" align="right" />
               <SortHeader className="h-6" label="USDL" align="right" />
@@ -62,6 +63,7 @@ export function FillsTable({ rows, token, filter, wallets }: FillsTableProps) {
             </tr>
           </thead>
           <tbody>
+            {loading ? <tr className="h-9 [@media(max-width:834px)]:h-touch-target-min"><td colSpan={6}><Skeleton label="trades" /></td></tr> : null}
             {shown.map(row => {
               const key = fillKey(row);
               const maker = fillMaker(row);
@@ -69,7 +71,7 @@ export function FillsTable({ rows, token, filter, wallets }: FillsTableProps) {
               const href = explorerOrigin && /^0x[0-9a-fA-F]{64}$/.test(row.position.transactionHash) ? `${explorerOrigin}/tx/${row.position.transactionHash}` : null;
               return (
                 <tr key={key} data-fill-key={key} className={cn('h-9 bg-surface-1 transition-colors hover:bg-surface-hover', flash.has(key) && (row.side === 'buy' ? 'sl-flash-up' : 'sl-flash-down'))}>
-                  <td data-numeric className="font-mono tabular-nums text-text-muted">{row.position.height}</td>
+                  <td data-numeric className="text-right font-mono tabular-nums text-text-muted">{row.position.height}</td>
                   <td className={cn('font-bold capitalize', row.side === 'buy' ? 'text-success' : 'text-danger')}>{row.side}</td>
                   <td data-numeric className="text-right tabular-nums text-text">{decimals === null ? <span className="text-text-faint" title="Token decimals are not verified">-</span> : formatTokenAmount(row.tokenAmountRaw, decimals)}</td>
                   <td data-numeric className={cn('text-right tabular-nums', row.side === 'buy' ? 'text-success' : 'text-danger')}>{formatUsdl(row.usdlAmountRaw)}</td>
@@ -109,14 +111,12 @@ export function TradesPanel({ poolAddress, token, live, filter, wallets }: { poo
     <div className="flex flex-col gap-1">
       {trades.isError && live.state.rows.length === 0 ? <ErrorState title="Trades can't load right now" message={userFacingMessage(trades.error)} onRetry={() => { void trades.refetch(); }} retrying={trades.isFetching} /> : null}
       {trades.isError && live.state.rows.length > 0 ? <ErrorState variant="inline" message="Older trades can't load right now. Newer ones are still shown." onRetry={() => { void trades.refetch(); }} /> : null}
-      {live.state.stream !== 'live' && live.state.rows.length > 0 ? <NoticeBar tone="info">Catching up...</NoticeBar> : null}
+      {live.state.stream !== 'live' && (live.state.rows.length > 0 || trades.isPending) ? <NoticeBar tone="info">Catching up...</NoticeBar> : null}
       {trades.isError && live.state.rows.length === 0
         ? null
-        : trades.isPending && live.state.rows.length === 0
-        ? <Skeleton variant="rows" rows={6} label="trades" />
-        : <FillsTable rows={live.state.rows} token={token} filter={filter} wallets={wallets} contiguous={live.state.stream === 'live'} />}
-      {trades.data
-        ? <LoadMore auto={false} hasMore={trades.data.nextCursor !== null} loading={trades.isFetching} error={trades.isError} label="Load older trades" endLabel="No older trades" onLoadMore={() => { if (trades.data?.nextCursor) setCursor(trades.data.nextCursor); }} />
+        : <FillsTable rows={live.state.rows} token={token} filter={filter} wallets={wallets} contiguous={live.state.stream === 'live'} loading={trades.isPending && live.state.rows.length === 0} />}
+      {trades.data || trades.isPending
+        ? <LoadMore auto={false} hasMore={trades.data ? trades.data.nextCursor !== null : false} loading={trades.isFetching} error={trades.isError} label="Load older trades" endLabel={trades.isPending ? 'Loading trades...' : 'No older trades'} onLoadMore={() => { if (trades.data?.nextCursor) setCursor(trades.data.nextCursor); }} />
         : null}
     </div>
   );

@@ -8,7 +8,7 @@ info:
     This is the internal consensus diagnostic interface, separate from the
     public Paxeer node JSON-RPC on EVM chain 125 (0x7d). The public HTTPS and
     WebSocket endpoint is the root of https://api-mainnet-beta.paxeer.network.
-    See the maintained [public root endpoint and namespace contract](../../../docs/site/docs/reference/public-rpc.md#method-contracts).
+    See the maintained [public root endpoint and namespace contract](../../../docs/readme/PUBLIC-RPC.md#method-contracts).
     Public node namespaces are debug, echo, eth, net, pax, test and txpool,
     subject to node configuration; hosted px_ methods belong to the separate
     [gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json).
@@ -66,7 +66,7 @@ info:
 
         ws ws://localhost:26657/websocket
         > { "jsonrpc": "2.0", "method": "subscribe", "params": ["tm.event='NewBlock'"], "id": 1 }
-  version: "7.0.0"
+  version: "7.0.2"
   license:
     name: Apache 2.0
     url: https://github.com/tendermint/tendermint/blob/master/LICENSE

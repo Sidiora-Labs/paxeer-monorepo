@@ -53,17 +53,36 @@ LARGE_ASSET_ALLOWLIST = {
         787_624,
         "Existing airdrop artwork",
     ),
-    "apps/perps/public/Dark.png": (859_279, "Existing theme preview"),
-    "apps/perps/public/Hotline.png": (840_119, "Existing theme preview"),
-    "apps/perps/public/Model_Compressed.glb": (2_074_912, "Existing 3D model"),
-    "apps/perps/public/OLED.png": (859_279, "Existing theme preview"),
-    "apps/perps/public/assets/airdrop_background.png": (
+    "apps/perps/apps/web/public/Dark.png": (859_279, "Existing theme preview"),
+    "apps/perps/apps/web/public/Hotline.png": (840_119, "Existing theme preview"),
+    "apps/perps/apps/web/public/OLED.png": (859_279, "Existing theme preview"),
+    "apps/perps/apps/web/public/Paxify.png": (524_288, "Existing application artwork"),
+    "apps/perps/apps/web/public/assets/airdrop_background.png": (
         787_624,
         "Existing airdrop artwork",
     ),
-    "apps/perps/public/assets/logo.svg": (1_626_439, "Existing perps brand export"),
-    "apps/perps/public/image.png": (1_842_773, "Existing perps artwork"),
-    "apps/perps/public/static/charting_library/charting_library.d.ts": (
+    "apps/perps/apps/web/public/image.png": (1_842_773, "Existing perps artwork"),
+    "apps/perps/apps/web/public/leaderboard/campaign_120.png": (
+        890_077,
+        "Existing leaderboard artwork",
+    ),
+    "apps/perps/apps/web/public/pnl/poster_bg_1.png": (
+        581_524,
+        "Existing performance artwork",
+    ),
+    "apps/perps/apps/web/public/pnl/poster_bg_2.png": (
+        575_235,
+        "Existing performance artwork",
+    ),
+    "apps/perps/apps/web/public/pnl/poster_bg_3.png": (
+        569_754,
+        "Existing performance artwork",
+    ),
+    "apps/perps/apps/web/public/pnl/poster_bg_4.png": (
+        788_851,
+        "Existing performance artwork",
+    ),
+    "apps/perps/apps/web/public/static/charting_library/charting_library.d.ts": (
         1_023_620,
         "Vendored charting declarations",
     ),
@@ -116,6 +135,8 @@ GENERATED_ASSET_SOURCES = {
         "apps/explorer/deploy/scripts/build_sprite.sh",
     ),
 }
+# These catalogue entries identify retired public assets with no source file.
+REMOVED_ASSET_PATHS = {"/wallet/wormhole.svg"}
 
 
 @pytest.fixture(scope="module")
@@ -133,14 +154,13 @@ def tracked_paths() -> set[str]:
 
 def is_visitor_asset(name: str) -> bool:
     parts = Path(name).parts
-    if len(parts) < 4 or parts[0] != "apps":
+    if len(parts) < 3 or parts[0] != "apps":
         return False
-    for offset in (2, 3):
-        if parts[offset : offset + 1] == ("public",):
-            return True
-        if parts[offset : offset + 2] == ("src", "assets"):
-            return True
-    return False
+    tail = parts[2:]
+    return "public" in tail or any(
+        tail[index : index + 2] == ("src", "assets")
+        for index in range(len(tail) - 1)
+    )
 
 
 def test_public_assets_under_weight_cap(tracked_paths: set[str]):
@@ -197,23 +217,24 @@ def test_route_catalogue_assets_exist(tracked_paths: set[str]):
     for route in asset_routes:
         url_path = route["path"]
         assert route["id"] == f"{route['service']}:{route['method']}:{url_path}"
-        if route["ui_route_kind"] == "generated-asset":
+        if url_path in REMOVED_ASSET_PATHS:
+            continue
+        if url_path in GENERATED_ASSET_SOURCES:
+            sources = GENERATED_ASSET_SOURCES[url_path]
+            seen_generated.add(url_path)
+        elif route["ui_route_kind"] == "generated-asset":
             assert route["asset_prefix"] and route["asset_suffixes"], route["id"]
             assert route["asset_max_path_bytes"] > 0, route["id"]
-            if url_path in GENERATED_ASSET_SOURCES:
-                sources = GENERATED_ASSET_SOURCES[url_path]
-                seen_generated.add(url_path)
-            else:
-                assert url_path.endswith("{asset}"), route["id"]
-                prefix, public_root = PUBLIC_ROOTS[route["service"]]
-                asset_prefix = route["asset_prefix"]
-                assert asset_prefix.startswith(prefix), route["id"]
-                directory = public_root + "/" + unquote(asset_prefix[len(prefix):])
-                assert ".." not in Path(directory).parts, route["id"]
-                sources = [
-                    name for name in tracked_paths if name.startswith(directory)
-                ]
-                assert sources, f"No tracked assets for {route['id']}"
+            assert url_path.endswith("{asset}"), route["id"]
+            prefix, public_root = PUBLIC_ROOTS[route["service"]]
+            asset_prefix = route["asset_prefix"]
+            assert asset_prefix.startswith(prefix), route["id"]
+            directory = public_root + "/" + unquote(asset_prefix[len(prefix):])
+            assert ".." not in Path(directory).parts, route["id"]
+            sources = [
+                name for name in tracked_paths if name.startswith(directory)
+            ]
+            assert sources, f"No tracked assets for {route['id']}"
         else:
             prefix, public_root = PUBLIC_ROOTS[route["service"]]
             assert url_path.startswith(prefix), route["id"]

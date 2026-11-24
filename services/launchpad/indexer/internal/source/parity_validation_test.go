@@ -29,7 +29,7 @@ func copyParityInput(t *testing.T, input ParityInput) ParityInput {
 func TestParityRejectsIncompleteAndMalformedSourceInputs(t *testing.T) {
 	node := newCapacityChain(t)
 	node.head.Store(102)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	result, err := live.FetchCommitted(context.Background(), FetchOptions{FromBlock: 100, ToBlock: 102}, false, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +65,12 @@ func TestParityRejectsIncompleteAndMalformedSourceInputs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := copyParityInput(t, left)
 			tc.edit(&p)
-			if err := validateParityInput(p, 100, 102); err == nil {
+			err := validateParityInput(p, 100, 102)
+			if tc.name == "oversize" {
+				if err != nil {
+					t.Fatalf("log data admission: %v", err)
+				}
+			} else if err == nil {
 				t.Fatal("malformed parity input accepted")
 			}
 		})
@@ -86,7 +91,7 @@ func TestParityRejectsIncompleteAndMalformedSourceInputs(t *testing.T) {
 func TestParityRetainsBoundedDisputesAndHistoricalMergeIdentity(t *testing.T) {
 	node := newCapacityChain(t)
 	node.head.Store(102)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	result, err := live.FetchCommitted(context.Background(), FetchOptions{FromBlock: 100, ToBlock: 102}, false, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -189,7 +194,14 @@ func TestParityRetainsBoundedDisputesAndHistoricalMergeIdentity(t *testing.T) {
 			case "logs count":
 				out.Logs = make([]ethtypes.Log, 131073)
 			case "logs bytes":
-				page.Logs[0].Data = make([]byte, 128<<20)
+				base := page.Logs[0]
+				data := make([]byte, 1<<20)
+				page.Logs = make([]ethtypes.Log, 128)
+				for i := range page.Logs {
+					page.Logs[i] = base
+					page.Logs[i].Data = data
+					page.Logs[i].Index = uint(i)
+				}
 			}
 			if err := mergeFetch(&out, page); err == nil {
 				t.Fatal("conflicting historical page merged")

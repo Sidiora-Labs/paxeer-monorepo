@@ -131,11 +131,11 @@ fn proven_balance_carries_identity_bytes_level_and_all_freshness_coordinates() {
     assert_eq!(value.freshness.value_height, 40);
     assert_eq!(value.freshness.relative_to.tag(), "0x28");
     // rpc checks success; the following reads verify both balance snapshots.
+    let _mining_response = node.rpc("anvil_mine", json!(["0x1"]));
     let _funding_response = node.rpc(
         "anvil_setBalance",
         json!([format!("0x{}", "11".repeat(20)), "0x385"]),
     );
-    let _mining_response = node.rpc("anvil_mine", json!(["0x1"]));
     assert_eq!(
         must(balance(&node.config, [0x11; 20], Some(40)))
             .amount

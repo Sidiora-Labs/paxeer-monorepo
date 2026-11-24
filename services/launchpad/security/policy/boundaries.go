@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"errors"
 	"net/http"
 	"regexp"
 )
@@ -41,6 +42,11 @@ func PrivateBoundary(v WorkloadVerifier, next http.Handler) http.Handler {
 			return
 		}
 		if _, err := v.Verify(r.Context(), r); err != nil {
+			if !errors.Is(err, ErrDenied) {
+				logDependencyFailure(r.Context(), "private identity", err)
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+				return
+			}
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}

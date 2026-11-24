@@ -26,7 +26,7 @@ const TxCrossChainTransfers = ({ data, isLoading, isError }: Props) => {
             isLoading={ isLoading }
             py={ 4 }
             textStyle="sm"
-            rowGap="14px"
+            rowGap="calc(var(--chakra-spacing-1) * 3.5)"
             _first={{
               borderTopWidth: '0',
               paddingTop: '0',

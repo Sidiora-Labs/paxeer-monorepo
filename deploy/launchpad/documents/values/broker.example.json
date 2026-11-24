@@ -1,0 +1,355 @@
+{
+  "streams": [
+    {
+      "name": "CHART_OUTBOX",
+      "subjects": [
+        "candle.updated.v2"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "GATEWAY_AUDIT",
+      "subjects": [
+        "gateway.audit.v1"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "GATEWAY_IDENTITY",
+      "subjects": [
+        "identity.account.v1"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "KINDLE_INDEXER_V1",
+      "subjects": [
+        "accounting.inventory.v1",
+        "accounting.market.v1",
+        "canonical.creation.v1",
+        "indexer.replay.v2"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "MAINNET_BETA_125_LIVE",
+      "subjects": [
+        "market.trades.*",
+        "market.candles.*.*",
+        "market.stats.*",
+        "market.price.*",
+        "private.portfolio.*"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 3,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "SOCIAL_CHAT",
+      "subjects": [
+        "social.chat"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 3,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "SOCIAL_EVENTS",
+      "subjects": [
+        "social.callout",
+        "social.comment",
+        "social.edge",
+        "social.erasure",
+        "social.mention",
+        "social.policy"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "STATS_V2",
+      "subjects": [
+        "search.invalidation.v2",
+        "stats.minute.v2"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "MAINNET_BETA_125_RANKINGS",
+      "subjects": [
+        "market.rankings.*"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 3,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "PNL_JOURNEYS",
+      "subjects": [
+        "airdrop.claimed",
+        "airdrop.epoch",
+        "fee.claimed",
+        "inventory.rebuild.v2",
+        "portfolio.snapshot.v2",
+        "referral.analytics",
+        "referral.bind",
+        "referral.bound",
+        "referral.click",
+        "referral.code",
+        "referral.consent",
+        "reward.claim_prepared",
+        "reward.community_authority",
+        "reward.correction_review",
+        "reward.funding",
+        "reward.liability",
+        "reward.paid",
+        "reward.payout_intent",
+        "reward.payout_state",
+        "reward.review"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "USERS",
+      "subjects": [
+        "paxeer.125.users.account.backfill.completed",
+        "paxeer.125.users.account.deletion.job",
+        "paxeer.125.users.account.deletion.requested",
+        "paxeer.125.users.account.export.requested",
+        "paxeer.125.users.consent.updated",
+        "paxeer.125.users.endpoint.bound",
+        "paxeer.125.users.endpoint.revoked",
+        "paxeer.125.users.preferences.updated",
+        "paxeer.125.users.profile.updated",
+        "paxeer.125.users.watchlist.changed"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    }
+  ],
+  "durables": [
+    {
+      "Stream": "GATEWAY_AUDIT",
+      "Durable": "gateway-audit-consumer",
+      "Subject": "gateway.audit.v1",
+      "Batch": 32,
+      "MaxAckPending": 128,
+      "MaxWaiting": 4,
+      "MaxDeliver": 10,
+      "FetchWait": 500000000,
+      "AckWait": 30000000000
+    },
+    {
+      "Stream": "GATEWAY_IDENTITY",
+      "Durable": "gateway-identity-consumer",
+      "Subject": "identity.account.v1",
+      "Batch": 32,
+      "MaxAckPending": 128,
+      "MaxWaiting": 4,
+      "MaxDeliver": 10,
+      "FetchWait": 500000000,
+      "AckWait": 30000000000
+    },
+    {
+      "Stream": "KINDLE_INDEXER_V1",
+      "Durable": "charts_market",
+      "Subject": "accounting.market.v1",
+      "Batch": 16,
+      "MaxAckPending": 64,
+      "MaxWaiting": 4,
+      "MaxDeliver": 100,
+      "FetchWait": 250000000,
+      "AckWait": 30000000000
+    },
+    {
+      "Stream": "KINDLE_INDEXER_V1",
+      "Durable": "pnl_inventory",
+      "Subject": "accounting.inventory.v1",
+      "Batch": 16,
+      "MaxAckPending": 32,
+      "MaxWaiting": 1,
+      "MaxDeliver": 5,
+      "FetchWait": 250000000,
+      "AckWait": 30000000000
+    },
+    {
+      "AckWait": 30000000000,
+      "Batch": 16,
+      "Durable": "stats_market",
+      "FetchWait": 250000000,
+      "MaxAckPending": 64,
+      "MaxDeliver": 100,
+      "MaxWaiting": 4,
+      "Stream": "KINDLE_INDEXER_V1",
+      "Subject": "accounting.market.v1"
+    },
+    {
+      "AckWait": 30000000000,
+      "Batch": 16,
+      "Durable": "stats_search_creation",
+      "FetchWait": 250000000,
+      "MaxAckPending": 64,
+      "MaxDeliver": 100,
+      "MaxWaiting": 4,
+      "Stream": "KINDLE_INDEXER_V1",
+      "Subject": "canonical.creation.v1"
+    },
+    {
+      "Stream": "MAINNET_BETA_125_LIVE",
+      "Durable": "api_sockets_125_stats",
+      "Subject": "market.stats.0xce20da50f92d21d8bee497910c782e9aa25b6263",
+      "Batch": 8,
+      "MaxAckPending": 32,
+      "MaxWaiting": 1,
+      "MaxDeliver": 10,
+      "FetchWait": 250000000,
+      "AckWait": 30000000000
+    },
+    {
+      "Stream": "SOCIAL_CHAT",
+      "Durable": "social-chat-v2",
+      "Subject": "social.chat",
+      "Batch": 32,
+      "MaxAckPending": 128,
+      "MaxWaiting": 4,
+      "MaxDeliver": 10,
+      "FetchWait": 500000000,
+      "AckWait": 30000000000
+    },
+    {
+      "Stream": "SOCIAL_EVENTS",
+      "Durable": "social-erasure-v2",
+      "Subject": "social.erasure",
+      "Batch": 32,
+      "MaxAckPending": 128,
+      "MaxWaiting": 4,
+      "MaxDeliver": 10,
+      "FetchWait": 500000000,
+      "AckWait": 30000000000
+    },
+    {
+      "Stream": "SOCIAL_EVENTS",
+      "Durable": "social-policy-v2",
+      "Subject": "social.policy",
+      "Batch": 32,
+      "MaxAckPending": 128,
+      "MaxWaiting": 4,
+      "MaxDeliver": 10,
+      "FetchWait": 500000000,
+      "AckWait": 30000000000
+    },
+    {
+      "AckWait": 30000000000,
+      "Batch": 16,
+      "Durable": "stats_search_invalidation",
+      "FetchWait": 250000000,
+      "MaxAckPending": 64,
+      "MaxDeliver": 100,
+      "MaxWaiting": 4,
+      "Stream": "STATS_V2",
+      "Subject": "search.invalidation.v2"
+    },
+    {
+      "AckWait": 30000000000,
+      "Batch": 16,
+      "Durable": "stats_search_social_policy",
+      "FetchWait": 250000000,
+      "MaxAckPending": 64,
+      "MaxDeliver": 100,
+      "MaxWaiting": 4,
+      "Stream": "SOCIAL_EVENTS",
+      "Subject": "social.policy"
+    }
+  ]
+}

@@ -13,8 +13,8 @@ import (
 
 func TestAnchorIdentityRequiresAvailableMatchingRecordedHeader(t *testing.T) {
 	ctx := context.Background()
-	original := repair53InputsFromProducer(t)
-	base, closeBase := repair53Open(t, ctx, original)
+	original := receiptReplayInputsFromProducer(t)
+	base, closeBase := receiptReplayOpen(t, ctx, original)
 	defer closeBase()
 	bundle, err := base.Bundle(ctx, original.NativeSwap)
 	if err != nil {
@@ -26,7 +26,7 @@ func TestAnchorIdentityRequiresAvailableMatchingRecordedHeader(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			a, closeClient := repair53Open(t, ctx, input)
+			a, closeClient := receiptReplayOpen(t, ctx, input)
 			defer closeClient()
 			a.options.GenesisHash = common.Hash{}
 			a.options.Anchor = &BlockAnchor{Height: bundle.Header.Number.Uint64(), Hash: bundle.BlockHash}
@@ -54,8 +54,8 @@ func TestAnchorIdentityRequiresAvailableMatchingRecordedHeader(t *testing.T) {
 				if changed == 0 {
 					t.Fatal("recorded numbered header absent")
 				}
-				input = repair53Replay(t, input)
-				replacement, closeReplacement := repair53Open(t, ctx, input)
+				input = receiptReplayReplay(t, input)
+				replacement, closeReplacement := receiptReplayOpen(t, ctx, input)
 				defer closeReplacement()
 				replacement.options.GenesisHash = common.Hash{}
 				replacement.options.Anchor = a.options.Anchor
@@ -78,8 +78,8 @@ func TestAnchorIdentityRequiresAvailableMatchingRecordedHeader(t *testing.T) {
 
 func TestHistoricalEpochBindingsRejectMissingApprovedGeneration(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if len(input.Options.History) == 0 || len(input.Options.Epochs) == 0 {
 		t.Fatal("approved source history absent")

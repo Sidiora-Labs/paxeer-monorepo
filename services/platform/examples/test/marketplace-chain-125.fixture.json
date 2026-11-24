@@ -1,6 +1,6 @@
 {
   "source": {
-    "scenario": "services/platform/examples/test/repair-22-31-349.test.mjs@84b6cf09552744359c78f419900ba8fcd9bbeaf5",
+    "scenario": "services/platform/examples/test/marketplace-lifecycle-anchor.test.mjs@84b6cf09552744359c78f419900ba8fcd9bbeaf5",
     "capture": "Re-recorded for 22.31.441 from the original deterministic chain-125 scenario; the earlier repair did not commit its RPC results.",
     "producer": "ganache@7.9.2 in-process provider; eth_signTransaction followed by eth_sendRawTransaction",
     "chain": {

@@ -1,0 +1,84 @@
+[manifest]
+task = "22.43.65"
+records_moved = 5
+files_renamed = 5
+
+[file.1]
+from = "modules/mint/repair_m571_test.go"
+to = "modules/mint/gov_proposal_test.go"
+
+[file.2]
+from = "modules/mint/client/cli/repair_m572_test.go"
+to = "modules/mint/client/cli/proposal_file_test.go"
+
+[file.3]
+from = "modules/mint/simulation/repair_m573_test.go"
+to = "modules/mint/simulation/genesis_test.go"
+
+[file.4]
+from = "modules/mint/keeper/repair_18_test.go"
+to = "modules/mint/keeper/release_successor_test.go"
+
+[file.5]
+from = "modules/mint/types/repair_m570_test.go"
+to = "modules/mint/types/gov_test.go"
+
+[file.6]
+from = "modules/mint/repair_m571.kvx"
+to = "spec/layerx-merge/programme/records/modules/mint/repair_m571.kvx"
+
+[file.7]
+from = "modules/mint/client/cli/repair_m572.kvx"
+to = "spec/layerx-merge/programme/records/modules/mint/client/cli/repair_m572.kvx"
+
+[file.8]
+from = "modules/mint/simulation/repair_m573.kvx"
+to = "spec/layerx-merge/programme/records/modules/mint/simulation/repair_m573.kvx"
+
+[file.9]
+from = "modules/mint/keeper/repair_18.kvx"
+to = "spec/layerx-merge/programme/records/modules/mint/keeper/repair_18.kvx"
+
+[file.10]
+from = "modules/mint/types/repair_m570.kvx"
+to = "spec/layerx-merge/programme/records/modules/mint/types/repair_m570.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/repair_m571_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/client/cli/repair_m572_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/simulation/repair_m573_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/keeper/repair_18_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/types/repair_m570_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/repair_m571.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/client/cli/repair_m572.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/simulation/repair_m573.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/keeper/repair_18.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/mint/types/repair_m570.kvx"

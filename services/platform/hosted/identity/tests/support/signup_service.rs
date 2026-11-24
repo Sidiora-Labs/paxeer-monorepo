@@ -473,11 +473,9 @@ fn begin_signup(fixture: &SignupFixture) -> SignupOutcome {
     let verified = server.verify(&token, SIGNUP_SUB);
     assert_eq!(verified.status, 200, "{}", verified.body);
     assert_session(&server, &verified.body);
-    assert_refused(
-        &server.verify(&token, SIGNUP_SUB),
-        404,
-        "verification_not_found",
-    );
+    let repeated_verify = server.verify(&token, SIGNUP_SUB);
+    assert_eq!(repeated_verify.status, 200, "{}", repeated_verify.body);
+    assert_eq!(repeated_verify.body, verified.body);
     let mut duplicate = signup_body();
     duplicate["sub"] = json!(OTHER_SUB);
     assert_refused(
@@ -516,11 +514,9 @@ fn assert_recovered(fixture: &SignupFixture, signup: &SignupOutcome, credit: &Cr
         409,
         "email_registered",
     );
-    assert_refused(
-        &server.verify(token, SIGNUP_SUB),
-        404,
-        "verification_not_found",
-    );
+    let repeated_verify = server.verify(token, SIGNUP_SUB);
+    assert_eq!(repeated_verify.status, 200, "{}", repeated_verify.body);
+    assert_eq!(repeated_verify.body, verified.body);
     assert_session(&server, &verified.body);
     let store = server
         .shared
@@ -712,11 +708,9 @@ pub(super) fn interrupted_smtp_delivery_retries_the_durable_token() {
     drop(server);
     let server = fixture.open();
     assert_session(&server, &verified.body);
-    assert_refused(
-        &server.verify(&token, SIGNUP_SUB),
-        404,
-        "verification_not_found",
-    );
+    let repeated_verify = server.verify(&token, SIGNUP_SUB);
+    assert_eq!(repeated_verify.status, 200, "{}", repeated_verify.body);
+    assert_eq!(repeated_verify.body, verified.body);
     let smtp = Smtp::parse("smtp://127.0.0.1:1", "identity@example.com")
         .unwrap_or_else(|error| panic!("{error}"));
     assert_eq!(
@@ -781,9 +775,7 @@ pub(super) fn interrupted_outbox_enqueue_never_verifies_the_subject() {
     let recovered_grant = server.grant(SIGNUP_SUB);
     assert_eq!(recovered_grant.status, 200);
     assert_eq!(recovered_grant.body, grant.body);
-    assert_refused(
-        &server.verify(&token, SIGNUP_SUB),
-        404,
-        "verification_not_found",
-    );
+    let repeated_verify = server.verify(&token, SIGNUP_SUB);
+    assert_eq!(repeated_verify.status, 200, "{}", repeated_verify.body);
+    assert_eq!(repeated_verify.body, verified.body);
 }

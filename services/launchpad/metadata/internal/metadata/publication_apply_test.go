@@ -29,8 +29,8 @@ func TestPublicationWorkerCommitsAndReplaysStoredIntent(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	key := repair1007Key(t)
-	creation := repair1007Creator(loadCreationFixture(t), key)
+	key := publicationRecoveryKey(t)
+	creation := publicationRecoveryCreator(loadCreationFixture(t), key)
 	seedCanonical(t, pool, canonical, stream, creation)
 	store, err := NewProductionStore(pool, schema, nil)
 	if err != nil {

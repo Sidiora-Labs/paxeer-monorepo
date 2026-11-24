@@ -15,6 +15,10 @@ describe('routeForPath', () => {
     expect(routeForPath('/docs/nope')).toBeUndefined();
     expect(routeForPath('/meta-ag/swap')?.id).toBe('swap');
     expect(routeForPath('/chat/abc')?.id).toBe('chat');
+    expect(routeForPath('/create/chain')?.id).toBe('create');
+    expect(routeForPath('/create/chain')?.permission).toBe('wallet');
+    expect(routeForPath('/create/unknown')).toBeUndefined();
+    expect(routeForPath('/create/chain/extra')).toBeUndefined();
   });
 
   it('registers the remodel routes', () => {

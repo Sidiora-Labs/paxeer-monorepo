@@ -224,12 +224,13 @@ func DevelopmentObjectsReadiness(o S3AssetObjects) func(context.Context) error {
 	return func(ctx context.Context) error {
 		u, e := url.Parse(o.PublicOrigin)
 		if o.Client == nil || o.QuarantineBucket == "" || o.PublicBucket == "" || e != nil || !validHTTPS(o.PublicOrigin) || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
-			return raster.ErrUnavailable
+			return mediaReadinessError(MediaPartObjects, MediaObjectsStepConfiguration, raster.ErrUnavailable)
 		}
-		for _, bucket := range []string{o.QuarantineBucket, o.PublicBucket} {
-			if _, e = o.Client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(bucket)}); e != nil {
-				return raster.ErrUnavailable
-			}
+		if _, e = o.Client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(o.QuarantineBucket)}); e != nil {
+			return mediaReadinessError(MediaPartObjects, MediaObjectsStepQuarantineACL, raster.ErrUnavailable)
+		}
+		if _, e = o.Client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(o.PublicBucket)}); e != nil {
+			return mediaReadinessError(MediaPartObjects, MediaObjectsStepApprovedBucket, raster.ErrUnavailable)
 		}
 		return nil
 	}
@@ -301,10 +302,10 @@ func (c ConnectedMedia) ProjectDevelopmentLegacy(ctx context.Context, q sqlcdb.Q
 			}
 		}
 		if display.Name != nil {
-			params.Name = pgtype.Text{String: *display.Name, Valid: true}
+			params.Name = pgtype.Text{String: carriedCoinText(*display.Name, 100), Valid: true}
 		}
 		if display.Symbol != nil {
-			params.Symbol = pgtype.Text{String: *display.Symbol, Valid: true}
+			params.Symbol = pgtype.Text{String: carriedCoinText(*display.Symbol, 16), Valid: true}
 		}
 		params.Description = pgtype.Text{String: display.Description, Valid: display.Description != ""}
 		tags := display.Tags

@@ -1,5 +1,6 @@
 import { encodeFunctionData, erc20Abi, type Hash } from 'viem';
 import type { AccountScope } from '@/core/wallet-sdk/session';
+import { isWalletRefusal } from '../trade-copy';
 import {
   approvalMayContinue,
   approvalPlan,
@@ -53,6 +54,7 @@ export type JourneyObservation = {
 export interface JourneyState {
   quote?: QuoteEnvelope;
   staleQuote?: QuoteEnvelope;
+  staleQuoteReason?: 'simulation' | 'submission';
   quoteStatus?: 'idle' | 'requesting' | 'executable' | 'stale' | 'unavailable';
   quoteError?: string;
   signing: boolean;
@@ -140,6 +142,7 @@ export class TradeJourney {
     this.patch({
       quote: undefined,
       staleQuote: this._state.quote ?? this._state.staleQuote,
+      staleQuoteReason: this._state.quote ? undefined : this._state.staleQuoteReason,
       quoteStatus: context ? 'requesting' : 'idle',
       quoteError: undefined,
     });
@@ -368,13 +371,23 @@ export class TradeJourney {
   }
   private wait(attempt: PendingAttemptRecord, scope: AccountScope): Promise<ReceiptEvidence> {
     return new Promise((resolve, reject) => {
+      let hash = attempt.txHash.toLowerCase();
       const inspect = () => {
         if (scope.signal.aborted || this.closed) {
           finish();
           reject(new Error('Wallet changed; review again'));
           return;
         }
-        const update = this.updates.get(attempt.txHash.toLowerCase());
+        let update = this.updates.get(hash);
+        while (update?.state === 'replaced' && update.attempt.replacementHash) {
+          hash = update.attempt.replacementHash.toLowerCase();
+          update = this.updates.get(hash);
+        }
+        if (update?.state === 'cancelled' || update?.state === 'changed_action') {
+          finish();
+          reject(new Error('Approval cancelled or changed in your wallet; review again'));
+          return;
+        }
         if (update?.error instanceof EvidenceIntegrityError) {
           finish();
           reject(update.error);
@@ -411,8 +424,8 @@ export class TradeJourney {
       const target = unlimited ? (1n << 256n) - 1n : context.inputRaw;
       const reset = allowance < target && (await this.provider.requiresZeroReset(context, target));
       this.assertContext(context, scope);
-      const spender = this.provider.deployment.router;
-      const plan = approvalPlan(context, spender, allowance, reset, unlimited);
+      const { router, spender } = this.provider.deployment;
+      const plan = approvalPlan(context, router, spender, allowance, reset, unlimited);
       for (let index = 0; index < plan.steps.length; index++) {
         this.assertContext(context, scope);
         const data = encodeFunctionData({
@@ -435,6 +448,8 @@ export class TradeJourney {
           action: 'approve',
         });
         const receipt = await this.wait(attempt, scope);
+        const confirmedAttempt = this.updates.get(receipt.transactionHash.toLowerCase())?.attempt;
+        if (!confirmedAttempt) throw new EvidenceIntegrityError('Approval receipt has no tracked attempt');
         this.assertContext(context, scope);
         const blockHeight = await this.provider.publicClient.getBlockNumber({ cacheTime: 0 });
         const allowanceRaw = await this.provider.readAllowance(context, blockHeight);
@@ -444,7 +459,7 @@ export class TradeJourney {
           !approvalMayContinue(
             plan,
             context,
-            { ...attempt, actionFingerprint: stepFingerprint },
+            { ...confirmedAttempt, actionFingerprint: stepFingerprint },
             receipt,
             {
               chainId: 125,
@@ -454,7 +469,7 @@ export class TradeJourney {
               allowanceRaw,
               blockHeight,
               observedAt: Date.now(),
-              approvalTxHash: hash,
+              approvalTxHash: receipt.transactionHash,
               stepFingerprint,
             },
             index
@@ -518,6 +533,7 @@ export class TradeJourney {
         this.patch({
           quote: undefined,
           staleQuote: quote,
+          staleQuoteReason: 'simulation',
           quoteStatus: 'stale',
           quoteError: `${failureReason(error)}. Refresh quote before signing.`,
         });
@@ -531,6 +547,7 @@ export class TradeJourney {
         this.patch({
           quote: undefined,
           staleQuote: quote,
+          staleQuoteReason: 'simulation',
           quoteStatus: 'stale',
           quoteError: 'Simulation expired; refresh quote before signing',
         });
@@ -550,12 +567,27 @@ export class TradeJourney {
           scope
         );
       } catch (error) {
-        this.patch({
-          quote: undefined,
-          staleQuote: quote,
-          quoteStatus: 'stale',
-          quoteError: `${failureReason(error)}. Refresh quote before signing.`,
-        });
+        if (isWalletRefusal(error)) {
+          if (this.context && executableQuote(quote, this.context, Date.now())) {
+            this.patch({
+              quote,
+              staleQuote: undefined,
+              staleQuoteReason: undefined,
+              quoteStatus: 'executable',
+              quoteError: failureReason(error),
+            });
+          } else {
+            this.requote();
+          }
+        } else {
+          this.patch({
+            quote: undefined,
+            staleQuote: quote,
+            staleQuoteReason: 'submission',
+            quoteStatus: 'stale',
+            quoteError: `${failureReason(error)}. Refresh quote before signing.`,
+          });
+        }
         throw error;
       }
       const attempt = await this.register(
@@ -601,6 +633,7 @@ export class TradeJourney {
     if (prior)
       this.updates.set(originalHash.toLowerCase(), {
         ...prior,
+        attempt: { ...prior.attempt, replacementHash },
         state: verified.cancelled ? 'cancelled' : verified.changed ? 'changed_action' : 'replaced',
       });
     this.patch({
@@ -668,6 +701,7 @@ export class TradeJourney {
   }
 }
 export function failureReason(error: unknown): string {
+  if (isWalletRefusal(error)) return 'User rejected the request.';
   if (error instanceof Error) {
     const detail =
       'shortMessage' in error && typeof error.shortMessage === 'string'

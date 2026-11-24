@@ -39,8 +39,8 @@ func TestProductionSecretsRequireStableCompleteInventory(t *testing.T) {
 	ctx := context.Background()
 	for _, mode := range []string{"stable", "rotated", "unavailable", "refresh"} {
 		t.Run(mode, func(t *testing.T) {
-			cfg := config.Config{BaseEnv: sharedconfig.BaseEnv{NodeEnv: "production", SecretsProvider: "env", SecretsRefreshSeconds: 1, RPCURLFallback: "bound"}, NATSCredentialsCreds: "bound", JourneyConfigDocument: "bound", PortfolioCDNToken: "bound"}
-			for _, key := range []string{"DATABASE_URL", "REDIS_URL", "RPC_URL", "RPC_URL_FALLBACK", "WEBHOOK_HMAC_SECRET", "NATS_URL", "NATS_CREDENTIALS_CREDS", "IDENTITY_SIGNING_KEY", "PNL_CURSOR_KEY", "PNL_CDN_TOKEN"} {
+			cfg := config.Config{BaseEnv: sharedconfig.BaseEnv{NodeEnv: "production", SecretsProvider: "env", SecretsRefreshSeconds: 1, RPCURLFallback: "bound"}, NATSCredentialsCreds: "bound", JourneyConfigDocument: "bound", PortfolioCDNToken: "bound", IdentityMTLSClientKeyPEM: "bound"}
+			for _, key := range []string{"DATABASE_URL", "REDIS_URL", "RPC_URL", "RPC_URL_FALLBACK", "WEBHOOK_HMAC_SECRET", "NATS_URL", "NATS_CREDENTIALS_CREDS", "IDENTITY_SIGNING_KEY", "PNL_CURSOR_KEY", "PNL_CDN_TOKEN", "IDENTITY_MTLS_CLIENT_KEY_PEM"} {
 				t.Setenv(key, "value-"+key)
 			}
 			check, stop, err := cfg.ResolveProductionSecrets(ctx)
@@ -48,7 +48,7 @@ func TestProductionSecretsRequireStableCompleteInventory(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer stop()
-			if cfg.DatabaseURL != "value-DATABASE_URL" || cfg.PortfolioCursorKey != "value-PNL_CURSOR_KEY" || cfg.NATSCredentialsCreds != "value-NATS_CREDENTIALS_CREDS" {
+			if cfg.IdentityMTLSClientKeyPEM != "value-IDENTITY_MTLS_CLIENT_KEY_PEM" || cfg.DatabaseURL != "value-DATABASE_URL" || cfg.PortfolioCursorKey != "value-PNL_CURSOR_KEY" || cfg.NATSCredentialsCreds != "value-NATS_CREDENTIALS_CREDS" {
 				t.Fatal("secret inventory not resolved")
 			}
 			if err = check(ctx); err != nil {
@@ -242,8 +242,8 @@ func TestRuntimeDocumentsRejectAmbiguousAndUnboundedInputs(t *testing.T) {
 			setBaseEnv(t)
 			t.Setenv("EXPECTED_SCHEMA_DOCUMENT", inline)
 			t.Setenv("EXPECTED_SCHEMA_SHA256", strings.Repeat("0", 64))
-			if _, err := config.Load(); err != nil {
-				t.Fatal(err)
+			if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "EXPECTED_SCHEMA_DOCUMENT") {
+				t.Fatalf("invalid inline schema accepted: %v", err)
 			}
 			if err := config.ReadBoundDocument("", strings.Repeat("0", 64), new(any)); err == nil {
 				t.Fatal("invalid inline document accepted")

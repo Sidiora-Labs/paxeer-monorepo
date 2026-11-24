@@ -5,6 +5,8 @@ import xml.etree.ElementTree as ET
 from functools import cache
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSION = "0.1.0"
@@ -12,6 +14,7 @@ MANIFEST_NAMES = {"package.json", "Cargo.toml", "pyproject.toml", "pom.xml"}
 VENDORED_TREES = (
     "apps/explorer",
     "apps/launchpad/web/public/charting_library",
+    "apps/perps",
     "contracts/bridge/solana/vendor",
     "core/deps",
     "programs/vendor",
@@ -43,6 +46,10 @@ VERSION_ALLOWLIST = {
     "apps/web/src/app/exchange/package.json": (
         None,
         "Private exchange integration dependency and ES module configuration",
+    ),
+    "sdk/launchpad/packages/sdk/package.json": (
+        "0.1.2",
+        "Launchpad SDK release line",
     ),
     "sdk/platform/conformance-runner/package.json": (
         None,

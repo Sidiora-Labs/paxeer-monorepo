@@ -17,8 +17,8 @@ import (
 
 func TestLegacyInboxRoutesPersistReadAndOwnedDeletion(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
 	store := Store{DB: db}
 	item, created, err := store.CommitTrigger(ctx, InboxItem{Identity: Identity{AccountID: "route-account", TriggerEventID: "route-event", TemplateVersion: "v2"}, Category: "chat", Summary: "New message", CreatedAt: time.Now().UTC()}, []DeliveryAttempt{})
 	if err != nil || !created {

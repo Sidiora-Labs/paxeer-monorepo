@@ -158,7 +158,7 @@ const TxTokenTransfer = ({ txQuery, tokenTransferFilter, noCrossChain }: Props) 
       size="sm"
       listProps={ tabsListProps }
       rightSlot={ rightSlot }
-      rightSlotProps={ rightSlotProps }
+      rightSlotProps={{ ...rightSlotProps, display: 'flex', flexWrap: 'wrap', minW: 0, maxW: '100%' }}
       stickyEnabled={ !isMobile }
     />
   );

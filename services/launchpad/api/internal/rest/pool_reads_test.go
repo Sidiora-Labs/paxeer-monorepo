@@ -35,11 +35,12 @@ const (
 )
 
 type poolReadsFixture struct {
-	pool  *pgxpool.Pool
-	model *store.AccountingReadModel
-	rdb   *goredis.Client
-	first string
-	srv   *httptest.Server
+	pool   *pgxpool.Pool
+	model  *store.AccountingReadModel
+	stream *broker.PostgresStream
+	rdb    *goredis.Client
+	first  string
+	srv    *httptest.Server
 }
 
 func poolReadsPosition(height int64, logIndex int64) accounting.SourcePosition {
@@ -137,13 +138,8 @@ func newPoolReadsFixture(t *testing.T, statsOrigin string) poolReadsFixture {
 			t.Fatalf("registered migration %s: %v", name, err)
 		}
 	}
-	chainSchema, err := os.ReadFile("../../../indexer/internal/migrate/chainlaunch.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, string(chainSchema)); err != nil {
-		t.Fatal(err)
-	}
+	internaltest.ApplyIndexerTables(t, pool, "swaps")
+	internaltest.ApplyReadMigrations(t, pool, "60000", "60003", "150006")
 	tokenFirst := "0x" + strings.Repeat("3", 40)
 	tokenSecond := "0x" + strings.Repeat("4", 40)
 	tokenStateless := "0x" + strings.Repeat("6", 40)
@@ -169,7 +165,7 @@ func newPoolReadsFixture(t *testing.T, statsOrigin string) poolReadsFixture {
 	}
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
-	return poolReadsFixture{pool: pool, model: model, rdb: rdb, first: first, srv: srv}
+	return poolReadsFixture{pool: pool, model: model, stream: stream, rdb: rdb, first: first, srv: srv}
 }
 
 type v2Response struct {

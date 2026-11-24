@@ -9,7 +9,7 @@
     "dev": "next dev --turbopack --port 3050",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src",
     "test": "python3 scripts/prepare-test-environment.py -- pnpm exec vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

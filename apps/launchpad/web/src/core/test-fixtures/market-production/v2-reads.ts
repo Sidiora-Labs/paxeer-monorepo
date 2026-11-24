@@ -41,6 +41,7 @@ const sortedQuery = (url: URL) => [...url.searchParams.entries()].sort(([a], [b]
 export function sameRead(entry: RecordedRead, method: string, url: URL, body: string): boolean {
   const recorded = new URL(entry.path, 'http://recorded.invalid');
   if (entry.method !== method || recorded.pathname !== url.pathname || sortedQuery(recorded) !== sortedQuery(url)) return false;
+  if (entry.method === 'GET' && (entry.requestBody === undefined || entry.requestBody === null)) return body === '';
   if (entry.requestBody === undefined) return true;
   try { return JSON.stringify(JSON.parse(body)) === JSON.stringify(entry.requestBody); } catch { return false; }
 }

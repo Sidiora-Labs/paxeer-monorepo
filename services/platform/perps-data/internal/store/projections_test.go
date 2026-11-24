@@ -719,7 +719,7 @@ FROM perps.leaderboard ORDER BY "window", rank`)
 }
 
 func TestMarketStatsWindowExpiry(t *testing.T) {
-	t.Run("staggered_full_fold", testRepairM827MarketExpiry)
+	t.Run("staggered_full_fold", testProjectionMarketExpiry)
 	db := testDB(t)
 	migrate(t, db)
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
@@ -1033,7 +1033,7 @@ FROM perps.leaderboard WHERE "window" = $1 AND account = $2`, []string{"150", "6
 }
 
 func TestLeaderboardWindowAgesOut(t *testing.T) {
-	t.Run("staggered_full_fold", testRepairM827LeaderboardExpiry)
+	t.Run("staggered_full_fold", testProjectionLeaderboardExpiry)
 	db := testDB(t)
 	migrate(t, db)
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
@@ -1137,10 +1137,10 @@ func TestLeaderboardRefoldsOnLiquidation(t *testing.T) {
 	}
 }
 
-func testRepairM827MarketExpiry(t *testing.T) {
+func testProjectionMarketExpiry(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)
-	p := newRepairM827Producer(t, db)
+	p := newProjectionProducer(t, db)
 	c := p.c
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
 	type fill struct {
@@ -1149,10 +1149,10 @@ func testRepairM827MarketExpiry(t *testing.T) {
 	}
 	fills := []fill{{t0, 70000, 100}, {t0.Add(time.Hour), 50000, 200}, {t0.Add(2 * time.Hour), 60000, 300}}
 	for i, f := range fills {
-		logs := []decode.Log{repairM827Perps(t, "Fill", big.NewInt(0), big.NewInt(0), big.NewInt(0), traderA, traderB, true,
+		logs := []decode.Log{projectionPerps(t, "Fill", big.NewInt(0), big.NewInt(0), big.NewInt(0), traderA, traderB, true,
 			big.NewInt(f.price), big.NewInt(f.size), big.NewInt(0), big.NewInt(0))}
 		if i == 0 {
-			logs = append(logs, repairM827Perps(t, "OpenInterestChanged", big.NewInt(0), big.NewInt(110), big.NewInt(90), big.NewInt(0), true))
+			logs = append(logs, projectionPerps(t, "OpenInterestChanged", big.NewInt(0), big.NewInt(110), big.NewInt(90), big.NewInt(0), true))
 		}
 		p.write(uint64(100+i), f.at, logs...)
 	}
@@ -1198,22 +1198,22 @@ last_price::text, updated_block::text FROM perps.market_stats_rolling WHERE mark
 	c.want(`SELECT volume_24h::text, volume_7d::text, volume_30d::text FROM perps.market_stats_rolling WHERE market_id = 0`, []string{"0", "0", "0"})
 }
 
-func testRepairM827LeaderboardExpiry(t *testing.T) {
+func testProjectionLeaderboardExpiry(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)
-	p := newRepairM827Producer(t, db)
+	p := newProjectionProducer(t, db)
 	c := p.c
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
-	p.write(100, t0, repairM827Open(t, 1, traderA), repairM827Open(t, 2, traderA),
-		repairM827Open(t, 3, traderB), repairM827Open(t, 4, traderB), repairM827Open(t, 5, traderA))
-	p.write(101, t0.Add(time.Hour), repairM827Close(t, 1, traderA, 1000, 120, true),
-		repairM827Close(t, 3, traderB, 1000, 60, true), repairM827Settlement(t, 1, traderA, 100, 120),
-		repairM827Settlement(t, 3, traderB, 150, 60))
-	p.write(102, t0.Add(2*time.Hour), repairM827Close(t, 2, traderA, 200, -40, false),
-		repairM827Close(t, 4, traderB, 1000, -20, true), repairM827Settlement(t, 2, traderA, 200, -40),
-		repairM827Settlement(t, 4, traderB, 50, -20))
-	p.write(103, t0.Add(3*time.Hour), repairM827Close(t, 2, traderA, 800, 10, true))
-	p.write(104, t0.Add(4*time.Hour), repairM827Settlement(t, 2, traderA, 300, 10))
+	p.write(100, t0, projectionOpen(t, 1, traderA), projectionOpen(t, 2, traderA),
+		projectionOpen(t, 3, traderB), projectionOpen(t, 4, traderB), projectionOpen(t, 5, traderA))
+	p.write(101, t0.Add(time.Hour), projectionClose(t, 1, traderA, 1000, 120, true),
+		projectionClose(t, 3, traderB, 1000, 60, true), projectionSettlement(t, 1, traderA, 100, 120),
+		projectionSettlement(t, 3, traderB, 150, 60))
+	p.write(102, t0.Add(2*time.Hour), projectionClose(t, 2, traderA, 200, -40, false),
+		projectionClose(t, 4, traderB, 1000, -20, true), projectionSettlement(t, 2, traderA, 200, -40),
+		projectionSettlement(t, 4, traderB, 50, -20))
+	p.write(103, t0.Add(3*time.Hour), projectionClose(t, 2, traderA, 800, 10, true))
+	p.write(104, t0.Add(4*time.Hour), projectionSettlement(t, 2, traderA, 300, 10))
 	// Both A and B are now idle. Their metrics must change even while a
 	// newer close or settlement keeps the account inside the window.
 	var boundaries []time.Time
@@ -1226,13 +1226,13 @@ func testRepairM827LeaderboardExpiry(t *testing.T) {
 	compareFull := func() {
 		t.Helper()
 		got := c.leaderboardRows()
-		repairM827Exec(c, `SAVEPOINT repair_m827_board`)
+		projectionExec(c, `SAVEPOINT repair_m827_board`)
 		if err := (pnl.Leaderboard{}).Rebuild(c.ctx, c.tx, c.at); err != nil {
 			t.Fatal(err)
 		}
 		want := c.leaderboardRows()
-		repairM827Exec(c, `ROLLBACK TO SAVEPOINT repair_m827_board`)
-		repairM827Exec(c, `RELEASE SAVEPOINT repair_m827_board`)
+		projectionExec(c, `ROLLBACK TO SAVEPOINT repair_m827_board`)
+		projectionExec(c, `RELEASE SAVEPOINT repair_m827_board`)
 		if !slices.EqualFunc(got, want, slices.Equal[[]string]) {
 			t.Fatalf("at %s incremental leaderboard differs from full fold\n got %q\nwant %q", c.at, got, want)
 		}

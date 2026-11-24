@@ -1,4 +1,4 @@
-import { Flex, Text } from '@chakra-ui/react';
+import { Flex, Text, Grid } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import React from 'react';
 
@@ -11,6 +11,7 @@ import { useColorModeValue } from 'toolkit/chakra/color-mode';
 import { Image } from 'toolkit/chakra/image';
 import IconSvg from 'ui/shared/IconSvg';
 
+import { resultLayout } from './resultLayout';
 import SearchBarSuggestItemLink from './SearchBarSuggestItemLink';
 interface Props {
   data: MarketplaceApp;
@@ -19,7 +20,7 @@ interface Props {
   onClick: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }
 
-const SearchBarSuggestApp = ({ data, isMobile, searchTerm, onClick }: Props) => {
+const SearchBarSuggestApp = ({ data, searchTerm, onClick }: Props) => {
   const router = useRouter();
   const logo = (
     <Image
@@ -30,66 +31,18 @@ const SearchBarSuggestApp = ({ data, isMobile, searchTerm, onClick }: Props) => 
     />
   );
 
-  const content = (() => {
-    if (isMobile) {
-      return (
-        <>
-          <Flex alignItems="center">
-            { logo }
-            <Text
-              fontWeight={ 700 }
-              overflow="hidden"
-              whiteSpace="nowrap"
-              textOverflow="ellipsis"
-              ml={ 2 }
-            >
-              <span dangerouslySetInnerHTML={{ __html: highlightText(data.title, searchTerm) }}/>
-            </Text>
-            { data.external && <IconSvg name="link_external" color="icon.secondary" boxSize={ 3 } verticalAlign="middle" flexShrink={ 0 }/> }
-          </Flex>
-          <Text
-            color="text.secondary"
-            lineClamp={ 3 }
-          >
-            { data.description }
-          </Text>
-        </>
-      );
-    }
-    return (
-      <Flex gap={ 2 } alignItems="center">
+  const content = (
+    <Grid gap={ 2 } css={ resultLayout }>
+      <Flex alignItems="center" gap={ 2 } minW={ 0 }>
         { logo }
-        <Text
-          fontWeight={ 700 }
-          overflow="hidden"
-          whiteSpace="nowrap"
-          textOverflow="ellipsis"
-          w="200px"
-          flexShrink={ 0 }
-        >
+        <Text fontWeight="bold" overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">
           <span dangerouslySetInnerHTML={{ __html: highlightText(data.title, searchTerm) }}/>
         </Text>
-        <Text
-          color="text.secondary"
-          overflow="hidden"
-          whiteSpace="nowrap"
-          textOverflow="ellipsis"
-          flexGrow={ 1 }
-        >
-          { data.description }
-        </Text>
-        { data.external && (
-          <IconSvg
-            name="link_external"
-            color="icon.secondary"
-            boxSize={ 3 }
-            verticalAlign="middle"
-            flexShrink={ 0 }
-          />
-        ) }
+        { data.external && <IconSvg aria-hidden={ true } name="link_external" color="icon.secondary" boxSize={ 3 } flexShrink={ 0 }/> }
       </Flex>
-    );
-  })();
+      <Text color="text.secondary" overflowWrap="anywhere">{ data.description }</Text>
+    </Grid>
+  );
 
   return (
     <SearchBarSuggestItemLink

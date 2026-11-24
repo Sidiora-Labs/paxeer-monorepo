@@ -4,7 +4,7 @@ import type { AccountScope } from '../create/creation-adapters';
 import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
 import { poolPath } from '@/core/app-foundation/navigation';
 import {
-  CHAINS_PRECOMPILE, SIZE_TIERS, chainCost, decodeChainLaunched,
+  CHAINS_PRECOMPILE, SIZE_TIERS, chainCost, chainRevenueOperator, decodeChainLaunched,
   validateChainDraft, validateChainName, walletNetwork,
   type ChainDraft, type ChainsParams,
 } from './chain-domain';
@@ -212,7 +212,7 @@ export class ChainLaunchAdapter {
             || address(launched[2]) !== created.pool || address(launched[3]) !== created.token
             || launched[4] !== created.nftId || address(launched[5]) !== created.creator
             || launched[6] !== created.blockNumber
-            || record[0] !== created.id || record[1] !== reviewed.name || address(record[2]) !== created.creator
+            || record[0] !== created.id || record[1] !== reviewed.name || address(record[2]) !== chainRevenueOperator(created.id)
             || record[4] !== BigInt(created.chainId) || record[5] !== BigInt(tier.gas)
             || record[6] !== BigInt(tier.bytes) || record[7] !== reviewed.feeShareBps
             || record[8] !== BigInt(submission.bondRaw)

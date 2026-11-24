@@ -54,41 +54,142 @@ func (p Provenance) Validate(in InputSnapshot) error {
 }
 
 type FrozenSource interface {
-	Freeze(context.Context, string, time.Time) (InputSnapshot, error)
+	Freeze(context.Context, string, ...time.Time) (InputSnapshot, error)
 }
+
+// RefreshRefusal is the safe, structured form of an input refusal. The cause
+// is retained for errors.Is checks, while Error deliberately omits its text so
+// callers can log only the stable step and class.
+type RefreshRefusal struct {
+	Step  string
+	Class string
+	Cause error
+}
+
+func (e *RefreshRefusal) Error() string { return "ranking refresh refused" }
+func (e *RefreshRefusal) Unwrap() error {
+	if e == nil || e.Cause == nil {
+		return ErrUnavailable
+	}
+	return e.Cause
+}
+
+func NewRefreshRefusal(step, class string, cause error) error {
+	if step == "" {
+		step = "unknown"
+	}
+	if class == "" {
+		class = "unavailable"
+	}
+	return &RefreshRefusal{Step: step, Class: class, Cause: cause}
+}
+
+func RefreshRefusalDetails(err error) (step, class string, ok bool) {
+	var refusal *RefreshRefusal
+	if !errors.As(err, &refusal) || refusal == nil {
+		return "", "", false
+	}
+	return refusal.Step, refusal.Class, true
+}
+
 type CompletedSink interface {
 	Complete(context.Context, []Snapshot) error
 }
 type Coordinator struct {
-	source FrozenSource
+	source any
 	sink   CompletedSink
 }
 
-func NewCoordinator(source FrozenSource, sink CompletedSink) (*Coordinator, error) {
+func NewCoordinator(source any, sink CompletedSink) (*Coordinator, error) {
 	if source == nil || sink == nil {
 		return nil, ErrUnavailable
 	}
 	return &Coordinator{source, sink}, nil
 }
-func (c *Coordinator) Refresh(ctx context.Context, runID string, cutoff time.Time, newOnly bool) ([]Snapshot, error) {
-	if c == nil || !uuidGrammar.MatchString(runID) || cutoff.Unix() <= 0 {
+
+type frozenSourceAtDatabaseClock interface {
+	FreezeAtDatabaseClock(context.Context, string) (InputSnapshot, error)
+}
+
+type frozenSourceWithoutCutoff interface {
+	Freeze(context.Context, string) (InputSnapshot, error)
+}
+
+type frozenSourceWithCutoff interface {
+	Freeze(context.Context, string, time.Time) (InputSnapshot, error)
+}
+
+// Refresh accepts the current form (ctx, runID, newOnly) and the legacy form
+// (ctx, runID, cutoff, newOnly) used by retained callers. The service loop uses
+// the current form, which obtains the cutoff inside the database transaction.
+func (c *Coordinator) Refresh(ctx context.Context, runID string, args ...any) ([]Snapshot, error) {
+	var cutoff *time.Time
+	var newOnly bool
+	switch len(args) {
+	case 1:
+		var ok bool
+		newOnly, ok = args[0].(bool)
+		if !ok {
+			return nil, ErrUnavailable
+		}
+	case 2:
+		value, ok := args[0].(time.Time)
+		if !ok {
+			return nil, ErrUnavailable
+		}
+		newOnly, ok = args[1].(bool)
+		if !ok {
+			return nil, ErrUnavailable
+		}
+		cutoff = &value
+	default:
 		return nil, ErrUnavailable
 	}
-	in, err := c.source.Freeze(ctx, runID, cutoff)
+	if c == nil || !uuidGrammar.MatchString(runID) {
+		return nil, ErrUnavailable
+	}
+	in, err := c.freeze(ctx, runID, cutoff)
 	if err != nil {
 		return nil, err
 	}
-	if in.RunID != runID || in.CutoffTimeUTC != cutoff.Unix() || in.Provenance == nil || in.Provenance.Validate(in) != nil {
-		return nil, ErrUnavailable
+	if in.RunID != runID {
+		return nil, NewRefreshRefusal("identity", "validation", ErrUnavailable)
+	}
+	if cutoff != nil && in.CutoffTimeUTC != cutoff.Unix() {
+		return nil, NewRefreshRefusal("cutoff", "validation", ErrUnavailable)
+	}
+	if in.CutoffTimeUTC <= 0 || in.Provenance == nil || in.Provenance.Validate(in) != nil {
+		return nil, NewRefreshRefusal("provenance", "validation", ErrUnavailable)
 	}
 	snapshots, err := ComputeRun(in, newOnly)
 	if err != nil {
 		return nil, err
 	}
 	if err = c.sink.Complete(ctx, snapshots); err != nil {
-		return nil, err
+		return nil, NewRefreshRefusal("completion", "sink", err)
 	}
 	return snapshots, nil
+}
+
+func (c *Coordinator) freeze(ctx context.Context, runID string, cutoff *time.Time) (InputSnapshot, error) {
+	if cutoff == nil {
+		if source, ok := c.source.(frozenSourceAtDatabaseClock); ok {
+			return source.FreezeAtDatabaseClock(ctx, runID)
+		}
+		if source, ok := c.source.(frozenSourceWithoutCutoff); ok {
+			return source.Freeze(ctx, runID)
+		}
+		// A legacy source cannot establish the database cutoff. Keep its old
+		// path available for explicit callers, but refuse an unbounded run.
+		return InputSnapshot{}, ErrUnavailable
+	}
+	if source, ok := c.source.(frozenSourceWithCutoff); ok {
+		return source.Freeze(ctx, runID, *cutoff)
+	}
+	if source, ok := c.source.(FrozenSource); ok {
+		return source.Freeze(ctx, runID, *cutoff)
+	}
+	return InputSnapshot{}, ErrUnavailable
 }
 func ComputeRun(in InputSnapshot, newOnly bool) ([]Snapshot, error) {
 	if newOnly {
@@ -213,10 +314,8 @@ func (c *Coordinator) Run(ctx context.Context, newOnly bool, report func(error))
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		_, err := c.Refresh(ctx, uuid.NewString(), time.Now().UTC().Truncate(time.Second), newOnly)
-		if err != nil {
-			report(err)
-		}
+		_, err := c.Refresh(ctx, uuid.NewString(), newOnly)
+		report(err)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

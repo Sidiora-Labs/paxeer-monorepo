@@ -56,6 +56,7 @@ use layerx_programs_ai_market::{
     },
     registry::{derive_rewards_account, MarketHeader, F01_SECTION_CAP},
     registry_ops::{self, CallContext, Outcome as Registered, PolicySection},
+    reputation_transition,
     rewards::{
         decode_reward_state, FundReplay, FundRequest, FundingAuthority, FundingPhase, RewardLedger,
         RewardState, FUNDING_POLICY_VERSION, REWARD_STATE_BYTES,
@@ -304,6 +305,7 @@ struct Parts {
     policy: Vec<u8>,
     workers: WorkerTable,
     region: Vec<u8>,
+    reputation_prefix: Vec<u8>,
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
@@ -313,13 +315,19 @@ struct Parts {
 impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
-        let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let [policy, identity, reports, rewards, admission_section] = state.feature_sections;
         let (workers, region) = split_identity_section(identity)?;
+        let (_, admission) = reputation_transition::split_joint(admission_section)?;
+        let prefix_len = admission_section
+            .len()
+            .checked_sub(admission.len())
+            .ok_or(NON_CANONICAL)?;
         Ok(Self {
             revision: state.revision,
             policy: policy.to_vec(),
             workers: WorkerTable::decode(workers)?,
             region: region.to_vec(),
+            reputation_prefix: admission_section[..prefix_len].to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
             admission: AdmissionTable::decode(admission)?,
@@ -341,6 +349,9 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        let mut reputation = vec![0; self.reputation_prefix.len() + admission_len];
+        reputation[..self.reputation_prefix.len()].copy_from_slice(&self.reputation_prefix);
+        reputation[self.reputation_prefix.len()..].copy_from_slice(&admission[..admission_len]);
         encode_state(&SharedState {
             revision: self.revision,
             feature_sections: [
@@ -348,7 +359,7 @@ impl Parts {
                 &identity,
                 &self.reports,
                 &self.rewards,
-                &admission[..admission_len],
+                &reputation,
             ],
             control: Control {
                 replay: self.replay.clone(),
@@ -1157,11 +1168,9 @@ fn service(root: &Path, runner: PathBuf) -> Checked<JobService> {
 }
 
 fn real_runner() -> Checked<PathBuf> {
-    std::env::var_os(RUNNER_ENV)
+    Ok(std::env::var_os(RUNNER_ENV)
         .map(PathBuf::from)
-        .ok_or(Failure::Unexpected(
-            "real model runner executable: PAXAI_RUNNER is not provisioned",
-        ))
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_layerx-paxai-runner"))))
 }
 
 /// Encoded encrypted F09 manifest of `object` bound to `task` of epoch 1.

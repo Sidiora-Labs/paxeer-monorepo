@@ -1,6 +1,6 @@
 # Paxeer X wallet workspace
 
-This directory holds the Paxeer X wallet gateway, threshold-custody attestors, key ceremony tools, API schemas, deployment configuration and reference web app. Its pnpm workspace also includes the wallet SDK and perpetuals app. The gateway authenticates wallet users and agents, applies signing policies and submits transactions to Paxeer mainnet-beta, one BFT network with EVM chain ID 125. The kernel is part of the network and proposes blocks; a transaction receipt is final when its block is committed.
+This directory holds the Paxeer X wallet gateway, threshold-custody attestors, key ceremony tools, API schemas, deployment configuration and reference web app. Its pnpm workspace also includes the wallet SDK. The gateway authenticates wallet users and agents, applies signing policies and submits transactions to Paxeer mainnet-beta with EVM chain ID 125. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction receipt is final when its block is committed.
 
 ## Layout
 
@@ -23,7 +23,6 @@ The workspace also includes packages outside this directory:
 | Path | Package | Contents |
 | --- | --- | --- |
 | [../../sdk/wallet](../../sdk/wallet) | `@paxeer/wallet` | Browser and React SDK for the wallet gateway, with tests in `test/` |
-| [../../apps/perps](../../apps/perps) | `builders-workshop` | Perpetuals web app |
 
 ## Build and test
 
@@ -88,6 +87,8 @@ Attestors, read by `attestor/internal/config/config.go` and `attestor/internal/r
 - `ATTESTOR_REPLICA_ADDR`, `ATTESTOR_REPLICA_USER`, `ATTESTOR_REPLICA_KEY_FILE`, `ATTESTOR_REPLICA_HOST_KEY_FILE`, `ATTESTOR_REPLICA_REMOTE_DIR`, `ATTESTOR_REPLICA_INTERVAL`, `ATTESTOR_REPLICA_OPERATION_TIMEOUT`
 
 Attestors load policy JSON, signed authority and inventory documents, agent configuration, keys and TLS material from the configured files. `deploy/attestor-policy.json` and `deploy/attestor-kernel-policy.json` provide policy documents; `deploy/attestor-policy.md` describes signing policy.
+
+From `attestor/`, run `go run ./cmd/inventory/` with `init` to create the five-member inventory, `approve` to apply a manifest's `inventory_requests`, `renew` to extend its lifetime, `show` to inspect it (`-keys` lists individual keys), or `serve` to sweep the gateway and publish confirmed inventory updates. Supply `-private-key`, `-issuer` and `-tenant`; the owner's P-256 PEM key must be an owned regular file with mode `0600`. `init` takes five `-member id=certificate.pem` flags; `approve` takes `-requests manifest.json`. `approve`, `renew` and `show` read `-inventory`; signing commands write `-output` atomically and accept `-lifetime` up to `720h` (30 days).
 
 Ceremony tools, read by the loaders under `ceremony/internal/`:
 

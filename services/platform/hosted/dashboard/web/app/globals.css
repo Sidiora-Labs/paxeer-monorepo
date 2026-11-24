@@ -1,5 +1,725 @@
 @import "tailwindcss";
 @import "@layerx/ui/styles.css";
+@source "../../../../../../apps/web/packages/layerx-ui/src";
 
-html, body { min-height: 100%; }
-body { margin: 0; background: var(--background); color: var(--foreground); }
+@layer base {
+  html,
+  body {
+    min-block-size: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-family-sans);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+  }
+}
+
+.dashboard-shell {
+  --dashboard-font-size-micro: 0.6875rem;
+  --dashboard-font-size-label: 0.8125rem;
+  --dashboard-font-size-heading: 1.0625rem;
+  --dashboard-font-size-value: 1.75rem;
+  --dashboard-line-height-heading: 1.3;
+  --dashboard-line-height-value: 1.15;
+  --dashboard-input-min-height: 1.3125rem;
+  min-block-size: 100dvh;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-shell p,
+.dashboard-card [role="listitem"] > span:first-child > span {
+  text-wrap: pretty;
+}
+
+.dashboard-shell > aside {
+  inline-size: var(--space-sidebar);
+}
+
+.dashboard-shell header {
+  flex-wrap: nowrap;
+  min-block-size: var(--space-16);
+  block-size: var(--space-16);
+  padding-block: 0;
+}
+
+.dashboard-shell header > button:not(.dashboard-session-control) {
+  min-inline-size: 0;
+  padding-inline: 0;
+}
+
+.dashboard-shell header > button:not(.dashboard-session-control),
+.dashboard-shell aside nav > button:last-child,
+.dashboard-shell aside > div:last-child > button,
+.dashboard-shell > nav > div > button {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dashboard-notification-space {
+  flex: none;
+  inline-size: calc(var(--space-10) - var(--space-1));
+  block-size: calc(var(--space-10) - var(--space-1));
+}
+
+.dashboard-content {
+  min-inline-size: 0;
+}
+
+.dashboard-session-control {
+  flex: none;
+}
+
+.dashboard-tabs {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scrollbar-color: var(--muted-foreground) var(--surface-sunken);
+  scroll-padding-inline: var(--space-6);
+  scroll-snap-type: inline proximity;
+  padding: var(--space-1);
+  border-radius: calc(infinity * 1px);
+  background: var(--surface-sunken);
+}
+
+.dashboard-tab-strip {
+  position: relative;
+  min-inline-size: 0;
+}
+
+.dashboard-tab-strip::before,
+.dashboard-tab-strip::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  z-index: 1;
+  inline-size: var(--space-6);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.dashboard-tab-strip::before {
+  inset-inline-start: 0;
+  border-start-start-radius: var(--radius-lg);
+  border-end-start-radius: var(--radius-lg);
+  background: linear-gradient(to right, var(--surface-sunken), transparent);
+}
+
+.dashboard-tab-strip::after {
+  inset-inline-end: 0;
+  border-start-end-radius: var(--radius-lg);
+  border-end-end-radius: var(--radius-lg);
+  background: linear-gradient(to left, var(--surface-sunken), transparent);
+}
+
+.dashboard-tab-strip[data-more-start="true"]::before,
+.dashboard-tab-strip[data-more-end="true"]::after {
+  opacity: 1;
+}
+
+.dashboard-tab-strip:dir(rtl)::before {
+  background: linear-gradient(to left, var(--surface-sunken), transparent);
+}
+
+.dashboard-tab-strip:dir(rtl)::after {
+  background: linear-gradient(to right, var(--surface-sunken), transparent);
+}
+
+.dashboard-tabs [role="tab"] {
+  position: relative;
+  flex: 1 0 0;
+  min-inline-size: max-content;
+  border-radius: calc(infinity * 1px);
+  min-block-size: 0;
+  padding: var(--space-2) var(--space-1);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-body);
+  color: var(--muted-foreground);
+  scroll-snap-align: start;
+}
+
+.dashboard-tabs [aria-selected="true"] {
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-tabs [aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--space-4);
+  inset-block-end: var(--space-1);
+  border-block-end: var(--focus-ring-width) solid currentColor;
+}
+
+.dashboard-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+
+.dashboard-panel:focus-visible {
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+
+.dashboard-card {
+  min-inline-size: 0;
+  padding: var(--space-4);
+}
+
+.dashboard-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dashboard-card h2 {
+  margin: 0;
+  font-size: var(--dashboard-font-size-heading);
+  font-weight: var(--weight-bold);
+  line-height: var(--dashboard-line-height-heading);
+  text-wrap: balance;
+}
+
+.dashboard-stats {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+}
+
+.dashboard-webhooks {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+}
+
+.dashboard-usage {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+.dashboard-usage > :last-child {
+  border-inline-start: 1px solid var(--border);
+}
+
+.dashboard-stats .tabular-nums,
+.dashboard-usage .tabular-nums {
+  font-size: var(--dashboard-font-size-value);
+  line-height: var(--dashboard-line-height-value);
+}
+
+.dashboard-shell :is(.text-sm, .text-label) {
+  font-size: var(--dashboard-font-size-label);
+  line-height: var(--line-height-body);
+}
+
+.dashboard-shell :is(.text-xs, .text-micro) {
+  font-size: var(--dashboard-font-size-micro);
+  line-height: var(--dashboard-line-height-heading);
+}
+
+.dashboard-shell :is(.text-lg, .text-title-sm) {
+  font-size: var(--dashboard-font-size-heading);
+  line-height: var(--dashboard-line-height-heading);
+}
+
+.dashboard-shell .leading-relaxed {
+  line-height: var(--line-height-relaxed);
+}
+
+.dashboard-card [role="listitem"] {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: calc(var(--space-7) / 2);
+}
+
+.dashboard-card [role="listitem"] > span {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  gap: calc(var(--space-1) / 2);
+}
+
+.dashboard-card [role="listitem"] > span:first-child {
+  flex: 1;
+}
+
+.dashboard-card [role="listitem"] :where(.truncate, .whitespace-nowrap),
+.dashboard-identifier {
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-overflow: clip;
+  scrollbar-width: none;
+}
+
+.dashboard-identifier {
+  position: relative;
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: normal;
+}
+
+.dashboard-payment-details .dashboard-identifier {
+  display: inline-block;
+  vertical-align: bottom;
+}
+
+.dashboard-card [role="listitem"] > span:last-child:not(:first-child) {
+  flex: none;
+  max-inline-size: 60%;
+  align-items: end;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-card [role="listitem"] > span:last-child > span:first-child {
+  flex-wrap: wrap;
+  max-inline-size: 100%;
+  gap: calc(var(--space-3) / 2);
+}
+
+.dashboard-card [role="listitem"] > span:last-child > span:last-child {
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dashboard-badge {
+  block-size: auto;
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-receipt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.dashboard-fact-verification {
+  display: inline-block;
+  max-inline-size: 100%;
+  text-wrap: balance;
+}
+
+.dashboard-sign-in {
+  inline-size: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-self: center;
+}
+
+.dashboard-sign-in h2 {
+  margin: 0;
+}
+
+.dashboard-form,
+.dashboard-public-key {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.dashboard-public-key {
+  gap: var(--space-2);
+}
+
+.dashboard-sign-in form[aria-label="Session token sign-in"] > .dashboard-field {
+  gap: var(--space-3);
+}
+
+.dashboard-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.dashboard-field label {
+  font-size: inherit;
+  font-weight: var(--weight-regular);
+}
+
+.dashboard-field p {
+  font-size: var(--font-size-label);
+  color: var(--muted-foreground);
+}
+
+.dashboard-field > div {
+  block-size: auto;
+  min-block-size: var(--space-12);
+  padding-block: var(--space-2);
+  border-color: var(--muted-foreground);
+}
+
+.dashboard-field > div:has(:is(:user-invalid, [aria-invalid="true"])) {
+  border-color: var(--destructive);
+}
+
+.dashboard-field input {
+  min-block-size: var(--dashboard-input-min-height);
+  block-size: 100%;
+  padding-block: 0;
+  font-size: var(--font-size-body-sm);
+}
+
+.dashboard-no-quota,
+.dashboard-key-actions,
+.dashboard-secret,
+.dashboard-scope-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dashboard-no-quota {
+  justify-content: space-between;
+}
+
+.dashboard-scope-list {
+  display: grid;
+  gap: var(--space-2);
+  border: 0;
+  padding: 0;
+}
+
+.dashboard-scope-list legend {
+  margin-block-end: var(--space-2);
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-semibold);
+}
+
+.dashboard-scope-option {
+  min-block-size: var(--touch-target);
+}
+
+.dashboard-scope-option input {
+  inline-size: var(--space-5);
+  block-size: var(--space-5);
+  accent-color: var(--accent);
+}
+
+.dashboard-secret code {
+  flex: 1 1 var(--space-summary);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+.dashboard-field p.dashboard-field-error {
+  color: var(--destructive);
+}
+.dashboard-public-key code {
+  overflow-wrap: anywhere;
+  font-size: inherit;
+  line-height: var(--line-height-body);
+}
+.dashboard-sign-in > [role="alert"] {
+  color: var(--destructive);
+}
+
+.dashboard-progress {
+  inline-size: 100%;
+  block-size: var(--space-2);
+  accent-color: var(--accent);
+}
+
+.dashboard-shell main button:not([role="tab"]) {
+  max-inline-size: 100%;
+  block-size: auto;
+  min-block-size: var(--touch-target);
+  padding-block: calc(var(--space-5) / 2);
+  white-space: normal;
+}
+
+.dashboard-shell :where(button, input, [tabindex]):focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent-strong);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.dashboard-shell button:not(:disabled):active {
+  outline: var(--focus-ring-width) solid currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell .dashboard-progress {
+    animation: none;
+  }
+}
+
+.dashboard-usage > * {
+  min-inline-size: 0;
+}
+
+.dashboard-loading {
+  position: relative;
+}
+.dashboard-loading > .dashboard-progress {
+  position: absolute;
+  inline-size: var(--space-1);
+  block-size: var(--space-1);
+  clip-path: inset(50%);
+}
+
+.dashboard-number-skeleton {
+  display: inline-block;
+  min-inline-size: var(--space-16);
+  color: transparent;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-shell button {
+  border-color: var(--muted-foreground);
+}
+
+.dashboard-key-create {
+  color: var(--primary-foreground);
+}
+.dashboard-badge[data-tone="success"] {
+  color: var(--success);
+}
+.dashboard-badge[data-tone="destructive"] {
+  color: var(--destructive);
+}
+
+.dashboard-sign-in .dashboard-busy-control[aria-busy="true"] {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  opacity: 1;
+}
+
+.dashboard-tabs [aria-selected="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 768px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-webhooks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 835px) {
+  .dashboard-tabs [role="tab"] {
+    flex: 1;
+    min-inline-size: 0;
+  }
+}
+
+@media (max-width: 834px) {
+  .dashboard-shell :where(button, input) {
+    min-inline-size: var(--touch-target);
+    min-block-size: var(--touch-target);
+  }
+  .dashboard-tabs [role="tab"] {
+    min-block-size: var(--touch-target);
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard-shell header {
+    block-size: auto;
+    min-block-size: calc(var(--touch-target) + var(--space-6) + 1px);
+    padding-block-start: max(var(--space-3), env(safe-area-inset-top));
+    padding-block-end: var(--space-3);
+  }
+  .dashboard-shell > nav {
+    flex: none;
+    min-block-size: calc(var(--space-14) + var(--space-12) + 1px);
+  }
+}
+
+.dashboard-dialog {
+  inline-size: min(calc(100% - var(--space-8)), var(--space-dialog-max));
+  max-block-size: calc(
+    100dvh - var(--space-8) - env(safe-area-inset-top) -
+      env(safe-area-inset-bottom)
+  );
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-overlay);
+  overscroll-behavior: contain;
+}
+
+.dashboard-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-dialog::backdrop {
+  background: var(--overlay);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.dashboard-dialog-body {
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dashboard-dialog h2 {
+  font-size: var(--dashboard-font-size-heading);
+  font-weight: var(--weight-bold);
+  line-height: var(--dashboard-line-height-heading);
+  text-wrap: balance;
+}
+
+.dashboard-dialog-body > p {
+  font-size: inherit;
+  color: var(--foreground-secondary);
+}
+
+.dashboard-dialog-footer {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  padding-block-start: 0;
+}
+
+.dashboard-dialog-footer > button {
+  flex: 1;
+}
+
+@media (max-width: 47.999rem) {
+  .dashboard-dialog {
+    inset-block-start: auto;
+    inset-block-end: 0;
+    inline-size: 100%;
+    max-inline-size: var(--space-dialog-search);
+    margin-block-end: 0;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+    border-start-start-radius: var(--radius-sheet);
+    border-start-end-radius: var(--radius-sheet);
+  }
+  .dashboard-dialog-footer {
+    padding-block-end: max(var(--space-6), env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dashboard-dialog[open] {
+    animation: dashboard-dialog-enter var(--duration-enter) var(--ease-enter);
+  }
+  @keyframes dashboard-dialog-enter {
+    from {
+      opacity: 0;
+      translate: 0 var(--space-4);
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+}
+
+.dashboard-shell button.dashboard-session-control {
+  min-block-size: calc(var(--space-10) - var(--space-1));
+  padding-block: var(--space-2);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-body);
+}
+
+@media (max-width: 834px) {
+  .dashboard-shell button.dashboard-session-control {
+    min-block-size: var(--touch-target);
+  }
+}
+
+.dashboard-mobile-heading {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .dashboard-mobile-heading {
+    display: block;
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+.dashboard-sign-in form[aria-label="Session token sign-in"] > button {
+  border: 1px solid var(--primary);
+}
+
+.dashboard-shell > nav > button {
+  flex: 1 0 auto;
+}
+
+@media (max-width: 834px) {
+  .dashboard-notification-space {
+    inline-size: var(--touch-target);
+    block-size: var(--touch-target);
+  }
+  .dashboard-shell .dashboard-field input {
+    min-block-size: var(--touch-target);
+  }
+}
+
+.dashboard-shell main .dashboard-compact-control {
+  min-block-size: calc(var(--space-10) - var(--space-1));
+  padding-block: var(--space-2);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-body);
+}
+
+.dashboard-shell main .dashboard-receipt-control {
+  min-block-size: 0;
+  padding: 0;
+  border-width: 0;
+  background-color: transparent;
+  color: var(--foreground);
+  font-size: var(--font-size-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-body);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+@media (max-width: 834px) {
+  .dashboard-shell
+    main
+    :is(.dashboard-compact-control, .dashboard-receipt-control) {
+    min-block-size: var(--touch-target);
+  }
+}

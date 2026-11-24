@@ -87,8 +87,8 @@ def test_publication_and_manifest_describe_the_production_method_inventory():
     library = (GATEWAY / "src/lib.rs").read_text()
     inventory = library.split("pub const ROUTER_METHODS:", 1)[1].split("];", 1)[0]
     names = re.findall(r'"([a-zA-Z_]+)"', inventory)
-    assert len(names) == len(set(names)) == 17
-    assert len(document["methods"]) == 22
+    assert len(names) == len(set(names)) == 18
+    assert len(document["methods"]) == 23
     inference = {
         "px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
         "px_getInferencePeer", "px_getInferenceReceipts",
@@ -126,9 +126,11 @@ def test_registration_documents_tenant_binding_and_the_current_pin():
     for domain in ("layerx-register-binding-v1", "layerx-register-subject-v1"):
         assert domain in description and f'b"{domain}"' in registration
     tagged = rust_function("src/rpc_register.rs", "tagged")
-    assert "for part in [domain, tenant.as_bytes(), signer_public_key.as_slice()]" in tagged
-    assert "hash.update((part.len() as u64).to_be_bytes());" in tagged
-    assert "hash.update(part);" in tagged
+    assert "tagged_parts(domain, &[tenant.as_bytes(), signer_public_key.as_slice()])" in tagged
+    tagged_parts = rust_function("src/rpc_register.rs", "tagged_parts")
+    assert "for part in std::iter::once(domain).chain(parts.iter().copied())" in tagged_parts
+    assert "hash.update((part.len() as u64).to_be_bytes());" in tagged_parts
+    assert "hash.update(part);" in tagged_parts
     subject = rust_function("src/rpc_register.rs", "subject")
     assert '"{tenant}.{}"' in subject and "[..32]" in subject
     assert "&binding(tenant, signer_public_key)" in rust_function("src/rpc_register.rs", "proven")
@@ -261,7 +263,7 @@ def test_plain_history_contract_matches_recorded_fields_and_producer():
     assert "fn answer_tags_every_unified_history_row_with_side_and_no_plain_history_row()" in producer
     assert 'row.remove("side");' in producer
     assert "assert_eq!(*plain, untagged);" in producer
-    prior = (GATEWAY / "tests/repair_22_31_202.rs").read_text()
+    prior = (GATEWAY / "tests/producer_paths.rs").read_text()
     assert 'for method in ["px_getHistory", "px_getUnifiedHistory"]' in prior
     assert 'matches_schema(&answer["result"], &schema)' in prior
     assert "closed history consumer DTO" in prior

@@ -41,8 +41,8 @@ func TestReceiptRangeRefusals(t *testing.T) {
 
 func TestFillLogIndexRefusals(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	authority, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)

@@ -27,7 +27,7 @@ PACKAGING = TESTS / "packaging-check.sh"
 NATIVE = TESTS / "paxd-check.py"
 EXAMPLE = ROOT / "services/interop/deploy/x-websearch/config.example.json"
 VALID = ROOT / "services/interop/crates/x-websearch/tests/fixtures/config/valid.json"
-GENESIS = ROOT / "services/platform/hosted/node/tests/fixtures/repair_22_31_355/genesis.json"
+GENESIS = ROOT / "services/platform/hosted/node/tests/fixtures/native_lifecycle/genesis.json"
 LOADER = ROOT / "services/interop/crates/x-websearch/src/config.rs"
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_112.kvx"

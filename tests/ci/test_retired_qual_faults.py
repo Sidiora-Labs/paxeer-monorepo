@@ -1,6 +1,9 @@
 from retired_tests import assert_symbols_unreferenced, build_and_run_c_suite
 
+import pytest
 
+
+@pytest.mark.native
 def test_qual_faults_retired():
     assert_symbols_unreferenced(
         [

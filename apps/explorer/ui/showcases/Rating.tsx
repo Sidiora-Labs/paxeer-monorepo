@@ -11,7 +11,7 @@ const RatingShowcase = () => {
         <SectionHeader>Size</SectionHeader>
         <SamplesStack>
           <Sample label="size: md">
-            <Rating defaultValue={ 3 } label={ [ 'Very bad', 'Bad', 'Average', 'Good', 'Excellent' ] }/>
+            <Rating defaultValue={ 3 } label={ [ 'Very bad', 'Bad', 'Average', 'Good', 'Excellent' ] } flexWrap="wrap"/>
           </Sample>
         </SamplesStack>
       </Section>
@@ -19,7 +19,7 @@ const RatingShowcase = () => {
         <SectionHeader>Read-only</SectionHeader>
         <SamplesStack>
           <Sample label="readOnly: true">
-            <Rating defaultValue={ 3 } label={ [ 'Very bad', 'Bad', 'Average', 'Good', 'Excellent' ] } readOnly/>
+            <Rating defaultValue={ 3 } label={ [ 'Very bad', 'Bad', 'Average', 'Good', 'Excellent' ] } readOnly flexWrap="wrap"/>
           </Sample>
         </SamplesStack>
       </Section>

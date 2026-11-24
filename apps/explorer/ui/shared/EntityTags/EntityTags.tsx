@@ -32,13 +32,13 @@ const EntityTags = ({ tags, addressHash, className, isLoading, noColors }: Props
 
   const tagMaxW = (() => {
     if (tags.length === 1) {
-      return { base: '100%', lg: '300px' };
+      return { base: '100%', lg: 'var(--chakra-spacing-75)' };
     }
 
     if (tags.length === 2) {
-      return { base: 'calc((100% - 8px) / 2)', lg: '300px' };
+      return { base: 'calc((100% - var(--chakra-spacing-2)) / 2)', lg: 'var(--chakra-spacing-75)' };
     }
-    return { base: 'calc((100% - 40px) / 2)', lg: '300px' };
+    return { base: 'calc((100% - var(--chakra-spacing-10)) / 2)', lg: 'var(--chakra-spacing-75)' };
   })();
 
   const content = (() => {
@@ -58,11 +58,16 @@ const EntityTags = ({ tags, addressHash, className, isLoading, noColors }: Props
           { metaSuitesPlaceholder }
           <PopoverRoot>
             <PopoverTrigger>
-              <Badge loading={ isLoading } cursor="pointer" as="button" _hover={{ color: 'hover' }}>
+              <Badge
+                loading={ isLoading }
+                cursor="pointer"
+                as="button"
+                _hover={{ color: 'hover' }}
+              >
                 +{ tags.length - visibleNum }
               </Badge>
             </PopoverTrigger>
-            <PopoverContent maxW="300px" w="fit-content">
+            <PopoverContent maxW="var(--chakra-spacing-75)" w="fit-content">
               <PopoverBody>
                 <Flex columnGap={ 2 } rowGap={ 2 } flexWrap="wrap">
                   { tags.slice(visibleNum).map((tag) => <EntityTag key={ tag.slug } data={ tag } addressHash={ addressHash } noColors={ noColors }/>) }

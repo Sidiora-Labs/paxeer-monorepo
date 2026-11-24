@@ -24,7 +24,7 @@ func TestMeasurementCommandCapturesReviewedProducerBeforeExclusiveOutput(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := os.ReadFile("../../testdata/repair28producer/go.mod")
+	manifest, err := os.ReadFile("../../testdata/emitter_producer/go.mod")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestMeasurementCommandCapturesReviewedProducerBeforeExclusiveOutput(t *test
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	t.Cleanup(cancel)
 	command := exec.CommandContext(ctx, "go", "run", "-modfile="+modfile, "-mod=mod", ".", root)
-	command.Dir = "../../testdata/repair28producer"
+	command.Dir = "../../testdata/emitter_producer"
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)

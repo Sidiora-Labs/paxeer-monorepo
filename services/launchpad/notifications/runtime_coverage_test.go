@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +32,8 @@ func TestCredentialRefreshReplacesValuesAndReportsUnavailability(t *testing.T) {
 	t.Setenv("RELEASE_REFRESH_TOKEN", "")
 	if err := credentials.Refresh(ctx); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("empty secret accepted: %v", err)
+	} else if !strings.Contains(err.Error(), "refresh credential RELEASE_REFRESH_TOKEN") || !strings.Contains(err.Error(), "not found in environment") {
+		t.Fatalf("credential refresh cause: %v", err)
 	}
 	if _, err := credentials.Get("RELEASE_REFRESH_TOKEN"); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("stale token served: %v", err)
@@ -50,14 +53,17 @@ func TestCredentialRefreshReplacesValuesAndReportsUnavailability(t *testing.T) {
 	if err := credentials.Run(canceled); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled refresh loop: %v", err)
 	}
+	if err := credentials.Refresh(canceled); !errors.Is(err, context.Canceled) || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("credential refresh cancellation: %v", err)
+	}
 }
 
 func TestPushRuntimeRunsWorkerAndCredentialLifecycle(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	credentials, err := NewCredentials(ctx, options, "REPAIR958_D11")
 	if err != nil {
 		t.Fatal(err)
@@ -99,6 +105,8 @@ func TestRuntimeRejectsMissingIdentityAndCursorAuthority(t *testing.T) {
 	}
 	if _, err := NewCredentials(ctx, secrets.Options{Provider: secrets.ProviderEnv}, "MISSING_RELEASE_TOKEN"); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("missing secret admitted: %v", err)
+	} else if !strings.Contains(err.Error(), "load credential MISSING_RELEASE_TOKEN") || !strings.Contains(err.Error(), "not found in environment") {
+		t.Fatalf("credential startup cause: %v", err)
 	}
 	if _, err := NewCredentials(ctx, secrets.Options{Provider: secrets.ProviderEnv}, ""); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("empty credential reference: %v", err)

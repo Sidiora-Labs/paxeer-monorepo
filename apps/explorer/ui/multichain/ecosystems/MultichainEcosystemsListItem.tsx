@@ -8,6 +8,7 @@ import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Stat } from 'toolkit/chakra/stat';
 import { TruncatedText } from 'toolkit/components/truncation/TruncatedText';
+import { spacing } from 'toolkit/theme/foundations/spacing';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import ChainIcon from 'ui/shared/externalChains/ChainIcon';
 import ListItemMobile from 'ui/shared/ListItemMobile/ListItemMobile';
@@ -35,11 +36,12 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
   };
 
   return (
-    <ListItemMobile rowGap={ 3 } py={ 4 } fontSize="sm" alignItems="stretch">
-      <HStack justifyContent="space-between" fontWeight={ 600 }>
-        <HStack maxW="50%">
+    <ListItemMobile rowGap={ 3 } py={ 4 } fontSize="body" lineHeight="small" alignItems="stretch" containerType="inline-size">
+      <HStack justifyContent="space-between" fontWeight="semibold" flexWrap="wrap" minW={ 0 }>
+        <HStack maxW="full" minW={ 0 } flex="1 1 var(--chakra-spacing-30)">
           <ChainIcon data={ chainInfo } isLoading={ isLoading }/>
           <Link
+            data-touch-inline
             href={ chainInfo?.explorer_url }
             external
             loading={ isLoading }
@@ -53,12 +55,29 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
           <CopyToClipboard text={ String(data.chain_id) } isLoading={ isLoading }/>
         </HStack>
       </HStack>
-      <Grid gridTemplateColumns="140px 1fr" columnGap={ 2 } rowGap={ 3 }>
-        <Skeleton loading={ isLoading } fontWeight={ 500 }>
+      <Grid
+        w="full"
+        fontVariantNumeric="tabular-nums"
+        minW={ 0 }
+        gridTemplateColumns="minmax(0, 1fr)"
+        columnGap={ 2 }
+        rowGap={ 3 }
+        css={{
+          [ `@container (min-width: ${ spacing['75'].value })` ]: {
+            gridTemplateColumns: 'calc(var(--chakra-spacing-1) * 35) minmax(0, 1fr)',
+            '& > [data-metric-value]': {
+              flexDirection: 'row-reverse',
+              justifyContent: 'flex-start',
+              textAlign: 'right',
+            },
+          },
+        }}
+      >
+        <Skeleton loading={ isLoading } fontWeight="medium">
           <span>Active addresses</span>
           <chakra.span color="text.secondary"> 7D</chakra.span>
         </Skeleton>
-        <HStack gap={ 1 }>
+        <HStack data-metric-value gap={ 1 } flexWrap="wrap" minW={ 0 }>
           <Skeleton loading={ isLoading }>
             <span>{ activeAddresses.value.toLocaleString() }</span>
           </Skeleton>
@@ -74,11 +93,11 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
           ) : null }
         </HStack>
 
-        <Skeleton loading={ isLoading } fontWeight={ 500 }>
+        <Skeleton loading={ isLoading } fontWeight="medium">
           <span>New addresses</span>
           <chakra.span color="text.secondary"> 7D</chakra.span>
         </Skeleton>
-        <HStack gap={ 1 }>
+        <HStack data-metric-value gap={ 1 } flexWrap="wrap" minW={ 0 }>
           <Skeleton loading={ isLoading }>
             <span>{ newAddresses.value.toLocaleString() }</span>
           </Skeleton>
@@ -94,11 +113,11 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
           ) : null }
         </HStack>
 
-        <Skeleton loading={ isLoading } fontWeight={ 500 }>
+        <Skeleton loading={ isLoading } fontWeight="medium">
           <span>Daily txs</span>
           <chakra.span color="text.secondary"> 7D</chakra.span>
         </Skeleton>
-        <HStack gap={ 1 }>
+        <HStack data-metric-value gap={ 1 } flexWrap="wrap" minW={ 0 }>
           <Skeleton loading={ isLoading }>
             <span>{ dailyTransactions.value.toLocaleString() }</span>
           </Skeleton>
@@ -114,10 +133,10 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
           ) : null }
         </HStack>
 
-        <Skeleton loading={ isLoading } fontWeight={ 500 }>
+        <Skeleton loading={ isLoading } fontWeight="medium">
           <span>TPS</span>
         </Skeleton>
-        <Skeleton loading={ isLoading }>
+        <Skeleton data-metric-value loading={ isLoading }>
           <span>{ Number(data.tps ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) }</span>
         </Skeleton>
       </Grid>

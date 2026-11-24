@@ -16,7 +16,7 @@ import (
 )
 
 func TestConnectedChatRoutesRejectInvalidCommandsAndUnavailableStorage(t *testing.T) {
-	f := newRepair1027Fixture(t)
+	f := newChatAdmissionFixture(t)
 	runtime := f.start(500, 20, 20)
 	router := chi.NewRouter()
 	if err := fanout.RegisterChatRoutes(router, runtime.store, f.requestPrincipal); err != nil {

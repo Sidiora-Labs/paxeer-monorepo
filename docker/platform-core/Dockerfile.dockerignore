@@ -21,6 +21,12 @@ consensus
 custodyproof
 daemon
 docker
+!docker/
+!docker/common/
+!docker/common/env-files.sh
+!docker/platform-core/
+!docker/platform-core/files.tsv
+include
 engine
 tests/fixtures/example
 hpx
@@ -31,6 +37,7 @@ node
 tests/occ
 rpc
 sdk
+spec
 storage
 tests/testutil
 utils
@@ -40,3 +47,6 @@ apps/perps
 apps/wallet
 apps/web
 tools/qualification/output
+!include/layerx
+!include/layerx/**
+!spec/layerx-merge/contracts/address-table.md

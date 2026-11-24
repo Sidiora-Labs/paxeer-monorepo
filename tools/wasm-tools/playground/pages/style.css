@@ -1,31 +1,402 @@
 :root {
-  --text-color: #404040;
+  color-scheme: light dark;
+  --background-light: #f6f7f9;
+  --background-dark: #11151c;
+  --background: var(--background-light);
+  --surface-light: #ffffff;
+  --surface-dark: #1b222e;
+  --surface: var(--surface-light);
+  --text-light: #252e3b;
+  --text-dark: #edf0f6;
+  --text: var(--text-light);
+  --muted-light: #515e70;
+  --muted-dark: #b4c1d4;
+  --muted: var(--muted-light);
+  --border-color-light: #69778b;
+  --border-color-dark: #8495af;
+  --border-color: var(--border-color-light);
+  --accent-light: #6330a2;
+  --accent-dark: #d4b1ff;
+  --accent: var(--accent-light);
+  --selection-text-light: #ffffff;
+  --selection-text-dark: #11151c;
+  --selection-text: var(--selection-text-light);
+  --hover-light: #ece5f5;
+  --hover-dark: #352747;
+  --hover: var(--hover-light);
+  --selected-light: #e1d2f4;
+  --selected-dark: #493662;
+  --selected: var(--selected-light);
+  --error-light: #a41616;
+  --error-dark: #ffb4b4;
+  --error: var(--error-light);
+  --name-light: #800b96;
+  --name-dark: #e9a3f6;
+  --name: var(--name-light);
+  --literal-light: #a00f26;
+  --literal-dark: #ffb0bd;
+  --literal: var(--literal-light);
+  --type-light: #216b48;
+  --type-dark: #8cdbb5;
+  --type: var(--type-light);
+  --backdrop-light: #e1dbeef2;
+  --backdrop-dark: #242030f2;
+  --backdrop: var(--backdrop-light);
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --text-small: clamp(0.875rem, 0.855rem + 0.09vw, 1rem);
+  --text-body: clamp(1rem, 0.98rem + 0.09vw, 1.125rem);
+  --text-heading: clamp(1.25rem, 1.21rem + 0.18vw, 1.5rem);
+  --text-title: clamp(1.75rem, 1.63rem + 0.54vw, 2.5rem);
+  --weight-normal: 400;
+  --weight-medium: 600;
+  --weight-bold: 700;
+  --leading-body: 1.5;
+  --leading-heading: 1.2;
+  --radius-small: 0.5rem;
+  --radius: 0.75rem;
+  --border: 1px;
+  --focus-width: 3px;
+  --focus-offset: 3px;
+  --control-size: 3rem;
+  --duration: 150ms;
+  --ease: ease-out;
+  --measure: 75ch;
+  --page-size: 100rem;
+  --editor-size: 28rem;
+  --editor-min: 20rem;
+  --editor-column: 26rem;
+  --overlay-size: 24rem;
+  --shadow: 0 var(--space-1) var(--space-4)
+    color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--background-dark);
+    --surface: var(--surface-dark);
+    --text: var(--text-dark);
+    --muted: var(--muted-dark);
+    --border-color: var(--border-color-dark);
+    --accent: var(--accent-dark);
+    --selection-text: var(--selection-text-dark);
+    --hover: var(--hover-dark);
+    --selected: var(--selected-dark);
+    --error: var(--error-dark);
+    --name: var(--name-dark);
+    --literal: var(--literal-dark);
+    --type: var(--type-dark);
+    --backdrop: var(--backdrop-dark);
+  }
+}
+
+@supports (color: light-dark(white, black)) {
+  :root {
+    --background: light-dark(var(--background-light), var(--background-dark));
+    --surface: light-dark(var(--surface-light), var(--surface-dark));
+    --text: light-dark(var(--text-light), var(--text-dark));
+    --muted: light-dark(var(--muted-light), var(--muted-dark));
+    --border-color: light-dark(
+      var(--border-color-light),
+      var(--border-color-dark)
+    );
+    --accent: light-dark(var(--accent-light), var(--accent-dark));
+    --selection-text: light-dark(
+      var(--selection-text-light),
+      var(--selection-text-dark)
+    );
+    --hover: light-dark(var(--hover-light), var(--hover-dark));
+    --selected: light-dark(var(--selected-light), var(--selected-dark));
+    --error: light-dark(var(--error-light), var(--error-dark));
+    --name: light-dark(var(--name-light), var(--name-dark));
+    --literal: light-dark(var(--literal-light), var(--literal-dark));
+    --type: light-dark(var(--type-light), var(--type-dark));
+    --backdrop: light-dark(var(--backdrop-light), var(--backdrop-dark));
+  }
 }
 
 html {
-  height: 100%;
+  box-sizing: border-box;
+}
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-normal);
+}
+:where(button, input, textarea) {
+  font: inherit;
+}
+:where(h1, h2, h3, strong) {
+  font-weight: var(--weight-bold);
+}
+:where(h1, h2, h3) {
+  line-height: var(--leading-heading);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+h1 {
+  font-size: var(--text-title);
+}
+h2 {
+  font-size: var(--text-heading);
+}
+h3 {
+  font-size: var(--text-body);
+}
+:where(p, dd) {
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+p {
+  max-inline-size: var(--measure);
+}
+:where(pre, code, textarea) {
+  font-family: var(--font-mono);
+}
+:where(
+  a,
+  button,
+  input,
+  textarea,
+  summary,
+  [tabindex],
+  [contenteditable]
+):focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+:root {
+  accent-color: var(--accent);
+  scrollbar-color: var(--muted) var(--background);
+  scrollbar-width: auto;
+}
+::selection {
+  color: var(--selection-text);
+  background: var(--accent);
+}
+:where([hidden]:not([hidden="until-found"])) {
+  display: none !important;
+}
+:where(button) {
+  min-inline-size: var(--control-size);
+  min-block-size: var(--control-size);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border) solid var(--border-color);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background-color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease);
+}
+:where(button):hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+:where(button):active:not(:disabled) {
+  background: var(--selected);
+}
+:where(button, input, textarea):disabled {
+  color: var(--muted);
+  background: var(--background);
+  cursor: not-allowed;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: var(--space-1);
+}
+a:hover {
+  text-decoration-thickness: var(--border);
+}
+@media (forced-colors: active) {
+  :root {
+    --background: Canvas;
+    --surface: Canvas;
+    --text: CanvasText;
+    --muted: CanvasText;
+    --border-color: ButtonText;
+    --accent: LinkText;
+    --selection-text: HighlightText;
+    --hover: Canvas;
+    --selected: Canvas;
+    --error: CanvasText;
+  }
 }
 
 body {
-  font-family: system,-apple-system,system-ui,BlinkMacSystemFont,sans-serif;
-  color: var(--text-color);
-  font-size: 1.2rem;
-  line-height: 1.3;
-  height: calc(100% - 16px - .4rem);
-  display: flex;
-  flex-direction: column;
-  padding: .4rem
+  max-inline-size: var(--page-size);
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4);
 }
-
 header {
   text-align: center;
+  margin-block-end: var(--space-6);
 }
-
 h1 {
-  margin: 0px;
+  margin-block: 0;
+}
+.textarea-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+.description {
+  flex-basis: 100%;
+}
+.description p {
+  margin-block: 0;
+  margin-inline: auto;
+}
+.description a,
+.redirect a {
+  min-inline-size: var(--control-size);
+  display: inline-block;
+  min-block-size: var(--control-size);
+  padding-block: var(--space-2);
+}
+.editor {
+  flex: 1 1 var(--editor-column);
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.input-header,
+.output-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--control-size);
+}
+.input-header label,
+.output-header label {
+  font-weight: var(--weight-medium);
+}
+.input,
+.output,
+.output-container {
+  min-inline-size: 0;
+}
+textarea,
+.iobox {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--editor-min);
+  padding: var(--space-4);
+  border: var(--border) solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-small) / var(--leading-body) var(--font-mono);
+  box-shadow: var(--shadow);
+}
+textarea {
+  scroll-margin-block: var(--space-4);
+  block-size: var(--editor-size);
+  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#output {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#output.iobox {
+  max-block-size: var(--editor-size);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+#output[style*="color: rgb(170, 0, 0)"],
+#output [style*="color: rgb(170, 0, 0)"] {
+  color: var(--error) !important;
+}
+.print-name {
+  color: var(--name);
+}
+.print-literal {
+  color: var(--literal);
+}
+.print-keyword {
+  font-weight: var(--weight-bold);
+}
+.print-type {
+  color: var(--type);
+}
+.print-comment {
+  color: var(--muted);
+}
+.config {
+  display: flex;
+  align-items: start;
+  gap: var(--space-2);
+  margin-block: var(--space-4);
+}
+.config label {
+  min-block-size: var(--control-size);
+  display: flex;
+  align-items: center;
+}
+.config input {
+  flex: none;
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+  margin: 0;
+}
+.config:has(:focus-visible) {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-small);
+}
+#overlay {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  padding: var(--space-6);
+  background: var(--backdrop);
+  color: var(--text);
+  font-size: var(--text-heading);
+  font-weight: var(--weight-bold);
+  text-align: center;
+  pointer-events: none;
+}
+.redirect {
+  max-inline-size: var(--measure);
+  margin-inline: auto;
 }
 
-a {
-  color: var(--text-color);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
 }
-

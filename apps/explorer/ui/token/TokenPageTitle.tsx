@@ -93,7 +93,7 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
       { tokenQuery.data && <TokenEntity.Reputation value={ tokenQuery.data.reputation } ml={ 0 }/> }
       { verifiedInfoQuery.data?.tokenAddress && (
         <Tooltip content={ `Information on this token has been verified by ${ config.chain.name }` }>
-          <IconSvg name="certified" color="green.500" boxSize={ 6 } cursor="pointer" data-token-verified/>
+          <IconSvg name="certified" color="positive" boxSize={ 6 } cursor="pointer" data-token-verified/>
         </Tooltip>
       ) }
     </>
@@ -107,7 +107,7 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
       alignItems="center"
       columnGap={ 1 }
       textStyle="sm"
-      fontWeight="500"
+      fontWeight="medium"
     >
       <IconSvg name="API" boxSize={ 5 }/>
       API
@@ -134,7 +134,7 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
           />
         ) }
         { implementation && (
-          <Tag variant="outlined" label="Implementation" loading={ addressQuery.isPlaceholderData } data-token-implementation>
+          <Tag variant="outlined" borderRadius="base" label="Implementation" loading={ addressQuery.isPlaceholderData } data-token-implementation>
             <AddressEntity
               address={{ hash: implementation.address_hash, name: implementation.name ?? null }}
               isLoading={ addressQuery.isPlaceholderData }
@@ -163,6 +163,10 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
   return (
     <>
       <PageTitle
+        css={{
+          '& h1': { whiteSpace: 'normal', overflow: 'visible' },
+          '& [data-entity-identifier]': { flexWrap: 'nowrap' },
+        }}
         kind="TOKEN"
         title={ `${ tokenQuery.data?.name || 'Unnamed token' }${ tokenSymbolText }` }
         identifier={ tokenQuery.data?.filecoin_robust_address || hash }

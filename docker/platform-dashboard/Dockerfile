@@ -9,5 +9,6 @@ COPY --from=build /src/services/platform/target/release/layerx-dashboard /usr/lo
 COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files
 COPY docker/platform-dashboard/files.tsv /etc/layerx/files.tsv
 RUN install -d -o 65532 -g 65532 -m 0700 /run/layerx
+EXPOSE 9445
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/layerx-env-files", "/usr/local/bin/layerx-dashboard"]

@@ -20,6 +20,14 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 OWNED_PATHS = (
     "apps/perps/deploy/README.md",
+    "apps/perps/deploy/docker-compose.yml",
+    "apps/perps/deploy/.env.production.example",
+    "apps/perps/deploy/build-args.production.env",
+    "apps/perps/Dockerfile",
+    "apps/perps/railway.json",
+    "apps/perps/vercel.json",
+    "apps/perps/apps/web/next.config.js",
+    "apps/perps/apps/web/src/pages/api",
     "deploy/launchpad/railway-values.json",
     "deploy/launchpad/railway/variables.json",
     "docker/localnode/config/config.toml",
@@ -125,7 +133,7 @@ def test_example_addresses_use_documentation_ranges():
                     violations.append(f"{path.relative_to(ROOT)}:{number}: {literal}")
     assert not violations, "Remote examples must use RFC 5737 addresses:\n" + "\n".join(violations)
     for name in (
-        "apps/perps/deploy/README.md", "docker/localnode/config/config.toml",
+        "docker/localnode/config/config.toml",
         "docker/rpcnode/config/config.toml", "tools/hpx/fleet-keygen.sh",
         "tools/bringup/edge.sh",
     ):

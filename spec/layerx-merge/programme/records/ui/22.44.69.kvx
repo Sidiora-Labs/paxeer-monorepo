@@ -1,0 +1,73 @@
+[manifest]
+task = "22.44.69"
+surface = "Sidiora Launchpad terminal, swap and orders"
+views = 10
+named_states = 4
+states = 14
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[coverage]
+views = ["meta-ag-orders", "meta-ag-swap", "swap", "terminal", "terminal-coin", "terminal-portfolio", "terminal-rewards", "terminal-track", "terminal-trenches", "terminal-slug"]
+named_states = ["swap/settings", "swap/coin-selector", "terminal/layout-menu", "terminal/settings-menu"]
+view_configurations = 340
+named_state_configurations = 104
+configurations = 444
+
+[render]
+count = 444
+sizes = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+result = "pass"
+did_not_render = 0
+showed_nothing = 0
+findings = 0
+
+[findings]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[finding_counts]
+order = ["first", "last"]
+load = [0, 0]
+sideways = [0, 0]
+cut = [0, 0]
+contrast = [0, 0]
+touch = [0, 0]
+focus = [0, 0]
+shift = [0, 0]
+motion = [0, 0]
+scale = [0, 0]
+geometry = [0, 0]
+
+[review]
+screenshots = 140
+corrections = [
+  "Terminal navigation preserves the width of its links and shows keyboard focus.",
+  "Discovery, recent pairs, statistics and trades retain their layout while data arrives.",
+  "Trade settings remain fixed within the viewport while the document scrolls.",
+  "Search and slippage fields use the control edge role in both schemes.",
+  "The chart provides one page focus stop and returns focus when Escape is pressed.",
+  "Numeric columns align at the right and use tabular figures.",
+  "Trenches market-cap and change values stay centered within the existing row."
+]
+
+[presentation]
+navigation = "Terminal links retain their width within the scrollable navigation and the track accommodates their touch targets."
+search = "Coin search and custom slippage fields use the control edge role in both schemes."
+settings = "Trade settings use the shared viewport placement and scroll within the available height."
+menus = "Swap and terminal menu states include their visible contents."
+
+[guides]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "menu", "dialog", "responsive-table", "form-factor-adaptation"]

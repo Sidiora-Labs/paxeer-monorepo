@@ -2,9 +2,9 @@
 
 `services/human/` contains the Rust services for person-facing authentication,
 onboarding, custody, money movement, approvals and receipt-backed activity.
-Paxeer mainnet-beta is one BFT network, with EVM chain id **125** (`0x7d`).
-The kernel is part of that network and proposes blocks. A receipt is final when
-its block is committed. Tenant domains are database namespaces, so a sub-chain
+Paxeer mainnet-beta uses EVM chain id **125** (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt is final when its block is committed. Tenant domains are database namespaces, so a sub-chain
 does not require a new chain deployment.
 
 ## Layout
@@ -57,9 +57,11 @@ transaction encoding: shared `layerx-crypto` EIP-1559 codecs and the
 verify signatures and assemble signed type-2 transactions.
 
 [Bank sends](crates/layerx-human-service/src/custody/evm.rs) are zero-value calls
-to `0x0000000000000000000000000000000000001001`, using
-`send(address,address,string,uint256)`. The disclosure binds sender, recipient,
-denomination and amount. Custody validates the authenticated principal, tenant,
+to the denomination’s native pointer, using
+`transfer(address,uint256)`. The service reads `getNativePointer(string)` at
+`0x000000000000000000000000000000000000100a`, requires the pointer to exist, and
+binds the denomination to its asset digest. The disclosure binds sender, pointer,
+recipient and amount. Custody validates the authenticated principal, tenant,
 wallet and exact plan; KMS reserves the nonce and journals the signed transaction
 for recovery. EVM wallets resolve to configured attestor key identities and
 public addresses. Their secp256k1 private material is not returned to the Human

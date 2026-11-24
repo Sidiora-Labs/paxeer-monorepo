@@ -205,7 +205,7 @@ pub mod boundary {
                 .unwrap_or_else(|error| panic!("required value: {error:?}"));
         }
         let recorded: serde_json::Value =
-            serde_json::from_str(include_str!("../src/repair_22_31_354_transcripts.json"))
+            serde_json::from_str(include_str!("../src/native_chain_transcripts.json"))
                 .unwrap_or_else(|error| panic!("required value: {error:?}"));
         for (name, field) in [("certificate.der", "certificate"), ("key.der", "key")] {
             fs::write(

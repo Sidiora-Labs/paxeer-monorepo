@@ -4,8 +4,8 @@ This page preserves the problem and attack classification of the upstream
 **classic Tendermint** draft, while mapping them to the current Go evidence
 implementation. It is not a complete isolation algorithm for every attack.
 
-Paxeer mainnet-beta is one BFT network (`paxd`, EVM chain ID 125); the kernel
-participates in the network and proposes blocks. A receipt is final when its
+Paxeer mainnet-beta uses EVM chain ID 125.
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final when its
 block commits. This classic light-client research does not establish the safety
 or accountability of Autobahn certificates, availability, committee changes or
 recovery. See [State](../../core/state.md#autobahn-state-and-recovery) for that

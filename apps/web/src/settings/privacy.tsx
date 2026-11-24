@@ -36,7 +36,7 @@ export function PrivacyModeProvider({
   children,
 }: Readonly<{ principalScope: string; children: ReactNode }>) {
   const key = useMemo(() => storageKey(principalScope), [principalScope]);
-  const [state, setMaskedState] = useState<PrivacyModeState>(() => ({ key, masked: true }));
+  const [state, setMaskedState] = useState<PrivacyModeState>(() => ({ key, masked: false }));
   const masked = state.key === key ? state.masked : true;
 
   useEffect(() => {

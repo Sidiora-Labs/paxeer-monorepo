@@ -48,15 +48,23 @@ const Settings = ({ children }: { children?: React.ReactNode }) => {
               borderRadius="sm"
               aria-label="User settings"
             >
-              <IconSvg name="gear"/>
+              <IconSvg aria-hidden={ true } name="gear"/>
             </IconButton>
           </PopoverTrigger>
         </Flex>
       </Tooltip>
-      <PopoverContent overflowY="hidden" w="auto" fontSize="sm">
+      <PopoverContent overflowY="auto" maxH="var(--available-height)" w="auto" textStyle="small">
         <PopoverBody>
           { !config.features.multichain.isEnabled && (
-            <Flex data-label="chain-stats" flexWrap="wrap" gap={ 2 } pb={ 3 } mb={ 3 } borderBottomWidth="1px" borderColor="hairline">
+            <Flex
+              data-label="chain-stats"
+              flexWrap="wrap"
+              gap={ 2 }
+              pb={ 3 }
+              mb={ 3 }
+              borderBottomWidth="var(--chakra-border-widths-1)"
+              borderColor="hairline"
+            >
               <TopBarStats/>
             </Flex>
           ) }

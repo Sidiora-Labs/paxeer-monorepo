@@ -78,7 +78,7 @@ public sealed class AgentEnvelopeMajor2Tests
 
     private static async Task<AgentEnvelopeResult> Exchange(int status, byte[] golden)
     {
-        await using var server = new RepairM1368Http();
+        await using var server = new JsonRpcTestServer();
         using var requestGolden = JsonDocument.Parse(Golden("agent-http-request.json"));
         var session = requestGolden.RootElement.GetProperty("credential");
         using var credential = new AgentSessionCredential(session.GetProperty("tenant").GetString()!,

@@ -4,7 +4,7 @@
 
 Give autonomous software a verifiable identity, explicit authority, bounded spending, and an evidence trail for every network action.
 
-Paxeer X agents submit signed EIP-1559 transactions to native precompiles on chain 125. The native kernel executes inside the BFT node. An agent reads state, prepares a transaction, reviews its effects, obtains a signature, and tracks the resulting evidence. The agent daemon supplies tenant isolation, session controls, policy, and runtime integration.
+Paxeer X agents submit signed EIP-1559 transactions to native precompiles on chain 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. An agent reads state, prepares a transaction, reviews its effects, obtains a signature, and tracks the resulting evidence. The agent daemon supplies tenant isolation, session controls, policy, and runtime integration.
 
 ## Choose an agent integration
 

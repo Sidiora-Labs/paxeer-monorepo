@@ -15,7 +15,7 @@ import sys
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
 TESTS = ROOT / 'programs/crates/layerx-programs-runtime/tests'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 SUITES = ['shared_storage', 'storage_scan', 'namespace_drop', 'isolation', 'composition']
 ACCEPTANCE = ['shared_capabilities_encode_append_only_and_narrow_downward',
               'two_principals_update_one_shared_total_with_equal_metering',
@@ -128,7 +128,7 @@ def structure():
 
 try:
     count = structure()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.29.2'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'abi::'], 'abi unit suite', env)
     passed, skipped = tally(output, 'unit', 1)

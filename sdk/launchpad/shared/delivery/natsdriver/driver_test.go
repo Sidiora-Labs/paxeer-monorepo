@@ -18,6 +18,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/internal/testpostgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
@@ -298,8 +299,8 @@ func phase3Database(t *testing.T, ctx context.Context, schema string) *pgxpool.P
 	if os.Getenv("DELIVERY_TEST_DSN") == "" {
 		t.Skip("DELIVERY_TEST_DSN is unset: configure the real PostgreSQL fixture")
 	}
-	config, err := pgxpool.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))
-	if err != nil || config.ConnConfig.Host != "127.0.0.1" || config.ConnConfig.Port != 25432 || config.ConnConfig.Database != "kindle_fixture" || !strings.HasPrefix(schema, "kd_") || !identifier.MatchString(schema) || len(schema) > 63 {
+	config, err := testpostgres.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))
+	if err != nil || !strings.HasPrefix(schema, "kd_") || !identifier.MatchString(schema) || len(schema) > 63 {
 		t.Fatal("explicit private PostgreSQL fixture authority required")
 	}
 	config.MaxConns = 4

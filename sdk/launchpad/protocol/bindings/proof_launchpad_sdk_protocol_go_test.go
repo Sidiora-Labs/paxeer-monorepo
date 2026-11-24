@@ -129,10 +129,10 @@ func proofLaunchpadRoleMetadata(t *testing.T) {
 
 func TestProofLaunchpadSdkProtocolGo(t *testing.T) {
 	proofLaunchpadRoleMetadata(t)
-	t.Run("RetainedEmitterV2", TestRepairM_948_RetainedEmitterV2)
-	t.Run("BeaconOwnershipHandoff", TestRepairM_948_BeaconOwnershipHandoff)
-	t.Run("NativeExecutorTransport", TestRepairM_948_NativeExecutorTransport)
-	t.Run("NativeExecutorNode", TestRepairM_948_NativeExecutorNode)
+	t.Run("RetainedEmitterV2", TestRecordedRetainedEmitterV2)
+	t.Run("BeaconOwnershipHandoff", TestRecordedBeaconOwnershipHandoff)
+	t.Run("NativeExecutorTransport", TestRecordedNativeExecutorTransport)
+	t.Run("NativeExecutorNode", TestRecordedNativeExecutorNode)
 	root, err := filepath.Abs("../../../..")
 	if err != nil {
 		t.Fatal(err)

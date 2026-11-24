@@ -40,15 +40,15 @@ const InternalTxsTableItem = ({
     <TableRow alignItems="top">
       { chainData && (
         <TableCell>
-          <ChainIcon data={ chainData } isLoading={ isLoading } my="2px"/>
+          <ChainIcon data={ chainData } isLoading={ isLoading } my="var(--chakra-spacing-0\.5)"/>
         </TableCell>
       ) }
       <TableCell>
-        <Flex rowGap={ 3 } flexDir="column" my="2px">
+        <Flex rowGap={ 3 } flexDir="column" my="var(--chakra-spacing-0\.5)">
           <TxEntity
             hash={ txnHash }
             isLoading={ isLoading }
-            fontWeight={ 700 }
+            fontWeight="bold"
             noIcon
             truncation="constant_long"
           />
@@ -57,7 +57,7 @@ const InternalTxsTableItem = ({
             enableIncrement
             isLoading={ isLoading }
             color="text.secondary"
-            fontWeight="400"
+            fontWeight="normal"
             fontSize="sm"
             w="fit-content"
           />
@@ -66,20 +66,21 @@ const InternalTxsTableItem = ({
       <TableCell>
         <Flex rowGap={ 2 } flexDir="column">
           { typeTitle && (
-            <Badge colorPalette="cyan" loading={ isLoading }>{ typeTitle }</Badge>
+            <Badge colorPalette="cyan" _light={{ color: 'cyan.800' }} loading={ isLoading }>{ typeTitle }</Badge>
           ) }
           { !success && <TxStatus status="error" errorText={ error } isLoading={ isLoading }/> }
         </Flex>
       </TableCell>
       { showBlockInfo && (
-        <TableCell>
+        <TableCell isNumeric>
           <BlockEntity
+            justifyContent="flex-end"
             isLoading={ isLoading }
             number={ blockNumber }
             noIcon
             textStyle="sm"
-            fontWeight={ 500 }
-            my="2px"
+            fontWeight="medium"
+            my="var(--chakra-spacing-0\.5)"
           />
         </TableCell>
       ) }
@@ -89,7 +90,7 @@ const InternalTxsTableItem = ({
           to={ toData }
           current={ currentAddress }
           isLoading={ isLoading }
-          my="2px"
+          my="var(--chakra-spacing-0\.5)"
         />
       </TableCell>
       <TableCell isNumeric>
@@ -99,7 +100,7 @@ const InternalTxsTableItem = ({
           accuracy={ 0 }
           loading={ isLoading }
           minW={ 6 }
-          my="2px"
+          my="var(--chakra-spacing-0\.5)"
         />
       </TableCell>
     </TableRow>

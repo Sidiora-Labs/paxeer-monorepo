@@ -100,7 +100,7 @@ def test_readme_provisioning_matches_modal_and_panel():
     assert "SendTxForm" not in modal
     provision = modal.index("await paxeer.provisionStandardWallet()")
     assert provision < modal.index("await standard.refresh()", provision)
-    assert "!standard.data ? <button" in modal
+    assert re.search(r"!standard\.data\s*\?\s*\(\s*<button\b", modal)
     assert "onClick={provision}" in modal
     assert modal.count("<SupportedWalletPanel") == 2
     assert "injected={injected}" in modal
@@ -122,21 +122,25 @@ def test_readme_send_matches_wallet_and_provider_path():
     panel = read(DEMO / "src/components/FundedAccountPanel.tsx")
     wallet = read(SDK / "wallet.ts")
     provider = read(SDK / "provider.ts")
-    assert "if (chain !== 125) throw" in panel
+    assert re.search(r"if\s*\(chain !== 125\)\s*throw\b", panel)
     assert "provider.on('accountsChanged', reset)" in panel
     assert "provider.on('chainChanged', reset)" in panel
-    assert "if (!/^0x[0-9a-fA-F]{40}$/.test(to)" in panel
+    assert re.search(
+        r"if\s*\(\s*" + re.escape("!/^0x[0-9a-fA-F]{40}$/.test(to)"), panel
+    )
     assert "/^(0|[1-9][0-9]*)$/.test(value)" in panel
     assert "/^0x(?:[0-9a-fA-F]{2})*$/.test(data)" in panel
-    assert (
-        "return wallet.sendTransaction({ to: to as Hex, value: BigInt(value), "
-        "data: data as Hex, chainId: 125 })"
-    ) in panel
+    assert re.search(
+        r"return wallet\.sendTransaction\(\{\s*"
+        r"to: to as Hex,\s*value: BigInt\(value\),\s*"
+        r"data: data as Hex,\s*chainId: 125,?\s*\}\)",
+        panel,
+    )
     assert "method: 'eth_sendTransaction', params: [params]" in wallet
     assert "this.signingGateway<SendTxResponse>(context, '/v1/wallet/send'" in provider
     assert "return response.tx_hash" in provider
-    assert "injected?.provider ?? new PaxeerProvider" in panel
-    assert "confirm: request => window.confirm" in panel
+    assert re.search(r"injected\?\.provider\s*\?\?\s*new PaxeerProvider", panel)
+    assert re.search(r"confirm:\s*\(request\)\s*=>\s*window\.confirm", panel)
     for fact in (
         "chain ID `125`",
         "integer amount in **wei**",
@@ -170,12 +174,11 @@ def test_readme_planning_limit_matches_real_endpoint_contract():
     assert "human.submitPlan" not in panel
     for fact in (
         "**Read availability and plan intent**",
-        "separate from sending a transaction",
+        "checks kernel availability before calling",
         "`HumanClient.planIntent()`",
         "`POST /v1/intents/plan`",
-        "does not submit or execute a plan",
+        "It does not submit or execute a plan.",
         "`hostedUrl`",
-        "EndpointClient: hostedUrl required for hosted px_ reads",
     ):
         assert fact in readme
 

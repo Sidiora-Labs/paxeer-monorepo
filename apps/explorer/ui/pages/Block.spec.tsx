@@ -4,6 +4,7 @@ import React from 'react';
 
 import * as blockMock from 'mocks/blocks/block';
 import * as internalTxsMock from 'mocks/txs/internalTxs';
+import { base as transaction } from 'mocks/txs/tx';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from 'vitest/lib';
@@ -48,7 +49,7 @@ describe('BlockPageContent', () => {
         return Promise.resolve({ body: JSON.stringify(internalTxsMock.baseResponse), ...responseInit });
       }
       if (request.url.includes('/transactions')) {
-        return Promise.resolve({ body: JSON.stringify({ items: [], next_page_params: null }), ...responseInit });
+        return Promise.resolve({ body: JSON.stringify({ items: [ transaction ], next_page_params: null }), ...responseInit });
       }
       return Promise.resolve({ body: JSON.stringify(blockMock.base), ...responseInit });
     });
@@ -60,17 +61,32 @@ describe('BlockPageContent', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Block');
     expect(container.querySelector('h1')?.textContent).toBe(`Block #${ height }`);
     expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('BLOCK');
-  });
+  }, 60_000);
+
+  it('centres the proposer title and address on one line', async function centresProposerTitleAndAddress() {
+    const { container } = await renderPage();
+
+    const address = container.querySelector('[data-title-second-row] [data-entity-kind="address"]') as HTMLElement;
+    const row = address.parentElement as HTMLElement;
+    const title = row.firstElementChild as HTMLElement;
+
+    expect(address.querySelector('a')?.getAttribute('href')).toContain(blockMock.base.miner.hash);
+    expect(title.textContent).toBe('Validator');
+    expect(title.nextElementSibling).toBe(address);
+    expect(window.getComputedStyle(row).display).toBe('flex');
+    expect(window.getComputedStyle(row).alignItems).toBe('center');
+    expect(window.getComputedStyle(title).flexShrink).toBe('0');
+  }, 60_000);
 
   it('lists the sections the block carries as pills', async() => {
     const { container } = await renderPage();
 
     const tabs = container.querySelector('[data-scan-section-tabs]') as HTMLElement;
-    const titles = Array.from(tabs.querySelectorAll('[data-tab]')).map((tab) => tab.textContent);
+    const titles = Array.from(tabs.querySelectorAll(':scope > div > [role="tablist"] > [data-tab]')).map((tab) => tab.textContent);
 
     expect(titles).toEqual([ 'Transactions', 'Details' ]);
-    expect(container.querySelector('[data-tab="internal_txs"]')).not.toBeNull();
-  });
+    expect(container.querySelector('[data-tab="internal_txs"]')?.textContent).toBe('Internal txns');
+  }, 60_000);
 
   it('puts the api entry beside the pills', async() => {
     const { container } = await renderPage();
@@ -78,15 +94,15 @@ describe('BlockPageContent', () => {
     const rightSlot = container.querySelector('[data-scan-section-tabs] [data-right-slot]') as HTMLElement;
 
     expect(rightSlot.querySelector('[data-api-entry]')?.textContent).toBe('API');
-  });
+  }, 60_000);
 
   it('opens on Transactions and keeps the details available on the index route', async() => {
     const { container } = await renderPage();
 
     expect(container.querySelector('[data-block-details-card]')).toBeNull();
-    expect(container.querySelector('[data-scan-table-card]')).not.toBeNull();
+    await waitFor(() => expect(container.querySelector('[data-list-page] table')).not.toBeNull());
     expect(container.querySelector('[data-tab="index"]')?.textContent).toBe('Details');
-  });
+  }, 60_000);
 
   it('routes to the section a pill names, keeping the block out of the query string', async() => {
     const { container } = await renderPage();
@@ -100,7 +116,7 @@ describe('BlockPageContent', () => {
         { shallow: true },
       );
     });
-  });
+  }, 60_000);
 
   it('shows the internal transactions card when the route names that section', async() => {
     routerState.query = { height_or_hash: height, tab: 'internal_txs' };
@@ -112,5 +128,5 @@ describe('BlockPageContent', () => {
         .toBe(`A total of ${ blockMock.base.internal_transactions_count } internal transactions found`);
     });
     expect(container.querySelector('[data-block-details-card]')).toBeNull();
-  });
+  }, 60_000);
 });

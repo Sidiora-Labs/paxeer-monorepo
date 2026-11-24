@@ -53,9 +53,12 @@ type lifecycleCoverageHarness struct {
 	head      *measuredHead
 }
 
-func newLifecycleCoverageHarness(t *testing.T) lifecycleCoverageHarness {
+func newLifecycleCoverageHarness(t *testing.T, contexts ...context.Context) lifecycleCoverageHarness {
 	t.Helper()
 	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
 	_, pool := canonicaltest.New(t)
 	inventory := newInventoryHarnessOnPool(t, ctx, 0, pool, 33963749)
 	trace := new(IngestSQLMeasurementTracer)
@@ -90,11 +93,15 @@ func newLifecycleCoverageHarness(t *testing.T) lifecycleCoverageHarness {
 	runner := &ReplayRunner{Store: st, Source: historical, Deliveries: outbox, Owner: inventoryTestOwner, DeliverySchema: "indexer", BatchSize: 17}
 	return lifecycleCoverageHarness{IngestMeasurementHarness: &IngestMeasurementHarness{SQLTrace: trace, Processor: inventory.proc, Pool: observed, Store: st, Replay: runner}, inventory: inventory, head: head}
 }
-func (h lifecycleCoverageHarness) spec(t *testing.T) IngestMeasurementSpec {
+func (h lifecycleCoverageHarness) spec(t *testing.T, contexts ...context.Context) IngestMeasurementSpec {
 	t.Helper()
-	spec := repairM1000MeasurementSpec(t)
+	spec := nativeAccountingMeasurementSpec(t)
 	var database string
-	if err := h.Pool.QueryRow(context.Background(), `SELECT current_database()`).Scan(&database); err != nil {
+	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
+	if err := h.Pool.QueryRow(ctx, `SELECT current_database()`).Scan(&database); err != nil {
 		t.Fatal(err)
 	}
 	topology := IngestTopologyEvidence{Region: spec.Region, Database: database, ApprovedAuthorityID: "committed-test-topology", CapturedAt: time.Now().UTC(), Zones: []string{"a", "b", "c"}, NodeIDs: []string{"n1", "n2", "n3"}}
@@ -185,12 +192,65 @@ func archiveCoverageObjects(t *testing.T) *storage.Client {
 }
 
 func TestMeasurementCapturesQualifiedBatchesAndShutdown(t *testing.T) {
-	h := newLifecycleCoverageHarness(t)
-	spec := h.spec(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	report, err := h.Run(ctx, spec)
-	if !errors.Is(err, context.DeadlineExceeded) || report.Transactions != 2 || report.CommittedBlocks != 34 || report.TotalFills != 2 || report.HotPoolFills != 2 || report.CommittedRaw != report.OfferedRaw || report.CommittedRaw == 0 || report.PeakGoHeapBytes == 0 || report.PeakRSSBytes == 0 || report.SQLTrace.CopyCalls != 0 || report.SQLTrace.RawScalarInsertQueries != uint64(report.CommittedRaw) || report.CaptureSHA256 == "" || report.FinishedAt.IsZero() || report.StartedAt.IsZero() {
+	h := newLifecycleCoverageHarness(t, ctx)
+	spec := h.spec(t, ctx)
+	runCtx, stop := context.WithCancel(ctx)
+	defer stop()
+	type outcome struct {
+		report IngestMeasurementReport
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() { report, err := h.Run(runCtx, spec); done <- outcome{report, err} }()
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	for {
+		body, err := os.ReadFile(spec.OutputPath)
+		if err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		decoder := json.NewDecoder(bytes.NewReader(body))
+		acknowledgements := 0
+		resources, plans := false, false
+		for {
+			var entry struct {
+				Kind string `json:"kind"`
+			}
+			if decoder.Decode(&entry) != nil {
+				break
+			}
+			switch entry.Kind {
+			case "durable-ack":
+				acknowledgements++
+			case "resources":
+				resources = true
+			case "query-plans":
+				plans = true
+			}
+		}
+		if acknowledgements == 2 && resources && plans {
+			break
+		}
+		select {
+		case result := <-done:
+			t.Fatalf("measurement returned before qualified capture: %+v: %v", result.report, result.err)
+		case <-ctx.Done():
+			t.Fatalf("qualified capture deadline: %v", ctx.Err())
+		case <-ticker.C:
+		}
+	}
+	stop()
+	var report IngestMeasurementReport
+	var err error
+	select {
+	case result := <-done:
+		report, err = result.report, result.err
+	case <-ctx.Done():
+		t.Fatalf("measurement shutdown deadline: %v", ctx.Err())
+	}
+	if !errors.Is(err, context.Canceled) || report.Transactions != 2 || report.CommittedBlocks != 34 || report.TotalFills != 2 || report.HotPoolFills != 2 || report.CommittedRaw != report.OfferedRaw || report.CommittedRaw == 0 || report.PeakGoHeapBytes == 0 || report.PeakRSSBytes == 0 || report.SQLTrace.CopyCalls != 0 || report.SQLTrace.RawScalarInsertQueries != uint64(report.CommittedRaw) || report.CaptureSHA256 == "" || report.FinishedAt.IsZero() || report.StartedAt.IsZero() {
 		t.Fatalf("qualified measurement: %+v %v", report, err)
 	}
 	if !slices.Contains(report.Violations, "actual ingest executed no COPY staging") || !slices.Contains(report.Violations, "actual ingest used one scalar raw insert per event") {
@@ -205,10 +265,14 @@ func TestMeasurementCapturesQualifiedBatchesAndShutdown(t *testing.T) {
 			t.Fatalf("capture lacks %s", kind)
 		}
 	}
-	if ready := h.Processor.Ready(context.Background()); ready == nil || h.Processor.readyFence.Load() != 0 {
-		t.Fatalf("released measurement remains ready: %v", ready)
+	if state, ready := h.Processor.LeaseState(), h.Processor.Ready(ctx); state != "standby" || ready != nil {
+		t.Fatalf("released measurement standby health: %s: %v", state, ready)
 	}
-	watermark, err := h.Store.GetCanonicalWatermark(context.Background(), 125, realStream)
+	var held int
+	if err := h.Pool.QueryRow(ctx, `SELECT count(*) FROM indexer.indexer_ingest_leases WHERE chain_id=125 AND stream_id=$1 AND owner_instance=$2 AND expires_at>clock_timestamp()`, realStream, inventoryTestOwner).Scan(&held); err != nil || held != 0 {
+		t.Fatalf("measurement retained lease: %d: %v", held, err)
+	}
+	watermark, err := h.Store.GetCanonicalWatermark(ctx, 125, realStream)
 	if err != nil || watermark != 33963749 {
 		t.Fatalf("measurement watermark %d: %v", watermark, err)
 	}
@@ -516,7 +580,7 @@ func TestProcessorValueAndInputBounds(t *testing.T) {
 }
 
 func TestTopologyAndCheckpointInputsAreStrict(t *testing.T) {
-	spec := repairM1000MeasurementSpec(t)
+	spec := nativeAccountingMeasurementSpec(t)
 	for _, tc := range []struct {
 		name string
 		body []byte

@@ -79,8 +79,8 @@ func TestVaultTransitRequiresBoundCiphertextAndPlaintext(t *testing.T) {
 }
 
 func TestEncryptedCredentialRewrapPreservesProviderBinding(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	o, _ := f.create("credential-rewrap")
 	if _, err := f.store.BeginProvision(ctx, o.ID); err != nil {
@@ -111,8 +111,8 @@ func TestEncryptedCredentialRewrapPreservesProviderBinding(t *testing.T) {
 }
 
 func TestEncryptedCredentialLoadRequiresCurrentProviderAndRevision(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	o, _ := f.create("credential-current-binding")
 	if _, err := f.store.BeginProvision(ctx, o.ID); err != nil {
@@ -156,7 +156,7 @@ func TestEncryptedCredentialLoadRequiresCurrentProviderAndRevision(t *testing.T)
 }
 
 func TestSuspendedStreamRequestsRestorationAfterPolicyDecision(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.RotationSchemaSQL()); err != nil {
 		t.Fatal(err)
@@ -192,8 +192,8 @@ func TestSuspendedStreamRequestsRestorationAfterPolicyDecision(t *testing.T) {
 }
 
 func TestEncryptedBindingRetainsPolicySuspensionAndProviderIdentity(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	o, _ := f.create("encrypted-policy-suspension")
 	if _, err := f.store.BeginProvision(ctx, o.ID); err != nil {

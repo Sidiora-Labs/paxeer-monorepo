@@ -21,13 +21,11 @@ func TestShadowExactSetAndDuplicateRejection(t *testing.T) {
 	}
 }
 
-// Exercise the same persisted comparison against PostgreSQL when the private
-// integration fixture is explicitly admitted. No external fixture is in the
-// TestRepairM_962 gate.
+// TestShadowPostgresDurableObservations checks persisted comparisons against PostgreSQL.
 func TestShadowPostgresDurableObservations(t *testing.T) {
 	for _, fault := range []string{"exact", "missing", "extra", "changed", "wrong_range"} {
 		t.Run(fault, func(t *testing.T) {
-			ctx, pool, archive, engine, manifest, digest := repair41Fixture(t)
+			ctx, pool, archive, engine, manifest, digest := activeRebuildFixture(t)
 			if _, err := pool.Exec(ctx, "DELETE FROM "+archive.store.table("delivery_shadow_comparisons")); err != nil {
 				t.Fatal(err)
 			}

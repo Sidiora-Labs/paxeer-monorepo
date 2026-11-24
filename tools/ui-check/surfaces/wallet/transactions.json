@@ -1,0 +1,81 @@
+{
+  "items": [
+    {
+      "hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+      "block_number": 100,
+      "timestamp": "2026-01-01T12:00:00Z",
+      "from": {
+        "hash": "0x0000000000000000000000000000000000000001",
+        "is_contract": false
+      },
+      "to": {
+        "hash": "0x0000000000000000000000000000000000000002",
+        "is_contract": false
+      },
+      "value": "1250000000000000000",
+      "fee": {
+        "type": "actual",
+        "value": "2100000000000000"
+      },
+      "gas_used": "21000",
+      "gas_limit": "21000",
+      "gas_price": "100000000000",
+      "status": "ok",
+      "method": null,
+      "transaction_types": ["coin_transfer"],
+      "token_transfers": [],
+      "confirmations": 24,
+      "position": 1,
+      "result": "success",
+      "raw_input": "0x",
+      "decoded_input": null,
+      "nonce": 1,
+      "type": 2,
+      "priority_fee": "1000000000",
+      "max_fee_per_gas": "100000000000",
+      "max_priority_fee_per_gas": "1000000000",
+      "tx_burnt_fee": "0",
+      "exchange_rate": "1.25",
+      "actions": [],
+      "token_transfers_overflow": false
+    },
+    {
+      "hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+      "block_number": 100,
+      "timestamp": "2026-01-01T12:00:00Z",
+      "from": {
+        "hash": "0x0000000000000000000000000000000000000002"
+      },
+      "to": {
+        "hash": "0x0000000000000000000000000000000000000001"
+      },
+      "value": "1",
+      "fee": {
+        "type": "actual",
+        "value": "2100000000000000"
+      },
+      "gas_used": "21000",
+      "gas_limit": "21000",
+      "gas_price": "100000000000",
+      "status": "ok",
+      "method": null,
+      "transaction_types": ["coin_transfer"],
+      "token_transfers": [],
+      "confirmations": 24,
+      "position": 1,
+      "result": "success",
+      "raw_input": "0x",
+      "decoded_input": null,
+      "nonce": 1,
+      "type": 2,
+      "priority_fee": "1000000000",
+      "max_fee_per_gas": "100000000000",
+      "max_priority_fee_per_gas": "1000000000",
+      "tx_burnt_fee": "0",
+      "exchange_rate": "1.25",
+      "actions": [],
+      "token_transfers_overflow": false
+    }
+  ],
+  "next_page_params": null
+}

@@ -99,7 +99,7 @@ func TestContractProfileProjection(t *testing.T) {
 }
 
 func TestContractErrorMapping(t *testing.T) {
-	testContractErrorMapping(t, repair67SDK(t))
+	testContractErrorMapping(t, frozenErrorSDK(t))
 }
 
 func testContractErrorMapping(t *testing.T, sdk string) {
@@ -142,7 +142,7 @@ func testContractErrorMapping(t *testing.T, sdk string) {
 				contractHeaders(w)
 				contractError(w, r, fmt.Errorf("wrapped internal error: %w", tc.err))
 			})
-			repair67AssertSDK(t, sdk, handler, http.MethodPut, "/v2/me/following/invalid", tc.status, tc.code, value.Message)
+			frozenErrorAssertSDK(t, sdk, handler, http.MethodPut, "/v2/me/following/invalid", tc.status, tc.code, value.Message)
 		})
 	}
 }

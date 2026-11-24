@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { sendTimestampedTransaction } from '../../../scripts/timestamped-transaction.mjs';
 
 export function prepareOwnedCoreDeployment(inputFile, profileFile, creationFile, tradeFile) {
   const value = JSON.parse(readFileSync(inputFile, 'utf8'));
@@ -21,7 +22,7 @@ export function prepareOwnedCoreDeployment(inputFile, profileFile, creationFile,
   deployment.revision = profile.revision.revisionSha256;
   deployment.tradeDeployment = {
     revision: deployment.revision,
-    router: roles.Router.address, quoter: roles.Quoter.address,
+    router: roles.Router.address, spender: roles.Router.address, quoter: roles.Quoter.address,
     registry: roles.PoolRegistry.address, emitter: roles.EventEmitter.address,
     usdl: roles.USDL.address,
     pins: ['Router', 'Quoter', 'PoolRegistry', 'EventEmitter'].map(name => ({
@@ -66,6 +67,11 @@ function inventory(path) {
 inventory(join(contracts, 'artifacts/contracts'));
 const sources = {};
 sources[new URL(import.meta.url).pathname] = sha(readFileSync(new URL(import.meta.url)));
+const timestampedTransactionSource = new URL(
+  '../../../scripts/timestamped-transaction.mjs',
+  import.meta.url
+);
+sources[timestampedTransactionSource.pathname] = sha(readFileSync(timestampedTransactionSource));
 function artifact(name) {
   const files = artifactFiles.filter((file) => file.endsWith('/' + name + '.json'));
   if (files.length !== 1)
@@ -179,12 +185,15 @@ for (const [contract, price] of [
 ]) {
   if (price <= 0n) throw new Error('Owned oracle price must be positive');
   await commit(oracle.registerToken(contract.target, 60, 100, 1, one * 1000000n, 3600));
-  await commit(oracle.updatePrice(contract.target, price));
+  await commit(
+    sendTimestampedTransaction(oracle.updatePrice, contract.target, price)
+  );
   await commit(vault.registerToken(contract.target, contract === usdl));
 }
 await commit(usdl.approve(coreRouter.target, ethers.MaxUint256));
 await commit(
-  coreRouter.buy(
+  sendTimestampedTransaction(
+    coreRouter.buy,
     core.pool,
     1000000000n,
     1,
@@ -207,7 +216,9 @@ const publishPrices = async () => {
   const currentPrice = await pool.getPrice();
   if (currentPrice <= 0n) throw new Error('Owned pool price is unavailable');
   for (const [asset, price] of [[usdl.target, one], [token.target, currentPrice], [wrapped.target, 2n * one]]) {
-    const receipt = await commit(oracle.connect(relayer).updatePrice(asset, price));
+    const receipt = await commit(
+      sendTimestampedTransaction(oracle.connect(relayer).updatePrice, asset, price)
+    );
     appendFileSync(join(output, 'price-publications.ndjson'), JSON.stringify({
       asset, price: String(price), hash: receipt.hash, blockHash: receipt.blockHash,
     }) + '\n', {mode: 0o600});

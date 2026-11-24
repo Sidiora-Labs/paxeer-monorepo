@@ -3,8 +3,8 @@ import React from 'react';
 
 import type { CeloEpochDetails } from 'types/api/epochs';
 
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 
 import EpochElectionRewardsListItem from './EpochElectionRewardsListItem';
 import EpochElectionRewardsTableItem from './EpochElectionRewardsTableItem';
@@ -25,8 +25,8 @@ const EpochElectionRewards = ({ data, isLoading }: Props) => {
         <TableRoot style={{ tableLayout: 'auto' }}>
           <TableHeaderSticky bg="canvas">
             <TableRow>
-              <TableColumnHeader width="24px"/>
-              <TableColumnHeader width="180px">Reward type</TableColumnHeader>
+              <TableColumnHeader width="var(--chakra-spacing-6)"/>
+              <TableColumnHeader width="var(--chakra-spacing-40\.5)">Reward type</TableColumnHeader>
               <TableColumnHeader/>
               <TableColumnHeader isNumeric>Value</TableColumnHeader>
             </TableRow>

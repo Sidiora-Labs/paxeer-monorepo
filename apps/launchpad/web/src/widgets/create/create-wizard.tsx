@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import {
   useCallback,
   useEffect,
@@ -36,6 +37,8 @@ import { formatTokenAmount, formatUsdl, shortAddress } from '@/utils/format';
 import { plainLaunchError, plainLaunchStatus } from './launch-copy';
 import {
   runtimeCreationAdmission,
+  runtimeApprovalHeadWait,
+  ApprovalHeadWaitError,
   KnownCapabilityAdmissionError,
 } from './cap-admission';
 import {
@@ -215,7 +218,7 @@ export default function CreateWizard() {
   const router = useRouter();
   const { openModal } = useAuthModal();
   const prefill = useCreatePrefill();
-  const { authority } = useRuntimeAuthority();
+  const { authority, unavailableReason } = useRuntimeAuthority();
   const authorityRef = useRef(authority);
   authorityRef.current = authority;
   const { address, chainId } = useAccount();
@@ -265,6 +268,7 @@ export default function CreateWizard() {
   const [newConsent, setNewConsent] = useState(false);
   const [verifiedPools, setVerifiedPools] = useState<string[]>([]);
   const [historyOffset, setHistoryOffset] = useState(0n);
+  const [historyExhausted, setHistoryExhausted] = useState(false);
   const launchedHere = useRef(false);
   const navigated = useRef(false);
   const autoUploaded = useRef<string | null>(null);
@@ -326,6 +330,11 @@ export default function CreateWizard() {
           stage,
         );
       },
+      async (blockNumber, signal) => {
+        const current = authorityRef.current;
+        if (!current) throw new ApprovalHeadWaitError();
+        await runtimeApprovalHeadWait(current)(blockNumber, signal);
+      },
     );
     return new CreationController(
       chain,
@@ -358,9 +367,13 @@ export default function CreateWizard() {
     setHistoryLoaded(false);
     setVerifiedPools([]);
     setHistoryOffset(0n);
+    setHistoryExhausted(false);
     setImageSkipped(false);
     setMetadataSkipped(false);
     autoReviewed.current = false;
+    launchedHere.current = false;
+    navigated.current = false;
+    autoUploaded.current = null;
     if (!controller || !address) {
       const current = draftRef.current;
       setDraft(current ? { ...current, creator: '' } : blankDraft(''));
@@ -717,7 +730,7 @@ export default function CreateWizard() {
       return {
         label: 'Create coin',
         disabled: true,
-        reason: 'Getting ready, try again in a moment',
+        reason: unavailableReason ?? 'Reconnect your wallet to create',
       };
     if (!draft) return null;
     if (Object.keys(visibleErrors).length > 0)
@@ -910,6 +923,7 @@ export default function CreateWizard() {
                   alt=""
                   width={48}
                   height={48}
+                  decoding="async"
                   className="size-12 rounded-sm object-cover"
                 />
                 <div className="min-w-0 flex-1">
@@ -1156,6 +1170,18 @@ export default function CreateWizard() {
                 >
                   Check again
                 </Button>
+                {a.purchaseState === 'failed' ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={state.busy}
+                    onClick={() =>
+                      void perform(() => controller!.skipPurchase(a.intentId))
+                    }
+                  >
+                    Skip
+                  </Button>
+                ) : null}
               </div>
             )}
             {quote &&
@@ -1173,7 +1199,7 @@ export default function CreateWizard() {
                     data-purchase-raw={quote.amountOutRaw}
                     className="text-right tabular-nums text-text"
                   >
-                    {formatTokenAmount(quote.amountOutRaw)} {a.draft.symbol}
+                    {formatTokenAmount(quote.amountOutRaw)} {displayCoinText(a.draft.symbol, a.tokenAddress)}
                   </dd>
                   <dt className="text-text-faint">Minimum received</dt>
                   <dd
@@ -1181,7 +1207,7 @@ export default function CreateWizard() {
                     data-purchase-raw={quote.minOutRaw}
                     className="text-right tabular-nums text-text"
                   >
-                    {formatTokenAmount(quote.minOutRaw)} {a.draft.symbol}
+                    {formatTokenAmount(quote.minOutRaw)} {displayCoinText(a.draft.symbol, a.tokenAddress)}
                   </dd>
                   <dt className="text-text-faint">Price impact</dt>
                   <dd
@@ -1244,12 +1270,17 @@ export default function CreateWizard() {
   const showProgress = Boolean(attempt || reviewed || lastRead || state.busy);
 
   return (
-    <div className="mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
+    <div className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-md font-semibold text-text">Create new coin</h1>
-            <Button variant="link" size="sm" href="/create/chain">
+            <Button
+              variant="link"
+              size="sm"
+              href="/create/chain"
+              className="min-[835px]:min-h-6 min-[835px]:py-0"
+            >
               Launch a chain and token
             </Button>
           </div>
@@ -1378,7 +1409,12 @@ export default function CreateWizard() {
               </NoticeBar>
             ) : !controller ? (
               <NoticeBar tone="warning" announce wrap>
-                Getting ready. You can create in a moment.
+                {unavailableReason === 'Getting ready, one moment'
+                  ? 'Getting ready. You can create in a moment.'
+                  : unavailableReason ?? 'Reconnect your wallet to create'}
+                <Button variant="link" size="sm" href="/explore">
+                  Browse coins
+                </Button>
               </NoticeBar>
             ) : null}
             {action ? (
@@ -1474,13 +1510,26 @@ export default function CreateWizard() {
                     size="sm"
                     disabled={state.busy || !recoveryChecked || !newConsent}
                     onClick={() =>
-                      void perform(() =>
-                        controller.deliberateNew(
+                      void perform(async () => {
+                        await controller.deliberateNew(
                           attempt.intentId,
                           recoveryChecked,
                           newConsent,
-                        ),
-                      )
+                        );
+                        setDraft(carryOver(blankDraft(address!), draft!));
+                        setImageSkipped(false);
+                        setMetadataSkipped(false);
+                        setRecoveryChecked(false);
+                        setNewConsent(false);
+                        setLastRead(null);
+                        setRecoveryHash('');
+                        setImpactConsent(false);
+                        setSlippageConsent(false);
+                        autoReviewed.current = false;
+                        autoUploaded.current = null;
+                        launchedHere.current = false;
+                        navigated.current = false;
+                      })
                     }
                   >
                     Start a new coin
@@ -1519,10 +1568,10 @@ export default function CreateWizard() {
                             }
                             className="flex w-full items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-sm text-text transition-colors duration-fast hover:bg-surface-hover disabled:text-text-disabled"
                           >
-                            <span className="truncate">
-                              {row.draft.name || 'Untitled'}{' '}
+                            <span className="min-w-0 truncate" title={`${displayCoinText(row.draft.name, row.tokenAddress)} $${displayCoinText(row.draft.symbol, row.tokenAddress)}`}>
+                              {displayCoinText(row.draft.name, row.tokenAddress) || 'Untitled'}{' '}
                               <span className="text-text-faint">
-                                ${row.draft.symbol}
+                                ${displayCoinText(row.draft.symbol, row.tokenAddress)}
                               </span>
                             </span>
                             <span className="shrink-0 text-xs text-text-faint">
@@ -1537,7 +1586,7 @@ export default function CreateWizard() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      disabled={state.busy}
+                      disabled={state.busy || historyExhausted}
                       onClick={() =>
                         void perform(async () => {
                           const page = await controller.chain.createdPools(
@@ -1551,11 +1600,19 @@ export default function CreateWizard() {
                           setHistoryOffset(
                             (previous) => previous + BigInt(page.length),
                           );
+                          setHistoryExhausted(page.length < 25);
                         })
                       }
                     >
                       Show coins I created
                     </Button>
+                    {historyExhausted ? (
+                      <p role="status" className="text-xs text-text-faint">
+                        {verifiedPools.length === 0
+                          ? 'No coins created with this wallet yet'
+                          : 'All your coins are shown'}
+                      </p>
+                    ) : null}
                     {verifiedPools.map((pool) => (
                       <Button
                         key={pool}
@@ -1573,7 +1630,7 @@ export default function CreateWizard() {
           </section>
         </div>
 
-        <aside className="shrink-0 lg:sticky lg:top-4 lg:w-56 2xl:w-60">
+        <aside className="min-w-0 shrink-0 lg:sticky lg:top-4 lg:w-56 2xl:w-60">
           <CoinPreviewCard
             name={draft?.name ?? ''}
             symbol={draft?.symbol ?? ''}

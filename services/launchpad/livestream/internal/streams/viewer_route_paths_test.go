@@ -12,7 +12,7 @@ import (
 )
 
 func TestViewerRoutesBindSessionsToLiveAndPrivatePolicy(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("viewer-route-policy")
 	o, err := f.store.BindProvider(ctx, o.ID, "viewer_route_provider")

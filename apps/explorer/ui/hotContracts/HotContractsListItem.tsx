@@ -37,19 +37,19 @@ const HotContractsListItem = ({ data, isLoading, exchangeRate }: Props) => {
         />
       ) }
       <HStack>
-        <Skeleton loading={ isLoading } fontWeight={ 500 } w="100px">Txn count</Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium" w="24">Txn count</Skeleton>
         <Skeleton loading={ isLoading }>
           <span>{ Number(data.transactions_count).toLocaleString() }</span>
         </Skeleton>
       </HStack>
       <HStack>
-        <Skeleton loading={ isLoading } fontWeight={ 500 } w="100px">Gas used</Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium" w="24">Gas used</Skeleton>
         <Skeleton loading={ isLoading }>
           <span>{ BigNumber(data.total_gas_used || 0).toFormat() }</span>
         </Skeleton>
       </HStack>
       <HStack alignItems="flex-start">
-        <Skeleton loading={ isLoading } fontWeight={ 500 } w="100px">Balance</Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium" w="24">Balance</Skeleton>
         <NativeCoinValue
           amount={ data.balance }
           loading={ isLoading }

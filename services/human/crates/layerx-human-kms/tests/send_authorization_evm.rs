@@ -83,7 +83,9 @@ impl Fixture {
             .collect();
         fs::write(
             root.join("attestor.json"),
-            serde_json::to_vec(&json!({
+            serde_json::to_vec(&json!({"bindings":[{
+                "binding":BINDING,"tenant":"tenant","principal":OWNER,
+                "assertion_file":root.join("assertion"),"config":{
                 "nodes": nodes,
                 "trust_anchors": [cluster.pki.path("node-ca.der")],
                 "client_certificate_chain": [cluster.pki.path("gateway.der")],
@@ -91,7 +93,7 @@ impl Fixture {
                 "key_id": "ed25519-owner", "public_key": public,
                 "evm_key_id": EVM_KEY, "evm_address": wallet,
                 "signers": attestor_cluster::SIGNERS, "network_id":125, "timeout_seconds":60
-            }))?,
+            }}]}))?,
         )?;
         for entry in fs::read_dir(&root)? {
             fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
@@ -343,13 +345,14 @@ fn authorize_send_returns_a_signed_bank_transfer() -> Result<()> {
     assert_eq!(json!(denom), request["disclosure"]["denom"]);
     assert_eq!(json!(amount), request["disclosure"]["amount"]);
     let after = fixture.cluster.audit(&client)?;
-    assert_eq!(before.len(), attestor_cluster::SIGNERS.len());
+    assert_eq!(before.len(), fixture.cluster.nodes.len());
     assert_eq!(after.len(), before.len());
-    for (previous, current) in before.iter().zip(&after) {
-        assert!(
-            current > previous,
-            "every attestor must record the EVM signing"
-        );
+    for (index, (previous, current)) in before.iter().zip(&after).enumerate() {
+        if attestor_cluster::SIGNERS.contains(&fixture.cluster.nodes[index].0.as_str()) {
+            assert!(current > previous, "selected attestor records EVM signing");
+        } else {
+            assert_eq!(current, previous, "unselected audit sequence is preserved");
+        }
     }
     assert_eq!(
         fixture.call(3, 11, &fixture.reference, Some(&payload))?,
@@ -382,7 +385,8 @@ fn authorize_send_returns_a_signed_bank_transfer() -> Result<()> {
         )?,
         b"LXKP\0\x03\x0b\x03"
     );
-    let config = serde_json::from_slice(&fs::read(fixture.root.join("attestor.json"))?)?;
+    let manifest: Value = serde_json::from_slice(&fs::read(fixture.root.join("attestor.json"))?)?;
+    let config = serde_json::from_value(manifest["bindings"][0]["config"].clone())?;
     let mut signer = checked(layerx_human_kms::attestor::AttestorSigner::from_config(
         &config,
     ))?;

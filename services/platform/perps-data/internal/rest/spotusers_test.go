@@ -28,7 +28,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 )
 
-//go:embed repair_m828_schema.sql
+//go:embed spot_board_schema.sql
 var spotBoardSchema string
 
 func spotBoardMigrate(t *testing.T, db *sql.DB) {
@@ -112,7 +112,7 @@ func spotProjected(t *testing.T, db *sql.DB, r row) {
 		}
 	}
 	decoded = v.Elem().Interface().(decode.Row)
-	repair828Write(t, db, store.Block{Number: f.Block, Hash: f.BlockHash, Time: r.at, Proposer: strings.Repeat("AB", 20)}, decoded)
+	spotBoardWrite(t, db, store.Block{Number: f.Block, Hash: f.BlockHash, Time: r.at, Proposer: strings.Repeat("AB", 20)}, decoded)
 }
 
 func spotRegister(t *testing.T, db *sql.DB, tk spotTokenSet, at time.Time) {
@@ -275,8 +275,8 @@ func spotNodeBalance(t *testing.T, client *ethclient.Client, token []byte) strin
 }
 
 func TestSpotLeaderboardProjection(t *testing.T) {
-	db, reopen := repair828Database(t, "projection")
-	repair828BoardScenario(t, db, reopen)
+	db, reopen := spotBoardDatabase(t, "projection")
+	spotBoardScenario(t, db, reopen)
 }
 
 func TestStreamItemsSingleFold(t *testing.T) {

@@ -11,23 +11,27 @@ RUN set -eu; \
     case "${NODE_IMAGE}" in *@sha256:????????????????????????????????????????????????????????????????) ;; *) echo "NODE_IMAGE must be pinned by digest" >&2; exit 1 ;; esac; \
     case "${CHARTING_IMAGE}" in *@sha256:????????????????????????????????????????????????????????????????) ;; *) echo "CHARTING_IMAGE must be pinned by digest" >&2; exit 1 ;; esac
 WORKDIR /app
-RUN apk add --no-cache libc6-compat && corepack enable && corepack prepare pnpm@10.34.9 --activate
+RUN apk add --no-cache libc6-compat && corepack enable
 COPY package.json pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml .npmrc ./
+COPY tsconfig.json ./
+COPY apps ./apps
+COPY packages ./packages
+RUN corepack prepare "$(node -p 'require("./package.json").packageManager')" --activate
 RUN pnpm install --frozen-lockfile
 
 FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
-RUN apk add --no-cache libc6-compat && corepack enable && corepack prepare pnpm@10.34.9 --activate
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-COPY --from=charting /charting_library public/static/charting_library
-COPY --from=charting /datafeeds public/static/datafeeds
-RUN test -f public/static/charting_library/charting_library.standalone.js || { echo "charting_library.standalone.js missing from CHARTING_IMAGE" >&2; exit 1; }
-ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
+COPY --from=deps /app ./
+RUN apk add --no-cache libc6-compat && corepack enable && corepack prepare "$(node -p 'require("./package.json").packageManager')" --activate
+COPY --from=charting /charting_library apps/web/public/static/charting_library
+COPY --from=charting /datafeeds apps/web/public/static/datafeeds
+RUN test -f apps/web/public/static/charting_library/charting_library.standalone.js || { echo "charting_library.standalone.js missing from CHARTING_IMAGE" >&2; exit 1; }
+ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production PAXEER_NETWORK_BUILD_DIR=.next-production
 ARG NEXT_PUBLIC_AUTH_REDIRECT_URL=
+ARG NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS=
 ARG NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE=
 ARG NEXT_PUBLIC_LOG_LEVEL=
-ARG NEXT_PUBLIC_MARKET_PROXY_HOST=
 ARG NEXT_PUBLIC_PAXEER_RPC_URL=
 ARG NEXT_PUBLIC_PAXEER_RPC_URLS=
 ARG NEXT_PUBLIC_PAXEER_WALLET_API=
@@ -41,19 +45,17 @@ ARG NEXT_PUBLIC_PECOR_STOP_PRECOMPILE=
 ARG NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE=
 ARG NEXT_PUBLIC_PERPS_GATEWAY_URL=
 ARG NEXT_PUBLIC_PERPS_PRECOMPILE=
+ARG NEXT_PUBLIC_RELEASE=
 ARG NEXT_PUBLIC_RELEASE_SPOT_OPEN=
 ARG NEXT_PUBLIC_SENTRY_DSN=
 ARG NEXT_PUBLIC_SENTRY_ENV=
-ARG NEXT_PUBLIC_SENTRY_TUNNEL=
-ARG NEXT_PUBLIC_STATUS_PAGE_URL=
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 ARG NEXT_PUBLIC_SUPABASE_URL=
-ARG NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA=
 ARG NEXT_PUBLIC_WALLET_IFRAME_ORIGIN=
 ENV NEXT_PUBLIC_AUTH_REDIRECT_URL=$NEXT_PUBLIC_AUTH_REDIRECT_URL \
+    NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS=$NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS \
     NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE=$NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE \
     NEXT_PUBLIC_LOG_LEVEL=$NEXT_PUBLIC_LOG_LEVEL \
-    NEXT_PUBLIC_MARKET_PROXY_HOST=$NEXT_PUBLIC_MARKET_PROXY_HOST \
     NEXT_PUBLIC_PAXEER_RPC_URL=$NEXT_PUBLIC_PAXEER_RPC_URL \
     NEXT_PUBLIC_PAXEER_RPC_URLS=$NEXT_PUBLIC_PAXEER_RPC_URLS \
     NEXT_PUBLIC_PAXEER_WALLET_API=$NEXT_PUBLIC_PAXEER_WALLET_API \
@@ -67,14 +69,12 @@ ENV NEXT_PUBLIC_AUTH_REDIRECT_URL=$NEXT_PUBLIC_AUTH_REDIRECT_URL \
     NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE=$NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE \
     NEXT_PUBLIC_PERPS_GATEWAY_URL=$NEXT_PUBLIC_PERPS_GATEWAY_URL \
     NEXT_PUBLIC_PERPS_PRECOMPILE=$NEXT_PUBLIC_PERPS_PRECOMPILE \
+    NEXT_PUBLIC_RELEASE=$NEXT_PUBLIC_RELEASE \
     NEXT_PUBLIC_RELEASE_SPOT_OPEN=$NEXT_PUBLIC_RELEASE_SPOT_OPEN \
     NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
     NEXT_PUBLIC_SENTRY_ENV=$NEXT_PUBLIC_SENTRY_ENV \
-    NEXT_PUBLIC_SENTRY_TUNNEL=$NEXT_PUBLIC_SENTRY_TUNNEL \
-    NEXT_PUBLIC_STATUS_PAGE_URL=$NEXT_PUBLIC_STATUS_PAGE_URL \
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
     NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
-    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA=$NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA \
     NEXT_PUBLIC_WALLET_IFRAME_ORIGIN=$NEXT_PUBLIC_WALLET_IFRAME_ORIGIN
 RUN for n in $(env | sed -n 's/^\(NEXT_PUBLIC_[A-Za-z0-9_]*\)=.*/\1/p'); do eval "v=\${$n}"; [ -n "$v" ] || unset "$n"; done; pnpm build
 
@@ -82,12 +82,12 @@ FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 RUN apk add --no-cache libc6-compat tini && addgroup -g 1001 -S nodejs && adduser -S -u 1001 -G nodejs nextjs
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next-production/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next-production/static ./apps/web/.next-production/static
 USER nextjs
 EXPOSE 3000
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "server.js"]
+CMD ["node", "apps/web/server.js"]
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -q -O /dev/null http://127.0.0.1:${PORT}/api/build-id || exit 1

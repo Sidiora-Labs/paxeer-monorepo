@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -875,8 +876,8 @@ func TestPositionsCollateralRemovalSettlementParity(t *testing.T) {
 	defer server.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	command := exec.CommandContext(ctx, "node", "--import", "tsx", "--test", "--test-reporter=tap", "tests/repair-22-33-195.test.ts")
-	command.Dir = "../../apps/perps"
+	command := exec.CommandContext(ctx, "node", "--import", "tsx", "--test", "--test-reporter=tap", "tests/collateral-removal-margin-risk.test.ts")
+	command.Dir = filepath.Join("..", "..", "apps", "perps")
 	command.Env = append(os.Environ(), "PERPS_SETTLEMENT_RPC="+server.URL)
 	output, err := command.CombinedOutput()
 	require.NoError(t, err, "%s", output)

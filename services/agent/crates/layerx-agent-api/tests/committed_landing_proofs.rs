@@ -1,0 +1,153 @@
+//! Committed landing evidence survives export, transport and reopening.
+
+#[path = "proof_agent_api.rs"]
+mod corpus;
+#[path = "read_heights.rs"]
+mod heights;
+#[path = "support/committed_transport.rs"]
+mod transport;
+
+use layerx_agent_api::export::{
+    check_export_response, validate_export_request, FactRef, OfflineExport,
+};
+use layerx_agent_api::proof::ProofBundleTarget;
+use layerx_agent_api::read::{ReadRequest, VerifiedRead};
+use layerx_agent_api::verify::Rung;
+use std::fs;
+use std::io::{Read, Write};
+
+#[test]
+fn proof_corpus_gap_encoded_landing_evidence_verifies_after_reopen() -> Result<(), String> {
+    let produced = corpus::committed::produced();
+    corpus::committed::verify(&produced)
+        .map_err(|error| format!("independent committed evidence verification: {error:?}"))?;
+    let recording = corpus::committed::document();
+    let id = recording
+        .hex_array_at("bundle.receiptJson.txHash")
+        .map_err(|error| format!("required value: {error:?}"))?;
+    let observed = transport::round_trip(ProofBundleTarget::Receipt(id), Rung::Committed);
+    corpus::committed::verify(&observed).map_err(|error| format!("required value: {error:?}"))?;
+    let facts = vec![FactRef::new(format!(
+        "receipt:{}",
+        id.iter()
+            .flat_map(|byte| {
+                let digits = b"0123456789abcdef";
+                [
+                    char::from(digits[usize::from(byte >> 4)]),
+                    char::from(digits[usize::from(byte & 15)]),
+                ]
+            })
+            .collect::<String>()
+    ))
+    .map_err(|error| format!("required value: {error:?}"))?];
+    let request = validate_export_request(ReadRequest {
+        selector: facts.clone(),
+        requested_rung: Rung::Committed,
+    })
+    .map_err(|error| format!("required value: {error:?}"))?;
+    let export = OfflineExport {
+        facts,
+        bundles: vec![observed.value],
+        height: observed.freshness.value_height,
+    };
+    let path =
+        std::env::temp_dir().join(format!("committed-landing-proofs-{}", std::process::id()));
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|error| format!("required value: {error:?}"))?;
+    file.write_all(
+        export
+            .encode_json()
+            .map_err(|error| format!("required value: {error:?}"))?
+            .as_bytes(),
+    )
+    .map_err(|error| format!("required value: {error:?}"))?;
+    file.sync_all()
+        .map_err(|error| format!("required value: {error:?}"))?;
+    drop(file);
+    drop(export);
+    drop(produced);
+    let mut reopened =
+        fs::File::open(&path).map_err(|error| format!("required value: {error:?}"))?;
+    let mut retained = String::new();
+    reopened
+        .read_to_string(&mut retained)
+        .map_err(|error| format!("required value: {error:?}"))?;
+    drop(reopened);
+    fs::remove_file(&path).map_err(|error| format!("required value: {error:?}"))?;
+    let recovered = OfflineExport::decode_json(&retained)
+        .map_err(|error| format!("required value: {error:?}"))?;
+    let response = VerifiedRead::new(
+        recovered.clone(),
+        Rung::Committed,
+        observed.freshness.clone(),
+    );
+    check_export_response(&request, &response)
+        .map_err(|error| format!("required value: {error:?}"))?;
+    assert_eq!(recovered.bundles.len(), 1);
+    let recovered = VerifiedRead::new(
+        recovered.bundles[0].clone(),
+        Rung::Committed,
+        observed.freshness,
+    );
+    assert_eq!(recovered, corpus::committed::produced());
+    corpus::committed::verify(&recovered)
+        .map_err(|error| format!("reopened evidence authenticates independently: {error:?}"))?;
+
+    Ok(())
+}
+
+#[test]
+fn proof_rung_test_committed_evidence_satisfies_both_selectors() -> Result<(), String> {
+    let recording = corpus::committed::document();
+    let id = recording
+        .hex_array_at("bundle.receiptJson.txHash")
+        .map_err(|error| format!("required value: {error:?}"))?;
+    for target in [
+        ProofBundleTarget::Activity(id),
+        ProofBundleTarget::Receipt(id),
+    ] {
+        for requested_rung in [Rung::Receipted, Rung::Committed] {
+            let response = transport::round_trip(target, requested_rung);
+            assert_eq!(response.achieved_rung, Rung::Committed);
+            corpus::committed::verify(&response)
+                .map_err(|error| format!("required value: {error:?}"))?;
+            let request = ReadRequest {
+                selector: target,
+                requested_rung,
+            };
+            layerx_agent_api::proof::ProofBundle::check_response(&request, &response)
+                .map_err(|error| format!("required value: {error:?}"))?;
+            let mut lower = response.clone();
+            lower.achieved_rung = Rung::Receipted;
+            lower.value.verification_level = Rung::Receipted;
+            lower.value.block_header = None;
+            lower.value.receipt_inclusion = None;
+            lower.value.commit = None;
+            lower.value.validator_set = None;
+            lower
+                .validate()
+                .map_err(|error| format!("required value: {error:?}"))?;
+            let committed = ReadRequest {
+                requested_rung: Rung::Committed,
+                ..request
+            };
+            assert!(
+                layerx_agent_api::proof::ProofBundle::check_response(&committed, &lower).is_err()
+            );
+            assert!(corpus::committed::verify(&lower).is_err());
+            let mut inconsistent = response;
+            inconsistent.achieved_rung = Rung::Receipted;
+            assert!(inconsistent.encode_json().is_err());
+            assert!(layerx_agent_api::proof::ProofBundle::check_response(
+                &committed,
+                &inconsistent
+            )
+            .is_err());
+        }
+    }
+
+    Ok(())
+}

@@ -384,5 +384,5 @@ fn canonical_u64(value: &str) -> Result<u64, &'static str> {
 
 // Exercise documentation against the binary's actual private wire types.
 #[cfg(test)]
-#[path = "../../tests/repair_22_33_106/cases.rs"]
+#[path = "../../tests/verifier_documentation/cases.rs"]
 mod documentation;

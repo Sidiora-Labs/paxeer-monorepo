@@ -12,7 +12,6 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,9 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/ethereum/go-ethereum/node"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,11 +62,11 @@ var (
 	dstPoolID             = common.HexToHash("0x" + strings.Repeat("7a", 32))
 )
 
-// dstChain is the in-process chain: an emitter contract whose runtime logs
+// dstChain runs a local chain with an emitter contract whose runtime logs
 // LOG3(calldata[0:32], calldata[32:64], calldata[64:96]) over calldata[96:],
 // and a token whose runtime answers 18 to decimals().
 type dstChain struct {
-	backend *simulated.Backend
+	backend *internaltest.Anvil
 	url     string
 	key     *ecdsa.PrivateKey
 	nonce   uint64
@@ -84,24 +80,13 @@ func newDstChain(t *testing.T) *dstChain {
 	if err != nil {
 		t.Fatal(err)
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
+	backend := internaltest.NewAnvil(t)
+	funds := new(big.Int).Exp(big.NewInt(10), big.NewInt(21), nil)
+	if err := backend.Client().Client().CallContext(context.Background(), nil, "anvil_setBalance", crypto.PubkeyToAddress(key.PublicKey), "0x"+funds.Text(16)); err != nil {
 		t.Fatal(err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	_ = listener.Close()
-	funds := new(big.Int).Exp(big.NewInt(10), big.NewInt(21), nil)
-	backend := simulated.NewBackend(types.GenesisAlloc{crypto.PubkeyToAddress(key.PublicKey): {Balance: funds}}, func(n *node.Config, eth *ethconfig.Config) {
-		chainConfig := *eth.Genesis.Config
-		chainConfig.ChainID = big.NewInt(125)
-		eth.Genesis.Config = &chainConfig
-		n.HTTPHost = "127.0.0.1"
-		n.HTTPPort = port
-		n.HTTPModules = []string{"eth"}
-	})
-	t.Cleanup(func() { _ = backend.Close() })
 	backend.Commit()
-	c := &dstChain{backend: backend, url: "http://127.0.0.1:" + strconv.Itoa(port), key: key}
+	c := &dstChain{backend: backend, url: backend.URL, key: key}
 	emitterRuntime := []byte{0x60, 0x60, 0x36, 0x03, 0x80, 0x60, 0x60, 0x60, 0x00, 0x37, 0x42, 0x60, 0xa0, 0x52, 0x43, 0x60, 0xc0, 0x52, 0x60, 0x40, 0x35, 0x60, 0x20, 0x35, 0x60, 0x00, 0x35, 0x83, 0x60, 0x00, 0xa3, 0x00}
 	tokenRuntime := []byte{0x60, 0x12, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3}
 	c.emitter = c.deploy(t, emitterRuntime)
@@ -731,17 +716,16 @@ func TestDevelopmentStreamUnknownPoolAndLegacy(t *testing.T) {
 	_ = conn.Close()
 }
 
-// A registered pool with no swap or stats row has no projected topic and the
-// contract has no empty TopicSnapshotEntry (payload is required and non-null,
-// topics has minItems 1), so the snapshot stays 503 DEPENDENCY_UNAVAILABLE
-// retryable=true until the projector appends the first frames.
+// A registered pool with no swap or stats row awaits its first topic frames:
+// snapshots answer 404 TOPIC_NOT_STARTED with retryable=true, retryAfterMs=5000
+// and Retry-After: 5 until the projector appends the first frames.
 func TestDevelopmentStreamSnapshotKnownPoolWithoutData(t *testing.T) {
 	f := newDstFixture(t)
 	f.createPool(t)
 	for i := 0; i < 2; i++ {
-		status, _, body := f.snapshotError(t)
-		if status != 503 || body.Code != "DEPENDENCY_UNAVAILABLE" || !body.Retryable {
-			t.Fatalf("known-pool-without-data snapshot call %d = %d %+v", i, status, body)
+		status, retryAfter, body := f.snapshotError(t)
+		if status != 404 || body.Code != "TOPIC_NOT_STARTED" || !body.Retryable || string(body.RetryAfterMs) != "5000" || retryAfter != "5" {
+			t.Fatalf("known-pool-without-data snapshot call %d = %d %+v Retry-After=%q", i, status, body, retryAfter)
 		}
 	}
 }

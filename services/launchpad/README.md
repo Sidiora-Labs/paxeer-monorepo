@@ -2,8 +2,7 @@
 
 This directory holds the Go backend services for Launchpad: market-event indexing,
 portfolio accounting, statistics, rankings, charts, realtime data delivery, media,
-community features and accounts. They support the launchpad markets on Paxeer's
-single BFT network by reading committed chain state and maintaining application
+community features and accounts. They support the launchpad markets on Paxeer by reading committed chain state and maintaining application
 views in PostgreSQL and Redis, with NATS used for event delivery. Market execution
 belongs to the network's [launchpad module](../../modules/launchpad/) and
 [precompile](../../precompiles/launchpad/); these services provide the application
@@ -48,13 +47,15 @@ make test
 `make build` runs `go build ./...` in the listed modules. `make test` runs each
 module through the repository's
 [test runner](../../tests/ci/data/launchpad_go_tests.py) and
-[test baseline](../../tests/ci/data/launchpad_go_test_baseline.json), so Python 3
-is also required. Integration tests use PostgreSQL, Redis, NATS and chain clients;
+[test baseline](../../tests/ci/data/launchpad_go_test_baseline.json), which is
+empty, so the runner selects no tests to skip. Python 3 is also required.
+Integration tests use PostgreSQL, Redis, NATS and chain clients;
 service-specific tests may also require Anvil and S3-compatible object storage.
 
 Additional targets in the same Makefile are `make vet`, `make fmt-check`,
-`make lint`, `make race` and `make cover-check`. `make ci` combines the declared
-CI targets. `make sqlc` regenerates query bindings for modules with `sqlc.yaml`
+`make lint`, `make race` and `make cover-check`. `make ci` runs `build`, `vet`,
+`fmt-check`, `lint`, `test`, `race` and `cover-check`, in that order.
+`make sqlc` regenerates query bindings for modules with `sqlc.yaml`
 and requires the `sqlc` executable.
 
 The Python supply-chain tests have a separate command, run from the repository root:

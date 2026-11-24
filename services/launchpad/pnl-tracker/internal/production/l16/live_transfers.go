@@ -560,11 +560,11 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 	if header == nil || strconv.FormatUint(header.Time, 10) != fill.BlockTimestampSeconds {
 		return result, delivery.ErrIntegrity
 	}
-	raw, e = json.Marshal(header)
+	headerDigest, e := receiptHeaderDigest(header)
 	if e != nil {
 		return result, e
 	}
-	if delivery.Hash(raw) != fill.Provenance.HeaderSHA256 {
+	if headerDigest != fill.Provenance.HeaderSHA256 {
 		return result, delivery.ErrIntegrity
 	}
 	rows, e := tx.Query(ctx, `SELECT payload,source_fact_digest FROM indexer.indexer_accounting_fills_v1 WHERE payload->'position'->>'transactionHash'=$1 ORDER BY (payload->'position'->>'logIndex')::bigint LIMIT 10001`, fill.Position.TransactionHash)

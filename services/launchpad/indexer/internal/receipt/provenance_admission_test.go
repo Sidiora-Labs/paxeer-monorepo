@@ -13,8 +13,8 @@ import (
 
 func TestHistoricalConfiguredEpochRetainsOriginalDigest(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	checked := 0
 	for _, generation := range a.options.History {
@@ -48,8 +48,8 @@ func TestHistoricalConfiguredEpochRetainsOriginalDigest(t *testing.T) {
 
 func TestHistoricalProxyCodeRequiresAvailableStorageAndBeaconReads(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	historical, err := a.historicalAuthority(ctx, input.Markets[0].Height)
 	if err != nil {
@@ -92,7 +92,7 @@ func TestHistoricalProxyCodeRequiresAvailableStorageAndBeaconReads(t *testing.T)
 			if count == 0 {
 				t.Fatal("recorded proxy state absent")
 			}
-			changed = repair53Replay(t, changed)
+			changed = receiptReplayReplay(t, changed)
 			client, closeChanged, e := NewBoundedRPCClient(ctx, changed.Endpoint, "")
 			if e != nil {
 				t.Fatal(e)
@@ -108,8 +108,8 @@ func TestHistoricalProxyCodeRequiresAvailableStorageAndBeaconReads(t *testing.T)
 
 func TestPoolMetadataRequiresEveryEpochAndOriginalGeneration(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := a.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)

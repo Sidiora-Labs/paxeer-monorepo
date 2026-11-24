@@ -115,7 +115,7 @@ func TestCodeToExecuteForCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			contract := vm.NewContract(repairM1131Caller, repairM1131Recipient, new(uint256.Int), 100000, nil)
+			contract := vm.NewContract(hostExecutionCaller, hostExecutionRecipient, new(uint256.Int), 100000, nil)
 			contract.Code = tt.contractCode
 			message, err := (&EVMInterpreter{}).executionMessage(tt.opCode, contract, tt.input)
 			require.NoError(t, err)
@@ -503,21 +503,21 @@ func TestSstoreGasAdjustmentBoundaryConditions(t *testing.T) {
 }
 
 func TestHostExecutionCreationAndCalls(t *testing.T) {
-	repairM1131CreationAndCalls(t)
+	checkHostCreationAndCalls(t)
 }
 
 func TestHostExecutionDelegatedCode(t *testing.T) {
-	repairM1131DelegatedCode(t)
+	checkHostDelegatedCode(t)
 }
 
 func TestHostExecutionStaticDescendants(t *testing.T) {
-	repairM1131StaticDescendants(t)
+	checkHostStaticDescendants(t)
 }
 
 func TestHostExecutionRevertAndGas(t *testing.T) {
-	repairM1131RevertAndGas(t)
+	checkHostRevertAndGas(t)
 }
 
 func TestHostExecutionAbort(t *testing.T) {
-	repairM1131Abort(t)
+	checkHostAbortRetry(t)
 }

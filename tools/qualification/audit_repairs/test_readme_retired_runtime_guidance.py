@@ -1,6 +1,6 @@
 """Offline source proofs for audit 22.30.168/readme-retired-runtime.
 
-README.md is owned by 22.31.470. These checks consume its production text;
+NETWORK.md is owned by 22.31.470. These checks consume its production text;
 they do not start a daemon, execute transactions or contact public endpoints.
 """
 
@@ -10,11 +10,10 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_698.kvx"
 
 
@@ -25,10 +24,10 @@ def source(path):
 def section(heading, level=3):
     """Keep shell comments inside fences from becoming Markdown headings."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -45,14 +44,17 @@ def section(heading, level=3):
 def test_readme_retired_runtime_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -67,39 +69,14 @@ def test_readme_retired_runtime_network():
 
 def test_readme_retired_runtime_public_rpc():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
-    hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    urls = [
-        urlsplit(url)
-        for url in re.findall(r"https?://[^\s`<>)]+", README)
-        if "mainnet-beta.paxeer.network" in url
-    ]
-    assert {url.hostname for url in urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api2.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
-    for url in urls:
-        assert url.hostname in hosts
-        assert url.scheme == "https" and url.path in ("", "/")
-        assert not url.query and not url.fragment and not url.username
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -107,8 +84,6 @@ def test_readme_retired_runtime_public_rpc():
     assert '# Expected result: "0x7d"' in blocks[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
     assert "gateway contract does not establish method availability at public node URLs" in quickstart
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
 
 
 def test_readme_retired_runtime_transaction_receipts():
@@ -174,7 +149,7 @@ def test_readme_retired_runtime_build_commands():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_readme_retired_runtime_historical_retirement():
@@ -190,13 +165,13 @@ def test_readme_retired_runtime_historical_retirement():
         "Historical anchor reads before store deletion are archive-only",
     ):
         assert fact in retired, fact
-    current = README.replace(retired, "")
+    current = NETWORK.replace(retired, "")
     assert not re.search(r"layerx(?:verify|custody|anchor)", current, re.I)
     for stale in (
         r"\blayerxd\b", r"two execution domains", r"kernel (?:still )?runs separately",
-        r"make\s+checkpoint", r"/rpc(?:/|\b)",
+        r"make\s+checkpoint",
     ):
-        assert not re.search(stale, README, re.I), stale
+        assert not re.search(stale, NETWORK, re.I), stale
     assert "External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired" in native
     assert "archived formats add no settlement step to current block finality" in native
     assert 'pcommon.RetiredRevert("layerxVerify")' in source("precompiles/layerxverify/layerxverify.go")

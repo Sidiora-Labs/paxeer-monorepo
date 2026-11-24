@@ -1,0 +1,1022 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	crand "crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/json"
+	"encoding/pem"
+	"errors"
+	"fmt"
+	"io"
+	"math/big"
+	"net"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc20"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc721"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/operations"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
+	"golang.org/x/sync/semaphore"
+	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+)
+
+func marshalTestJSON(t *testing.T, value any) []byte {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+func readTestFixture(t *testing.T, path string) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+func transactionResponse(t *testing.T, code uint32, event, key, value string, rawLog bool) []byte {
+	t.Helper()
+	logs := sdk.ABCIMessageLogs{{Events: []sdk.StringEvent{{Type: event, Attributes: []sdk.Attribute{{Key: key, Value: value}, {Key: "note", Value: "quoted \"value\" and C:\\path with spaces"}}}}}}
+	response := &sdk.TxResponse{Code: code, Height: 42, TxHash: strings.Repeat("a", 64), Logs: logs}
+	if rawLog {
+		response.RawLog = string(marshalTestJSON(t, logs))
+		response.Logs = nil
+	}
+	raw, err := codec.ProtoMarshalJSON(response, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
+func TestTransactionParser(t *testing.T) {
+	address := sdk.AccAddress(bytes.Repeat([]byte{7}, 20)).String()
+	for _, tc := range []struct{ kind, event, key, value string }{
+		{"code_id", "store_code", "code_id", "47"},
+		{"proposal_id", "submit_proposal", "proposal_id", "18446744073709551615"},
+		{"contract_address", "instantiate", "_contract_address", address},
+	} {
+		for _, rawLog := range []bool{false, true} {
+			raw := transactionResponse(t, 0, tc.event, tc.key, tc.value, rawLog)
+			var output bytes.Buffer
+			if err := operations.RunCLI(context.Background(), []string{"parse-transaction", tc.kind}, bytes.NewReader(raw), &output, nil); err != nil {
+				t.Fatal(err)
+			}
+			if output.String() != tc.value+"\n" {
+				t.Fatalf("identifier = %q", output.String())
+			}
+			for _, bad := range [][]byte{
+				transactionResponse(t, 9, tc.event, tc.key, tc.value, rawLog),
+				transactionResponse(t, 0, "other", tc.key, tc.value, rawLog),
+				transactionResponse(t, 0, tc.event, tc.key, "", rawLog),
+				transactionResponse(t, 0, tc.event, tc.key, "-1", rawLog),
+				transactionResponse(t, 0, tc.event, tc.key, "not an identifier", rawLog),
+				[]byte(`{"code":0,"raw_log":"not JSON"}`), []byte(`{`), []byte(`{"logs":[]}`),
+			} {
+				output.Reset()
+				err := operations.RunCLI(context.Background(), []string{"parse-transaction", tc.kind}, bytes.NewReader(bad), &output, nil)
+				if err == nil || output.Len() != 0 {
+					t.Fatalf("invalid response accepted: %s", bad)
+				}
+			}
+		}
+	}
+	for _, invalid := range []string{"0", "01", "1.1", "18446744073709551616"} {
+		if _, err := operations.TransactionIdentifier(transactionResponse(t, 0, "store_code", "code_id", invalid, true), "code_id"); err == nil {
+			t.Fatalf("accepted id %q", invalid)
+		}
+	}
+}
+
+type commandStep struct {
+	args  []string
+	raw   []byte
+	err   error
+	check func(operations.Command)
+}
+type commandTranscript struct {
+	t     *testing.T
+	steps []commandStep
+	used  int
+}
+
+func (p *commandTranscript) Run(ctx context.Context, cmd operations.Command) ([]byte, error) {
+	p.t.Helper()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if p.used >= len(p.steps) {
+		p.t.Errorf("unexpected command %v", cmd.Args)
+		return nil, errors.New("end of transcript")
+	}
+	step := p.steps[p.used]
+	p.used++
+	if step.check != nil {
+		step.check(cmd)
+	} else if !reflect.DeepEqual(step.args, cmd.Args) {
+		p.t.Errorf("argv = %q; want %q", cmd.Args, step.args)
+	}
+	return step.raw, step.err
+}
+func (p *commandTranscript) done() {
+	p.t.Helper()
+	if p.used != len(p.steps) {
+		p.t.Fatalf("consumed %d of %d transcript commands", p.used, len(p.steps))
+	}
+}
+
+func wasmDeploymentSteps(t *testing.T, options operations.WasmDeployment) []commandStep {
+	t.Helper()
+	steps := []commandStep{
+		{args: []string{options.Paxd, "tx", "wasm", "store", "--help"}, raw: []byte("store [wasm file]")},
+		{args: []string{options.Paxd, "tx", "wasm", "instantiate", "--help"}, raw: []byte("instantiate [code_id_int64]")},
+	}
+	tx := func(raw []byte, args ...string) {
+		argv := append([]string{options.Paxd, "tx", "wasm"}, args...)
+		argv = append(argv, "-y", "--from="+options.Key, "--chain-id="+options.Chain,
+			"--gas=5000000", "--fees=1000000uhpx", "--broadcast-mode=block", "--output=json")
+		steps = append(steps, commandStep{args: argv, raw: raw})
+	}
+	for i := 1; i <= 2; i++ {
+		tx(transactionResponse(t, 0, "store_code", "code_id", fmt.Sprint(i), true), "store", filepath.Join(options.Root, "contracts", "wasm", "cw20_base.wasm"))
+	}
+	for i := 1; i <= 2; i++ {
+		address := sdk.AccAddress(bytes.Repeat([]byte{byte(i)}, 20)).String()
+		msg := `{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}`
+		tx(transactionResponse(t, 0, "instantiate", "_contract_address", address, false), "instantiate", fmt.Sprint(i), msg, "--no-admin", "--label=cw20-loadtest")
+	}
+	return steps
+}
+
+func TestWasmDeployment(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "checkout with spaces")
+	artifact := filepath.Join(root, "contracts", "wasm", "cw20_base.wasm")
+	if err := os.MkdirAll(filepath.Dir(artifact), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(artifact, readTestFixture(t, "../../../contracts/wasm/cw20_base.wasm"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	options := operations.WasmDeployment{Root: root, Paxd: "/binary with spaces/paxd", Key: "admin key", Chain: "benchmark-chain"}
+	steps := wasmDeploymentSteps(t, options)
+	output := new(bytes.Buffer)
+	peer := &commandTranscript{t: t, steps: steps}
+	if err := operations.DeployWasm(context.Background(), peer, options, output); err != nil {
+		t.Fatal(err)
+	}
+	peer.done()
+	want := ""
+	for i := 1; i <= 2; i++ {
+		want += sdk.AccAddress(bytes.Repeat([]byte{byte(i)}, 20)).String() + "\n"
+	}
+	if output.String() != want {
+		t.Fatalf("deployment output = %q", output.String())
+	}
+	for index := range steps {
+		t.Run(fmt.Sprintf("failed-command-%d", index), func(t *testing.T) {
+			prefix := append([]commandStep(nil), steps[:index+1]...)
+			prefix[index].err = errors.New("recorded command failure")
+			peer := &commandTranscript{t: t, steps: prefix}
+			var output bytes.Buffer
+			err := operations.DeployWasm(context.Background(), peer, options, &output)
+			if err == nil || output.Len() != 0 {
+				t.Fatal("failed deployment published output")
+			}
+			if index >= 2 {
+				var partial *operations.WasmDeploymentError
+				if !errors.As(err, &partial) || !partial.Uncertain || len(partial.CodeIDs) != min(index-2, 2) || len(partial.Addresses) != max(index-4, 0) {
+					t.Fatalf("lost recovery: %v", err)
+				}
+			}
+			peer.done()
+		})
+		if index >= 2 {
+			t.Run(fmt.Sprintf("refused-transaction-%d", index), func(t *testing.T) {
+				prefix := append([]commandStep(nil), steps[:index+1]...)
+				prefix[index].raw = transactionResponse(t, 7, "message", "action", "refused", false)
+				peer := &commandTranscript{t: t, steps: prefix}
+				if operations.DeployWasm(context.Background(), peer, options, io.Discard) == nil {
+					t.Fatal("refused transaction accepted")
+				}
+				peer.done()
+			})
+		}
+	}
+	for _, index := range []int{2, 3, 4, 5} {
+		prefix := append([]commandStep(nil), steps[:index+1]...)
+		prefix[index].raw = transactionResponse(t, 0, "store_code", "code_id", "-1", true)
+		peer := &commandTranscript{t: t, steps: prefix}
+		if operations.DeployWasm(context.Background(), peer, options, io.Discard) == nil {
+			t.Fatal("invalid identifier used")
+		}
+		peer.done()
+	}
+}
+
+func evmDeployment(t *testing.T, kind string) {
+	t.Helper()
+	options := operations.EVMDeployment{Root: "/checkout with spaces/contracts/evm", Endpoint: "http://127.0.0.1:8545", Key: "fixture key", Contract: kind, Paxd: "/binary with spaces/paxd"}
+	fixture := readTestFixture(t, "testdata/m879/forge-create.json")
+	account := "0x1234567890123456789012345678901234567890"
+	source := "src/NoopToken.sol:NoopToken"
+	if kind == "erc721" {
+		source = "src/ERC721.sol:MyNFT"
+	}
+	forge := []string{"forge", "create", "--root", options.Root, "--broadcast", "-r", options.Endpoint, "--private-key", options.Key, source, "--json"}
+	if kind == "erc20" {
+		forge = append(forge, "--constructor-args", "NoopToken", "NT")
+	}
+	steps := []commandStep{
+		{args: []string{filepath.Join(options.Root, "setup.sh")}},
+		{args: []string{"cast", "wallet", "address", "--private-key", options.Key}, raw: []byte(account + "\n")},
+		{args: []string{"cast", "balance", account, "--rpc-url", options.Endpoint}, raw: []byte("100000000000000000000\n")},
+		{args: forge, raw: fixture},
+	}
+	peer := &commandTranscript{t: t, steps: steps}
+	address, err := operations.DeployEVM(context.Background(), peer, options)
+	if err != nil || address != "0x9876543210987654321098765432109876543210" {
+		t.Fatalf("address %q, err %v", address, err)
+	}
+	peer.done()
+	for index := range steps {
+		t.Run(fmt.Sprintf("command-%d", index), func(t *testing.T) {
+			prefix := append([]commandStep(nil), steps[:index+1]...)
+			prefix[index].err = errors.New("recorded subprocess failure")
+			peer := &commandTranscript{t: t, steps: prefix}
+			if address, err := operations.DeployEVM(context.Background(), peer, options); err == nil || address != "" {
+				t.Fatal("failed command admitted deployment")
+			}
+			peer.done()
+		})
+	}
+	for _, bad := range []string{`{}`, `{"deployedTo":null}`, `{"deployedTo":"0x0000000000000000000000000000000000000000"}`, `{"deployedTo":"garbage"}`, `{"deployedTo":"0x1234"}`, `{`, string(fixture) + `{}`} {
+		changed := append([]commandStep(nil), steps...)
+		changed[3].raw = []byte(bad)
+		peer := &commandTranscript{t: t, steps: changed}
+		if address, err := operations.DeployEVM(context.Background(), peer, options); err == nil || address != "" {
+			t.Fatalf("invalid forge response admitted: %s", bad)
+		}
+		peer.done()
+	}
+	for _, badBalance := range []string{"not a balance", "-1"} {
+		prefix := append([]commandStep(nil), steps[:3]...)
+		prefix[2].raw = []byte(badBalance)
+		peer := &commandTranscript{t: t, steps: prefix}
+		if _, err := operations.DeployEVM(context.Background(), peer, options); err == nil {
+			t.Fatal("malformed balance accepted")
+		}
+		peer.done()
+	}
+	prefix := append([]commandStep(nil), steps[:3]...)
+	prefix[2].raw = []byte("0")
+	prefix = append(prefix, commandStep{args: []string{options.Paxd, "tx", "evm", "send", account, "100000000000000000000", "--from", "admin", "--evm-rpc", options.Endpoint, "-y"}, err: errors.New("funding refused")})
+	peer = &commandTranscript{t: t, steps: prefix}
+	if _, err := operations.DeployEVM(context.Background(), peer, options); err == nil {
+		t.Fatal("refused funding admitted forge")
+	}
+	peer.done()
+}
+func TestERC20Deployment(t *testing.T)  { evmDeployment(t, "erc20") }
+func TestERC721Deployment(t *testing.T) { evmDeployment(t, "erc721") }
+
+func TestCompleteABI(t *testing.T) {
+	for _, pair := range []struct{ path, binding string }{
+		{"contracts/evm/bindings/erc20/abi.json", erc20.Erc20MetaData.ABI},
+		{"contracts/evm/bindings/erc721/abi.json", erc721.Erc721MetaData.ABI},
+	} {
+		original := readTestFixture(t, pair.path)
+		expected, err := operations.CanonicalABI(original)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := operations.CanonicalABI([]byte(pair.binding))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("binding ABI differs: %s", pair.path)
+		}
+		var entries []map[string]any
+		if err := json.Unmarshal(original, &entries); err != nil {
+			t.Fatal(err)
+		}
+		for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
+			entries[i], entries[j] = entries[j], entries[i]
+		}
+		reordered, err := operations.CanonicalABI(marshalTestJSON(t, entries))
+		if err != nil || !reflect.DeepEqual(expected, reordered) {
+			t.Fatal("top-level ordering changed ABI")
+		}
+		for _, change := range []string{"parameter", "output", "mutability", "indexed", "anonymous", "overload", "constructor"} {
+			t.Run(filepath.Base(filepath.Dir(pair.path))+"-"+change, func(t *testing.T) {
+				var entries []map[string]any
+				if err := json.Unmarshal(original, &entries); err != nil {
+					t.Fatal(err)
+				}
+				modified := false
+				for _, entry := range entries {
+					if modified {
+						break
+					}
+					inputs, _ := entry["inputs"].([]any)
+					switch change {
+					case "parameter":
+						if entry["type"] == "function" && len(inputs) > 0 {
+							inputs[0].(map[string]any)["type"] = "bytes32"
+							modified = true
+						}
+					case "output":
+						outputs, _ := entry["outputs"].([]any)
+						if len(outputs) > 0 {
+							outputs[0].(map[string]any)["type"] = "bytes32"
+							modified = true
+						}
+					case "mutability":
+						if entry["type"] == "function" {
+							entry["stateMutability"] = "payable"
+							modified = true
+						}
+					case "indexed":
+						if entry["type"] == "event" && len(inputs) > 0 {
+							v, _ := inputs[0].(map[string]any)["indexed"].(bool)
+							inputs[0].(map[string]any)["indexed"] = !v
+							modified = true
+						}
+					case "anonymous":
+						if entry["type"] == "event" {
+							entry["anonymous"] = true
+							modified = true
+						}
+					case "constructor":
+						if entry["type"] == "constructor" {
+							entry["stateMutability"] = "payable"
+							modified = true
+						}
+					case "overload":
+						if entry["type"] == "function" {
+							clone := map[string]any{}
+							for k, v := range entry {
+								clone[k] = v
+							}
+							clone["inputs"] = []any{}
+							entries = append(entries, clone)
+							modified = true
+						}
+					}
+				}
+				if !modified && change == "constructor" {
+					entries = append(entries, map[string]any{"type": "constructor", "inputs": []any{}, "stateMutability": "payable"})
+					modified = true
+				}
+				if !modified {
+					t.Fatalf("no %s fixture changed", change)
+				}
+				var result bytes.Buffer
+				if err := operations.RunCLI(context.Background(), []string{"canonical-abi"}, bytes.NewReader(marshalTestJSON(t, entries)), &result, nil); err != nil {
+					t.Fatal(err)
+				}
+				var actual []string
+				if err := json.Unmarshal(result.Bytes(), &actual); err != nil {
+					t.Fatal(err)
+				}
+				if reflect.DeepEqual(expected, actual) {
+					t.Fatalf("%s drift accepted", change)
+				}
+			})
+		}
+	}
+}
+
+type certificateAuthority struct {
+	certificate *x509.Certificate
+	key         *ecdsa.PrivateKey
+	pem         []byte
+}
+
+func newCertificateAuthority(t *testing.T) certificateAuthority {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "benchmark fixture CA"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature}
+	raw, err := x509.CreateCertificate(crand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return certificateAuthority{certificate: cert, key: key, pem: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: raw})}
+}
+func tlsLeafCertificate(t *testing.T, ca certificateAuthority, matching bool) tls.Certificate {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: "benchmark endpoint"}, DNSNames: []string{"unrelated.invalid"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
+	if matching {
+		template.IPAddresses = []net.IP{net.ParseIP("127.0.0.1")}
+		template.DNSNames = []string{"localhost"}
+	}
+	raw, err := x509.CreateCertificate(crand.Reader, template, ca.certificate, &key.PublicKey, ca.key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tls.Certificate{Certificate: [][]byte{raw, ca.certificate.Raw}, PrivateKey: key}
+}
+func grpcHealthServer(t *testing.T, certificate *tls.Certificate) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var options []grpc.ServerOption
+	if certificate != nil {
+		options = append(options, grpc.Creds(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{*certificate}})))
+	}
+	server := grpc.NewServer(options...)
+	service := health.NewServer()
+	service.SetServingStatus("benchmark", healthpb.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(server, service)
+	joined := make(chan struct{})
+	go func() { defer close(joined); _ = server.Serve(listener) }()
+	t.Cleanup(func() { server.Stop(); _ = listener.Close(); <-joined })
+	return listener.Addr().String()
+}
+func assertHealth(t *testing.T, conn *grpc.ClientConn) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	result, err := healthpb.NewHealthClient(conn).Check(ctx, &healthpb.HealthCheckRequest{Service: "benchmark"})
+	if err != nil || result.Status != healthpb.HealthCheckResponse_SERVING {
+		t.Fatalf("real gRPC health response: %v %v", result, err)
+	}
+}
+func TestTLSAuthenticatesEndpoint(t *testing.T) {
+	trusted := newCertificateAuthority(t)
+	unrelated := newCertificateAuthority(t)
+	caFile := filepath.Join(t.TempDir(), "trust.pem")
+	if err := os.WriteFile(caFile, trusted.pem, 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name     string
+		ca       certificateAuthority
+		matching bool
+		file     string
+		want     bool
+	}{
+		{"explicit-roots", trusted, true, caFile, true},
+		{"unrelated-issuer", unrelated, true, caFile, false},
+		{"unrelated-server-name", trusted, false, caFile, false},
+		{"system-roots-reject-private-CA", trusted, true, "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			leaf := tlsLeafCertificate(t, tc.ca, tc.matching)
+			endpoint := grpcHealthServer(t, &leaf)
+			ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+			defer cancel()
+			clients, conns, err := buildGrpcClients(ctx, &Config{GrpcEndpoints: endpoint, TLS: true, TLSCAFile: tc.file})
+			if tc.want {
+				if err != nil || len(clients) != 1 || len(conns) != 1 {
+					t.Fatalf("trusted endpoint failed: %v", err)
+				}
+				defer conns[0].Close()
+				assertHealth(t, conns[0])
+			} else {
+				if err == nil || len(clients) != 0 || len(conns) != 0 {
+					t.Fatal("unauthenticated endpoint admitted")
+				}
+				if !strings.Contains(err.Error(), "certificate") {
+					t.Fatalf("rejection did not report certificate failure: %v", err)
+				}
+			}
+		})
+	}
+	badFile := filepath.Join(t.TempDir(), "not-a-ca.pem")
+	if err := os.WriteFile(badFile, []byte("garbage"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := BuildGrpcClients(&Config{GrpcEndpoints: "127.0.0.1:1", TLS: true, TLSCAFile: badFile}); err == nil {
+		t.Fatal("invalid trust roots accepted")
+	}
+}
+
+func TestGRPCDeadlineAndClose(t *testing.T) {
+	// This listener never speaks HTTP/2. The public constructor must fail before
+	// it starts signer/account discovery, rather than blocking forever in Dial.
+	blackhole, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blackhole.Close()
+	start := time.Now()
+	client, err := NewLoadTestClient(Config{GrpcEndpoints: blackhole.Addr().String()})
+	if err == nil || client != nil {
+		t.Fatal("unresponsive endpoint admitted")
+	}
+	if elapsed := time.Since(start); elapsed > grpcStartupTimeout+time.Second {
+		t.Fatalf("startup was not bounded: %s", elapsed)
+	}
+	endpoint := grpcHealthServer(t, nil)
+	clients, conns, err := BuildGrpcClients(&Config{GrpcEndpoints: endpoint + "," + endpoint})
+	if err != nil || len(clients) != 2 || len(conns) != 2 {
+		t.Fatalf("gRPC startup: %v", err)
+	}
+	for _, conn := range conns {
+		assertHealth(t, conn)
+	}
+	owner := &LoadTestClient{GrpcConns: conns}
+	owner.startGrpcMonitors()
+	joined := make(chan struct{})
+	go func() { owner.Close(); close(joined) }()
+	select {
+	case <-joined:
+	case <-time.After(time.Second):
+		t.Fatal("Close did not cancel and join monitors")
+	}
+	for _, conn := range conns {
+		if conn.GetState() != connectivity.Shutdown {
+			t.Fatal("connection survived Close")
+		}
+	}
+	owner.Close()
+	// Closing a connection externally must also terminate a monitor that observes Shutdown.
+	_, conns, err = BuildGrpcClients(&Config{GrpcEndpoints: endpoint})
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner = &LoadTestClient{GrpcConns: conns}
+	owner.startGrpcMonitors()
+	_ = conns[0].Close()
+	joined = make(chan struct{})
+	go func() { owner.monitors.wg.Wait(); close(joined) }()
+	select {
+	case <-joined:
+	case <-time.After(time.Second):
+		t.Fatal("Shutdown monitor leaked")
+	}
+	owner.Close()
+	// Startup is all-or-nothing when a later endpoint fails.
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	clients, conns, err = buildGrpcClients(ctx, &Config{GrpcEndpoints: endpoint + "," + blackhole.Addr().String()})
+	if err == nil || clients != nil || conns != nil {
+		t.Fatal("partial startup was returned")
+	}
+}
+
+type rpcUncertainError struct{}
+
+func (rpcUncertainError) Error() string  { return "server request timed out" }
+func (rpcUncertainError) ErrorCode() int { return -32002 }
+
+type rpcRefusalError struct{}
+
+func (rpcRefusalError) Error() string  { return "transaction refused by fee policy" }
+func (rpcRefusalError) ErrorCode() int { return -32000 }
+
+type ethereumPeer struct {
+	mutex        sync.Mutex
+	account      common.Address
+	chain        *big.Int
+	nonce        uint64
+	transactions map[common.Hash]*ethtypes.Transaction
+	attempts     []*ethtypes.Transaction
+	mode         string
+	failNonce    bool
+	failLookup   bool
+}
+
+func (n *ethereumPeer) GetTransactionCount(ctx context.Context, address common.Address, block string) (hexutil.Uint64, error) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if n.failNonce {
+		return 0, errors.New("pending nonce unavailable")
+	}
+	if address != n.account || block != "pending" {
+		return 0, errors.New("unexpected nonce query")
+	}
+	return hexutil.Uint64(n.nonce), nil
+}
+func (n *ethereumPeer) GetTransactionByHash(ctx context.Context, hash common.Hash) (*ethtypes.Transaction, error) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if n.failLookup {
+		return nil, errors.New("lookup unavailable")
+	}
+	return n.transactions[hash], nil
+}
+func (n *ethereumPeer) SendRawTransaction(ctx context.Context, raw hexutil.Bytes) (common.Hash, error) {
+	var tx ethtypes.Transaction
+	if err := tx.UnmarshalBinary(raw); err != nil {
+		return common.Hash{}, err
+	}
+	sender, err := ethtypes.Sender(ethtypes.NewLondonSigner(n.chain), &tx)
+	if err != nil || sender != n.account {
+		return common.Hash{}, errors.New("invalid signed producer transaction")
+	}
+	n.mutex.Lock()
+	n.attempts = append(n.attempts, &tx)
+	mode := n.mode
+	if mode == "rpc-uncertain" {
+		n.mode = "accepted"
+		n.mutex.Unlock()
+		return common.Hash{}, rpcUncertainError{}
+	}
+	if mode == "refused" {
+		n.mode = "accepted"
+		n.mutex.Unlock()
+		return common.Hash{}, rpcRefusalError{}
+	}
+	if mode == "uncertain-absent" || mode == "uncertain-accepted" {
+		if mode == "uncertain-accepted" {
+			n.transactions[tx.Hash()] = &tx
+			n.nonce = tx.Nonce() + 1
+		}
+		n.mode = "accepted"
+		n.mutex.Unlock()
+		// JSON-RPC HTTP contexts are cancelled when the bounded client disconnects.
+		select {
+		case <-ctx.Done():
+		case <-time.After(time.Second):
+		}
+		return tx.Hash(), nil
+	}
+	if tx.Nonce() != n.nonce {
+		n.mutex.Unlock()
+		return common.Hash{}, rpcRefusalError{}
+	}
+	n.transactions[tx.Hash()] = &tx
+	n.nonce++
+	n.mutex.Unlock()
+	return tx.Hash(), nil
+}
+func newEVMClient(t *testing.T, mode string) (*EvmTxClient, *ethereumPeer) {
+	t.Helper()
+	key, err := crypto.HexToECDSA(strings.Repeat("01", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	account := crypto.PubkeyToAddress(key.PublicKey)
+	node := &ethereumPeer{account: account, chain: big.NewInt(125), nonce: 7, mode: mode, transactions: make(map[common.Hash]*ethtypes.Transaction)}
+	rpcServer := rpc.NewServer()
+	if err := rpcServer.RegisterName("eth", node); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(rpcServer)
+	t.Cleanup(server.Close)
+	peer, err := ethclient.Dial(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(peer.Close)
+	client := &EvmTxClient{accountAddress: account, chainId: big.NewInt(125), privateKey: key, ethClients: []*ethclient.Client{peer}, evmAddresses: &EVMAddresses{}, rpcTimeout: 100 * time.Millisecond}
+	client.nonce.Store(7)
+	return client, node
+}
+
+func TestEVMRefusalReconcilesQueue(t *testing.T) {
+	client, node := newEVMClient(t, "refused")
+	first, queued := client.GenerateSendFundsTx(), client.GenerateSendFundsTx()
+	if first.Nonce() != 7 || queued.Nonce() != 8 {
+		t.Fatal("producer did not reserve sequential nonces")
+	}
+	accepted := 0
+	if err := client.SendEvmTx(first, func() { accepted++ }); err == nil {
+		t.Fatal("refused send returned success")
+	}
+	if accepted != 0 || client.nonce.Load() != 7 {
+		t.Fatal("refusal counted or nonce not reconciled")
+	}
+	if err := client.SendEvmTx(queued, func() { accepted++ }); err == nil {
+		t.Fatal("stale queued transaction was sent")
+	}
+	replacement := client.GenerateSendFundsTx()
+	if replacement.Nonce() != 7 {
+		t.Fatalf("replacement nonce=%d", replacement.Nonce())
+	}
+	if err := client.SendEvmTx(replacement, func() { accepted++ }); err != nil {
+		t.Fatal(err)
+	}
+	if accepted != 1 {
+		t.Fatalf("accepted count=%d", accepted)
+	}
+	node.mutex.Lock()
+	defer node.mutex.Unlock()
+	if len(node.attempts) != 2 || node.nonce != 8 || len(node.transactions) != 1 {
+		t.Fatal("stale work reached the real RPC transport")
+	}
+}
+func TestEVMUncertainSend(t *testing.T) {
+	for _, mode := range []string{"uncertain-accepted", "uncertain-absent", "rpc-uncertain"} {
+		t.Run(mode, func(t *testing.T) {
+			client, node := newEVMClient(t, mode)
+			first, queued := client.GenerateSendFundsTx(), client.GenerateSendFundsTx()
+			accepted := 0
+			start := time.Now()
+			err := client.SendEvmTx(first, func() { accepted++ })
+			if time.Since(start) > time.Second {
+				t.Fatal("send exceeded RPC bound")
+			}
+			if mode == "uncertain-accepted" {
+				if err != nil || accepted != 1 || client.nonce.Load() != 8 {
+					t.Fatalf("accepted transaction did not reconcile: %v count=%d nonce=%d", err, accepted, client.nonce.Load())
+				}
+			} else {
+				if err == nil || accepted != 0 {
+					t.Fatal("unknown acceptance reported success")
+				}
+				if err := client.PrepareNext(); err == nil {
+					t.Fatal("generation admitted with unresolved submission")
+				}
+				if err := client.SendEvmTx(queued, func() { accepted++ }); err == nil {
+					t.Fatal("queued work sent during uncertainty")
+				}
+				node.mutex.Lock()
+				if len(node.attempts) != 1 {
+					t.Fatal("work submitted behind uncertain nonce")
+				}
+				node.transactions[first.Hash()] = first
+				node.nonce = 8
+				node.mutex.Unlock()
+				if err := client.PrepareNext(); err != nil {
+					t.Fatal(err)
+				}
+				if accepted != 1 {
+					t.Fatal("recovered acceptance was not counted exactly once")
+				}
+			}
+			if err := client.PrepareNext(); err != nil {
+				t.Fatal(err)
+			}
+			if accepted != 1 {
+				t.Fatal("acceptance counted twice")
+			}
+			if err := client.SendEvmTx(queued, func() { accepted++ }); err == nil {
+				t.Fatal("old queue retained after reconciliation")
+			}
+			next := client.GenerateSendFundsTx()
+			if next.Nonce() != 8 {
+				t.Fatalf("new work nonce=%d", next.Nonce())
+			}
+			if err := client.SendEvmTx(next, func() { accepted++ }); err != nil {
+				t.Fatal(err)
+			}
+			if accepted != 2 {
+				t.Fatalf("acceptance=%d", accepted)
+			}
+		})
+	}
+}
+func TestEVMReconciliationFailure(t *testing.T) {
+	client, node := newEVMClient(t, "refused")
+	tx := client.GenerateSendFundsTx()
+	node.mutex.Lock()
+	node.failNonce = true
+	node.mutex.Unlock()
+	if err := client.SendEvmTx(tx, nil); err == nil {
+		t.Fatal("missing nonce authority accepted")
+	}
+	if err := client.PrepareNext(); err == nil {
+		t.Fatal("generation proceeded without pending nonce")
+	}
+	node.mutex.Lock()
+	node.failNonce = false
+	node.mutex.Unlock()
+	if err := client.PrepareNext(); err != nil {
+		t.Fatal(err)
+	}
+	if tx := client.GenerateSendFundsTx(); tx.Nonce() != 7 {
+		t.Fatal("nonce did not recover")
+	}
+}
+
+func TestEVMAcceptedThroughput(t *testing.T) {
+	client, node := newEVMClient(t, "refused")
+	first, stale := client.GenerateSendFundsTx(), client.GenerateSendFundsTx()
+	queue := make(chan SignedTx, 3)
+	queue <- SignedTx{EvmTx: first, MsgType: EVM}
+	queue <- SignedTx{EvmTx: stale, MsgType: EVM}
+	close(queue)
+	count := new(int64)
+	owner := &LoadTestClient{EvmTxClients: []*EvmTxClient{client}}
+	owner.SendTxs(context.Background(), queue, 0, map[string]*int64{EVM: count}, semaphore.NewWeighted(1))
+	if atomic.LoadInt64(count) != 0 {
+		t.Fatal("refused or stale transactions inflated accepted throughput")
+	}
+	next := client.GenerateSendFundsTx()
+	queue = make(chan SignedTx, 1)
+	queue <- SignedTx{EvmTx: next, MsgType: EVM}
+	close(queue)
+	owner.SendTxs(context.Background(), queue, 0, map[string]*int64{EVM: count}, semaphore.NewWeighted(1))
+	if atomic.LoadInt64(count) != 1 {
+		t.Fatal("accepted transaction missing from throughput")
+	}
+	node.mutex.Lock()
+	defer node.mutex.Unlock()
+	if len(node.attempts) != 2 {
+		t.Fatal("stale queue reached transport")
+	}
+}
+
+func TestEVMProducerResumesAfterReconciliation(t *testing.T) {
+	client, node := newEVMClient(t, "uncertain-absent")
+	tx := client.GenerateSendFundsTx()
+	if err := client.SendEvmTx(tx, nil); err == nil {
+		t.Fatal("uncertain send accepted")
+	}
+	owner := &LoadTestClient{EvmTxClients: []*EvmTxClient{client}, LoadTestConfig: Config{MessageTypes: []string{EVM}}}
+	queue := make(chan SignedTx, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	joined := make(chan struct{})
+	go func() {
+		defer close(joined)
+		owner.BuildTxs(ctx, queue, 0, rate.NewLimiter(rate.Inf, 1), map[string]*int64{EVM: new(int64)})
+	}()
+	select {
+	case <-queue:
+		t.Fatal("producer generated behind uncertain nonce")
+	case <-time.After(150 * time.Millisecond):
+	}
+	node.mutex.Lock()
+	node.transactions[tx.Hash()] = tx
+	node.nonce = 8
+	node.mutex.Unlock()
+	select {
+	case next := <-queue:
+		if next.EvmTx.Nonce() != 8 {
+			t.Fatalf("resumed nonce=%d", next.EvmTx.Nonce())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("producer did not resume after acceptance was observed")
+	}
+	cancel()
+	select {
+	case <-joined:
+	case <-time.After(time.Second):
+		t.Fatal("producer did not stop")
+	}
+}
+
+func TestEVMMessageNoncePaths(t *testing.T) {
+	for _, dynamic := range []bool{false, true} {
+		client, _ := newEVMClient(t, "accepted")
+		client.useEip1559 = dynamic
+		client.evmAddresses = &EVMAddresses{ERC20: common.HexToAddress("0x1234567890123456789012345678901234567890"), ERC721: common.HexToAddress("0x9876543210987654321098765432109876543210")}
+		for i, kind := range []string{EVM, ERC20, ERC721} {
+			tx, err := client.GetTxForMsgType(kind)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tx.Nonce() != uint64(7+i) {
+				t.Fatalf("%s nonce=%d", kind, tx.Nonce())
+			}
+			if dynamic && tx.Type() != ethtypes.DynamicFeeTxType {
+				t.Fatal("lost EIP-1559 transaction type")
+			}
+			if err := client.SendEvmTx(tx, nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func TestEVMTransientLookupFailure(t *testing.T) {
+	client, node := newEVMClient(t, "refused")
+	tx := client.GenerateSendFundsTx()
+	node.mutex.Lock()
+	node.failLookup = true
+	node.mutex.Unlock()
+	accepted := 0
+	if err := client.SendEvmTx(tx, func() { accepted++ }); err == nil {
+		t.Fatal("unavailable reconciliation accepted")
+	}
+	if _, err := client.GetTxForMsgType(EVM); err == nil {
+		t.Fatal("generation admitted without reconciliation")
+	}
+	node.mutex.Lock()
+	node.failLookup = false
+	node.mutex.Unlock()
+	next, err := client.GetTxForMsgType(EVM)
+	if err != nil || next.Nonce() != 7 {
+		t.Fatalf("refused nonce did not recover: %v", err)
+	}
+	if accepted != 0 {
+		t.Fatal("refused transaction counted during recovery")
+	}
+	if err := client.SendEvmTx(next, func() { accepted++ }); err != nil {
+		t.Fatal(err)
+	}
+	if accepted != 1 {
+		t.Fatal("recovered account could not send")
+	}
+}
+
+type fundingPeer struct{ receipt *ethtypes.Receipt }
+
+func (n *fundingPeer) GetTransactionReceipt(ctx context.Context, hash common.Hash) (*ethtypes.Receipt, error) {
+	if hash != n.receipt.TxHash {
+		return nil, errors.New("unexpected funding hash")
+	}
+	return n.receipt, nil
+}
+func TestDeploymentFundingReceipt(t *testing.T) {
+	for _, status := range []uint64{0, 1} {
+		t.Run(fmt.Sprintf("receipt-%d", status), func(t *testing.T) {
+			producer, _ := newEVMClient(t, "accepted")
+			tx := producer.GenerateSendFundsTx()
+			receipt := &ethtypes.Receipt{Type: tx.Type(), Status: status, TxHash: tx.Hash(), BlockHash: common.HexToHash("0x1234"), BlockNumber: big.NewInt(10), Logs: []*ethtypes.Log{}, GasUsed: 21000, CumulativeGasUsed: 21000}
+			rpcServer := rpc.NewServer()
+			if err := rpcServer.RegisterName("eth", &fundingPeer{receipt: receipt}); err != nil {
+				t.Fatal(err)
+			}
+			server := httptest.NewServer(rpcServer)
+			defer server.Close()
+			options := operations.EVMDeployment{Root: "/contract root/evm", Endpoint: server.URL, Key: "fixture key", Contract: "erc20", Paxd: "paxd"}
+			account := producer.accountAddress.Hex()
+			steps := []commandStep{
+				{args: []string{filepath.Join(options.Root, "setup.sh")}},
+				{args: []string{"cast", "wallet", "address", "--private-key", options.Key}, raw: []byte(account)},
+				{args: []string{"cast", "balance", account, "--rpc-url", options.Endpoint}, raw: []byte("0")},
+				{args: []string{"paxd", "tx", "evm", "send", account, "100000000000000000000", "--from", "admin", "--evm-rpc", options.Endpoint, "-y"}, raw: []byte("Transaction hash: " + tx.Hash().Hex() + "\n")},
+			}
+			if status == 1 {
+				steps = append(steps, commandStep{args: []string{"forge", "create", "--root", options.Root, "--broadcast", "-r", options.Endpoint, "--private-key", options.Key, "src/NoopToken.sol:NoopToken", "--json", "--constructor-args", "NoopToken", "NT"}, raw: readTestFixture(t, "testdata/m879/forge-create.json")})
+			}
+			peer := &commandTranscript{t: t, steps: steps}
+			address, err := operations.DeployEVM(context.Background(), peer, options)
+			if status == 1 {
+				if err != nil || address == "" {
+					t.Fatalf("confirmed funding failed: %v", err)
+				}
+			} else {
+				if err == nil || address != "" {
+					t.Fatal("reverted funding admitted deployment")
+				}
+			}
+			peer.done()
+		})
+	}
+}
+
+func TestDeploymentConsumer(t *testing.T) {
+	// Drive the same address printer and command-output consumer used by the
+	// scripts and benchmark startup, with the committed forge response as input.
+	address, err := operations.DeploymentAddress(readTestFixture(t, "testdata/m879/forge-create.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := &Config{EvmRpcEndpoints: "http://127.0.0.1:8545"}
+	for _, output := range []string{address + "\n", "", "null", "0x0000000000000000000000000000000000000000", "0x1234", address + "\nextra output"} {
+		peer := &commandTranscript{t: t, steps: []commandStep{{args: []string{"/deployment script with spaces", config.EVMRpcEndpoint()}, raw: []byte(output)}}}
+		got, err := deployEvmContractWithCommands(context.Background(), peer, "/deployment script with spaces", config)
+		if output == address+"\n" {
+			if err != nil || got != common.HexToAddress(address) {
+				t.Fatalf("valid deployment consumer failed: %v", err)
+			}
+		} else {
+			if err == nil || got != (common.Address{}) {
+				t.Fatalf("invalid deployment admitted startup: %q", output)
+			}
+		}
+		peer.done()
+	}
+	peer := &commandTranscript{t: t, steps: []commandStep{{args: []string{"deploy", config.EVMRpcEndpoint()}, raw: []byte(address), err: errors.New("deployment failed despite stdout")}}}
+	if address, err := deployEvmContractWithCommands(context.Background(), peer, "deploy", config); err == nil || address != (common.Address{}) {
+		t.Fatal("failed deployment admitted load generation")
+	}
+	peer.done()
+}

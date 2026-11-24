@@ -1,4 +1,4 @@
-Code.require_file("repair_22_33_544_fixtures.exs", __DIR__)
+Code.require_file("binary_getter_fixture.exs", __DIR__)
 
 defmodule Explorer.SmartContract.HelperTest do
   use ExUnit.Case
@@ -158,7 +158,7 @@ defmodule Explorer.SmartContract.HelperTest do
 
   describe "get_binary_string_from_contract_getter/4" do
     test "returns bytes starting from 0x" do
-      Explorer.SmartContract.Repair2233544Fixtures.assert_binary_getter()
+      Explorer.SmartContract.BinaryGetterFixture.assert_binary_getter()
     end
 
     test "returns address" do

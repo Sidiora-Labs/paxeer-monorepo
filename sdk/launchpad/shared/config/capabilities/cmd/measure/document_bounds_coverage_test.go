@@ -16,11 +16,11 @@ func TestMeasurementDocumentsAndFilesHaveFiniteBounds(t *testing.T) {
 	if err := strictObject([]byte(`{"array":[1,true,null,{"b":2}]}`)); err != nil {
 		t.Fatal(err)
 	}
-	root := repairM951Candidate(t)
+	root := sourceIndexTestCandidate(t)
 	output := filepath.Join(t.TempDir(), "index.json")
-	repairM951Issue(t, writeSourceIndex("", output, nil), "candidate_source_index_invalid")
-	repairM951Issue(t, writeSourceIndex(root, "", nil), "candidate_source_index_invalid")
-	repairM951Issue(t, writeSourceIndex(root, output, make([]string, 10001)), "candidate_source_index_invalid")
+	sourceIndexTestIssue(t, writeSourceIndex("", output, nil), "candidate_source_index_invalid")
+	sourceIndexTestIssue(t, writeSourceIndex(root, "", nil), "candidate_source_index_invalid")
+	sourceIndexTestIssue(t, writeSourceIndex(root, output, make([]string, 10001)), "candidate_source_index_invalid")
 	oversized := filepath.Join(root, "large.bin")
 	file, err := os.Create(oversized)
 	if err != nil {
@@ -32,7 +32,7 @@ func TestMeasurementDocumentsAndFilesHaveFiniteBounds(t *testing.T) {
 	if err := file.Close(); err != nil {
 		t.Fatal(err)
 	}
-	repairM951Issue(t, writeSourceIndex(root, output, []string{"large.bin"}), "candidate_source_changed")
+	sourceIndexTestIssue(t, writeSourceIndex(root, output, []string{"large.bin"}), "candidate_source_changed")
 	if _, err := os.Stat(output); !os.IsNotExist(err) {
 		t.Fatalf("oversized input produced index: %v", err)
 	}
@@ -41,9 +41,9 @@ func TestMeasurementDocumentsAndFilesHaveFiniteBounds(t *testing.T) {
 	if err := os.WriteFile(path, wire, 0600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = readPinned(path, repairM951Digest(wire), 1)
-	repairM951Issue(t, err, "pinned_file_size_invalid")
+	_, err = readPinned(path, sourceIndexTestDigest(wire), 1)
+	sourceIndexTestIssue(t, err, "pinned_file_size_invalid")
 	_, err = readPinned(filepath.Dir(path), strings.Repeat("a", 64), 1<<20)
-	repairM951Issue(t, err, "pinned_file_size_invalid")
-	repairM951Issue(t, checkBuild(filepath.Join(t.TempDir(), "absent"), strings.Repeat("a", 64)), "consumer_build_artifact_missing")
+	sourceIndexTestIssue(t, err, "pinned_file_size_invalid")
+	sourceIndexTestIssue(t, checkBuild(filepath.Join(t.TempDir(), "absent"), strings.Repeat("a", 64)), "consumer_build_artifact_missing")
 }

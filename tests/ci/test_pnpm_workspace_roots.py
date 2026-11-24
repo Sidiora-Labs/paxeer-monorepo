@@ -8,6 +8,8 @@ import subprocess
 
 import yaml
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 LAUNCHPAD = ROOT / "apps/launchpad"
@@ -163,7 +165,14 @@ def test_launchpad_matrix_runs_from_launchpad_workspace():
     job = workflow["jobs"]["launchpad-test"]
     steps = job["steps"]
     test_step, = [step for step in steps if step.get("name") == "Test package"]
-    assert "if" not in job and "if" not in test_step
+    assert "if" not in job
+    assert test_step["if"] == "matrix.package != 'apps/launchpad/web'"
+    web_step, = [
+        step for step in steps
+        if step.get("name") == "Prepare chain fixtures and run web Vitest"
+    ]
+    assert web_step["if"] == "matrix.package == 'apps/launchpad/web'"
+    assert "continue-on-error" not in web_step
     assert "continue-on-error" not in job and "continue-on-error" not in test_step
     assert job["strategy"]["fail-fast"] == "false"
     workspace = load_yaml(LAUNCHPAD / "pnpm-workspace.yaml")
@@ -186,18 +195,28 @@ def test_launchpad_matrix_runs_from_launchpad_workspace():
     locked = {(LAUNCHPAD / importer).resolve() for importer in lock["importers"]}
     assert members <= locked
     for row in matrix_rows(job):
+        if row["package"] == "apps/launchpad/web":
+            assert run_directory(workflow, job, web_step, row) == LAUNCHPAD / "web"
+            assert shlex.split(web_step["run"]) == [
+                "python3", "scripts/prepare-test-environment.py", "--",
+                "pnpm", "exec", "vitest", "run",
+            ]
+            assert (LAUNCHPAD / "web/scripts/prepare-test-environment.py").is_file()
+            continue
         directory = run_directory(workflow, job, test_step, row)
         command, = list(pnpm_commands(expand_matrix(test_step["run"], row), directory))
         cwd, args = command
-        assert cwd == ROOT
-        assert args[:2] == ["--dir", "apps/launchpad"]
+        assert directory == cwd == LAUNCHPAD
+        assert args[:1] == ["--filter"]
         assert pnpm_directory(cwd, args) == LAUNCHPAD
         assert args[-2:] == ["run", "test"]
         assert "--fail-if-no-match" in args
         assert args.count("--filter") == 1
         selector = args[args.index("--filter") + 1]
         assert selector.startswith("./")
-        assert (LAUNCHPAD / selector).resolve() == (ROOT / row["package"]).resolve()
+        selected = (cwd / selector).resolve()
+        assert selected == (ROOT / row["package"]).resolve()
+        assert selected in members
         assert nearest_workspace(LAUNCHPAD) == LAUNCHPAD / "pnpm-workspace.yaml"
 
 
@@ -255,6 +274,7 @@ def test_sdk_wallet_workspace_install_resolves_from_services_wallet():
     assert steps.index(sdk) < steps.index(install) < steps.index(suite)
 
 
+@pytest.mark.native
 def test_sdk_wallet_job_runs_the_baseline_script():
     workflow = load_yaml(ROOT / ".github/workflows/wallet-test.yml")
     job = workflow["jobs"]["vitest"]

@@ -1,6 +1,7 @@
 package evmrpc
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -20,6 +21,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/wasmd"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
@@ -509,6 +511,18 @@ func (b *Backend) BlockByNumber(ctx context.Context, bn rpc.BlockNumber) (*ethty
 		idxToMsgs[msg.index] = msg.msg
 	}
 	for i := range tmBlock.Block.Txs {
+		// Sequenced blocks carry the signed sequence batch as their first
+		// consensus entry. It records the block's activity range and is not an
+		// SDK transaction, so it must advance replay without being sent to the
+		// transaction decoder or exposed as an Ethereum transaction.
+		if isSequenceBatchEntry(tmBlock.Block.Txs[i]) {
+			metadata = append(metadata, tracersutils.TraceBlockMetadata{
+				ShouldIncludeInTraceResult: false,
+				IdxInEthBlock:              -1,
+				TraceRunnable:              func(vm.StateDB) {},
+			})
+			continue
+		}
 		decoded, err := traceCompatTxDecoder(b.txConfigProvider(tmBlock.Block.Height), b.isV65ActiveAtHeight(tmBlock.Block.Height))(tmBlock.Block.Txs[i])
 		if err != nil {
 			return nil, nil, err
@@ -567,6 +581,10 @@ func (b *Backend) BlockByNumber(ctx context.Context, bn rpc.BlockNumber) (*ethty
 	return block, metadata, nil
 }
 
+func isSequenceBatchEntry(tx []byte) bool {
+	return bytes.HasPrefix(tx, []byte(seqtypes.SequenceBatchDomain))
+}
+
 func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*ethtypes.Block, []tracersutils.TraceBlockMetadata, error) {
 	tmBlock, err := blockByHashRespectingWatermarks(ctx, b.tmClient, b.watermarks, hash.Bytes(), 1)
 	if err != nil {
@@ -582,8 +600,7 @@ func (b *Backend) RPCEVMTimeout() time.Duration { return b.config.EVMTimeout }
 
 func (b *Backend) chainConfigForHeight(height int64) *params.ChainConfig {
 	ctx := b.ctxAtHeight(height)
-	sstore := b.keeper.GetSstoreSetGasEIP2200(ctx)
-	return types.DefaultChainConfig().EthereumConfigWithSstore(b.keeper.ChainID(ctx), &sstore)
+	return b.keeper.GetEVMChainConfig(ctx)
 }
 
 func (b *Backend) ChainConfig() *params.ChainConfig {
@@ -687,6 +704,9 @@ func (b *Backend) replayTransactionTillIndex(ctx context.Context, block *ethtype
 	for idx, tx := range tmBlock.Block.Txs {
 		if idx > txIndex {
 			break
+		}
+		if isSequenceBatchEntry(tx) {
+			continue
 		}
 		sdkTx, err := traceCompatTxDecoder(b.txConfigProvider(block.Number().Int64()), b.isV65ActiveAtHeight(block.Number().Int64()))(tx)
 		if err != nil {

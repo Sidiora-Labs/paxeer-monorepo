@@ -2,8 +2,9 @@ import React from 'react';
 
 import type { ZkSyncBatchesItem } from 'types/api/zkSyncL2';
 
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import ZkSyncTxnBatchesTableItem from './ZkSyncTxnBatchesTableItem';
 
@@ -15,18 +16,18 @@ type Props = {
 
 const ZkSyncTxnBatchesTable = ({ items, top, isLoading }: Props) => {
   return (
-    <TableRoot minW="1000px">
+    <ActivityTable label="Transaction batches" minW="var(--chakra-sizes-5xl)">
       <TableHeaderSticky top={ top }>
         <TableRow>
-          <TableColumnHeader width="40%">Batch #</TableColumnHeader>
+          <TableColumnHeader width="40%" isNumeric>Batch #</TableColumnHeader>
           <TableColumnHeader width="60%">Status</TableColumnHeader>
-          <TableColumnHeader width="180px">
+          <TableColumnHeader width="var(--chakra-spacing-44)">
             Timestamp
             <TimeFormatToggle/>
           </TableColumnHeader>
-          <TableColumnHeader width="120px">Txn count</TableColumnHeader>
-          <TableColumnHeader width="210px">Commit tx</TableColumnHeader>
-          <TableColumnHeader width="210px">Prove tx</TableColumnHeader>
+          <TableColumnHeader width="var(--chakra-spacing-30)" isNumeric>Txn count</TableColumnHeader>
+          <TableColumnHeader width="var(--chakra-spacing-52)">Commit tx</TableColumnHeader>
+          <TableColumnHeader width="var(--chakra-spacing-52)">Prove tx</TableColumnHeader>
         </TableRow>
       </TableHeaderSticky>
       <TableBody>
@@ -38,7 +39,7 @@ const ZkSyncTxnBatchesTable = ({ items, top, isLoading }: Props) => {
           />
         )) }
       </TableBody>
-    </TableRoot>
+    </ActivityTable>
   );
 };
 

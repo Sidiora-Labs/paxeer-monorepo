@@ -189,7 +189,7 @@ func AssertProfiledParentCancellation(t *testing.T, api *DebugAPI) {
 		t.Run(cause, func(t *testing.T) {
 			started := make(chan struct{})
 			var once sync.Once
-			name := "repairM1292ObservedStructLogger"
+			name := "traceTransportObservedStructLogger"
 			tracers.DefaultDirectory.Register(name, func(_ *tracers.Context, _ json.RawMessage, _ *params.ChainConfig) (*tracers.Tracer, error) {
 				actual := traceLogger.NewStructLogger(&traceLogger.Config{Limit: 4, DisableStack: true, DisableStorage: true})
 				hooks := actual.Hooks()

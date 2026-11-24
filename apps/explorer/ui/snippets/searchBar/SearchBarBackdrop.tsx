@@ -11,8 +11,8 @@ const SearchBarBackdrop = ({ isOpen }: Props) => {
       position="fixed"
       top={ 0 }
       left={ 0 }
-      w="100vw"
-      h="100vh"
+      right={ 0 }
+      h="100dvh"
       bgColor="canvas"
       opacity={ 0.6 }
       zIndex="overlay"

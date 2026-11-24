@@ -10,6 +10,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[3]
+IMPORTED_WORKSPACES = ("apps/perps",)
 FIRST_PARTY_MANIFESTS = (
     "contracts/launchpad/package.json",
     "contracts/package.json",
@@ -131,7 +132,10 @@ def test_no_tracked_manifest_outside_notice_drifts_from_the_repository_licence()
         path = Path(manifest)
         if {"node_modules", "vendor"}.intersection(path.parts[:-1]):
             continue
-        if any(manifest.startswith(tree + "/") for tree in trees):
+        if any(
+            manifest.startswith(tree + "/")
+            for tree in (*trees, *IMPORTED_WORKSPACES)
+        ):
             continue
         expected = "Apache-2.0"
         if manifest == "apps/inference-peer/package.json":

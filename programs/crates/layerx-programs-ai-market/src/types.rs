@@ -112,7 +112,8 @@ impl<T> GuestIndex<T> for [T] {
         self.copy_within(source, dest);
     }
 
-    #[inline]
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
+    #[cfg_attr(not(target_arch = "wasm32"), inline)]
     fn guest_swap(&mut self, a: usize, b: usize) {
         #[cfg(target_arch = "wasm32")]
         {

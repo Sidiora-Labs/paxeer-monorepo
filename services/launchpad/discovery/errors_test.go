@@ -1,10 +1,12 @@
 package discovery
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -71,6 +73,28 @@ func assertDiscoveryFrozenError(t *testing.T, w *httptest.ResponseRecorder, stat
 }
 
 func TestDiscoveryErrorsUseFrozenEnvelope(t *testing.T) {
+	t.Run("dependency cause", func(t *testing.T) {
+		var output bytes.Buffer
+		previous := slog.Default()
+		slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+		defer slog.SetDefault(previous)
+		r := httptest.NewRequest(http.MethodGet, "/v2/discovery/feed", nil)
+		r.Pattern = "GET /v2/discovery/feed"
+		w := httptest.NewRecorder()
+		reply(w, r, nil, fmt.Errorf("read discovery sources: %w", sql.ErrConnDone))
+		id := assertDiscoveryFrozenError(t, w, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE", "")
+		var record struct {
+			Error     string `json:"error"`
+			Route     string `json:"route"`
+			RequestID string `json:"request_id"`
+		}
+		if err := json.Unmarshal(output.Bytes(), &record); err != nil || record.Error != "read discovery sources: "+sql.ErrConnDone.Error() || record.Route != r.Pattern || record.RequestID != id {
+			t.Fatalf("dependency context: %+v %v", record, err)
+		}
+		if bytes.Contains(w.Body.Bytes(), []byte(sql.ErrConnDone.Error())) {
+			t.Fatal("response exposed dependency details")
+		}
+	})
 	cases := []struct {
 		name   string
 		err    error
@@ -82,6 +106,7 @@ func TestDiscoveryErrorsUseFrozenEnvelope(t *testing.T) {
 		{"conflict", ErrConflict, http.StatusConflict, "CONFLICT"},
 		{"missing", sql.ErrNoRows, http.StatusNotFound, "NOT_FOUND"},
 		{"unknown", errors.New("private dependency failure"), http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"},
+		{"unavailable authority", errors.Join(ErrUnavailable, ErrForbidden), http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

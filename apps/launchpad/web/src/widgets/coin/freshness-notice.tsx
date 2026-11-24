@@ -31,6 +31,11 @@ const problem = { label: 'Updates off', title: 'Live updates hit a problem', bod
  */
 export function FreshnessNotice({ freshness, stream, error, onReconnect, className }: FreshnessNoticeProps) {
   if (freshness === 'current' && !error) return null;
+  if (freshness === 'unavailable' && !error && (stream === 'idle' || stream === 'loading')) return (
+    <div role="status" data-freshness-chip="waiting" className={cn('inline-flex min-h-7 items-center gap-1 rounded-pill bg-surface-2 px-2 text-xs text-text-faint', className)}>
+      Waiting for trades
+    </div>
+  );
   const danger = freshness === 'unavailable' || stream === 'resync-required';
   const text = freshness === 'current' ? problem : copy[freshness];
   return (
@@ -39,7 +44,7 @@ export function FreshnessNotice({ freshness, stream, error, onReconnect, classNa
       data-freshness-chip={freshness}
       title={`${text.title}. ${text.body}`}
       className={cn(
-        'inline-flex h-7 max-w-full shrink-0 items-center gap-1 rounded-pill pl-2 pr-0.5 text-xs font-bold',
+        'inline-flex min-h-7 max-w-full shrink-0 flex-wrap items-center gap-1 rounded-pill pl-2 pr-0.5 text-xs font-bold',
         danger ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning',
         className,
       )}

@@ -1609,12 +1609,12 @@ fn hmac(secret: &[u8; 32], payload: &[u8]) -> [u8; 32] {
         *o ^= k;
     }
     let mut inner = Sha256::new();
-    inner.update(ipad);
+    inner.update(&ipad);
     inner.update(payload);
     let inner = inner.finalize();
     let mut outer = Sha256::new();
-    outer.update(opad);
-    outer.update(inner);
+    outer.update(&opad);
+    outer.update(&inner);
     outer.finalize().into()
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]

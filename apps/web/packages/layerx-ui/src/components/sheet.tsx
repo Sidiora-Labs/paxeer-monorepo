@@ -16,11 +16,34 @@ export interface SheetProps {
  * Bottom sheet — the mobile overlay of the design set: drag handle,
  * rounded top corners, slides up over a dimmed page.
  * Esc, overlay tap, and the close affordance all dismiss (focus-trapped).
+ * The shared safe-area token includes env(safe-area-inset-bottom) for mobile browsers.
  */
 export function Sheet({ open, onOpenChange, children, portalContainer }: SheetProps) {
   const dragStartY = React.useRef<number | null>(null);
+  const contentRef = React.useRef<HTMLDialogElement>(null);
 
-  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+  React.useEffect(() => {
+    const content = contentRef.current;
+    if (content === null) return;
+    if (open) {
+      if (content.matches(":modal")) return;
+      if (content.open) content.close();
+      content.showModal();
+    } else if (content.open) {
+      content.close();
+    }
+  }, [open]);
+  const setContentRef = React.useCallback(
+    (content: HTMLDialogElement | null) => {
+      contentRef.current = content;
+      if (content !== null && open && !content.matches(":modal")) {
+        content.showModal();
+      }
+    },
+    [open],
+  );
+
+  const startDrag = (event: React.PointerEvent<HTMLDialogElement>) => {
     if (!(event.target instanceof Element) || event.target.closest("[data-sheet-drag-handle]") === null) {
       return;
     }
@@ -28,7 +51,7 @@ export function Sheet({ open, onOpenChange, children, portalContainer }: SheetPr
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const finishDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+  const finishDrag = (event: React.PointerEvent<HTMLDialogElement>) => {
     const startY = dragStartY.current;
     dragStartY.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -42,20 +65,27 @@ export function Sheet({ open, onOpenChange, children, portalContainer }: SheetPr
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={portalContainer ?? undefined}>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
-        <Dialog.Content
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
+        <Dialog.Content asChild>
+          <dialog
+            ref={setContentRef}
+            onCancel={(event) => {
+              event.preventDefault();
+              onOpenChange(false);
+            }}
           onPointerDown={startDrag}
           onPointerUp={finishDrag}
           onPointerCancel={() => {
             dragStartY.current = null;
           }}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[calc(100dvh-env(safe-area-inset-top))] w-full max-w-lg flex-col overscroll-contain",
+            "fixed inset-x-0 bottom-0 z-50 mx-auto flex lx-sheet-content w-full max-w-lg flex-col overscroll-contain",
             "rounded-t-sheet bg-surface shadow-overlay outline-none",
             "data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down",
           )}
-        >
-          {children}
+          >
+            {children}
+          </dialog>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -99,7 +129,7 @@ export function SheetDescription({
   return (
     <Dialog.Description asChild>
       <p
-        className={cn("text-[15px] leading-relaxed text-foreground-secondary", className)}
+        className={cn("text-body-sm leading-relaxed text-foreground-secondary", className)}
         {...props}
       />
     </Dialog.Description>
@@ -110,7 +140,7 @@ export function SheetBody({ className, ...props }: React.HTMLAttributes<HTMLDivE
   return (
     <div
       className={cn(
-        "lx-scroll flex-1 overflow-y-auto px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+        "lx-scroll flex-1 overflow-y-auto px-5 pt-4 lx-safe-bottom-min",
         className,
       )}
       {...props}
@@ -126,7 +156,7 @@ export function SheetFooter({ className, ...props }: React.HTMLAttributes<HTMLDi
   return (
     <div
       className={cn(
-        "grid auto-cols-fr grid-flow-col gap-3 border-t border-border/0 px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+        "grid auto-cols-fr grid-flow-col gap-3 border-t border-border/0 px-5 pt-2 lx-safe-bottom-roomy",
         className,
       )}
       {...props}

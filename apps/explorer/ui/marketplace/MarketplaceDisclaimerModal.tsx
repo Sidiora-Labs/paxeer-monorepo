@@ -5,8 +5,8 @@ import { route } from 'nextjs-routes';
 
 import useIsMobile from 'lib/hooks/useIsMobile';
 import { Button } from 'toolkit/chakra/button';
-import { DialogBody, DialogContent, DialogFooter, DialogHeader, DialogRoot } from 'toolkit/chakra/dialog';
 import { Link } from 'toolkit/chakra/link';
+import { DialogBody, DialogContent, DialogFooter, DialogHeader, DialogRoot } from 'ui/marketplace/NativeDialog';
 
 type Props = {
   isOpen: boolean;
@@ -34,7 +34,7 @@ const MarketplaceDisclaimerModal = ({ isOpen, onClose, appId }: Props) => {
         </DialogHeader>
 
         <DialogBody>
-          <Text color={{ _light: 'gray.800', _dark: 'whiteAlpha.800' }}>
+          <Text color="text.primary">
             You are now accessing a third-party app. Blockscout does not own, control, maintain, or audit 3rd party apps,{ ' ' }
             and is not liable for any losses associated with these interactions. Please do so at your own risk.
             <br/><br/>

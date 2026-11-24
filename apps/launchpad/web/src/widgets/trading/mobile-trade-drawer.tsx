@@ -36,7 +36,7 @@ export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProp
 
   return (
     <>
-      <div data-mobile-trade-cta={viewer ? 'trade' : 'sign-in'} className="fixed inset-x-0 bottom-[72px] z-40 px-4 md:bottom-4 md:left-rail-width lg:hidden" style={{ paddingBottom: 'calc(4px + env(safe-area-inset-bottom, 0px))' }}>
+      <div data-mobile-trade-cta={viewer ? 'trade' : 'sign-in'} className="fixed inset-x-0 bottom-bottom-nav z-40 px-4 md:bottom-4 md:left-rail-width lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, var(--sl-space-1))' }}>
         <Button
           variant="primary"
           size="lg"
@@ -57,6 +57,7 @@ export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProp
       <div
         ref={drawer}
         id="mobile-trade-drawer"
+        hidden={!open}
         onKeyDown={event => {
           if (event.key === 'Escape') { event.preventDefault(); setOpen(false); return; }
           if (event.key !== 'Tab' || !open) return;
@@ -72,7 +73,7 @@ export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProp
         aria-hidden={!open}
         className={`fixed inset-x-0 bottom-0 z-50 md:left-rail-width transition-transform duration-slow ease-out lg:hidden ${open ? 'translate-y-0' : 'translate-y-full'}`}
       >
-        <div className="max-h-[85vh] overflow-y-auto rounded-t-lg bg-surface-1" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="max-h-[var(--sl-drawer-max-height)] overflow-y-auto rounded-t-lg bg-surface-1" style={{ paddingBottom: 'calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex items-center justify-center pb-1 pt-3">
             <div className="h-1 w-10 rounded-pill bg-surface-3" aria-hidden="true" />
           </div>

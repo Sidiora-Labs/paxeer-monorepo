@@ -24,7 +24,7 @@ class XwebConfigTest(unittest.TestCase):
             for symbol, decimals in (("SID", 18), ("PAX", 18), ("USDC", 6), ("USDL", 6))
         }
         requests = []
-        capture = json.loads((root / "services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json").read_text())
+        capture = json.loads((root / "services/platform/hosted/node/tests/fixtures/native_lifecycle/native_configuration.json").read_text())
         history = next(record["result"] for record in capture["rpc_exchanges"]
                        if record["method"] == "px_getReceiptKeys")
         loader = Path(os.environ.get("XWEB_CONFIG_LOADER", str(root / "tools/bringup/tests/xweb-loader/target/debug/bringup-xweb-config-loader")))

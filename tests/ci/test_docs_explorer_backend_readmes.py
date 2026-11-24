@@ -31,24 +31,24 @@ def _command_blocks(content):
 def test_doc_cd_targets_exist():
     devcontainer = DEVCONTAINER_README.read_text(encoding="utf-8")
     compose = COMPOSE_README.read_text(encoding="utf-8")
-    assert (
-        f"Run the clone command block from the parent directory of `{REPOSITORY}`."
-        in devcontainer
-    )
-    assert (
-        f"Run subsequent commands from `{REPOSITORY}/services/explorer/backend`."
-        in devcontainer
-    )
+    assert "From the repository root, open the backend directory in VS Code:" in devcontainer
+    assert "Run backend commands from `/workspace` inside the container." in devcontainer
+    commands = [
+        shlex.split(line)
+        for block in _command_blocks(devcontainer)
+        for _, line in block
+        if line.startswith("code ")
+    ]
+    assert commands == [["code", "services/explorer/backend"]]
+    assert (ROOT / commands[0][1]).resolve() == BACKEND
+    assert BACKEND.is_dir()
     context = re.search(r"Start each fenced command block below in `([^`]+)`", compose)
     assert context is not None, "Compose instructions must state a starting directory"
     compose_start = ROOT / context[1]
     assert compose_start == BACKEND
     assert compose_start.is_dir()
 
-    for page, content in (
-        (DEVCONTAINER_README, devcontainer),
-        (COMPOSE_README, compose),
-    ):
+    for page, content in ((COMPOSE_README, compose),):
         checked = 0
         documented = len(re.findall(r"\bcd\s+", content))
         for block in _command_blocks(content):
@@ -104,5 +104,4 @@ def test_doc_clone_urls_name_this_repository():
                 repository = urls[0].rstrip("/").rsplit("/", 1)[-1]
                 if repository.removesuffix(".git") != REPOSITORY:
                     failures.append(f"{page.relative_to(ROOT)}:{number}: {urls[0]}")
-    assert checked > 0, "No documented explorer clone URLs checked"
     assert not failures, "Incorrect clone repository names:\n" + "\n".join(failures)

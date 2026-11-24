@@ -128,6 +128,9 @@ func (s *Store) runLocal(ctx context.Context, credential, op, scope, reason stri
 	}
 	p, err := s.identity.Resolve(ctx, credential)
 	if err != nil {
+		if errors.Is(err, Unavailable) {
+			return err
+		}
 		return Denied
 	}
 	objects := make(map[string]json.RawMessage, len(l.objects))
@@ -166,6 +169,9 @@ func (s *Store) mutate(t *transaction, credential, op, scope string, fn func(*tr
 		return err
 	}
 	current, err := s.identity.Resolve(contextFor(t), credential)
+	if errors.Is(err, Unavailable) {
+		return err
+	}
 	if err != nil || current.ID != t.actor.ID || !permission(current, op, scope) || !s.identity.Active(contextFor(t), t.actor) {
 		return Denied
 	}

@@ -1,0 +1,1158 @@
+[manifest]
+task = "22.44.36"
+surface = "Paxeer X documentation and documentation assistant"
+paths = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+patterns = ["page layout and grids", "tables and lists", "native dialogs and navigation menus", "language tabs", "native accordion disclosures", "labelled fields and validation", "native selects", "search combobox", "inline copy status and loading indicators", "native title hints", "scroll areas and sticky navigation", "theme switch", "icons and dimensioned images", "system font fallbacks", "reduced motion"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = ["reduced"]
+input = ["keyboard"]
+status = "Static pages, native disclosures and asynchronous search and assistant states share the documentation tokens."
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.accessible-error-announcement]
+id = "accessible-error-announcement"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.branded-select-styling]
+id = "branded-select-styling"
+directories = ["docs/site/paxeer-docs/src"]
+
+[guide.card]
+id = "card"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.color]
+id = "color"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.css]
+id = "css"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.copy-button]
+id = "copy-button"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.css-layout]
+id = "css-layout"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.dark-mode]
+id = "dark-mode"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.dark-mode-toggle]
+id = "dark-mode-toggle"
+directories = ["docs/site/paxeer-docs/src"]
+
+[guide.defer-rendering-heavy-content]
+id = "defer-rendering-heavy-content"
+directories = ["docs/site/paxeer-docs/src"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.fluid-scaling]
+id = "fluid-scaling"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.form-fields-automatically-fit-contents]
+id = "form-fields-automatically-fit-contents"
+directories = ["docs/site/docs-assistant/src"]
+
+[guide.forms]
+id = "forms"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.html]
+id = "html"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.icons]
+id = "icons"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.ime-safe-enter-submit]
+id = "ime-safe-enter-submit"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.light-dismiss-a-dialog]
+id = "light-dismiss-a-dialog"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.motion]
+id = "motion"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.navbar]
+id = "navbar"
+directories = ["docs/site/paxeer-docs/src"]
+
+[guide.navigation-drawer]
+id = "navigation-drawer"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.optimize-image-priority]
+id = "optimize-image-priority"
+directories = ["docs/site/paxeer-docs/src"]
+
+[guide.performance]
+id = "performance"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.prevent-page-scroll-under-modal-dialog]
+id = "prevent-page-scroll-under-modal-dialog"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.respect-os-text-scale]
+id = "respect-os-text-scale"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.responsive-design]
+id = "responsive-design"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.responsive-table]
+id = "responsive-table"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.scrollability-affordance-hints]
+id = "scrollability-affordance-hints"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.size-aware-styling]
+id = "size-aware-styling"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["docs/site/docs-assistant/src"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["docs/site/paxeer-docs/src"]
+
+[guide.typography]
+id = "typography"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[guide.validate-input-after-interaction]
+id = "validate-input-after-interaction"
+directories = ["docs/site/paxeer-docs/src"]
+
+[guide.visually-stable-font-fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+
+[view.route_home]
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_a2a]
+route = "/a2a/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_accounts]
+route = "/accounts/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_activities]
+route = "/activities/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_admin_hpx]
+route = "/admin-hpx/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_agent_budgets]
+route = "/agent-budgets/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_agent_runtime]
+route = "/agent-runtime/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_agents]
+route = "/agents/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_assets]
+route = "/assets/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_bridge]
+route = "/bridge/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_building_a_frontend]
+route = "/building-a-frontend/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_checkpoints]
+route = "/checkpoints/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_cli]
+route = "/cli/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_commerce]
+route = "/commerce/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_configuration]
+route = "/configuration/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_consensus]
+route = "/consensus/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_contracts]
+route = "/contracts/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_custody]
+route = "/custody/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_data_availability]
+route = "/data-availability/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_debugging_transactions]
+route = "/debugging-transactions/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_developer_funding]
+route = "/developer-funding/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_discovery]
+route = "/discovery/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_docker]
+route = "/docker/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_emulator]
+route = "/emulator/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_engine]
+route = "/engine/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_escrow]
+route = "/escrow/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_evm]
+route = "/evm/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_fees]
+route = "/fees/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_finality]
+route = "/finality/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_foundry]
+route = "/foundry/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_funding]
+route = "/funding/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_governance]
+route = "/governance/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_guarantors]
+route = "/guarantors/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_hardhat]
+route = "/hardhat/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_human_interface]
+route = "/human-interface/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_identity]
+route = "/identity/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_installation]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_interchain]
+route = "/interchain/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_interop]
+route = "/interop/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_json_rpc_unsupported]
+route = "/json-rpc-unsupported/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_json_rpc]
+route = "/json-rpc/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_launchpad]
+route = "/launchpad/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_layerx_kernel]
+route = "/layerx-kernel/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_mandates]
+route = "/mandates/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_market_makers]
+route = "/market-makers/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_mcp]
+route = "/mcp/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_mirrors]
+route = "/mirrors/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_modules]
+route = "/modules/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_modules_epoch]
+route = "/modules/epoch/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_modules_mint]
+route = "/modules/mint/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_modules_oracle]
+route = "/modules/oracle/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_modules_store]
+route = "/modules/store/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_modules_tokenfactory]
+route = "/modules/tokenfactory/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_network_operations]
+route = "/network-operations/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_network_parameters]
+route = "/network-parameters/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_node_troubleshooting]
+route = "/node-troubleshooting/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_operators]
+route = "/operators/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_oracle_risk]
+route = "/oracle-risk/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_paid_apis]
+route = "/paid-apis/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_parallelization]
+route = "/parallelization/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_paxeer_vs_layerx]
+route = "/paxeer-vs-layerx/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_payments_quickstart]
+route = "/payments-quickstart/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_payments]
+route = "/payments/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_perpetuals]
+route = "/perpetuals/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_platform_api]
+route = "/platform-api/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_precompiles]
+route = "/precompiles/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_program_workspace]
+route = "/program-workspace/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_programs]
+route = "/programs/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_proofs]
+route = "/proofs/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_public_rpc]
+route = "/public-rpc/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_python]
+route = "/python/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_querying_evm]
+route = "/querying-evm/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_receipts]
+route = "/receipts/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_registry]
+route = "/registry/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_relay_archive]
+route = "/relay-archive/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_rest_grpc]
+route = "/rest-grpc/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_run_node]
+route = "/run-node/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_sandbox]
+route = "/sandbox/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_sdk_quickstarts]
+route = "/sdk-quickstarts/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_sdk]
+route = "/sdk/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_security]
+route = "/security/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_sequencing]
+route = "/sequencing/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_services]
+route = "/services/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_settlement]
+route = "/settlement/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_sidiora]
+route = "/sidiora/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_spot_exchange]
+route = "/spot-exchange/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_storage_scan]
+route = "/storage-scan/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_storage]
+route = "/storage/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_streams]
+route = "/streams/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_subscriptions]
+route = "/subscriptions/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_system_map]
+route = "/system-map/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_unified_network]
+route = "/unified-network/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_wasm_runtime]
+route = "/wasm-runtime/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_wasm]
+route = "/wasm/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_wasmbinding]
+route = "/wasmbinding/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_webhooks]
+route = "/webhooks/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_xdk]
+route = "/xdk/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.route_xweb]
+route = "/xweb/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+
+[view.inverse_controls]
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["focus", "hover", "pressed"]
+
+[view.faq]
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["expanded questions"]
+
+[view.page_contents]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["expanded contents", "heading navigation"]
+
+[view.illustrations]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["pause motion", "resume motion", "focus clearance beside the assistant launcher"]
+
+[view.main_navigation]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["inline links", "navigation dialog", "focus and dismissal"]
+
+[view.documentation_navigation]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["sidebar", "navigation dialog", "scrolling", "focus and dismissal"]
+
+[view.search]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["loading", "results", "empty", "error", "retry", "section filter", "keyboard selection"]
+
+[view.assistant]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["empty", "answer", "sources", "loading", "stopped", "error", "retry", "clear", "modal and nonmodal presentation"]
+
+[view.quickstart]
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["language tabs", "endpoint validation", "code copy"]
+
+[view.copy_controls]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["code copy", "page Markdown copy", "copy confirmation"]
+
+[view.theme_switch]
+route = "/installation/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["system scheme", "stored preference", "preference reset", "cross-tab preference"]
+
+[view.system_map]
+route = "/system-map/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_sizes = ["100%", "200%"]
+motion = "reduced"
+input = "keyboard"
+states = ["query", "empty", "clear", "native filters", "system disclosure", "code copy", "fragment navigation"]

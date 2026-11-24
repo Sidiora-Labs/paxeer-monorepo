@@ -1321,7 +1321,7 @@ func newPublicationFixture(t *testing.T, chain string) publicationFixture {
 	}
 }
 
-func assertRepairM365Bodies(t *testing.T, dir string, bundle Bundle) {
+func assertPublishedBodies(t *testing.T, dir string, bundle Bundle) {
 	t.Helper()
 	files, err := bundle.Files()
 	if err != nil {
@@ -1365,7 +1365,7 @@ func (fixture publicationFixture) assertComplete(t *testing.T, report string) {
 			t.Fatalf("incomplete publication: %v", err)
 		}
 	}
-	assertRepairM365Bodies(t, fixture.outputs[0].Path, fixture.bundle)
+	assertPublishedBodies(t, fixture.outputs[0].Path, fixture.bundle)
 	proposals, err := fixture.bundle.Proposals()
 	if err != nil {
 		t.Fatal(err)

@@ -1,7 +1,7 @@
 //! AI.F03-T04 evaluator ordering through the real router and the native host boundary.
 //! Admission and evaluator authority calls use the registered router with real envelopes;
 //! bounded aggregation and reward codec cases also exercise their landed transitions.
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod repair;
 
 #[path = "support/native_replay.rs"]
@@ -708,7 +708,35 @@ impl World {
         let mut candidate = self.clone();
         repair::refresh_workers(&mut candidate.bytes, at)?;
         let frozen = candidate.preview(at)?;
-        candidate.apply(&open_call(&frozen)?, at)?;
+        let call = open_call(&frozen)?;
+        let mut cursor = 0;
+        let mut count = None;
+        loop {
+            let frame = candidate.apply(&call, at)?;
+            let result = decode_result(&frame)?;
+            assert_eq!(result.payload.len(), epoch::OPEN_SUFFIX_BYTES);
+            let mut response = codec::Reader::new(&result.payload[100..]);
+            let next = response.u16()?;
+            let participants = response.u16()?;
+            response.finish()?;
+            assert!(next > cursor || (cursor == 0 && participants == 0));
+            assert!(next <= participants);
+            if let Some(count) = count {
+                assert_eq!(participants, count);
+            }
+            count = Some(participants);
+            cursor = next;
+            let captured = epoch::captured_roster(&decode_shared_state(&candidate.bytes)?)?;
+            if cursor == participants {
+                let captured = captured.ok_or(NOT_FOUND)?;
+                assert_eq!(captured.binding.epoch, frozen.epoch);
+                assert_eq!(captured.binding.roster, frozen.roster);
+                assert_eq!(captured.workers().len(), usize::from(frozen.workers));
+                assert_eq!(captured.evaluators().len(), usize::from(frozen.evaluators));
+                break;
+            }
+            assert!(captured.is_none());
+        }
         *self = candidate;
         Ok(frozen)
     }
@@ -1383,7 +1411,7 @@ fn record_len(tail: &[u8]) -> CodecResult<usize> {
     Ok(root_at + 1 + if *root == 1 { 32 } else { 0 })
 }
 
-/// The unrouted F05 aggregation consumer through `aggregation::apply`.
+/// Aggregation and reputation completion through the epoch transition.
 impl Market {
     fn aggregation_call(
         &self,
@@ -1402,16 +1430,17 @@ impl Market {
             )
         })
     }
-    fn aggregate(&mut self, call: &Req, at: u64) -> CodecResult<Progress> {
+    fn aggregate(&mut self, call: &Req, at: u64) -> CodecResult<(Progress, agg::Response)> {
         let encoded = call.encode()?;
         let mut next = vec![0; MAX_STATE_BYTES];
-        let mut scratch = vec![0; agg::SCRATCH_BYTES];
+        let mut scratch = vec![0; epoch::AGGREGATE_SCRATCH_BYTES];
         let mut event = vec![0; MAX_EVENT_BYTES];
         let Agg::Applied {
             progress,
             state_len,
+            response,
             ..
-        } = agg::apply(
+        } = epoch::aggregate(
             &call.context(at)?,
             &decode_envelope(&encoded)?,
             &self.world.bytes,
@@ -1425,14 +1454,14 @@ impl Market {
         next.truncate(state_len);
         self.world.bytes = next;
         assert_eq!(self.progress()?, progress);
-        Ok(progress)
+        Ok((progress, response))
     }
     fn progress(&self) -> CodecResult<Progress> {
         agg::progress(&self.world.bytes)
     }
     fn begin(&mut self, at: u64) -> CodecResult<Progress> {
         let call = self.aggregation_call(dispatch::BeginAggregation, Vec::new(), 0)?;
-        let progress = self.aggregate(&call, at)?;
+        let (progress, _) = self.aggregate(&call, at)?;
         assert_eq!(progress.phase, AggregationPhase::Processing);
         Ok(progress)
     }
@@ -1445,23 +1474,29 @@ impl Market {
             payload.extend_from_slice(&progress.cursor.to_be_bytes());
             let call =
                 self.aggregation_call(dispatch::ProcessAggregation, payload, progress.cursor)?;
-            progress = self.aggregate(&call, at)?;
+            progress = self.aggregate(&call, at)?.0;
         }
         let call = self.aggregation_call(
             dispatch::FinalizeAggregation,
             input.as_bytes().to_vec(),
             u16::MAX,
         )?;
-        let done = self.aggregate(&call, at)?;
-        assert_eq!(done.phase, AggregationPhase::Terminal);
-        Ok(done)
+        let mut cursor = 0;
+        loop {
+            let (done, response) = self.aggregate(&call, at)?;
+            cursor = repair::finalization_cursor(response.as_bytes(), cursor, &done)?;
+            if done.phase == AggregationPhase::Terminal {
+                return Ok(done);
+            }
+        }
     }
     fn settle(&mut self, at: u64) -> CodecResult<Progress> {
         self.begin(at)?;
         self.complete(at)
     }
     fn tail(&self) -> CodecResult<(Vec<u8>, Vec<u8>)> {
-        let section = section_bytes(&self.world.bytes, Section::SettlementClaims)?;
+        let state = decode_shared_state(&self.world.bytes)?;
+        let section = state.room_market()?.0;
         let tail = section.get(REWARD_STATE_BYTES..).ok_or(NOT_FOUND)?;
         let (record, history) = tail.split_at(record_len(tail)?);
         Ok((record.to_vec(), history.to_vec()))

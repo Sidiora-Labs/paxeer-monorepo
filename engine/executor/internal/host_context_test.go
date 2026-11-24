@@ -89,7 +89,7 @@ func TestStorageStatusLogic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			host, db := repairM1131Host(t, false)
+			host, db := newHostExecutionFixture(t, false)
 			addr, key := common.Address{42}, common.Hash{17}
 			db.SetState(addr, key, tt.original)
 			db.Finalise(false)
@@ -268,7 +268,7 @@ func TestExecuteCodeSelection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			contract := vm.NewContract(repairM1131Caller, repairM1131Recipient, new(uint256.Int), 100000, nil)
+			contract := vm.NewContract(hostExecutionCaller, hostExecutionRecipient, new(uint256.Int), 100000, nil)
 			contract.Code = tt.recipientCode
 			op := vm.CALL
 			switch tt.kind {

@@ -161,7 +161,7 @@ async function orderCancelWalletStepRetainsPreparedRequestUntilConfirmed() {
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(reads()).toHaveLength(1);
 }
-test(orderCancelWalletStepRetainsPreparedRequestUntilConfirmed);
+test(orderCancelWalletStepRetainsPreparedRequestUntilConfirmed.name, orderCancelWalletStepRetainsPreparedRequestUntilConfirmed);
 
 async function orderCancelWalletStepKeepsUnavailableExplicitAndRetryIdempotent() {
   store.mode = 'unavailable';
@@ -180,7 +180,7 @@ async function orderCancelWalletStepKeepsUnavailableExplicitAndRetryIdempotent()
   expect(posts()[1].headers['idempotency-key']).toBe(key);
   expect(reads()).toHaveLength(1);
 }
-test(orderCancelWalletStepKeepsUnavailableExplicitAndRetryIdempotent);
+test(orderCancelWalletStepKeepsUnavailableExplicitAndRetryIdempotent.name, orderCancelWalletStepKeepsUnavailableExplicitAndRetryIdempotent);
 
 async function orderCancelWalletStepRefreshesOnlyConfirmedApiOutcome() {
   store.mode = 'unconfirmed';
@@ -199,7 +199,7 @@ async function orderCancelWalletStepRefreshesOnlyConfirmedApiOutcome() {
   expect(posts()[1].headers['idempotency-key']).toBe(key);
   expect(reads()).toHaveLength(2);
 }
-test(orderCancelWalletStepRefreshesOnlyConfirmedApiOutcome);
+test(orderCancelWalletStepRefreshesOnlyConfirmedApiOutcome.name, orderCancelWalletStepRefreshesOnlyConfirmedApiOutcome);
 
 async function orderCancelWalletStepRejectsMismatchedResponse() {
   store.mode = 'mismatch';
@@ -212,7 +212,7 @@ async function orderCancelWalletStepRejectsMismatchedResponse() {
   expect(reads()).toHaveLength(1);
   expect(mounted.container.querySelector('[data-order-id]')).not.toBeNull();
 }
-test(orderCancelWalletStepRejectsMismatchedResponse);
+test(orderCancelWalletStepRejectsMismatchedResponse.name, orderCancelWalletStepRejectsMismatchedResponse);
 
 async function orderCancelWalletStepUsesRealUnavailableProvider() {
   const manifest: AdvancedManifest = { version: 2, chainId: 125, revision: 'orders-unavailable', deploymentBlock: '0', confirmations: 1, usdl: `0x${'55'.repeat(20)}`, priceDenomination: `0x${'55'.repeat(20)}`, orders: null, router: null, quoter: null, vault: null, adapters: [], priceScale: 18, supportedKinds: [], maximumOrderLifetimeSeconds: '3600', keeperHealthUrl: null };
@@ -234,4 +234,4 @@ async function orderCancelWalletStepUsesRealUnavailableProvider() {
   expect(store.seen.filter(entry => entry.url === '/rpc')).toHaveLength(2);
   expect(reads()).toHaveLength(1);
 }
-test(orderCancelWalletStepUsesRealUnavailableProvider);
+test(orderCancelWalletStepUsesRealUnavailableProvider.name, orderCancelWalletStepUsesRealUnavailableProvider);

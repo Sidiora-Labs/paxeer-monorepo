@@ -90,7 +90,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
-change = "changed"
+change = "retired"
 
 [system.module-layerx-auth]
 title = "LayerX auth module"
@@ -142,7 +142,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
-change = "changed"
+change = "retired"
 
 [system.module-layerx-exchange]
 title = "LayerX exchange module"
@@ -454,7 +454,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
-change = "changed"
+change = "retired"
 
 [system.precompile-layerx-auth]
 title = "LayerX auth precompile"
@@ -506,7 +506,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
-change = "changed"
+change = "retired"
 
 [system.precompile-layerx-exchange]
 title = "LayerX exchange precompile"
@@ -571,7 +571,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
-change = "changed"
+change = "retired"
 
 [system.precompile-oracle]
 title = "Oracle precompile"
@@ -925,17 +925,17 @@ docs = ["docs/system/sdk.md", "/sdk"]
 change = "unchanged"
 
 [system.perps]
-title = "Perpetuals application"
+title = "Paxeer Xtrades application"
 kind = "application"
 path = "apps/perps"
 build = "pnpm --dir apps/perps build"
-artefact = "apps/perps/.next"
-configuration = "apps/perps/deploy and package.json"
+artefact = "apps/perps/apps/web/.next-production"
+configuration = "apps/perps/apps/web/next.config.js, apps/perps/deploy and package.json"
 ports = ["3000"]
-health = "GET /"
+health = "GET /api/build-id"
 depends = ["chain-node"]
-docs = ["docs/site/paxeer-docs/src/app/perpetuals/page.tsx", "docs/perps/data-api.md", "/perpetuals"]
-change = "unchanged"
+docs = ["apps/perps/README.md", "docs/site/paxeer-docs/src/app/perpetuals/page.tsx", "docs/perps/data-api.md", "/perpetuals"]
+change = "changed"
 
 [system.wallet]
 title = "Wallet application"
@@ -1052,19 +1052,6 @@ ports = ["3000"]
 health = "GET /"
 depends = ["chain-node"]
 docs = ["docs/system/sdk.md", "/names"]
-change = "unchanged"
-
-[system.app-perps]
-title = "Perpetuals application"
-kind = "application"
-path = "apps/perps"
-build = "pnpm --dir apps/perps build"
-artefact = "apps/perps/.next"
-configuration = "apps/perps/deploy and package.json"
-ports = ["3000"]
-health = "GET /"
-depends = ["chain-node"]
-docs = ["docs/perps/data-api.md", "docs/site/paxeer-docs/src/app/perpetuals/page.tsx", "/perpetuals"]
 change = "unchanged"
 
 [system.wallet-sdk]

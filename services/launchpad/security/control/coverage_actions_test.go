@@ -12,7 +12,7 @@ import (
 )
 
 func TestActionApprovalPreservesProposalAndRevision(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	credential := env.credentials["infrastructure"]
 	approval := env.credentials["operator2"]
@@ -75,7 +75,7 @@ func TestActionApprovalPreservesProposalAndRevision(t *testing.T) {
 }
 
 func TestIncidentContainmentAndAccessUseBoundApproval(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	credential := env.credentials["infrastructure"]
 	identity := env.actors["operator2"]
@@ -88,7 +88,7 @@ func TestIncidentContainmentAndAccessUseBoundApproval(t *testing.T) {
 	if err := env.store.DetectIncident(ctx, credential, "service", "incident-bound", "repeat containment", identity, "recorded evidence"); !errors.Is(err, Conflict) {
 		t.Fatalf("repeated incident: %v", err)
 	}
-	incident := repairM1020Read[Incident](t, env.store, controlIncident, "incident-bound")
+	incident := workflowRecoveryRead[Incident](t, env.store, controlIncident, "incident-bound")
 	if incident.State != controlContained || incident.ServiceIdentity != identity || incident.Revision != 1 {
 		t.Fatalf("contained incident: %+v", incident)
 	}
@@ -109,7 +109,7 @@ func TestIncidentContainmentAndAccessUseBoundApproval(t *testing.T) {
 	if err := worker.Drain(ctx); err != nil || len(observed) != 2 || observed[0] != nil || !errors.Is(observed[1], Unavailable) {
 		t.Fatalf("credential containment: %v, %+v", err, observed)
 	}
-	outbox := repairM1020Read[map[string]string](t, env.store, "incident_outbox", incident.ID)
+	outbox := workflowRecoveryRead[map[string]string](t, env.store, "incident_outbox", incident.ID)
 	if outbox[controlState] != "credentials_revoked" || outbox["identity"] != identity {
 		t.Fatalf("credential containment outbox: %+v", outbox)
 	}
@@ -137,7 +137,7 @@ func TestReplayProviderBindsCompletionAndResult(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	provider, err := NewReplayProvider(server.URL, strings.Repeat("r", 32), repairM1020Transport(server))
+	provider, err := NewReplayProvider(server.URL, strings.Repeat("r", 32), workflowRecoveryTransport(server))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,9 +4,10 @@ import type { TokenTransfer } from 'types/api/tokenTransfer';
 import type { ClusterChainConfig } from 'types/multichain';
 
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 import TokenTransferTableItem from 'ui/tokenTransfers/TokenTransfersTableItem';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 interface Props {
   items?: Array<TokenTransfer>;
@@ -18,16 +19,16 @@ interface Props {
 const TokenTransferTable = ({ items, top, isLoading, chainData }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot minW="950px" tableLayout="auto">
+      <ActivityTable label="Token transfers" minW={ 'calc(var(--chakra-spacing-200) + var(--chakra-spacing-37\\.5))' } tableLayout="auto">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            { chainData && <TableColumnHeader width="38px"/> }
+            { chainData && <TableColumnHeader width={ 'calc(var(--chakra-spacing-9) + var(--chakra-spacing-0\\.5))' }/> }
             <TableColumnHeader>
               Txn hash
               <TimeFormatToggle/>
             </TableColumnHeader>
             <TableColumnHeader>Method</TableColumnHeader>
-            <TableColumnHeader>Block</TableColumnHeader>
+            <TableColumnHeader isNumeric>Block</TableColumnHeader>
             <TableColumnHeader>From/To</TableColumnHeader>
             <TableColumnHeader>Token ID</TableColumnHeader>
             <TableColumnHeader isNumeric>Amount</TableColumnHeader>
@@ -43,7 +44,7 @@ const TokenTransferTable = ({ items, top, isLoading, chainData }: Props) => {
             />
           )) }
         </TableBody>
-      </TableRoot>
+      </ActivityTable>
     </AddressHighlightProvider>
   );
 };

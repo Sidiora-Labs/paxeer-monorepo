@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-PRIVATE = Path('/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task1041317')
+PRIVATE = ROOT / "build/qualification/native-effect-sdk"
 TS = ROOT / 'services/agent/sdk/typescript'
 PYTHON = ROOT / 'services/agent/sdk/python'
 SOURCES = (
@@ -68,7 +68,7 @@ def build(environment):
             compiled = py_compile.compile(str(ROOT / relative), doraise=True)
             artifacts.append(Path(compiled))
     print('EXIT 0 LOG Python codecs compiled', flush=True)
-    cargo = ['/root/.cargo/bin/cargo', 'test', '--locked', '--manifest-path', 'services/agent/Cargo.toml',
+    cargo = ["cargo", 'test', '--locked', '--manifest-path', 'services/agent/Cargo.toml',
              '-p', 'layerx-sdk', '--lib', 'native_effect::tests', '--no-run', '--message-format=json']
     run(cargo, ROOT, environment, PRIVATE / 'build-rust.log', 900)
     binaries = []
@@ -139,7 +139,7 @@ def main():
     info = PRIVATE.stat()
     if ROOT in PRIVATE.resolve().parents or info.st_uid != os.geteuid() or info.st_mode & 0o077:
         raise RuntimeError('private caller-owned evidence outside checkout required')
-    environment = dict(os.environ, CARGO_TARGET_DIR='/root/lx-target/agent', CARGO_BUILD_JOBS='4')
+    environment = dict(os.environ, CARGO_TARGET_DIR=os.environ.get("CARGO_TARGET_DIR", str(ROOT / ".lane-target")), CARGO_BUILD_JOBS='4')
     if mode.build:
         build(environment)
     else:

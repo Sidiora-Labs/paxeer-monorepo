@@ -9,7 +9,7 @@
 #             that fail it>, with one ::error annotation per failing row on stderr; a value with whitespace fails
 #             only its row; exit 1 when no row passes
 # The web image's NEXT_PUBLIC_SENTRY_RELEASE is the build commit: BUILD_SHA, else the checkout's 12-character HEAD.
-# Base images come from the environment: REVIEWED_BUILD_IMAGE/REVIEWED_RUNTIME_IMAGE (go1.26.4 builder)
+# Base images come from the environment: REVIEWED_BUILD_IMAGE/REVIEWED_RUNTIME_IMAGE (go1.27.0 builder)
 # and PERPS_BUILD_IMAGE/PERPS_RUNTIME_IMAGE, each pinned by digest; an unset one is left out so the
 # Dockerfile's pinned default holds. Build arg values with whitespace are refused with exit 2 (except by --plan).
 set -euo pipefail
@@ -79,23 +79,21 @@ for pair in perps-data-indexer:perps-indexer perps-gateway:perps-gateway perps-e
 	rows+=("${pair%%:*}|.|services/platform/perps-data/deploy/Dockerfile|runtime|SERVICE=${pair#*:} $px_args|1")
 done
 rows+=("perps-data-nats|.|services/platform/perps-data/deploy/nats/Dockerfile|||1")
-# the Hyperpax perps frontend inlines every NEXT_PUBLIC_* arg of its Dockerfile from the committed build args file
+# The trading workspace builds apps/web with public values from the deployment inputs.
 perps_env="$root/apps/perps/deploy/build-args.production.env"
 perps_value() { sed -n "s/^$1=//p" "$perps_env" | tail -n1; }
-# names the app reads with a code fallback, so an empty value is allowed; a name absent from the file is not
+# Optional client settings retain the defaults declared by the backend package.
 perps_may_be_empty() {
 	grep -q "^$1=" "$perps_env" || return 1
 	case "${1#NEXT_PUBLIC_}" in
-	PAXEER_RPC_URL | PAXEER_RPC_URLS) ;;           # built-in mainnet-beta node list (src/core/rpc.ts)
-	PAXSCAN_API_URL | PAXSCAN_WS_URL) ;;           # empty default, the app warns (src/core/paxscan/config.ts)
-	MARKET_PROXY_HOST) ;;                          # built-in feed host (src/core/feeds.ts)
-	*_PRECOMPILE) ;;                               # release precompile addresses (src/core/network/precompiles.ts)
-	RELEASE_SPOT_OPEN) ;;                          # spot stays closed until set (src/core/nav.ts)
-	AUTH_REDIRECT_URL) ;;                          # window origin /auth/callback (src/core/wallet/embedded/client.ts)
-	WALLET_IFRAME_ORIGIN) ;;                       # the iframe provider is not installed (src/core/wallet/postMessageEip1193.ts)
-	SENTRY_DSN | SENTRY_ENV | SENTRY_TUNNEL) ;;    # Sentry off, NODE_ENV, no tunnel (sentry.client.config.ts, next.config.js)
-	STATUS_PAGE_URL) ;;                            # no status link (src/instrumentation.ts, src/app/shell/Footer.tsx)
-	VERCEL_GIT_COMMIT_SHA) ;;                      # "development" meta tag (src/pages/_document.tsx)
+	PAXEER_RPC_URL | PAXEER_RPC_URLS) ;;           # packages/paxeer-backend/src/core/rpc.ts
+	PAXSCAN_API_URL | PAXSCAN_WS_URL) ;;           # packages/paxeer-backend/src/core/paxscan/config.ts
+	DIRECT_PRICE_FEED_ORIGINS) ;;                  # packages/paxeer-backend/src/core/feeds.ts
+	*_PRECOMPILE) ;;                               # packages/paxeer-backend/src/core/network/precompiles.ts
+	RELEASE | SENTRY_DSN | SENTRY_ENV) ;;          # optional client release and error reporting
+	RELEASE_SPOT_OPEN) ;;                          # packages/paxeer-backend/src/core/nav.ts
+	AUTH_REDIRECT_URL) ;;                          # packages/paxeer-backend/src/core/wallet/embedded/client.ts
+	WALLET_IFRAME_ORIGIN) ;;                       # packages/paxeer-backend/src/core/wallet/postMessageEip1193.ts
 	*) return 1 ;;
 	esac
 }
@@ -104,7 +102,7 @@ if [ -f "$root/apps/perps/Dockerfile" ] && [ -f "$perps_env" ]; then
 	next_public_args perps-web apps/perps/Dockerfile perps_value perps_may_be_empty
 	perps_args=$args perps_missing=("${missing[@]}") perps_spaced=("${spaced[@]}")
 fi
-rows+=("perps-web|apps/perps|apps/perps/Dockerfile||$perps_args|0")
+rows+=("perps-web|apps/perps|apps/perps/Dockerfile||$perps_args|1")
 
 present() { [ -d "$root/$2" ] && [ -f "$root/$3" ]; }
 # row_json <name> <context> <dockerfile> <target> <args>: one build matrix entry, empty build args left out

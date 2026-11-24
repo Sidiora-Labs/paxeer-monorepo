@@ -1,4 +1,6 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useQueries } from '@tanstack/react-query';
 import { Chip, Skeleton } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
@@ -72,7 +74,7 @@ export function BountyReward({ bounty, context, size = 'md', className }: Bounty
   const pending = valuation === null && resolveSelf && snapshot.isPending;
   const kind = bountiesContract.rewardAssetKind(bounty.assetAddress);
   const token = resolved.token && resolved.token.address.toLowerCase() === bounty.assetAddress.toLowerCase() ? resolved.token : null;
-  const symbol = kind === 'usdl' ? 'USDL' : token?.symbol ?? shortAddress(bounty.assetAddress);
+  const symbol = kind === 'usdl' ? 'USDL' : displayCoinText(token?.symbol, bounty.assetAddress);
   const amount = kind === 'usdl'
     ? formatUsdl(bounty.budgetRaw, { decimals: bountiesContract.usdlDecimals, unit: false, compact: true })
     : token && token.decimals !== null ? formatTokenAmount(bounty.budgetRaw, token.decimals) : null;
@@ -85,13 +87,13 @@ export function BountyReward({ bounty, context, size = 'md', className }: Bounty
           {formatUsdl(valuation.usdlRaw, { compact: true })}
         </span>
       ) : pending ? (
-        <Skeleton width={72} height={size === 'lg' ? 28 : 24} label="Loading reward value" />
+        <Skeleton width={surfaceSpacing(18)} height={size === 'lg' ? 28 : 24} label="Loading reward value" />
       ) : (
         <span className="text-xs text-text-faint">Value not available yet</span>
       )}
       <Chip variant="token">
         <span className="sr-only">Reward </span>
-        {amount !== null ? `${amount} ${symbol}` : symbol}
+        <span className="min-w-0 truncate" title={symbol}>{amount !== null ? `${amount} ${symbol}` : symbol}</span>
       </Chip>
     </div>
   );

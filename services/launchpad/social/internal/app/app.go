@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/notifications"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/devsocial"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
@@ -67,26 +68,34 @@ const (
 	rateLimitWindow = 60 * time.Second
 )
 
+const calloutResource = "callout"
+
 // App is a fully-wired, ready-to-serve social service.
 type App struct {
 	platform *platformIdentity
 	private  *platformPrivate
 	// PrivateRouter is the handler of the platform runtime's private mTLS
 	// listener (nil for the other runtimes).
-	PrivateRouter http.Handler
-	connected     *socialConnectedRuntime
-	dev           *devsocial.Runtime
-	visibility    *socialConnectedRuntime
-	serverTLS     *tls.Config
-	secretStop    context.CancelFunc
-	tracker       *process.Tracker
-	Router        http.Handler
-	Hub           *fanout.Hub
+	PrivateRouter    http.Handler
+	connected        *socialConnectedRuntime
+	dev              *devsocial.Runtime
+	visibility       *socialConnectedRuntime
+	serverTLS        *tls.Config
+	connectedAddress string
+	secretStop       context.CancelFunc
+	tracker          *process.Tracker
+	Router           http.Handler
+	Hub              *fanout.Hub
 
 	pool   *pgxpool.Pool
 	redis  *goredis.Client
 	sub    *goredis.Client
 	logger *slog.Logger
+}
+
+// runtimePoolDSN resolves chat first in every profile and preserves any supplied search path after it.
+func runtimePoolDSN(cfg config.Config) (string, error) {
+	return devsocial.RuntimeDSN(cfg.DatabaseURL)
 }
 
 // New runs migrations, opens the DB + Redis (publisher + dedicated subscriber)
@@ -114,7 +123,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 	secretChecks := map[string]sharedhttp.Check{}
 	if secretCheck != nil {
-		secretChecks["secrets"] = secretCheck
+		secretChecks["social_secrets"] = secretCheck
 	}
 
 	platform := cfg.Platform()
@@ -128,15 +137,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, err
 		}
 	}
-	if cfg.NodeEnv != productionEnvironment || platform {
-		// The v2 stores address their tables unqualified in the "chat" schema
-		// (as the bound runtime's pool does), so the pool resolves it first.
-		dsn, err := devsocial.RuntimeDSN(cfg.DatabaseURL)
-		if err != nil {
-			return nil, err
-		}
-		cfg.DatabaseURL = dsn
+	dsn, err := runtimePoolDSN(cfg)
+	if err != nil {
+		return nil, err
 	}
+	cfg.DatabaseURL = dsn
 
 	pool, err := cfg.OpenRuntimePool(ctx, "sociald", shareddb.PoolOptions{})
 	if err != nil {
@@ -182,7 +187,30 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			_ = sub.Close()
 			return nil, err
 		}
-		secretChecks["social_runtime"] = connected.ready
+		secretChecks["social_runtime"] = connected.runtimeReady
+		if connected.binding.Voice != nil {
+			secretChecks["social_voice"] = connected.voiceReady
+		}
+		if connected.notificationCredentials != nil {
+			secretChecks["social_notification"] = connected.notificationReady
+		}
+		if connected.nc != nil {
+			secretChecks["social_broker"] = connected.brokerReady
+		}
+		if connected.delivery != nil {
+			secretChecks["social_durable"] = connected.durableReady
+		}
+		if connected.provider != nil {
+			previous := secretChecks["social_secrets"]
+			secretChecks["social_secrets"] = func(c context.Context) error {
+				if previous != nil {
+					if e := previous(c); e != nil {
+						return e
+					}
+				}
+				return connected.secretsReady(c)
+			}
+		}
 	}
 	runtimeOwned := false
 	defer func() {
@@ -395,7 +423,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if connected != nil {
 		serverTLS = connected.serverTLS
 	}
-	result := &App{platform: identity, connected: connected, dev: dev, visibility: visibility, serverTLS: serverTLS, secretStop: secretStop, tracker: tracker, Router: runtimeHandler(tracker, domainRouter, metrics), Hub: hub, pool: pool, redis: rdb, sub: sub, logger: logger}
+	result := &App{platform: identity, connected: connected, dev: dev, visibility: visibility, serverTLS: serverTLS, connectedAddress: cfg.PrivateListenAddress, secretStop: secretStop, tracker: tracker, Router: runtimeHandler(tracker, domainRouter, metrics), Hub: hub, pool: pool, redis: rdb, sub: sub, logger: logger}
 	if identity != nil {
 		// Production platform runtime: the social API and the ranking
 		// visibility authority are served on the private mTLS listener; the
@@ -465,14 +493,8 @@ func Run(parent context.Context) error {
 		}
 	}
 
-	srv := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port),
-		Handler:           app.Router,
-		ConnState:         app.tracker.ConnState,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-
 	serveErr := make(chan error, 2)
+	var srv, connectedTLS *http.Server
 	var privateSrv *http.Server
 	if app.private != nil {
 		privateSrv = &http.Server{
@@ -494,24 +516,37 @@ func Run(parent context.Context) error {
 			}
 		}()
 	}
-	go func() {
-		logger.Info("http server listening", slog.Int("port", cfg.Port))
-		var err error
-		if app.serverTLS != nil {
-			listener, e := net.Listen("tcp", srv.Addr)
-			if e != nil {
-				err = e
-			} else {
-				err = srv.Serve(tls.NewListener(listener, app.serverTLS))
+	if app.connected != nil {
+		srv = &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: healthOnlyHandler(app.Router), ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		connectedTLS = &http.Server{Addr: app.connectedAddress, Handler: app.Router, ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second, TLSConfig: app.serverTLS.Clone()}
+		go func() {
+			logger.Info("http health listener", slog.Int("port", cfg.Port))
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- err
+				cancel()
 			}
-		} else {
-			err = srv.ListenAndServe()
-		}
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serveErr <- err
-			cancel()
-		}
-	}()
+		}()
+		go func() {
+			logger.Info("http TLS listener", slog.String("address", app.connectedAddress))
+			listener, err := net.Listen("tcp", connectedTLS.Addr)
+			if err == nil {
+				err = connectedTLS.Serve(tls.NewListener(listener, connectedTLS.TLSConfig))
+			}
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- err
+				cancel()
+			}
+		}()
+	} else {
+		srv = &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: app.Router, ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		go func() {
+			logger.Info("http server listening", slog.Int("port", cfg.Port))
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- err
+				cancel()
+			}
+		}()
+	}
 
 	shutErr := process.Run(ctx, process.Options{Tracker: app.tracker,
 		Logger: logger,
@@ -520,6 +555,9 @@ func Run(parent context.Context) error {
 				if err := privateSrv.Shutdown(sctx); err != nil {
 					return err
 				}
+			}
+			if connectedTLS != nil {
+				return errors.Join(connectedTLS.Shutdown(sctx), srv.Shutdown(sctx))
 			}
 			return srv.Shutdown(sctx)
 		},
@@ -531,6 +569,16 @@ func Run(parent context.Context) error {
 	default:
 		return shutErr
 	}
+}
+
+func healthOnlyHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" && r.URL.Path != metricsPath {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {
@@ -571,6 +619,9 @@ type socialConnectedRuntime struct {
 	stop                                          context.CancelFunc
 	wg                                            sync.WaitGroup
 	failure                                       atomic.Pointer[error]
+	jobs                                          [runtimeJobCount]atomic.Pointer[error]
+	jobWait                                       func(context.Context, time.Duration)
+	jobClock                                      func() time.Time
 	durableFailure                                atomic.Pointer[error]
 	pool                                          *pgxpool.Pool
 	identity                                      sharedauth.RequestIdentityAuthority
@@ -738,7 +789,7 @@ func newSocialConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgx
 	if e != nil {
 		return nil, e
 	}
-	accounts, e := socialIdentifier(b.AccountSchema, "account_state")
+	accounts, e := socialIdentifier(b.AccountSchema, "account_profiles_v1")
 	if e != nil {
 		return nil, e
 	}
@@ -831,14 +882,16 @@ func newSocialConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgx
 		return nil, e
 	}
 	r.safety = &safety.Store{DB: pool, Targets: safety.VoiceTargets{DB: pool, Next: socialTargetResolver{pool: pool}}}
-	r.voice = &voice.Control{DB: pool, Policy: r.safety, Pools: socialPools{DB: pool, Guard: poolGuard}}
 	if b.Voice != nil {
 		r.voice, e = r.newVoice(ctx, *b.Voice, secret, poolGuard)
 		if e != nil {
 			return nil, e
 		}
 	} else {
-		r.voiceFailure = voice.ErrUnavailable
+		// Keep the voice route catalog mounted while making the dependency
+		// explicitly unavailable. Its handlers answer the established
+		// dependency-unavailable response without calling a provider.
+		r.voice = &voice.Control{}
 	}
 	brokerURL, e := url.Parse(b.NATSURL)
 	if e != nil || brokerURL.Scheme != "tls" || brokerURL.Host == "" || brokerURL.User != nil || brokerURL.RawQuery != "" || brokerURL.Fragment != "" {
@@ -977,17 +1030,53 @@ func (r *socialConnectedRuntime) fail(e error) {
 	}
 }
 func (r *socialConnectedRuntime) ready(ctx context.Context) error {
+	for _, check := range []func(context.Context) error{
+		r.runtimeReady,
+		r.voiceReady,
+		r.notificationReady,
+		r.brokerReady,
+		r.durableReady,
+		r.secretsReady,
+	} {
+		if e := check(ctx); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) runtimeReady(context.Context) error {
 	if failure := r.failure.Load(); failure != nil {
 		return *failure
 	}
-	if r.voiceFailure != nil {
-		return r.voiceFailure
+	for i := range r.jobs {
+		if failure := r.jobs[i].Load(); failure != nil {
+			return *failure
+		}
 	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) voiceReady(context.Context) error {
+	if r.binding.Voice == nil {
+		return nil
+	}
+	if r.voice == nil || r.voice.Provider == nil || r.voice.Policy == nil || !r.voice.Gates.Ready() {
+		return voice.ErrUnavailable
+	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) notificationReady(ctx context.Context) error {
 	if r.notificationCredentials != nil {
 		if e := r.notificationCredentials.Ready(ctx); e != nil {
 			return e
 		}
 	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) brokerReady(ctx context.Context) error {
 	if r.nc == nil || !r.nc.IsConnected() {
 		return errors.New("social broker unavailable")
 	}
@@ -997,8 +1086,22 @@ func (r *socialConnectedRuntime) ready(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("social broker probe: %w", err)
 	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) durableReady(context.Context) error {
 	if failure := r.durableFailure.Load(); failure != nil {
 		return *failure
+	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) secretsReady(ctx context.Context) error {
+	if len(r.secrets) == 0 {
+		return nil
+	}
+	if r.provider == nil {
+		return errors.New("social secret authority unavailable")
 	}
 	for reference, consumed := range r.secrets {
 		value, e := r.provider.GetRequired(ctx, reference)
@@ -1126,31 +1229,19 @@ func (r *socialConnectedRuntime) newVoice(ctx context.Context, b config.VoiceRun
 	}
 	return voice.NewProductionControl(r.pool, r.safety, socialPools{DB: r.pool, Guard: poolGuard}, provider, voice.Gates{ProviderQualified: true, EjectionQualified: true, ACLQualified: true, RetentionQualified: true}, b.PolicyVersion, policy, recordingStorage, b.RecordingBucket)
 }
-func (r *socialConnectedRuntime) worker(run func(context.Context) error) {
-	r.wg.Add(1)
-	go func() {
-		defer r.wg.Done()
-		if e := run(r.ctx); e != nil && r.ctx.Err() == nil {
-			r.fail(e)
-			if r.logger != nil {
-				r.logger.Error("social worker stopped", slog.String("error", e.Error()))
-			}
-		}
-	}()
-}
 func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
-	r.worker(func(ctx context.Context) error { return hub.RunConnected(ctx, r.chatConsumer, r.broker) })
-	r.worker(r.notificationCredentials.Run)
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobChat, func(ctx context.Context) error { return hub.RunConnected(ctx, r.chatConsumer, r.broker) })
+	r.worker(runtimeJobNotificationCredentials, r.notificationCredentials.Run)
+	r.worker(runtimeJobErasure, func(ctx context.Context) error {
 		return r.erasureConsumer.Run(ctx, func(ctx context.Context, m *natsdriver.Message) error {
 			return r.store.ConsumeErasure(ctx, r.delivery, r.binding.ConsumerGeneration, r.binding.ErasureSubject, m.Wire, m)
 		})
 	})
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobPolicy, func(ctx context.Context) error {
 		return r.policyConsumer.Run(ctx, func(ctx context.Context, m *natsdriver.Message) error { return r.consumePolicy(ctx, m) })
 	})
-	if r.voice.Provider != nil {
-		r.worker(func(ctx context.Context) error {
+	if r.voice != nil && r.voice.Provider != nil {
+		r.worker(runtimeJobVoice, func(ctx context.Context) error {
 			return r.voice.RunReconciler(ctx, func(result voice.ReconcileResult, e error) {
 				if e != nil || result.Orphans > 0 {
 					if r.logger != nil {
@@ -1160,7 +1251,7 @@ func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
 			})
 		})
 	}
-	r.worker(func(ctx context.Context) error {
+	r.worker(runtimeJobDurable, func(ctx context.Context) error {
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 		relay := delivery.Relay{Store: r.delivery, Publisher: r.publisher, Owner: "social_" + r.binding.ConsumerGeneration, Batch: 32, LeaseDuration: 30 * time.Second, PublishTimeout: 4 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
@@ -1279,7 +1370,7 @@ func (r *socialConnectedRuntime) consumePolicy(ctx context.Context, m *natsdrive
 			return safety.ErrInvalid
 		}
 		if v.Kind == "policy_changed" {
-			if r.voice.Provider != nil {
+			if r.voice != nil && r.voice.Provider != nil {
 				if e := r.voice.ApplyPolicyUpdate(ctx, v.EntityID, v.Revision); e != nil {
 					return e
 				}
@@ -1316,7 +1407,7 @@ func (r *socialConnectedRuntime) eraseOnce(ctx context.Context) error {
 		return e
 	}
 	for _, v := range jobs {
-		if r.voice.Provider == nil {
+		if r.voice == nil || r.voice.Provider == nil {
 			var needs bool
 			if e = r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM voice_rooms r LEFT JOIN voice_participants p ON p.room_id=r.id WHERE r.state IN ('live','ending') AND (r.host_wallet=$1 OR p.wallet=$1))`, v.wallet).Scan(&needs); e != nil {
 				return e
@@ -1353,6 +1444,12 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		sharedhttp.WriteJSON(w, 403, map[string]string{codeField: "SERVICE_AUTHORITY_REQUIRED"})
 		return
 	}
+	r.authorityRoutes(w, req)
+}
+
+// authorityRoutes serves the common social authority surface after the
+// caller has authenticated and admitted the requesting service peer.
+func (r *socialConnectedRuntime) authorityRoutes(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/internal/v2/social/")
 	var value any
 	var e error
@@ -1363,6 +1460,13 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		value, e = r.contentVisibility(req.Context(), req.URL.Query().Get("targetType"), req.URL.Query().Get("targetId"))
 	case req.Method == http.MethodGet && path == "ranking-visibility":
 		value, e = r.rankingVisibility(req.Context())
+	case req.Method == http.MethodGet && strings.HasPrefix(path, "public/"):
+		parts := strings.Split(strings.TrimPrefix(path, "public/"), "/")
+		if len(parts) != 2 {
+			e = safety.ErrInvalid
+		} else {
+			value, e = r.publicResource(req.Context(), parts[0], parts[1])
+		}
 	case req.Method == http.MethodGet && strings.HasPrefix(path, "visibility/"):
 		parts := strings.Split(strings.TrimPrefix(path, "visibility/"), "/")
 		if len(parts) != 2 {
@@ -1388,7 +1492,7 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		decoder := json.NewDecoder(http.MaxBytesReader(w, req.Body, 4096))
 		decoder.DisallowUnknownFields()
 		e = decoder.Decode(&input)
-		if e == nil && input.TargetKind == "callout" && input.Revision > 0 && !input.CreatedAt.IsZero() {
+		if e == nil && input.TargetKind == calloutResource && input.Revision > 0 && !input.CreatedAt.IsZero() {
 			var wallet string
 			e = r.pool.QueryRow(req.Context(), `SELECT chat.social_wallet_for_account($1::uuid)`, input.Actor).Scan(&wallet)
 			if e == nil {
@@ -1411,11 +1515,65 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		sharedhttp.WriteJSON(w, 404, map[string]string{codeField: notFoundCode})
 		return
 	}
+	if strings.HasPrefix(path, "public/") && errors.Is(e, pgx.ErrNoRows) {
+		sharedhttp.WriteJSON(w, http.StatusNotFound, map[string]string{codeField: notFoundCode})
+		return
+	}
 	if e != nil {
+		slog.ErrorContext(req.Context(), "social authority request failed", "method", req.Method, "path", req.URL.Path, "error", e)
 		sharedhttp.WriteJSON(w, 503, map[string]string{codeField: "SOCIAL_AUTHORITY_UNAVAILABLE"})
 		return
 	}
 	sharedhttp.WriteJSON(w, 200, value)
+}
+
+func (r *socialConnectedRuntime) publicResource(ctx context.Context, kind, id string) (discovery.PublicResource, error) {
+	var result discovery.PublicResource
+	if r.pool == nil || kind != calloutResource || id == "" {
+		return result, safety.ErrInvalid
+	}
+	var (
+		calloutID, author, pool, body, disclosure, creator string
+		revision, visibilityRevision                       int64
+		createdAt                                          time.Time
+	)
+	err := r.pool.QueryRow(ctx, `
+		SELECT c.callout_id::text,c.author,c.pool,c.body,c.disclosure,c.revision,c.created_at,
+		       chat.social_account_for_wallet(c.author)::text,
+		       GREATEST(c.revision,COALESCE((SELECT max(v.revision) FROM chat.safety_visibility v
+		         WHERE v.target_type='callout' AND v.target_id=c.callout_id::text),0))
+		FROM chat.v2_callouts c
+		JOIN LATERAL (SELECT p.pool,p.token FROM chat.social_canonical_pools() p WHERE p.pool=c.pool) canonical ON true
+		WHERE c.callout_id::text=$1
+		  AND NOT c.removed
+		  AND chat.interaction_account_active(c.author)
+		  AND NOT EXISTS (SELECT 1 FROM chat.interaction_erased_wallets e WHERE e.wallet=c.author)
+		  AND NOT EXISTS (SELECT 1 FROM chat.safety_visibility v
+		    WHERE v.status='removed' AND ((v.target_type='callout' AND v.target_id=c.callout_id::text)
+		      OR (v.target_type='pool' AND v.target_id=canonical.pool)
+		      OR (v.target_type='token' AND v.target_id=canonical.token)))`, id).
+		Scan(&calloutID, &author, &pool, &body, &disclosure, &revision, &createdAt, &creator, &visibilityRevision)
+	if err != nil {
+		return result, err
+	}
+	if revision < 1 || visibilityRevision < 1 || creator == "" || createdAt.IsZero() {
+		return result, safety.ErrUnavailable
+	}
+	result.Ref = discovery.SourceRef{
+		ID:                 calloutID,
+		EventID:            fmt.Sprintf("callout:%s:%d", calloutID, revision),
+		Kind:               kind,
+		CreatorPublicID:    creator,
+		Pools:              []string{pool},
+		SourceRevision:     uint64(revision),
+		VisibilityRevision: uint64(visibilityRevision),
+		PublishedAt:        createdAt.UTC(),
+		Public:             true,
+		Authorized:         true,
+	}
+	result.Body = body
+	result.PositionDisclosure = disclosure
+	return result, nil
 }
 func (r *socialConnectedRuntime) graphAuthority(ctx context.Context, account string) (any, error) {
 	if _, e := uuid.Parse(account); e != nil {
@@ -1484,7 +1642,7 @@ func (r *socialConnectedRuntime) visibilityAuthority(ctx context.Context, kind, 
 	var removed bool
 	var revision int64
 	switch kind {
-	case "callout":
+	case calloutResource:
 		e = tx.QueryRow(ctx, `SELECT actor,removed,revision FROM interaction_callout_authority WHERE id=$1 ORDER BY revision DESC LIMIT 1`, id).Scan(&actor, &removed, &revision)
 	case commentAction:
 		e = tx.QueryRow(ctx, `SELECT author,removed,revision FROM interaction_comments WHERE id=$1`, id).Scan(&actor, &removed, &revision)
@@ -1573,7 +1731,7 @@ func (r *socialConnectedRuntime) rankingVisibility(ctx context.Context) (any, er
 	if e = rows.Err(); e != nil {
 		return nil, e
 	}
-	if count == 0 || count > 100000 {
+	if count > 100000 {
 		return nil, safety.ErrUnavailable
 	}
 	return struct {
@@ -1603,7 +1761,7 @@ func (r *socialConnectedRuntime) reviewCallout(ctx context.Context, account, poo
 	var revision int64
 	var observed time.Time
 	var denied bool
-	e = tx.QueryRow(ctx, `SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility WHERE target_type IN ('pool','token') AND target_id=$2 AND status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1`, wallet, pool).Scan(&revision, &observed, &denied)
+	e = tx.QueryRow(ctx, `SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility v JOIN chat.social_canonical_pools() p ON p.pool=$2 WHERE ((v.target_type='pool' AND v.target_id=p.pool) OR (v.target_type='token' AND v.target_id=p.token)) AND v.status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1`, wallet, pool).Scan(&revision, &observed, &denied)
 	if e != nil {
 		return nil, e
 	}

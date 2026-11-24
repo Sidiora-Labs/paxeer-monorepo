@@ -1,11 +1,12 @@
 'use client';
+import { launchpadMotion } from '@/app/presentation-tokens';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Check, Copy, Eye, EyeOff, KeyRound, Radio, RefreshCw, RotateCcw, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, FormField, IconButton, KeyValueRow, NoticeBar, Toggle, humanErrorText } from '@/ui/primitives';
 import type { PrivateIngestKey } from '@/core/clients/livestream-api';
 import { StreamPlayer } from './stream-player';
-import { credentialRemainingMs, liveElapsedMs, statusLabel, TITLE_MAX, useCreatorStream, type CreatorStream, type TimelineStep } from './use-creator-stream';
+import { credentialRemainingMs, creatorSubmitAction, liveElapsedMs, statusLabel, TITLE_MAX, useCreatorStream, type CreatorStream, type TimelineStep } from './use-creator-stream';
 
 export interface CreatorConsoleProps { poolAddress: string; className?: string }
 
@@ -64,7 +65,8 @@ export function CreatorConsoleView({ poolAddress, stream, className }: CreatorCo
   }
   const { operation, availability, pending, credential } = stream;
   const previewable = operation !== null && (operation.status === 'ready' || operation.status === 'live' || operation.status === 'ending');
-  const submitAction = operation ? 'edit' : 'create';
+  const submitAction = creatorSubmitAction(operation);
+  const canEdit = stream.walletReady && (submitAction === 'create' || availability.edit);
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void stream.run(submitAction);
@@ -86,13 +88,13 @@ export function CreatorConsoleView({ poolAddress, stream, className }: CreatorCo
             value: stream.title,
             onChange: event => stream.setTitle(event.target.value),
             required: true,
-            maxLength: TITLE_MAX,
-            disabled: pending !== null || (operation !== null && !availability.edit),
+            maxLength: TITLE_MAX * 2,
+            disabled: pending !== null || !canEdit,
             autoComplete: 'off',
             placeholder: 'What are you streaming?',
           }}
         />
-        {operation ? (
+        {operation && submitAction === 'edit' ? (
           <div className="flex items-center justify-between gap-3 rounded-sm bg-surface-3 px-3 py-2">
             <div className="flex flex-col">
               <span id="creator-stream-private" className="text-sm font-bold text-text">Private stream</span>
@@ -107,9 +109,9 @@ export function CreatorConsoleView({ poolAddress, stream, className }: CreatorCo
             type="submit"
             variant={operation ? 'secondary' : 'primary'}
             loading={pending === submitAction}
-            disabled={pending !== null || stream.title.trim().length === 0 || (operation !== null && !availability.edit)}
+            disabled={pending !== null || stream.discovering || stream.title.trim().length === 0 || !canEdit}
           >
-            {operation ? 'Save changes' : 'Create stream'}
+            {submitAction === 'edit' ? 'Save changes' : 'Create stream'}
           </Button>
         </div>
       </form>
@@ -210,7 +212,7 @@ function CredentialPanel({ credential, onHide }: { credential: PrivateIngestKey;
   const remaining = credentialRemainingMs(credential, now);
   useEffect(() => {
     if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(null), 1800);
+    const timer = window.setTimeout(() => setCopied(null), launchpadMotion.copyConfirmation);
     return () => window.clearTimeout(timer);
   }, [copied]);
   const copy = async (target: CopyTarget) => {

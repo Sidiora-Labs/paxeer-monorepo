@@ -19,6 +19,11 @@ defmodule Explorer.Chain.PaxeerX.Repair2233523.PriceFeedCases do
     counter = "paxeer_x_price_feed_scanned_through_#{start}"
     {:ok, coordinator} = Repo.start_link(name: nil, pool: DBConnection.ConnectionPool, pool_size: 1)
     previous = Repo.put_dynamic_repo(coordinator)
+    counter_types = [counter, "paxeer_x_price_feed_last_successful_scan"]
+
+    counters =
+      Repo.all(from(row in LastFetchedCounter, where: row.counter_type in ^counter_types))
+      |> Enum.map(&(&1 |> Map.from_struct() |> Map.delete(:__meta__)))
 
     try do
       Repo.insert_all(PriceFeedScannedBlock, Enum.map(start..(start + 5), &%{block_number: &1, status: "scanned"}))
@@ -92,7 +97,8 @@ defmodule Explorer.Chain.PaxeerX.Repair2233523.PriceFeedCases do
         from(row in PriceFeedScannedBlock, where: row.block_number >= ^start and row.block_number <= ^(start + 6))
       )
 
-      Repo.delete_all(from(row in LastFetchedCounter, where: row.counter_type == ^counter))
+      Repo.delete_all(from(row in LastFetchedCounter, where: row.counter_type in ^counter_types))
+      Repo.insert_all(LastFetchedCounter, counters)
       Repo.put_dynamic_repo(previous)
       Supervisor.stop(coordinator)
     end
@@ -115,14 +121,14 @@ defmodule Explorer.Chain.PaxeerX.Repair2233523.PriceFeedCases do
     {:ok, mode} = Agent.start_link(fn -> :refuse end)
     empty = Path.join(@fixtures, "block_txs_empty.json") |> File.read!()
 
-    Bypass.expect(server, "GET", "/cosmos/tx/v1beta1/txs/block/#{start + 2}", fn conn ->
+    Bypass.expect(server, "GET", "/block", fn conn ->
       current = Agent.get(mode, & &1)
       send(parent, {:price_scan, current})
-      assert conn.query_string == "pagination.offset=0&pagination.limit=100"
+      assert conn.query_string == "height=#{start + 2}"
 
       if current == :refuse,
         do: Plug.Conn.resp(conn, 400, ~s({"code":13,"message":"internal"})),
-        else: Plug.Conn.resp(conn, 400, empty)
+        else: Plug.Conn.resp(conn, 200, empty)
     end)
 
     state = %{

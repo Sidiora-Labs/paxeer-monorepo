@@ -14,7 +14,7 @@ vi.hoisted(() => {
   };
 });
 
-function secondaryPriceLabelUsesConfiguredSecondarySymbol() {
+test('secondary-price-label: secondaryPriceLabelUsesConfiguredSecondarySymbol', function secondaryPriceLabelUsesConfiguredSecondarySymbol() {
   expect(config.chain.currency.symbol).toBe('PAX');
   expect(config.chain.secondaryCoin.symbol).toBe('USDC');
 
@@ -29,6 +29,4 @@ function secondaryPriceLabelUsesConfiguredSecondarySymbol() {
   expect(secondary[0].name).toBe('USDC price');
   expect(secondary[0].items).toEqual(prices);
   expect(secondary[0].valueFormatter?.(1.25)).toBe('$1.25');
-}
-
-test('secondary-price-label: secondaryPriceLabelUsesConfiguredSecondarySymbol', secondaryPriceLabelUsesConfiguredSecondarySymbol);
+});

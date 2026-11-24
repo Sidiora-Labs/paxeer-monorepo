@@ -292,18 +292,19 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
     return (
       <div className="min-h-screen flex flex-col px-4 safe-area-pt">
         <div className="flex-1 flex flex-col items-center justify-center gap-4 -mt-16">
-          <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center">
-            <CheckCircle className="w-10 h-10 text-green-400" />
+          <div className="w-20 h-20 rounded-full bg-pax-success-muted flex items-center justify-center">
+            <CheckCircle className="w-10 h-10 text-pax-success" />
           </div>
           <h2 className="text-xl font-bold">Name Registered</h2>
           <p className="text-sm text-pax-muted text-center">
-            <span className="text-white font-semibold">
+            <span className="text-pax-light font-semibold">
               {searchedLabel}.{PNS_TLD}
             </span>{' '}
             is now yours
           </p>
           {successTxHash && (
             <button
+              type="button"
               onClick={() => onPaxscan?.(`/tx/${successTxHash}`)}
               className="text-xs text-pax-accent underline"
             >
@@ -312,6 +313,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
           )}
           <div className="flex gap-3 mt-4">
             <button
+              type="button"
               onClick={() => handleSetPrimary(`${searchedLabel}.${PNS_TLD}`)}
               disabled={actionLoading === 'primary'}
               className="px-4 py-2.5 rounded-xl bg-pax-accent/10 text-pax-accent text-xs font-medium press-scale disabled:opacity-40"
@@ -324,6 +326,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
               Set as primary
             </button>
             <button
+              type="button"
               onClick={() => {
                 setView('main');
                 setTab('mynames');
@@ -331,14 +334,15 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 search.invalidate();
                 setQuery('');
               }}
-              className="px-4 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
+              className="px-4 py-2.5 rounded-xl bg-pax-control text-xs font-medium press-scale"
             >
               My names
             </button>
           </div>
           <button
+            type="button"
             onClick={onBack}
-            className="mt-6 px-6 py-3 rounded-2xl bg-pax-accent text-black text-sm font-semibold press-scale"
+            className="min-h-[var(--touch-target)] mt-6 px-6 py-3 rounded-2xl bg-pax-accent text-pax-on-accent text-sm font-semibold press-scale"
           >
             Done
           </button>
@@ -352,6 +356,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
       <div className="min-h-screen flex flex-col px-4 safe-area-pt">
         <div className="flex items-center gap-3 py-4">
           <button
+            type="button"
             onClick={() => {
               if (regStep === 'error') {
                 setView('main');
@@ -406,9 +411,10 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
           {registration.intent &&
             !['done', 'expired', 'reverted'].includes(registration.intent.status) && (
               <button
+                type="button"
                 onClick={registration.resume}
                 disabled={registration.busy}
-                className="px-4 py-2.5 rounded-xl bg-pax-accent text-black text-sm disabled:opacity-40"
+                className="min-h-[var(--touch-target)] px-4 py-2.5 rounded-xl bg-pax-accent text-pax-on-accent text-sm disabled:opacity-40"
               >
                 Resume registration
               </button>
@@ -416,18 +422,19 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
           {regStep === 'error' && (
             <div className="glass-card p-4 w-full max-w-xs">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-pax-error shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-semibold text-red-400">Registration failed</p>
-                  <p className="text-[11px] text-red-300/70 mt-1 break-all">{regError}</p>
+                  <p className="text-xs font-semibold text-pax-error">Registration failed</p>
+                  <p className="text-size-11 text-pax-error mt-1 break-all">{regError}</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   if (status === 'expired' || status === 'reverted') registration.acknowledge();
                   setView('main');
                 }}
-                className="w-full mt-3 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
+                className="w-full mt-3 py-2.5 rounded-xl bg-pax-control text-xs font-medium press-scale"
               >
                 Back to search
               </button>
@@ -451,6 +458,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
         <header className="shrink-0 px-4 py-4">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => {
                 setView('main');
                 setTab('mynames');
@@ -461,7 +469,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
             </button>
             <h1 className="text-base font-bold truncate">{d?.name || 'Loading...'}</h1>
             {isPrimary && (
-              <span className="text-[9px] bg-pax-accent/20 text-pax-accent px-1.5 py-0.5 rounded font-bold">
+              <span className="text-size-9 bg-pax-accent/20 text-pax-accent px-1.5 py-0.5 rounded font-bold">
                 PRIMARY
               </span>
             )}
@@ -478,7 +486,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="glass-card  divide-white/5">
+              <div className="glass-card  divide-pax-line">
                 <PNSDetailRow
                   label="Owner"
                   value={d.owner?.hash ? shortenAddr(d.owner.hash) : '—'}
@@ -507,7 +515,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                   valueClass={
                     d.expiry_date &&
                     new Date(d.expiry_date).getTime() - Date.now() < 30 * 86_400_000
-                      ? 'text-yellow-400'
+                      ? 'text-pax-warning'
                       : undefined
                   }
                 />
@@ -535,7 +543,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 )}
               </div>
               {websiteError && (
-                <p role="alert" className="text-xs text-red-400 break-all">
+                <p role="alert" className="text-xs text-pax-error break-all">
                   {websiteError}
                 </p>
               )}
@@ -543,9 +551,10 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 <div className="space-y-2 mt-4">
                   {!showWebsite ? (
                     <button
+                      type="button"
                       onClick={() => setShowWebsite(true)}
                       disabled={!!actionLoading}
-                      className="w-full py-3 rounded-xl bg-white/5 text-sm font-medium press-scale disabled:opacity-40"
+                      className="w-full py-3 rounded-xl bg-pax-control text-sm font-medium press-scale disabled:opacity-40"
                     >
                       Set website
                     </button>
@@ -563,12 +572,14 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                       <input
                         id="pns-website-digest"
                         type="text"
+                        name="website-digest"
+                        autoComplete="off"
                         value={websiteDigest}
                         onChange={(event) => setWebsiteDigest(event.target.value)}
                         placeholder="0x-prefixed 64-hex manifest digest"
                         aria-invalid={!!websiteDigest && !validWebsiteDigest}
                         aria-describedby="pns-website-digest-help"
-                        className="w-full px-3 py-2.5 rounded-xl bg-white/5 text-sm outline-none placeholder:text-white/20"
+                        className="w-full px-3 py-2.5 rounded-xl bg-pax-control text-sm outline-none placeholder:text-pax-muted"
                       />
                       <p id="pns-website-digest-help" className="text-xs text-pax-muted">
                         Enter 0x followed by exactly 64 hexadecimal characters.
@@ -581,14 +592,14 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                             setWebsiteDigest('');
                           }}
                           disabled={!!actionLoading}
-                          className="flex-1 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale disabled:opacity-40"
+                          className="flex-1 py-2.5 rounded-xl bg-pax-control text-xs font-medium press-scale disabled:opacity-40"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={!validWebsiteDigest || !!actionLoading}
-                          className="flex-1 py-2.5 rounded-xl bg-pax-accent/10 text-pax-accent text-xs font-medium press-scale disabled:opacity-40"
+                          className="min-h-[var(--touch-target)] flex-1 py-2.5 rounded-xl bg-pax-accent/10 text-pax-accent text-xs font-medium press-scale disabled:opacity-40"
                         >
                           {actionLoading === 'website' ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
@@ -601,6 +612,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                   )}
                   {!isPrimary && (
                     <button
+                      type="button"
                       onClick={() => handleSetPrimary(d.name)}
                       disabled={!!actionLoading}
                       className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-pax-accent/10 text-pax-accent text-sm font-medium press-scale disabled:opacity-40"
@@ -614,9 +626,10 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={() => handleRenew(label)}
                     disabled={!!actionLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 text-sm font-medium press-scale disabled:opacity-40"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-pax-control text-sm font-medium press-scale disabled:opacity-40"
                   >
                     {actionLoading === 'renew' ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -627,9 +640,10 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                   </button>
                   {!showTransfer ? (
                     <button
+                      type="button"
                       onClick={() => setShowTransfer(true)}
                       disabled={!!actionLoading}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 text-sm font-medium press-scale disabled:opacity-40"
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-pax-control text-sm font-medium press-scale disabled:opacity-40"
                     >
                       <Send className="w-4 h-4" /> Transfer
                     </button>
@@ -637,27 +651,33 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                     <div className="glass-card p-3 space-y-2">
                       <p className="text-xs font-medium">Transfer {d.name}</p>
                       <input
+                        id="pns-transfer-recipient"
                         type="text"
+                        name="recipient"
+                        autoComplete="off"
+                        aria-label="Recipient address"
                         value={transferTo}
                         onChange={(e) => setTransferTo(e.target.value)}
                         placeholder="Recipient address (0x...)"
-                        className="w-full px-3 py-2.5 rounded-xl bg-white/5 text-sm outline-none placeholder:text-white/20"
+                        className="w-full px-3 py-2.5 rounded-xl bg-pax-control text-sm outline-none placeholder:text-pax-muted"
                       />
                       <div className="flex gap-2">
                         <button
+                          type="button"
                           onClick={() => {
                             setShowTransfer(false);
                             setTransferTo('');
                             setActionError('');
                           }}
-                          className="flex-1 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
+                          className="flex-1 py-2.5 rounded-xl bg-pax-control text-xs font-medium press-scale"
                         >
                           Cancel
                         </button>
                         <button
+                          type="button"
                           onClick={handleTransfer}
                           disabled={!transferTo || !!actionLoading}
-                          className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 text-xs font-semibold press-scale disabled:opacity-40"
+                          className="min-h-[var(--touch-target)] flex-1 py-2.5 rounded-xl bg-pax-error-muted text-pax-error text-xs font-semibold press-scale disabled:opacity-40"
                         >
                           {actionLoading === 'transfer' ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
@@ -669,9 +689,9 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                     </div>
                   )}
                   {actionError && (
-                    <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/5  ">
-                      <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-red-300/80 break-all">{actionError}</p>
+                    <div className="flex items-start gap-2 p-3 rounded-xl bg-pax-error-muted  ">
+                      <AlertTriangle className="w-3.5 h-3.5 text-pax-error shrink-0 mt-0.5" />
+                      <p className="text-size-11 text-pax-error break-all">{actionError}</p>
                     </div>
                   )}
                 </div>
@@ -687,20 +707,25 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
     <div className="min-h-screen flex flex-col safe-area-pt">
       <header className="shrink-0 px-4 pt-4 pb-2">
         <div className="flex items-center gap-3 mb-3">
-          <button onClick={onBack} className="p-2 -ml-2 press-scale">
+          <button
+            type="button"
+            onClick={onBack}
+            className="min-h-[var(--touch-target)] p-2 -ml-2 press-scale"
+          >
             <ArrowLeft className="w-5 h-5 text-pax-muted" />
           </button>
           <div>
             <h1 className="text-base font-bold">Paxeer Name Service</h1>
-            <p className="text-[11px] text-pax-muted">.{PNS_TLD} names on Paxeer Network</p>
+            <p className="text-size-11 text-pax-muted">.{PNS_TLD} names on Paxeer Network</p>
           </div>
         </div>
-        <div className="flex gap-1 bg-white/[0.03] p-1 rounded-xl">
+        <div className="flex gap-1 bg-pax-control p-1 rounded-xl">
           {(['search', 'mynames'] as MainTab[]).map((t) => (
             <button
+              type="button"
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${tab === t ? 'bg-white/10 text-white' : 'text-pax-muted'}`}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${tab === t ? 'bg-pax-overlay text-pax-light' : 'text-pax-muted'}`}
             >
               {t === 'search'
                 ? 'Register'
@@ -713,10 +738,16 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
       <div className="flex-1 px-4 pb-24 pt-3">
         {tab === 'search' && (
           <>
-            <div className="flex items-center gap-2 px-3.5 py-3 rounded-2xl bg-white/5    transition-colors mb-1">
+            <div className="flex items-center gap-2 px-3 py-3 rounded-2xl bg-pax-control    transition-colors mb-1">
               <Search className="w-4 h-4 text-pax-muted shrink-0" />
+              <label htmlFor="pns-search" className="sr-only">
+                Search for a name
+              </label>
               <input
+                id="pns-search"
                 type="text"
+                name="search"
+                autoComplete="off"
                 value={query}
                 onChange={(e) => {
                   const next = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
@@ -726,28 +757,32 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                   }
                 }}
                 placeholder="Search for a name..."
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/20 min-w-0"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-pax-muted min-w-0"
                 autoFocus
               />
               <span className="text-sm text-pax-muted">.{PNS_TLD}</span>
             </div>
             {query && !isValidLabel(query) && (
-              <p className="text-[10px] text-red-400/70 mt-1 ml-1">
+              <p className="text-size-10 text-pax-error/70 mt-1 ml-1">
                 3-64 chars, lowercase alphanumeric and hyphens only
               </p>
             )}
             {search.error && (
-              <p role="alert" className="text-xs text-red-400">
+              <p role="alert" className="text-xs text-pax-error">
                 {search.error}
               </p>
             )}
             {registration.error && view === 'main' && (
-              <p role="alert" className="text-xs text-red-400">
+              <p role="alert" className="text-xs text-pax-error">
                 {registration.error}
               </p>
             )}
             {registration.intent && (
-              <button onClick={() => setView('register')} className="text-xs text-pax-accent">
+              <button
+                type="button"
+                onClick={() => setView('register')}
+                className="text-xs text-pax-accent"
+              >
                 Resume saved registration
               </button>
             )}
@@ -761,21 +796,22 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 {available ? (
                   <div className="glass-card overflow-hidden">
                     <div className="px-4 py-3 flex items-center gap-2  ">
-                      <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-green-400" />
+                      <div className="w-5 h-5 rounded-full bg-pax-success-muted flex items-center justify-center">
+                        <Check className="w-3 h-3 text-pax-success" />
                       </div>
                       <p className="text-sm font-semibold">
                         {searchedLabel}.{PNS_TLD}{' '}
-                        <span className="text-green-400 font-normal text-xs ml-1">Available</span>
+                        <span className="text-pax-success font-normal text-xs ml-1">Available</span>
                       </p>
                     </div>
                     <div className="px-4 py-3  ">
-                      <p className="text-[10px] text-pax-muted uppercase tracking-wider mb-2">
+                      <p className="text-size-10 text-pax-muted uppercase tracking-wider mb-2">
                         Duration
                       </p>
                       <div className="flex gap-2 flex-wrap">
                         {DURATIONS.map((d) => (
                           <button
+                            type="button"
                             key={d.seconds}
                             onClick={() => {
                               if (d.seconds !== duration.seconds) {
@@ -783,7 +819,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                                 setDuration(d);
                               }
                             }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium press-scale transition-colors ${duration.seconds === d.seconds ? 'bg-pax-accent text-black' : 'bg-white/5 text-pax-muted'}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium press-scale transition-colors ${duration.seconds === d.seconds ? 'bg-pax-accent text-pax-on-accent' : 'bg-pax-control text-pax-muted'}`}
                           >
                             {d.label}
                           </button>
@@ -800,13 +836,14 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                         )}
                       </div>
                       {price && price.premium > BigInt(0) && (
-                        <p className="text-[10px] text-yellow-400/70 mt-1">
+                        <p className="text-size-10 text-pax-warning mt-1">
                           Includes {formatPaxPrice(price.premium)} PAX premium
                         </p>
                       )}
                     </div>
                     <div className="px-4 py-3">
                       <button
+                        type="button"
                         onClick={startRegistration}
                         disabled={
                           !price ||
@@ -815,11 +852,11 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                           !!registration.intent ||
                           registration.busy
                         }
-                        className="w-full py-3 rounded-xl bg-pax-accent text-black font-semibold text-sm press-scale disabled:opacity-40"
+                        className="min-h-[var(--touch-target)] w-full py-3 rounded-xl bg-pax-accent text-pax-on-accent font-semibold text-sm press-scale disabled:opacity-40"
                       >
                         Register {searchedLabel}.{PNS_TLD}
                       </button>
-                      <p className="text-[10px] text-pax-muted text-center mt-2">
+                      <p className="text-size-10 text-pax-muted text-center mt-2">
                         2-step commit-reveal (~60s)
                       </p>
                     </div>
@@ -827,15 +864,16 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 ) : (
                   <div className="glass-card p-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center">
-                        <AlertTriangle className="w-3 h-3 text-red-400" />
+                      <div className="w-5 h-5 rounded-full bg-pax-error-muted flex items-center justify-center">
+                        <AlertTriangle className="w-3 h-3 text-pax-error" />
                       </div>
                       <p className="text-sm font-semibold">
                         {searchedLabel}.{PNS_TLD}{' '}
-                        <span className="text-red-400 font-normal text-xs ml-1">Taken</span>
+                        <span className="text-pax-error font-normal text-xs ml-1">Taken</span>
                       </p>
                     </div>
                     <button
+                      type="button"
                       onClick={() => openDetail(`${searchedLabel}.${PNS_TLD}`)}
                       className="mt-3 text-xs text-pax-accent press-scale"
                     >
@@ -856,12 +894,16 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                   <Tag className="w-5 h-5 text-pax-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-pax-muted uppercase tracking-wider">
+                  <p className="text-size-10 text-pax-muted uppercase tracking-wider">
                     Primary name
                   </p>
                   <p className="text-sm font-semibold truncate">{primaryDomain.name}</p>
                 </div>
-                <button onClick={() => openDetail(primaryDomain.name)} className="p-2 press-scale">
+                <button
+                  type="button"
+                  onClick={() => openDetail(primaryDomain.name)}
+                  className="p-2 press-scale"
+                >
                   <ChevronRight className="w-4 h-4 text-pax-muted" />
                 </button>
               </div>
@@ -875,6 +917,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 <Tag className="w-8 h-8 text-pax-muted/30 mx-auto mb-3" />
                 <p className="text-sm text-pax-muted">No names yet</p>
                 <button
+                  type="button"
                   onClick={() => setTab('search')}
                   className="mt-3 px-4 py-2 rounded-xl bg-pax-accent/10 text-pax-accent text-xs font-medium press-scale"
                 >
@@ -882,14 +925,15 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 </button>
               </div>
             ) : (
-              <div className="glass-card  divide-white/5">
+              <div className="glass-card  divide-pax-line">
                 {ownedDomains.map((d) => {
                   const isPrimary = primaryDomain?.name === d.name;
                   return (
                     <button
+                      type="button"
                       key={d.id}
                       onClick={() => openDetail(d.name)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 press-scale text-left transition-colors hover:bg-white/[0.02]"
+                      className="w-full flex items-center gap-3 px-4 py-3 press-scale text-left transition-colors hover:bg-pax-control"
                     >
                       <div className="w-9 h-9 rounded-full bg-pax-accent/10 flex items-center justify-center shrink-0">
                         <span className="text-xs font-bold text-pax-accent">
@@ -897,15 +941,15 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <p className="text-sm font-medium truncate">{d.name}</p>
                           {isPrimary && (
-                            <span className="text-[8px] bg-pax-accent/20 text-pax-accent px-1 py-0.5 rounded font-bold shrink-0">
+                            <span className="text-size-8 bg-pax-accent/20 text-pax-accent px-1 py-0.5 rounded font-bold shrink-0">
                               PRIMARY
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-pax-muted">
+                        <p className="text-size-10 text-pax-muted">
                           {d.expiry_date ? `Expires: ${formatExpiry(d.expiry_date)}` : 'No expiry'}
                         </p>
                       </div>
@@ -917,9 +961,10 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
             )}
             {ownedDomains.length > 0 && (
               <button
+                type="button"
                 onClick={loadMyNames}
                 disabled={loadingOwned}
-                className="mt-3 mx-auto flex items-center gap-1.5 text-xs text-pax-muted press-scale disabled:opacity-30"
+                className="min-h-[var(--touch-target)] mt-3 mx-auto flex items-center gap-2 text-xs text-pax-muted press-scale disabled:opacity-30"
               >
                 <RefreshCw className={`w-3 h-3 ${loadingOwned ? 'animate-spin' : ''}`} /> Refresh
               </button>
@@ -944,28 +989,28 @@ function StepRow({
 }) {
   return (
     <div
-      className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${status === 'active' ? 'bg-pax-accent/5  ' : status === 'done' ? 'bg-green-500/5  ' : status === 'error' ? 'bg-red-500/5  ' : 'bg-white/[0.02]  '}`}
+      className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${status === 'active' ? 'bg-pax-accent/5  ' : status === 'done' ? 'bg-pax-success-muted  ' : status === 'error' ? 'bg-pax-error-muted  ' : 'bg-pax-control  '}`}
     >
       <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${status === 'active' ? 'bg-pax-accent/20' : status === 'done' ? 'bg-green-500/20' : status === 'error' ? 'bg-red-500/20' : 'bg-white/5'}`}
+        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${status === 'active' ? 'bg-pax-accent/20' : status === 'done' ? 'bg-pax-success-muted' : status === 'error' ? 'bg-pax-error-muted' : 'bg-pax-control'}`}
       >
         {status === 'active' ? (
           <Loader2 className="w-4 h-4 text-pax-accent animate-spin" />
         ) : status === 'done' ? (
-          <Check className="w-4 h-4 text-green-400" />
+          <Check className="w-4 h-4 text-pax-success" />
         ) : status === 'error' ? (
-          <AlertTriangle className="w-4 h-4 text-red-400" />
+          <AlertTriangle className="w-4 h-4 text-pax-error" />
         ) : (
           <span className="text-xs font-bold text-pax-muted">{step}</span>
         )}
       </div>
       <div className="min-w-0">
         <p
-          className={`text-sm font-medium ${status === 'active' ? 'text-white' : status === 'done' ? 'text-green-400' : status === 'error' ? 'text-red-400' : 'text-pax-muted'}`}
+          className={`text-sm font-medium ${status === 'active' ? 'text-pax-light' : status === 'done' ? 'text-pax-success' : status === 'error' ? 'text-pax-error' : 'text-pax-muted'}`}
         >
           {label}
         </p>
-        <p className="text-[10px] text-pax-muted">{sublabel}</p>
+        <p className="text-size-10 text-pax-muted">{sublabel}</p>
       </div>
     </div>
   );
@@ -987,12 +1032,16 @@ function PNSDetailRow({
   return (
     <div className="flex items-center justify-between px-4 py-3">
       <p className="text-xs text-pax-muted">{label}</p>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         <p className={`text-xs font-medium ${valueClass || ''}`}>{value}</p>
         {onCopy && (
-          <button onClick={onCopy} className="p-1 press-scale">
+          <button
+            type="button"
+            onClick={onCopy}
+            className="min-h-[var(--touch-target)] p-1 press-scale"
+          >
             {copied ? (
-              <Check className="w-3 h-3 text-green-400" />
+              <Check className="w-3 h-3 text-pax-success" />
             ) : (
               <Copy className="w-3 h-3 text-pax-muted" />
             )}

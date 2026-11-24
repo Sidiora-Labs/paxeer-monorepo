@@ -8,7 +8,7 @@ extensions.
 ## Origins and credentials
 
 `LAYERX_NODE_RPC` is the root EVM JSON-RPC origin from the
-[public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
+[public RPC reference](../../../../docs/readme/PUBLIC-RPC.md).
 The payment checks `eth_chainId` equals `0x7d` before signing. It sends no service bearer or owner session to the
 node. Origins must have no path beyond `/`, credentials, query or fragment; plaintext HTTP
 is accepted only for local loopback connections.

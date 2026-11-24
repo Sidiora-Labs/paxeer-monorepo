@@ -13,19 +13,9 @@ def test_hpx_provenance_example_matches_release_version():
         (ROOT / "tools/release/version.json").read_text(encoding="utf-8")
     )
     readme = (ROOT / "tools/hpx/README.md").read_text(encoding="utf-8")
-    examples = [
-        json.loads(block)
-        for block in re.findall(r"^```json\s*\n(.*?)^```\s*$", readme, re.M | re.S)
-    ]
-    provenance = [
-        example
-        for example in examples
-        if isinstance(example, dict)
-        and {"source_revision", "paxd_sha256"} <= example.keys()
-    ]
-
-    assert len(provenance) == 1, "Expected one hpx build provenance JSON example"
-    assert provenance[0]["version"] == release["version"], (
-        "The hpx provenance example must use the version in tools/release/version.json"
-    )
-    assert "The `version` value is read from `tools/release/version.json`." in readme
+    assert re.fullmatch(r"v\d+\.\d+\.\d+", release["version"])
+    prose = " ".join(readme.split())
+    assert "[tools/release/version.json](../release/version.json)" in prose
+    assert "the staged executable's `version --long --output json` output and the supplied build provenance." in prose
+    assert "Their versions must agree with `HPX_PAXD_VERSION` when supplied." in prose
+    assert "Provenance contains `version`, `source_revision` and `paxd_sha256`; its digest must match the exact staged executable." in prose

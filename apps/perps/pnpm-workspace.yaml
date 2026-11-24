@@ -1,13 +1,4 @@
 packages:
-  - '.'
-  - '../../sdk/wallet'
-  - '../../services/wallet/gateway'
+  - "apps/*"
+  - "packages/*"
 sharedWorkspaceLockfile: true
-confirmModulesPurge: false
-allowBuilds:
-  '@sentry/cli': true
-  bufferutil: true
-  esbuild: true
-  keccak: true
-  sharp: true
-  utf-8-validate: true

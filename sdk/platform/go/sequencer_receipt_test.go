@@ -34,7 +34,7 @@ type sequencerReceiptCase struct {
 }
 
 func TestSequencerReceiptCommittedRecording(t *testing.T) {
-	receipt, raw, keys, evidence, _ := repair141LoadRecorded(t)
+	receipt, raw, keys, evidence, _ := receiptTransportLoadRecorded(t)
 	verified, err := VerifySequencerReceipt(receipt, raw, keys)
 	if err != nil {
 		t.Fatal(err)

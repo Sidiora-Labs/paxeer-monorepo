@@ -21,11 +21,11 @@ func TestMeasuredRunwayFailsUnavailableInputs(t *testing.T) {
 // This separately admitted integration test uses the existing private
 // PostgreSQL/object-store fixture. The bounded repair gate uses loopback peers.
 func TestReplayPostgresLifecycle(t *testing.T) {
-	ctx, pool, archive, engine, _, digest := repair41Fixture(t)
+	ctx, pool, archive, engine, _, digest := activeRebuildFixture(t)
 	if err := engine.Start(ctx, digest); err != nil {
 		t.Fatal(err)
 	}
-	rival, err := NewReplayEngine(archive, engine.consumer, engine.generation, "rival", repair41Projection{archive}, verifyWebhookFixtureAdmin, time.Minute)
+	rival, err := NewReplayEngine(archive, engine.consumer, engine.generation, "rival", activeRebuildProjection{archive}, verifyWebhookFixtureAdmin, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,17 +41,17 @@ func TestReplayPostgresLifecycle(t *testing.T) {
 	if err = engine.RunBlock(ctx); !errors.Is(err, ErrLease) {
 		t.Fatal("stale worker applied archive", err)
 	}
-	repair41Rebuild(t, ctx, rival, digest)
+	activeRebuildRebuild(t, ctx, rival, digest)
 	schema := strings.Trim(archive.store.schema, `"`)
-	before := repair41Snapshot(t, ctx, archive)
+	before := activeRebuildSnapshot(t, ctx, archive)
 	// Stop the runtime connections and reopen after promotion; the fixture
 	// keeps its separate housekeeping connection for schema cleanup.
-	workerCtx, workerPool, _, worker := repair41Open(t, schema)
-	repair41Rebuild(t, workerCtx, worker, digest)
+	workerCtx, workerPool, _, worker := activeRebuildOpen(t, schema)
+	activeRebuildRebuild(t, workerCtx, worker, digest)
 	workerPool.Close()
-	reopenedCtx, _, reopenedArchive, reopened := repair41Open(t, schema)
-	repair41Rebuild(t, reopenedCtx, reopened, digest)
-	if after := repair41Snapshot(t, reopenedCtx, reopenedArchive); after != before {
+	reopenedCtx, _, reopenedArchive, reopened := activeRebuildOpen(t, schema)
+	activeRebuildRebuild(t, reopenedCtx, reopened, digest)
+	if after := activeRebuildSnapshot(t, reopenedCtx, reopenedArchive); after != before {
 		t.Fatal("duplicate startup changed persisted generation")
 	}
 }

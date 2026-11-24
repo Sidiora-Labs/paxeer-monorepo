@@ -10,7 +10,7 @@ import (
 )
 
 func TestMultihopRouteChecksEveryBoundedEvidenceField(t *testing.T) {
-	f := newRepair70Fixture(t)
+	f := newCanonicalWalletFixture(t)
 	ctx := context.Background()
 	for _, tc := range []struct {
 		name, sql string

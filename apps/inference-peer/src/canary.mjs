@@ -160,11 +160,15 @@ export class CanaryTracker {
       ),
       integerBytes(this.#deal.epoch, 8),
       integerBytes(this.#deal.config, 8),
-      Uint8Array.from(this.#deal.roster_digest),
+    );
+    const expectedLap = concat(
       Uint8Array.from(plan.deal_id),
       integerBytes(plan.lap_index, 8),
     );
-    if (!equal(context.subarray(0, 184), expected))
+    if (
+      !equal(context.subarray(0, 112), expected) ||
+      !equal(context.subarray(144, 184), expectedLap)
+    )
       return refusal("answer_context_mismatch");
     const promptDigest = await domainHash(
       "PAXAI/canary-prompt/v1",

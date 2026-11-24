@@ -37,5 +37,5 @@ serde_json = "1.0"
 toml = "0.5"
 
 [[test]]
-name = "repair_22_33_312"
-path = "../tests/repair_22_33_312.rs"
+name = "documented_abi_http"
+path = "../tests/documented_abi_http.rs"

@@ -7,8 +7,8 @@ configuration to `app`, and connects `app` and `nginx` on one private bridge.
 The supported procedure below uses this Compose file throughout.
 
 See the [data API guide](../../../docs/perps/data-api.md) for the application gateway protocol,
-[settings guide](../src/app/modals/SettingsModal.md) for UI preferences, and
-[component guide](../src/components/paxeer/README.md) for live widget integration.
+[workspace guide](../README.md) for UI preferences, and
+[web application](../apps/web) for live widget integration.
 
 ## TL;DR (first-time deploy)
 
@@ -37,21 +37,26 @@ Compose interpolation; clear stale exported values before deploying.
 ```text
 browser → nginx HTTPS ingress → app:3000 (private Compose bridge)
                                              ├─ /api/build-id
-                                             └─ /api/candle/* → external candle feed
+                                             └─ /api/candle/* → configured gateway origin
 browser → perps data gateway (REST / WebSocket / GraphQL)
+app /api/price-feed/* → authenticated price feed
 browser / wallet → Paxeer node JSON-RPC at the node root
 ```
 
-Paxeer mainnet-beta is one BFT chain, EVM chain ID **125 (`0x7d`)**. The kernel
-is part of block proposal; receipts are final at block commit. Public JSON-RPC
-uses the node root URLs declared in [`core/rpc.ts`](../src/core/rpc.ts). The data gateway origin is a separate
+Paxeer mainnet-beta is one chain, EVM chain ID **125 (`0x7d`)**. The LayerX kernel
+inside paxd executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when the validators commit
+its block. Public JSON-RPC
+uses the node root URLs declared in [`core/rpc.ts`](../packages/paxeer-backend/src/core/rpc.ts). The data gateway origin is a separate
 application configuration, not another chain or finality stage. Sub-chains are
 tenant domains in the database and do not require a frontend-specific node.
 
 The nginx service publishes ports 80 and 443. It reaches the frontend using
 `app:3000` on the shared `internal` bridge; the app publishes no host ports.
 The bridge allows outbound access to the data gateway and candle feed.
-nginx waits for the app's image health check on initial startup. After an app
+nginx waits for the app's image health check on initial startup. Set the trusted
+proxy peer lists only for ingress peers that overwrite `X-Real-IP`; otherwise
+the routes use the socket peer for client identity. After an app
 recreation, nginx must resolve its new address. In the operator-supplied TLS
 server's `location /`, use the DNS resolver reachable from nginx and a variable
 upstream. Read the nameserver from the nginx container's `/etc/resolv.conf` and substitute
@@ -64,6 +69,7 @@ proxy_pass http://$perps_upstream;
 proxy_set_header Host $host;
 proxy_set_header X-Forwarded-Proto $scheme;
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Real-IP $remote_addr;
 ```
 
 Include these directives inside the appropriate nginx context; they are not a
@@ -74,13 +80,12 @@ refresh after replacement, then repeat the ingress health checks.
 
 ## Files
 
-| File | Current purpose |
-| --- | --- |
-| [`../Dockerfile`](../Dockerfile) | Digest-pinned Node and charting stages, pnpm install, standalone build, non-root runtime and image health check |
-| [`docker-compose.yml`](docker-compose.yml) | app build/runtime configuration, shared bridge and health-ordered nginx startup |
-| [`.env.production.example`](.env.production.example) | Public build inputs, server runtime inputs and explicit image revision |
-| [`build-args.production.env`](build-args.production.env) | Public build-argument values; Docker does not automatically read an env file as build arguments |
-| [`../ecosystem.config.js`](../ecosystem.config.js) | Host PM2 configuration; set `cwd` to the deployed application directory before use |
+| File                                                     | Current purpose                                                                                                 |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| [`../Dockerfile`](../Dockerfile)                         | Digest-pinned Node and charting stages, pnpm install, standalone build, non-root runtime and image health check |
+| [`docker-compose.yml`](docker-compose.yml)               | app build/runtime configuration, shared bridge and health-ordered nginx startup                                 |
+| [`.env.production.example`](.env.production.example)     | Public build inputs, server runtime inputs and explicit image revision                                          |
+| [`build-args.production.env`](build-args.production.env) | Public build-argument values; Docker does not automatically read an env file as build arguments                 |
 
 The Compose mounts require operator-supplied nginx config, certificates,
 ACME webroot and DH parameters. Starting this
@@ -106,35 +111,43 @@ Cloudflare dashboard walkthrough or firewall installer is included here.
 monorepo root. Docker's build context excludes `.env*`, so copying that file
 alone does not configure a Docker build.
 
-| Variable | Contract |
-| --- | --- |
-| `NEXT_PUBLIC_PERPS_GATEWAY_URL` | Required bare HTTP(S) origin. Parsed at module load; missing or malformed values throw. Frontend derives `/api`, `/ws` and `/graphql`. |
-| `NEXT_PUBLIC_PAXEER_RPC_URL` | Primary root-path node JSON-RPC URL. |
-| `NEXT_PUBLIC_PAXEER_RPC_URLS` | Optional comma-separated fallback list; see [`core/rpc.ts`](../src/core/rpc.ts) for selection. |
-| `NEXT_PUBLIC_MARKET_PROXY_HOST` | Optional browser feed hostname override. |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Embedded-wallet sign-in configuration; when either is blank in the bundle, that sign-in section is hidden. |
-| `NEXT_PUBLIC_PAXEER_WALLET_API` | Embedded-wallet API origin. |
-| `NEXT_PUBLIC_AUTH_REDIRECT_URL`, `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN` | Optional auth callback and trusted wallet messaging origin configuration. |
-| `NEXT_PUBLIC_PAXSCAN_API_URL`, `NEXT_PUBLIC_PAXSCAN_WS_URL`, `NEXT_PUBLIC_PAXSCAN_BASE_URL` | Explorer integration and transaction links. |
-| `NEXT_PUBLIC_RELEASE_SPOT_OPEN` | `1` opens the spot route/navigation/markets mode. Blank keeps the release gate closed. |
-| `MARKET_PROXY_HOST` | Server candle-feed hostname; the default is declared in the candle route. |
-| `MARKET_PROXY_ORIGIN` | Required server upstream Origin header: exact bare HTTP(S) origin, with no trailing slash, path, credentials, query or fragment. |
-| `VERCEL_GIT_COMMIT_SHA` or `RAILWAY_GIT_COMMIT_SHA` | Runtime build identity for `/api/build-id`; Railway takes precedence. Unset values report `development`. |
+| Variable                                                                                    | Contract                                                                                                                               |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_PERPS_GATEWAY_URL`                                                             | Required bare HTTP(S) origin. Parsed at module load; missing or malformed values throw. Frontend derives `/api`, `/ws` and `/graphql`. |
+| `NEXT_PUBLIC_PAXEER_RPC_URL`                                                                | Primary root-path node JSON-RPC URL.                                                                                                   |
+| `NEXT_PUBLIC_PAXEER_RPC_URLS`                                                               | Optional comma-separated fallback list; see [`core/rpc.ts`](../packages/paxeer-backend/src/core/rpc.ts) for selection.                 |
+| `NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS`                                                     | Comma-separated browser origins allowed to use the public price feed directly.                                                         |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                          | Embedded-wallet sign-in configuration; when either is blank in the bundle, that sign-in section is hidden.                             |
+| `NEXT_PUBLIC_PAXEER_WALLET_API`                                                             | Embedded-wallet API origin.                                                                                                            |
+| `NEXT_PUBLIC_AUTH_REDIRECT_URL`, `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN`                         | Optional auth callback and trusted wallet messaging origin configuration.                                                              |
+| `NEXT_PUBLIC_PAXSCAN_API_URL`, `NEXT_PUBLIC_PAXSCAN_WS_URL`, `NEXT_PUBLIC_PAXSCAN_BASE_URL` | Explorer integration and transaction links.                                                                                            |
+| `NEXT_PUBLIC_RELEASE_SPOT_OPEN`                                                             | `1` opens the spot route/navigation/markets mode. Blank keeps the release gate closed.                                                 |
+| `NEXT_PUBLIC_RELEASE`                                                                       | Optional client release identifier included in error reports.                                                                          |
+| `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_ENV`                                          | Optional browser error reporting destination and environment.                                                                          |
+| `PRICE_FEED_ORIGIN`                                                                         | Server origin used by `/api/price-feed`; the SDK default is used when blank.                                                           |
+| `PRICE_FEED_REST_API_KEY`, `PRICE_FEED_WS_API_KEY`                                          | Server-only price-feed REST and WebSocket token credentials.                                                                           |
+| `CANDLE_TRUSTED_PROXY_IPS`, `PRESENCE_TRUSTED_PROXY_IPS`                                    | Comma-separated socket peer IPs trusted to supply `X-Real-IP`; configure ingress to overwrite this header.                             |
+| `NEXT_PUBLIC_LOG_LEVEL`                                                                     | Browser logger minimum level.                                                                                                          |
+| `MARKET_PROXY_ORIGIN`                                                                       | Required server upstream Origin header: exact bare HTTP(S) origin, with no trailing slash, path, credentials, query or fragment.       |
+| `VERCEL_GIT_COMMIT_SHA` or `RAILWAY_GIT_COMMIT_SHA`                                         | Runtime build identity for `/api/build-id`; Railway takes precedence. Unset values report `development`.                               |
+
+The candle route forwards allowlisted requests to the gateway origin from the
+public build settings. The price-feed route uses its server origin and credentials.
 
 The optional precompile overrides are validated in
-[`core/network/precompiles.ts`](../src/core/network/precompiles.ts). Each must
+[`core/network/precompiles.ts`](../packages/paxeer-backend/src/core/network/precompiles.ts). Each must
 be `0x` followed by exactly 40 hexadecimal digits; blank uses the release
 address. These suffixes are shown without their leading zero padding:
 
-| Override | Release address suffix |
-| --- | --- |
-| `NEXT_PUBLIC_PERPS_PRECOMPILE` | `0x1015` |
-| `NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE` | `0x1017` |
-| `NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE` | `0x1021` |
-| `NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE` | `0x1022` |
-| `NEXT_PUBLIC_PECOR_STOP_PRECOMPILE` | `0x1023` |
-| `NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE` | `0x1024` |
-| `NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE` | `0x1025` |
+| Override                              | Release address suffix |
+| ------------------------------------- | ---------------------- |
+| `NEXT_PUBLIC_PERPS_PRECOMPILE`        | `0x1015`               |
+| `NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE`    | `0x1017`               |
+| `NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE` | `0x1021`               |
+| `NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE` | `0x1022`               |
+| `NEXT_PUBLIC_PECOR_STOP_PRECOMPILE`   | `0x1023`               |
+| `NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE` | `0x1024`               |
+| `NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE`  | `0x1025`               |
 
 All `NEXT_PUBLIC_*` values are visible in browser code and are baked into the
 bundle. Changing them requires a rebuild with the corresponding Dockerfile
@@ -143,7 +156,7 @@ keys are client identifiers; private keys, service-role credentials and
 signing secrets must never be public build inputs.
 
 Server-only values must reach the actual server process. The Dockerfile does
-not embed `MARKET_PROXY_HOST` or `MARKET_PROXY_ORIGIN`. Pass them at container
+not embed `PRICE_FEED_ORIGIN` or `MARKET_PROXY_ORIGIN`. Pass them at container
 creation. A plain `docker restart` or `docker compose --env-file ... restart`
 retains the existing container environment; it does not load edited values.
 Apply edited server values to the configured `app` service using
@@ -164,21 +177,25 @@ docker compose --env-file .env.production -f deploy/docker-compose.yml build app
 
 Compose's build context is `..` relative to the file in `deploy`, so it uses
 `apps/perps/Dockerfile`, the application source and its `.dockerignore`.
-The image tag, public build identity and runtime build identity all use
-`BUILD_COMMIT_SHA`. The env file configures interpolation; it is not copied
+The image tag and runtime build identity both use `BUILD_COMMIT_SHA`. The env file configures interpolation; it is not copied
 into the image or injected wholesale at runtime.
 
-Only arguments declared by the Dockerfile affect the build. Consult its
-`ARG NEXT_PUBLIC_*` declarations when adding configuration; an environment
-variable in a template is not proof that the image forwards it. For example,
-`NEXT_PUBLIC_NETWORK_STATUS_WS_URL` is in the template but currently has no
-Dockerfile build argument.
+Public settings are declared once each as sorted Docker build arguments and
+forwarded by Compose. `build-args.production.env` supplies public values to
+the image publishing script. The production build takes
+`NEXT_PUBLIC_PERPS_GATEWAY_URL=https://perps-api.paxeer.app` from that file.
+Another deployment sets its own gateway origin; `.env.production.example`
+leaves this value empty. Optional blank arguments use application defaults.
 
-The Dockerfile installs with the app's frozen pnpm lockfile, copies the
-charting library from its pinned image, checks the standalone charting script,
-and runs `pnpm build`. Keep the image digest checks and charting asset check.
-The runtime uses UID 1001 and `tini`, defaults to port 3000 and starts
-`node server.js`.
+The Dockerfile installs the whole workspace with its frozen pnpm lockfile and
+manifest-pinned package manager. It copies the charting library and datafeeds
+from the digest-pinned charting image, requires its standalone script and
+builds the web application into `apps/web/.next-production`. The runner uses
+UID 1001 and `tini`, listens on port 3000 and starts `node apps/web/server.js`.
+It contains the workspace standalone output, web static output and public assets.
+Railway uses `railway.json` at the workspace root and probes `/api/build-id`;
+its web project variables supply the same server-only settings as Compose.
+The Vercel builder targets `apps/web/package.json` and the production output.
 
 ### 4. Start the stack
 
@@ -256,7 +273,7 @@ address without requiring an nginx restart.
 ### Roll back
 
 Restore the retained environment file to `.env.production`, including its
-`BUILD_COMMIT_SHA`, `MARKET_PROXY_ORIGIN`, `MARKET_PROXY_HOST` and public build
+`BUILD_COMMIT_SHA`, `MARKET_PROXY_ORIGIN`, `PRICE_FEED_ORIGIN` and public build
 inputs. Retain that revision-tagged image locally; do not rebuild it or prune
 it before the rollback window closes. Then run:
 
@@ -277,7 +294,7 @@ Both Compose services use `json-file` rotation at 50 MB × 5 files.
 
 ### Apply server-only environment changes
 
-Edit `MARKET_PROXY_ORIGIN` or `MARKET_PROXY_HOST` in `.env.production`, keep
+Edit `MARKET_PROXY_ORIGIN` or `PRICE_FEED_ORIGIN` in `.env.production`, keep
 `BUILD_COMMIT_SHA` unchanged to use the **same image**, and recreate the app:
 
 ```bash
@@ -325,8 +342,7 @@ when needed.
 
 Set `BUILD_COMMIT_SHA` in the Compose env file for the image being launched;
 Compose forwards it as runtime `VERCEL_GIT_COMMIT_SHA`.
-`NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA` is a separate public build argument and does not by itself set the server-only variable this endpoint
-reads. An arbitrary configured identity is not independent image attestation.
+`RAILWAY_GIT_COMMIT_SHA` takes precedence when Railway supplies it.
 
 ## Deployment responsibilities
 

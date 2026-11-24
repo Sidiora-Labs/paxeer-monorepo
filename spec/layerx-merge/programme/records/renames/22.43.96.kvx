@@ -1,0 +1,228 @@
+[manifest]
+task = "22.43.96"
+records_moved = 8
+files_renamed = 13
+
+[file.001]
+from = "programs/sdk/c/tests/repair_22_33_245.kvx"
+to = "spec/layerx-merge/programme/records/programs/sdk/c/tests/repair_22_33_245.kvx"
+
+[file.002]
+from = "programs/sdk/c/tests/repair_374.kvx"
+to = "spec/layerx-merge/programme/records/programs/sdk/c/tests/repair_374.kvx"
+
+[file.003]
+from = "programs/sdk/rust/examples/swap-cpmm/src/repair_22_31_264.kvx"
+to = "spec/layerx-merge/programme/records/programs/sdk/rust/examples/swap-cpmm/src/repair_22_31_264.kvx"
+
+[file.004]
+from = "programs/sdk/rust/examples/swap-cpmm/src/repair_22_33_250.kvx"
+to = "spec/layerx-merge/programme/records/programs/sdk/rust/examples/swap-cpmm/src/repair_22_33_250.kvx"
+
+[file.005]
+from = "programs/sdk/rust/lint/src/repair_22_33_247.kvx"
+to = "spec/layerx-merge/programme/records/programs/sdk/rust/lint/src/repair_22_33_247.kvx"
+
+[file.006]
+from = "programs/sdk/rust/lint/tests/repair_22_33_248.kvx"
+to = "spec/layerx-merge/programme/records/programs/sdk/rust/lint/tests/repair_22_33_248.kvx"
+
+[file.007]
+from = "programs/sdk/rust/repair_22_39_452.kvx"
+to = "spec/layerx-merge/programme/records/programs/sdk/rust/repair_22_39_452.kvx"
+
+[file.008]
+from = "programs/sdk/rust/src/repair_22_33_244.kvx"
+to = "spec/layerx-merge/programme/records/programs/sdk/rust/src/repair_22_33_244.kvx"
+
+[file.009]
+from = "programs/sdk/assemblyscript/build/repair_22_31_375.wasm"
+to = "programs/sdk/assemblyscript/build/signature_host_evidence.wasm"
+
+[file.010]
+from = "programs/sdk/assemblyscript/tests/repair_22_31_375.ts"
+to = "programs/sdk/assemblyscript/tests/signature_host_evidence.ts"
+
+[file.011]
+from = "programs/sdk/rust/examples/naming/tests/repair_22_33_243.rs"
+to = "programs/sdk/rust/examples/naming/tests/reverse_name_recovery.rs"
+
+[file.012]
+from = "programs/sdk/rust/examples/swap-cpmm/tests/repair_22_31_264.rs"
+to = "programs/sdk/rust/examples/swap-cpmm/tests/settlement_token_routes.rs"
+
+[file.013]
+from = "programs/sdk/rust/examples/swap-cpmm/tests/repair_22_33_250.rs"
+to = "programs/sdk/rust/examples/swap-cpmm/tests/settlement_composition_documentation.rs"
+
+[file.014]
+from = "programs/sdk/rust/lint/tests/repair_22_33_247.rs"
+to = "programs/sdk/rust/lint/tests/v5_import_validation.rs"
+
+[file.015]
+from = "programs/sdk/rust/lint/tests/repair_22_33_248.rs"
+to = "programs/sdk/rust/lint/tests/v5_market_import_validation.rs"
+
+[file.016]
+from = "programs/sdk/rust/tests/repair_22_33_242.rs"
+to = "programs/sdk/rust/tests/call_boundary_transport.rs"
+
+[file.017]
+from = "programs/sdk/rust/tests/repair_22_33_244.rs"
+to = "programs/sdk/rust/tests/capability_and_web_boundaries.rs"
+
+[file.018]
+from = "programs/sdk/rust/tests/repair_22_31_265.rs"
+to = "programs/sdk/rust/tests/cross_language_call_budget.rs"
+
+[file.019]
+from = "programs/sdk/rust/tests/fixtures/repair_22_33_242/bytes.interface"
+to = "programs/sdk/rust/tests/fixtures/bounded_call_fixture/bytes.interface"
+
+[file.020]
+from = "programs/sdk/rust/tests/fixtures/repair_22_33_242/client.inc"
+to = "programs/sdk/rust/tests/fixtures/bounded_call_fixture/client.inc"
+
+[file.021]
+from = "programs/sdk/rust/tests/fixtures/repair_22_33_242/sink.wasm"
+to = "programs/sdk/rust/tests/fixtures/bounded_call_fixture/sink.wasm"
+
+[reference.001]
+file = "GOTCHA.kvx"
+name = "repair_22_33_242"
+
+[reference.002]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "programs/sdk/rust/lint/tests/repair_22_33_248.rs"
+
+[reference.003]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "programs/sdk/rust/tests/repair_22_33_242.rs"
+
+[reference.004]
+file = "spec/layerx-merge/programme/issues/1672.kvx"
+name = "programs/sdk/rust/lint/tests/repair_22_33_248.kvx"
+
+[reference.005]
+file = "spec/layerx-merge/programme/issues/1672.kvx"
+name = "programs/sdk/rust/lint/tests/repair_22_33_248.rs"
+
+[reference.006]
+file = "spec/layerx-merge/programme/issues/input/1672.md"
+name = "programs/sdk/rust/lint/tests/repair_22_33_248.kvx"
+
+[reference.007]
+file = "spec/layerx-merge/programme/sweeps/rust-test-programs.kvx"
+name = "programs/sdk/rust/tests/repair_22_31_265.rs"
+
+[reference.008]
+file = "spec/layerx-merge/qualification.kvx"
+name = "programs/sdk/rust/lint/tests/repair_22_33_248.rs"
+
+[reference.009]
+file = "spec/layerx-merge/qualification.kvx"
+name = "programs/sdk/rust/tests/repair_22_33_242.rs"
+
+[reference.010]
+file = "spec/layerx-merge/qualification.kvx"
+name = "programs/sdk/rust/tests/repair_22_33_244.rs"
+
+[reference.011]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_242.rs"
+
+[reference.012]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_244.rs"
+
+[reference.013]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_248.rs"
+
+[reference.014]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/assemblyscript/build/repair_22_31_375.wasm"
+
+[reference.015]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/assemblyscript/tests/repair_22_31_375.ts"
+
+[reference.016]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/examples/naming/tests/repair_22_33_243.rs"
+
+[reference.017]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/examples/swap-cpmm/tests/repair_22_31_264.rs"
+
+[reference.018]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/examples/swap-cpmm/tests/repair_22_33_250.rs"
+
+[reference.019]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/lint/tests/repair_22_33_247.rs"
+
+[reference.020]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/lint/tests/repair_22_33_248.rs"
+
+[reference.021]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/repair_22_39_452.kvx"
+
+[reference.022]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/tests/repair_22_31_265.rs"
+
+[reference.023]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/tests/repair_22_33_242.rs"
+
+[reference.024]
+file = "spec/layerx-merge/spec.kvx"
+name = "programs/sdk/rust/tests/repair_22_33_244.rs"
+
+[reference.025]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_264"
+
+[reference.026]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_265"
+
+[reference.027]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_375.ts"
+
+[reference.028]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_375.wasm"
+
+[reference.029]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_242"
+
+[reference.030]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_243"
+
+[reference.031]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_244"
+
+[reference.032]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_247"
+
+[reference.033]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_248"
+
+[reference.034]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_250"
+
+[reference.035]
+file = "tools/qualification/paxeer-x/programs_language_abi.py"
+name = "repair_22_33_247"

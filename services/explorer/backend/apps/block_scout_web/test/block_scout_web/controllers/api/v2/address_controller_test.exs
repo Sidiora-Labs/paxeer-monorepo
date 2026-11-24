@@ -39,8 +39,9 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
     def call(conn, {owner, responses}) do
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       payload = if body == "", do: nil, else: Jason.decode!(body)
-      send(owner, {:bens_request, conn.method, conn.request_path, payload})
-      response = Map.fetch!(responses, {conn.method, conn.request_path})
+      path = URI.decode(conn.request_path)
+      send(owner, {:bens_request, conn.method, path, payload})
+      response = Map.fetch!(responses, {conn.method, path})
 
       conn
       |> Plug.Conn.put_resp_content_type("application/json")
@@ -455,6 +456,9 @@ defmodule BlockScoutWeb.API.V2.AddressControllerTest do
     end
 
     test "get watchlist id", %{conn: conn} do
+      previous = Application.get_env(:explorer, Explorer.Account)
+      Application.put_env(:explorer, Explorer.Account, Keyword.put(previous, :enabled, true))
+      on_exit(fn -> Application.put_env(:explorer, Explorer.Account, previous) end)
       auth = build(:auth)
       address = insert(:address)
       {:ok, user} = Identity.find_or_create(auth)

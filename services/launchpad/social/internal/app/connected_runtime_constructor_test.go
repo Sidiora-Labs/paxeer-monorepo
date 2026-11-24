@@ -192,7 +192,7 @@ func TestConnectedRuntimeBindsRealBrokerAndConsumers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claims, err := json.Marshal(map[string]any{"iss": accountKey, "sub": userKey, "iat": time.Now().Unix(), "nats": map[string]any{"type": "user", "pub": map[string]any{}, "sub": map[string]any{}}})
+	claims, err := json.Marshal(map[string]any{"iss": accountKey, "sub": userKey, "iat": time.Now().Unix(), "nats": map[string]any{"type": "user", "version": 2, "pub": map[string]any{}, "sub": map[string]any{}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,10 +397,6 @@ func TestConnectedRuntimeBindsRealBrokerAndConsumers(t *testing.T) {
 		t.Fatalf("connected liveness = %d: %s", probe.Code, probe.Body.String())
 	}
 	app.Close()
-	role := pgx.Identifier{h.app.pool.Config().ConnConfig.User}.Sanitize()
-	if _, err := h.dbConn.Exec(ctx, `GRANT SELECT,UPDATE ON chat.safety_outbox TO `+role); err != nil {
-		t.Fatal(err)
-	}
 	tx, err := h.dbConn.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -436,5 +432,6 @@ func TestConnectedRuntimeBindsRealBrokerAndConsumers(t *testing.T) {
 	if failure := runtime.failure.Load(); failure != nil {
 		t.Fatalf("connected worker = %v", *failure)
 	}
-
+	runtime.close()
+	assertComposedSocialDeployment(t, h, binding)
 }

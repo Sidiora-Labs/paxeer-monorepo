@@ -30,7 +30,7 @@ func HistoryTable(service, schema string) (string, error) {
 		"core/api":                    {"api_stream", "migration_control.api_versions"},
 		"core/trading-charts":         {"candles", "migration_control.trading_charts_versions"},
 		valueCoreStatsWorkers:         {"stats", "migration_control.stats_workers_versions"},
-		"core/pnl-tracker":            {"pnl", "migration_control.pnl_tracker_versions"},
+		"core/pnl-tracker":            {valuePnl, "migration_control.pnl_tracker_versions"},
 		"media/user":                  {"users", "migration_control.user_versions"},
 		"media/social":                {"chat", "migration_control.social_versions"},
 		"media/metadata":              {"metadata", "migration_control.metadata_versions"},
@@ -38,7 +38,7 @@ func HistoryTable(service, schema string) (string, error) {
 		"core/ranking-algo":           {"ranking", "migration_control.ranking_versions"},
 		"core/stats-workers/search":   {"stats_search", "migration_control.search_versions"},
 		"platform/recovery":           {"recovery", "migration_control.recovery_versions"},
-		"security/control":            {"pnl", "migration_control.control_versions"},
+		"security/control":            {valuePnl, "migration_control.control_versions"},
 		"core/stats-workers/holdings": {"stats_transfer_holdings", "migration_control.stats_transfer_holdings_versions"},
 		valueCoreApiCache:             {valueApiLimits, "migration_control.api_limits_versions"},
 		valueCoreDiscovery:            {valueNarrativeDiscovery, "migration_control.narrative_discovery_versions"},
@@ -46,7 +46,7 @@ func HistoryTable(service, schema string) (string, error) {
 		"media/gateway/audit-source":  {"gateway_audit_source", "migration_control.gateway_audit_source_versions"},
 		"media/gateway/audit-sink":    {"gateway_audit_sink", "migration_control.gateway_audit_sink_versions"},
 		"media/gateway/storage":       {"gateway", "migration_control.gateway_storage_versions"},
-		"security/policy":             {"security", "migration_control.security_policy_versions"},
+		"security/policy":             {valueSecurity, "migration_control.security_policy_versions"},
 	}
 	h, ok := histories[service]
 	if !ok || h[0] != schema {
@@ -63,6 +63,7 @@ type MigrationManifest struct {
 	Path                   string                 `json:"path"`
 	SHA256                 string                 `json:"sha256"`
 	PredecessorIDs         []int64                `json:"predecessor_ids"`
+	LegacyDependencies     []string               `json:"legacy_dependencies,omitempty"`
 	LegacyPredecessors     []LegacyMigrationAlias `json:"legacy_predecessors"`
 	InterfaceDigest        string                 `json:"interface_digest"`
 	ReaderMinVersion       int64                  `json:"reader_min_version"`
@@ -73,7 +74,16 @@ type MigrationManifest struct {
 	Destructive            bool                   `json:"destructive"`
 	ApprovalManifestDigest string                 `json:"approval_manifest_digest"`
 	// All deployed readers must have positive compatibility evidence before contraction.
-	ReaderCompatibilityProof string `json:"reader_compatibility_proof,omitempty"`
+	ReaderCompatibilityProof string           `json:"reader_compatibility_proof,omitempty"`
+	SourceInputs             []SourceInput    `json:"source_inputs,omitempty"`
+	OnlineIndex              *OnlineIndexPlan `json:"online_index,omitempty"`
+}
+
+// SourceInput binds a reviewed source consumed by a migration.  Approval
+// checks the bytes at the recorded monorepo path before admitting a release.
+type SourceInput struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
 }
 
 func Checksum(sql []byte) string { s := sha256.Sum256(sql); return hex.EncodeToString(s[:]) }
@@ -116,8 +126,14 @@ func (m MigrationManifest) Validate(sql []byte, registry map[int64]MigrationMani
 	if m.ReaderMinVersion < 1 || deployedReaderMin < m.ReaderMinVersion || m.EstimatedLockMS <= 0 || m.EstimatedLockMS > 2000 || m.RollbackStrategy == "" || m.BackfillStrategy == "" {
 		return fmt.Errorf("missing safety metadata or incompatible reader")
 	}
-	if m.TransactionMode != valueTransactional && m.TransactionMode != "nontransactional" {
+	if m.TransactionMode != valueTransactional && m.TransactionMode != valueNontransactional {
 		return fmt.Errorf("unknown transaction mode")
+	}
+	if m.OnlineIndex != nil {
+		statement, err := m.OnlineIndex.CreateSQL()
+		if err != nil || m.TransactionMode != valueNontransactional || m.OnlineIndex.Schema != m.Schema || string(sql) != statement {
+			return fmt.Errorf("online index differs from registered SQL")
+		}
 	}
 	if m.Destructive && !validDigest(m.ReaderCompatibilityProof) {
 		return fmt.Errorf("destructive migration requires reader compatibility evidence")
@@ -224,10 +240,11 @@ func (a LegacyMigrationAlias) Key() (string, error) {
 }
 
 type MigrationRegistry struct {
-	SchemaVersion    int                 `json:"schema_version"`
-	ApplicationOrder []int64             `json:"application_order"`
-	Registrations    []MigrationManifest `json:"registrations"`
-	ApprovalDigest   string              `json:"approval_digest"`
+	SchemaVersion      int                 `json:"schema_version"`
+	ApplicationOrder   []int64             `json:"application_order"`
+	Registrations      []MigrationManifest `json:"registrations"`
+	ApprovalDigest     string              `json:"approval_digest"`
+	ServerMajorVersion int                 `json:"server_major_version"`
 }
 
 func (r MigrationRegistry) ValidateOrder() (map[int64]MigrationManifest, error) {
@@ -729,7 +746,7 @@ func validateExpectedSchema(want ExpectedSchema) error {
 					return fmt.Errorf("invalid sequence privilege")
 				}
 			default:
-				if p != valueSELECT && p != "INSERT" && p != valueUPDATE && p != "DELETE" {
+				if p != valueSELECT && p != valueINSERT && p != valueUPDATE && p != valueDELETE {
 					return fmt.Errorf("unsafe expected table privilege")
 				}
 			}
@@ -739,7 +756,7 @@ func validateExpectedSchema(want ExpectedSchema) error {
 				return fmt.Errorf("invalid expected column")
 			}
 		}
-		if len(g.Columns) > 0 && (kind == valueFunction || kind == valueSequence || len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE)) {
+		if len(g.Columns) > 0 && (kind == valueFunction || kind == valueSequence || len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE && !operatorInsertGrant(want.Service, g))) {
 			return fmt.Errorf("invalid expected column privilege")
 		}
 		if kind != valueFunction && len(g.ArgumentTypes) > 0 {

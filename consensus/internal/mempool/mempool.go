@@ -121,6 +121,11 @@ type Config struct {
 	DropPriorityReservoirSize int `mapstructure:"drop-priority-reservoir-size"`
 }
 
+// HasNoEntryTimeLimit reports whether neither entry time limit is configured.
+func (cfg *Config) HasNoEntryTimeLimit() bool {
+	return cfg.TTLDuration.Or(0) == 0 && cfg.TTLNumBlocks.Or(0) == 0
+}
+
 func DefaultConfig() *Config {
 	return &Config{
 		// Each signature verification takes .5ms, Size reduced until we implement
@@ -220,6 +225,9 @@ func NewTxMempool(
 		metrics:              metrics,
 		txStore:              NewTxStore(cfg, app, metrics),
 		txConstraintsFetcher: txConstraintsFetcher,
+	}
+	if cfg.HasNoEntryTimeLimit() {
+		logger.Warn("mempool has no entry time limit; configure ttl-duration or ttl-num-blocks")
 	}
 
 	if cfg.DuplicateTxsCacheSize > 0 {

@@ -2,10 +2,11 @@
 
 The services under [services/platform/perps-data](../services/platform/perps-data)
 index and serve the native [market venues](markets.md) on Paxeer mainnet-beta,
-chain ID 125 (`0x7d`). They read the same BFT chain that executes transactions;
-a receipt is final when its block commits. The kernel belongs to that network
-and proposes blocks. An indexer cursor or a socket acknowledgment reports data
-service progress, not a second finality stage.
+chain ID 125 (`0x7d`). They read the same chain. A receipt is final when the
+validators commit its block. The LayerX kernel inside `paxd` executes and orders
+each transaction and builds each block; validators check and commit it. An indexer
+cursor or a socket acknowledgment reports data service progress, not a second
+finality stage.
 
 The [perps client](perps-client.md) uses the data gateway for REST, GraphQL and
 subscriptions, and node JSON-RPC for chain reads and transaction submission.

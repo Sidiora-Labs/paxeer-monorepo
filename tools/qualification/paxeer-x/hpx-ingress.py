@@ -11,7 +11,7 @@ import subprocess
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
-DEFAULT = Path('/root/lx-ops/paxeer-x-integration-2026-10-03/task-0.16-hpx-gate')
+DEFAULT = ROOT / "build/qualification/hpx-ingress"
 SOURCES = ('services/platform/hosted/gateway/src/lib.rs', 'services/platform/hosted/gateway/src/main.rs',
            'services/platform/hosted/gateway/src/routes.rs', 'services/platform/hosted/gateway/src/http.rs',
            'tools/paxeer-x/route-catalogue.json', 'services/platform/hosted/gateway/tests/hpx_ingress.rs',
@@ -122,11 +122,11 @@ def main():
     require(directory.is_absolute() and not any(part.startswith('.env') for part in directory.parts), 'private evidence path required')
     if args.build:
         require(not directory.exists(), 'gate build evidence already exists')
-        directory.mkdir(mode=0o700)
+        directory.mkdir(mode=0o700, parents=True)
     info = directory.lstat()
     require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid() and not info.st_mode & 0o077,
             'owned protected gate directory required')
-    env = dict(os.environ, CARGO_TARGET_DIR='/root/lx-target/migration-gateway', CARGO_BUILD_JOBS='2',
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get("CARGO_TARGET_DIR", str(ROOT / "services/platform/target")), CARGO_BUILD_JOBS='2',
                PAXEER_X_HPX_GATE_DIRECTORY=str(directory), GOMAXPROCS='2')
     if args.build or args.repair_hpx_build or args.repair_fixture_build:
         source = directory / 'hpx'
@@ -158,10 +158,10 @@ def main():
                 shutil.copyfile(ROOT / 'tools/hpx/registry' / name, source / name)
             (source / 'hpx_ingress_test.go').write_text(FIXTURE)
             command(['bash','-n',str(ROOT/'tools/hpx/hpx')],ROOT,directory/'hpx-cli-build.log',env,10)
-            command(['/root/.cargo/bin/cargo','test','--locked','--manifest-path','services/platform/Cargo.toml',
+            command(["cargo",'test','--locked','--manifest-path','services/platform/Cargo.toml',
                      '-p','layerx-platform-gateway','--test','hpx_ingress','--no-run'],
                     ROOT,directory/'gateway-build.log',env,600)
-        command(['/usr/local/go/bin/go','test','-c','-o',str(directory/'hpx-ingress-fixture')],
+        command(['go','test','-c','-o',str(directory/'hpx-ingress-fixture')],
                 source,directory/('hpx-build-repair-2.log' if args.repair_fixture_build else 'hpx-build.log'),env,180)
         record = {'sources':{path:digest(ROOT/path) for path in SOURCES},
                   'fixture_sha256':digest(source/'hpx_ingress_test.go'),
@@ -184,7 +184,7 @@ def main():
             while not (directory/'ready.json').exists():
                 require(process.poll() is None and time.monotonic()<deadline,'actual HPX TLS process unavailable')
                 time.sleep(.02)
-            command(['/root/.cargo/bin/cargo','test','--locked','--manifest-path','services/platform/Cargo.toml',
+            command(["cargo",'test','--locked','--manifest-path','services/platform/Cargo.toml',
                      '-p','layerx-platform-gateway','--test','hpx_ingress'],
                     ROOT,directory/'gateway-verify.log',env,300)
             (directory/'stop').touch(mode=0o600)

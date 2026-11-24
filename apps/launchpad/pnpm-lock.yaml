@@ -44,6 +44,21 @@ overrides:
   deepmerge: npm:@stackline/deepmerge@1.1.0
 
 patchedDependencies:
+  '@eslint/config-array@0.21.2':
+    hash: eaoe5goh43omzihzbk6sjjhgwm
+    path: patches/@eslint__config-array@0.21.2.patch
+  '@eslint/eslintrc@3.3.7':
+    hash: 7xovle2kd4gd65tdbjasnrtway
+    path: patches/@eslint__eslintrc@3.3.7.patch
+  eslint-plugin-import@2.32.0:
+    hash: vkdwdbkq3od2mnl7rumx7w3fsy
+    path: patches/eslint-plugin-import@2.32.0.patch
+  eslint-plugin-jsx-a11y@6.10.2:
+    hash: kiwoni364372gpg4zx2cuxs36q
+    path: patches/eslint-plugin-jsx-a11y@6.10.2.patch
+  eslint-plugin-react@7.37.5:
+    hash: btn3jimahppuym2mwb2ra2vt6a
+    path: patches/eslint-plugin-react@7.37.5.patch
   metro@0.84.4:
     hash: o4s5vayd6jsdwlnsiomcacugfa
     path: patches/metro@0.84.4.patch
@@ -155,6 +170,9 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+      viem:
+        specifier: 2.37.3
+        version: 2.37.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.6)
 
   mobile:
     dependencies:
@@ -342,7 +360,7 @@ importers:
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3
-        version: 3.3.7
+        version: 3.3.7(patch_hash=7xovle2kd4gd65tdbjasnrtway)
       '@next/bundle-analyzer':
         specifier: 15.5.28
         version: 15.5.28(bufferutil@4.1.0)(utf-8-validate@5.0.10)
@@ -8303,7 +8321,7 @@ snapshots:
 
   '@eslint-community/regexpp@4.12.2': {}
 
-  '@eslint/config-array@0.21.2':
+  '@eslint/config-array@0.21.2(patch_hash=eaoe5goh43omzihzbk6sjjhgwm)':
     dependencies:
       '@eslint/object-schema': 2.1.7
       debug: 4.4.3
@@ -8319,7 +8337,7 @@ snapshots:
     dependencies:
       '@types/json-schema': 7.0.15
 
-  '@eslint/eslintrc@3.3.7':
+  '@eslint/eslintrc@3.3.7(patch_hash=7xovle2kd4gd65tdbjasnrtway)':
     dependencies:
       ajv: 6.15.0
       debug: 4.4.3
@@ -12924,9 +12942,9 @@ snapshots:
       eslint: 9.39.5(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.5(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.72.1(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.5(jiti@2.7.0))
-      eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.5(jiti@2.7.0))
-      eslint-plugin-react: 7.37.5(eslint@9.39.5(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(patch_hash=vkdwdbkq3od2mnl7rumx7w3fsy)(@typescript-eslint/parser@8.72.1(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.5(jiti@2.7.0))
+      eslint-plugin-jsx-a11y: 6.10.2(patch_hash=kiwoni364372gpg4zx2cuxs36q)(eslint@9.39.5(jiti@2.7.0))
+      eslint-plugin-react: 7.37.5(patch_hash=btn3jimahppuym2mwb2ra2vt6a)(eslint@9.39.5(jiti@2.7.0))
       eslint-plugin-react-hooks: 5.2.0(eslint@9.39.5(jiti@2.7.0))
     optionalDependencies:
       typescript: 5.9.3
@@ -12954,7 +12972,7 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.13.0
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.72.1(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.5(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(patch_hash=vkdwdbkq3od2mnl7rumx7w3fsy)(@typescript-eslint/parser@8.72.1(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.5(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -12969,7 +12987,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.72.1(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.5(jiti@2.7.0)):
+  eslint-plugin-import@2.32.0(patch_hash=vkdwdbkq3od2mnl7rumx7w3fsy)(@typescript-eslint/parser@8.72.1(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.5(jiti@2.7.0)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.2.0
@@ -12998,7 +13016,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-jsx-a11y@6.10.2(eslint@9.39.5(jiti@2.7.0)):
+  eslint-plugin-jsx-a11y@6.10.2(patch_hash=kiwoni364372gpg4zx2cuxs36q)(eslint@9.39.5(jiti@2.7.0)):
     dependencies:
       aria-query: 5.3.2
       array-includes: 3.2.0
@@ -13021,7 +13039,7 @@ snapshots:
     dependencies:
       eslint: 9.39.5(jiti@2.7.0)
 
-  eslint-plugin-react@7.37.5(eslint@9.39.5(jiti@2.7.0)):
+  eslint-plugin-react@7.37.5(patch_hash=btn3jimahppuym2mwb2ra2vt6a)(eslint@9.39.5(jiti@2.7.0)):
     dependencies:
       array-includes: 3.2.0
       array.prototype.findlast: 1.2.5
@@ -13063,10 +13081,10 @@ snapshots:
     dependencies:
       '@eslint-community/eslint-utils': 4.10.1(eslint@9.39.5(jiti@2.7.0))
       '@eslint-community/regexpp': 4.12.2
-      '@eslint/config-array': 0.21.2
+      '@eslint/config-array': 0.21.2(patch_hash=eaoe5goh43omzihzbk6sjjhgwm)
       '@eslint/config-helpers': 0.4.2
       '@eslint/core': 0.17.0
-      '@eslint/eslintrc': 3.3.7
+      '@eslint/eslintrc': 3.3.7(patch_hash=7xovle2kd4gd65tdbjasnrtway)
       '@eslint/js': 9.39.5
       '@eslint/plugin-kit': 0.4.1
       '@humanfs/node': 0.16.8
@@ -13752,6 +13770,10 @@ snapshots:
   isows@1.0.7(ws@8.21.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)):
     dependencies:
       ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+
+  isows@1.0.7(ws@8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)):
+    dependencies:
+      ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
 
   iterator.prototype@1.1.5:
     dependencies:
@@ -16116,6 +16138,23 @@ snapshots:
       isows: 1.0.7(ws@8.21.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))
       ox: 0.9.3(typescript@5.9.3)(zod@4.6.6)
       ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+
+  viem@2.37.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.6):
+    dependencies:
+      '@noble/curves': 1.9.7
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.1.0(typescript@5.9.3)(zod@4.6.6)
+      isows: 1.0.7(ws@8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))
+      ox: 0.9.3(typescript@5.9.3)(zod@4.6.6)
+      ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:

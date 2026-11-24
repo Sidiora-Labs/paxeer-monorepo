@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"net"
 	"net/http"
 	"slices"
 	"strings"
@@ -22,8 +24,9 @@ const spotUserQueueSize = 64
 var spotUserStreams = [...]string{"trade", "position", "pnl", "order", "closed-leg"}
 
 type SpotUser struct {
-	mu      sync.Mutex
-	sockets map[*spotUserSocket]struct{}
+	AllowedOrigins []string
+	mu             sync.Mutex
+	sockets        map[*spotUserSocket]struct{}
 }
 
 type spotUserKey struct {
@@ -106,12 +109,18 @@ func (s *SpotUser) CloseAll() {
 }
 
 func (s *SpotUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool {
+		return originAllowed(r, s.AllowedOrigins)
+	}}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
+			slog.Error("close websocket", "err", closeErr)
+		}
+	}()
 	base := &Socket{conn: conn, server: &Server{Now: time.Now, Ticker: realTicker, limits: DefaultLimits()}}
 	conn.SetReadLimit(maxClientFrameBytes)
 	base.lastPong.Store(time.Now().UnixNano())
@@ -143,7 +152,11 @@ func (s *SpotUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	go func() {
 		defer workers.Done()
-		defer conn.Close()
+		defer func() {
+			if closeErr := conn.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
+				slog.Error("close websocket", "err", closeErr)
+			}
+		}()
 		for {
 			select {
 			case <-socket.done:

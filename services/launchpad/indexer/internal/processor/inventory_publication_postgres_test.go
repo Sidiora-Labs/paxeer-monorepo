@@ -87,8 +87,8 @@ func newInventoryHarnessOnPool(t *testing.T, ctx context.Context, wait int64, po
 			t.Fatalf("pnl schema: %v", err)
 		}
 	}
-	url := repairM1000RecordedRPC(t, latest...)
-	options := repairM1000ReceiptOptions(t, repair54ReceiptInputs(t))
+	url := nativeAccountingRecordedRPC(t, latest...)
+	options := nativeAccountingReceiptOptions(t, nativeProjectionReceiptInputs(t))
 	client, closeClient, err := receipt.NewBoundedRPCClient(ctx, url, "")
 	if err != nil {
 		t.Fatal(err)

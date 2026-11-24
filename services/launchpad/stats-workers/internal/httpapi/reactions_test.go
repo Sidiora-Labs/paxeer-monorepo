@@ -33,8 +33,8 @@ type reactionsResp struct {
 }
 
 func TestReactionsRoutes(t *testing.T) {
-	repair1039LegacyRetirement(t)
-	repair1039DurableReplacement(t)
+	historyPaginationLegacyRetirement(t)
+	historyPaginationDurableReplacement(t)
 }
 
 func TestPhase3DurableRoutesRejectHostileBodiesAndMissingAuthority(t *testing.T) {

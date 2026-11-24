@@ -5,7 +5,7 @@ This library provides convenient access to the Chainflow Data Gateway REST API f
 The client provides price feeds, market summaries, TradingView data and explorer
 observations. Paxeer mainnet-beta is one BFT `paxd` network with EVM chain ID
 125 (`0x7d`); receipts become final when their block commits. Configure node
-JSON-RPC separately using the root URLs in the [public RPC reference](../../../docs/site/docs/reference/public-rpc.md).
+JSON-RPC separately using the root URLs in the [public RPC reference](../../../docs/readme/PUBLIC-RPC.md).
 
 The full API of this library can be found in [api.md](./api.md).
 

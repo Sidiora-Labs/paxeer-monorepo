@@ -13,8 +13,8 @@ import (
 )
 
 func TestProvisionScheduleAdoptsCorrelatedStreamOnSweep(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.RotationSchemaSQL()); err != nil {
 		t.Fatal(err)

@@ -94,7 +94,7 @@ func (s *Store) ListUnreconciledSwaps(ctx context.Context, c Cursor, limit int) 
 func (s *Store) IndexerHead(ctx context.Context) (int64, error) {
 	var head int64
 	if err := s.pool.QueryRow(ctx,
-		`SELECT COALESCE(MAX(block_number), 0) FROM indexer.swaps`).Scan(&head); err != nil {
+		`SELECT COALESCE(MAX(block_number), 0) FROM indexer.swap_progress_v1`).Scan(&head); err != nil {
 		return 0, fmt.Errorf("store: indexer head: %w", err)
 	}
 	return head, nil

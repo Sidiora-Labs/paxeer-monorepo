@@ -8,7 +8,7 @@ import { finding3GoHandlerJourney } from './go-handler-journey.mjs';
 test(finding3GoHandlerJourney);
 
 const config = {
-  supports_search: true, supports_group_request: false, supports_marks: false,
+  supports_search: false, supports_group_request: false, supports_marks: false,
   supports_timescale_marks: false, supports_time: true,
   exchanges: [{ value: 'sidiora', name: 'Sidiora', desc: 'Sidiora Launchpad' }],
   symbols_types: [{ name: 'token', value: 'token' }],
@@ -97,14 +97,15 @@ test('deadline and caller abort reject rather than invent chart values', async (
 test('history input rejects unsupported resolutions, unbounded countback and unsafe time', async () => {
   const client = new CandlesClient();
   await assert.rejects(client.getTime(), /Configure candles-sdk/);
-  for (const input of [
-    { symbol: 'SID', resolution: '1M', from: 0, to: 120 },
-    { symbol: 'SID', resolution: '1', countback: 2001, to: 120 },
-    { symbol: 'SID', resolution: '1', from: 121, to: 120 },
-    { symbol: '', resolution: '1', from: 0, to: 120 },
-    { symbol: 'SID', resolution: '1', from: 0, to: Number.MAX_SAFE_INTEGER + 1 },
-    { symbol: 'SID', resolution: '1', to: 120 },
-  ]) await assert.rejects(client.getHistory(input));
+  client.configure({ baseUrl: '/udf' });
+  for (const [input, message] of [
+    [{ symbol: 'SID', resolution: '1M', from: 0, to: 120 }, /Unsupported UDF resolution/],
+    [{ symbol: 'SID', resolution: '1', countback: 5001, to: 120 }, /countback must be 1\.\.5000/],
+    [{ symbol: 'SID', resolution: '1', from: 121, to: 120 }, /from must not exceed to/],
+    [{ symbol: '', resolution: '1', from: 0, to: 120 }, /symbol must contain 1\.\.160 characters/],
+    [{ symbol: 'SID', resolution: '1', from: 0, to: Number.MAX_SAFE_INTEGER + 1 }, /Expected safe integer seconds: to/],
+    [{ symbol: 'SID', resolution: '1', to: 120 }, /History requires from or countback/],
+  ]) await assert.rejects(client.getHistory(input), message);
 });
 
 test('history parser preserves no_data and rejects corrupt bar alignment or range', () => {

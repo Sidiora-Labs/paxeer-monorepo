@@ -1,10 +1,10 @@
-#[path = "support/repair_22_33_1374.rs"]
-mod repair_22_33_1374;
+#[path = "support/event_recovery.rs"]
+mod event_recovery;
 
+use perfdb::PerfDb;
 use perfdb::core::types::*;
 use perfdb::engine::PerfDbConfig;
 use perfdb::storage::wal::{SyncPolicy, WalConfig};
-use perfdb::PerfDb;
 
 fn test_config(dir: &std::path::Path) -> PerfDbConfig {
     PerfDbConfig {
@@ -278,12 +278,12 @@ fn snapshot_plus_wal_recovery() {
 
 #[test]
 fn truncated_wal_recovers_valid_entries() {
-    repair_22_33_1374::truncated_wal_recovers_valid_entries();
+    event_recovery::truncated_wal_recovers_valid_entries();
 }
 
 #[test]
 fn corrupted_crc_stops_replay_at_corruption() {
-    repair_22_33_1374::corrupted_crc_stops_replay_at_corruption();
+    event_recovery::corrupted_crc_stops_replay_at_corruption();
 }
 
 #[test]
@@ -522,7 +522,7 @@ fn recovery_after_heavy_workload() {
 
 #[test]
 fn wal_replay_matches_live_position_state() {
-    repair_22_33_1374::wal_replay_matches_live_position_state();
+    event_recovery::wal_replay_matches_live_position_state();
 }
 
 #[test]

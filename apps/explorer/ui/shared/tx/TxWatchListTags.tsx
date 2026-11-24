@@ -27,7 +27,7 @@ const TxWatchListTags = ({ tx, isLoading }: Props) => {
           key={ tag.label }
           loading={ isLoading }
           truncated
-          maxW={{ base: '115px', lg: '100%' }}
+          maxW={{ base: 'var(--chakra-spacing-30)', lg: '100%' }}
           colorPalette="gray"
         >
           { tag.display_name }

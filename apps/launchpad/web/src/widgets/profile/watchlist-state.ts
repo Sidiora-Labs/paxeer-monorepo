@@ -59,7 +59,9 @@ export async function refreshWatchlist() {
 export async function mutateWatch(poolAddress: string, add: boolean) {
   selectWatchScope(); const pool = normalizeAddress(poolAddress), scope = state.scope;
   if (!scope) {
-    const next = add ? mergeWatchlist(localWatchlist(), [pool], true) : localWatchlist().filter(item => item !== pool);
+    const local = localWatchlist();
+    if (add && local.length >= 500 && !local.includes(pool)) update({ error: 'Your watchlist is full (500 coins)' });
+    const next = add ? mergeWatchlist(local, [pool], true) : local.filter(item => item !== pool);
     volatileLocal = next;
     try { localStorage.setItem(key, JSON.stringify(next)); volatileLocal = null; update({ list: next, local: next, error: null }); }
     catch { update({ list: next, local: next, error: "Couldn't save on this device. Your changes last until you leave the page" }); }

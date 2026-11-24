@@ -1,6 +1,6 @@
 # Paxeer X Network documentation
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). The kernel runs inside `paxd`, and the documentation describes the network, its systems, operations and reference material.
+The LayerX kernel runs inside every `paxd` node. It executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check the block and commit it. This documentation describes the network, its systems, operations and reference material. The EVM chain identifier is 125 (`0x7d`).
 
 Public node JSON-RPC is served at the root of each node endpoint listed in the [public RPC reference](site/paxeer-docs/src/app/public-rpc/page.tsx). The node registers `px` methods for account, inference, history and kernel reads; `px_register` and `px_requestFunds` belong to the hosted gateway contract.
 
@@ -81,7 +81,7 @@ Each row names the inventory directory, its README page when present, the invent
 | Inference peer (inference-peer) | [apps/inference-peer](../apps/inference-peer/) | [apps/inference-peer/README.md](../apps/inference-peer/README.md) | [docs/site/paxeer-docs/src/app/agents/page.tsx](site/paxeer-docs/src/app/agents/page.tsx) | `/agents` |
 | Launchpad web application (launchpad) | [apps/launchpad/web](../apps/launchpad/web/) | README.md not present | [docs/release/7.0.0-service-operator-runbook.md](release/7.0.0-service-operator-runbook.md), [docs/site/paxeer-docs/src/app/launchpad/page.tsx](site/paxeer-docs/src/app/launchpad/page.tsx) | `/launchpad` |
 | Names application (names) | [apps/names](../apps/names/) | [apps/names/README.md](../apps/names/README.md) | [docs/system/sdk.md](system/sdk.md) | `/sdk` |
-| Perpetuals application (perps) | [apps/perps](../apps/perps/) | [apps/perps/README.md](../apps/perps/README.md) | [docs/site/paxeer-docs/src/app/perpetuals/page.tsx](site/paxeer-docs/src/app/perpetuals/page.tsx), [docs/perps/data-api.md](perps/data-api.md) | `/perpetuals` |
+| Paxeer Xtrades application (perps) | [apps/perps](../apps/perps/) | [apps/perps/README.md](../apps/perps/README.md) | [docs/site/paxeer-docs/src/app/perpetuals/page.tsx](site/paxeer-docs/src/app/perpetuals/page.tsx), [docs/perps/data-api.md](perps/data-api.md) | `/perpetuals` |
 | Wallet application (wallet) | [apps/wallet](../apps/wallet/) | [apps/wallet/README.md](../apps/wallet/README.md) | [docs/release/7.0.0-service-operator-runbook.md](release/7.0.0-service-operator-runbook.md) | `/accounts` |
 | Human web application (human-web) | [apps/web](../apps/web/) | [apps/web/README.md](../apps/web/README.md) | [docs/site/paxeer-docs/src/app/human-interface/page.tsx](site/paxeer-docs/src/app/human-interface/page.tsx), [docs/platform/content/index.md](platform/content/index.md) | `/human-interface` |
 | Bridge application (app-bridge) | [apps/bridge](../apps/bridge/) | [apps/bridge/README.md](../apps/bridge/README.md) | [docs/release/7.0.0-service-operator-runbook.md](release/7.0.0-service-operator-runbook.md), [docs/site/paxeer-docs/src/app/bridge/page.tsx](site/paxeer-docs/src/app/bridge/page.tsx) | `/bridge` |
@@ -91,7 +91,6 @@ Each row names the inventory directory, its README page when present, the invent
 | Human web application (app-web) | [apps/web](../apps/web/) | [apps/web/README.md](../apps/web/README.md) | [docs/platform/content/index.md](platform/content/index.md), [docs/site/paxeer-docs/src/app/human-interface/page.tsx](site/paxeer-docs/src/app/human-interface/page.tsx) | `/human-interface` |
 | Inference peer (app-inference-peer) | [apps/inference-peer](../apps/inference-peer/) | [apps/inference-peer/README.md](../apps/inference-peer/README.md) | [docs/site/paxeer-docs/src/app/agents/page.tsx](site/paxeer-docs/src/app/agents/page.tsx) | `/agents` |
 | Names application (app-names) | [apps/names](../apps/names/) | [apps/names/README.md](../apps/names/README.md) | [docs/system/sdk.md](system/sdk.md) | `/names` |
-| Perpetuals application (app-perps) | [apps/perps](../apps/perps/) | [apps/perps/README.md](../apps/perps/README.md) | [docs/perps/data-api.md](perps/data-api.md), [docs/site/paxeer-docs/src/app/perpetuals/page.tsx](site/paxeer-docs/src/app/perpetuals/page.tsx) | `/perpetuals` |
 | Wallet SDK (wallet-sdk) | [sdk/wallet](../sdk/wallet/) | [sdk/wallet/README.md](../sdk/wallet/README.md) | [docs/system/sdk.md](system/sdk.md), [docs/site/paxeer-docs/src/app/sdk/page.tsx](site/paxeer-docs/src/app/sdk/page.tsx) | `/sdk` |
 | Cosmos TypeScript SDK (cosmos-sdk) | [sdk/js](../sdk/js/) | [sdk/js/README.md](../sdk/js/README.md) | [docs/system/sdk.md](system/sdk.md), [docs/site/paxeer-docs/src/app/sdk/page.tsx](site/paxeer-docs/src/app/sdk/page.tsx) | `/sdk` |
 | Names SDK (names-sdk) | [sdk/names](../sdk/names/) | README.md not present | [docs/site/paxeer-docs/src/app/sdk/page.tsx](site/paxeer-docs/src/app/sdk/page.tsx) | `/sdk` |

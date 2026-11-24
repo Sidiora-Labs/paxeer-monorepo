@@ -26,15 +26,15 @@ func (s Store) Search(ctx context.Context, r Request) (Page, error) {
 	defer cancel()
 	tx, e := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if e != nil {
-		return Page{}, fmt.Errorf("%w: begin", ErrUnavailable)
+		return Page{}, fmt.Errorf("%w: begin: %w", ErrUnavailable, e)
 	}
 	defer rollbackSearch(tx)
 	if _, e = tx.Exec(ctx, "SET LOCAL statement_timeout = '150ms'"); e != nil {
-		return Page{}, fmt.Errorf("%w: timeout configuration", ErrUnavailable)
+		return Page{}, fmt.Errorf("%w: timeout configuration: %w", ErrUnavailable, e)
 	}
 	p := Page{Items: []Hit{}, MatchKind: q.Kind, Status: "ok"}
 	if e = tx.QueryRow(ctx, "SELECT generation,revision FROM stats_search.active_v2 WHERE singleton").Scan(&p.Generation, &p.Watermark); e != nil {
-		return Page{}, fmt.Errorf("%w: index watermark", ErrUnavailable)
+		return Page{}, fmt.Errorf("%w: index watermark: %w", ErrUnavailable, e)
 	}
 	after := ""
 	if c := r.Cursor; c != nil {
@@ -61,23 +61,26 @@ func (s Store) Search(ctx context.Context, r Request) (Page, error) {
  AND d.revision<=$3 AND ($4='' OR d.pool_status=$4) AND ($5='' OR (CASE WHEN d.pool_address=$6 THEN 0 ELSE 1 END,d.pool_address) > (CASE WHEN $5=$6 THEN 0 ELSE 1 END,$5))
  ORDER BY (d.pool_address=$6) DESC,d.pool_address ASC LIMIT $7`, p.Generation, value, p.Watermark, r.Filter.PoolStatus, after, q.Key, r.Limit+1)
 	if e != nil {
-		return Page{}, fmt.Errorf("%w: query", ErrUnavailable)
+		return Page{}, fmt.Errorf("%w: query: %w", ErrUnavailable, e)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var raw []byte
 		var document IndexedDocument
 		if e = rows.Scan(&raw); e != nil {
-			return Page{}, fmt.Errorf("%w: decode", ErrUnavailable)
+			return Page{}, fmt.Errorf("%w: decode: %w", ErrUnavailable, e)
 		}
-		if json.Unmarshal(raw, &document) != nil || document.Validate() != nil {
-			return Page{}, fmt.Errorf("%w: document", ErrUnavailable)
+		if e = json.Unmarshal(raw, &document); e != nil {
+			return Page{}, fmt.Errorf("%w: document: %w", ErrUnavailable, e)
+		}
+		if e = document.Validate(); e != nil {
+			return Page{}, fmt.Errorf("%w: document: %v", ErrUnavailable, e)
 		}
 		pool, token := document.PoolAddress, document.TokenAddress
 		p.Items = append(p.Items, Hit{Kind: r.Kind, ID: "125:" + pool, Label: document.Name, PoolAddress: &pool, TokenAddress: &token, Score: "1"})
 	}
 	if e = rows.Err(); e != nil {
-		return Page{}, fmt.Errorf("%w: rows", ErrUnavailable)
+		return Page{}, fmt.Errorf("%w: rows: %w", ErrUnavailable, e)
 	}
 	if len(p.Items) > r.Limit {
 		p.Items = p.Items[:r.Limit]
@@ -87,7 +90,7 @@ func (s Store) Search(ctx context.Context, r Request) (Page, error) {
 		p.Status = valueNotIndexed
 	}
 	if e = tx.Commit(ctx); e != nil {
-		return Page{}, fmt.Errorf("%w: commit", ErrUnavailable)
+		return Page{}, fmt.Errorf("%w: commit: %w", ErrUnavailable, e)
 	}
 	return p, nil
 }

@@ -15,7 +15,7 @@ import (
 func TestIndexedMovementsRequireCanonicalLogOrderAndContent(t *testing.T) {
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	for _, tc := range []struct {
 		name   string
 		mutate func([]any)
@@ -67,7 +67,7 @@ func TestIndexedMovementsRequireCanonicalLogOrderAndContent(t *testing.T) {
 func TestReceiptLogRecoveryRejectsConflictingBlockAndReceipt(t *testing.T) {
 	ctx := context.Background()
 	s, _ := recordedRebuildService(t, ctx)
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	for _, tc := range []struct {
 		name, method string
 		mutate       func(map[string]any)

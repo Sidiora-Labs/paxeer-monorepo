@@ -1,6 +1,6 @@
 # Program SDKs
 
-This directory holds Rust, C, and AssemblyScript guest bindings, deterministic build tools, examples, and shared ABI fixtures for WebAssembly programs. Programs run in the LayerX kernel within the Paxeer BFT node, using explicit capabilities for storage, events, program calls, receipt reads, and authenticated 402LXP transfers. The SDKs provide bounded inputs and exact integer amounts for those host interactions; the kernel applies monetary effects.
+This directory holds Rust, C, and AssemblyScript guest bindings, deterministic build tools, examples, and shared ABI fixtures for WebAssembly programs. Programs run in the LayerX kernel inside `paxd`, using explicit capabilities for storage, events, program calls, receipt reads, and authenticated 402LXP transfers. The LayerX kernel executes and orders each transaction and builds each block; validators check and commit it. The SDKs provide bounded inputs and exact integer amounts for those host interactions; the kernel applies monetary effects.
 
 ## Layout
 

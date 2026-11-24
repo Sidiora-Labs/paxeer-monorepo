@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "builds": [
+    {
+      "src": "apps/web/package.json",
+      "use": "@vercel/next",
+      "config": {
+        "outputDirectory": ".next-production",
+        "installCommand": "pnpm --dir ../.. install --frozen-lockfile",
+        "buildCommand": "pnpm --dir ../.. build"
+      }
+    }
+  ]
+}

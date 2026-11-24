@@ -7,9 +7,10 @@ The generated client targets `https://data.feed.chainflowtrading.com`, the
 REST and WebSocket data gateway for price feeds, markets, explorer observations
 and local CoinGecko/CMC-compatible adapters.
 
-Paxeer mainnet-beta is one BFT `paxd` network. Its kernel is part of the network
-and proposes blocks; the EVM chain ID is 125 (`0x7d`) and a receipt is final
-when its block commits. Explorer snapshots from this SDK are observations, not
+Paxeer mainnet-beta is one `paxd` network. The LayerX kernel inside paxd executes
+and orders each transaction and builds each block; validators check and commit
+it. The EVM chain ID is 125 (`0x7d`) and a receipt is final when the validators
+commit its block. Explorer snapshots from this SDK are observations, not
 an additional finality mechanism. Sub-chains are tenant domains in the database.
 
 Chain JSON-RPC uses public node roots such as

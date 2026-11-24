@@ -406,7 +406,7 @@ pub(crate) mod tests {
             let denom = denom.to_owned();
             let corpus: Value = serde_json::from_slice(include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/tests/fixtures/repair_22_31_217/corpus.json"
+                "/tests/fixtures/native_budget_preparation/corpus.json"
             )))
             .assert_case("committed fee-token keeper answers");
             let mut preferences = vec![([0; 20], denom.clone(), asset)];

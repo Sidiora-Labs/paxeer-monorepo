@@ -1,0 +1,736 @@
+[manifest]
+task = "22.44.123"
+title = "Explorer address and contract dimensions"
+views = 10
+named_states = 3
+combinations = 13
+routes = ["/accounts", "/accounts/label/[slug]", "/address/[hash]/contract-verification", "/address/[hash]", "/contract-verification", "/hot-contracts", "/paxeer-x/account/[hash]", "/paxeer-x/inference", "/public-tags/submit", "/verified-contracts"]
+states = ["accounts empty", "accounts loading", "accounts error"]
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+geometry_widths = [390, 1280, 1440, 1920, 2560]
+geometry_fields = ["left", "top", "width", "height", "fontSize", "lineHeight"]
+
+[dimensions]
+verification_columns_pixels = [680, 340]
+verification_column_gap_pixels = 30
+verification = "The form and its method sections share bounded tracks built from existing tokens."
+verification_hints = "Heading hints center the touch area around their visible mark without enlarging the text line."
+account_columns = "The account summary uses one column below 1000px and three columns from 1000px."
+account_rows = "Stacked desktop values retain their hairline dividers; hinted labels reserve a 30px line below 1000px and a 32px line from 1000px."
+inference = "Loading content stays within the page width."
+touch = "Enabled controls retain a 44px minimum touch area through 834px and their intrinsic dimensions above 834px."
+mobile_account_row_pixels = 182
+verification_select_pixels = 60
+qr_line_pixels = 32
+inline_links = "Entity links and detail values center their touch area around the text line. Statistic hints retain their 20px line footprint."
+loading_heading = "The title placeholder occupies one line beside its icon; the loaded title wraps to its content."
+
+[rendering.first]
+renders = 0
+with_content = 0
+load = 1
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[rendering.first_matrix]
+renders = 394
+with_content = 394
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 2
+motion = 0
+scale = 0
+geometry = 537
+
+[rendering.last]
+renders = 394
+with_content = 394
+layout_accessibility = "measured"
+geometry_result = "Retained dimensions differ only for the documented content, touch areas, native link structure and scrollbar track."
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 2
+motion = 0
+scale = 0
+geometry = 537
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+differing_part_width_pairs = 537
+differing_parts_by_width = [108, 90, 113, 113, 113]
+
+[geometry.view_1]
+view = "/accounts"
+renders = 136
+differing_parts_by_width = [11, 10, 12, 12, 12]
+
+[geometry.view_1.group_1]
+width = 390
+parts = ["first-row"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The account count wraps beside the download control within the narrower width; the account row retains its 182px height."
+
+[geometry.view_1.group_2]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item"]
+count = 4
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_1.group_3]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_1.group_4]
+width = 390
+parts = ["header", "main"]
+count = 2
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_1.group_5]
+width = 390
+parts = ["list-card"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Pagination retains its allocated space when a following page is unavailable; the download label and desktop control size remain unchanged. The account count wraps beside the download control within the narrower width; the account row retains its 182px height."
+
+[geometry.view_1.group_6]
+width = 390
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area. Pagination retains its allocated space when a following page is unavailable; the download label and desktop control size remain unchanged. The account count wraps beside the download control within the narrower width; the account row retains its 182px height."
+
+[geometry.view_1.group_7]
+width = 1280
+parts = ["first-row", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 8
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_1.group_8]
+width = 1280
+parts = ["list-card", "primary-control"]
+count = 2
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Pagination retains its allocated space when a following page is unavailable; the download label and desktop control size remain unchanged."
+
+[geometry.view_1.group_9]
+width = 1440
+parts = ["first-heading", "first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 10
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_1.group_10]
+width = 1440
+parts = ["list-card", "primary-control"]
+count = 2
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Pagination retains its allocated space when a following page is unavailable; the download label and desktop control size remain unchanged."
+
+[geometry.view_1.group_11]
+width = 1920
+parts = ["first-heading", "first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 10
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_1.group_12]
+width = 1920
+parts = ["list-card", "primary-control"]
+count = 2
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Pagination retains its allocated space when a following page is unavailable; the download label and desktop control size remain unchanged."
+
+[geometry.view_1.group_13]
+width = 2560
+parts = ["first-heading", "first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 10
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_1.group_14]
+width = 2560
+parts = ["list-card", "primary-control"]
+count = 2
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Pagination retains its allocated space when a following page is unavailable; the download label and desktop control size remain unchanged."
+
+[geometry.view_2]
+view = "/accounts/label/[slug]"
+renders = 22
+differing_parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_2.group_1]
+width = 390
+parts = ["first-heading", "header", "main"]
+count = 3
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_2.group_2]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item"]
+count = 4
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_2.group_3]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_2.group_4]
+width = 390
+parts = ["primary-control"]
+count = 1
+cause = "Controls through 834px retain their 44px minimum touch area. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_2.group_5]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 7
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_2.group_6]
+width = 1280
+parts = ["primary-control"]
+count = 1
+cause = "The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_2.group_7]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_2.group_8]
+width = 1440
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_2.group_9]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_2.group_10]
+width = 1920
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_2.group_11]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_2.group_12]
+width = 2560
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_3]
+view = "/address/[hash]/contract-verification"
+renders = 34
+differing_parts_by_width = [11, 8, 11, 11, 11]
+
+[geometry.view_3.group_1]
+width = 390
+parts = ["first-heading", "verification-form"]
+count = 2
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The verification title wraps within the width left by the scrollbar track; the form retains its earlier track and select dimensions."
+
+[geometry.view_3.group_2]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item"]
+count = 4
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_3.group_3]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_3.group_4]
+width = 390
+parts = ["header", "main"]
+count = 2
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_3.group_5]
+width = 390
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area. The verification title wraps within the width left by the scrollbar track; the form retains its earlier track and select dimensions."
+
+[geometry.view_3.group_6]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "verification-form"]
+count = 8
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_3.group_7]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "verification-form"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_3.group_8]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "verification-form"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_3.group_9]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "verification-form"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_4]
+view = "/address/[hash]"
+renders = 34
+differing_parts_by_width = [12, 10, 13, 13, 13]
+
+[geometry.view_4.group_1]
+width = 390
+parts = ["account-card", "address-information-card", "balance-card", "main"]
+count = 4
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The narrower width and 44px inline controls wrap identifiers and table values; section tabs retain touch-sized controls and wrap their API action."
+
+[geometry.view_4.group_2]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item", "primary-control"]
+count = 5
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area. The narrower width and 44px inline controls wrap identifiers and table values; section tabs retain touch-sized controls and wrap their API action."
+
+[geometry.view_4.group_3]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area. The narrower width and 44px inline controls wrap identifiers and table values; section tabs retain touch-sized controls and wrap their API action."
+
+[geometry.view_4.group_4]
+width = 390
+parts = ["header"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_4.group_5]
+width = 1280
+parts = ["account-card", "address-information-card", "balance-card", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 10
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_4.group_6]
+width = 1440
+parts = ["account-card", "address-information-card", "balance-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+count = 13
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_4.group_7]
+width = 1920
+parts = ["account-card", "address-information-card", "balance-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+count = 13
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_4.group_8]
+width = 2560
+parts = ["account-card", "address-information-card", "balance-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+count = 13
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_5]
+view = "/contract-verification"
+renders = 34
+differing_parts_by_width = [10, 8, 11, 11, 11]
+
+[geometry.view_5.group_1]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item", "primary-control"]
+count = 5
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_5.group_2]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_5.group_3]
+width = 390
+parts = ["header", "main", "verification-form"]
+count = 3
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_5.group_4]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "verification-form"]
+count = 8
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_5.group_5]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "verification-form"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_5.group_6]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "verification-form"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_5.group_7]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "verification-form"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_6]
+view = "/hot-contracts"
+renders = 22
+differing_parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_6.group_1]
+width = 390
+parts = ["first-heading", "header", "main"]
+count = 3
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_6.group_2]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item"]
+count = 4
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_6.group_3]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_6.group_4]
+width = 390
+parts = ["primary-control"]
+count = 1
+cause = "Controls through 834px retain their 44px minimum touch area. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_6.group_5]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 7
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_6.group_6]
+width = 1280
+parts = ["primary-control"]
+count = 1
+cause = "The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_6.group_7]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_6.group_8]
+width = 1440
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_6.group_9]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_6.group_10]
+width = 1920
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_6.group_11]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_6.group_12]
+width = 2560
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_7]
+view = "/paxeer-x/account/[hash]"
+renders = 34
+differing_parts_by_width = [14, 12, 15, 15, 15]
+
+[geometry.view_7.group_1]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item", "primary-control"]
+count = 5
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area. The narrower width and 44px inline controls wrap identifiers and table values; section tabs retain touch-sized controls and wrap their API action."
+
+[geometry.view_7.group_2]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area. The narrower width and 44px inline controls wrap identifiers and table values; section tabs retain touch-sized controls and wrap their API action."
+
+[geometry.view_7.group_3]
+width = 390
+parts = ["header"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_7.group_4]
+width = 390
+parts = ["identities-card", "identities-first-row", "main", "more-info-card", "node-capabilities-card", "overview-card"]
+count = 6
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The narrower width and 44px inline controls wrap identifiers and table values; section tabs retain touch-sized controls and wrap their API action."
+
+[geometry.view_7.group_5]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "identities-card", "identities-first-row", "main", "more-info-card", "navigation", "navigation-first-item", "node-capabilities-card", "overview-card"]
+count = 12
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_7.group_6]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "identities-card", "identities-first-row", "main", "more-info-card", "navigation", "navigation-first-item", "node-capabilities-card", "overview-card", "primary-control"]
+count = 15
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_7.group_7]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "identities-card", "identities-first-row", "main", "more-info-card", "navigation", "navigation-first-item", "node-capabilities-card", "overview-card", "primary-control"]
+count = 15
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_7.group_8]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "identities-card", "identities-first-row", "main", "more-info-card", "navigation", "navigation-first-item", "node-capabilities-card", "overview-card", "primary-control"]
+count = 15
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_8]
+view = "/paxeer-x/inference"
+renders = 34
+differing_parts_by_width = [10, 9, 10, 10, 10]
+
+[geometry.view_8.group_1]
+width = 390
+parts = ["first-heading", "header", "main"]
+count = 3
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_8.group_2]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item"]
+count = 4
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_8.group_3]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_8.group_4]
+width = 390
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area. The visible identifier hint adds an 18px line and an 8px gap above the lookup field."
+
+[geometry.view_8.group_5]
+width = 1280
+parts = ["first-heading", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 8
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_8.group_6]
+width = 1280
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The visible identifier hint adds an 18px line and an 8px gap above the lookup field."
+
+[geometry.view_8.group_7]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_8.group_8]
+width = 1440
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The visible identifier hint adds an 18px line and an 8px gap above the lookup field."
+
+[geometry.view_8.group_9]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_8.group_10]
+width = 1920
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The visible identifier hint adds an 18px line and an 8px gap above the lookup field."
+
+[geometry.view_8.group_11]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_8.group_12]
+width = 2560
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The visible identifier hint adds an 18px line and an 8px gap above the lookup field."
+
+[geometry.view_9]
+view = "/public-tags/submit"
+renders = 22
+differing_parts_by_width = [10, 8, 10, 10, 10]
+
+[geometry.view_9.group_1]
+width = 390
+parts = ["first-heading", "header", "main"]
+count = 3
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_9.group_2]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item"]
+count = 4
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_9.group_3]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_9.group_4]
+width = 390
+parts = ["primary-control"]
+count = 1
+cause = "Controls through 834px retain their 44px minimum touch area. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_9.group_5]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 7
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_9.group_6]
+width = 1280
+parts = ["primary-control"]
+count = 1
+cause = "The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_9.group_7]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_9.group_8]
+width = 1440
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_9.group_9]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_9.group_10]
+width = 1920
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_9.group_11]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_9.group_12]
+width = 2560
+parts = ["primary-control"]
+count = 1
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. The native home anchor carries the button and its 32px top margin directly; the earlier outer wrapper includes that margin in its box and inherits body typography, while the visible button text remains 16px with 24px line height."
+
+[geometry.view_10]
+view = "/verified-contracts"
+renders = 22
+differing_parts_by_width = [10, 9, 11, 11, 11]
+
+[geometry.view_10.group_1]
+width = 390
+parts = ["footer", "footer-column-1-first-link", "navigation", "navigation-first-item", "primary-control"]
+count = 5
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content. Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_10.group_2]
+width = 390
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+count = 2
+cause = "Controls through 834px retain their 44px minimum touch area."
+
+[geometry.view_10.group_3]
+width = 390
+parts = ["header", "main", "statistic-card"]
+count = 3
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_10.group_4]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+count = 9
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_10.group_5]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_10.group_6]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."
+
+[geometry.view_10.group_7]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control", "statistic-card"]
+count = 11
+cause = "The reserved 15px scrollbar track reduces available width or shifts centered content."

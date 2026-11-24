@@ -13,8 +13,8 @@ const HomeTable = ({ label, columns, children }: Props) => (
     aria-label={ label }
     variant="line"
     css={{
-      '& th': { h: '36px', textStyle: 'label', py: 0 },
-      '& td': { h: '44px', py: '4px', verticalAlign: 'middle' },
+      '& th': { h: 'var(--chakra-spacing-9)', textStyle: 'label', py: 0 },
+      '& td': { h: 'var(--chakra-spacing-11)', py: 'var(--chakra-spacing-1)', verticalAlign: 'middle' },
       '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas', zIndex: 1 },
       '& tr:hover td': { bg: 'raised' },
     }}

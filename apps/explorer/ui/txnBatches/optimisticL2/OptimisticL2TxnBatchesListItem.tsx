@@ -10,8 +10,8 @@ import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import OptimisticL2TxnBatchDA from 'ui/shared/batch/OptimisticL2TxnBatchDA';
 import BatchEntityL2 from 'ui/shared/entities/block/BatchEntityL2';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 const rollupFeature = config.features.rollup;
 
@@ -23,7 +23,7 @@ const OptimisticL2TxnBatchesListItem = ({ item, isLoading }: Props) => {
   }
 
   return (
-    <ListItemMobileGrid.Container gridTemplateColumns="100px auto">
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr) minmax(0, 2fr)">
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Batch ID</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
@@ -52,7 +52,7 @@ const OptimisticL2TxnBatchesListItem = ({ item, isLoading }: Props) => {
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>{ layerLabels.parent } txn count</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
-        <Skeleton loading={ isLoading } minW="40px">
+        <Skeleton loading={ isLoading } minW="var(--chakra-spacing-10)">
           { item.l1_transaction_hashes.length }
         </Skeleton>
       </ListItemMobileGrid.Value>
@@ -62,7 +62,7 @@ const OptimisticL2TxnBatchesListItem = ({ item, isLoading }: Props) => {
         <Link
           href={ route({ pathname: '/batches/[number]', query: { number: item.number.toString(), tab: 'blocks' } }) }
           loading={ isLoading }
-          minW="40px"
+          minW="var(--chakra-spacing-10)"
         >
           { item.l2_end_block_number - item.l2_start_block_number + 1 }
         </Link>
@@ -73,7 +73,7 @@ const OptimisticL2TxnBatchesListItem = ({ item, isLoading }: Props) => {
         <Link
           href={ route({ pathname: '/batches/[number]', query: { number: item.number.toString(), tab: 'txs' } }) }
           loading={ isLoading }
-          minW="40px"
+          minW="var(--chakra-spacing-10)"
         >
           { item.transactions_count }
         </Link>

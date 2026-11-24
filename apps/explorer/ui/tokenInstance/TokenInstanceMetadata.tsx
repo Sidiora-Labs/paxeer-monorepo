@@ -56,14 +56,15 @@ const TokenInstanceMetadata = ({ data, isPlaceholderData }: Props) => {
         </Alert>
       ) }
       <Flex alignItems="center" mb={ 6 }>
-        <chakra.span fontWeight={ 500 }>Metadata</chakra.span>
+        <chakra.span fontWeight="medium">Metadata</chakra.span>
         <Select
           collection={ collection }
           placeholder="Select type"
+          triggerProps={{ 'aria-label': 'Select type' }}
           value={ format }
           onValueChange={ handleValueChange }
           ml={ 5 }
-          w="100px"
+          w={ 24 }
         />
         { format[0] === 'JSON' && <CopyToClipboard text={ JSON.stringify(data) } ml="auto"/> }
       </Flex>

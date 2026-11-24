@@ -83,17 +83,17 @@ const UserProfileContent = ({ data, onClose, onLogin, onAddEmail, onAddAddress }
     <Box>
       { isAutoConnectDisabled && <UserWalletAutoConnectAlert/> }
 
-      <Box textStyle="xs" fontWeight="500" px={ 1 } mb="1">Account</Box>
+      <Box textStyle="xs" fontWeight="medium" px={ 1 } mb="1">Account</Box>
       <Box
         textStyle="xs"
-        fontWeight="500"
+        fontWeight="medium"
         borderColor="border.divider"
-        borderWidth="1px"
+        borderWidth="var(--chakra-border-widths-1)"
         borderRadius="base"
         color="text.secondary"
       >
         { config.features.blockchainInteraction.isEnabled && (
-          <Flex p={ 2 } borderColor="border.divider" borderBottomWidth="1px">
+          <Flex p={ 2 } borderColor="border.divider" borderBottomWidth="var(--chakra-border-widths-1)">
             <Box>Address</Box>
             <Hint
               label={ `This wallet address is linked to your Blockscout account. It can be used to login ${ config.features.rewards.isEnabled ? 'and is used for Merits Program participation' : '' }` } // eslint-disable-line max-len

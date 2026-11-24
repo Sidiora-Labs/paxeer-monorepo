@@ -14,8 +14,8 @@ import (
 
 func TestRecordedMarketRecoveryRejectsUnavailableBindings(t *testing.T) {
 	ctx := context.Background()
-	original := repair53InputsFromProducer(t)
-	base, closeBase := repair53Open(t, ctx, original)
+	original := receiptReplayInputsFromProducer(t)
+	base, closeBase := receiptReplayOpen(t, ctx, original)
 	defer closeBase()
 	head, headHash, err := base.headerByNumber(ctx, nil)
 	if err != nil {
@@ -56,8 +56,8 @@ func TestRecordedMarketRecoveryRejectsUnavailableBindings(t *testing.T) {
 			if changes == 0 {
 				t.Fatal("recorded recovery read absent")
 			}
-			input = repair53Replay(t, input)
-			a, closeClient := repair53Open(t, ctx, input)
+			input = receiptReplayReplay(t, input)
+			a, closeClient := receiptReplayOpen(t, ctx, input)
 			defer closeClient()
 			if e = a.Rehydrate(ctx, input.Markets); !errors.Is(e, ErrQualification) {
 				t.Fatalf("unbound market recovered: %v", e)
@@ -73,7 +73,7 @@ func TestRecordedMarketRecoveryRejectsUnavailableBindings(t *testing.T) {
 		{"discovery template absent", func(a *RPCQualification) { a.options.Discovery = nil }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a, closeClient := repair53Open(t, ctx, original)
+			a, closeClient := receiptReplayOpen(t, ctx, original)
 			defer closeClient()
 			tc.edit(a)
 			if e := a.Rehydrate(ctx, original.Markets); !errors.Is(e, ErrQualification) {
@@ -94,8 +94,8 @@ func TestRecordedMarketRecoveryRejectsUnavailableBindings(t *testing.T) {
 
 func TestPinnedReserveReaderRejectsMalformedState(t *testing.T) {
 	ctx := context.Background()
-	original := repair53InputsFromProducer(t)
-	base, closeBase := repair53Open(t, ctx, original)
+	original := receiptReplayInputsFromProducer(t)
+	base, closeBase := receiptReplayOpen(t, ctx, original)
 	defer closeBase()
 	if err := base.Rehydrate(ctx, original.Markets); err != nil {
 		t.Fatal(err)
@@ -133,8 +133,8 @@ func TestPinnedReserveReaderRejectsMalformedState(t *testing.T) {
 			if changes == 0 {
 				t.Fatal("recorded reserve read absent")
 			}
-			input = repair53Replay(t, input)
-			a, closeClient := repair53Open(t, ctx, input)
+			input = receiptReplayReplay(t, input)
+			a, closeClient := receiptReplayOpen(t, ctx, input)
 			defer closeClient()
 			if e = a.Rehydrate(ctx, input.Markets); e != nil {
 				t.Fatal(e)
@@ -151,7 +151,7 @@ func TestPinnedReserveReaderRejectsMalformedState(t *testing.T) {
 
 func TestHistoricalAuthorityConfigurationKeepsApprovedEpochs(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	client, closeClient, err := NewBoundedRPCClient(ctx, input.Endpoint, "")
 	if err != nil {
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func TestHistoricalAuthorityConfigurationKeepsApprovedEpochs(t *testing.T) {
 		options.Epochs = generation.Epochs
 		options.Discovery = generation.Discovery
 		// The historical catalog is selected by the original authority itself.
-		a, closeAuthority := repair53Open(t, ctx, input)
+		a, closeAuthority := receiptReplayOpen(t, ctx, input)
 		defer closeAuthority()
 		h, e := a.historicalAuthority(ctx, generation.ActivationHeight)
 		if e != nil {
@@ -229,8 +229,8 @@ func TestHistoricalAuthorityConfigurationKeepsApprovedEpochs(t *testing.T) {
 
 func TestRestoredSurfaceMarketsRequireApprovedDiscoveryTemplates(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := a.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -284,8 +284,8 @@ func TestRestoredSurfaceMarketsRequireApprovedDiscoveryTemplates(t *testing.T) {
 
 func TestHistoricalPoolCodeRejectsChangedBeaconBindings(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	h, err := a.historicalAuthority(ctx, input.Markets[0].Height)
 	if err != nil {

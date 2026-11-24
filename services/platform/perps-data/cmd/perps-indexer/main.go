@@ -68,7 +68,7 @@ func main() {
 	}
 }
 
-func run(logger *slog.Logger) error {
+func run(logger *slog.Logger) (resultErr error) {
 	cfg, err := config.Indexer.Load()
 	if err != nil {
 		return err
@@ -81,7 +81,11 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() {
+		if closeErr := db.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	if err := store.Migrate(ctx, db); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
@@ -140,17 +144,18 @@ func run(logger *slog.Logger) error {
 		return fmt.Errorf("publisher: %w", err)
 	}
 	ix, err := indexer.New(ctx, indexer.Deps{
-		DB:          db,
-		RPC:         rpc,
-		Comet:       comet,
-		Outbox:      outbox,
-		ChainID:     cfg.ChainID,
-		Registry:    registry,
-		Publisher:   publisher,
-		Metrics:     metrics,
-		Holder:      holder,
-		StartHeight: cfg.StartHeight,
-		Logger:      logger,
+		DB:                 db,
+		RPC:                rpc,
+		Comet:              comet,
+		Outbox:             outbox,
+		ChainID:            cfg.ChainID,
+		Registry:           registry,
+		Publisher:          publisher,
+		Metrics:            metrics,
+		Holder:             holder,
+		StartHeight:        cfg.StartHeight,
+		PriceRetentionDays: cfg.PriceRetentionDays,
+		Logger:             logger,
 	})
 	if err != nil {
 		return err

@@ -1,6 +1,7 @@
 import { address, hash, raw } from '../create/creation-domain';
 import type { ChainSubmission } from './chain-adapters';
 import { validateChainDraft, type ChainDraft } from './chain-domain';
+import type { ChainFeeApproval } from './chain-fees';
 
 const submissionKey = 'chain-submission-v2';
 
@@ -87,5 +88,29 @@ export class ChainDraftStorage {
 
   clearDraft(): void {
     localStorage.removeItem(this.key());
+  }
+
+  saveFeeApproval(approval: ChainFeeApproval): void {
+    localStorage.setItem(`chain-fee-approval-v1:125:${this.creator}`, JSON.stringify(this.checkedFeeApproval(approval)));
+  }
+
+  restoreFeeApproval(): ChainFeeApproval | null {
+    const body = localStorage.getItem(`chain-fee-approval-v1:125:${this.creator}`);
+    if (body === null) return null;
+    if (body.length > 4096) throw new Error('Your saved market fee approval is too large.');
+    return this.checkedFeeApproval(JSON.parse(body));
+  }
+
+  clearFeeApproval(txHash: string): void {
+    const saved = this.restoreFeeApproval();
+    if (saved?.txHash === hash(txHash)) localStorage.removeItem(`chain-fee-approval-v1:125:${this.creator}`);
+  }
+
+  private checkedFeeApproval(approval: ChainFeeApproval): ChainFeeApproval {
+    if (approval.chainId !== 125 || address(approval.creator) !== this.creator) throw new Error('Invalid saved market fee approval.');
+    return {
+      creator: this.creator, chainId: 125, token: address(approval.token) as ChainFeeApproval['token'],
+      txHash: hash(approval.txHash) as ChainFeeApproval['txHash'], feeRaw: raw(approval.feeRaw).toString(),
+    };
   }
 }

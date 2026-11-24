@@ -12,11 +12,6 @@ import { shortenAddress, formatBalance } from '@/lib/format';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import type { TxHistoryRow } from '@/lib/queries';
 
-const SENT_FILTER =
-  'invert(48%) sepia(79%) saturate(2476%) hue-rotate(338deg) brightness(118%) contrast(119%)';
-const RECEIVED_FILTER =
-  'invert(69%) sepia(61%) saturate(588%) hue-rotate(88deg) brightness(93%) contrast(93%)';
-
 export interface TransactionRowProps {
   row: TxHistoryRow;
   walletAddress: string;
@@ -42,19 +37,16 @@ export function TransactionRow({
 
   return (
     <button
+      type="button"
       onClick={() => onClick?.(row.hash)}
-      className="w-full flex items-center gap-3 px-4 py-3.5 press-scale text-left hover:bg-white/[0.02]"
+      className="w-full grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-3 press-scale text-left hover:bg-pax-control"
     >
       <div
         className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-          isSent ? 'bg-red-500/10' : 'bg-green-500/10'
+          isSent ? 'bg-pax-error-muted' : 'bg-pax-success-muted'
         }`}
       >
-        <SvgIcon
-          name={isSent ? 'arrow-up-right' : 'arrow-down-left'}
-          className="w-4 h-4"
-          style={{ filter: isSent ? SENT_FILTER : RECEIVED_FILTER }}
-        />
+        <SvgIcon name={isSent ? 'arrow-up-right' : 'arrow-down-left'} className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium">{fullLabel}</p>
@@ -62,12 +54,12 @@ export function TransactionRow({
           {isSent ? `To ${shortenAddress(counterparty)}` : `From ${shortenAddress(counterparty)}`}
         </p>
       </div>
-      <div className="text-right shrink-0">
-        <p className={`text-sm font-medium ${isSent ? 'text-red-400' : 'text-green-400'}`}>
+      <div className="col-start-2 text-right break-words">
+        <p className={`text-sm font-medium ${isSent ? 'text-pax-error' : 'text-pax-success'}`}>
           {isSent ? '-' : '+'}
           {formattedAmount} {row.symbol}
         </p>
-        {dateLabel && <p className="text-[10px] text-pax-muted">{dateLabel}</p>}
+        {dateLabel && <p className="text-size-10 text-pax-muted">{dateLabel}</p>}
       </div>
     </button>
   );

@@ -16,6 +16,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -427,6 +428,13 @@ func (r *Registry) decodeLogs(b *batch, res *Result, logs []Log) error {
 }
 
 func (r *Registry) fact(l Log, module common.Address) (Fact, error) {
+	txIndex, logIndex := l.TxIndex, l.Index
+	if txIndex > math.MaxInt64 {
+		return Fact{}, fmt.Errorf("%w: transaction index exceeds database range", ErrInvalidLog)
+	}
+	if logIndex > math.MaxInt64 {
+		return Fact{}, fmt.Errorf("%w: log index exceeds database range", ErrInvalidLog)
+	}
 	switch l.ReceiptKind {
 	case ReceiptTx:
 		if l.TxFrom == nil {
@@ -447,8 +455,8 @@ func (r *Registry) fact(l Log, module common.Address) (Fact, error) {
 	return Fact{
 		Block:       l.BlockNumber,
 		BlockHash:   l.BlockHash,
-		TxIndex:     int64(l.TxIndex),
-		LogIndex:    int64(l.Index),
+		TxIndex:     int64(txIndex),
+		LogIndex:    int64(logIndex),
 		TxHash:      l.TxHash,
 		ReceiptKind: l.ReceiptKind,
 		BlockTime:   l.BlockTime,
@@ -728,7 +736,14 @@ func (r *reader) parseUint(name string, bits int) uint64 {
 	return n
 }
 
-func (r *reader) u8(name string) uint8 { return uint8(r.parseUint(name, 8)) }
+func (r *reader) u8(name string) uint8 {
+	n := r.parseUint(name, 8)
+	if n > math.MaxUint8 {
+		r.fail(fmt.Errorf("argument %s: value exceeds uint8", name))
+		return 0
+	}
+	return uint8(n)
+}
 
 func (r *reader) u64(name string) uint64 { return r.parseUint(name, 64) }
 

@@ -10,7 +10,7 @@ import (
 )
 
 func TestConnectedOwnerActionsRecordStartEndAndRotationIntents(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.RotationSchemaSQL()); err != nil {
 		t.Fatal(err)

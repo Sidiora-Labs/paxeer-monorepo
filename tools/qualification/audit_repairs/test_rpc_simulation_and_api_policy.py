@@ -11,8 +11,7 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[3]
 APP = ROOT / "docker/rpcnode/config/app.toml"
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_770.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_770.kvx"
 )
 
 

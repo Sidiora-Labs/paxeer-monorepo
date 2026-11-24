@@ -1,0 +1,304 @@
+[manifest]
+task = "22.43.130"
+records_moved = 12
+files_renamed = 13
+
+[file.1]
+from = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+to = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
+
+[file.2]
+from = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+to = "services/agent/crates/layerx-client/tests/authenticated_rpc_evidence.rs"
+
+[file.3]
+from = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+to = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
+
+[file.4]
+from = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+to = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
+
+[file.5]
+from = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+to = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
+
+[file.6]
+from = "services/agent/crates/layerx-client/tests/repair_22_33_1546.rs"
+to = "services/agent/crates/layerx-client/tests/producer_transcript_consumers.rs"
+
+[file.7]
+from = "services/agent/crates/layerx-client/tests/repair_22_33_1547.rs"
+to = "services/agent/crates/layerx-client/tests/receipt_sequencer_withdrawal.rs"
+
+[file.8]
+from = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+to = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
+
+[file.9]
+from = "services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_gateway.json"
+to = "services/agent/crates/layerx-client/tests/fixtures/gateway_observations.json"
+
+[file.10]
+from = "services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_node.json"
+to = "services/agent/crates/layerx-client/tests/fixtures/node_committed_evidence.json"
+
+[file.11]
+from = "services/agent/crates/layerx-client/tests/fixtures/repair_22_34_5_node_root.json"
+to = "services/agent/crates/layerx-client/tests/fixtures/node_root_reads.json"
+
+[file.12]
+from = "services/agent/crates/layerx-client/src/rpc/repair_22_31_222_producer/main.go"
+to = "services/agent/crates/layerx-client/src/rpc/committed_evidence_producer/main.go"
+
+[file.13]
+from = "services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_producer/main.go"
+to = "services/agent/crates/layerx-client/tests/fixtures/committed_node_producer/main.go"
+
+[file.14]
+from = "services/agent/crates/layerx-agentd/tests/approval_ordering/repair_22_33_1539.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/tests/approval_ordering/repair_22_33_1539.kvx"
+
+[file.15]
+from = "services/agent/crates/layerx-client/repair_22_33_1544.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/repair_22_33_1544.kvx"
+
+[file.16]
+from = "services/agent/crates/layerx-client/repair_22_39_256.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/repair_22_39_256.kvx"
+
+[file.17]
+from = "services/agent/crates/layerx-client/repair_22_39_386.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/repair_22_39_386.kvx"
+
+[file.18]
+from = "services/agent/crates/layerx-client/repair_22_39_390.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/repair_22_39_390.kvx"
+
+[file.19]
+from = "services/agent/crates/layerx-client/src/repair_22_31_221.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/src/repair_22_31_221.kvx"
+
+[file.20]
+from = "services/agent/crates/layerx-client/src/repair_22_33_1541.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/src/repair_22_33_1541.kvx"
+
+[file.21]
+from = "services/agent/crates/layerx-client/src/repair_22_39_219.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/src/repair_22_39_219.kvx"
+
+[file.22]
+from = "services/agent/crates/layerx-client/src/rpc/repair_22_31_222.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/src/rpc/repair_22_31_222.kvx"
+
+[file.23]
+from = "services/agent/crates/layerx-client/src/rpc/repair_22_33_1545.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/src/rpc/repair_22_33_1545.kvx"
+
+[file.24]
+from = "services/agent/crates/layerx-client/tests/repair_22_33_1546.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/tests/repair_22_33_1546.kvx"
+
+[file.25]
+from = "services/agent/crates/layerx-client/tests/repair_22_33_1547.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/tests/repair_22_33_1547.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_31_221"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1541.rs"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1544.kvx"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1544.rs"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_22_34_5.rs"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "services/agent/crates/layerx-client/src/repair_22_33_1541.kvx"
+
+[reference.7]
+file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+name = "repair_22_33_1546_node.json"
+
+[reference.8]
+file = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs"
+name = "repair_22_33_1546_node.json"
+
+[reference.9]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+name = "repair_22_31_222_producer"
+
+[reference.10]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs"
+name = "repair_22_33_1546_node.json"
+
+[reference.11]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx"
+name = "repair_22_34_5.rs"
+
+[reference.12]
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.kvx"
+name = "repair_22_31_222.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+
+[reference.14]
+file = "spec/layerx-merge/programme/issues/1647.kvx"
+name = "repair_22_33_1541"
+
+[reference.15]
+file = "spec/layerx-merge/programme/issues/1647.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+
+[reference.16]
+file = "spec/layerx-merge/programme/issues/input/1647.md"
+name = "services/agent/crates/layerx-client/src/repair_22_33_1541.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/programme/issues/input/1647.md"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+
+[reference.18]
+file = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_22_39_144.kvx"
+name = "repair_22_33_1544.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_22_39_245.kvx"
+name = "services/agent/crates/layerx-client/repair_22_33_1544.kvx"
+
+[reference.20]
+file = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1565.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_221"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1541.kvx"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1544"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+
+[reference.26]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+
+[reference.27]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1547.rs"
+
+[reference.28]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_221"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_222"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1546"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1546_gateway.json"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-agentd/tests/approval_ordering/repair_22_33_1539.kvx"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/repair_22_33_1544.kvx"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/repair_22_39_256.kvx"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/repair_22_39_386.kvx"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/repair_22_39_390.kvx"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/src/repair_22_33_1541.kvx"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/src/repair_22_39_219.kvx"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/src/rpc/repair_22_33_1545.kvx"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1546.rs"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1547.kvx"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_33_1547.rs"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+
+[reference.50]
+file = "tools/paxeer-x/retired_callers.json"
+name = "services/agent/crates/layerx-client/src/repair_22_33_1541.kvx"

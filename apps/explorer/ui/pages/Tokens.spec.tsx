@@ -41,6 +41,40 @@ describe('TokensPageContent', () => {
     }));
   });
 
+  it('omits day changes in both views without reported values', async function pageOmitsUnavailableChanges() {
+    const { container } = await renderPage();
+
+    expect(container.querySelector('[data-market-field="change"]')).toBeNull();
+    expect(container.querySelector('[data-token-field="Change 24h"]')).toBeNull();
+    expect(Array.from(container.querySelectorAll('thead th')).map((cell) => cell.textContent))
+      .toEqual([ '#', 'Token', 'Price', 'Market cap', 'Volume 24h', 'Holders' ]);
+  });
+
+  it('shows reported day changes and missing values in both views', async function pageShowsReportedChanges() {
+    const changedItems = [
+      items[0],
+      { ...items[1], price_change_percentage_24h: '2.5' },
+      { ...items[2], price_change_percentage_24h: -1.25 },
+    ];
+    fetchMock.resetMocks();
+    fetchMock.mockResponse((request) => Promise.resolve({
+      body: JSON.stringify(
+        request.url.includes('/stats') ? statsMock.base : { items: changedItems, next_page_params: null },
+      ),
+      ...responseInit,
+    }));
+    const { container } = await renderPage();
+
+    expect(Array.from(container.querySelectorAll('thead th')).map((cell) => cell.textContent))
+      .toEqual([ '#', 'Token', 'Price', 'Change 24h', 'Market cap', 'Volume 24h', 'Holders' ]);
+    expect(Array.from(container.querySelectorAll('[data-market-field="change"]')).map((cell) => cell.textContent))
+      .toEqual([ '—', '2.50%', '1.25%' ]);
+    expect(Array.from(container.querySelectorAll('[data-token-field="Change 24h"]')).map((row) => row.textContent))
+      .toEqual([ 'Change 24h—', 'Change 24h2.50%', 'Change 24h1.25%' ]);
+    expect(container.querySelectorAll('[data-token-change="up"]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-token-change="down"]')).toHaveLength(2);
+  });
+
   it('heads the page with the tokens title', async() => {
     await renderPage();
 
@@ -70,14 +104,13 @@ describe('TokensPageContent', () => {
     expect(container.querySelector('[data-list-page] [data-footer-pagination]')).not.toBeNull();
   });
 
-  it('lists the seven market columns and displays only the API price', async() => {
+  it('lists the reported market columns and displays only the API price', async() => {
     const { container } = await renderPage();
 
     expect(Array.from(container.querySelectorAll('thead th')).map((cell) => cell.textContent)).toEqual([
       '#',
       'Token',
       'Price',
-      'Change 24h',
       'Market cap',
       'Volume 24h',
       'Holders',

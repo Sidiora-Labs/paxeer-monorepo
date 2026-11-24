@@ -2045,7 +2045,7 @@ struct PartialOpeningBuffers<'a> {
     next: &'a mut [u8],
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn persist_opening_journal(
     reader: &crate::state::SectionReader<'_>,
     section: &PolicySection<'_>,
@@ -2102,7 +2102,7 @@ fn persist_opening_journal(
     })
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn prepare_opening_reputation(
     reader: &crate::state::SectionReader<'_>,
     section: &PolicySection<'_>,
@@ -2171,7 +2171,7 @@ struct CompleteOpeningBuffers<'a, 'b> {
     next: &'b mut [u8],
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn complete_opening(
     reader: &crate::state::SectionReader<'_>,
     selected: &PolicySection<'_>,

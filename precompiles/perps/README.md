@@ -1,6 +1,6 @@
 # Perps precompile
 
-This directory contains the Go EVM precompile for the perpetuals venue, its Solidity interface, embedded ABI, and tests. It exposes the native [`modules/perps`](../../modules/perps) keeper to EVM callers at `0x1015` for collateral, orders, positions, liquidation, and state queries. Collateral uses USDL with 6 decimals; prices, USD notionals, and leverage arguments use 18-decimal fixed point. Every method is nonpayable. The venue runs within the Paxeer BFT network, where a receipt is final when its block is committed.
+This directory contains the Go EVM precompile for the perpetuals venue, its Solidity interface, embedded ABI, and tests. It exposes the native [`modules/perps`](../../modules/perps) keeper to EVM callers at `0x1015` for collateral, orders, positions, liquidation, and state queries. Collateral uses USDL with 6 decimals; prices, USD notionals, and leverage arguments use 18-decimal fixed point. Every method is nonpayable. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when validators commit its block.
 
 ## Layout
 
@@ -55,8 +55,10 @@ The root [`Makefile`](../../Makefile) target `paxd-build` builds the native
 libraries and the node, including this precompile. Its `paxeer-test` target
 runs the Go package test groups defined in [`chain.mk`](../../chain.mk),
 covering this package and `abi/`. These targets use cached Go dependencies.
-The collateral settlement parity test in `positions_test.go` also runs Node
-with `tsx` from [`apps/perps`](../../apps/perps).
+The collateral settlement parity test in `positions_test.go` starts
+`node --import tsx --test tests/collateral-removal-margin-risk.test.ts` from the
+[`apps/perps` workspace](../../apps/perps), so the production client package and
+its workspace dependencies resolve as they do for the web application.
 
 ## Configuration
 

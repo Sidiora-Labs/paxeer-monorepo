@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'node:test';
 import ActualWebSocket from 'ws';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -6,14 +6,17 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { SdkClient, Operations, SnapshotStreamV2, browserStreamTransportV2, ReconnectingStream, StreamTransportError, HttpError, CapabilityUnavailableError, decimalString, sequence } from '../dist/index.js';
 const location = process.env.SDK_CONNECTED_CONFIG;
-if (!location) throw new Error('SDK_CONNECTED_CONFIG must identify the coordinator real-service fixture');
-const config = JSON.parse(fs.readFileSync(location, 'utf8'));
-if (config.realm !== 'private_fixture' || !/^[0-9a-f]{64}$/.test(config.sourceSha256) || !config.commands) throw new Error('Unbound connected fixture');
-if (!config.applicationOrigin?.startsWith('https://')) throw new Error('Actual HTTPS front door required');
-const browserFetch = (input, init) => { const headers = new Headers(init?.headers); headers.set('Origin', config.applicationOrigin); return fetch(input, { ...init, headers }); };
-const client = new SdkClient({ ...config.transport, session: { mode: 'bearer', token: () => config.accessToken } }, browserFetch);
-globalThis.WebSocket = class extends ActualWebSocket { constructor(url, protocols) { super(url, protocols, { origin: config.applicationOrigin }); } };
-const operations = new Operations(client);
+const config = location === undefined ? undefined : JSON.parse(fs.readFileSync(location, 'utf8'));
+const connectedTest = (name, run) => test(name, { skip: location === undefined ? 'SDK_CONNECTED_CONFIG is not set; joined services fixture required' : false }, run);
+let client, operations, browserFetch;
+if (config !== undefined) {
+  if (config.realm !== 'private_fixture' || !/^[0-9a-f]{64}$/.test(config.sourceSha256) || !config.commands) throw new Error('Unbound connected fixture');
+  if (!config.applicationOrigin?.startsWith('https://')) throw new Error('Actual HTTPS front door required');
+  browserFetch = (input, init) => { const headers = new Headers(init?.headers); headers.set('Origin', config.applicationOrigin); return fetch(input, { ...init, headers }); };
+  client = new SdkClient({ ...config.transport, session: { mode: 'bearer', token: () => config.accessToken } }, browserFetch);
+  globalThis.WebSocket = class extends ActualWebSocket { constructor(url, protocols) { super(url, protocols, { origin: config.applicationOrigin }); } };
+  operations = new Operations(client);
+}
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(predicate, timeout = 30000) { const deadline = Date.now() + timeout; while (!predicate()) { if (Date.now() >= deadline) throw new Error('Real-service condition deadline'); await pause(20); } }
 async function command(name) {
@@ -36,7 +39,7 @@ test('generated decimal boundaries retain exact strings', () => {
   for (const value of ['9007199254740993', ((1n << 256n)-1n).toString()]) assert.equal(JSON.parse(JSON.stringify(decimalString(value))), value);
   assert.equal(sequence('9007199254740993'), '9007199254740993');
 });
-test('real snapshot/ack fill race applies one canonical event', async () => {
+connectedTest('real snapshot/ack fill race applies one canonical event', async () => {
   const barrier = await command('armSnapshotAckBarrier');
   assert.equal(barrier.armed, true);
   const received = [];
@@ -50,11 +53,11 @@ test('real snapshot/ack fill race applies one canonical event', async () => {
     assert.deepEqual(event.payload, expected.payload);
   } finally { reader.close(); }
 });
-test('real wrong-origin ticket remains typed', async () => {
+connectedTest('real wrong-origin ticket remains typed', async () => {
   const { streamTopicFilterDigest } = await import('../dist/index.js');
   await assert.rejects(client.requestV2('/v2/stream/tickets','StreamTicketIssueResponse',{ method:'POST', service:'identity', authenticated:true, body:{ topics:config.topics,schemaMajor:2,filterDigest:await streamTopicFilterDigest(config.topics),origin:config.wrongOrigin,endpoint:'/v2/stream'} }), error => error instanceof HttpError && error.status === 403 && typeof error.code === 'string');
 });
-test('actually issued ticket expiry remains typed', async () => {
+connectedTest('actually issued ticket expiry remains typed', async () => {
   const adapter = browserStreamTransportV2(client, { applicationOrigin: config.applicationOrigin, snapshotPath: '/v2/snapshots' }, true);
   const ticket = await adapter.ticket(config.topics, AbortSignal.timeout(10000));
   const expiresAt = Date.parse(ticket.expiresAt);
@@ -62,10 +65,10 @@ test('actually issued ticket expiry remains typed', async () => {
   await pause(Math.max(0, expiresAt-Date.now())+10);
   await assert.rejects(adapter.connect({ signal:AbortSignal.timeout(10000), ticket, receive:()=>{}, disconnected:()=>{} }), error => error instanceof StreamTransportError && error.code === 'AUTH_EXPIRED');
 });
-test('unknown capability never becomes an empty collection', async () => {
+connectedTest('unknown capability never becomes an empty collection', async () => {
   await assert.rejects(client.requestV2('/v2/capability-that-is-unavailable','TradesResponse'), CapabilityUnavailableError);
 });
-test('route-obsolete real delayed response is aborted', async () => {
+connectedTest('route-obsolete real delayed response is aborted', async () => {
   await command('armDelayedTokenA');
   const controller = new AbortController(); let installedA = false;
   const obsolete = operations.call('IF_POOL_DETAIL',{path:{poolAddress:config.tokenAPool}},{signal:controller.signal}).then(() => { installedA = true; });
@@ -74,7 +77,7 @@ test('route-obsolete real delayed response is aborted', async () => {
   const current = await operations.call('IF_POOL_DETAIL',{path:{poolAddress:config.tokenBPool}});
   await rejected; assert.equal(installedA,false); assert.ok(current.data);
 });
-test('real gateway restart resumes durable identities', async () => {
+connectedTest('real gateway restart resumes durable identities', async () => {
   const identities = new Map();
   const reader = stream(() => {}, event => { assert.equal(identities.has(event.eventId),false); identities.set(event.eventId,event); });
   const reconnect = new ReconnectingStream(reader,config.authenticated);
@@ -86,7 +89,7 @@ test('real gateway restart resumes durable identities', async () => {
     assert.deepEqual(identities.get(expected.eventId).payload, expected.payload);
   } finally { reconnect.dispose(); }
 });
-test('actual public visibility cancellation keeps one snapshot operation and no detached success', async () => {
+connectedTest('actual public visibility cancellation keeps one snapshot operation and no detached success', async () => {
   let active = 0, peak = 0, completed = 0;
   const requests = [];
   const observedFetch = async (input, init) => {
@@ -117,7 +120,7 @@ test('actual public visibility cancellation keeps one snapshot operation and no 
     assert.equal(completed, stopped); assert.equal(reader.hasResumeCursor, false);
   } finally { connection.dispose(); }
 });
-test('real private logout destroys cursor and prevents reconnect delivery', async () => {
+connectedTest('real private logout destroys cursor and prevents reconnect delivery', async () => {
   const delivered = [];
   const reader = stream(() => {}, event => delivered.push(event), true);
   const connection = new ReconnectingStream(reader, true);
@@ -131,7 +134,7 @@ test('real private logout destroys cursor and prevents reconnect delivery', asyn
     assert.equal(JSON.stringify(connection.status).includes(config.accessToken), false);
   } finally { connection.dispose(); }
 });
-test('delayed real tokenA snapshot cannot overwrite tokenB after owner disposal', async () => {
+connectedTest('delayed real tokenA snapshot cannot overwrite tokenB after owner disposal', async () => {
   const armed = await command('armDelayedSnapshotTokenA'); assert.equal(armed.armed, true);
   if (!Array.isArray(config.tokenATopics) || !Array.isArray(config.tokenBTopics)) throw new Error('Actual tokenA/tokenB snapshot topics required');
   const installed = [], states = [];
@@ -149,7 +152,7 @@ test('delayed real tokenA snapshot cannot overwrite tokenB after owner disposal'
     assert.equal(count, 1); assert.deepEqual(installed[0].topics.map(topic => topic.topic).sort(), [...config.tokenBTopics].sort());
   } finally { ownerA.abort(); reader.close(); }
 });
-test('real73hour retained history resnapshots public and reauthenticates revoked private scope', async () => {
+connectedTest('real73hour retained history resnapshots public and reauthenticates revoked private scope', async () => {
   let publicSnapshots = 0;
   const publicReader = stream(() => { publicSnapshots++; }, () => {}, false);
   const privateReader = stream(() => {}, () => {}, true);

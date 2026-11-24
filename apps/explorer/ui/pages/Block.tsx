@@ -34,6 +34,7 @@ import BlockPendingUpdateAlert from 'ui/shared/block/BlockPendingUpdateAlert';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import * as BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import IconSvg from 'ui/shared/IconSvg';
+import FooterPositionAnchor from 'ui/shared/layout/FooterPositionAnchor';
 import NetworkExplorers from 'ui/shared/NetworkExplorers';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import { entityTabGroup } from 'ui/shared/RoutedTabs/EntityTabs';
@@ -169,9 +170,13 @@ const BlockPageContent = () => {
           loading={ blockQuery.isPlaceholderData }
           fontFamily="heading"
           display="flex"
+          alignItems="center"
           minW={ 0 }
+          maxW="full"
+          flexWrap="wrap"
+          rowGap={ 2 }
           columnGap={ 2 }
-          fontWeight={ 500 }
+          fontWeight="medium"
         >
           <chakra.span flexShrink={ 0 }>
             { capitalize(getNetworkValidatorTitle()) }
@@ -205,7 +210,7 @@ const BlockPageContent = () => {
   })();
 
   return (
-    <>
+    <FooterPositionAnchor>
       <TextAd mb={ 6 }/>
       <PageTitle
         kind="BLOCK"
@@ -222,9 +227,22 @@ const BlockPageContent = () => {
         beforeTitle={ beforeTitleElement }
         secondRow={ titleSecondRow }
         isLoading={ blockQuery.isPlaceholderData }
+        css={{
+          '& [data-entity-identifier]': { flexWrap: 'wrap' },
+          '& [data-entity-identifier] :is([aria-label="Show QR code"], [data-touch-placeholder])': {
+            '@media (max-width: 834px)': { marginBlock: 0 },
+          },
+        }}
       />
-      <RoutedTabs tabs={ entityTabs } displayMode="entity" defaultTabId="txs" rightSlot={ apiEntry }/>
-    </>
+      <chakra.div
+        display="contents"
+        css={{
+          '& [role="region"][aria-label="Transactions"]': { maxH: 'calc(100dvh - var(--chakra-spacing-24))' },
+        }}
+      >
+        <RoutedTabs tabs={ entityTabs } displayMode="entity" defaultTabId="txs" rightSlot={ apiEntry }/>
+      </chakra.div>
+    </FooterPositionAnchor>
   );
 };
 

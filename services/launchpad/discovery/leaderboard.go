@@ -162,7 +162,7 @@ func AggregateSquad(entries []PnLInterval) (SquadPerformance, error) {
 }
 
 func (s Store) SquadPerformance(ctx context.Context, a IntervalAuthority, squadID string, start, end time.Time) (SquadPerformance, error) {
-	if a == nil {
+	if s.DB == nil || a == nil {
 		return SquadPerformance{}, ErrUnavailable
 	}
 	rows, e := s.DB.QueryContext(ctx, `SELECT document FROM narrative_discovery.members WHERE squad_id=$1`, squadID)
@@ -249,7 +249,7 @@ func (a SQLIntervalAuthority) Intervals(ctx context.Context, start, end time.Tim
 	if start.IsZero() || !end.After(start) || start.Location() != time.UTC || end.Location() != time.UTC || start != start.Truncate(time.Hour) || end != end.Truncate(time.Hour) || end.Sub(start) > 1000*time.Hour || !address.MatchString(a.QuoteTokenAddress) {
 		return nil, ErrInvalid
 	}
-	rows, e := a.DB.QueryContext(ctx, `WITH admitted AS(SELECT DISTINCT ON(wallet) snapshot_id,wallet,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 WHERE start_at<=$1 AND end_at>=$2 ORDER BY wallet,generation DESC) SELECT r.snapshot_id::text,r.wallet,r.input_digest,r.watermark,COALESCE(jsonb_agg(i.payload ORDER BY i.bucket) FILTER(WHERE i.bucket IS NOT NULL),'[]'::jsonb) FROM admitted r LEFT JOIN pnl.inventory_l16_wallet_intervals_v3 i ON i.snapshot_id=r.snapshot_id AND i.interval='1h' AND i.bucket>=$1 AND i.bucket<$2 GROUP BY r.snapshot_id,r.wallet,r.input_digest,r.watermark ORDER BY r.wallet LIMIT 10001`, start, end)
+	rows, e := a.DB.QueryContext(ctx, `WITH admitted AS(SELECT DISTINCT ON(wallet) snapshot_id,wallet,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_read_v3 WHERE start_at<=$1 AND end_at>=$2 ORDER BY wallet,generation DESC) SELECT r.snapshot_id::text,r.wallet,r.input_digest,r.watermark,COALESCE(jsonb_agg(i.payload ORDER BY i.bucket) FILTER(WHERE i.bucket IS NOT NULL),'[]'::jsonb) FROM admitted r LEFT JOIN pnl.inventory_l16_wallet_intervals_read_v3 i ON i.snapshot_id=r.snapshot_id AND i.interval='1h' AND i.bucket>=$1 AND i.bucket<$2 GROUP BY r.snapshot_id,r.wallet,r.input_digest,r.watermark ORDER BY r.wallet LIMIT 10001`, start, end)
 	if e != nil {
 		return nil, e
 	}
@@ -278,7 +278,7 @@ func (a SQLIntervalAuthority) Intervals(ctx context.Context, start, end time.Tim
 			Fees       []struct {
 				Asset struct {
 					Kind     string `json:"kind"`
-					ChainID  uint64 `json:"chainId"`
+					ChainID  string `json:"chainId"`
 					Address  string `json:"address"`
 					Decimals int    `json:"decimals"`
 				} `json:"asset"`
@@ -328,7 +328,7 @@ func (a SQLIntervalAuthority) Intervals(ctx context.Context, start, end time.Tim
 				if n.Sign() == 0 {
 					continue
 				}
-				if fee.Asset.ChainID != 125 || !strings.EqualFold(fee.Asset.Address, a.QuoteTokenAddress) || fee.Asset.Decimals != 6 {
+				if fee.Asset.Kind != "erc20" || fee.Asset.ChainID != "125" || !strings.EqualFold(fee.Asset.Address, a.QuoteTokenAddress) || fee.Asset.Decimals != 6 {
 					v.Reconciled = false
 					v.QualityFlags = append(v.QualityFlags, "fee_assets_unvalued")
 					continue

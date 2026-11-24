@@ -56,17 +56,22 @@ flyci-runner|docker/flyci-runner/Dockerfile|tools/flyci/runner/Dockerfile|.
 explorer-frontend|docker/explorer-frontend/Dockerfile|apps/explorer/Dockerfile|.
 explorer-sig-provider|docker/explorer-sig-provider/Dockerfile|services/explorer/services/sig-provider/Dockerfile|.
 explorer-smart-contract-verifier|docker/explorer-smart-contract-verifier/Dockerfile|services/explorer/services/smart-contract-verifier/Dockerfile|.
-explorer-backend|docker/explorer-backend/Dockerfile|services/explorer/backend/docker/Dockerfile|services/explorer/backend
+explorer-backend|docker/explorer-backend/Dockerfile|services/explorer/backend/docker/Dockerfile|.
 explorer-backend|docker/explorer-backend/oldUI.Dockerfile|services/explorer/backend/docker/oldUI.Dockerfile|services/explorer/backend
 explorer-elixir-builder|docker/explorer-elixir-builder/Dockerfile|services/explorer/deploy/tools/Dockerfile.elixir-builder|.
 localnode|docker/localnode/Dockerfile|docker/localnode/Dockerfile|.
 rpcnode|docker/rpcnode/Dockerfile|docker/rpcnode/Dockerfile|.
 bridge-relayer|docker/bridge-relayer/Dockerfile|docker/bridge-relayer/Dockerfile|.
+bridge-web|docker/bridge-web/Dockerfile|docker/bridge-web/Dockerfile|.
 gas-station|docker/gas-station/Dockerfile|docker/gas-station/Dockerfile|.
 human-service|docker/human-service/Dockerfile|docker/human-service/Dockerfile|.
 kernel|docker/kernel/Dockerfile|docker/kernel/Dockerfile|.
 platform-indexer|docker/platform-indexer/Dockerfile|docker/platform-indexer/Dockerfile|.
+ai-evaluator|docker/ai-evaluator/Dockerfile|docker/ai-evaluator/Dockerfile|.
 search-front|docker/search-front/Dockerfile|docker/search-front/Dockerfile|.
+inference-peer-web|docker/inference-peer-web/Dockerfile|docker/inference-peer-web/Dockerfile|.
+names-web|docker/names-web/Dockerfile|apps/names/Dockerfile|.
+wallet-inventory|docker/wallet-inventory/Dockerfile|docker/wallet-inventory/Dockerfile|.
 '
 
 # ignore files that moved with their Dockerfile: service|new path|old path
@@ -77,6 +82,7 @@ web|docker/web/Dockerfile.dockerignore|apps/web/Dockerfile.dockerignore
 explorer-frontend|docker/explorer-frontend/Dockerfile.dockerignore|apps/explorer/.dockerignore
 explorer-sig-provider|docker/explorer-sig-provider/Dockerfile.dockerignore|services/explorer/services/sig-provider/.dockerignore
 explorer-smart-contract-verifier|docker/explorer-smart-contract-verifier/Dockerfile.dockerignore|services/explorer/services/smart-contract-verifier/.dockerignore
+names-web|docker/names-web/Dockerfile.dockerignore|apps/names/.dockerignore
 '
 
 # other stale wordings of a moved file or of a sub-directory build context: service|fixed string
@@ -90,11 +96,15 @@ rpcnode|cd docker && docker build
 
 # tracked Dockerfiles that stay where they are: another lane, vendored upstream trees, fixtures, devcontainers
 OUT_OF_SCOPE='
-# Another lane: perps application and launchpad images
+# Trading workspace image (apps/perps context)
 apps/perps/Dockerfile
+
+# Launchpad images
 deploy/launchpad/Dockerfile.native
 deploy/launchpad/Dockerfile.svc
 deploy/launchpad/Dockerfile.web
+# Documentation site image
+docs/site/paxeer-docs/Dockerfile
 # Hosted feeder and perps data
 services/platform/hosted/feeder/Dockerfile
 services/platform/perps-data/deploy/Dockerfile
@@ -161,6 +171,7 @@ ROOT_TOKEN_EXEMPT=(
     ':(exclude)services/platform/hosted/feeder'
     ':(exclude)services/platform/perps-data'
     ':(exclude)tools/containers/test_requested_image_edits.py'
+    ':(exclude)docs/site/docs-assistant/scripts/deploy-release.mjs'
     ':(exclude)tools/paxeer-x/gates/24.20.sh'
     ':(exclude)scripts/ci/xweb-workflow-check.sh'
 )
@@ -198,6 +209,16 @@ for arg in "$@"; do
     all=0
 done
 picked() { [ "$all" = 1 ] || in_list "$1" "${selected[@]}"; }
+
+declare -A recipe_contexts=()
+declare -A directory_contexts=()
+while IFS='|' read -r service recipe _ context; do
+    directory=$(dirname -- "$recipe")
+    recipe_contexts["$recipe"]=$context
+    if [ -z "${directory_contexts[$directory]+set}" ]; then
+        directory_contexts["$directory"]=$context
+    fi
+done < <(rows "$SERVICES")
 
 failures=0
 fail() { printf 'containers-check: %s\n' "$1" >&2; failures=$((failures + 1)); }
@@ -393,28 +414,29 @@ check_recipe() {
         docker build --check -f "$recipe" "$context"
     fi
 }
-while IFS='|' read -r service new _ context; do
+while IFS='|' read -r service new _ _; do
     picked "$service" || continue
-    if [ "$context" = @registry-builder ]; then
-        context_directory=$(mktemp -d "${TMPDIR:-/tmp}/containers-builder.XXXXXX")
-        if ! bash services/platform/hosted/registry/builder-environment/build-env.sh --prepare-context "$context_directory/prepared" >"$LOG_DIR/registry-builder-context.log" 2>&1; then
-            cat "$LOG_DIR/registry-builder-context.log" >&2
-            fail "$service: canonical context preparation failed"
-            continue
-        fi
-        context="$context_directory/prepared/context"
-        expected_revision=$(git rev-parse HEAD)
-        if [ "$(cat "$context_directory/prepared/source-revision")" != "$expected_revision" ]; then
-            fail "$service: generated context source revision differs"
-            continue
-        fi
-    fi
     dir=$(dirname -- "$new")
     for dockerfile in "$dir"/Dockerfile* "$dir"/*.Dockerfile; do
         [ -f "$dockerfile" ] || continue
         case "$dockerfile" in *.dockerignore) continue ;; esac
         in_list "$dockerfile" "${checked[@]+"${checked[@]}"}" && continue
         checked+=("$dockerfile")
+        context=${recipe_contexts[$dockerfile]:-${directory_contexts[$dir]}}
+        if [ "$context" = @registry-builder ]; then
+            context_directory=$(mktemp -d "${TMPDIR:-/tmp}/containers-builder.XXXXXX")
+            if ! bash services/platform/hosted/registry/builder-environment/build-env.sh --prepare-context "$context_directory/prepared" >"$LOG_DIR/registry-builder-context.log" 2>&1; then
+                cat "$LOG_DIR/registry-builder-context.log" >&2
+                fail "$service: canonical context preparation failed"
+                continue
+            fi
+            context="$context_directory/prepared/context"
+            expected_revision=$(git rev-parse HEAD)
+            if [ "$(cat "$context_directory/prepared/source-revision")" != "$expected_revision" ]; then
+                fail "$service: generated context source revision differs"
+                continue
+            fi
+        fi
         log=$LOG_DIR/$(printf '%s' "$dockerfile" | tr '/' '_').log
         recipe="$dockerfile"
         if [ "$service" = platform-registry-builder ]; then

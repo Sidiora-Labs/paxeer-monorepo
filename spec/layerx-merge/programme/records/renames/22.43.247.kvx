@@ -1,0 +1,320 @@
+[manifest]
+task = "22.43.247"
+records_moved = 12
+files_renamed = 10
+
+[file.1]
+from = "tools/qualification/audit_repairs/fixtures/repair_22_39_293_source_pins.json"
+to = "tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json"
+
+[file.2]
+from = "tools/qualification/audit_repairs/repair_22_36_1.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_36_1.kvx"
+
+[file.3]
+from = "tools/qualification/audit_repairs/repair_22_36_2.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_36_2.kvx"
+
+[file.4]
+from = "tools/qualification/audit_repairs/repair_22_36_3.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_36_3.kvx"
+
+[file.5]
+from = "tools/qualification/audit_repairs/repair_22_36_4.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_36_4.kvx"
+
+[file.6]
+from = "tools/qualification/audit_repairs/repair_22_36_5.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_36_5.kvx"
+
+[file.7]
+from = "tools/qualification/audit_repairs/repair_22_36_6.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_36_6.kvx"
+
+[file.8]
+from = "tools/qualification/audit_repairs/repair_22_38_35.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_38_35.kvx"
+
+[file.9]
+from = "tools/qualification/audit_repairs/repair_22_38_39.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_38_39.kvx"
+
+[file.10]
+from = "tools/qualification/audit_repairs/repair_22_39_173.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_39_173.kvx"
+
+[file.11]
+from = "tools/qualification/audit_repairs/repair_22_39_293.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_39_293.kvx"
+
+[file.12]
+from = "tools/qualification/audit_repairs/repair_22_39_330.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_39_330.kvx"
+
+[file.13]
+from = "tools/qualification/audit_repairs/repair_22_40_18.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_40_18.kvx"
+
+[file.14]
+from = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+to = "tools/qualification/audit_repairs/test_hyperfide_relocation.py"
+
+[file.15]
+from = "tools/qualification/audit_repairs/test_repair_22_36_2.py"
+to = "tools/qualification/audit_repairs/test_platform_documentation_relocation.py"
+
+[file.16]
+from = "tools/qualification/audit_repairs/test_repair_22_36_3.py"
+to = "tools/qualification/audit_repairs/test_wallet_documentation_relocation.py"
+
+[file.17]
+from = "tools/qualification/audit_repairs/test_repair_22_36_4.py"
+to = "tools/qualification/audit_repairs/test_explorer_documentation_relocation.py"
+
+[file.18]
+from = "tools/qualification/audit_repairs/test_repair_22_36_5.py"
+to = "tools/qualification/audit_repairs/test_component_documentation_relocation.py"
+
+[file.19]
+from = "tools/qualification/audit_repairs/test_repair_22_36_6.py"
+to = "tools/qualification/audit_repairs/test_documentation_index.py"
+
+[file.20]
+from = "tools/qualification/audit_repairs/test_repair_22_38_35.py"
+to = "tools/qualification/audit_repairs/test_inference_market_documentation.py"
+
+[file.21]
+from = "tools/qualification/audit_repairs/test_repair_22_38_39.py"
+to = "tools/qualification/audit_repairs/test_inference_market_interfaces.py"
+
+[file.22]
+from = "tools/qualification/audit_repairs/test_repair_22_40_18.py"
+to = "tools/qualification/audit_repairs/test_chain_launch_interfaces.py"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "test_repair_22_36_1"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "test_repair_22_36_2"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-35.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_38_35.py"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/1767.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_2.py"
+
+[reference.7]
+file = "spec/layerx-merge/programme/issues/1769.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.8]
+file = "spec/layerx-merge/programme/issues/input/1760.md"
+name = "tools/qualification/audit_repairs/test_repair_22_36_3.py"
+
+[reference.9]
+file = "spec/layerx-merge/programme/issues/input/1771.md"
+name = "tools/qualification/audit_repairs/test_repair_22_36_4.py"
+
+[reference.10]
+file = "spec/layerx-merge/programme/records/renames/22.43.110.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_40_18.py"
+
+[reference.11]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_293.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/programme/records/renames/22.43.136.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_330.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/programme/records/renames/22.43.17.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_5.kvx"
+
+[reference.14]
+file = "spec/layerx-merge/programme/records/renames/22.43.205.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_2.kvx"
+
+[reference.15]
+file = "spec/layerx-merge/programme/records/renames/22.43.222.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_2.kvx"
+
+[reference.16]
+file = "spec/layerx-merge/programme/records/renames/22.43.234.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_293.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/programme/records/renames/22.43.243.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_293.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/programme/records/renames/22.43.245.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_2.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/programme/records/renames/22.43.245.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_293.kvx"
+
+[reference.20]
+file = "spec/layerx-merge/programme/records/renames/22.43.246.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_5.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/programme/records/renames/22.43.246.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_293.kvx"
+
+[reference.22]
+file = "spec/layerx-merge/programme/records/tests/ci/repair_22_39_26.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.23]
+file = "spec/layerx-merge/programme/records/tests/ci/repair_22_39_366.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_2.py"
+
+[reference.24]
+file = "spec/layerx-merge/programme/records/tools/qualification/repair_22_31_621.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.25]
+file = "spec/layerx-merge/programme/records/tools/qualification/repair_22_31_621.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_2.py"
+
+[reference.26]
+file = "spec/layerx-merge/programme/records/tools/qualification/repair_22_31_623.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.27]
+file = "spec/layerx-merge/programme/records/tools/qualification/repair_22_31_623.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_2.py"
+
+[reference.28]
+file = "spec/layerx-merge/programme/records/tools/qualification/repair_22_39_273.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.29]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_36_1.py"
+
+[reference.30]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_38_35.py"
+
+[reference.31]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.32]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_38_35.py"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_38_39.kvx"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_36_1"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_36_1.py"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_36_2"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_1.kvx"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_2.kvx"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_3.kvx"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_4.kvx"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_5.kvx"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_36_6.kvx"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_38_35.kvx"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_38_39.kvx"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_173.kvx"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_293.kvx"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_39_330.kvx"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/repair_22_40_18.kvx"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_2.py"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_3.py"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_4.py"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_5.py"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_36_6.py"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_38_35.py"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_38_39.py"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/qualification/audit_repairs/test_repair_22_40_18.py"

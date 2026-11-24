@@ -1,0 +1,281 @@
+[view]
+title = "Holder rewards coins"
+units = "CSS pixels"
+typography_columns = ["font_size", "line_height", "weight"]
+box_columns = ["left", "top", "width", "height"]
+total_layout = "Totals and USDL units share a baseline; the number can wrap within the available tile width."
+loading_layout = "The total placeholder and caption slot reserve the space of the displayed total and caption."
+
+[rewards_part]
+views = 15
+views_and_states = 18
+renders = 612
+scale = "32 to 44 CSS pixels includes the responsive totals; 612 renders show zero findings."
+result = "Displayed totals use 36px below width 640 and 44px from width 640."
+
+[heading.1440]
+viewport = [1440, 900]
+before = [40.0, 46.0, 700]
+after = [40.0, 46.0, 500]
+box_before = [120.5, 128, 570, 46]
+box_after = [120.5, 128, 570, 46]
+
+[total.1440.1]
+viewport = [1440, 900]
+label = "Holder rewards"
+value = "18,627,546"
+before = [32.0, 40.0, 700]
+after = [44.0, 48.0, 700]
+box_before = [140.5, 264, 368, 40]
+box_after = [140.5, 264, 368, 48]
+tile_before = [120.5, 226, 408, 126]
+tile_after = [120.5, 226, 408, 126]
+minimum_height_before = 126.0
+minimum_height_after = 126.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+unit_before = "USDL"
+unit_type_before = [16.0, 24.0, 600]
+unit_box_before = [326.515625, 279, 44, 22]
+unit_after = "USDL"
+unit_type_after = [16.0, 24.0, 600]
+unit_box_after = [387.515625, 286, 44, 24]
+
+[total.1440.2]
+viewport = [1440, 900]
+label = "At today's prices"
+value = "18,627,546"
+before = [32.0, 40.0, 700]
+after = [44.0, 48.0, 700]
+box_before = [556.5, 264, 368, 40]
+box_after = [556.5, 264, 368, 48]
+tile_before = [536.5, 226, 408, 126]
+tile_after = [536.5, 226, 408, 126]
+minimum_height_before = 126.0
+minimum_height_after = 126.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+unit_before = "USDL"
+unit_type_before = [16.0, 24.0, 600]
+unit_box_before = [742.515625, 279, 44, 22]
+caption_before = "Valued in USDL"
+caption_type_before = [12.0, 16.0, 600]
+caption_box_before = [556.5, 312, 368, 16]
+unit_after = "USDL"
+unit_type_after = [16.0, 24.0, 600]
+unit_box_after = [803.515625, 286, 44, 24]
+caption_after = "Valued in USDL"
+caption_type_after = [12.0, 16.0, 600]
+caption_box_after = [556.5, 320, 368, 16]
+
+[total.1440.3]
+viewport = [1440, 900]
+label = "Wallets rewarded"
+value = "445,691"
+before = [32.0, 40.0, 700]
+after = [44.0, 48.0, 700]
+box_before = [972.5, 264, 368, 40]
+box_after = [972.5, 264, 368, 48]
+tile_before = [952.5, 226, 408, 126]
+tile_after = [952.5, 226, 408, 126]
+minimum_height_before = 126.0
+minimum_height_after = 126.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+
+[state.1440.empty]
+viewport = [1440, 900]
+totals = [[44.0, 48.0, 700], [44.0, 48.0, 700], [44.0, 48.0, 700]]
+total_heights = [48, 48, 48]
+tile_heights = [126, 126, 126]
+
+[state.1440.error]
+viewport = [1440, 900]
+totals = [[44.0, 48.0, 700], [44.0, 48.0, 700], [44.0, 48.0, 700]]
+total_heights = [48, 48, 48]
+tile_heights = [134, 134, 134]
+
+[state.1440.loading]
+viewport = [1440, 900]
+totals = [[44.0, 48.0, 700], [44.0, 48.0, 700], [44.0, 48.0, 700]]
+total_heights = [48, 48, 48]
+tile_heights = [126, 126, 126]
+placeholder_heights = [48, 48, 48]
+
+[heading.834]
+viewport = [834, 900]
+before = [40.0, 46.0, 700]
+after = [40.0, 46.0, 500]
+box_before = [96, 140, 683, 46]
+box_after = [96, 140, 683, 46]
+
+[total.834.1]
+viewport = [834, 900]
+label = "Holder rewards"
+value = "18,627,546"
+before = [32.0, 40.0, 700]
+after = [44.0, 48.0, 700]
+box_before = [116, 336, 297.5, 40]
+box_after = [116, 336, 297.5, 48]
+tile_before = [96, 298, 337.5, 126]
+tile_after = [96, 298, 337.5, 126]
+minimum_height_before = 126.0
+minimum_height_after = 126.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+unit_before = "USDL"
+unit_type_before = [16.0, 24.0, 600]
+unit_box_before = [302.015625, 351, 44, 22]
+unit_after = "USDL"
+unit_type_after = [16.0, 24.0, 600]
+unit_box_after = [363.015625, 358, 44, 24]
+
+[total.834.2]
+viewport = [834, 900]
+label = "At today's prices"
+value = "18,627,546"
+before = [32.0, 40.0, 700]
+after = [44.0, 48.0, 700]
+box_before = [461.5, 336, 297.5, 40]
+box_after = [461.5, 336, 297.5, 48]
+tile_before = [441.5, 298, 337.5, 126]
+tile_after = [441.5, 298, 337.5, 126]
+minimum_height_before = 126.0
+minimum_height_after = 126.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+unit_before = "USDL"
+unit_type_before = [16.0, 24.0, 600]
+unit_box_before = [647.515625, 351, 44, 22]
+caption_before = "Valued in USDL"
+caption_type_before = [12.0, 16.0, 600]
+caption_box_before = [461.5, 384, 297.5, 16]
+unit_after = "USDL"
+unit_type_after = [16.0, 24.0, 600]
+unit_box_after = [708.515625, 358, 44, 24]
+caption_after = "Valued in USDL"
+caption_type_after = [12.0, 16.0, 600]
+caption_box_after = [461.5, 392, 297.5, 16]
+
+[total.834.3]
+viewport = [834, 900]
+label = "Wallets rewarded"
+value = "445,691"
+before = [32.0, 40.0, 700]
+after = [44.0, 48.0, 700]
+box_before = [116, 470, 643, 40]
+box_after = [116, 470, 643, 48]
+tile_before = [96, 432, 683, 126]
+tile_after = [96, 432, 683, 126]
+minimum_height_before = 126.0
+minimum_height_after = 126.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+
+[state.834.empty]
+viewport = [834, 900]
+totals = [[44.0, 48.0, 700], [44.0, 48.0, 700], [44.0, 48.0, 700]]
+total_heights = [48, 48, 48]
+tile_heights = [126, 126, 126]
+
+[state.834.error]
+viewport = [834, 900]
+totals = [[44.0, 48.0, 700], [44.0, 48.0, 700], [44.0, 48.0, 700]]
+total_heights = [48, 48, 48]
+tile_heights = [134, 134, 134]
+
+[state.834.loading]
+viewport = [834, 900]
+totals = [[44.0, 48.0, 700], [44.0, 48.0, 700], [44.0, 48.0, 700]]
+total_heights = [48, 48, 48]
+tile_heights = [126, 126, 126]
+placeholder_heights = [48, 48, 48]
+
+[heading.390]
+viewport = [390, 844]
+before = [28.0, 34.0, 700]
+after = [28.0, 34.0001, 500]
+box_before = [32, 88, 311, 34]
+box_after = [32, 88, 311, 34]
+
+[total.390.1]
+viewport = [390, 844]
+label = "Holder rewards"
+value = "18,627,546"
+before = [32.0, 40.0, 700]
+after = [36.0, 40.0, 700]
+box_before = [52, 288, 271, 40]
+box_after = [52, 288, 271, 39.984375]
+tile_before = [32, 250, 311, 94]
+tile_after = [32, 250, 311, 94]
+minimum_height_before = 94.0
+minimum_height_after = 94.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+unit_before = "USDL"
+unit_type_before = [16.0, 24.0, 600]
+unit_box_before = [238.015625, 303, 44, 22]
+unit_after = "USDL"
+unit_type_after = [16.0, 24.0, 600]
+unit_box_after = [255.015625, 303, 44, 24]
+
+[total.390.2]
+viewport = [390, 844]
+label = "At today's prices"
+value = "18,627,546"
+before = [32.0, 40.0, 700]
+after = [36.0, 40.0, 700]
+box_before = [52, 390, 271, 40]
+box_after = [52, 390, 271, 39.984375]
+tile_before = [32, 352, 311, 118]
+tile_after = [32, 352, 311, 117.984375]
+minimum_height_before = 94.0
+minimum_height_after = 94.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+unit_before = "USDL"
+unit_type_before = [16.0, 24.0, 600]
+unit_box_before = [238.015625, 405, 44, 22]
+caption_before = "Valued in USDL"
+caption_type_before = [12.0, 16.0, 600]
+caption_box_before = [52, 438, 271, 16]
+unit_after = "USDL"
+unit_type_after = [16.0, 24.0, 600]
+unit_box_after = [255.015625, 405, 44, 24]
+caption_after = "Valued in USDL"
+caption_type_after = [12.0, 16.0, 600]
+caption_box_after = [52, 437.984375, 271, 16]
+
+[total.390.3]
+viewport = [390, 844]
+label = "Wallets rewarded"
+value = "445,691"
+before = [32.0, 40.0, 700]
+after = [36.0, 40.0, 700]
+box_before = [52, 516, 271, 40]
+box_after = [52, 515.984375, 271, 39.984375]
+tile_before = [32, 478, 311, 94]
+tile_after = [32, 477.984375, 311, 94]
+minimum_height_before = 94.0
+minimum_height_after = 94.0
+label_before = [11.0, 14.0, 600]
+label_after = [11.0, 14.0, 600]
+
+[state.390.empty]
+viewport = [390, 844]
+totals = [[36.0, 40.0, 700], [36.0, 40.0, 700], [36.0, 40.0, 700]]
+total_heights = [39.984375, 39.984375, 39.984375]
+tile_heights = [94, 117.984375, 94]
+
+[state.390.error]
+viewport = [390, 844]
+totals = [[36.0, 40.0, 700], [36.0, 40.0, 700], [36.0, 40.0, 700]]
+total_heights = [39.984375, 39.984375, 39.984375]
+tile_heights = [125.984375, 125.984375, 125.984375]
+
+[state.390.loading]
+viewport = [390, 844]
+totals = [[36.0, 40.0, 700], [36.0, 40.0, 700], [36.0, 40.0, 700]]
+total_heights = [39.984375, 39.984375, 39.984375]
+tile_heights = [94, 117.984375, 94]
+placeholder_heights = [39.984375, 39.984375, 39.984375]

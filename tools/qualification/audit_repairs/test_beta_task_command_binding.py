@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).parent
 SCRIPT = ROOT / "scripts/ci/beta-qualify.sh"
 CONSUMER = ROOT / "scripts/ci/beta-ledger-check.sh"
-FIXTURE = HERE / "focused_tasks_22_31_426.kvx"
+FIXTURE = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/focused_tasks_22_31_426.kvx"
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_426.kvx"
 
 

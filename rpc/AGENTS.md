@@ -1,10 +1,11 @@
 # EVM RPC SPECS
 
 The `evmrpc` package in `rpc/` serves JSON-RPC inside `paxd`. Paxeer
-mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`); the kernel
-participates in block proposal and execution. A receipt is final when its
+mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside every
+`paxd` node executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when its
 block is committed. See [README.md](README.md) for the interface guide and
-[public endpoints](../docs/site/docs/reference/public-rpc.md) for root-path URLs.
+[public endpoints](../docs/readme/PUBLIC-RPC.md) for root-path URLs.
 
 ## Pending and committed reads
 
@@ -33,9 +34,12 @@ that capability and latest on a full node without it:
   Without an open-state provider, the nonce request uses the account's
   `EvmProxy` route or returns `ErrPendingServedBySequencer` if no route exists.
   Held future nonces do not advance the open-block nonce.
+  After expiry, opening a block releases each sender's consecutive held nonces
+  through acceptance. A refusal drops that transaction and leaves later nonces held.
   The local acceptance path for
   `eth_sendRawTransaction` waits the same way after `ErrLayerNotOpen` and retries
-  acceptance once. It returns the transaction hash on success. See
+  acceptance once; a closed block is reported before nonce comparison. It returns
+  the transaction hash on success. See
   [tx.go](tx.go) and [send.go](send.go).
 - **Pending block objects:** [block.go](block.go) reads the snapshot directly;
   it does not apply the state-read idle fallback. The open block has its own
@@ -53,7 +57,7 @@ that capability and latest on a full node without it:
 
 Pending consumer regressions live in [pending_state_test.go](pending_state_test.go),
 [pending_simulate_test.go](pending_simulate_test.go) and
-[repair_m1147_test.go](repair_m1147_test.go). The repair tests cover omitted
+[access_list_pending_policy_test.go](access_list_pending_policy_test.go). The repair tests cover omitted
 access-list tags on full nodes and open/idle proposers, explicit pending
 refusal, cancellation, and the HTTP consumer path.
 
@@ -148,7 +152,7 @@ keep their own routing and errors. Profiled transaction traces apply the same
 default-tracer rule. Parent cancellation stops live EVM execution and releases
 trace admission; an expired trace deadline reports `execution timeout`.
 
-[repair_m1292_test.go](repair_m1292_test.go) exercises these contracts through
+[trace_tenant_transport_test.go](trace_tenant_transport_test.go) exercises these contracts through
 real committed execution and clients. It also covers HTTP/WebSocket tenant
 reads after reconnect, including canonical indices, polling filters and raw
 envelopes. Tenant domains share heads and account state intentionally.

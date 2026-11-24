@@ -13,11 +13,11 @@ import (
 )
 
 func TestConnectedRoutesExposeCommittedDirectConversation(t *testing.T) {
-	f := newRepair1027Fixture(t)
+	f := newChatAdmissionFixture(t)
 	runtime := f.start(500, 20, 20)
 	connection := runtime.dial(addr(0xaa))
-	persisted := repair1027Send(t, connection, "dm", "connected-conversation", "readable private message")
-	repair1027Persisted(t, persisted, "connected-conversation")
+	persisted := chatAdmissionSend(t, connection, "dm", "connected-conversation", "readable private message")
+	chatAdmissionPersisted(t, persisted, "connected-conversation")
 	measurement := runtime.hub.Measurement()
 	if measurement.Connected != 1 || measurement.EnqueuedFrames < 1 || measurement.ObservedAt.IsZero() {
 		t.Fatalf("connected hub measurement = %+v", measurement)

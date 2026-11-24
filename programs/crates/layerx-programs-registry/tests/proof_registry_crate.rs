@@ -180,7 +180,7 @@ fn verify_bundle_consumers(
             .verify_current_chain_head(
                 kind,
                 &state.commitment,
-                &state.transaction,
+                &support::deployment::raw_transaction(recovered),
                 &state.transaction_proof,
                 NOW,
             )
@@ -381,10 +381,10 @@ fn journal_commit_point_preserves_an_existing_envelope() {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_221.rs"]
-mod repair_22_33_221;
+#[path = "support/chain_deployment_support.rs"]
+mod chain_deployment_support;
 
 #[test]
 fn node_deployment_upgrade_replay_preserves_identity() {
-    repair_22_33_221::restart_recovery(false);
+    chain_deployment_support::restart_recovery(false);
 }

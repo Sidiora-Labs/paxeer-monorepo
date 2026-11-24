@@ -1,0 +1,116 @@
+[manifest]
+task = "22.43.88"
+records_moved = 7
+files_renamed = 7
+
+[file.1]
+from = "precompiles/staking/repair_126.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/staking/repair_126.kvx"
+
+[file.2]
+from = "precompiles/staking/repair_m1201.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/staking/repair_m1201.kvx"
+
+[file.3]
+from = "precompiles/staking/legacy/v614/repair_m1208.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/staking/legacy/v614/repair_m1208.kvx"
+
+[file.4]
+from = "precompiles/staking/legacy/v620/repair_m1209.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/staking/legacy/v620/repair_m1209.kvx"
+
+[file.5]
+from = "precompiles/staking/legacy/v630/repair_m1210.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/staking/legacy/v630/repair_m1210.kvx"
+
+[file.6]
+from = "precompiles/staking/legacy/v640/repair_m1211.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/staking/legacy/v640/repair_m1211.kvx"
+
+[file.7]
+from = "precompiles/staking/legacy/v65/repair_m1212.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/staking/legacy/v65/repair_m1212.kvx"
+
+[file.8]
+from = "precompiles/staking/repair_126_test.go"
+to = "precompiles/staking/redelegation_shares_test.go"
+
+[file.9]
+from = "precompiles/staking/repair_m1201_test.go"
+to = "precompiles/staking/staking_activation_test.go"
+
+[file.10]
+from = "precompiles/staking/legacy/v614/repair_m1208_test.go"
+to = "precompiles/staking/legacy/v614/validator_key_replay_test.go"
+
+[file.11]
+from = "precompiles/staking/legacy/v620/repair_m1209_test.go"
+to = "precompiles/staking/legacy/v620/validator_key_replay_test.go"
+
+[file.12]
+from = "precompiles/staking/legacy/v630/repair_m1210_test.go"
+to = "precompiles/staking/legacy/v630/staking_compatibility_test.go"
+
+[file.13]
+from = "precompiles/staking/legacy/v640/repair_m1211_test.go"
+to = "precompiles/staking/legacy/v640/staking_compatibility_test.go"
+
+[file.14]
+from = "precompiles/staking/legacy/v65/repair_m1212_test.go"
+to = "precompiles/staking/legacy/v65/staking_compatibility_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "precompiles/staking/legacy/v614/repair_m1208_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "precompiles/staking/legacy/v65/repair_m1212_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1642.kvx"
+name = "precompiles/staking/repair_m1201_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/input/1642.md"
+name = "precompiles/staking/repair_m1201_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/staking/repair_m1201_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/staking/legacy/v614/repair_m1208_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/staking/legacy/v65/repair_m1212_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/staking/repair_126_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/staking/repair_m1201_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/staking/legacy/v614/repair_m1208_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/staking/legacy/v620/repair_m1209_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/staking/legacy/v630/repair_m1210_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/staking/legacy/v640/repair_m1211_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/staking/legacy/v65/repair_m1212_test.go"

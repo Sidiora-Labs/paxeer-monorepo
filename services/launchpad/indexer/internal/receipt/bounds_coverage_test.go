@@ -15,7 +15,7 @@ import (
 )
 
 func TestReceiptAuthorityRejectsInvalidRuntimeEpochs(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx := context.Background()
 	client, closeClient, err := NewBoundedRPCClient(ctx, input.Endpoint, "")
 	if err != nil {
@@ -58,9 +58,9 @@ func TestReceiptAuthorityRejectsInvalidRuntimeEpochs(t *testing.T) {
 	}
 }
 func TestSourcePoolReservesMatchArchivedABIWords(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx := context.Background()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -88,8 +88,8 @@ func TestSourcePoolReservesMatchArchivedABIWords(t *testing.T) {
 	}
 }
 func TestReceiptCoordinatesAndEnvelopeBoundsRejectChangedInputs(t *testing.T) {
-	input := repair53InputsFromProducer(t)
-	authority, closeClient := repair53Open(t, context.Background(), input)
+	input := receiptReplayInputsFromProducer(t)
+	authority, closeClient := receiptReplayOpen(t, context.Background(), input)
 	defer closeClient()
 	bundle, err := authority.Bundle(context.Background(), input.NativeSwap)
 	if err != nil {
@@ -119,15 +119,36 @@ func TestReceiptCoordinatesAndEnvelopeBoundsRejectChangedInputs(t *testing.T) {
 			}
 		})
 	}
-	for _, edit := range []func(*Bundle){func(b *Bundle) { b.PrepayReceipts = []*types.Receipt{nil} }, func(b *Bundle) { b.Header.Extra = make([]byte, decode.MaxFieldBytes+1) }, func(b *Bundle) { b.Receipt.Logs[0].Topics = make([]common.Hash, 5) }, func(b *Bundle) { b.Receipt.Logs[0].Data = make([]byte, decode.MaxFieldBytes+1) }, func(b *Bundle) { b.Receipt.Logs = make([]*types.Log, 4097) }} {
-		changed, err := clone(bundle)
-		if err != nil {
-			t.Fatal(err)
-		}
-		edit(&changed)
-		if err = boundedBundle(changed); !errors.Is(err, ErrQualification) {
-			t.Fatalf("unbounded bundle %v", err)
-		}
+	for _, tc := range []struct {
+		name    string
+		edit    func(*Bundle)
+		wantErr bool
+	}{
+		{"nil prepayment", func(b *Bundle) { b.PrepayReceipts = []*types.Receipt{nil} }, true},
+		{"header extra", func(b *Bundle) { b.Header.Extra = make([]byte, decode.MaxFieldBytes+1) }, true},
+		{"topics", func(b *Bundle) { b.Receipt.Logs[0].Topics = make([]common.Hash, 5) }, true},
+		{"log data", func(b *Bundle) { b.Receipt.Logs[0].Data = make([]byte, decode.MaxFieldBytes+1) }, false},
+		{"receipt logs", func(b *Bundle) {
+			base := *b.Receipt.Logs[0]
+			b.Receipt.Logs = make([]*types.Log, 4097)
+			for i := range b.Receipt.Logs {
+				log := base
+				log.Index = uint(i)
+				b.Receipt.Logs[i] = &log
+			}
+		}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changed, err := clone(bundle)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tc.edit(&changed)
+			err = boundedBundle(changed)
+			if tc.wantErr && !errors.Is(err, ErrQualification) || !tc.wantErr && err != nil {
+				t.Fatalf("bundle admission: %v", err)
+			}
+		})
 	}
 	if _, err := coordinates(bundle); err != nil {
 		t.Fatal(err)

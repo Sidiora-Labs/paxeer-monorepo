@@ -3,8 +3,8 @@
 The wallet gateway image is built from
 [`docker/wallet-gateway/Dockerfile`](../../../../docker/wallet-gateway/Dockerfile)
 with the repository root as its build context. Runtime examples are in
-[`railway.env.example`](../../../../services/wallet/deploy/railway.env.example)
-and [`redis.railway.env.example`](../../../../services/wallet/deploy/redis.railway.env.example).
+[`services/wallet/deploy/railway.env.example`](../../../../services/wallet/deploy/railway.env.example)
+and [`services/wallet/deploy/redis.railway.env.example`](../../../../services/wallet/deploy/redis.railway.env.example).
 The deployment platform selects and starts the image with those runtime settings.
 
 The gateway applies SQL files from `services/wallet/gateway/migrations` in
@@ -44,6 +44,9 @@ Using the operator-supplied gateway base in `GATEWAY_URL`:
 curl --silent --show-error --max-time 10 "$GATEWAY_URL/healthz"
 curl --silent --show-error --max-time 10 "$GATEWAY_URL/readyz"
 ```
+
+Run `scripts/wallet/check-live.sh gateway` with `CHECK_LIVE_GATEWAY_BASE` and
+`CHECK_LIVE_GATEWAY_TOKEN` set to check the deployed gateway's readiness and provisioned wallet.
 
 `/healthz` returns `ok: true`. `/readyz` returns 200 with `ready: true` and
 `attestors`, `nonce_store`, `rpc_pool` and `identity_provider` states `up`.

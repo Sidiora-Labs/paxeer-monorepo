@@ -182,8 +182,24 @@ export class JsonRpcClient {
       } catch {
         throw new JsonRpcTransportError(`response is not JSON (HTTP ${status})`, status);
       }
-      if (!response.ok && !(isRecord(payload) || Array.isArray(payload)))
-        throw new JsonRpcTransportError(`HTTP ${status}`, status);
+      if (!response.ok) {
+        try {
+          if (Array.isArray(body)) {
+            if (!Array.isArray(payload) || payload.length !== body.length)
+              throw new JsonRpcTransportError('batch response does not answer the request');
+            const ids = new Set(body.map((entry) => entry.id));
+            for (const entry of payload) {
+              if (!isRecord(entry) || typeof entry.id !== 'number' || !ids.delete(entry.id))
+                throw new JsonRpcTransportError('batch response does not answer the request id');
+              decodeResponse(entry, entry.id);
+            }
+          } else {
+            decodeResponse(payload, body.id);
+          }
+        } catch {
+          throw new JsonRpcTransportError(`HTTP ${status}`, status);
+        }
+      }
       return payload;
     } catch (err) {
       if (controller.signal.aborted) throw controller.signal.reason;

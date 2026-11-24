@@ -104,6 +104,7 @@ function MoneyTable({
   exportName?: string;
   maxHeight?: number;
 }) {
+  const maxHeightClass = ({ 320: "max-h-[320px]", 400: "max-h-[400px]", 480: "max-h-[480px]", 560: "max-h-[560px]", 640: "max-h-[640px]", 720: "max-h-[720px]", 800: "max-h-[800px]" } as Record<number, string>)[maxHeight] ?? "max-h-none";
   const [sortKey, setSortKey] = React.useState<SortKey>("date");
   const [sortDir, setSortDir] = React.useState<SortDir>("desc");
 
@@ -171,7 +172,7 @@ function MoneyTable({
           Export
         </Button>
       </div>
-      <div className="lx-scroll overflow-y-auto" style={{ maxHeight }}>
+      <div className={cn("lx-scroll overflow-y-auto", maxHeightClass)}>
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-20 bg-surface">
             <tr className="border-b border-border text-left">
@@ -189,7 +190,7 @@ function MoneyTable({
               <tr>
                 <td
                   colSpan={4}
-                  className="sticky top-[41px] z-10 border-b border-border bg-surface-sunken/70 px-4 py-1.5 backdrop-blur"
+                  className="sticky lx-sticky-group z-10 border-b border-border bg-surface-sunken/70 px-4 py-1.5 backdrop-blur"
                 >
                   <div className="flex items-baseline justify-between">
                     <span className="text-xs font-bold text-muted-foreground">{g.label}</span>

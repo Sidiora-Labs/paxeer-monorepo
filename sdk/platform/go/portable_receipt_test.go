@@ -69,7 +69,7 @@ func TestPortableReceiptRoundTripsAtReceipted(t *testing.T) {
 		t.Fatalf("executed %d V1 cases, want 5", count)
 	}
 	t.Run("committed", func(t *testing.T) {
-		receipt, raw, keys, evidence, _ := repair141LoadRecorded(t)
+		receipt, raw, keys, evidence, _ := receiptTransportLoadRecorded(t)
 		trust := portableRecordedTrust(t)
 		signed, err := VerifySequencerReceipt(receipt, raw, keys)
 		if err != nil {
@@ -257,7 +257,7 @@ func TestPortableReceiptRefusesVersionOneFormat(t *testing.T) {
 }
 
 func TestPortableReceiptRecordedCheckpointProvenance(t *testing.T) {
-	data, err := os.ReadFile("testdata/repair_m1384/checkpoint.json")
+	data, err := os.ReadFile("testdata/committed_receipt/checkpoint.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestPortableReceiptRecordedCheckpointProvenance(t *testing.T) {
 	if trust != committedRecordingTrust(t) {
 		t.Fatal("external checkpoint differs from the re-recorded fixture network anchor")
 	}
-	_, _, _, evidence, _ := repair141LoadRecorded(t)
+	_, _, _, evidence, _ := receiptTransportLoadRecorded(t)
 	if evidence.BlockHeader.Hash() != trust.BlockHash || !bytes.Equal(evidence.Commit.BlockID.Hash, trust.BlockHash[:]) || evidence.Commit.Height != trust.Height {
 		t.Fatal("captured checkpoint differs from producer execution header and commit")
 	}
@@ -286,7 +286,7 @@ func TestPortableReceiptRecordedCheckpointProvenance(t *testing.T) {
 // portable bundle or compute the trusted hash from its untrusted header.
 func portableRecordedTrust(t *testing.T) CommittedTrust {
 	t.Helper()
-	data, err := os.ReadFile("testdata/repair_m1384/checkpoint.json")
+	data, err := os.ReadFile("testdata/committed_receipt/checkpoint.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func portableRecordedTrust(t *testing.T) CommittedTrust {
 }
 
 func TestPortableReceiptRequiresExternalNetworkAnchor(t *testing.T) {
-	receipt, raw, keys, evidence, _ := repair141LoadRecorded(t)
+	receipt, raw, keys, evidence, _ := receiptTransportLoadRecorded(t)
 	trust := portableRecordedTrust(t)
 	bundle, err := ExportPortableReceipt(receipt, raw, keys, &evidence, trust)
 	if err != nil {

@@ -1,0 +1,144 @@
+[manifest]
+task = "22.43.122"
+records_moved = 6
+files_renamed = 4
+
+[file.1]
+from = "sdk/wallet/test/repair-22-31-238.test.ts"
+to = "sdk/wallet/test/receipt-authentication-session-binding.test.ts"
+
+[file.2]
+from = "sdk/wallet/test/repair-22-31-591.test.ts"
+to = "sdk/wallet/test/endpoint-routing.test.ts"
+
+[file.3]
+from = "sdk/wallet/test/repair-22-33-135.test.ts"
+to = "sdk/wallet/test/review-storage-auth-rpc.test.ts"
+
+[file.4]
+from = "sdk/wallet/test/repair-22-33-143.test.ts"
+to = "sdk/wallet/test/merged-contract-conformance.test.ts"
+
+[file.5]
+from = "sdk/wallet/repair_22_39_268.kvx"
+to = "spec/layerx-merge/programme/records/sdk/wallet/repair_22_39_268.kvx"
+
+[file.6]
+from = "sdk/wallet/src/repair-22-31-238.kvx"
+to = "spec/layerx-merge/programme/records/sdk/wallet/src/repair-22-31-238.kvx"
+
+[file.7]
+from = "sdk/wallet/src/repair-22-31-456.kvx"
+to = "spec/layerx-merge/programme/records/sdk/wallet/src/repair-22-31-456.kvx"
+
+[file.8]
+from = "sdk/wallet/src/repair-22-33-135.kvx"
+to = "spec/layerx-merge/programme/records/sdk/wallet/src/repair-22-33-135.kvx"
+
+[file.9]
+from = "sdk/wallet/test/repair-22-33-143.kvx"
+to = "spec/layerx-merge/programme/records/sdk/wallet/test/repair-22-33-143.kvx"
+
+[file.10]
+from = "sdk/wallet/test/repair_22_39_145.kvx"
+to = "spec/layerx-merge/programme/records/sdk/wallet/test/repair_22_39_145.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair-22-31-238.test.ts"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair-22-33-135.test.ts"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "sdk/wallet/test/repair-22-33-135.test.ts"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1798.kvx"
+name = "sdk/wallet/test/repair-22-31-238.test.ts"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/1799.kvx"
+name = "sdk/wallet/test/repair-22-31-591.test.ts"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/1810.kvx"
+name = "sdk/wallet/test/repair-22-31-591.test.ts"
+
+[reference.7]
+file = "spec/layerx-merge/programme/issues/1853.kvx"
+name = "sdk/wallet/test/repair_22_39_145.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/programme/issues/1867.kvx"
+name = "sdk/wallet/test/repair_22_39_145.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/programme/issues/input/1798.md"
+name = "sdk/wallet/test/repair-22-31-238.test.ts"
+
+[reference.10]
+file = "spec/layerx-merge/programme/issues/input/1810.md"
+name = "sdk/wallet/test/repair-22-31-591.test.ts"
+
+[reference.11]
+file = "spec/layerx-merge/programme/issues/input/1867.md"
+name = "sdk/wallet/test/repair_22_39_145.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/programme/issues/input/1877.md"
+name = "sdk/wallet/test/repair_22_39_145.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/programme/issues/input/1881.md"
+name = "sdk/wallet/test/repair_22_39_145.kvx"
+
+[reference.14]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "sdk/wallet/repair_22_39_268.kvx"
+
+[reference.15]
+file = "spec/layerx-merge/programme/records/renames/22.43.235.kvx"
+name = "sdk/wallet/repair_22_39_268.kvx"
+
+[reference.16]
+file = "spec/layerx-merge/programme/records/renames/22.43.244.kvx"
+name = "sdk/wallet/repair_22_39_268.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/wallet/test/repair-22-33-135.test.ts"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/wallet/repair_22_39_268.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/wallet/test/repair-22-31-238.test.ts"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/wallet/test/repair-22-31-591.test.ts"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/wallet/test/repair-22-33-135.test.ts"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/wallet/test/repair-22-33-143.test.ts"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/wallet/test/repair_22_39_145.kvx"
+
+[reference.24]
+file = "tests/ci/data/wallet_vitest_baseline.json"
+name = "sdk/wallet/test/repair-22-31-238.test.ts"
+
+[reference.25]
+file = "tests/ci/data/wallet_vitest_baseline.json"
+name = "sdk/wallet/test/repair-22-33-135.test.ts"

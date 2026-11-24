@@ -9,7 +9,7 @@
     "serve": "node serve.mjs",
     "check": "node --test test/*.test.mjs",
     "test": "npm run check",
-    "test:portable": "node --test test/repair-*.test.mjs"
+    "test:portable": "node --test test/delivery-snapshot.test.mjs test/snapshot-setup.test.mjs"
   },
   "engines": {
     "node": ">=22.5"

@@ -9,7 +9,8 @@ For Paxeer, the network chain id is **125** (`0x7d`). Chain JSON-RPC is served a
 the root path of the configured node origin.
 The verifier's routes below belong to its own HTTP listener. A successful source
 verification establishes a bytecode match; network receipt finality comes from
-committed blocks on the single Paxeer BFT network, whose kernel proposes blocks.
+committed blocks on Paxeer. The LayerX kernel inside `paxd` executes and orders
+each transaction and builds each block; validators check and commit it.
 
 ## Configuration
 
@@ -339,7 +340,7 @@ and solc `v0.8.17+commit.8df45f5f`. Its response family is the ZkSync
 Select the response decoder by endpoint. Solo verification, Solidity batch
 verification and ZkSync verification have distinct envelopes. The success
 examples below are valid JSON excerpts using values from the linked compiler
-fixtures; large source, bytecode and artifact fields are omitted. The [response tests](tests/repair_22_33_598.rs) compare these fields with
+fixtures; large source, bytecode and artifact fields are omitted. The [response tests](tests/documentation_contracts.rs) compare these fields with
 production response conversion and decode both protobuf and HTTP JSON,
 without executing a compiler.
 
@@ -551,7 +552,7 @@ configuration; its output covers the example's shape, not every fetcher variant.
 
 ## Configuration and API coverage
 
-The [configuration, startup, request and response tests](tests/repair_22_33_598.rs)
+The [configuration, startup, request and response tests](tests/documentation_contracts.rs)
 check the behavior described above:
 
 | Behavior | Test |

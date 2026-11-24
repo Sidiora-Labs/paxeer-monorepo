@@ -1,12 +1,19 @@
-import { createListCollection, Grid, GridItem } from '@chakra-ui/react';
+import { Box, createListCollection, Flex, chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import type * as stats from '@blockscout/stats-types';
 import type { StatsIntervalIds } from 'types/client/stats';
 
-import { Select } from 'toolkit/chakra/select';
+import { Button } from 'toolkit/chakra/button';
+import { Select, SelectContent, SelectControl, SelectItem, SelectRoot, SelectValueText } from 'toolkit/chakra/select';
 import { FilterInput } from 'toolkit/components/filters/FilterInput';
-import ChartIntervalSelect from 'ui/shared/chart/ChartIntervalSelect';
+
+import { STATS_INTERVALS } from './constants';
+
+const intervalIds = Object.keys(STATS_INTERVALS) as Array<StatsIntervalIds>;
+const intervalCollection = createListCollection({
+  items: intervalIds.map((value) => ({ value, label: STATS_INTERVALS[value].title })),
+});
 
 type Props = {
   sections?: Array<stats.LineChartSection>;
@@ -38,24 +45,33 @@ const StatsFilters = ({
       ],
     });
   }, [ sections ]);
+  const inputId = React.useId();
+  const sectionId = React.useId();
 
   const handleItemSelect = React.useCallback(({ value }: { value: Array<string> }) => {
     onSectionChange(value[0]);
   }, [ onSectionChange ]);
 
+  const handleIntervalSelect = React.useCallback(({ value }: { value: Array<string> }) => {
+    const selected = intervalIds.find((id) => id === value[0]);
+    if (selected) onIntervalChange(selected);
+  }, [ onIntervalChange ]);
+
+  const handleIntervalClick = React.useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const selected = intervalCollection.items.find((item) => item.value === event.currentTarget.value);
+    if (selected) onIntervalChange(selected.value);
+  }, [ onIntervalChange ]);
+
   return (
-    <Grid
+    <Flex
       data-stats-filters
+      css={{ '& button, & input': { _motionReduce: { transitionProperty: 'none' } } }}
       gap={{ base: 2, lg: 3 }}
-      templateAreas={{
-        base: `"section interval"
-                "input input"`,
-        lg: `"input section interval"`,
-      }}
-      gridTemplateColumns={{ base: 'repeat(2, minmax(0, 1fr))', lg: '1fr auto auto' }}
-      alignItems="center"
+      flexDirection="row"
+      flexWrap="wrap"
+      alignItems="end"
       bg="bg.surface"
-      borderWidth="1px"
+      borderWidth="1"
       borderStyle="solid"
       borderColor="border.divider"
       borderRadius="md"
@@ -63,34 +79,14 @@ const StatsFilters = ({
       px={{ base: 3, lg: 4 }}
       py={{ base: 3, lg: 3 }}
     >
-      <GridItem
+      <Box
+        minW={{ base: 0, lg: 'min(100%, 20ch)' }}
         w={{ base: '100%', lg: 'auto' }}
-        area="section"
-        data-stats-filter-section
-      >
-        <Select
-          collection={ collection }
-          placeholder="Select section"
-          defaultValue={ [ currentSection ] }
-          onValueChange={ handleItemSelect }
-          w={{ base: '100%', lg: '160px' }}
-          loading={ isLoading }
-        />
-      </GridItem>
-
-      <GridItem
-        w={{ base: '100%', lg: 'auto' }}
-        area="interval"
-        data-stats-filter-interval
-      >
-        <ChartIntervalSelect interval={ interval } onIntervalChange={ onIntervalChange } isLoading={ isLoading } selectTagSize="md"/>
-      </GridItem>
-
-      <GridItem
-        w="100%"
-        area="input"
+        flex={{ lg: '1 1 20ch' }}
+        order={{ base: 3, lg: 0 }}
         data-stats-filter-input
       >
+        <chakra.label htmlFor={ inputId } display="block" textStyle="label" mb={ 2 }>Find chart, metric</chakra.label>
         <FilterInput
           key={ initialFilterValue }
           loading={ isLoading }
@@ -98,9 +94,94 @@ const StatsFilters = ({
           placeholder="Find chart, metric..."
           initialValue={ initialFilterValue }
           size="sm"
+          name="q"
+          minW={ 0 }
+          inputProps={{ id: inputId, type: 'search', autoCapitalize: 'none', spellCheck: false, enterKeyHint: 'search' }}
         />
-      </GridItem>
-    </Grid>
+      </Box>
+
+      <Box
+        minW="min(100%, 14ch)"
+        w={{ base: 'calc((100% - var(--chakra-spacing-2)) / 2)', lg: 'auto' }}
+        flexGrow={{ base: 1, lg: 0 }}
+        data-stats-filter-section
+      >
+        <chakra.label htmlFor={ sectionId } display="block" textStyle="label" mb={ 2 }>Section</chakra.label>
+        <Select
+          ids={{ trigger: sectionId }}
+          triggerProps={{ 'aria-label': 'Section' }}
+          name="section"
+          collection={ collection }
+          placeholder="Select section"
+          defaultValue={ [ currentSection ] }
+          onValueChange={ handleItemSelect }
+          w={{ base: '100%', lg: 'var(--chakra-spacing-40)' }}
+          loading={ isLoading }
+          positioning={{ sameWidth: true }}
+          contentProps={{
+            minW: 0,
+            maxW: 'calc(100dvw - var(--chakra-spacing-8))',
+            whiteSpace: 'normal',
+            overflowWrap: 'anywhere',
+            _motionReduce: { animation: 'none' },
+          }}
+        />
+      </Box>
+
+      <Box
+        minW="min(100%, 14ch)"
+        maxW="100%"
+        w={{ base: 'calc((100% - var(--chakra-spacing-2)) / 2)', lg: 'auto' }}
+        flexGrow={{ base: 1, lg: 0 }}
+        as="fieldset"
+        data-stats-filter-interval
+      >
+        <chakra.legend textStyle="label" mb={ 2 }>Interval</chakra.legend>
+        <Box data-chart-interval-select={ interval }>
+          <Flex hideBelow="lg" gap={ 1 } p={ 1 } borderWidth="1" borderColor="transparent"
+            flexWrap="wrap" role="group" aria-label="Interval">
+            { intervalIds.map((id) => (
+              <Button
+                key={ id }
+                type="button"
+                data-id={ id }
+                value={ id }
+                aria-label={ STATS_INTERVALS[id].title }
+                aria-pressed={ interval === id }
+                variant="outline"
+                size="xs"
+                h="calc(var(--chakra-spacing-6) + var(--chakra-spacing-0\.5))"
+                px={ 1.5 }
+                color="text.primary"
+                bg={ interval === id ? 'selectedOption' : 'canvas' }
+                borderColor={ interval === id ? 'accent' : 'border.strong' }
+                onClick={ handleIntervalClick }
+                disabled={ isLoading }
+              >
+                { STATS_INTERVALS[id].shortTitle }
+              </Button>
+            )) }
+          </Flex>
+          <SelectRoot
+            hideFrom="lg"
+            name="interval"
+            collection={ intervalCollection }
+            value={ [ interval ] }
+            onValueChange={ handleIntervalSelect }
+            w="full"
+          >
+            <SelectControl loading={ isLoading } triggerProps={{ 'aria-label': 'Interval' }}>
+              <SelectValueText placeholder="Select interval"/>
+            </SelectControl>
+            <SelectContent _motionReduce={{ animation: 'none' }}>
+              { intervalCollection.items.map((item) => (
+                <SelectItem key={ item.value } item={ item }>{ item.label }</SelectItem>
+              )) }
+            </SelectContent>
+          </SelectRoot>
+        </Box>
+      </Box>
+    </Flex>
   );
 };
 

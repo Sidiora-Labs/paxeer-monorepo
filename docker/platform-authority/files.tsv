@@ -1,0 +1,6 @@
+LAYERX_AUTHORITY_TLS_CERT_B64	/run/layerx-authority/cert.der	0600	*
+LAYERX_AUTHORITY_TLS_KEY_B64	/run/layerx-authority/key.der	0600	*
+LAYERX_AUTHORITY_ROUTER_TOKEN_B64	/run/layerx-authority/router-token	0600	*
+LAYERX_AUTHORITY_REGISTRY_TOKEN_B64	/run/layerx-authority/registry-token	0600	*
+LAYERX_AUTHORITY_WEBHOOKS_TOKEN_B64	/run/layerx-authority/webhooks-token	0600	*
+LAYERX_AUTHORITY_RECEIPT_KEYS_B64	/run/layerx-authority/receipt-keys.json	0600	*

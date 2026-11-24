@@ -9,13 +9,13 @@ describe('table recipe, scan variant', () => {
     expect(scan?.columnHeader).toMatchObject({
       color: 'table.header.fg',
       backgroundColor: 'table.header.bg',
-      borderBottomWidth: '1px',
+      borderBottomWidth: 'var(--chakra-border-widths-1)',
       borderColor: 'border.strong',
     });
   });
 
   it('separates every row with the divider border and drops it on the last one', () => {
-    expect(scan?.cell).toMatchObject({ borderBottomWidth: '1px', borderColor: 'border.divider' });
+    expect(scan?.cell).toMatchObject({ borderBottomWidth: 'var(--chakra-border-widths-1)', borderColor: 'border.divider' });
     expect(scan?.row).toMatchObject({ bg: 'bg.surface', _hover: { bg: 'table.row.hover' } });
     expect(scan?.row?._last).toEqual({ '& td': { borderBottomWidth: '0' } });
   });

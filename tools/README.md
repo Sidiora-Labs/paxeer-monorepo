@@ -2,7 +2,8 @@
 
 Developer and operator tools for building, inspecting, testing, releasing, and
 operating Paxeer X Network. They support the node, applications, and hosted
-services around one BFT network. The kernel runs inside `paxd`, and a receipt is
+services around Paxeer. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
 final when its block is committed.
 
 ## Layout
@@ -42,6 +43,7 @@ final when its block is committed.
 | [spec/](spec/) | Hyperfide projection helpers and numeric fixtures. |
 | [specgen/](specgen/) | Compiles KVX specifications under `spec/` into generated rule files with `go run ./tools/specgen -root .`. |
 | [tx-scanner/](tx-scanner/) | The `paxd tools scan-tx` command, gRPC queries, and checkpoint storage. |
+| [ui-check/](ui-check/) | Chromium renders and accessibility measurements across device sizes and schemes; run `npm test` in the package. |
 | [uci/](uci/) | Vendored continuous-integration configuration and documentation. |
 | [utils/](utils/) | Shared Go module-store helpers. |
 | [v6120-halt-export/](v6120-halt-export/) | Launchpad halt-state fixture export and upgrade replay. |

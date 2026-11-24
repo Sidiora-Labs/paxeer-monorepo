@@ -8,8 +8,8 @@ import useIsMobile from 'lib/hooks/useIsMobile';
 import usePreventFocusAfterModalClosing from 'lib/hooks/usePreventFocusAfterModalClosing';
 import type { ButtonProps } from 'toolkit/chakra/button';
 import { Button } from 'toolkit/chakra/button';
-import { PopoverTrigger } from 'toolkit/chakra/popover';
-import { Tooltip } from 'toolkit/chakra/tooltip';
+import { PopoverTrigger } from 'ui/marketplace/NativePopover';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import IconSvg from 'ui/shared/IconSvg';
 
 interface Props extends ButtonProps {
@@ -47,8 +47,8 @@ const TriggerButton = (
             variant="link"
             p={ 0 }
             fontSize={ fullView ? 'md' : 'sm' }
-            fontWeight={ fullView ? '400' : '500' }
-            lineHeight="21px"
+            fontWeight={ fullView ? 'normal' : 'medium' }
+            lineHeight="body"
             ml={ fullView ? 3 : 0 }
             onFocusCapture={ onFocusCapture }
             cursor={ canRate ? 'pointer' : 'default' }
@@ -57,7 +57,7 @@ const TriggerButton = (
             { !fullView && (
               <IconSvg
                 name={ rating ? 'star_filled' : 'star_outline' }
-                color={ rating ? 'yellow.400' : 'icon.secondary' }
+                color={ rating ? 'warning' : 'icon.secondary' }
                 boxSize={ 5 }
                 mr={ 1 }
               />

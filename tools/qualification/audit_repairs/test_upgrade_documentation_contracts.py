@@ -1,5 +1,6 @@
 """Audit the 7.0.0 documentation against the registered node plans and stores."""
 
+import json
 from pathlib import Path
 import re
 
@@ -8,11 +9,33 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 NODE_DOCS = (
-    "services/platform/hosted/gateway/README.md",
-    "docs/site/paxeer-docs/src/app/agent-runtime/page.tsx",
-    "services/explorer/README.md",
-    "docs/paxeer-network.md",
-    "docs/runbooks/paxeer-x-fork.md",
+    (
+        "services/platform/hosted/gateway/README.md",
+        "The px namespace is served at the node root from node state;",
+        "px_openSession, px_register and px_requestFunds are hosted operations.",
+    ),
+    (
+        "docs/readme/PUBLIC-RPC.md",
+        "The node serves the px namespace at the root path, answering from node state.",
+        "px_register and px_requestFunds validate their parameters and answer -32004 "
+        "with error data code hosted_gateway_service_required: registration and funding "
+        "are operations of the operator-deployed",
+    ),
+    (
+        "docs/readme/NETWORK.md",
+        "The node answers the px namespace from node state.",
+        "px_register and px_requestFunds are operations of the hosted identity and faucet services:",
+    ),
+    (
+        "docs/paxeer-network.md",
+        "The px namespace is served at the node root from node state;",
+        "px_register and px_requestFunds use the hosted services.",
+    ),
+    (
+        "docs/runbooks/paxeer-x-fork.md",
+        "The px namespace is served at the node root from node state;",
+        "only px_register and px_requestFunds are hosted operations.",
+    ),
 )
 RUNBOOK = "spec/layerx-merge/docs/activation-runbook.md"
 
@@ -74,9 +97,9 @@ def plan_rows():
     return rows[2:]
 
 
-@pytest.mark.parametrize("relative", NODE_DOCS)
+@pytest.mark.parametrize("relative,node_fact,hosted_fact", NODE_DOCS)
 def test_public_node_docs_serve_px_at_root_with_only_two_hosted_operations(
-    relative,
+    relative, node_fact, hosted_fact,
 ):
     text = prose(relative)
     retired_claims = (
@@ -89,17 +112,16 @@ def test_public_node_docs_serve_px_at_root_with_only_two_hosted_operations(
     )
     for claim in retired_claims:
         assert claim.lower() not in text.lower(), (relative, claim)
-    assert "The px namespace is served at the node root" in text, relative
-    assert re.search(
-        r"only px_register and px_requestFunds are hosted operations\.", text
-    ), relative
+    assert node_fact in text, relative
+    assert hosted_fact in text, relative
 
 
 def test_release_documents_700_package_without_retired_daemon_option():
     text = prose("RELEASE.md")
     assert "PAXD_RELEASE_LAYERXD" not in text
     assert "enable the retired daemon option" not in text
-    assert "version = v7.0.0" in text
+    version = json.loads(read("tools/release/version.json"))["version"]
+    assert f"version = {version}" in text
     assert "upgrade = v7.0" in text
     assert "MergeUpgrade" in text
     assert "mergeUpgradePlan" in text
@@ -109,7 +131,7 @@ def test_consensus_ledger_opens_700_with_merge_and_later_anchor_deletion():
     text = prose("docs/release/consensus-commits.md")
     assert "The next release is **v7.0.0**" in text
     assert "The next release is **v6.12.0**" not in text
-    ledger = read("docs/release/consensus-commits.md").split(
+    ledger = prose("docs/release/consensus-commits.md").split(
         "## v7.0.0 ledger", 1
     )[1].split("## Historical", 1)[0]
     for fact in (
@@ -118,18 +140,18 @@ def test_consensus_ledger_opens_700_with_merge_and_later_anchor_deletion():
         "mergeUpgradePlan",
         plan_value("AnchorStoreDeleteUpgrade"),
         "AnchorStoreDeleteUpgrade",
-        "app.mm.RunMigrations",
+        "then runs module migrations.",
         "layerxanchor",
-        "later plan",
+        "Apply the merge first; retain the anchor store until the separately coordinated deletion height.",
     ):
         assert fact in ledger, fact
-    assert re.search(r"\| `[0-9a-f]{40}` \|", ledger)
+    assert re.search(r"\| [0-9a-f]{40} \|", ledger)
 
 
 def test_interop_documents_archive_attestation_bindings_and_sequencer_receipts():
     text = prose("services/interop/README.md")
     assert "mirror archive" in text
-    assert "Attestation bindings and sequencer receipts" in text
+    assert "Attestation bindings and network receipts" in text
     for fact in (
         "GET /v1/deposit/{chainId}/{txHash}/{logIndex}",
         "GET /v1/release/{chainId}/{paxeerTxHash}/{nonce}",

@@ -48,7 +48,7 @@ func TestNormalizedWebhookRejectsUnboundTransportAndPayload(t *testing.T) {
 	if _, err := AdaptV2LiveWebhook("request_1", time.Time{}); err != ErrInvalid {
 		t.Fatalf("zero webhook time = %v", err)
 	}
-	if _, err := marshalNormalizedWebhook(ProviderEvent{EventID: "event_1", ProviderID: "provider_1", State: stateReady, ObservedAt: now}); err != ErrInvalid {
+	if _, err := marshalNormalizedWebhook(ProviderEvent{EventID: "event_1", ProviderID: "provider_1", State: stateEnded, ObservedAt: now}); err != ErrInvalid {
 		t.Fatalf("unsupported normalized state = %v", err)
 	}
 	if _, err := marshalNormalizedWebhook(ProviderEvent{EventID: "event_1", ProviderID: "provider_1", State: stateLive, ObservedAt: now.Add(time.Nanosecond)}); err != ErrInvalid {
@@ -89,7 +89,7 @@ func TestProviderWebhookRejectsAmbiguousSignedTimestamp(t *testing.T) {
 }
 
 func TestProviderWebhookAppliesSignedStateThroughLifecycle(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	f.handlers.studioWebhook = false
 	ctx := context.Background()
 	o, _ := f.create("provider-webhook-application")

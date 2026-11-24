@@ -10,7 +10,7 @@ import (
 )
 
 func TestHandlerPublicReadsAndOwnerOperation(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	o, intent := f.create("handler-public-reads")
 	get := func(path string, authorization string, want int) []byte {
 		t.Helper()

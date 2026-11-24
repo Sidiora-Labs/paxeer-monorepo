@@ -360,17 +360,13 @@ pub struct Node {
     worker: Option<thread::JoinHandle<()>>,
 }
 
-fn block(height: u64, app_hash: [u8; 32], changed: bool) -> Value {
-    let now: u64 = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .must()
-        .as_secs();
+fn block(height: u64, app_hash: [u8; 32], changed: bool, timestamp: u64) -> Value {
     let mut hash = [height.to_le_bytes()[0]; 32];
     if changed {
         hash[0] ^= 1;
     }
     document!({"number":format!("0x{height:x}"),"hash":format!("0x{}",hex::encode(&hash)),
-        "parentHash":format!("0x{}",hex::encode(&[(height-1).to_le_bytes()[0];32])),"timestamp":format!("0x{now:x}"),
+        "parentHash":format!("0x{}",hex::encode(&[(height-1).to_le_bytes()[0];32])),"timestamp":format!("0x{timestamp:x}"),
         "transactionsRoot":format!("0x{}",hex::encode(&[3;32])),"receiptsRoot":format!("0x{}",hex::encode(&[4;32])),
         "stateRoot":format!("0x{}",hex::encode(&app_hash)),"transactions":[]})
 }
@@ -512,6 +508,10 @@ impl Node {
         fixture: &Fixture,
         transcript: Option<&[Value]>,
     ) {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .must()
+            .as_secs();
         while !thread_stopped.load(Ordering::Acquire) {
             let (stream, _) = match listener.accept() {
                 Ok(pair) => pair,
@@ -558,6 +558,7 @@ impl Node {
                             number,
                             fixture.store.app_hash,
                             state.fault == "reorg" && state.called && number == height,
+                            timestamp,
                         )
                     }
                     "px_getCommit" => {
@@ -717,17 +718,19 @@ fn config_fixture(node: &Node, fixture: &Fixture, directory: &Path) -> Config {
         tls: Arc::new(tls),
         tokens: vec![],
         human: None,
-        replica_address: node.address,
-        replica_host: node.address.to_string(),
-        replica_token: Zeroizing::new("replica-208".to_owned()),
+        replica: Some(ReplicaConfig {
+            address: node.address,
+            host: node.address.to_string(),
+            token: Zeroizing::new("replica-208".to_owned()),
+            id: [9; 32],
+            authorization: SequencerAuthorization::new(fixture.key_id, fixture.public, 1, 1000),
+        }),
         evidence_read_token: None,
-        replica_id: [9; 32],
         chain_receipts: fixture_must(ChainReceipts::load(&node.url, &keys)),
         chain_rpc_url: node.url.clone(),
         protocol_network_id: 77,
         network_id: "repair-1471".to_owned(),
         wire_version: "3".to_owned(),
-        authorization: SequencerAuthorization::new(fixture.key_id, fixture.public, 1, 1000),
         sequencer_public_key: fixture.public,
     };
     config.fixture_human_policy(&fixture.policy(), directory);

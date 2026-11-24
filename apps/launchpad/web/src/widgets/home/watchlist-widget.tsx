@@ -2,6 +2,8 @@
 import { useMemo } from 'react';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SourceNotice } from '@/ui/common/source-notice';
+import { WatchlistNotice } from '@/ui/common/watchlist-notice';
 import { Button, EmptyState, UnavailableState } from '@/ui/primitives';
 import { useWatchlistRows, type WatchlistRow } from '@/core/market/use-watchlist-rows';
 import { buildExploreRow } from '@/widgets/explore/use-explore-rows';
@@ -36,9 +38,15 @@ export function WatchlistWidget({ filter = '', density = 'comfortable', standalo
     return watchlist.rows.map((row, index) => watchlistRowView(row, index, now)).filter(row => matchesFilter({ name: row.name, symbol: row.symbol, poolAddress: row.poolAddress, tokenAddress: null }, filter));
   }, [watchlist.rows, filter]);
 
+  const notices = <>
+    <WatchlistNotice state={watchlist.account} />
+    {watchlist.stats.state === 'error' ? <SourceNotice label="Coin stats" state={watchlist.stats} onRetry={watchlist.retrySources} /> : null}
+    <SourceNotice label="Pool details" state={watchlist.listings} onRetry={watchlist.retrySources} />
+    {watchlist.metadata.state === 'error' ? <SourceNotice label="Coin details" state={watchlist.metadata} onRetry={watchlist.retrySources} /> : null}
+  </>;
   const body = watchlist.loading ? (
     <TrendingRowSkeleton density={density} count={4} />
-  ) : watchlist.pools.length === 0 ? (
+  ) : watchlist.account.error && watchlist.pools.length === 0 ? null : watchlist.pools.length === 0 ? (
     <EmptyState
       icon={Star}
       title="Your watchlist is empty"
@@ -50,8 +58,8 @@ export function WatchlistWidget({ filter = '', density = 'comfortable', standalo
     <EmptyState icon={Star} title="No coins match this filter" body={`Nothing matches "${filter.trim()}"`} />
   ) : (
     <>
-      {watchlist.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Live stats" operation={watchlist.stats.operation} status={watchlist.stats.status} /> : null}
-      {watchlist.metadata.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Coin details" operation={watchlist.metadata.operation} status={watchlist.metadata.status} /> : null}
+      {watchlist.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Live stats" operation={watchlist.stats.operation} status={watchlist.stats.status} onRetry={watchlist.retrySources} /> : null}
+      {watchlist.metadata.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Coin details" operation={watchlist.metadata.operation} status={watchlist.metadata.status} onRetry={watchlist.retrySources} /> : null}
       <ol className="flex flex-col">
         {rows.map(row => (
           <TrendingRow key={row.poolAddress} row={row} density={density} starred={watchlist.check(row.poolAddress)} onToggleStar={() => watchlist.toggle(row.poolAddress)} />
@@ -64,6 +72,7 @@ export function WatchlistWidget({ filter = '', density = 'comfortable', standalo
     return (
       <section aria-label="Watchlist" className={cn('flex flex-col rounded-md bg-surface-1 py-2', className)}>
         {watchlist.isLocal && watchlist.pools.length > 0 ? <p className="px-3 pb-2 text-xs text-text-muted">Saved on this device. <button type="button" className="text-accent hover:underline" onClick={() => openAuthModal('watchlist')}>Sign in</button> to keep it on your account.</p> : null}
+        {notices}
         {body}
       </section>
     );
@@ -72,7 +81,7 @@ export function WatchlistWidget({ filter = '', density = 'comfortable', standalo
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
       {watchlist.isLocal && watchlist.pools.length > 0 ? <p className="flex h-10 shrink-0 items-center px-3 text-xs text-text-muted">Saved on this device. <button type="button" className="ml-1 text-accent hover:underline" onClick={() => openAuthModal('watchlist')}>Sign in</button></p> : null}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{body}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{notices}{body}</div>
     </div>
   );
 }

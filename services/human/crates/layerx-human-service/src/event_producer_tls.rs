@@ -11,7 +11,7 @@ use std::os::unix::fs::PermissionsExt as _;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
 use crate::auth::{AuthConfig, Passkeys, RateLimit};
@@ -513,13 +513,10 @@ fn verify_delivery(
         producer.spawn(Arc::downgrade(&outbox), Arc::clone(&health)),
         "worker",
     );
-    let mut deadline = required(
-        layerx_types::clock::Deadline::start(clock.as_ref(), Duration::from_secs(36)),
-        "deadline",
-    );
-    while health.ready()
-        && !required(deadline.remaining(clock.as_ref()), "remaining deadline").is_zero()
-    {
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(36))
+        .unwrap_or_else(|| panic!("deadline"));
+    while health.ready() && Instant::now() < deadline {
         thread::sleep(Duration::from_millis(100));
     }
     assert!(!outbox.ready());
@@ -528,22 +525,28 @@ fn verify_delivery(
         Some(second.clone())
     );
     let approval = source(Kind::Approval, approval_port);
-    let mut deadline = required(
-        layerx_types::clock::Deadline::start(clock.as_ref(), Duration::from_secs(10)),
-        "deadline",
-    );
-    while (required(outbox.pending(), "recovery queue").is_some() || !outbox.ready())
-        && !required(deadline.remaining(clock.as_ref()), "remaining deadline").is_zero()
-    {
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(10))
+        .unwrap_or_else(|| panic!("deadline"));
+    let mut response = None;
+    while Instant::now() < deadline {
+        if required(outbox.pending(), "recovery queue").is_none() && outbox.ready() {
+            let current = required(
+                tls.upstream(approval.port, "consumer-token")
+                    .get(&format!("/internal/v1/events/{}", second.observation.id)),
+                "read approval",
+            );
+            let available = current.status != 503;
+            response = Some(current);
+            if available {
+                break;
+            }
+        }
         thread::sleep(Duration::from_millis(100));
     }
     assert!(required(outbox.pending(), "delivered").is_none());
     assert!(outbox.ready());
-    let response = required(
-        tls.upstream(approval.port, "consumer-token")
-            .get(&format!("/internal/v1/events/{}", second.observation.id)),
-        "read approval",
-    );
+    let response = response.unwrap_or_else(|| panic!("approval read unavailable"));
     assert_eq!(response.status, 200);
     let record: layerx_platform_internal::events::Record =
         required(serde_json::from_slice(&response.body), "approval record");
@@ -730,7 +733,8 @@ fn human_source(
         }),
         "source",
     );
-    required(service.refresh(), "authenticated principal enrollment");
+    await_authenticated_principal(tls, human_port, access_token);
+    await_enrollment(&service);
     transport::Listener::start(Arc::clone(&tls.config), port, move |stream| {
         if let Ok(mut request) = http::parse_client_request(stream) {
             request.peer_verified = stream
@@ -740,6 +744,154 @@ fn human_source(
             let _ = http::write_response(stream, &service.route(&request));
         }
     })
+}
+
+fn await_authenticated_principal(tls: &transport::Tls, human_port: u16, access_token: &str) {
+    let upstream = tls.upstream(human_port, "unused");
+    let cookie = format!("__Host-layerx_access={access_token}");
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(5))
+        .unwrap_or_else(|| panic!("principal readiness deadline"));
+    loop {
+        if let Ok(response) = upstream.get_as("/internal/v1/principal", "Cookie", &cookie) {
+            if response.status == 200 {
+                let envelope: Value = required(
+                    serde_json::from_slice(&response.body),
+                    "principal readiness response",
+                );
+                let result = envelope
+                    .get("result")
+                    .unwrap_or_else(|| panic!("principal readiness result"));
+                if result.get("active") == Some(&Value::Bool(true))
+                    && result.get("sub").and_then(Value::as_str) == Some(ACCOUNT_ID)
+                {
+                    return;
+                }
+            }
+        }
+        if Instant::now() >= deadline {
+            panic!("authenticated principal did not become ready");
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn await_enrollment(service: &Service) {
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(5))
+        .unwrap_or_else(|| panic!("enrollment readiness deadline"));
+    loop {
+        match service.refresh() {
+            Ok(_) => return,
+            Err((code, _))
+                if matches!(
+                    code,
+                    "enrollment_upstream_unavailable" | "enrollment_principal_mismatch"
+                ) =>
+            {
+                if Instant::now() >= deadline {
+                    panic!("authenticated principal enrollment: {code}");
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err((code, _)) => panic!("authenticated principal enrollment: {code}"),
+        }
+    }
+}
+
+fn deliver_after_webhook_restart(
+    producer: &Client,
+    pending: &layerx_platform_internal::producer::Pending,
+) -> Result<bool, String> {
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(10))
+        .unwrap_or_else(|| panic!("webhook readiness deadline"));
+    loop {
+        match producer.deliver(pending) {
+            Ok(result) => return Ok(result),
+            Err(error)
+                if error == "event notification unavailable"
+                    || error == "event notification refused: 503" => {}
+            Err(error) => return Err(error),
+        }
+        if Instant::now() >= deadline {
+            return Err("webhook admission did not become ready".to_owned());
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+}
+
+fn deliver_after_source_restart(
+    producer: &Client,
+    health: &Arc<Health>,
+    pending: &layerx_platform_internal::producer::Pending,
+) -> Result<bool, String> {
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(10))
+        .unwrap_or_else(|| panic!("source readiness deadline"));
+    loop {
+        match producer.deliver(pending) {
+            Ok(result) => return Ok(result),
+            Err(error)
+                if error == "event observation refused: 403"
+                    || error == "event observation refused: 503"
+                    || error == "event observation unavailable" =>
+            {
+                let _ = producer.poll_admission(health);
+            }
+            Err(error) => return Err(error),
+        }
+        if Instant::now() >= deadline {
+            return Err("source admission did not become ready".to_owned());
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+}
+
+fn step_after_source_restart(
+    producer: &Client,
+    outbox: &super::HumanOutbox,
+    health: &Arc<Health>,
+) -> Result<(), String> {
+    let expected = outbox.pending()?.ok_or("journey observation unavailable")?;
+    assert!(!expected.observed);
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(10))
+        .unwrap_or_else(|| panic!("source readiness deadline"));
+    loop {
+        let pending = outbox.pending()?.ok_or("journey observation unavailable")?;
+        assert_eq!(pending.observation.id, expected.observation.id);
+        let result = if pending.observed {
+            producer.poll_admission(health)
+        } else {
+            producer.step(outbox, health)
+        };
+        match result {
+            Ok(())
+                if outbox.ready()
+                    && outbox.pending()?.is_some_and(|pending| {
+                        pending.observation.id == expected.observation.id && pending.observed
+                    }) =>
+            {
+                return Ok(());
+            }
+            Ok(()) => {}
+            Err(error)
+                if error == "source-producer refused"
+                    || error == "webhook-trigger refused"
+                    || error == "event observation refused: 403"
+                    || error == "event observation refused: 503"
+                    || error == "event observation unavailable" =>
+            {
+                let _ = producer.poll_admission(health);
+            }
+            Err(error) => return Err(error),
+        }
+        if Instant::now() >= deadline {
+            return Err("source admission did not become ready".to_owned());
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
 }
 
 fn event_store(
@@ -813,9 +965,18 @@ fn qualify_journey(
         Some(first.clone())
     );
     let journey = source(Kind::Journey, journey_port);
-    assert_eq!(producer.deliver(&first), Ok(true));
-    assert_eq!(producer.deliver(&first), Ok(true));
-    required(producer.step(outbox, &outbox.health), "observe ack");
+    assert_eq!(
+        deliver_after_source_restart(producer, &outbox.health, &first),
+        Ok(true)
+    );
+    assert_eq!(
+        deliver_after_source_restart(producer, &outbox.health, &first),
+        Ok(true)
+    );
+    required(
+        step_after_source_restart(producer, outbox, &outbox.health),
+        "observe ack",
+    );
     assert!(outbox.ready());
     let observed =
         required(outbox.pending(), "observed").unwrap_or_else(|| panic!("pending notification"));
@@ -826,8 +987,14 @@ fn qualify_journey(
         Some(observed.clone())
     );
     webhook.restart();
-    assert_eq!(producer.deliver(&observed), Ok(false));
-    assert_eq!(producer.deliver(&observed), Ok(false));
+    assert_eq!(
+        deliver_after_webhook_restart(producer, &observed),
+        Ok(false)
+    );
+    assert_eq!(
+        deliver_after_webhook_restart(producer, &observed),
+        Ok(false)
+    );
     required(
         outbox.acknowledge(&observed.observation.id, false),
         "notification ack",

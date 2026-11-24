@@ -541,6 +541,11 @@ defmodule BlockScoutWeb.Notifier do
   defp check_verification_type(params, type),
     do: Map.has_key?(params, "verification_type") && Map.get(params, "verification_type") == type
 
+  @spec endpoint_pubsub_running?() :: boolean()
+  def endpoint_pubsub_running? do
+    is_pid(Process.whereis(Endpoint)) && is_pid(Process.whereis(BlockScoutWeb.PubSub))
+  end
+
   @doc """
   Broadcast the percentage of blocks or pending block operations indexed so far.
   """

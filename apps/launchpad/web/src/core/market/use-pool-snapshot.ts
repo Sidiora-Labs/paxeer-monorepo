@@ -21,5 +21,6 @@ export function usePoolSnapshot(address: string | null | undefined): UseQueryRes
     queryFn: ({ signal }) => resolvePoolSnapshot(candidate as string, { operations }, signal),
     enabled: candidate !== null,
     ...marketCachePolicy.poolSnapshot,
+    retryOnMount: false,
   });
 }

@@ -1,11 +1,11 @@
-#[path = "support/repair_22_33_1374.rs"]
-mod repair_22_33_1374;
+#[path = "support/event_recovery.rs"]
+mod event_recovery;
 
+use perfdb::PerfDb;
 use perfdb::core::timeframe::Timeframe;
 use perfdb::core::types::*;
 use perfdb::engine::PerfDbConfig;
 use perfdb::storage::wal::{SyncPolicy, WalConfig};
-use perfdb::PerfDb;
 
 fn test_config(dir: &std::path::Path) -> PerfDbConfig {
     PerfDbConfig {
@@ -653,12 +653,12 @@ fn balance_deposit_withdraw_flow() {
 
 #[test]
 fn all_event_variants_process_cleanly() {
-    repair_22_33_1374::all_event_variants_process_cleanly();
+    event_recovery::all_event_variants_process_cleanly();
 }
 
 #[test]
 fn snapshot_preserves_all_state() {
-    repair_22_33_1374::snapshot_preserves_all_state();
+    event_recovery::snapshot_preserves_all_state();
 }
 
 #[test]

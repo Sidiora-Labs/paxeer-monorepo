@@ -6,7 +6,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 CI=1 NODE_OPTIONS=--max-old-space-size=4096
 COPY services/launchpad/security/control/cap-admission.ts /src/services/launchpad/security/control/cap-admission.ts
 COPY apps/launchpad/ /src/apps/launchpad/
 COPY sdk/launchpad/packages/ /src/sdk/launchpad/packages/
-COPY apps/perps/public/static/charting_library/charting_library.d.ts /src/apps/perps/public/static/charting_library/charting_library.d.ts
+COPY apps/perps/apps/web/public/static/charting_library/charting_library.d.ts /src/apps/perps/apps/web/public/static/charting_library/charting_library.d.ts
 COPY precompiles/launchpad/abi/ /src/precompiles/launchpad/abi/
 RUN pnpm install --frozen-lockfile
 RUN pnpm build:packages
@@ -45,8 +45,6 @@ ARG NEXT_PUBLIC_SENTRY_ENV
 ARG NEXT_PUBLIC_SENTRY_RELEASE
 ARG NEXT_PUBLIC_SENTRY_REPLAY_ERROR_SAMPLE_RATE
 ARG NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE
-ARG NEXT_PUBLIC_SOCIAL_API_URL
-ARG NEXT_PUBLIC_USER_API_URL
 COPY deploy/launchpad/web-build-env.sh /src/web-build-env.sh
 RUN . /src/web-build-env.sh && pnpm --filter @sidiora/web build
 

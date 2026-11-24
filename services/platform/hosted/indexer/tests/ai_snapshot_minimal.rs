@@ -1189,7 +1189,7 @@ fn block_commit_rejects_malformed_headers_and_empty_store_proofs() -> Checked {
     Ok(())
 }
 
-#[path = "support/repair_22_33_1446.rs"]
+#[path = "support/ai_snapshot_fixture.rs"]
 pub mod repair_paths;
 
 #[test]

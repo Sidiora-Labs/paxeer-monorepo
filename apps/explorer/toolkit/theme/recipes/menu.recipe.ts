@@ -15,11 +15,11 @@ export const recipe = defineSlotRecipe({
       overflow: 'hidden',
       overflowY: 'auto',
       _open: {
-        animationStyle: 'slide-fade-in',
+        _motionSafe: { animationStyle: 'slide-fade-in' },
         animationDuration: 'fast',
       },
       _closed: {
-        animationStyle: 'slide-fade-out',
+        _motionSafe: { animationStyle: 'slide-fade-out' },
         animationDuration: 'faster',
       },
     },
@@ -63,7 +63,7 @@ export const recipe = defineSlotRecipe({
       letterSpacing: 'widest',
     },
     separator: {
-      height: '1px',
+      height: 'var(--chakra-spacing-0\\.25)',
       bg: 'bg.muted',
       my: '1',
       mx: '-1',
@@ -84,7 +84,7 @@ export const recipe = defineSlotRecipe({
     size: {
       md: {
         content: {
-          minW: '150px',
+          minW: 'var(--chakra-spacing-37\\.5)',
           py: '2',
           px: '0',
         },

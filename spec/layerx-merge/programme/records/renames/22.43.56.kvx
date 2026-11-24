@@ -1,0 +1,116 @@
+[manifest]
+task = "22.43.56"
+records_moved = 7
+files_renamed = 7
+
+[file.1]
+from = "modules/layerxauth/ante/repair_194.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxauth/ante/repair_194.kvx"
+
+[file.2]
+from = "modules/layerxauth/ante/repair_m1420.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxauth/ante/repair_m1420.kvx"
+
+[file.3]
+from = "modules/layerxauth/keeper/repair_192.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxauth/keeper/repair_192.kvx"
+
+[file.4]
+from = "modules/layerxauth/keeper/repair_22_31_496_test.go"
+to = "modules/layerxauth/keeper/compiled_key_rotation_test.go"
+
+[file.5]
+from = "modules/layerxauth/keeper/repair_22_39_230.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxauth/keeper/repair_22_39_230.kvx"
+
+[file.6]
+from = "modules/layerxauth/keeper/repair_m1421.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxauth/keeper/repair_m1421.kvx"
+
+[file.7]
+from = "modules/layerxauth/keeper/repair_m1421_test.go"
+to = "modules/layerxauth/keeper/capability_endpoint_test.go"
+
+[file.8]
+from = "modules/layerxauth/keeper/repair_192_test.go"
+to = "modules/layerxauth/keeper/capability_mirror_test.go"
+
+[file.9]
+from = "modules/layerxauth/ante/repair_194_test.go"
+to = "modules/layerxauth/ante/grantor_revocation_context_test.go"
+
+[file.10]
+from = "modules/layerxauth/ante/repair_m1420_test.go"
+to = "modules/layerxauth/ante/producer_grant_test.go"
+
+[file.11]
+from = "modules/layerxauth/types/repair_193.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxauth/types/repair_193.kvx"
+
+[file.12]
+from = "modules/layerxauth/types/repair_193_test.go"
+to = "modules/layerxauth/types/scope_authorization_execution_test.go"
+
+[file.13]
+from = "modules/layerxauth/types/repair_m1422.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxauth/types/repair_m1422.kvx"
+
+[file.14]
+from = "modules/layerxauth/types/repair_m1422_test.go"
+to = "modules/layerxauth/types/scope_authorization_routing_test.go"
+
+[reference.1]
+file = "services/agent/crates/layerx-agentd/tests/key_rotation_payload.rs"
+name = "repair_22_31_496_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair_193_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "repair_22_31_496_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "repair_m1422_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_193_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1422_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_192_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_193_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_194_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_496_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_230.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1420_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1421_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1422_test.go"

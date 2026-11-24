@@ -1,6 +1,6 @@
 # Launchpad execution and operations contracts
 
-Launchpad executes on the single Paxeer mainnet-beta network, chain ID **125** (`0x7d`). The kernel is part of `paxd` and block proposal; BFT block commit makes execution final. Indexers and HTTP services project that committed state for [clients](clients.md); they do not provide a second settlement layer. Sub-chains are tenant domains in the database.
+Launchpad executes on the single Paxeer mainnet-beta network, chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when the validators commit its block. Indexers and HTTP services project that committed state for [clients](clients.md); they do not provide a second settlement layer. Sub-chains are tenant domains in the database.
 
 Node JSON-RPC uses the configured [HTTPS root endpoint](evm-rpc.md#http-endpoint).
 Hosted service calls follow the [gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).

@@ -35,13 +35,13 @@ mkdir -p "$fixture/services/platform"
 cat > "$work/covered-inventory" <<'EOF'
 python|services/platform/hosted/paxeer/requirements.txt|covered-by-python-source:services/platform/hosted/paxeer/evm.py
 rust|services/platform/perf-db/Cargo.toml|locked-independent
-rust|services/platform/perf-db/src/storage/repair_139/Cargo.toml|covered-by-test:services/platform/perf-db/src/storage/repair_139_test.go
+rust|services/platform/perf-db/src/storage/durability_probe/Cargo.toml|covered-by-test:services/platform/perf-db/src/storage/durability_test.go
 EOF
 for path in services/platform/hosted/paxeer/requirements.txt \
     services/platform/hosted/paxeer/evm.py \
     services/platform/perf-db/Cargo.toml services/platform/perf-db/Cargo.lock \
-    services/platform/perf-db/src/storage/repair_139/Cargo.toml \
-    services/platform/perf-db/src/storage/repair_139_test.go; do
+    services/platform/perf-db/src/storage/durability_probe/Cargo.toml \
+    services/platform/perf-db/src/storage/durability_test.go; do
     mkdir -p "$fixture/$(dirname "$path")"
     cp "$path" "$fixture/$path"
 done
@@ -60,7 +60,7 @@ reject_fixture() {
 check_fixture
 for cover in services/platform/hosted/paxeer/evm.py \
     services/platform/perf-db/Cargo.lock \
-    services/platform/perf-db/src/storage/repair_139_test.go; do
+    services/platform/perf-db/src/storage/durability_test.go; do
     mv "$fixture/$cover" "$work/cover"
     reject_fixture "a missing classification cover: $cover"
     mv "$work/cover" "$fixture/$cover"
@@ -73,7 +73,7 @@ mv "$work/original" "$fixture/$path"
 cp "$work/covered-inventory" "$work/original-inventory"
 sed 's/^python|/rust|/' "$work/original-inventory" > "$work/covered-inventory"
 reject_fixture 'Python source coverage for the wrong manifest kind'
-sed 's#|covered-by-test:services/platform/perf-db/src/storage/repair_139_test.go$#|locked-independent#' "$work/original-inventory" > "$work/covered-inventory"
+sed 's#|covered-by-test:services/platform/perf-db/src/storage/durability_test.go$#|locked-independent#' "$work/original-inventory" > "$work/covered-inventory"
 reject_fixture 'a test producer classified as independently locked'
 
 echo "check-platform-dependencies regression: ok"

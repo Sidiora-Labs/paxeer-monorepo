@@ -197,7 +197,7 @@ func TestDocumentValidation(t *testing.T) {
 	}
 	cases := map[string]func(*Document){
 		"empty name": func(d *Document) { d.Name = " " }, "name NUL": func(d *Document) { d.Name = "ab\x00cd" }, "name length": func(d *Document) { d.Name = strings.Repeat("a", 101) },
-		"ticker UTF8": func(d *Document) { d.Ticker = string([]byte{255}) }, "ticker length": func(d *Document) { d.Ticker = strings.Repeat("a", 33) }, "ticker empty": func(d *Document) { d.Ticker = "" },
+		"ticker UTF8": func(d *Document) { d.Ticker = string([]byte{255}) }, "ticker length": func(d *Document) { d.Ticker = strings.Repeat("a", 17) }, "ticker empty": func(d *Document) { d.Ticker = "" },
 		"event length": func(d *Document) { d.CreationEventID = strings.Repeat("a", 257) }, "event control": func(d *Document) { d.CreationEventID = "event\n" }, "event UTF8": func(d *Document) { d.CreationEventID = string([]byte{255}) },
 		"height overflow": func(d *Document) { d.ChainHeight = "18446744073709551616" }, "height nondecimal": func(d *Document) { d.ChainHeight = "0x10" }, "height leadingzero": func(d *Document) { d.ChainHeight = "01" }, "height negative": func(d *Document) { d.ChainHeight = "-1" },
 		"timestamp timezone": func(d *Document) { d.IndexedAt = "2026-10-10T00:00:00.000+00:00" }, "timestamp invalid": func(d *Document) { d.IndexedAt = "2026-02-30T00:00:00.000Z" }, "timestamp huge": func(d *Document) { d.IndexedAt = strings.Repeat("a", 1024) },
@@ -207,6 +207,14 @@ func TestDocumentValidation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			d := good
 			mutate(&d)
+			if name == "empty name" || name == "ticker empty" {
+				d.NameKey = storedNameKey(d.Name)
+				d.CanonicalTicker = canonicalTicker(d.Ticker)
+				if e := d.Validate(); e != nil {
+					t.Fatal("empty display text", e)
+				}
+				return
+			}
 			if e := d.Validate(); !errors.Is(e, ErrInvalid) {
 				t.Fatal("accepted invalid document", e)
 			}

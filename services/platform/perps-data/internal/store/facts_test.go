@@ -93,7 +93,7 @@ func (c *chain) counts(block string) []string {
 }
 
 func TestRebuildScoped(t *testing.T) {
-	t.Run("independent_live_inventory", testRepairM827RebuildInventory)
+	t.Run("independent_live_inventory", testProjectionRebuildInventory)
 	if err := Rebuild(context.Background(), nil, 0, 1); err == nil || err.Error() != "store: Rebuild needs a transaction" {
 		t.Fatalf("Rebuild without transaction = %v", err)
 	}
@@ -512,17 +512,17 @@ func TestTokenOfSpotRows(t *testing.T) {
 
 // Keep this inventory independent of rebuildTables: sharing recovery's list
 // would hide a projection omitted by both the implementation and its oracle.
-var repairM827ProjectionInventory = []string{
+var projectionProjectionInventory = []string{
 	"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily",
 	"market_stats_rolling", "leaderboard", "spot_token_seen", "keeper_cycles", "market_snapshots", "protocol_snapshots",
 	"spot_account_legs", "spot_leaderboard",
 	"spot_board_generation", "spot_board_omissions",
 }
 
-func repairM827ProjectionState(c *chain) []string {
+func projectionProjectionState(c *chain) []string {
 	c.t.Helper()
 	var state []string
-	for _, table := range repairM827ProjectionInventory {
+	for _, table := range projectionProjectionInventory {
 		value := "to_jsonb(p)"
 		if table == "spot_board_generation" {
 			// Each database records its own wall clock; compare generation
@@ -534,53 +534,53 @@ func repairM827ProjectionState(c *chain) []string {
 	return state
 }
 
-func testRepairM827RebuildInventory(t *testing.T) {
+func testProjectionRebuildInventory(t *testing.T) {
 	indexedDB, freshDB := testDB(t), testDB(t)
 	migrate(t, indexedDB)
 	migrate(t, freshDB)
-	state := repairM827OrderState(t)
-	indexed, fresh := newRepairM827Producer(t, indexedDB, state), newRepairM827Producer(t, freshDB, state)
+	state := projectionOrderState(t)
+	indexed, fresh := newProjectionProducer(t, indexedDB, state), newProjectionProducer(t, freshDB, state)
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
 	removed := common.HexToAddress("0xc827")
 	n := big.NewInt
 	initial := func() []decode.Log {
 		return []decode.Log{
-			repairM827Spot(t, spotabi.Vault, decode.SpotVaultAddress, "TokenRegistered", USDL, uint8(18), true),
-			repairM827Spot(t, spotabi.Vault, decode.SpotVaultAddress, "TokenRegistered", tokenPAX, uint8(18), false),
-			repairM827Perps(t, "CollateralDeposited", traderA, n(1000), n(1000)),
-			repairM827Perps(t, "CollateralDeposited", traderB, n(2000), n(2000)),
-			repairM827Open(t, 1, traderA), repairM827Open(t, 2, traderB),
-			repairM827Perps(t, "OrderPlaced", n(7), traderA, n(0), uint8(0), true, n(60000), n(1000)),
-			repairM827Perps(t, "OrderPlaced", n(8), traderB, n(0), uint8(0), false, n(60000), n(1000)),
-			repairM827Settlement(t, 1, traderA, 1000, 0), repairM827Settlement(t, 2, traderB, 2000, 0),
-			repairM827Perps(t, "MarkPriceUpdated", n(0), n(60000), n(60001), n(60002)),
-			repairM827Perps(t, "OpenInterestChanged", n(0), n(1000), n(2000), n(0), true),
-			repairM827Trade(t, traderA, true, 100, 10), repairM827Trade(t, traderB, true, 200, 10),
-			repairM827Trade(t, traderB, false, 300, 10),
-			repairM827Spot(t, spotabi.Orders, decode.SpotOrdersAddress, "LimitOrderCreated", n(27), traderB, uint8(0), n(10), n(1)),
+			projectionSpot(t, spotabi.Vault, decode.SpotVaultAddress, "TokenRegistered", USDL, uint8(18), true),
+			projectionSpot(t, spotabi.Vault, decode.SpotVaultAddress, "TokenRegistered", tokenPAX, uint8(18), false),
+			projectionPerps(t, "CollateralDeposited", traderA, n(1000), n(1000)),
+			projectionPerps(t, "CollateralDeposited", traderB, n(2000), n(2000)),
+			projectionOpen(t, 1, traderA), projectionOpen(t, 2, traderB),
+			projectionPerps(t, "OrderPlaced", n(7), traderA, n(0), uint8(0), true, n(60000), n(1000)),
+			projectionPerps(t, "OrderPlaced", n(8), traderB, n(0), uint8(0), false, n(60000), n(1000)),
+			projectionSettlement(t, 1, traderA, 1000, 0), projectionSettlement(t, 2, traderB, 2000, 0),
+			projectionPerps(t, "MarkPriceUpdated", n(0), n(60000), n(60001), n(60002)),
+			projectionPerps(t, "OpenInterestChanged", n(0), n(1000), n(2000), n(0), true),
+			projectionTrade(t, traderA, true, 100, 10), projectionTrade(t, traderB, true, 200, 10),
+			projectionTrade(t, traderB, false, 300, 10),
+			projectionSpot(t, spotabi.Orders, decode.SpotOrdersAddress, "LimitOrderCreated", n(27), traderB, uint8(0), n(10), n(1)),
 		}
 	}
-	for _, p := range []*repairM827Producer{indexed, fresh} {
+	for _, p := range []*projectionProducer{indexed, fresh} {
 		p.write(100, t0, initial()...)
-		p.write(101, t0.Add(time.Hour), repairM827Perps(t, "Fill", n(0), n(7), n(8), traderA, traderB, true, n(60000), n(100), n(0), n(0)))
+		p.write(101, t0.Add(time.Hour), projectionPerps(t, "Fill", n(0), n(7), n(8), traderA, traderB, true, n(60000), n(100), n(0), n(0)))
 	}
 	changedAt := t0.Add(2 * time.Hour)
-	keeper := repairM827Perps(t, "MarkPriceUpdated", n(0), n(61000), n(61001), n(61002))
+	keeper := projectionPerps(t, "MarkPriceUpdated", n(0), n(61000), n(61001), n(61002))
 	keeper.ReceiptKind, keeper.TxFrom = decode.ReceiptPerpsEndBlock, nil
-	indexed.write(102, changedAt, repairM827Perps(t, "PositionModified", n(1), n(800), n(80000000000000), n(80)),
-		repairM827Trade(t, traderA, false, 120, 10), repairM827Trade(t, removed, true, 500, 10),
-		repairM827Trade(t, removed, false, 600, 10), keeper)
+	indexed.write(102, changedAt, projectionPerps(t, "PositionModified", n(1), n(800), n(80000000000000), n(80)),
+		projectionTrade(t, traderA, false, 120, 10), projectionTrade(t, removed, true, 500, 10),
+		projectionTrade(t, removed, false, 600, 10), keeper)
 	replacement := func() []decode.Log {
-		return []decode.Log{repairM827Perps(t, "PositionModified", n(1), n(900), n(90000000000000), n(90)),
-			repairM827Trade(t, traderA, false, 50, 10), keeper}
+		return []decode.Log{projectionPerps(t, "PositionModified", n(1), n(900), n(90000000000000), n(90)),
+			projectionTrade(t, traderA, false, 50, 10), keeper}
 	}
 	// Distinct source positions preserve immutable outbox identities.
 	fresh.c.next(102, changedAt)
 	fresh.c.blockRow(102, changedAt)
 	fresh.c.writeBlock(header(102, changedAt), fresh.decode(header(102, changedAt), 10, replacement()))
-	for _, p := range []*repairM827Producer{indexed, fresh} {
-		p.write(103, t0.Add(3*time.Hour), repairM827Settlement(t, 1, traderA, 100, 10),
-			repairM827Trade(t, traderA, true, 10, 1))
+	for _, p := range []*projectionProducer{indexed, fresh} {
+		p.write(103, t0.Add(3*time.Hour), projectionSettlement(t, 1, traderA, 100, 10),
+			projectionTrade(t, traderA, true, 10, 1))
 	}
 	c := indexed.c
 	// Untouched account projections retain exact serialized bytes; perps
@@ -597,7 +597,7 @@ func testRepairM827RebuildInventory(t *testing.T) {
 		return out
 	}
 	beforeUntouched := untouched()
-	before := repairM827ProjectionState(c)
+	before := projectionProjectionState(c)
 	generation := c.values(`SELECT to_jsonb(p)::text FROM perps.spot_board_generation p`)
 	old, err := CaptureRecovery(c.ctx, c.tx, 102, 102)
 	if err != nil {
@@ -608,23 +608,23 @@ func testRepairM827RebuildInventory(t *testing.T) {
 	}
 	indexed.reopen()
 	c.want(`SELECT to_jsonb(p)::text FROM perps.spot_board_generation p`, generation)
-	if got := repairM827ProjectionState(c); !slices.Equal(got, before) {
+	if got := projectionProjectionState(c); !slices.Equal(got, before) {
 		t.Fatalf("projection state changed after reopening\n got %q\nwant %q", got, before)
 	}
 	for _, table := range factTables {
-		repairM827Exec(c, `DELETE FROM perps.`+table+` WHERE block = 102`)
+		projectionExec(c, `DELETE FROM perps.`+table+` WHERE block = 102`)
 	}
 	if _, err := WriteFacts(c.ctx, c.tx, header(102, changedAt), indexed.decode(header(102, changedAt), 10, replacement())); err != nil {
 		t.Fatal(err)
 	}
-	want := repairM827ProjectionState(fresh.c)
+	want := projectionProjectionState(fresh.c)
 	if slices.Equal(before, want) {
 		t.Fatal("fixture correction changed no projection")
 	}
 	if err := Rebuild(c.ctx, c.tx, 102, 102, old); err != nil {
 		t.Fatal(err)
 	}
-	if got := repairM827ProjectionState(c); !slices.Equal(got, want) {
+	if got := projectionProjectionState(c); !slices.Equal(got, want) {
 		for i := range want {
 			if got[i] != want[i] {
 				t.Errorf("fresh WriteBlock projection mismatch\n got %s\nwant %s", got[i], want[i])
@@ -637,7 +637,7 @@ func testRepairM827RebuildInventory(t *testing.T) {
 	c.want(`SELECT count(*)::text FROM perps.spot_account_legs WHERE account = $1`, []string{"0"}, removed.Bytes())
 	c.want(`SELECT count(*)::text FROM perps.spot_leaderboard WHERE account = $1`, []string{"0"}, removed.Bytes())
 	c.want(`SELECT string_agg(kind, ',' ORDER BY kind) FROM (SELECT DISTINCT kind FROM perps.spot_leaderboard) boards`, []string{"pnl,volume,win-rate"})
-	for _, table := range repairM827ProjectionInventory {
+	for _, table := range projectionProjectionInventory {
 		if table == "spot_board_omissions" {
 			c.want(`SELECT count(*)::text FROM perps.spot_board_omissions`, []string{"0"})
 			continue
@@ -648,7 +648,7 @@ func testRepairM827RebuildInventory(t *testing.T) {
 	generation = c.values(`SELECT to_jsonb(p)::text FROM perps.spot_board_generation p`)
 	indexed.reopen()
 	c.want(`SELECT to_jsonb(p)::text FROM perps.spot_board_generation p`, generation)
-	if got := repairM827ProjectionState(c); !slices.Equal(got, want) {
+	if got := projectionProjectionState(c); !slices.Equal(got, want) {
 		t.Fatalf("recovered projections changed after reopening\n got %q\nwant %q", got, want)
 	}
 	if got := untouched(); !slices.Equal(got, beforeUntouched) {

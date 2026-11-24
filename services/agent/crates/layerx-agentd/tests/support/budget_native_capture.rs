@@ -87,7 +87,7 @@ fn checkpoint_answers(answers: &mut Vec<Value>, height: u64, root: [u8; 32]) -> 
     };
     let template: Vec<Value> = require_ok(
         serde_json::from_slice(include_bytes!(
-            "../fixtures/repair_22_31_217/checkpoint-answers.json"
+            "../fixtures/native_budget_preparation/checkpoint-answers.json"
         )),
         "required test value",
     );
@@ -297,7 +297,9 @@ pub(super) fn configure(name: &str, value: &mut Value, answers: &mut Vec<Value>)
     )
     .bytes();
     let corpus: Value = require_ok(
-        serde_json::from_slice(include_bytes!("../fixtures/repair_22_31_217/corpus.json")),
+        serde_json::from_slice(include_bytes!(
+            "../fixtures/native_budget_preparation/corpus.json"
+        )),
         "required test value",
     );
     let destination: [u8; 32] = fixed(&corpus["peer_views"]["identity"]["main"]);

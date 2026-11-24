@@ -322,10 +322,10 @@ func v2OwnerTestRejectEnvelope(t *testing.T, raw []byte, adapt func([]byte) ([]b
 
 func testCompletedExportParticipant(t *testing.T) {
 	t.Helper()
-	fixture := repairM1063NewExport(t)
+	fixture := newExportRecoveryFixture(t)
 	defer fixture.close()
 	client, base := fixture.start(t)
-	status := repairM1063Request(t, client, base+"/status", nil, http.StatusOK)
+	status := exportRecoveryRequest(t, client, base+"/status", nil, http.StatusOK)
 	decoded, err := v2.DecodeAccountExportStatusResponse(status)
 	must(t, err)
 	if decoded.Data.Job.State != "completed" || decoded.Data.Job.ExpiresAt == nil || decoded.Data.DownloadUrl == nil || decoded.Data.Job.DownloadUrl == nil || *decoded.Data.Job.DownloadUrl != *decoded.Data.DownloadUrl {
@@ -339,17 +339,17 @@ func testCompletedExportParticipant(t *testing.T) {
 	fixture.reopen(t)
 	client, base = fixture.start(t)
 	download := base + parsed.RequestURI()
-	repairM1063Request(t, client, base+parsed.Path, nil, http.StatusForbidden)
-	repairM1063Request(t, client, download, map[string]string{"X-Export-Authorization": strings.Repeat("0", 64)}, http.StatusForbidden)
-	repairM1063Request(t, client, download+"&authorization="+strings.Repeat("1", 64), nil, http.StatusForbidden)
-	repairM1063Request(t, client, download, map[string]string{"X-Test-Other-Account": "true"}, http.StatusForbidden)
-	plain := repairM1063Request(t, client, download, nil, http.StatusOK)
+	exportRecoveryRequest(t, client, base+parsed.Path, nil, http.StatusForbidden)
+	exportRecoveryRequest(t, client, download, map[string]string{"X-Export-Authorization": strings.Repeat("0", 64)}, http.StatusForbidden)
+	exportRecoveryRequest(t, client, download+"&authorization="+strings.Repeat("1", 64), nil, http.StatusForbidden)
+	exportRecoveryRequest(t, client, download, map[string]string{"X-Test-Other-Account": "true"}, http.StatusForbidden)
+	plain := exportRecoveryRequest(t, client, download, nil, http.StatusOK)
 	if !bytes.Equal(plain, fixture.snapshot) {
 		t.Fatalf("consumer downloaded different snapshot: %s", plain)
 	}
 	fixture.reopen(t)
 	client, base = fixture.start(t)
-	repairM1063Request(t, client, base+parsed.RequestURI(), nil, http.StatusForbidden)
+	exportRecoveryRequest(t, client, base+parsed.RequestURI(), nil, http.StatusForbidden)
 }
 
 func TestCompletedExportParticipantAcrossReopen(t *testing.T) {

@@ -158,7 +158,7 @@ class SequencerSeedTest(unittest.TestCase):
     def test_supervisor_binds_the_hex_form_of_the_same_seed_before_publishing(self):
         self.bootstrap()
         original = native.generation_binding(self.data)
-        from test_repair_22_31_355 import native_supervisor
+        from test_native_lifecycle import native_supervisor
 
         pids, observed_commands = [], []
         for index in range(2):

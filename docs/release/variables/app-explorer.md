@@ -1,7 +1,8 @@
 # Explorer application variables
 
 The explorer application in `apps/explorer` serves the Paxeer mainnet-beta explorer at `/explorer`.
-Paxeer is one BFT network with EVM chain ID `125` (`0x7d`); committed blocks have final receipts,
+Paxeer uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. Committed blocks have final receipts,
 and public node JSON-RPC uses the root path. This page lists the environment inputs read by the
 application, its startup and deployment scripts, and the keys read from its configuration assets.
 

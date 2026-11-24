@@ -12,7 +12,7 @@ import (
 
 func TestInventoryProviderReadAvailability(t *testing.T) {
 	ctx := context.Background()
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	for _, action := range []string{"ordinary", "archive", "live", "baseline", "receipt", "live receipt", "mark"} {
 		t.Run(action, func(t *testing.T) {
 			service, pool := recordedRebuildService(t, ctx)

@@ -8,7 +8,7 @@ import type { SequencerReceiptKey } from "../src/verifier.js";
 import type { WebSearchCurrency } from "../src/web-search.js";
 
 export const localWebFixture = <T>(path: string): T => JSON.parse(readFileSync(new URL(
-  `../../test/fixtures/repair-22-33-24/${path}`, import.meta.url,
+  `../../test/fixtures/recorded-payment-evidence/${path}`, import.meta.url,
 ), "utf8")) as T;
 export const sellerFixture = <T>(path: string): T => {
   if (path === "client-exchange.json") return localWebFixture<T>("client-exchange.json");

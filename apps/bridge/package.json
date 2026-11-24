@@ -21,7 +21,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^1.61.0",
     "motion": "14.6.0",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "sonner": "2.0.8",
@@ -97,29 +97,29 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": "eslint --cache --fix"
   },
-  "resolutions": {
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
-    "wagmi/**/ws": "8.21.0",
-    "@helia/verified-fetch/**/axios": "1.12.0",
-    "@helia/verified-fetch/**/tar-fs": "2.1.4",
-    "@helia/verified-fetch/**/node-forge": "1.3.2",
-    "@multisender.app/multisender-react-widget/**/axios": "1.12.0",
-    "@reown/appkit/**/node-forge": "1.3.2",
-    "@reown/appkit-adapter-wagmi/**/node-forge": "1.3.2",
-    "eslint/**/brace-expansion": "1.1.12",
-    "swagger-ui-react/**/js-yaml": "4.1.1",
-    "viem/**/@noble/hashes": "1.8.0",
-    "@walletconnect/ethereum-provider/**/@reown/appkit/**/@noble/hashes": "1.8.0"
-  },
   "packageManager": "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32",
-  "overrides": {
-    "ws@>=8.0.0 <8.21.0": "8.21.0",
-    "uuid@<11.1.1": "11.1.1",
-    "decode-uri-component@<0.5.1": "0.5.1",
-    "stream-json@<3.6.0": "3.6.0",
-    "zod@<4.6.6": "4.6.6",
-    "follow-redirects@>=1.16.0 <1.16.2": "1.16.2",
-    "minimatch@<11.0.1": "11.0.1"
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.1.7",
+      "@types/react-dom": "19.1.6",
+      "wagmi>ws": "8.21.0",
+      "@helia/verified-fetch>axios": "1.12.0",
+      "@helia/verified-fetch>tar-fs": "2.1.4",
+      "@helia/verified-fetch>node-forge": "1.3.2",
+      "@multisender.app/multisender-react-widget>axios": "1.12.0",
+      "@reown/appkit>node-forge": "1.3.2",
+      "@reown/appkit-adapter-wagmi>node-forge": "1.3.2",
+      "eslint>brace-expansion": "1.1.12",
+      "swagger-ui-react>js-yaml": "4.1.1",
+      "viem>@noble/hashes": "1.8.0",
+      "@reown/appkit>@noble/hashes": "1.8.0",
+      "ws@>=8.0.0 <8.21.0": "8.21.0",
+      "uuid@<11.1.1": "11.1.1",
+      "decode-uri-component@<0.5.1": "0.5.1",
+      "stream-json@<3.6.0": "3.6.0",
+      "zod@<4.6.6": "4.6.6",
+      "follow-redirects@>=1.16.0 <1.16.2": "1.16.2",
+      "minimatch@<11.0.1": "11.0.1"
+    }
   }
 }

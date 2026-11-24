@@ -124,10 +124,10 @@ func nativeArchiveMeasurement(t *testing.T) decode.DecoderMeasurementInput {
 	directory := t.TempDir()
 	input := decode.DecoderMeasurementInput{SchemaVersion: 1, SourceRoot: root, ContractsRoot: contractsRoot, CatalogPath: filepath.Join(directory, "catalog.json"), DeploymentPath: filepath.Join(directory, "deployments.json"), ArchivePath: filepath.Join(directory, "archive.json"), Workers: 2, MaxP99Nanoseconds: int64(50 * time.Millisecond), MaxHeapGrowthBytes: 512 << 20, MaxAllocatedBytesPerDelivery: 1 << 20}
 	input.CatalogSHA256 = writeMeasurementInput(t, input.CatalogPath, catalog)
-	producer := repair995Load(t)
-	tx, receipt := repair995Bundle(t, producer)
+	producer := nativeAttributionLoad(t)
+	tx, receipt := nativeAttributionBundle(t, producer)
 	market := producer.Markets[0]
-	deployments := decode.DecoderDeploymentInput{SchemaVersion: 1, ManifestSHA256: catalog.ManifestSHA256, Markets: repair995Markets(producer), Deployments: []decode.Deployment{
+	deployments := decode.DecoderDeploymentInput{SchemaVersion: 1, ManifestSHA256: catalog.ManifestSHA256, Markets: nativeAttributionMarkets(producer), Deployments: []decode.Deployment{
 		{Address: decode.LaunchpadPrecompileAddress, Role: decode.LaunchpadPrecompileRole, ABIRevision: revisions["EventEmitter"]},
 		{Address: decode.LaunchpadPrecompileAddress, Role: "SidioraPool", ABIRevision: revisions["SidioraPool"]},
 		{Address: market.Pool, Role: "SidioraPool", ABIRevision: revisions["SidioraPool"]},
@@ -338,7 +338,7 @@ func TestArchivedDecoderQuarantinesBoundsAndArityAndRetainsOptionalAccounting(t 
 	oversized.Log.Data = make([]byte, decode.MaxEnvelopeBytes+1)
 	oversized.Expected = decode.ArchivedDecodeExpectation{Status: "quarantined", FailureReason: "bounds", Opaque: true}
 	corpus.Logs = append(corpus.Logs, oversized)
-	producer := repair995Load(t)
+	producer := nativeAttributionLoad(t)
 	var optional types.Receipt
 	for key, response := range producer.Responses {
 		if !strings.HasPrefix(key, "eth_getTransactionReceipt ") || len(response.Result) == 0 {
@@ -381,12 +381,12 @@ func TestArchivedDecoderQuarantinesBoundsAndArityAndRetainsOptionalAccounting(t 
 }
 
 func TestReceiptActorsEnforceMarketAndComparisonAdmission(t *testing.T) {
-	input := repair995Load(t)
-	r := repair995Registry(t, input, true, true)
+	input := nativeAttributionLoad(t)
+	r := nativeAttributionRegistry(t, input, true, true)
 	for _, mode := range []string{"market bound", "market identity", "market duplicate", "comparison bound"} {
 		t.Run(mode, func(t *testing.T) {
-			tx, rec := repair995Bundle(t, input)
-			markets := repair995Markets(input)
+			tx, rec := nativeAttributionBundle(t, input)
+			markets := nativeAttributionMarkets(input)
 			switch mode {
 			case "market bound":
 				markets = make([]decode.ActorMarketBinding, 65)

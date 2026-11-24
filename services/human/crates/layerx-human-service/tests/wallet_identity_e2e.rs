@@ -1026,8 +1026,13 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
         .unwrap_or_else(|error| panic!("tenancy: {error}"));
 
     let environment = loader_environment(&root, &cluster, tenancy_digest.bytes());
-    let kms = AttestorKms::connect(loader_custody(&environment))
-        .unwrap_or_else(|error| panic!("attestor custody: {error}"));
+    let kms = AttestorKms::connect_durable(
+        loader_custody(&environment),
+        root.join("send-replay"),
+        [0x61; 32],
+        clock.clone(),
+    )
+    .unwrap_or_else(|error| panic!("attestor custody: {error}"));
     let keystore = Keystore::open_production(root.join("custody"), NETWORK_ID, kms.clone())
         .unwrap_or_else(|error| panic!("production keystore: {error}"));
     let (wallet, public_key, binding_digest) = create_wallet_identity(

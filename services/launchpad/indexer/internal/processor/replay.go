@@ -39,6 +39,9 @@ type ReplayRunner struct {
 	Archive               *Archive
 	Owner, DeliverySchema string
 	BatchSize             int
+	// ReadTimeout bounds one replay source read. The replay lease is renewed
+	// while the read is active.
+	ReadTimeout time.Duration
 }
 
 func (r *ReplayRunner) validate() error {
@@ -46,6 +49,61 @@ func (r *ReplayRunner) validate() error {
 		return errors.New("replay requires actual guarded store, qualified source, durable outbox and bounded owner configuration")
 	}
 	return nil
+}
+
+const replayLeaseRenewInterval = 10 * time.Second
+
+type replayRead struct {
+	store.ReplaySegment
+	receipts []*receipt.QualifiedReceipt
+}
+
+func (r *ReplayRunner) fetchWithLease(ctx context.Context, job store.ReplayJob, request store.ReplayRequest, from, to int64) (replayRead, store.ReplayJob, error) {
+	readTimeout := r.ReadTimeout
+	if readTimeout <= 0 {
+		readTimeout = 120 * time.Second
+	}
+	readCtx, cancel := context.WithTimeout(ctx, readTimeout)
+	defer cancel()
+	type result struct {
+		segment replayRead
+		err     error
+	}
+	readDone := make(chan result, 1)
+	go func() {
+		var segment replayRead
+		var err error
+		if request.Mode == valueReconstruct {
+			if r.Archive == nil {
+				err = errors.New("archive provider unavailable")
+			} else {
+				segment.ReplaySegment, err = r.Archive.Restore(readCtx, request.SourceStream, from, to)
+			}
+		} else {
+			segment, err = r.fetchRead(readCtx, request, from, to)
+		}
+		readDone <- result{segment: segment, err: err}
+	}()
+	ticker := time.NewTicker(replayLeaseRenewInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case done := <-readDone:
+			return done.segment, job, done.err
+		case <-ticker.C:
+			renewed, err := r.Store.AcquireReplay(ctx, job.Request.JobID, r.Owner, 30*time.Second)
+			if err != nil {
+				cancel()
+				<-readDone
+				return replayRead{}, job, err
+			}
+			job = renewed
+		case <-ctx.Done():
+			cancel()
+			<-readDone
+			return replayRead{}, job, ctx.Err()
+		}
+	}
 }
 func qualifiedSegment(ctx context.Context, stream string, b store.CanonicalBatch, receipts []*receipt.QualifiedReceipt) (store.ReplaySegment, error) {
 	var segment store.ReplaySegment
@@ -144,28 +202,40 @@ func qualifiedSegment(ctx context.Context, stream string, b store.CanonicalBatch
 	return segment, store.ValidateReplaySegment(segment)
 }
 func (r *ReplayRunner) fetch(ctx context.Context, request store.ReplayRequest, from, to int64) (store.ReplaySegment, error) {
+	read, err := r.fetchRead(ctx, request, from, to)
+	return read.ReplaySegment, err
+}
+
+func (r *ReplayRunner) fetchRead(ctx context.Context, request store.ReplayRequest, from, to int64) (replayRead, error) {
 	fromUint64, conversionErr := checked.Convert[uint64](from)
 	if conversionErr != nil {
-		return store.ReplaySegment{}, conversionErr
+		return replayRead{}, conversionErr
 	}
 	toUint64, conversionErr := checked.Convert[uint64](to)
 	if conversionErr != nil {
-		return store.ReplaySegment{}, conversionErr
+		return replayRead{}, conversionErr
 	}
 	batch, receipts, err := r.Source.FetchQualifiedBatch(ctx, fromUint64, toUint64)
 	if err != nil {
-		return store.ReplaySegment{}, err
+		return replayRead{}, err
 	}
 	segment, err := qualifiedSegment(ctx, request.SourceStream, batch, receipts)
 	if err != nil {
-		return segment, err
+		return replayRead{}, err
 	}
 	if segment.FromHeight != from || segment.ToHeight != to {
-		return segment, store.ErrIntegrity
+		return replayRead{}, store.ErrIntegrity
 	}
-	return segment, nil
+	return replayRead{ReplaySegment: segment, receipts: receipts}, nil
 }
 func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) error {
+	return r.run(ctx, request, nil)
+}
+
+func (r *ReplayRunner) run(ctx context.Context, request store.ReplayRequest, canonical *Processor) error {
+	if canonical != nil && (request.Mode != valueBackfill || request.Target != valueIndexer || request.SourceStream != canonical.deps.CanonicalStreamID || request.Generation != canonical.deps.InventoryGeneration || request.ProjectionRevision != canonical.deps.AccountingProjectionVersion) {
+		return errors.New("canonical backfill source or projection mismatch")
+	}
 	if err := r.validate(); err != nil {
 		return err
 	}
@@ -179,12 +249,12 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 	if err != nil {
 		return err
 	}
-	checkpoint, err := r.fetch(ctx, request, request.CheckpointHeight, request.CheckpointHeight)
+	checkpoint, active, err := r.fetchWithLease(ctx, active, request, request.CheckpointHeight, request.CheckpointHeight)
 	if err != nil {
 		return r.pauseOwned(ctx, active, err, request.CheckpointHeight, request.CheckpointHeight)
 	}
 	if checkpoint.Blocks[0].Hash != request.CheckpointHash {
-		retained := r.Store.RecordReplayConflict(ctx, request, checkpoint, "authorized checkpoint disagreement")
+		retained := r.Store.RecordReplayConflict(ctx, request, checkpoint.ReplaySegment, "authorized checkpoint disagreement")
 		return r.pauseOwned(ctx, active, errors.Join(store.ErrIntegrity, retained), request.CheckpointHeight, request.CheckpointHeight)
 	}
 	if err = r.Store.BindReplayCheckpoint(ctx, request, checkpoint.Blocks[0]); err != nil {
@@ -211,18 +281,7 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 		if to > request.ToHeight {
 			to = request.ToHeight
 		}
-		readCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		var segment store.ReplaySegment
-		if request.Mode == valueReconstruct {
-			if r.Archive == nil {
-				cancel()
-				return r.pauseOwned(ctx, job, errors.New("archive provider unavailable"), from, to)
-			}
-			segment, err = r.Archive.Restore(readCtx, request.SourceStream, from, to)
-		} else {
-			segment, err = r.fetch(readCtx, request, from, to)
-		}
-		cancel()
+		segment, job, err := r.fetchWithLease(ctx, job, request, from, to)
 		if err != nil {
 			return r.pauseOwned(ctx, job, err, from, to)
 		}
@@ -230,7 +289,7 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 		if err != nil {
 			return err
 		}
-		err = r.Store.CommitReplaySegment(ctx, job, segment, func(ctx context.Context, tx pgx.Tx, event store.ReplayEvent) (string, error) {
+		project := func(ctx context.Context, tx pgx.Tx, event store.ReplayEvent) (string, error) {
 			wrapper := ReplayEnvelopeV2{Version: valueIndexerReplayV2, Mode: valueHistorical, Target: request.Target, Generation: request.Generation, ProjectionRevision: request.ProjectionRevision, SourceStream: request.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
 			payload, err := canonicalReplayPayload(wrapper)
 			if err != nil {
@@ -247,13 +306,27 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 			}
 			envelope := delivery.Envelope{EventID: effect, EventType: ReplaySubjectV2, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(event.Raw.Height, 10), TransactionIndex: strconv.FormatUint(rawTransactionIndexUint64, 10), LogIndex: strconv.FormatUint(rawLogIndexUint64, 10)}, EmittedAt: time.Unix(event.Timestamp, 0).UTC(), TraceID: effect, PayloadHash: delivery.Hash(payload), Payload: payload}
 			return effect, r.Deliveries.Enqueue(ctx, tx, ReplaySubjectV2, envelope)
-		})
+		}
+		if canonical == nil {
+			err = r.Store.CommitReplaySegment(ctx, job, segment.ReplaySegment, project)
+		} else {
+			batch := store.CanonicalBatch{ChainID: 125, StreamID: request.SourceStream, Owner: r.Owner, Fence: job.Fence, BatchID: request.JobID, PreviousHeight: segment.FromHeight - 1, Blocks: segment.Blocks, Records: segment.Records}
+			err = canonical.processQualifiedCanonicalBatch(ctx, batch, segment.receipts, func(c context.Context, b store.CanonicalBatch, projection func(context.Context, store.CanonicalTx) ([]store.OutboxIntent, error)) error {
+				return r.Store.CommitProjectedBackfillSegment(c, job, segment.ReplaySegment, project, func(c context.Context, tx store.CanonicalTx) error {
+					intents, e := projection(c, tx)
+					if e != nil {
+						return e
+					}
+					return tx.InsertBackfillOutboxIntents(c, b, intents)
+				})
+			})
+		}
 		if err != nil {
 			if ctx.Err() != nil {
 				return r.pauseOwned(ctx, job, ctx.Err(), from, to)
 			}
 			if errors.Is(err, store.ErrIntegrity) {
-				err = errors.Join(err, r.Store.RecordReplayConflict(ctx, request, segment, "immutable source disagreement"))
+				err = errors.Join(err, r.Store.RecordReplayConflict(ctx, request, segment.ReplaySegment, "immutable source disagreement"))
 			}
 			return r.pauseOwned(ctx, job, err, from, to)
 		}

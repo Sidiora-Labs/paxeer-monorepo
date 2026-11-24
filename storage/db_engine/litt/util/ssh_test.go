@@ -20,9 +20,9 @@ import (
 
 // These integration tests use the supported local OpenSSH/rsync receiver shared
 // with the durable-backup tests. The focused repair gate uses loopback protocol
-// fixtures in repair_m1164_test.go and requires no installed executables.
+// fixtures in utility_lifecycle_test.go and requires no installed executables.
 func TestSSHSession_NewSSHSession(t *testing.T) {
-	receiver := repair114NewReceiver(t)
+	receiver := fileLifecycleNewReceiver(t)
 	session := receiver.connect(t)
 	require.NoError(t, session.Close())
 	_, err := util.NewSSHSession(slog.Default(), receiver.username, "127.0.0.1", receiver.port, "/nonexistent/key", receiver.knownHosts, false)
@@ -34,7 +34,7 @@ func TestSSHSession_NewSSHSession(t *testing.T) {
 }
 
 func TestSSHSession_Mkdirs(t *testing.T) {
-	receiver := repair114NewReceiver(t)
+	receiver := fileLifecycleNewReceiver(t)
 	session := receiver.connect(t)
 	defer session.Close()
 	directory := filepath.Join(receiver.root, "space 'quote\" $(literal)\nroot", "nested")
@@ -48,7 +48,7 @@ func TestSSHSession_Mkdirs(t *testing.T) {
 }
 
 func TestSSHSession_FindFiles(t *testing.T) {
-	receiver := repair114NewReceiver(t)
+	receiver := fileLifecycleNewReceiver(t)
 	session := receiver.connect(t)
 	defer session.Close()
 	directory := filepath.Join(receiver.root, "search 'quote\" $(literal)\nroot")
@@ -66,7 +66,7 @@ func TestSSHSession_FindFiles(t *testing.T) {
 }
 
 func TestSSHSession_Rsync(t *testing.T) {
-	receiver := repair114NewReceiver(t)
+	receiver := fileLifecycleNewReceiver(t)
 	session := receiver.connect(t)
 	defer session.Close()
 	directory := filepath.Join(receiver.root, "transfer 'quote\" $(literal)\nroot")
@@ -105,13 +105,13 @@ func TestSSHSession_Rsync(t *testing.T) {
 }
 
 func TestSSHSession_ChangedHostRejected(t *testing.T) {
-	receiver := repair114NewReceiver(t)
+	receiver := fileLifecycleNewReceiver(t)
 	session := receiver.connect(t)
 	defer session.Close()
 	source := filepath.Join(t.TempDir(), "retained")
 	require.NoError(t, os.WriteFile(source, []byte("private database contents"), 0600))
 	receiver.stop()
-	repair114WriteSSHKey(t, filepath.Join(receiver.root, "host-key"))
+	fileLifecycleWriteSSHKey(t, filepath.Join(receiver.root, "host-key"))
 	receiver.start(t)
 	_, err := util.NewSSHSession(slog.Default(), receiver.username, "127.0.0.1", receiver.port, receiver.key, receiver.knownHosts, false)
 	require.ErrorContains(t, err, "key mismatch")
@@ -121,7 +121,7 @@ func TestSSHSession_ChangedHostRejected(t *testing.T) {
 }
 
 func TestSSHSession_CancelTransfer(t *testing.T) {
-	receiver := repair114NewReceiver(t)
+	receiver := fileLifecycleNewReceiver(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	session, err := util.NewSSHSessionContext(ctx, slog.Default(), receiver.username, "127.0.0.1", receiver.port, receiver.key, receiver.knownHosts, false)
@@ -155,9 +155,9 @@ func TestSSHSession_TransferProgressTimeout(t *testing.T) {
 	source := filepath.Join(t.TempDir(), "incompressible-source")
 	require.NoError(t, os.WriteFile(source, content, 0600))
 
-	newReceiver := func(t *testing.T) *repair114Receiver {
+	newReceiver := func(t *testing.T) *fileLifecycleReceiver {
 		t.Helper()
-		r := repair114NewReceiver(t)
+		r := fileLifecycleNewReceiver(t)
 		// Observe the real rsync and sync commands, and inject faults in their
 		// processes without replacing either executable or the SSH transport.
 		script := fmt.Sprintf(`#!/bin/sh
@@ -181,7 +181,7 @@ exec /bin/sh -c "$SSH_ORIGINAL_COMMAND"
 		require.NoError(t, os.WriteFile(filepath.Join(r.root, "receiver.sh"), []byte(script), 0700))
 		return r
 	}
-	connect := func(t *testing.T, r *repair114Receiver, parent context.Context, legacy bool) *util.SSHSession {
+	connect := func(t *testing.T, r *fileLifecycleReceiver, parent context.Context, legacy bool) *util.SSHSession {
 		t.Helper()
 		options := util.SSHTimeouts{Dial: 2 * time.Second, Command: 500 * time.Millisecond, Transfer: inactivity}
 		var session *util.SSHSession
@@ -204,7 +204,7 @@ exec /bin/sh -c "$SSH_ORIGINAL_COMMAND"
 		require.Positive(t, pid)
 		return pid
 	}
-	waitProgress := func(t *testing.T, r *repair114Receiver) {
+	waitProgress := func(t *testing.T, r *fileLifecycleReceiver) {
 		t.Helper()
 		require.Eventually(t, func() bool {
 			files, _ := filepath.Glob(filepath.Join(r.root, ".destination.*"))

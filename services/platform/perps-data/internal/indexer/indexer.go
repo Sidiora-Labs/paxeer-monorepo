@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/rand/v2"
 	"sync"
 	"sync/atomic"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
@@ -51,6 +53,8 @@ const (
 	// StepRetryDelay separates a failed step or block write from the next
 	// attempt at the same height.
 	StepRetryDelay = time.Second
+	// PruneInterval separates bounded delivered-row cleanup statements.
+	PruneInterval = time.Minute
 )
 
 // leaseName is the perps.writer_lease row of the indexer.
@@ -77,8 +81,14 @@ WHERE name = $1 AND holder = $2 AND expires_at > clock_timestamp()`
 	extendSQL = `UPDATE perps.writer_lease SET expires_at = clock_timestamp() + $3::bigint * interval '1 millisecond'
 WHERE name = $1 AND holder = $2`
 	releaseSQL = `DELETE FROM perps.writer_lease WHERE name = $1 AND holder = $2`
-	outboxSQL  = `SELECT count(*), COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - min(created_at)) * 1000, 0)::bigint
-FROM perps.delivery_outbox WHERE state = 'pending'`
+	outboxSQL  = `WITH head AS MATERIALIZED (
+ SELECT perps_seq FROM perps.delivery_outbox
+ WHERE state='pending' OR (state='quarantined' AND broker_sequence IS NULL)
+ ORDER BY perps_seq LIMIT 1)
+ SELECT COALESCE((SELECT (SELECT perps_seq FROM perps.delivery_outbox ORDER BY perps_seq DESC LIMIT 1)-head.perps_seq+1 FROM head),0),
+ COALESCE((SELECT EXTRACT(EPOCH FROM statement_timestamp()-created_at)*1000
+ FROM perps.delivery_outbox WHERE state='pending' OR (state='quarantined' AND broker_sequence IS NULL)
+ ORDER BY created_at LIMIT 1),0)::bigint`
 )
 
 // Deps wires an Indexer. Every field except Logger is required.
@@ -95,19 +105,24 @@ type Deps struct {
 	Holder string
 	// StartHeight is the first height on an empty cursor (PERPS_START_HEIGHT).
 	StartHeight int64
-	Logger      *slog.Logger
+	// PriceRetentionDays defaults to seven when omitted by an embedded caller.
+	PriceRetentionDays int
+	Logger             *slog.Logger
 }
 
 // Indexer is the perps indexer process loop.
 type Indexer struct {
-	db        *sql.DB
-	rpc       *source.RPC
-	follower  *source.Follower
-	registry  *decode.Registry
-	publisher *publish.Publisher
-	holder    string
-	start     uint64
-	logger    *slog.Logger
+	db                 *sql.DB
+	outbox             *delivery.Store
+	rpc                *source.RPC
+	follower           *source.Follower
+	registry           *decode.Registry
+	publisher          *publish.Publisher
+	holder             string
+	start              uint64
+	priceRetentionDays int
+	priceRetention     store.PriceRetention
+	logger             *slog.Logger
 
 	// written holds the rows by table of each block written in the current
 	// step, in block order; the follower commits them in that order.
@@ -143,19 +158,27 @@ func New(ctx context.Context, d Deps) (*Indexer, error) {
 	if d.StartHeight < 0 {
 		return nil, errors.New("indexer: start height must not be below zero")
 	}
+	if d.PriceRetentionDays < 0 {
+		return nil, errors.New("indexer: price retention days must be at least 1")
+	}
+	if d.PriceRetentionDays == 0 {
+		d.PriceRetentionDays = config.DefaultPriceRetentionDays
+	}
 	logger := d.Logger
 	if logger == nil {
 		logger = slog.Default()
 	}
 	ix := &Indexer{
-		db:        d.DB,
-		rpc:       d.RPC,
-		registry:  d.Registry,
-		publisher: d.Publisher,
-		holder:    d.Holder,
-		start:     uint64(d.StartHeight),
-		logger:    logger,
-		lookedUp:  map[string]bool{},
+		db:                 d.DB,
+		outbox:             d.Outbox,
+		rpc:                d.RPC,
+		registry:           d.Registry,
+		publisher:          d.Publisher,
+		holder:             d.Holder,
+		start:              uint64(d.StartHeight),
+		priceRetentionDays: d.PriceRetentionDays,
+		logger:             logger,
+		lookedUp:           map[string]bool{},
 		headHeight: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "perps_indexer_head_height",
 			Help: "Latest node head height seen by the follower.",
@@ -178,7 +201,7 @@ func New(ctx context.Context, d Deps) (*Indexer, error) {
 		}),
 		outboxPending: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "perps_outbox_pending",
-			Help: "Outbox rows not yet published.",
+			Help: "Sequence span from the oldest open outbox row to the newest stored row, including sequence gaps and resolved rows in that span.",
 		}),
 	}
 	ix.cursor.Store(-1)
@@ -213,7 +236,7 @@ func (ix *Indexer) Run(ctx context.Context) error {
 	}
 	runCtx, cancel := context.WithCancelCause(ctx)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(4)
 	go func() {
 		defer wg.Done()
 		if err := ix.publisher.Run(runCtx); err != nil && !errors.Is(err, context.Canceled) {
@@ -226,6 +249,18 @@ func (ix *Indexer) Run(ctx context.Context) error {
 			cancel(err)
 		}
 	}()
+	go func() {
+		defer wg.Done()
+		if err := ix.pruneOutbox(runCtx); errors.Is(err, ErrLeaseLost) {
+			cancel(err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if err := ix.prunePrices(runCtx); errors.Is(err, ErrLeaseLost) {
+			cancel(err)
+		}
+	}()
 	err = ix.follow(runCtx, next)
 	if cause := context.Cause(runCtx); errors.Is(cause, ErrLeaseLost) {
 		err = cause
@@ -233,6 +268,61 @@ func (ix *Indexer) Run(ctx context.Context) error {
 	cancel(nil)
 	wg.Wait()
 	return err
+}
+
+// pruneOutbox runs only while this process holds the writer lease. Each
+// statement fences that lease independently of block writes and claims.
+func (ix *Indexer) pruneOutbox(ctx context.Context) error {
+	ticker := time.NewTicker(PruneInterval)
+	defer ticker.Stop()
+	for {
+		passCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		_, err := ix.outbox.PrunePublished(passCtx, leaseName, ix.holder)
+		cancel()
+		if errors.Is(err, delivery.ErrLease) {
+			ix.held.Store(false)
+			return ErrLeaseLost
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
+			ix.logger.Warn("perps outbox cleanup failed", slog.Any("err", err))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+// prunePrices bounds each pass by time as well as the store's row and statement
+// limits. The stateful sweep continues on the next maintenance tick.
+func (ix *Indexer) prunePrices(ctx context.Context) error {
+	ticker := time.NewTicker(PruneInterval)
+	defer ticker.Stop()
+	for {
+		passCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		_, err := ix.priceRetention.Pass(passCtx, ix.db,
+			time.Now().UTC().AddDate(0, 0, -ix.priceRetentionDays), leaseName, ix.holder)
+		cancel()
+		if errors.Is(err, store.ErrLeaseHeld) {
+			ix.held.Store(false)
+			return ErrLeaseLost
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
+			ix.logger.Warn("perps price retention failed", slog.Any("err", err))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }
 
 // keepLease renews the held lease every RenewInterval until ctx ends, so a
@@ -295,8 +385,9 @@ func (ix *Indexer) checkOutbox(ctx context.Context) error {
 	return ix.publisher.Ready(ctx)
 }
 
-// observeOutbox reads the pending outbox rows and their oldest age and sets
-// perps_outbox_pending.
+// observeOutbox reads the sequence span from the oldest open row to the
+// newest stored row and the oldest open age, and sets perps_outbox_pending.
+// The span includes gaps and resolved rows; it is zero when no row is open.
 func (ix *Indexer) observeOutbox(ctx context.Context) (int64, time.Duration, error) {
 	var pending, oldestMs int64
 	if err := ix.db.QueryRowContext(ctx, outboxSQL).Scan(&pending, &oldestMs); err != nil {
@@ -316,6 +407,9 @@ func (ix *Indexer) resume(ctx context.Context) (uint64, error) {
 	next := ix.start
 	if ok {
 		next = height + 1
+	}
+	if next > math.MaxInt64 {
+		return 0, fmt.Errorf("indexer: next height %d exceeds database range", next)
 	}
 	ix.setCursor(int64(next) - 1)
 	return next, nil
@@ -376,6 +470,9 @@ func (ix *Indexer) step(ctx context.Context, next uint64) (uint64, error) {
 	if after < next {
 		ix.rewinds.Inc()
 		ix.logger.Warn("perps indexer rewound", slog.Uint64("fork_height", after))
+	}
+	if after > math.MaxInt64 {
+		return next, fmt.Errorf("indexer: next height %d exceeds database range", after)
 	}
 	ix.setCursor(int64(after) - 1)
 	if head, err := ix.rpc.Head(ctx); err == nil {

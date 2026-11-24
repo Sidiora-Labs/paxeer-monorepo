@@ -898,6 +898,10 @@ func phase4Reconcile(ctx context.Context, pg *pgxpool.Pool, client *http.Client,
 }
 
 func phase4Decode(raw []byte, value any) error {
+	var document json.RawMessage
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return err
+	}
 	decoder := json.NewDecoder(strings.NewReader(string(raw)))
 	var visit func() error
 	visit = func() error {

@@ -29,6 +29,7 @@ import (
 	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
 	control "github.com/Sidiora-Technologies/KindleLaunch/security/control"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
@@ -129,8 +130,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		defer func() {
 			if !secretOwned {
-				pool.Close()
-				controlPool.Close()
+				runtimedb.ClosePool(pool)
+				runtimedb.ClosePool(controlPool)
 			}
 		}()
 	}
@@ -393,7 +394,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if err := identity.RegisterV2Routes(mux, auth.IdentityHTTPConfig{ServiceToken: cfg.IdentityServiceToken, ServiceVerifiers: connected.identityVerifiers}); err != nil {
 			return nil, err
 		}
-		privateRouter = privateIdentityHandler(mux)
+		privateRouter = privateIdentityHandler(mux, tracker)
 		connected.start(identity)
 	}
 	if metrics != nil {
@@ -426,41 +427,50 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	return result, nil
 }
 
-func newProductionIdentity(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, connected *gatewayConnectedRuntime, identityMetrics *identityRuntimeMetrics) (*auth.Identity, *ethclient.Client, sharedhttp.Check, error) {
-	var identityConfig struct {
-		Issuer         string            `json:"issuer"`
-		Audience       string            `json:"audience"`
-		ActiveKey      string            `json:"activeKey"`
-		Keys           []auth.SigningKey `json:"keys"`
-		Domain         string            `json:"domain"`
-		URI            string            `json:"uri"`
-		AllowedOrigins []string          `json:"allowedOrigins"`
-	}
+type gatewayIdentityBinding struct {
+	Issuer         string            `json:"issuer"`
+	Audience       string            `json:"audience"`
+	ActiveKey      string            `json:"activeKey"`
+	Keys           []auth.SigningKey `json:"keys"`
+	Domain         string            `json:"domain"`
+	URI            string            `json:"uri"`
+	AllowedOrigins []string          `json:"allowedOrigins"`
+}
+
+type gatewayIdentityPreparation struct {
+	binding gatewayIdentityBinding
+	tokens  *auth.IdentityTokens
+	check   sharedhttp.Check
+}
+
+func prepareProductionIdentity(ctx context.Context, cfg config.Config, identityMetrics *identityRuntimeMetrics) (*gatewayIdentityPreparation, error) {
+	var identityConfig gatewayIdentityBinding
+
 	if err := config.ReadBoundDocument(cfg.IdentityConfigFile, cfg.IdentityConfigSHA256, &identityConfig); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	originSet := map[string]bool{}
 	for _, origin := range strings.Split(cfg.CORSAllowedOrigins, ",") {
 		originSet[origin] = true
 	}
 	if len(identityConfig.AllowedOrigins) != len(originSet) {
-		return nil, nil, nil, errors.New("identity and CORS origin bindings disagree")
+		return nil, errors.New("identity and CORS origin bindings disagree")
 	}
 	for _, origin := range identityConfig.AllowedOrigins {
 		if !originSet[origin] {
-			return nil, nil, nil, errors.New("identity and CORS origin bindings disagree")
+			return nil, errors.New("identity and CORS origin bindings disagree")
 		}
 		delete(originSet, origin)
 	}
 	provider, err := sharedsecrets.NewChecked(sharedsecrets.Options{Provider: sharedsecrets.ProviderType(cfg.SecretsProvider), CacheTTL: 0})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	identityKeyValues := map[string]string{}
 	for _, key := range identityConfig.Keys {
 		value, e := provider.GetRequired(ctx, key.SecretReference)
 		if e != nil {
-			return nil, nil, nil, fmt.Errorf("identity_signing_secret_unavailable")
+			return nil, fmt.Errorf("identity_signing_secret_unavailable")
 		}
 		identityKeyValues[key.SecretReference] = value
 	}
@@ -478,9 +488,18 @@ func newProductionIdentity(ctx context.Context, cfg config.Config, pool *pgxpool
 	}
 	tokens, err := auth.NewIdentityTokens(identityConfig.Issuer, identityConfig.Audience, identityConfig.ActiveKey, identityConfig.Keys, identityKeyResolver{provider}, time.Now)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	tokens.SetObserver(identityMetrics.observe)
+	return &gatewayIdentityPreparation{binding: identityConfig, tokens: tokens, check: check}, nil
+}
+
+func newProductionIdentity(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, connected *gatewayConnectedRuntime, identityMetrics *identityRuntimeMetrics) (*auth.Identity, *ethclient.Client, sharedhttp.Check, error) {
+	prepared, err := prepareProductionIdentity(ctx, cfg, identityMetrics)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	identityConfig, tokens, check := prepared.binding, prepared.tokens, prepared.check
 	identityRPC, err := ethclient.DialContext(ctx, cfg.RPCURL)
 	if err != nil {
 		return nil, nil, nil, err
@@ -514,6 +533,9 @@ func buildBuckets(ctx context.Context, cfg config.Config) (map[string]serve.Read
 
 // Close releases the Redis pool.
 func (a *App) Close() {
+	if a.tracker != nil {
+		a.tracker.BeginDrain()
+	}
 	if a.runtimeStop != nil {
 		a.runtimeStop()
 	}
@@ -533,10 +555,10 @@ func (a *App) Close() {
 		a.secretStop()
 	}
 	if a.controlPool != nil {
-		a.controlPool.Close()
+		runtimedb.ClosePool(a.controlPool)
 	}
 	if a.pool != nil {
-		a.pool.Close()
+		runtimedb.ClosePool(a.pool)
 	}
 	if a.rpc != nil {
 		a.rpc.Close()
@@ -758,6 +780,8 @@ type gatewayConnectedRuntime struct {
 	purgeAge          atomic.Int64
 	purgeErrors       atomic.Uint64
 	failure           atomic.Pointer[error]
+	steps             [runtimeStepCount]atomic.Pointer[error]
+	checkDependencies func(context.Context) error
 	provider          sharedsecrets.Provider
 	secrets           map[string]string
 	logger            *slog.Logger
@@ -770,14 +794,26 @@ func privateListenerTLS(roots *x509.CertPool, server tls.Certificate) *tls.Confi
 	return &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: roots, Certificates: []tls.Certificate{server}}
 }
 
-// privateIdentityHandler serves the private identity listener: only
-// /internal/v2/identity/*, and only to a verified client chain. The identity
-// routes then authenticate the calling service with the verifiers from
+// privateIdentityHandler serves readiness and identity routes on the private
+// listener, and only to a verified client chain. The identity routes then
+// authenticate the calling service with the verifiers from
 // identityServiceVerifiers; the IDENTITY_SERVICE_TOKEN bearer is never
 // accepted there.
-func privateIdentityHandler(mux http.Handler) http.Handler {
+func privateIdentityHandler(mux http.Handler, tracker *process.Tracker) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/internal/v2/identity/") || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 {
+		if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/health/ready" {
+			if tracker.Ready(r.Context()) == nil {
+				sharedhttp.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+			} else {
+				sharedhttp.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "degraded"})
+			}
+			return
+		}
+		if !strings.HasPrefix(r.URL.Path, "/internal/v2/identity/") {
 			http.NotFound(w, r)
 			return
 		}
@@ -824,7 +860,15 @@ func gatewayBoundBytes(path, digest string) ([]byte, error) {
 	}
 	return raw, nil
 }
-func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, controlPool *pgxpool.Pool, binding gatewayRuntimeBinding, rdb *goredis.Client, objectCache *cache.Cache, readers map[string]serve.Reader, logger *slog.Logger) (*gatewayConnectedRuntime, error) {
+
+type gatewayRuntimePreparation struct {
+	runtime   *gatewayConnectedRuntime
+	authority sharedauth.MTLSIdentityAuthority
+	clientTLS *tls.Config
+	secret    func(string) (string, error)
+}
+
+func prepareGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, controlPool *pgxpool.Pool, binding gatewayRuntimeBinding, rdb *goredis.Client, objectCache *cache.Cache, readers map[string]serve.Reader, logger *slog.Logger) (*gatewayRuntimePreparation, error) {
 	lifecycle, stop := context.WithCancel(ctx)
 	runtime := &gatewayConnectedRuntime{ctx: lifecycle, stop: stop, secrets: map[string]string{}, logger: logger}
 	owned := false
@@ -866,7 +910,7 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 		}
 		value, e := runtime.provider.GetRequired(ctx, reference)
 		if e != nil {
-			return "", errors.New("gateway runtime secret unavailable")
+			return "", fmt.Errorf("gateway runtime secret unavailable: %s", reference)
 		}
 		runtime.secrets[reference] = value
 		return value, nil
@@ -1014,6 +1058,25 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	runtime.purge = mediastore.PurgeWorker{Authority: mediaAuthority, Provider: purgeProvider}
 	runtime.mediaAuthority = mediaAuthority
 	runtime.objectCache = objectCache
+	owned = true
+	return &gatewayRuntimePreparation{runtime: runtime, authority: authority, clientTLS: clientTLS, secret: secret}, nil
+}
+
+func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, controlPool *pgxpool.Pool, binding gatewayRuntimeBinding, rdb *goredis.Client, objectCache *cache.Cache, readers map[string]serve.Reader, logger *slog.Logger) (*gatewayConnectedRuntime, error) {
+	prepared, e := prepareGatewayConnectedRuntime(ctx, cfg, pool, controlPool, binding, rdb, objectCache, readers, logger)
+	if e != nil {
+		return nil, e
+	}
+	runtime := prepared.runtime
+	owned := false
+	defer func() {
+		if !owned {
+			runtime.close()
+		}
+	}()
+	b := runtime.binding
+	mediaAuthority := runtime.mediaAuthority
+	clientTLS, authority, secret := prepared.clientTLS, prepared.authority, prepared.secret
 	if e = mediaAuthority.ReplayTombstones(ctx); e != nil {
 		return nil, e
 	}
@@ -1031,15 +1094,18 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	if e != nil {
 		return nil, e
 	}
-	natsURL, e := url.Parse(b.NATSURL)
-	if e != nil || natsURL.Scheme != "tls" || natsURL.Host == "" || natsURL.User != nil || natsURL.Path != "" || natsURL.RawQuery != "" || natsURL.Fragment != "" {
-		return nil, errors.New("gateway private TLS broker required")
+	if e = validateGatewayBrokerURL(b.NATSURL); e != nil {
+		return nil, e
 	}
 	credentials, e := secret(b.NATSCredentialsReference)
 	if e != nil {
 		return nil, e
 	}
-	runtime.nc, e = nats.Connect(b.NATSURL, nats.UserCredentialBytes([]byte(credentials)), nats.Secure(clientTLS.Clone()), nats.Timeout(3*time.Second), nats.MaxReconnects(3), nats.ReconnectWait(time.Second), nats.Name("gateway-"+cfg.RuntimeInstanceID), nats.DisconnectErrHandler(func(_ *nats.Conn, e error) { runtime.fail(errors.New("identity durable broker disconnected")) }))
+	runtime.nc, e = nats.Connect(b.NATSURL, nats.UserCredentialBytes([]byte(credentials)), nats.Secure(clientTLS.Clone()), nats.Timeout(3*time.Second), nats.MaxReconnects(3), nats.ReconnectWait(time.Second), nats.Name("gateway-"+cfg.RuntimeInstanceID), nats.DisconnectErrHandler(func(_ *nats.Conn, e error) {
+		if _, permanent := runtimeStepErrorClass(e); permanent {
+			runtime.fail(e)
+		}
+	}))
 	if e != nil {
 		return nil, e
 	}
@@ -1051,32 +1117,10 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	if e != nil {
 		return nil, e
 	}
+	if e = runtime.configureAuditStores(pool, guard, secret); e != nil {
+		return nil, e
+	}
 	audit := b.Audit
-	if audit.DeliverySchema == "users" || audit.DeliverySchema == audit.SinkDeliverySchema || audit.SinkSchema == "users" || audit.Subject == auth.IdentityRevisionSubject || audit.EventType == auth.IdentityRevisionEventType || audit.Durable == b.Durable {
-		return nil, errors.New("distinct security audit authority required")
-	}
-	auditSecret, e := secret(audit.KeyReference)
-	if e != nil {
-		return nil, e
-	}
-	runtime.auditKey = []byte(auditSecret)
-	if len(runtime.auditKey) < 32 {
-		return nil, errors.New("audit privacy key invalid")
-	}
-	auditPolicy := delivery.Policy{Subjects: map[string]bool{audit.Subject: true}, EventTypes: map[string]bool{audit.EventType: true}}
-	sourceStore, e := delivery.NewStoreWithEpochGuard(pool, audit.DeliverySchema, auditPolicy, guard.Assert)
-	if e != nil {
-		return nil, e
-	}
-	sinkStore, e := delivery.NewStoreWithEpochGuard(pool, audit.SinkDeliverySchema, auditPolicy, guard.Assert)
-	if e != nil {
-		return nil, e
-	}
-	if audit.SinkSchema == "" || audit.Subject == "" || audit.EventType == "" {
-		return nil, errors.New("audit sink authority required")
-	}
-	runtime.auditBridge = sharedauth.AuditBridge{Pool: pool, Delivery: sourceStore, Subject: audit.Subject, EventType: audit.EventType}
-	runtime.auditSink = sharedauth.AuditSink{Delivery: sinkStore, Consumer: audit.Durable, Generation: b.ConsumerGeneration, Subject: audit.Subject, EventType: audit.EventType, SinkSchema: audit.SinkSchema}
 	runtime.auditPublisher, e = natsdriver.NewPublisher(runtime.nc, audit.Stream)
 	if e != nil {
 		return nil, e
@@ -1088,15 +1132,67 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	owned = true
 	return runtime, nil
 }
+func validateGatewayBrokerURL(raw string) error {
+	natsURL, e := url.Parse(raw)
+	if e != nil || natsURL.Scheme != "tls" || natsURL.Host == "" || natsURL.User != nil || natsURL.Path != "" || natsURL.RawQuery != "" || natsURL.Fragment != "" {
+		return errors.New("gateway private TLS broker required")
+	}
+	return nil
+}
+
+func (r *gatewayConnectedRuntime) configureAuditStores(pool *pgxpool.Pool, guard *queue.EpochGuard, secret func(string) (string, error)) error {
+	b := r.binding
+	audit := b.Audit
+	if audit.DeliverySchema == "users" || audit.DeliverySchema == audit.SinkDeliverySchema || audit.SinkSchema == "users" || audit.Subject == auth.IdentityRevisionSubject || audit.EventType == auth.IdentityRevisionEventType || audit.Durable == b.Durable {
+		return errors.New("distinct security audit authority required")
+	}
+	auditSecret, e := secret(audit.KeyReference)
+	if e != nil {
+		return e
+	}
+	r.auditKey = []byte(auditSecret)
+	if len(r.auditKey) < 32 {
+		return errors.New("audit privacy key invalid")
+	}
+	auditPolicy := delivery.Policy{Subjects: map[string]bool{audit.Subject: true}, EventTypes: map[string]bool{audit.EventType: true}}
+	sourceStore, e := delivery.NewStoreWithEpochGuard(pool, audit.DeliverySchema, auditPolicy, guard.Assert)
+	if e != nil {
+		return e
+	}
+	sinkStore, e := delivery.NewStoreWithEpochGuard(pool, audit.SinkDeliverySchema, auditPolicy, guard.Assert)
+	if e != nil {
+		return e
+	}
+	if audit.SinkSchema == "" || audit.Subject == "" || audit.EventType == "" {
+		return errors.New("audit sink authority required")
+	}
+	r.auditBridge = sharedauth.AuditBridge{Pool: pool, Delivery: sourceStore, Subject: audit.Subject, EventType: audit.EventType}
+	r.auditSink = sharedauth.AuditSink{Delivery: sinkStore, Consumer: audit.Durable, Generation: b.ConsumerGeneration, Subject: audit.Subject, EventType: audit.EventType, SinkSchema: audit.SinkSchema}
+	return nil
+}
+
 func (r *gatewayConnectedRuntime) fail(e error) {
 	if e != nil {
-		r.failure.CompareAndSwap(nil, &e)
+		if r.failure.CompareAndSwap(nil, &e) && r.logger != nil {
+			r.logger.Error("gateway runtime unavailable", slog.String("err", e.Error()))
+		}
 	}
 }
 func (r *gatewayConnectedRuntime) ready(ctx context.Context) error {
 	if failure := r.failure.Load(); failure != nil {
 		return *failure
 	}
+	for step := runtimeStep(0); step < runtimeStepCount; step++ {
+		if failure := r.steps[step].Load(); failure != nil {
+			return *failure
+		}
+	}
+	if r.checkDependencies != nil {
+		return r.checkDependencies(ctx)
+	}
+	return r.dependenciesReady(ctx)
+}
+func (r *gatewayConnectedRuntime) dependenciesReady(ctx context.Context) error {
 	if e := r.control.Ready(ctx); e != nil {
 		return e
 	}
@@ -1112,7 +1208,7 @@ func (r *gatewayConnectedRuntime) ready(ctx context.Context) error {
 	return nil
 }
 func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
-	r.wg.Add(8)
+	r.wg.Add(4)
 	go func() {
 		defer r.wg.Done()
 		if e := r.control.Run(r.ctx); e != nil && r.ctx.Err() == nil {
@@ -1121,62 +1217,20 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 	}()
 	go func() { defer r.wg.Done(); r.runRestrictionIntake() }()
 	go func() { defer r.wg.Done(); r.runObjectWorkers() }()
-	go func() {
-		defer r.wg.Done()
-		e := r.consumer.Run(r.ctx, func(ctx context.Context, message *natsdriver.Message) error {
-			return identity.ConsumeIdentityRevision(ctx, r.binding.Durable, r.binding.ConsumerGeneration, message.Subject, message.Wire, message)
-		})
-		if r.ctx.Err() == nil {
-			r.fail(e)
-		}
-	}()
-	go func() {
-		defer r.wg.Done()
-		e := r.auditConsumer.Run(r.ctx, func(ctx context.Context, message *natsdriver.Message) error {
-			return r.auditSink.Consume(ctx, message.Wire, message)
-		})
-		if r.ctx.Err() == nil {
-			r.fail(e)
-		}
-	}()
+	r.startStep(runtimeIdentityConsumer, true, r.consumerStep(runtimeIdentityConsumer, r.consumer.Fetch, func(ctx context.Context, message *natsdriver.Message) error {
+		return identity.ConsumeIdentityRevision(ctx, r.binding.Durable, r.binding.ConsumerGeneration, message.Subject, message.Wire, message)
+	}))
+	r.startStep(runtimeAuditConsumer, true, r.consumerStep(runtimeAuditConsumer, r.auditConsumer.Fetch, func(ctx context.Context, message *natsdriver.Message) error {
+		return r.auditSink.Consume(ctx, message.Wire, message)
+	}))
 	auditRelay := delivery.Relay{Store: r.auditBridge.Delivery, Publisher: r.auditPublisher, Owner: r.binding.Audit.Durable, Batch: 32, LeaseDuration: 15 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
-	go func() {
-		defer r.wg.Done()
-		ticker := time.NewTicker(250 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-r.ctx.Done():
-				return
-			case <-ticker.C:
-				if _, e := r.auditBridge.Stage(r.ctx, 32); e != nil {
-					r.fail(e)
-					return
-				}
-				if e := auditRelay.RunOnce(r.ctx); e != nil {
-					r.fail(e)
-					return
-				}
-			}
-		}
-	}()
+	r.startStep(runtimeAuditStage, false, func(ctx context.Context) error {
+		_, err := r.auditBridge.Stage(ctx, 32)
+		return err
+	})
+	r.startStep(runtimeAuditRelay, false, auditRelay.RunOnce)
 	relay := delivery.Relay{Store: r.store, Publisher: r.publisher, Owner: r.binding.Durable, Batch: 32, LeaseDuration: 15 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
-	go func() {
-		defer r.wg.Done()
-		ticker := time.NewTicker(250 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-r.ctx.Done():
-				return
-			case <-ticker.C:
-				if e := relay.RunOnce(r.ctx); e != nil && r.ctx.Err() == nil {
-					r.fail(e)
-					return
-				}
-			}
-		}
-	}()
+	r.startStep(runtimeIdentityRelay, false, relay.RunOnce)
 	go func() {
 		defer r.wg.Done()
 		ticker := time.NewTicker(time.Second)
@@ -1189,7 +1243,7 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 				if _, e := r.purge.RunOne(r.ctx); e != nil && r.ctx.Err() == nil {
 					r.purgeErrors.Add(1)
 					if r.logger != nil {
-						r.logger.Warn("media purge pending", slog.String("reason", "provider_or_authority_unavailable"))
+						r.logger.Warn("media purge pending", slog.String("reason", "provider_or_authority_unavailable"), slog.String("err", e.Error()))
 					}
 				}
 				probe, cancel := context.WithTimeout(r.ctx, 2*time.Second)
@@ -1205,6 +1259,7 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 		}
 	}()
 }
+
 func (r *gatewayConnectedRuntime) close() {
 	r.stop()
 	if r.consumer != nil {
@@ -1299,38 +1354,47 @@ type gatewayObjectWorker struct {
 	inventory   *s3.Client
 }
 
-func (r *gatewayConnectedRuntime) configureControl(ctx context.Context, cfg config.Config, identityPool, controlPool *pgxpool.Pool, authority proxy.RequestIdentityAuthority, clientTLS *tls.Config, secret func(string) (string, error)) error {
+func (r *gatewayConnectedRuntime) newControlRuntime(ctx context.Context, cfg config.Config, identityPool, controlPool *pgxpool.Pool, authority proxy.RequestIdentityAuthority, clientTLS *tls.Config, secret func(string) (string, error)) (*control.Runtime, error) {
 	binding := r.binding.Control
 	if binding.Schema != "pnl" || binding.AuthoritySchema != "pnl" {
-		return errors.New("exact control authority schemas required")
+		return nil, errors.New("exact control authority schemas required")
 	}
 	consumed, e := secret(r.binding.Pools.ControlCredentialReference)
 	if e != nil {
-		return e
+		return nil, e
 	}
 	_ = consumed
 	configuration := control.RuntimeConfig{ControlPool: controlPool, IdentityPool: identityPool, ControlSchema: binding.Schema, AuthoritySchema: binding.AuthoritySchema, Observe: func(_ string, e error) {
 		if e != nil && r.logger != nil {
-			r.logger.Warn("control worker pending", slog.String("reason", "control_dependency_or_authority_unavailable"))
+			r.logger.Warn("control worker pending", slog.String("reason", "control_dependency_or_authority_unavailable"), slog.String("err", e.Error()))
 		}
 	}}
 	if binding.IncidentCredentialReference != "" {
 		configuration.IncidentCredential, e = secret(binding.IncidentCredentialReference)
 		if e != nil {
-			return e
+			return nil, e
 		}
 	}
 	if binding.RevocationEndpoint != "" || binding.RevocationTokenReference != "" {
 		token, e := secret(binding.RevocationTokenReference)
 		if e != nil {
-			return e
+			return nil, e
 		}
 		configuration.Revocation, e = control.NewRevocationProvider(binding.RevocationEndpoint, token, &http.Transport{TLSClientConfig: clientTLS.Clone(), Proxy: nil})
 		if e != nil {
-			return e
+			return nil, e
 		}
 	}
-	r.control, e = control.NewRuntime(configuration)
+	runtime, e := control.NewRuntime(configuration)
+	if e != nil {
+		return nil, e
+	}
+	return runtime, nil
+}
+
+func (r *gatewayConnectedRuntime) configureControl(ctx context.Context, cfg config.Config, identityPool, controlPool *pgxpool.Pool, authority proxy.RequestIdentityAuthority, clientTLS *tls.Config, secret func(string) (string, error)) error {
+	var e error
+	r.control, e = r.newControlRuntime(ctx, cfg, identityPool, controlPool, authority, clientTLS, secret)
 	if e != nil {
 		return e
 	}
@@ -1440,7 +1504,7 @@ func (r *gatewayConnectedRuntime) runRestrictionIntake() {
 				return r.objectCache.Evict(ctx, r.binding.ApprovedBucket, key)
 			})
 			if e != nil && r.ctx.Err() == nil && r.logger != nil {
-				r.logger.Warn("media restriction intake pending", slog.String("reason", "restriction_dependency_or_integrity_failure"))
+				r.logger.Warn("media restriction intake pending", slog.String("reason", "restriction_dependency_or_integrity_failure"), slog.String("err", e.Error()))
 			}
 		}
 	}
@@ -1461,7 +1525,7 @@ func (r *gatewayConnectedRuntime) runObjectWorkers() {
 		_, deleteError := worker.RunOne(bounded)
 		_, retentionError := worker.ExpireOriginal(bounded)
 		if (deletionIntakeError != nil || importError != nil || deleteError != nil || retentionError != nil) && r.ctx.Err() == nil && r.logger != nil {
-			r.logger.Warn("media object deletion pending", slog.String("reason", "object_dependency_or_retention_authority_failure"))
+			r.logger.Warn("media object deletion pending", slog.String("reason", "object_dependency_or_retention_authority_failure"), slog.Any("err", errors.Join(deletionIntakeError, importError, deleteError, retentionError)))
 		}
 		if !time.Now().Before(nextInventory) {
 			for _, object := range r.objects {
@@ -1470,7 +1534,7 @@ func (r *gatewayConnectedRuntime) runObjectWorkers() {
 					e = r.mediaAuthority.PersistInventory(bounded, object.binding.Bucket, object.binding.Prefix, report)
 				}
 				if e != nil && r.ctx.Err() == nil && r.logger != nil {
-					r.logger.Warn("media inventory pending", slog.String("reason", "inventory_dependency_unavailable"))
+					r.logger.Warn("media inventory pending", slog.String("reason", "inventory_dependency_unavailable"), slog.String("err", e.Error()))
 				}
 			}
 			nextInventory = time.Now().Add(time.Hour)

@@ -1799,12 +1799,12 @@ fn fixture_directory(_name: &str) -> PathBuf {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_68.rs"]
-mod repair_22_33_68_support;
+#[path = "support/attestation_policy.rs"]
+mod attestation_policy_support;
 
 #[test]
-fn repair_22_33_68_configured_root_transport() {
-    repair_22_33_68_support::configured_root_transport();
+fn configured_root_transport() {
+    attestation_policy_support::configured_root_transport();
 }
 
 trait OrPanic {

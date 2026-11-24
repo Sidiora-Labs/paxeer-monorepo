@@ -1,9 +1,10 @@
 "use client";
 
-import { Button } from "@openai/apps-sdk-ui/components/Button";
 import { Markdown } from "@openai/apps-sdk-ui/components/Markdown";
-import { Textarea } from "@openai/apps-sdk-ui/components/Textarea";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { Children, isValidElement, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { CopyControl } from "./CopyControl";
+
+export { CopyControl, writeCopyText } from "./CopyControl";
 
 export type DocsAssistantProps = {
   siteName: string;
@@ -110,9 +111,32 @@ async function readEvents(
         "The connection ended before the answer finished. Please retry.",
       );
   } finally {
-    await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
+}
+
+function AnswerTable({ children }: { children?: React.ReactNode }) {
+  return <div className="docs-assistant-table" role="region" aria-label="Answer table" tabIndex={0}><table>{children}</table></div>;
+}
+
+function answerText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (isValidElement<{ children?: ReactNode }>(node)) return answerText(node.props.children);
+  return Children.toArray(node).map(answerText).join("");
+}
+
+function AnswerHeading({ children, style }: { children?: ReactNode; style?: CSSProperties }) {
+  return <th scope="col" style={style}>{children}</th>;
+}
+
+function AnswerCell({ children, style }: { children?: ReactNode; style?: CSSProperties }) {
+  const numeric = /^[-+]?(?:\p{Sc}\s*)?\d[\d,.\s]*(?:%|\s+[A-Z]{3})?$/u.test(answerText(children).trim());
+  return <td data-numeric={numeric || undefined} style={numeric ? { ...style, textAlign: "end" } : style}>{Children.map(children, (child, index) => child === "<br>" ? <br key={index} /> : child)}</td>;
+}
+
+function AnswerCode({ children }: { children?: React.ReactNode }) {
+  const id = useId();
+  return <div className="docs-assistant-code"><div className="docs-assistant-code-tools"><CopyControl targetId={id} label="Copy" resetKey={answerText(children)} /></div><pre id={id} role="region" aria-label="Answer code example" tabIndex={0}>{children}</pre></div>;
 }
 
 export function DocsAssistant({ siteName, suggestions, layout = "floating" }: DocsAssistantProps) {
@@ -161,19 +185,16 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
     if (!open) {
       if (dialog.open) {
         dialog.close();
-        launcherRef.current?.querySelector("button")?.focus();
       }
       return;
     }
-    const previousOverflow = document.body.style.overflow;
     const syncPresentation = () => {
-      const modal = layout !== "drawer" || window.innerWidth < 1100;
+      const modal = layout !== "drawer" || getComputedStyle(document.documentElement).getPropertyValue("--assistant-modal").trim() !== "0";
       if (dialog.open && dialog.matches(":modal") !== modal) dialog.close();
       if (!dialog.open) {
         if (modal) dialog.showModal();
         else dialog.show();
       }
-      document.body.style.overflow = modal ? "hidden" : previousOverflow;
     };
     syncPresentation();
     dialog.querySelector("textarea")?.focus({ preventScroll: true });
@@ -193,19 +214,54 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
     viewport?.addEventListener("scroll", resize);
     window.addEventListener("resize", resize);
     return () => {
-      document.body.style.overflow = previousOverflow;
       viewport?.removeEventListener("resize", resize);
       viewport?.removeEventListener("scroll", resize);
       window.removeEventListener("resize", resize);
     };
   }, [layout, open]);
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.setAttribute("closedby", "any");
+    if (Reflect.has(dialog, "closedBy")) return;
+    let startedOutside = false;
+    const outside = (event: PointerEvent) => {
+      const rect = dialog.getBoundingClientRect();
+      return event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom);
+    };
+    const down = (event: PointerEvent) => { startedOutside = outside(event); };
+    const up = (event: PointerEvent) => {
+      if (startedOutside && outside(event) && dialog.open) dialog.close();
+      startedOutside = false;
+    };
+    dialog.addEventListener("pointerdown", down);
+    dialog.addEventListener("pointerup", up);
+    return () => {
+      dialog.removeEventListener("pointerdown", down);
+      dialog.removeEventListener("pointerup", up);
+    };
+  }, []);
+
   useEffect(() => () => {
     if (layout === "drawer") delete document.documentElement.dataset.docsAssistant;
   }, [layout]);
 
   useEffect(() => {
-    if (open && followAnswer.current && scrollRef.current) {
+    const root = launcherRef.current?.closest<HTMLElement>(".docs-assistant");
+    if (!root || layout !== "drawer" || !open || !busy) return;
+    const siblings = root.parentElement
+      ? [...root.parentElement.children].filter((child): child is HTMLElement => child !== root)
+      : [];
+    const previous = siblings.map((element) => element.hasAttribute("inert"));
+    siblings.forEach((element) => element.setAttribute("inert", ""));
+    return () => siblings.forEach((element, index) => {
+      if (!previous[index]) element.removeAttribute("inert");
+    });
+  }, [busy, layout, open]);
+
+  useEffect(() => {
+    if (open && turns.length > 0 && followAnswer.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [turns, open]);
@@ -214,7 +270,6 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
     const request = requestRef.current;
     if (!request) return;
     requestRef.current = null;
-    request.controller.abort();
     updateTurn(request.turnId, (turn) => ({ ...turn, status: "stopped" }));
     setBusy(false);
     setAnnouncement("Answer stopped.");
@@ -356,9 +411,7 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
   return (
     <div className="docs-assistant" data-layout={layout} data-open={open}>
       <div className="docs-assistant-launcher" ref={launcherRef}>
-        <Button
-          color="primary"
-          size="3xl"
+        <button type="button"
           className="docs-assistant-launch-button"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
@@ -366,7 +419,7 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
           aria-controls={dialogId}
         >
           <ChatIcon /> Ask AI
-        </Button>
+        </button>
       </div>
       <dialog
         id={dialogId}
@@ -374,60 +427,13 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
         className="docs-assistant-dialog"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        onCancel={(event) => {
-          event.preventDefault();
-          setOpen(false);
-        }}
+        onCancel={() => setOpen(false)}
         onClose={() => { if (!dialogRef.current?.open) setOpen(false); }}
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
+          if (event.key === "Escape" && !event.currentTarget.matches(":modal")) {
             event.preventDefault();
             setOpen(false);
-            return;
           }
-          if (layout === "drawer" && !event.currentTarget.matches(":modal")) return;
-          if (
-            event.key !== "Tab" ||
-            event.altKey ||
-            event.ctrlKey ||
-            event.metaKey
-          )
-            return;
-          const controls = Array.from(
-            event.currentTarget.querySelectorAll<HTMLElement>(
-              "button, a[href], textarea, summary, [tabindex]",
-            ),
-          ).filter(
-            (element) =>
-              element.tabIndex >= 0 &&
-              element.getClientRects().length > 0 &&
-              !element.matches('[disabled], [aria-disabled="true"]') &&
-              !element.closest("[inert], [hidden]"),
-          );
-          const first = controls[0];
-          const last = controls[controls.length - 1];
-          if (event.shiftKey && document.activeElement === first && last) {
-            event.preventDefault();
-            last.focus();
-          } else if (
-            !event.shiftKey &&
-            document.activeElement === last &&
-            first
-          ) {
-            event.preventDefault();
-            first.focus();
-          }
-        }}
-        onClick={(event) => {
-          if (event.target !== event.currentTarget) return;
-          const rect = event.currentTarget.getBoundingClientRect();
-          if (
-            event.clientX < rect.left ||
-            event.clientX > rect.right ||
-            event.clientY < rect.top ||
-            event.clientY > rect.bottom
-          )
-            setOpen(false);
         }}
       >
         <div className="docs-assistant-panel">
@@ -437,20 +443,13 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
               <p id={descriptionId}>Answers from the documentation.</p>
             </div>
             <div className="docs-assistant-header-actions">
-              <Button
-                color="secondary"
-                variant="ghost"
-                size="lg"
+              <button type="button"
                 onClick={clear}
                 disabled={!turns.length && !question}
               >
                 Clear
-              </Button>
-              <Button
-                color="secondary"
-                variant="ghost"
-                size="lg"
-                uniform
+              </button>
+              <button type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close assistant"
               >
@@ -462,7 +461,7 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
                     strokeLinecap="round"
                   />
                 </svg>
-              </Button>
+              </button>
             </div>
           </header>
           <div
@@ -471,11 +470,14 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
             role="log"
             aria-label="Conversation"
             aria-live="off"
+            tabIndex={0}
             onScroll={() => {
               const el = scrollRef.current;
-              if (el)
-                followAnswer.current =
-                  el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+              if (el) {
+                const rootStyle = getComputedStyle(document.documentElement);
+                const followDistance = Number.parseFloat(rootStyle.getPropertyValue("--assistant-follow-distance")) * Number.parseFloat(rootStyle.fontSize);
+                followAnswer.current = el.scrollHeight - el.scrollTop - el.clientHeight < followDistance;
+              }
             }}
           >
             {!turns.length ? (
@@ -489,17 +491,14 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
                 </p>
                 <div className="docs-assistant-suggestions">
                   {suggestions.slice(0, 4).map((suggestion) => (
-                    <Button
+                    <button type="button"
                       key={suggestion}
-                      color="secondary"
-                      variant={layout === "drawer" ? "ghost" : "outline"}
-                      pill={false}
                       className="docs-assistant-suggestion"
                       onClick={() => void ask(suggestion)}
                     >
                       {suggestion}
                       <span aria-hidden="true">↗</span>
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -512,12 +511,13 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
                   </div>
                   <div className="docs-assistant-answer">
                     <p className="docs-assistant-answer-label">
-                      {turn.status === "streaming" && <span className="docs-assistant-spinner" aria-hidden="true" />}
+                      {turn.status === "streaming" && <progress className="docs-assistant-spinner" aria-label="Preparing your answer" />}
                       {turn.status === "streaming" ? "Thinking" : "AI answer"}
                     </p>
                     {turn.answer ? (
                       <Markdown
                         className="docs-assistant-markdown"
+                        components={{ table: AnswerTable, th: AnswerHeading, td: AnswerCell, pre: AnswerCode }}
                         skipHtml
                         disallowedElements={["img"]}
                       >
@@ -579,10 +579,7 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
                     {(turn.status === "error" || turn.status === "stopped") &&
                       index === turns.length - 1 &&
                       !busy && (
-                        <Button
-                          color="secondary"
-                          variant="outline"
-                          size="lg"
+                        <button type="button"
                           className="docs-assistant-retry"
                           onClick={() =>
                             void ask(
@@ -592,7 +589,7 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
                           }
                         >
                           Retry answer
-                        </Button>
+                        </button>
                       )}
                   </div>
                 </article>
@@ -603,14 +600,14 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
             <label className="docs-assistant-sr-only" htmlFor={inputId}>
               Your question
             </label>
-            <Textarea
+            <textarea
               id={inputId}
+              name="question"
+              autoComplete="off"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               placeholder="Ask a question…"
               rows={2}
-              maxRows={5}
-              autoResize
               maxLength={4000}
               onKeyDown={(event) => {
                 if (
@@ -629,10 +626,7 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
                 Enter to send · Shift+Enter for a new line
               </span>
               {busy ? (
-                <Button
-                  color="secondary"
-                  variant="outline"
-                  size="lg"
+                <button type="button"
                   onClick={stop}
                 >
                   <span
@@ -640,11 +634,9 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
                     aria-hidden="true"
                   />
                   Stop
-                </Button>
+                </button>
               ) : (
-                <Button
-                  color="primary"
-                  size="lg"
+                <button
                   type="submit"
                   disabled={!question.trim()}
                 >
@@ -658,7 +650,7 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
                       strokeLinejoin="round"
                     />
                   </svg>
-                </Button>
+                </button>
               )}
             </div>
           </form>

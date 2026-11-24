@@ -59,7 +59,7 @@ func NewSymbol(db *sql.DB) (*Symbol, error) {
 }
 
 // MarketRecord is one record of the markets table (Hyperpax:data_api.md:424-461,
-// contracts/data-services.md section 11): twelve market fields and the eleven
+// contracts/data-services.md section 11): fourteen market fields and the eleven
 // perp_ fields. Prices and notionals are USD and times are epoch milliseconds.
 // The funding fields are exact decimal strings of the latest FundingSettled,
 // null before the first one: last_funding_rate_hourly and perp_funding_rate
@@ -70,6 +70,7 @@ type MarketRecord struct {
 	SymbolFull            string   `json:"symbol_full"`
 	Price                 *float64 `json:"price"`
 	Change24h             *float64 `json:"change_24h"`
+	Price24h              *float64 `json:"price_24h"`
 	Volume24h             float64  `json:"volume_24h"`
 	OpenInterest          float64  `json:"open_interest"`
 	Funding8h             *string  `json:"funding_8h"`
@@ -458,7 +459,7 @@ const spotTradesSQL = `WITH stable AS (
 SELECT block, log_index, block_time, buy, price, size FROM trades
 ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT $2`
 
-func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[SpotTrade], error) {
+func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (result0 Trades[SpotTrade], resultErr error) {
 	_, ok, err := s.markets.ID(ctx, symbol)
 	if err != nil {
 		return Trades[SpotTrade]{}, err
@@ -483,7 +484,11 @@ func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[S
 	if err != nil {
 		return body, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var (
 			block       int64
@@ -516,7 +521,7 @@ const perpTradesSQL = `SELECT f.block, f.log_index, f.block_time, f.taker_is_lon
 	FROM perps.fills f WHERE f.market_id = $1
 	ORDER BY f.block DESC, f.tx_index DESC, f.log_index DESC, f.sub DESC LIMIT $2`
 
-func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (Trades[PerpTrade], error) {
+func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (result0 Trades[PerpTrade], resultErr error) {
 	market, ok, err := s.markets.ID(ctx, symbol)
 	if err != nil {
 		return Trades[PerpTrade]{}, err
@@ -529,7 +534,11 @@ func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (Trad
 	if err != nil {
 		return body, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var (
 			block             int64

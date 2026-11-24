@@ -17,7 +17,7 @@ cause = "The creation journey constructs a jsdom window during test setup."
 repair = "The web development dependencies provide jsdom declarations, and the browser variable reflects its setup lifecycle."
 
 [contract.advanced_route]
-path = "src/widgets/meta-ag/repair-22-33-987.test.ts"
+path = "src/widgets/meta-ag/advanced-order-recovery.test.ts"
 cause = "The transaction send method belongs to the wallet RPC client."
 repair = "The transaction send assertion uses the wallet client request method."
 

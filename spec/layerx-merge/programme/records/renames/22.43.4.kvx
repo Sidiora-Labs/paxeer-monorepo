@@ -1,0 +1,636 @@
+[manifest]
+task = "22.43.4"
+records_moved = 18
+files_renamed = 18
+
+[file.1]
+from = "apps/explorer/nextjs/csp/policies/repair-22-31-412.spec.ts"
+to = "apps/explorer/nextjs/csp/policies/safe.spec.ts"
+
+[file.2]
+from = "apps/explorer/nextjs/csp/policies/repair-22-33-542.spec.ts"
+to = "apps/explorer/nextjs/csp/policies/marketplace.spec.ts"
+
+[file.3]
+from = "apps/explorer/nextjs/getServerSideProps/repair-22-33-541.spec.ts"
+to = "apps/explorer/nextjs/getServerSideProps/telemetry.spec.ts"
+
+[file.4]
+from = "apps/explorer/nextjs/middlewares/repair-22-33-540.spec.ts"
+to = "apps/explorer/nextjs/middlewares/appProfile.spec.ts"
+
+[file.5]
+from = "apps/explorer/nextjs/pages-tests/api/monitoring/repair-22-33-450.spec.ts"
+to = "apps/explorer/nextjs/pages-tests/api/monitoring/invalidResponseSchema.spec.ts"
+
+[file.6]
+from = "apps/explorer/nextjs/pages-tests/api/repair-22-33-448.spec.ts"
+to = "apps/explorer/nextjs/pages-tests/api/proxy.spec.ts"
+
+[file.7]
+from = "apps/explorer/nextjs/pages-tests/api/repair-22-35-10.spec.ts"
+to = "apps/explorer/nextjs/pages-tests/api/assistant.spec.ts"
+
+[file.8]
+from = "apps/explorer/nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts"
+to = "apps/explorer/nextjs/pages-tests/api/tokens/[hash]/instances/[id]/media-type.spec.ts"
+
+[file.9]
+from = "apps/explorer/nextjs/pages-tests/apps/repair-22-33-451.spec.ts"
+to = "apps/explorer/nextjs/pages-tests/apps/cataloguePreview.spec.ts"
+
+[file.10]
+from = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts"
+to = "apps/explorer/nextjs/utils/fetchApi.spec.ts"
+
+[file.11]
+from = "apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts"
+to = "apps/explorer/toolkit/chakra/imageAndAsyncSelect.spec.ts"
+
+[file.12]
+from = "apps/explorer/toolkit/components/charts/parts/repair-22-33-272.spec.ts"
+to = "apps/explorer/toolkit/components/charts/parts/ChartExport.spec.ts"
+
+[file.13]
+from = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+to = "apps/explorer/toolkit/components/forms/fields/colorAndRadioFields.spec.ts"
+
+[file.14]
+from = "apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.spec.ts"
+to = "apps/explorer/toolkit/components/forms/inputs/file/fileSelection.spec.ts"
+
+[file.15]
+from = "apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"
+to = "apps/explorer/toolkit/theme/visualSystem.spec.ts"
+
+[file.16]
+from = "apps/explorer/toolkit/theme/repair-22-39-281.spec.ts"
+to = "apps/explorer/toolkit/theme/mutedLabelsContrast.spec.ts"
+
+[file.17]
+from = "apps/explorer/types/api/repair-22-33-517.spec.ts"
+to = "apps/explorer/types/api/paxeerXArchiveReceipt.spec.ts"
+
+[file.18]
+from = "apps/explorer/ui/repair-22-35-8.spec.ts"
+to = "apps/explorer/ui/colourModes.spec.ts"
+
+[file.19]
+from = "apps/explorer/nextjs/csp/policies/repair-22-31-412.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/csp/policies/repair-22-31-412.kvx"
+
+[file.20]
+from = "apps/explorer/nextjs/csp/policies/repair-22-33-542.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/csp/policies/repair-22-33-542.kvx"
+
+[file.21]
+from = "apps/explorer/nextjs/getServerSideProps/repair-22-33-541.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/getServerSideProps/repair-22-33-541.kvx"
+
+[file.22]
+from = "apps/explorer/nextjs/middlewares/repair-22-33-540.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/middlewares/repair-22-33-540.kvx"
+
+[file.23]
+from = "apps/explorer/nextjs/pages-tests/api/monitoring/repair-22-33-450.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/pages-tests/api/monitoring/repair-22-33-450.kvx"
+
+[file.24]
+from = "apps/explorer/nextjs/pages-tests/api/repair-22-33-448.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/pages-tests/api/repair-22-33-448.kvx"
+
+[file.25]
+from = "apps/explorer/nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.kvx"
+
+[file.26]
+from = "apps/explorer/nextjs/pages-tests/apps/repair-22-33-451.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/pages-tests/apps/repair-22-33-451.kvx"
+
+[file.27]
+from = "apps/explorer/nextjs/pages-tests/repair-22-31-503.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/pages-tests/repair-22-31-503.kvx"
+
+[file.28]
+from = "apps/explorer/nextjs/utils/repair-22-33-543.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/nextjs/utils/repair-22-33-543.kvx"
+
+[file.29]
+from = "apps/explorer/toolkit/chakra/repair-22-33-269.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/toolkit/chakra/repair-22-33-269.kvx"
+
+[file.30]
+from = "apps/explorer/toolkit/components/charts/parts/repair-22-33-272.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/toolkit/components/charts/parts/repair-22-33-272.kvx"
+
+[file.31]
+from = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/toolkit/components/forms/fields/repair-22-33-270.kvx"
+
+[file.32]
+from = "apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.kvx"
+
+[file.33]
+from = "apps/explorer/toolkit/theme/repair-22-35-1.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/toolkit/theme/repair-22-35-1.kvx"
+
+[file.34]
+from = "apps/explorer/toolkit/theme/repair_22_39_281.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/toolkit/theme/repair_22_39_281.kvx"
+
+[file.35]
+from = "apps/explorer/types/api/repair-22-33-517.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/types/api/repair-22-33-517.kvx"
+
+[file.36]
+from = "apps/explorer/ui/repair-22-35-8.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/repair-22-35-8.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "nextjs/pages-tests/api/repair-22-35-10.spec.ts"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "pages/api/monitoring/repair-22-33-450.spec.ts"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "pages/api/repair-22-33-448.spec.ts"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "pages/apps/repair-22-33-451.spec.ts"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "toolkit/theme/repair-22-35-1.spec.ts"
+
+[reference.7]
+file = "apps/explorer/lib/metadata/repair-22-31-522.kvx"
+name = "toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.8]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/nextjs/csp/policies/repair-22-31-412.spec.ts"
+
+[reference.9]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/nextjs/csp/policies/repair-22-33-542.spec.ts"
+
+[reference.10]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/nextjs/getServerSideProps/repair-22-33-541.spec.ts"
+
+[reference.11]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/nextjs/middlewares/repair-22-33-540.spec.ts"
+
+[reference.12]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.13]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts"
+
+[reference.14]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.spec.ts"
+
+[reference.15]
+file = "apps/explorer/package.json"
+name = "nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.16]
+file = "apps/explorer/package.json"
+name = "types/api/repair-22-33-517.spec.ts"
+
+[reference.17]
+file = "apps/explorer/repair-22-31-512.kvx"
+name = "nextjs/pages-tests/api/repair-22-35-10.spec.ts"
+
+[reference.18]
+file = "apps/explorer/repair-22-31-512.kvx"
+name = "pages/apps/repair-22-33-451.spec.ts"
+
+[reference.19]
+file = "apps/explorer/repair-22-31-512.kvx"
+name = "toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.20]
+file = "apps/explorer/repair-22-31-512.spec.ts"
+name = "nextjs/csp/policies/repair-22-31-412.spec.ts"
+
+[reference.21]
+file = "apps/explorer/repair-22-31-512.spec.ts"
+name = "nextjs/csp/policies/repair-22-33-542.spec.ts"
+
+[reference.22]
+file = "apps/explorer/repair-22-31-512.spec.ts"
+name = "nextjs/middlewares/repair-22-33-540.spec.ts"
+
+[reference.23]
+file = "apps/explorer/repair-22-31-512.spec.ts"
+name = "nextjs/pages-tests/api/repair-22-33-448.spec.ts"
+
+[reference.24]
+file = "apps/explorer/repair-22-31-512.spec.ts"
+name = "nextjs/pages-tests/api/repair-22-35-10.spec.ts"
+
+[reference.25]
+file = "apps/explorer/repair-22-31-512.spec.ts"
+name = "nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts"
+
+[reference.26]
+file = "apps/explorer/repair-22-31-512.spec.ts"
+name = "nextjs/pages-tests/apps/repair-22-33-451.spec.ts"
+
+[reference.27]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "apps/explorer/nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts"
+
+[reference.28]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.29]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts"
+
+[reference.30]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/toolkit/components/charts/parts/repair-22-33-272.spec.ts"
+
+[reference.31]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.32]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.spec.ts"
+
+[reference.33]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/explorer/nextjs/getServerSideProps/repair-22-33-541.spec.ts"
+
+[reference.34]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/explorer/nextjs/pages-tests/api/repair-22-33-448.spec.ts"
+
+[reference.35]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/explorer/nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts"
+
+[reference.36]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/explorer/nextjs/pages-tests/apps/repair-22-33-451.spec.ts"
+
+[reference.37]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.38]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/explorer/types/api/repair-22-33-517.spec.ts"
+
+[reference.39]
+file = "spec/layerx-merge/dispositions/d22-34.kvx"
+name = "apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"
+
+[reference.40]
+file = "spec/layerx-merge/dispositions/d22-34.kvx"
+name = "apps/explorer/ui/repair-22-35-8.spec.ts"
+
+[reference.41]
+file = "spec/layerx-merge/programme/issues/1712.kvx"
+name = "apps/explorer/nextjs/utils/repair-22-33-543.kvx"
+
+[reference.42]
+file = "spec/layerx-merge/programme/issues/1712.kvx"
+name = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.43]
+file = "spec/layerx-merge/programme/issues/1712.kvx"
+name = "nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.44]
+file = "spec/layerx-merge/programme/issues/1716.kvx"
+name = "apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"
+
+[reference.45]
+file = "spec/layerx-merge/programme/issues/input/1712.md"
+name = "//github.com/Sidiora-Labs/paxeer-monorepo/blob/ebb7357e2543a9b0923fabad512ed3541102829c/apps/explorer/nextjs/utils/repair-22-33-543.kvx"
+
+[reference.46]
+file = "spec/layerx-merge/programme/issues/input/1712.md"
+name = "//github.com/Sidiora-Labs/paxeer-monorepo/blob/ebb7357e2543a9b0923fabad512ed3541102829c/apps/explorer/nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.47]
+file = "spec/layerx-merge/programme/issues/input/1712.md"
+name = "nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.48]
+file = "spec/layerx-merge/programme/issues/input/1716.md"
+name = "//github.com/Sidiora-Labs/paxeer-monorepo/blob/0e547c089b1395c8d677b7c7a797a33bd8d6c4a4/apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"
+
+[reference.49]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/nextjs/getServerSideProps/repair-22-33-541.spec.ts"
+
+[reference.50]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/nextjs/middlewares/repair-22-33-540.spec.ts"
+
+[reference.51]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.52]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/pages/api/repair-22-33-448.spec.ts"
+
+[reference.53]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/pages/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts"
+
+[reference.54]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/pages/apps/repair-22-33-451.spec.ts"
+
+[reference.55]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts"
+
+[reference.56]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/toolkit/components/charts/parts/repair-22-33-272.spec.ts"
+
+[reference.57]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.58]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.spec.ts"
+
+[reference.59]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"
+
+[reference.60]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/types/api/repair-22-33-517.spec.ts"
+
+[reference.61]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/repair-22-35-8.spec.ts"
+
+[reference.62]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-269.spec.ts"
+
+[reference.63]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-270.spec.ts"
+
+[reference.64]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-271.spec.ts"
+
+[reference.65]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-272.spec.ts"
+
+[reference.66]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-448.spec.ts"
+
+[reference.67]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-449.spec.ts"
+
+[reference.68]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-451.spec.ts"
+
+[reference.69]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-517.spec.ts"
+
+[reference.70]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-540.spec.ts"
+
+[reference.71]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-541.spec.ts"
+
+[reference.72]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-543.spec.ts"
+
+[reference.73]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-35-1.spec.ts"
+
+[reference.74]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-35-8.spec.ts"
+
+[reference.75]
+file = "spec/layerx-merge/qualification.kvx"
+name = "toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.76]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/nextjs/csp/policies/repair-22-31-412.spec.ts"
+
+[reference.77]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/nextjs/csp/policies/repair-22-33-542.spec.ts"
+
+[reference.78]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/nextjs/getServerSideProps/repair-22-33-541.spec.ts"
+
+[reference.79]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/nextjs/middlewares/repair-22-33-540.spec.ts"
+
+[reference.80]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/nextjs/pages-tests/api/repair-22-35-10.spec.ts"
+
+[reference.81]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/nextjs/pages-tests/repair-22-31-503.kvx"
+
+[reference.82]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.83]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/pages/api/monitoring/repair-22-33-450.spec.ts"
+
+[reference.84]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/pages/api/repair-22-33-448.spec.ts"
+
+[reference.85]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/pages/api/tokens/[hash]/instances/[id]/repair-22-33-449.kvx"
+
+[reference.86]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/pages/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts"
+
+[reference.87]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/pages/apps/repair-22-33-451.spec.ts"
+
+[reference.88]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts"
+
+[reference.89]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/components/charts/parts/repair-22-33-272.spec.ts"
+
+[reference.90]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.kvx"
+
+[reference.91]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.92]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.spec.ts"
+
+[reference.93]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/theme/repair-22-35-1.kvx"
+
+[reference.94]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"
+
+[reference.95]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/theme/repair-22-39-281.spec.ts"
+
+[reference.96]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/toolkit/theme/repair_22_39_281.kvx"
+
+[reference.97]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/types/api/repair-22-33-517.kvx"
+
+[reference.98]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/types/api/repair-22-33-517.spec.ts"
+
+[reference.99]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/repair-22-35-8.kvx"
+
+[reference.100]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/repair-22-35-8.spec.ts"
+
+[reference.101]
+file = "spec/layerx-merge/spec.kvx"
+name = "nextjs/csp/policies/repair-22-31-412.spec.ts"
+
+[reference.102]
+file = "spec/layerx-merge/spec.kvx"
+name = "nextjs/csp/policies/repair-22-33-542.spec.ts"
+
+[reference.103]
+file = "spec/layerx-merge/spec.kvx"
+name = "nextjs/getServerSideProps/repair-22-33-541.spec.ts"
+
+[reference.104]
+file = "spec/layerx-merge/spec.kvx"
+name = "nextjs/middlewares/repair-22-33-540.spec.ts"
+
+[reference.105]
+file = "spec/layerx-merge/spec.kvx"
+name = "nextjs/pages-tests/api/repair-22-35-10.spec.ts"
+
+[reference.106]
+file = "spec/layerx-merge/spec.kvx"
+name = "nextjs/utils/repair-22-33-543.spec.ts"
+
+[reference.107]
+file = "spec/layerx-merge/spec.kvx"
+name = "pages/api/monitoring/repair-22-33-450.spec.ts"
+
+[reference.108]
+file = "spec/layerx-merge/spec.kvx"
+name = "pages/api/repair-22-33-448.spec.ts"
+
+[reference.109]
+file = "spec/layerx-merge/spec.kvx"
+name = "pages/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts"
+
+[reference.110]
+file = "spec/layerx-merge/spec.kvx"
+name = "pages/apps/repair-22-33-451.spec.ts"
+
+[reference.111]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-448.kvx"
+
+[reference.112]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-450.kvx"
+
+[reference.113]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-451.kvx"
+
+[reference.114]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-35-1.kvx"
+
+[reference.115]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-35-1.spec.ts"
+
+[reference.116]
+file = "spec/layerx-merge/spec.kvx"
+name = "toolkit/chakra/repair-22-33-269.spec.ts"
+
+[reference.117]
+file = "spec/layerx-merge/spec.kvx"
+name = "toolkit/components/charts/parts/repair-22-33-272.spec.ts"
+
+[reference.118]
+file = "spec/layerx-merge/spec.kvx"
+name = "toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+
+[reference.119]
+file = "spec/layerx-merge/spec.kvx"
+name = "toolkit/components/forms/inputs/file/repair-22-33-271.spec.ts"
+
+[reference.120]
+file = "spec/layerx-merge/spec.kvx"
+name = "toolkit/theme/repair-22-35-1.spec.ts"
+
+[reference.121]
+file = "spec/layerx-merge/spec.kvx"
+name = "toolkit/theme/repair-22-39-281.spec.ts"
+
+[reference.122]
+file = "spec/layerx-merge/spec.kvx"
+name = "types/api/repair-22-33-517.spec.ts"

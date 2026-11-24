@@ -23,6 +23,7 @@ function GridCard({ row, starred, onToggleStar }: GridCardProps) {
         variant="grid"
         surface="canvas"
         image={row.image}
+        tokenAddress={row.tokenAddress}
         name={row.name}
         symbol={row.symbol}
         mcapRaw={row.mcapRaw}
@@ -65,7 +66,7 @@ export interface ExploreGridProps {
 export function ExploreGrid({ rows, isStarred, onToggleStar, loading, hasMore, loadingMore, moreError, onLoadMore, empty, disclosure, label }: ExploreGridProps) {
   if (loading) {
     return (
-      <div aria-busy="true" className="grid grid-cols-[repeat(auto-fill,minmax(var(--spacing-token-card-min-width),1fr))] gap-4">
+      <div aria-busy="true" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,var(--spacing-token-card-min-width)),1fr))] gap-4">
         <span className="sr-only">Loading coins</span>
         {Array.from({ length: 8 }).map((_, index) => <CoinCard key={index} loading image={null} name="" symbol="" mcapRaw={null} percentChange={null} createdAt={null} href="/explore" />)}
       </div>
@@ -74,7 +75,7 @@ export function ExploreGrid({ rows, isStarred, onToggleStar, loading, hasMore, l
   if (rows.length === 0) return <div className="rounded-md bg-surface-1">{empty}</div>;
   return (
     <section aria-label={label} className="flex flex-col gap-2">
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(var(--spacing-token-card-min-width),1fr))] gap-4">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,var(--spacing-token-card-min-width)),1fr))] gap-4">
         {rows.map(row => <GridCard key={row.poolAddress} row={row} starred={isStarred(row.poolAddress)} onToggleStar={onToggleStar} />)}
       </ul>
       {disclosure ? <p role="status" className="px-1 text-xs text-text-faint">{disclosure}</p> : null}

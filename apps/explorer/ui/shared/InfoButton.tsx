@@ -20,7 +20,7 @@ const InfoButton = ({ children, isLoading }: Props) => {
       variant="dropdown"
       gap={ 0 }
       aria-label="Show info"
-      fontWeight={ 500 }
+      fontWeight="medium"
       pl={ 1 }
       pr={ isMobile ? 1 : 2 }
       loadingSkeleton={ isLoading }
@@ -49,7 +49,7 @@ const InfoButton = ({ children, isLoading }: Props) => {
       <PopoverTrigger>
         { triggerButton }
       </PopoverTrigger>
-      <PopoverContent w="500px">
+      <PopoverContent w={{ base: 'calc(100vw - var(--chakra-spacing-8))', lg: 'var(--chakra-spacing-100)' }} maxW="100%">
         <PopoverBody>
           { children }
         </PopoverBody>

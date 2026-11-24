@@ -22,5 +22,5 @@ p256.workspace = true
 workspace = true
 
 [[test]]
-name = "repair_22_33_95"
-path = "tests/repair_22_33_95.rs"
+name = "portable_v1_instructions"
+path = "tests/portable_v1_instructions.rs"

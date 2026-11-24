@@ -224,7 +224,7 @@ fn serve_head_peer(
 
 #[test]
 fn registry_deployment_reads_the_program_record() {
-    use layerx_programs_runtime::{UpgradePolicy, ABI_VERSION};
+    use layerx_programs_runtime::UpgradePolicy;
 
     for policy in [
         UpgradePolicy::Immutable,
@@ -238,6 +238,7 @@ fn registry_deployment_reads_the_program_record() {
             failed_transaction,
             program,
             code_hash,
+            abi_version,
             version,
             policy_number,
             upgrade_authority,
@@ -284,7 +285,7 @@ fn registry_deployment_reads_the_program_record() {
         assert_eq!(body["transaction_hash"], hex::encode(&transaction));
         assert_eq!(body["program_id"], hex::encode(&program.bytes()));
         assert_eq!(body["code_hash"], hex::encode(&code_hash));
-        assert_eq!(body["abi_version"], ABI_VERSION);
+        assert_eq!(body["abi_version"], abi_version);
         assert_eq!(body["version"], version);
         assert_eq!(body["policy"], policy_number);
         assert_eq!(body["authority"], hex::encode(&upgrade_authority));
@@ -394,6 +395,7 @@ struct DeploymentCase {
     failed_transaction: [u8; 32],
     program: layerx_programs_runtime::ProgramId,
     code_hash: [u8; 32],
+    abi_version: u16,
     version: u32,
     policy_number: u64,
     upgrade_authority: [u8; 32],
@@ -427,7 +429,7 @@ fn deployment_receipt_variants(
 }
 
 fn deployment_case(policy: layerx_programs_runtime::UpgradePolicy) -> DeploymentCase {
-    use layerx_programs_runtime::{Deploy, Lifecycle, ProgramId, UpgradePolicy, ABI_VERSION};
+    use layerx_programs_runtime::{Deploy, Lifecycle, UpgradePolicy};
     let (policy_number, upgrade_authority) = match policy {
         UpgradePolicy::Immutable => (0_u64, [0; 32]),
         UpgradePolicy::Authority(authority) => (1, authority),
@@ -437,14 +439,22 @@ fn deployment_case(policy: layerx_programs_runtime::UpgradePolicy) -> Deployment
         std::process::id()
     )));
     fs::create_dir(&root.0).unwrap_or_else(|error| panic!("{error:?}"));
-    let program = ProgramId::new([0x71; 32]).unwrap_or_else(|error| panic!("{error:?}"));
-    let wasm = layerx_programs_runtime::test_support::add_module();
-    let code_hash: [u8; 32] = Sha256::digest(&wasm).into();
+    let admission = committed_program_transport::admission(1);
+    let evidence = admission
+        .verifier
+        .verify_deployment(&admission.proof, admission.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let admitted = evidence.record();
+    let program = admitted.program;
+    let code_hash = admitted.new_code_hash;
+    let abi_version = admitted.abi_version;
+    let version = admitted.version;
+    let wasm = committed_program_transport::code(1);
     let activity = Deploy {
         program,
         code_hash,
         wasm,
-        abi_version: ABI_VERSION,
+        abi_version,
         upgrade_policy: policy,
     };
     let mut lifecycle = Lifecycle::declared().unwrap_or_else(|error| panic!("{error:?}"));
@@ -452,7 +462,16 @@ fn deployment_case(policy: layerx_programs_runtime::UpgradePolicy) -> Deployment
         .deploy(activity.clone())
         .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(lifecycle.deploy(activity).is_err());
-    let transaction = [0x81; 32];
+    assert_eq!(deployed.version(), version);
+    let execution =
+        layerx_programs::DeploymentExecutionProof::decode(&admission.proof.state.transaction)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+    let transaction: [u8; 32] = Sha256::digest(&execution.transaction).into();
+    let journal =
+        FileDeploymentJournal::open(root.0.clone()).unwrap_or_else(|error| panic!("{error:?}"));
+    journal
+        .append(&evidence)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let failed_transaction = [0x82; 32];
     let block_hash = [0x91; 32];
     let deployed_topic = hash_bytes(
@@ -463,8 +482,8 @@ fn deployment_case(policy: layerx_programs_runtime::UpgradePolicy) -> Deployment
     let mut record = word(policy_number);
     record.extend_from_slice(&upgrade_authority);
     record.extend_from_slice(&deployed.new_code_hash());
-    record.extend_from_slice(&word(u64::from(ABI_VERSION)));
-    record.extend_from_slice(&word(u64::from(deployed.version())));
+    record.extend_from_slice(&word(u64::from(abi_version)));
+    record.extend_from_slice(&word(u64::from(version)));
     record.extend_from_slice(&word(1));
     let receipt = json!({
         "transactionHash": format!("0x{}", hex::encode(&transaction)),
@@ -511,7 +530,8 @@ fn deployment_case(policy: layerx_programs_runtime::UpgradePolicy) -> Deployment
         failed_transaction,
         program,
         code_hash,
-        version: deployed.version(),
+        abi_version,
+        version,
         policy_number,
         upgrade_authority,
     }

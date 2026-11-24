@@ -15,9 +15,11 @@ import ContractCertifiedLabel from 'ui/shared/ContractCertifiedLabel';
 import * as AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 
+import { resultLayout } from './resultLayout';
+
 type Props = ItemsProps<SearchResultAddressOrContract | SearchResultMetadataTag | multichain.QuickSearchResultAddress>;
 
-const SearchBarSuggestAddress = ({ data, isMobile, searchTerm, addressFormat }: Props) => {
+const SearchBarSuggestAddress = ({ data, searchTerm, addressFormat }: Props) => {
   const shouldHighlightHash = ADDRESS_REGEXP.test(searchTerm);
   const hash = 'filecoin_robust_address' in data ? data.filecoin_robust_address ||
     (addressFormat === 'bech32' ? toBech32Address(data.address_hash) : data.address_hash) : data.address_hash;
@@ -64,7 +66,7 @@ const SearchBarSuggestAddress = ({ data, isMobile, searchTerm, addressFormat }: 
         whiteSpace="nowrap"
         textOverflow="ellipsis"
       >
-        <chakra.span fontWeight={ 500 } dangerouslySetInnerHTML={{ __html: highlightText(addressName, searchTerm) }}/>
+        <chakra.span fontWeight="medium" dangerouslySetInnerHTML={{ __html: highlightText(addressName, searchTerm) }}/>
         { 'ens_info' in data && data.ens_info && (
           data.ens_info.names_count > 1 ?
             <span> ({ data.ens_info.names_count > 39 ? '40+' : `+${ data.ens_info.names_count - 1 }` })</span> :
@@ -75,35 +77,17 @@ const SearchBarSuggestAddress = ({ data, isMobile, searchTerm, addressFormat }: 
     </Flex>
   );
   const tagEl = data.type === 'metadata_tag' ? (
-    <SearchResultEntityTag metadata={ data.metadata } addressHash={ hash } searchTerm={ searchTerm } ml={{ base: 0, lg: 'auto' }}/>
+    <SearchResultEntityTag
+      metadata={ data.metadata }
+      addressHash={ hash }
+      searchTerm={ searchTerm }
+      ml={{ base: 0, lg: 'auto' }}
+    />
   ) : null;
   const addressEl = <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ hash } noTooltip/>;
 
-  if (isMobile) {
-    return (
-      <>
-        <Flex alignItems="center">
-          { icon }
-          <Box
-            as={ shouldHighlightHash ? 'mark' : 'span' }
-            display="block"
-            overflow="hidden"
-            whiteSpace="nowrap"
-            fontWeight={ 700 }
-          >
-            { addressEl }
-          </Box>
-        </Flex>
-        <Flex alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={ 2 }>
-          { nameEl }
-          { tagEl }
-        </Flex>
-      </>
-    );
-  }
-
   return (
-    <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={ 2 }>
+    <Grid css={ resultLayout } gap={ 2 }>
       <Flex alignItems="center" mr={ 2 } minWidth={ 0 }>
         { icon }
         <Box
@@ -111,7 +95,7 @@ const SearchBarSuggestAddress = ({ data, isMobile, searchTerm, addressFormat }: 
           display="block"
           overflow="hidden"
           whiteSpace="nowrap"
-          fontWeight={ 700 }
+          fontWeight="bold"
           minWidth={ 0 }
         >
           { addressEl }

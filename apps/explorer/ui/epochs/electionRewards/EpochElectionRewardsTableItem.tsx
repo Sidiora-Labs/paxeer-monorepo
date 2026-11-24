@@ -21,27 +21,31 @@ interface Props {
 
 const EpochElectionRewardsTableItem = ({ isLoading, data, type }: Props) => {
   const section = useDisclosure();
+  const detailsId = React.useId();
 
   const mainRowBorderColor = section.open ? 'transparent' : 'border.divider';
 
   return (
     <>
       <TableRow
-        onClick={ isLoading || !data.count ? undefined : section.onToggle }
-        cursor={ isLoading || !data.count ? undefined : 'pointer' }
+
       >
         <TableCell borderColor={ mainRowBorderColor }>
           { Boolean(data.count) && (
             <Skeleton loading={ isLoading } display="flex" borderRadius="sm">
               <IconButton
                 aria-label={ section.open ? 'Collapse section' : 'Expand section' }
+                onClick={ section.onToggle }
+                aria-expanded={ section.open }
+                aria-controls={ detailsId }
+                disabled={ isLoading }
                 variant="link"
               >
                 <IconSvg
                   name="arrows/east-mini"
                   boxSize={ 6 }
                   transform={ section.open ? 'rotate(270deg)' : 'rotate(180deg)' }
-                  transitionDuration="faster"
+                  _motionSafe={{ transitionProperty: 'transform', transitionDuration: 'faster' }}
                 />
               </IconButton>
             </Skeleton>
@@ -51,7 +55,7 @@ const EpochElectionRewardsTableItem = ({ isLoading, data, type }: Props) => {
           <EpochRewardTypeTag type={ type } isLoading={ isLoading }/>
         </TableCell>
         <TableCell borderColor={ mainRowBorderColor }>
-          <Skeleton loading={ isLoading } fontWeight={ 400 } my={ 1 }>
+          <Skeleton loading={ isLoading } fontWeight="normal" my={ 1 }>
             { getRewardNumText(type, data.count) }
           </Skeleton>
         </TableCell>
@@ -61,14 +65,14 @@ const EpochElectionRewardsTableItem = ({ isLoading, data, type }: Props) => {
             token={ data.token }
             accuracy={ 0 }
             loading={ isLoading }
-            my="2px"
+            my="var(--chakra-spacing-0\.5)"
           />
         </TableCell>
       </TableRow>
       { section.open && (
         <TableRow>
           <TableCell/>
-          <TableCell colSpan={ 3 } pr={ 0 } pt={ 0 }>
+          <TableCell id={ detailsId } colSpan={ 3 } pr={ 0 } pt={ 0 }>
             <EpochElectionRewardDetailsDesktop type={ type } token={ data.token }/>
           </TableCell>
         </TableRow>

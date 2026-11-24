@@ -43,7 +43,7 @@ export const TxApiEntry = () => {
       alignItems="center"
       columnGap={ 1 }
       textStyle="sm"
-      fontWeight="500"
+      fontWeight="medium"
       data-tx-api-entry
     >
       <IconSvg name="API" boxSize={ 4 }/>
@@ -214,6 +214,12 @@ const TxSubHeading = ({ hash, hasTag, txQuery, titleContentAfter }: Props) => {
     <PageTitle
       kind="TRANSACTION"
       title={ hash }
+      css={{
+        '& h1': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+        '@media (max-width: 834px)': {
+          '& [data-entity-identifier]': { minH: 'touchTarget' },
+        },
+      }}
       identifier={ hash }
       tags={ (
         <>

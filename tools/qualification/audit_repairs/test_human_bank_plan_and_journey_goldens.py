@@ -21,6 +21,8 @@ GOLDEN = SCHEMA / "golden"
 PRODUCTION = (SERVICE / "server/production_components.rs").read_text()
 READS = (SERVICE / "server/production_reads.rs").read_text()
 ROUTER = (SERVICE / "journeys/router.rs").read_text()
+RESOLVER = (SERVICE / "journeys/resolver.rs").read_text()
+HISTORICAL_JOURNEY_SHA256 = "a386a6118d2cc46ce6c13a912be4cff36e4f8264b0d4bfa77f1281ff6488b6ba"
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_30.kvx"
 )
@@ -96,7 +98,7 @@ def test_supported_request_uses_authoritative_bank_producer_path():
              "self.intent_transactions", "intent_plan_json"]
     positions = [execute.index(call) for call in calls]
     assert positions == sorted(positions)
-    facts(execute, 'money_field(&request.body, "money")?.1 != currency',
+    facts(execute, "verify_intent_currency(&request.body, &currency)?",
           'result: intent_plan_json(&planned, &currency, &transactions)')
     observed = function(PRODUCTION, "intent_observed_state")
     facts(observed, "let balance = agent.balance().map_err(agent_failure)?;",
@@ -111,7 +113,8 @@ def test_supported_request_uses_authoritative_bank_producer_path():
     facts(transactions, "context .account_sequence .checked_add(",
           "agent.identity_resolve(did)", "if identity.frozen",
           ".bound_address(public_key)", "let denom = send_leg_denom(&assets, &balances, leg.asset())?;",
-          "bank_send_calldata(wallet, recipient, &denom, leg.amount().value())",
+          "native_bank_pointer(&intent_node()?, balances.height, &denom)?",
+          "pointer_transfer_calldata(recipient, leg.amount().value())",
           "bind_call(&evm_call(&transaction), wallet)")
 
 
@@ -163,21 +166,16 @@ def test_plan_contains_every_transaction_field_and_exact_bank_call():
     for field in ("max_fee_per_gas", "max_priority_fee_per_gas"):
         assert leg[field] == str(transaction[field])
     assert 0 < int(leg["max_priority_fee_per_gas"]) <= int(leg["max_fee_per_gas"])
-    assert leg["to"] == "0x" + bytes(transaction["to"]).hex() == "0x" + "00" * 18 + "1001"
+    assert leg["to"] == "0x" + bytes(transaction["to"]).hex() == context["pointer"]
+    assert leg["to"] not in ("0x" + "00" * 20, "0x" + "00" * 18 + "1001")
     assert leg["value"] == "0" and transaction["value"] == [0] * 32
     calldata = bytes.fromhex(leg["calldata"][2:])
     assert calldata == bytes(transaction["calldata"])
-    assert calldata[:4].hex() == "5c05961b"
+    assert calldata[:4].hex() == "a9059cbb"
     words = [calldata[offset:offset + 32] for offset in range(4, len(calldata), 32)]
-    assert len(words) == 6 and all(len(word) == 32 for word in words)
-    assert words[0] == bytes(12) + bytes.fromhex(context["sender"][2:])
-    assert words[1] == bytes(12) + bytes.fromhex(context["recipient"][2:])
-    assert int.from_bytes(words[2], "big") == 128
-    assert int.from_bytes(words[3], "big") == int(request["money"]["amount"])
-    length = int.from_bytes(words[4], "big")
-    assert length == len(context["denom"].encode())
-    assert words[5][:length] == context["denom"].encode()
-    assert words[5][length:] == bytes(32 - length)
+    assert len(words) == 2 and all(len(word) == 32 for word in words)
+    assert words[0] == bytes(12) + bytes.fromhex(context["recipient"][2:])
+    assert int.from_bytes(words[1], "big") == int(request["money"]["amount"])
     fee = leg["gas_limit"] * int(leg["max_fee_per_gas"])
     assert plan["total_fee"] == leg["fee"] == {"amount": str(fee), "currency": "LXP"}
     assert fee <= int(request["constraints"]["max_fee"]["amount"])
@@ -188,11 +186,14 @@ def test_plan_contains_every_transaction_field_and_exact_bank_call():
         facts(producer, f'"{field}": transactions[index].{field}.to_string()')
     facts(producer, '"to": format!("0x{}", hex_bytes(&transactions[index].to))',
           '"calldata": format!("0x{}", hex_bytes(&transactions[index].calldata))', '"value": "0"')
-    facts(function(PRODUCTION, "bank_send_calldata"), "vec![0x5c, 0x05, 0x96, 0x1b]",
-          "abi_amount(128)", "abi_amount(amount)", "denom.as_bytes().to_vec()")
+    facts(function(PRODUCTION, "pointer_transfer_calldata"),
+          "crate::journeys::pointer_transfer_calldata(to, amount)")
+    facts(function(RESOLVER, "pointer_transfer_calldata"),
+          'layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")',
+          "data.extend([0; 12])", "data.extend(to)", "data.extend(abi_word(amount))")
     native = function(PRODUCTION, "intent_bank_golden_request_produces_exact_eip1559_response")
     facts(native, "ProductionComponents::intent_from_request", "crate::journeys::plan(&intent, &observed)",
-          "bank_send_calldata(sender, recipient,", "decode_unsigned(&call.encode_unsigned())",
+          "assert_bank_transaction(&transaction, &context, sender, recipient,", "decode_unsigned(&call.encode_unsigned())",
           "assert_eq!(decoded, call)", "bind_call(&decoded, sender)",
           'assert_eq!(transported, expected["body"]["result"])')
 
@@ -254,7 +255,9 @@ def test_current_journey_matches_route_projection_and_never_uses_retired_finalit
     assert re.fullmatch(r"0x[0-9a-f]{64}", leg["tx_hash"])
     assert re.fullmatch(r"0x[0-9a-f]{64}", leg["receipt_hash"])
     route = PRODUCTION.split('if request.operation.name == "journey.get" {', 1)[1].split("for journey in", 1)[0]
-    facts(route, "self.advance_evm_intent(scope, &id, self.now()?)?;",
+    facts(route, "self.journey_get_projection(request, scope)?")
+    projection = function(PRODUCTION, "journey_get_projection")
+    facts(projection, "self.advance_evm_intent(scope, &id, self.now()?)?;",
           "serde_json::from_slice(row.bytes())", "super::production_reads::intent_journey_json(&record)?")
     projector = function(READS, "intent_journey_json")
     facts(projector, '("refused", "refused", "layerx-receipt", "receipt-verified")',
@@ -262,9 +265,11 @@ def test_current_journey_matches_route_projection_and_never_uses_retired_finalit
           '("submitted", "processing", "submission-record", "unverified")',
           'leg["receipt_hash"]', 'format!("evd_{digest}")', 'format!("stg_{id}_{index}")')
     advance = function(PRODUCTION, "advance_evm_intent")
-    facts(advance, "material.rung == Rung::Committed", "ProductionAgentCreation::protocol_evidence(",
+    facts(advance, "verify_evm_leg(&mut agent, &mut record[\"legs\"][index], raw, hash)?")
+    verifier = function(PRODUCTION, "verify_evm_leg")
+    facts(verifier, "material.rung == Rung::Committed", "ProductionAgentCreation::protocol_evidence(",
           "verify_move_evm_outcome(&evidence, disclosure.activity_type)?", 'leg["verified"] = json!(true)')
-    assert advance.index("verify_move_evm_outcome") < advance.index('leg["verified"] = json!(true)')
+    assert verifier.index("verify_move_evm_outcome") < verifier.index('leg["verified"] = json!(true)')
     for forbidden in ("paxeer-finality", "paxeer-finalised", "settlement-anchored", "raw_transaction"):
         assert forbidden not in projector
         assert forbidden not in json.dumps(journey)
@@ -279,7 +284,9 @@ def test_current_journey_matches_route_projection_and_never_uses_retired_finalit
 
 def test_historical_payloads_preserve_baseline_bytes_and_decode_vocabulary():
     repair = tomllib.loads(RECORD.read_text())
-    for name, digest in repair["baseline"]["preserved_sha256"].items():
+    digests = dict(repair["baseline"]["preserved_sha256"])
+    digests["historical/journey.get.response.json"] = HISTORICAL_JOURNEY_SHA256
+    for name, digest in digests.items():
         raw = (GOLDEN / name).read_bytes()
         assert sha256(raw).hexdigest() == digest
         decoded = json.loads(raw)

@@ -1,4 +1,4 @@
-Code.require_file("repair_22_33_555_support.exs", __DIR__)
+Code.require_file("recorded_fetcher_support.exs", __DIR__)
 
 defmodule Indexer.Fetcher.WithdrawalTest do
   use EthereumJSONRPC.Case
@@ -142,7 +142,7 @@ defmodule Indexer.Fetcher.WithdrawalTest do
 
     assert is_pid(worker_pid)
 
-    Indexer.Fetcher.Repair2233555.wait_until(5_000, fn ->
+    Indexer.Fetcher.RecordedFetcherSupport.wait_until(5_000, fn ->
       match?(
         [{Indexer.Fetcher.Withdrawal, :undefined, :worker, [Indexer.Fetcher.Withdrawal]} | _],
         Supervisor.which_children(Withdrawal.Supervisor)
@@ -166,6 +166,7 @@ defmodule Indexer.Fetcher.WithdrawalTest do
   end
 
   test "017: persists withdrawals and resumes only missing blocks after restart" do
-    Indexer.Fetcher.Repair2233555.assert_withdrawal_recovery()
+    Indexer.Fetcher.RecordedFetcherSupport.assert_withdrawal_recovery()
   end
 end
+

@@ -1396,13 +1396,13 @@ CRASH_POINTS: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
         "./node/sequencer", ("TestProofSequencerExecutorTransportRecovery",), (),
     ),
     "real-node/crash-after-state-mutation": (
-        "./node", ("TestRepair475_CommitHashesSurviveEveryRestart", "TestRepair475_RejectCorruptedCommittedHash"), (),
+        "./node", ("TestCommitHashesSurviveEveryRestart", "TestCommittedHashRejectCorruptedCommittedHash"), (),
     ),
     "real-node/crash-before-block-commit": (
         "./node/sequencer", ("TestCrashAfterReceiptReplaysIdenticalReceipt",), (),
     ),
     "real-node/crash-after-block-commit": (
-        "./node", ("TestRepair475_ReconcileSealAfterCommitCrash", "TestRepair475_CommitHashesSurviveEveryRestart"), (),
+        "./node", ("TestCommittedHashReconcileSealAfterCommitCrash", "TestCommitHashesSurviveEveryRestart"), (),
     ),
     "real-node/crash-before-receipt-publication": (
         "./node/sequencer", ("TestProofSequencerExecutorTransportRecovery",), (),
@@ -1411,7 +1411,7 @@ CRASH_POINTS: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
         "./node/sequencer", ("TestCrashAfterReceiptReplaysIdenticalReceipt",), (),
     ),
     "real-node/crash-before-acknowledgement": (
-        "./node", ("TestRepair475_ReconcileSealAfterCommitCrash",),
+        "./node", ("TestCommittedHashReconcileSealAfterCommitCrash",),
         ("idempotency", "post_restart_retry_reuses_original_result_and_pending_bytes"),
     ),
     "real-node/crash-after-acknowledgement": (
@@ -1428,7 +1428,7 @@ def crash_case(case_id: str) -> CaseFunction:
         results = [native_test(ctx, "native-crash-recovery", package, *tests)]
         if agent:
             results.append(agent_test(ctx, f"agent-{agent[0]}", *agent))
-        ledger = native_test(ctx, "native-commit-boundary", "./node", "TestRepair_102_StrictResultCommitment")
+        ledger = native_test(ctx, "native-commit-boundary", "./node", "TestSequencedExecutionStrictResultCommitment")
         programs_case(
             ctx,
             result=results,
@@ -1747,8 +1747,8 @@ def one_ledger(ctx: CaseContext) -> None:
         raise CaseFailure(f"schema check did not report conformance:\n{schema.tail()}")
     rejection = native_test(
         ctx, "native-ledger-boundary-rejections", "./node",
-        "TestRepair_102_TenantReplay", "TestRepair_102_StrictResultCommitment",
-        "TestRepair475_RejectCorruptedCommittedHash", "TestHaltedBlockLeavesCommittedStateAtPreviousHeight",
+        "TestSequencedExecutionTenantReplay", "TestSequencedExecutionStrictResultCommitment",
+        "TestCommittedHashRejectCorruptedCommittedHash", "TestHaltedBlockLeavesCommittedStateAtPreviousHeight",
     )
     conformance = ctx.run(
         ("cargo", "test", "--manifest-path", str(SCHEMA_CHECK_MANIFEST), "--locked"),

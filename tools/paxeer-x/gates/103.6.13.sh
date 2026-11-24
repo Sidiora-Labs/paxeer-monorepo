@@ -196,12 +196,12 @@ def build(directory):
     checked(commit_header)
     environment = dict(
         os.environ,
-        PATH="/root/.cargo/bin:" + os.environ.get("PATH", ""),
+        PATH=os.environ.get("PATH", ""),
         RUSTUP_TOOLCHAIN="1.91.1",
         CARGO_BUILD_JOBS="2",
-        CARGO_TARGET_DIR=os.environ.get("CARGO_TARGET_DIR", "/root/lx-target/agent"),
+        CARGO_TARGET_DIR=os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "services/agent/target"),
     )
-    lock_path = Path("/root/lx-cargo/agent-build.lock")
+    lock_path = ROOT / "build/qualification/cargo/agent-build.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a") as lock:
         while True:
@@ -212,7 +212,7 @@ def build(directory):
                 time.sleep(min(1, remaining(1)))
         text = command(
             [
-                "/root/.cargo/bin/cargo",
+                "cargo",
                 "test",
                 "--locked",
                 "--manifest-path",
@@ -374,17 +374,14 @@ try:
         args in ([], ["--build"]),
         "103.6.13 accepts only --build or no selector arguments",
     )
-    DIRECTORY = Path(
-        os.environ.get(
-            "PAXEER_X_EXPORT_COMPLETE_EVIDENCE",
-            "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task103613",
-        )
-    )
+    configured_directory = os.environ.get("PAXEER_X_EXPORT_COMPLETE_EVIDENCE")
+    DIRECTORY = Path(configured_directory or str(ROOT / "build/qualification/103.6.13"))
     DIRECTORY.mkdir(parents=True, mode=0o700, exist_ok=True)
     private(DIRECTORY, True)
     DIRECTORY = DIRECTORY.resolve(strict=True)
     require(
-        DIRECTORY != ROOT and ROOT not in DIRECTORY.parents,
+        (configured_directory is None and DIRECTORY == ROOT / "build/qualification/103.6.13")
+        or (DIRECTORY != ROOT and ROOT not in DIRECTORY.parents),
         "evidence must be outside checkout",
     )
     build(DIRECTORY) if args else qualify(DIRECTORY)

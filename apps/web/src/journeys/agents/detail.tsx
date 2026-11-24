@@ -53,7 +53,10 @@ function SpendSection({ agent }: Readonly<{ agent: Agent }>) {
       <p className="text-sm text-foreground-secondary">
         <PrivateFigure>{spend.summary}</PrivateFigure>
       </p>
-      <InlineNotice tone={spend.protocolBacked ? "neutral" : "warning"} role="status">
+      <InlineNotice
+        tone={spend.protocolBacked ? "neutral" : "warning"}
+        role="status"
+      >
         {spend.enforcementSentence}
       </InlineNotice>
       <p className="text-sm text-muted-foreground">
@@ -61,7 +64,9 @@ function SpendSection({ agent }: Readonly<{ agent: Agent }>) {
         {" – "}
         <time dateTime={agent.spend.period_end}>{spend.periodEnd}</time>
       </p>
-      <p className="text-sm text-muted-foreground">{spend.verificationSentence}</p>
+      <p className="text-sm text-muted-foreground">
+        {spend.verificationSentence}
+      </p>
       {spend.reconciliationSentence === undefined ? null : (
         <InlineNotice tone="warning" role="status">
           {spend.reconciliationSentence}
@@ -73,6 +78,7 @@ function SpendSection({ agent }: Readonly<{ agent: Agent }>) {
 
 type AgentDetailProps = Readonly<{
   agentId: string;
+  initialAgent?: Agent;
   ownerAccount?: string;
   embedded?: boolean;
   onChanged?: () => void;
@@ -92,6 +98,7 @@ export function AgentDetailScreen(props: AgentDetailProps) {
 
 function AgentDetailContent({
   agentId,
+  initialAgent,
   ownerAccount: accountId,
   embedded = false,
   onChanged,
@@ -100,15 +107,19 @@ function AgentDetailContent({
   const shell = useAgentsShell();
   const agents = useMemo(() => new Agents(), []);
   const request = useRef(0);
-  const [agent, setAgent] = useState<Agent | undefined>(undefined);
-  const [creation, setCreation] = useState<JourneyProgress | undefined>(undefined);
+  const [agent, setAgent] = useState<Agent | undefined>(initialAgent);
+  const [creation, setCreation] = useState<JourneyProgress | undefined>(
+    undefined,
+  );
   const [loadError, setLoadError] = useState<unknown>(undefined);
   const [offline, setOffline] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialAgent === undefined);
 
   const load = useCallback(async () => {
     const current = ++request.current;
-    setLoading(true);
+    if (initialAgent === undefined) {
+      setLoading(true);
+    }
     setLoadError(undefined);
     setOffline(false);
     try {
@@ -116,9 +127,10 @@ function AgentDetailContent({
       if (current !== request.current) {
         return;
       }
-      const progress = loaded.state === "creating" && loaded.creation_journey_id !== undefined
-        ? journeyProgress(await agents.journey(loaded.creation_journey_id))
-        : undefined;
+      const progress =
+        loaded.state === "creating" && loaded.creation_journey_id !== undefined
+          ? journeyProgress(await agents.journey(loaded.creation_journey_id))
+          : undefined;
       if (current !== request.current) {
         return;
       }
@@ -138,7 +150,7 @@ function AgentDetailContent({
         setLoading(false);
       }
     }
-  }, [agentId, agents]);
+  }, [agentId, agents, initialAgent]);
 
   useEffect(() => {
     void load();
@@ -148,7 +160,12 @@ function AgentDetailContent({
   }, [load]);
 
   useEffect(() => {
-    if (creation === undefined || creation.complete || creation.statusKey === "refused" || creation.refusalSentence !== undefined) {
+    if (
+      creation === undefined ||
+      creation.complete ||
+      creation.statusKey === "refused" ||
+      creation.refusalSentence !== undefined
+    ) {
       return;
     }
     const timer = setTimeout(() => {
@@ -160,10 +177,16 @@ function AgentDetailContent({
   }, [creation, load]);
 
   if (loading && agent === undefined) {
-    return <LoadingSurface />;
+    return <LoadingSurface className="human-agent-loading" />;
   }
   if (agent === undefined && offline) {
-    return <OfflineSurface onRetry={() => { void load(); }} />;
+    return (
+      <OfflineSurface
+        onRetry={() => {
+          void load();
+        }}
+      />
+    );
   }
   if (agent === undefined) {
     return (
@@ -171,8 +194,12 @@ function AgentDetailContent({
         error={errorPresentation(loadError)}
         route={`/app/agents/${encodeURIComponent(agentId)}`}
         platform={shell}
-        onRetry={() => { void load(); }}
-        onReload={() => { window.location.reload(); }}
+        onRetry={() => {
+          void load();
+        }}
+        onReload={() => {
+          window.location.reload();
+        }}
       />
     );
   }
@@ -204,7 +231,10 @@ function AgentDetailContent({
         </InlineNotice>
       )}
       <div className="flex flex-col gap-2">
-        <LabelValue label={copyEntry("agent.detail.purpose").message} value={agent.purpose} />
+        <LabelValue
+          label={copyEntry("agent.detail.purpose").message}
+          value={agent.purpose}
+        />
         <LabelValue
           label={copyEntry("agent.detail.created").message}
           value={formatPlainTimestamp(agent.created_at, AGENT_LOCALE)}
@@ -216,17 +246,23 @@ function AgentDetailContent({
       />
       {creation === undefined ? null : (
         <div className="flex flex-col gap-3">
-          <KitSectionHeader title={copyEntry("agent.detail.progress").message} />
+          <KitSectionHeader
+            title={copyEntry("agent.detail.progress").message}
+          />
           <p className="text-sm text-foreground-secondary">
             {copyEntry(creationHeadlineKey(creation)).message}
           </p>
           <JourneyStages progress={creation} />
-          {creation.complete || creation.statusKey === "refused" || creation.refusalSentence !== undefined ? null : (
+          {creation.complete ||
+          creation.statusKey === "refused" ||
+          creation.refusalSentence !== undefined ? null : (
             <div className="flex">
               <KitButton
                 variant="secondary"
                 loading={loading}
-                onClick={() => { void load(); }}
+                onClick={() => {
+                  void load();
+                }}
               >
                 {copyEntry("agent.create.check").message}
               </KitButton>

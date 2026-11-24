@@ -131,6 +131,19 @@ def test_launchpad_workflow_has_go_job():
     (wiring_go,) = [step for step in wiring["steps"]
                     if step.get("uses", "").startswith("actions/setup-go@")]
     assert wiring_go["with"]["go-version"] == "1.27.3"
+    web = workflow["jobs"]["launchpad-test"]
+    (web_go,) = [step for step in web["steps"]
+                 if step.get("uses", "").startswith("actions/setup-go@")]
+    assert web_go["with"] == {"go-version": "1.27.3", "cache": "false"}
+    assert web_go["with"]["go-version"] == setup["with"]["go-version"]
+    assert web_go["with"]["go-version"] == wiring_go["with"]["go-version"]
+    assert web["env"]["GOTOOLCHAIN"] == job["env"]["GOTOOLCHAIN"]
+    assert web["env"]["GOTOOLCHAIN"] == "go" + web_go["with"]["go-version"]
+    version = tuple(map(int, web_go["with"]["go-version"].split(".")))
+    for module in launchpad_go_modules():
+        (required,) = re.findall(r"^go (\S+)$", (ROOT / module / "go.mod").read_text(), re.M)
+        required_version = tuple(map(int, required.split(".")))
+        assert required_version <= version, (module, required)
     (run,) = [step for step in wiring["steps"] if step.get("run", "").startswith(
         "python3 -m pytest "
     )]
@@ -153,8 +166,14 @@ def test_launchpad_go_job_provides_api_services_and_contracts():
     steps = job["steps"]
     (install_nats,) = [step for step in steps if
                        "go install github.com/nats-io/nats-server/v2@v2.11.6" in step.get("run", "")]
-    assert "sudo apt-get install --no-install-recommends --yes redis-server" in install_nats["run"]
-    assert "sudo apt-get install --no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon" in install_nats["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes redis-server'
+    ) in install_nats["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon'
+    ) in install_nats["run"]
     assert job["env"]["L13_PHASE3_REDIS_SERVER"] == "/usr/bin/redis-server"
     (start_nats,) = [step for step in steps if step["name"] == "Start API NATS fixture"]
     assert 'nats-server --addr 127.0.0.1 --port 24222 --jetstream ' in start_nats["run"]
@@ -197,6 +216,34 @@ def test_launchpad_go_matrix_lists_every_module():
         assert any((ROOT / module).rglob("*_test.go")), module
 
 
+def test_launchpad_ci_matrix_matches_makefile_modules():
+    jobs = launchpad_go_workflow()["jobs"]
+    job = jobs["launchpad-go-ci"]
+    matrix = job["strategy"]["matrix"]
+    assert set(matrix) == {"module"}, "Run every module without exclusions or overrides"
+    entries = matrix["module"]
+    assert entries == jobs["launchpad-go-test"]["strategy"]["matrix"]["module"]
+    assert len(entries) == len(set(entries)), "Run each module exactly once"
+    text = (ROOT / "services/launchpad/Makefile").read_text()
+    (assignment,) = re.findall(
+        r"^MODULES := (.*?)(?=\n\s*\n)", text, re.M | re.S
+    )
+    make_modules = assignment.replace("\\\n", " ").split()
+    expected = {
+        (ROOT / "services/launchpad" / module)
+        .resolve().relative_to(ROOT).as_posix(): module
+        for module in make_modules
+    }
+    assert len(expected) == len(make_modules)
+    assert set(entries) == set(expected)
+    for module in entries:
+        result = subprocess.run(
+            ["realpath", "--relative-to=services/launchpad", module],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        )
+        assert result.stdout.strip() == expected[module], module
+
+
 def test_launchpad_makefile_ci_target_exists():
     text = (ROOT / "services/launchpad/Makefile").read_text()
     assert re.search(r"^export GOWORK := off$", text, re.M)
@@ -223,6 +270,14 @@ def test_launchpad_makefile_ci_target_exists():
     assert 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)"' in recipe
     assert '|| exit 1' in recipe
     assert "$(GO) list ./...) ||" in text, "Discovery errors must fail the gate"
+
+
+def test_launchpad_ci_target_order():
+    text = (ROOT / "services/launchpad/Makefile").read_text()
+    (ci,) = re.findall(r"^ci:\s*([^\n#]+)", text, re.M)
+    assert ci.split() == [
+        "build", "vet", "fmt-check", "lint", "test", "race", "cover-check"
+    ], "CI must run static stages before tests, race detection and coverage"
 
 
 def test_launchpad_lint_release_and_module_selection():
@@ -256,6 +311,38 @@ def baseline_runner():
 
 def launchpad_current_test_name(name):
     return {
+        "TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds": "TestMarketRecoveryRestartRecoversRealMarketBeyondLifetimeBounds",
+        "TestRepair_55_ReceiptHintsRejectTampering": "TestMarketRecoveryReceiptHintsRejectTampering",
+        "TestRepairM_999_ReceiptQualifiedBackfill": "TestReceiptQualifiedBackfill",
+        "TestRepairM_995_NativeReceiptAttribution": "TestNativeAttributionNativeReceiptAttribution",
+        "TestRepair_56_ExplorerDynamicDiscoveries": "TestExplorerDynamicDiscoveries",
+        "TestRepair_56_DiscoveryEpochBounds": "TestExplorerDiscoveryEpochBounds",
+        "TestRepairM_996_NoCompatibilityDeadLetterEscape": "TestDeliveryHealthNoCompatibilityDeadLetterEscape",
+        "TestRepair54Postgres_NativeReadModelProjection": "TestNativeReadModelPostgresProjection",
+        "TestRepair_54_RecordedLiveQualification": "TestNativeProjectionRecordedLiveQualification",
+        "TestRepair54Postgres_AmbiguousCommitLiveRecovery": "TestNativeProjectionPostgresAmbiguousCommitLiveRecovery",
+        "TestRepair_54_NativeReadModelProjection": "TestNativeReadModelProjection",
+        "TestRepair_54_AmbiguousCommitLiveRecovery": "TestNativeProjectionAmbiguousCommitLiveRecovery",
+        "TestRepair_53_native_swap_qualification": "TestReceiptReplayNativeSwapQualification",
+        "TestRepair_53_tenant_transaction_qualification": "TestReceiptReplayTenantTransactionQualification",
+        "TestRepair_53_approved_history_rehydration": "TestReceiptReplayApprovedHistoryRehydration",
+        "TestRepair56Postgres_ExplorerDynamicDiscoveries": "TestExplorerPostgresDynamicDiscoveries",
+        "TestRepair56Postgres_DiscoveryEpochBounds": "TestExplorerPostgresDiscoveryEpochBounds",
+        "TestRepair_27_log_free_receipts": "TestLogFreeReceipts",
+        "TestRepair_29_RewardRequestSchemaRecovery": "TestRewardRequestSchemaRecovery",
+        "TestRepairM_917_FreshInstallMigrationContract": "TestMigrationFreshInstallMigrationContract",
+        "TestRepairM_917_ExistingSchemaUpgradeMigrationContract": "TestMigrationExistingSchemaUpgradeMigrationContract",
+        "TestRepair_45_LegacyMintRetired": "TestArchiveLegacyMintRetired",
+        "TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity": "TestSnapshotLatePoolMetadataChangesSnapshotIdentity",
+        "TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark": "TestSnapshotConcurrentFoldStaysWithinHistoryWatermark",
+        "TestRepair_63_ActiveSnapshotUpdateGrant": "TestCoordinatorReplayActiveSnapshotUpdateGrant",
+        "TestRepair_63_WalletRangeSchemaMigrated": "TestCoordinatorReplayWalletRangeSchemaMigrated",
+        "TestRepairM_1018_ProductionGrantRendering": "TestCoordinatorRuntimeProductionGrantRendering",
+        "TestRepairM_1018_CompleteDependencyMigrations": "TestCoordinatorRuntimeCompleteDependencyMigrations",
+        "TestRepairM_1014_PoisonPrefixRecovery": "TestCursorPoisonPrefixRecovery",
+        "TestRepairM_1014_CursorFailureReplayDeduplicates": "TestCursorFailureReplayDeduplicates",
+        "TestRepairM_1014_RestartRefreshObligation": "TestCursorRecoveryRestartRefreshObligation",
+        "TestRepairM_1014_PoisonCursorFailureRecovery": "TestPoisonCursorFailureRecovery",
         "TestRepair_29_RewardSchemaReadiness": "TestProductionRewardSchemaReadiness",
         "TestRepair_63_MigrationFixturePaths": "TestProductionMigrationFixturePaths",
         "TestRepair_63_CoordinatorWalletContract": "TestProductionCoordinatorWalletContract",
@@ -276,81 +363,64 @@ def launchpad_current_test_name(name):
     }.get(name, name)
 
 
+@pytest.fixture
+def baseline_entry():
+    return {
+        "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
+        "test": "TestPhase2AuditDurableBridgeAndRealBroker",
+        "reason": "Authentication audit delivery uses a durable broker.",
+        "retiring_task": "22.39.117",
+    }
+
+
 def test_launchpad_baseline_names_only_reviewed_existing_tests():
     runner = baseline_runner()
     entries = runner.load_baseline()
-    assert len(entries) == 78
-    assert {entry["package"] for entry in entries} == {
-        runner.SHARED + "auth"
+    assert entries == []
+    packages = {
+        runner.SHARED + suffix
+        for suffix in ("auth", "chain", "db/production", "delivery",
+                       "delivery/natsdriver", "storage")
     } | {
-        runner.API + "internal/" + name for name in ("app", "broker", "cache", "rest", "store")
-    } | {
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/card',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile',
+        runner.PROTOCOL, runner.PROTOCOL + "/bindings", runner.PROTOCOL + "/coverage"
     }
-    for entry in entries:
-        if entry["package"].startswith(runner.SHARED):
-            directory = ROOT / "sdk/launchpad/shared" / entry["package"].removeprefix(
-                runner.SHARED
-            )
-        elif entry["package"].startswith(runner.API):
-            directory = ROOT / "services/launchpad/api" / entry["package"].removeprefix(
-                runner.API
-            )
-        elif entry["package"].startswith(runner.INDEXER):
-            directory = ROOT / "services/launchpad/indexer" / entry["package"].removeprefix(
-                runner.INDEXER
-            )
-        elif entry["package"] in runner.PNL_PACKAGES | runner.REMAINING_PACKAGES:
-            directory = next(
-                manifest.parent / entry["package"].removeprefix(
-                    re.search(r"^module (.+)$", manifest.read_text(), re.M)[1]
-                ).lstrip("/")
-                for manifest in (ROOT / "services/launchpad").rglob("go.mod")
-                if entry["package"] == re.search(r"^module (.+)$", manifest.read_text(), re.M)[1]
-                or entry["package"].startswith(
-                    re.search(r"^module (.+)$", manifest.read_text(), re.M)[1] + "/"
-                )
-            )
-        else:
-            directory = ROOT / "sdk/launchpad/protocol" / entry["package"].removeprefix(
-                runner.PROTOCOL
-            ).lstrip("/")
-        declarations = [
-            path for path in directory.glob("*_test.go")
-            if re.search(r"^func " + launchpad_current_test_name(entry["test"]) + r"\(t \*testing.T\)",
-                         path.read_text(), re.M)
-        ]
-        assert len(declarations) == 1, entry
-        current_name = launchpad_current_test_name(entry["test"])
-        if current_name != entry["test"]:
-            assert not re.search(runner.skip_pattern(entries, entry["package"]), current_name)
-        if entry["package"] == runner.SHARED + "auth":
-            assert "migrations/registry.json" in entry["reason"]
-            assert "reviewed provenance" in entry["reason"]
-    assert sum(entry["package"] == runner.SHARED + "auth" for entry in entries) == 6
+    packages |= (runner.API_PACKAGES | runner.INDEXER_PACKAGES
+                 | runner.PNL_PACKAGES | runner.REMAINING_PACKAGES)
+    for package in packages:
+        assert runner.skip_pattern(entries, package) == ""
 
 
 def test_launchpad_baseline_records_nats_duplicates_window_failures():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     assert not any(entry["package"] == runner.SHARED + "delivery/natsdriver"
                    for entry in runner.load_baseline())
 
 
 def test_launchpad_baseline_records_database_cancellation_failure():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     assert not any(entry["package"] == runner.SHARED + "db/production"
                    for entry in runner.load_baseline())
 
 
-def test_launchpad_baseline_patterns_are_exact_and_package_scoped():
+def test_launchpad_baseline_patterns_are_exact_and_package_scoped(
+    tmp_path, baseline_entry,
+):
     runner = baseline_runner()
-    entries = runner.load_baseline()
+    assert runner.load_baseline() == []
+    entries = [
+        baseline_entry,
+        baseline_entry | {"test": "TestPhase2AuditRuntimeCannotRewriteHistory"},
+        baseline_entry | {
+            "package": runner.API + "internal/app",
+            "test": baseline_entry["test"],
+            "retiring_task": "22.39.154",
+        },
+    ]
+    path = tmp_path / "patterns.json"
+    path.write_text(json.dumps(entries))
+    assert runner.load_baseline(path) == entries
     for package in {entry["package"] for entry in entries}:
         pattern = runner.skip_pattern(entries, package)
         assert pattern.startswith("^(") and pattern.endswith(")$")
@@ -364,6 +434,7 @@ def test_launchpad_baseline_patterns_are_exact_and_package_scoped():
 
 def test_launchpad_baseline_records_protocol_fixture_failures():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     assert not any(entry["package"] in {
         runner.PROTOCOL, runner.PROTOCOL + "/bindings", runner.PROTOCOL + "/coverage"
     } for entry in runner.load_baseline())
@@ -371,70 +442,24 @@ def test_launchpad_baseline_records_protocol_fixture_failures():
 
 def test_launchpad_baseline_records_api_failures_and_retiring_owner():
     runner = baseline_runner()
-    entries = [entry for entry in runner.load_baseline()
-               if entry["package"].startswith(runner.API)]
-    expected = {
-        "app": {
-            "TestDevelopmentTransactionStatusFromChainRPC",
-            "TestRepair_27_log_free_receipts",
-            "TestDevelopmentStreamTerminalFramesCarryCloseCode",
-            "TestDevelopmentStreamSnapshotWebSocketAndSSE",
-            "TestDevelopmentStreamUnknownPoolAndLegacy",
-            "TestDevelopmentStreamSnapshotKnownPoolWithoutData",
-            "TestDevelopmentStreamSnapshotRegistryFailureStaysRetryable",
-            "TestDevelopmentStreamUnknownPoolSubscribeCloses",
-        },
-        "broker": {
-            "TestPostgresRetainedIdentitiesSurviveInterruptedReplay",
-            "TestPostgresResumePreflightsByteLimitBeforeDelivery",
-        },
-        "cache": {
-            "TestRealTwoAuthenticatedWalletCacheIsolation",
-            "TestRealHotExpiryAcrossTenReplicas",
-            "TestRealExclusiveRedisFlushPreservesDurableTruth",
-            "TestRealAdapterMeasurementCapture",
-        },
-        "rest": {
-            "TestFrozenV2ResponseSchemasMatchHandlerBytes",
-            "TestHolderRewardsProductionRead",
-            "TestLeaderboardProductionRead",
-            "TestPoolDetailProductionRead",
-            "TestPoolListProductionRead",
-            "TestHoldersProductionReadValidation",
-            "TestPlatformMetricsProductionRead",
-            "TestPoolStatsInterface22FieldsRoundTrip",
-            "TestProductionCanonicalStatsAndSnapshotResume",
-            "TestProductionGeneratedSDKUsesActualHTTPAndExactAmounts",
-            "TestProductionPrivateSnapshotDenialIsUncacheableAndRedactsTokens",
-            "TestProductionHTTPAdmissionSurgePreservesReserveAndRejectsExplicitly",
-            "TestProductionRESTMeasurementHarness",
-            "TestProductionRESTMeasurementAggregate",
-            "TestProductionRegisteredOperationsHaveFrozenContracts",
-        },
-        "store": {"TestProductionCanonicalAccountingPagesKeepCommittedFrontier"},
-    }
-    assert {(entry["package"], entry["test"]) for entry in entries} == {
-        (runner.API + "internal/" + package, name)
-        for package, names in expected.items() for name in names
-    }
-    for entry in entries:
-        assert entry["retiring_task"] == "22.39.154"
-        assert re.match(r"\w+_test.go line \d+: .+", entry["reason"])
-        if entry["test"] in {
-            "TestDevelopmentTransactionStatusFromChainRPC", "TestRepair_27_log_free_receipts"
-        }:
-            assert "shared v2 receipt projection" in entry["reason"]
-        if entry["package"] == runner.API + "internal/broker":
-            assert "context deadline exceeded" in entry["reason"]
-    assert not any(entry["test"] == "TestProductionStreamRelayPublishesCommittedFrames"
-                   for entry in runner.load_baseline())
+    entries = runner.load_baseline()
+    assert entries == []
+    for package in runner.API_PACKAGES:
+        assert runner.skip_pattern(entries, package) == ""
 
 
-def test_launchpad_baseline_rejects_wrong_service_retiring_owner(tmp_path):
+def test_launchpad_baseline_rejects_wrong_service_retiring_owner(
+    tmp_path, baseline_entry,
+):
     runner = baseline_runner()
-    entry = next(entry for entry in runner.load_baseline()
-                 if entry["package"].startswith(runner.API))
+    entry = baseline_entry | {
+        "package": runner.API + "internal/app",
+        "test": "TestDevelopmentTransactionStatusFromChainRPC",
+        "retiring_task": "22.39.154",
+    }
     path = tmp_path / "wrong-owner.json"
+    path.write_text(json.dumps([entry]))
+    assert runner.load_baseline(path) == [entry]
     path.write_text(json.dumps([entry | {"retiring_task": "22.39.117"}]))
     with pytest.raises(ValueError, match="retiring task"):
         runner.load_baseline(path)
@@ -445,18 +470,18 @@ def test_launchpad_baseline_rejects_wrong_service_retiring_owner(tmp_path):
     {"package": "unreviewed/package"}, {"reason": ""},
     {"retiring_task": ""}, {"retiring_task": "22.39.154"}, {"extra": "field"},
 ])
-def test_launchpad_baseline_rejects_invalid_entries(tmp_path, mutation):
+def test_launchpad_baseline_rejects_invalid_entries(tmp_path, mutation, baseline_entry):
     runner = baseline_runner()
-    entry = runner.load_baseline()[0] | mutation
+    entry = baseline_entry | mutation
     path = tmp_path / "invalid.json"
     path.write_text(json.dumps([entry]))
     with pytest.raises(ValueError):
         runner.load_baseline(path)
 
 
-def test_launchpad_baseline_rejects_duplicate_entries(tmp_path):
+def test_launchpad_baseline_rejects_duplicate_entries(tmp_path, baseline_entry):
     runner = baseline_runner()
-    entry = runner.load_baseline()[0]
+    entry = baseline_entry
     path = tmp_path / "duplicate.json"
     path.write_text(json.dumps([entry, entry]))
     with pytest.raises(ValueError, match="duplicate"):
@@ -524,7 +549,7 @@ def test_launchpad_go_job_provides_indexer_services():
     assert steps.index(fixtures) < steps.index(test)
     for artifact in (
         "internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz",
-        "internal/receipt/testdata/repair53-producer.json",
+        "internal/receipt/testdata/producer_receipts.json",
         "../../../contracts/launchpad/artifacts/contracts/core/SidioraNFT.sol/SidioraNFT.json",
         "../../../contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json",
     ):
@@ -533,6 +558,7 @@ def test_launchpad_go_job_provides_indexer_services():
 
 def assert_indexer_runs_without_baseline(entries):
     runner = baseline_runner()
+    assert entries == []
     assert not any(entry["package"].startswith(runner.INDEXER) for entry in entries)
     for package in runner.INDEXER_PACKAGES:
         assert runner.skip_pattern(entries, package) == ""
@@ -549,13 +575,13 @@ def assert_indexer_runs_without_baseline(entries):
 def test_launchpad_baseline_records_only_approved_indexer_failures():
     runner = baseline_runner()
     assert_indexer_runs_without_baseline(runner.load_baseline())
-    record = tomllib.loads((ROOT / "services/launchpad/indexer/repair_22_39_162.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/indexer/repair_22_39_162.kvx").read_text())
     entries = list(record["repair"].values())
     assert len(entries) == 33
     for entry in entries:
         assert entry["producer"].strip()
         directory = ROOT / "services/launchpad/indexer" / entry["package"].removeprefix(runner.INDEXER)
-        assert any(re.search(r"^func " + entry["test"] + r"\(t \*testing.T\)",
+        assert any(re.search(r"^func " + launchpad_current_test_name(entry["test"]) + r"\(t \*testing.T\)",
                              source.read_text(), re.M)
                    for source in directory.glob("*_test.go")), entry["test"]
     expected = {
@@ -627,12 +653,20 @@ def test_launchpad_baseline_records_only_approved_indexer_failures():
 
 
 @pytest.mark.parametrize("owner", ["22.39.117", "22.39.154"])
-def test_launchpad_baseline_rejects_wrong_indexer_retiring_owner(tmp_path, owner):
+def test_launchpad_baseline_rejects_wrong_indexer_retiring_owner(
+    tmp_path, owner, baseline_entry,
+):
     runner = baseline_runner()
     entries = runner.load_baseline()
-    assert not any(entry["package"].startswith(runner.INDEXER)
-                   and entry["retiring_task"] == owner for entry in entries)
     assert_indexer_runs_without_baseline(entries)
+    for index, package in enumerate(sorted(runner.INDEXER_PACKAGES)):
+        entry = baseline_entry | {"package": package, "retiring_task": "22.39.162"}
+        path = tmp_path / f"wrong-indexer-owner-{index}.json"
+        path.write_text(json.dumps([entry]))
+        assert runner.load_baseline(path) == [entry]
+        path.write_text(json.dumps([entry | {"retiring_task": owner}]))
+        with pytest.raises(ValueError, match="retiring task"):
+            runner.load_baseline(path)
 
 
 def test_launchpad_indexer_module_declares_test_dependencies():
@@ -784,7 +818,10 @@ def test_launchpad_go_job_provides_remaining_module_fixtures():
     assert job["env"]["L13_PHASE3_REDIS_SERVER"] == "/usr/bin/redis-server"
     (install,) = [step for step in job["steps"]
                   if step["name"] == "Install fixture binaries"]
-    assert "sudo apt-get install --no-install-recommends --yes redis-server" in install["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes redis-server'
+    ) in install["run"]
 
 
 def test_launchpad_remaining_package_inventory_matches_module_sources():
@@ -794,7 +831,9 @@ def test_launchpad_remaining_package_inventory_matches_module_sources():
         "metadata", "social", "user", "discovery", "notifications", "security",
         "security/control",
     }
-    for module, packages in runner.SERVICE_PACKAGES.items():
+    for module, packages in {
+        **runner.SERVICE_PACKAGES, "pnl-tracker": runner.PNL_PACKAGES,
+    }.items():
         root = ROOT / "services/launchpad" / module
         prefix = re.search(r"^module (.+)$", (root / "go.mod").read_text(), re.M)[1]
         expected = set()
@@ -806,17 +845,13 @@ def test_launchpad_remaining_package_inventory_matches_module_sources():
                    for i in range(1, len(relative.parts) + 1)):
                 continue
             expected.add(prefix + ("" if relative == Path(".") else "/" + relative.as_posix()))
-        added = {
-            "trading-charts": {prefix + "/internal/cleanup", prefix + "/internal/safefile"},
-            "gateway": {prefix + "/internal/cleanup"},
-        }.get(module, set())
-        assert packages | added == expected, module
+        assert packages == expected, module
 
 
 def test_launchpad_baseline_records_indexer_refusal_classes():
     runner = baseline_runner()
     assert_indexer_runs_without_baseline(runner.load_baseline())
-    record = tomllib.loads((ROOT / "services/launchpad/indexer/repair_22_39_162.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/indexer/repair_22_39_162.kvx").read_text())
     entries = {entry["test"]: entry for entry in record["repair"].values()}
     assert "foreign key constraint" in entries[
         "TestCanonicalProcessorConcurrentFencingPostgres"]["reason"]
@@ -843,9 +878,10 @@ def test_launchpad_baseline_records_indexer_refusal_classes():
 @pytest.mark.parametrize("owner", ["22.39.117", "22.39.154", "22.39.162"])
 def test_launchpad_baseline_rejects_wrong_remaining_module_owner(tmp_path, owner):
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     assert not any(entry["package"] in runner.REMAINING_PACKAGES
                    for entry in runner.load_baseline())
-    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     for module, packages in runner.SERVICE_PACKAGES.items():
         retired = record["module"][module.replace("/", "_")]
         for index, case in enumerate(retired["cases"]):
@@ -865,8 +901,10 @@ def test_launchpad_go_job_creates_real_export_bucket_before_tests():
     (storage,) = [step for step in steps if step["name"] == "Start object storage fixture"]
     assert "go install github.com/minio/minio@RELEASE.2025-04-22T22-12-26Z" in storage["run"]
     assert 'GOBIN="$RUNNER_TEMP/launchpad-fixture-bin" GOFLAGS=' in storage["run"]
+    assert 'echo "$RUNNER_TEMP/launchpad-fixture-bin" >> "$GITHUB_PATH"' in storage["run"]
     assert '--address :9000' in storage["run"]
     assert 'curl --fail --aws-sigv4 "aws:amz:us-east-1:s3"' in storage["run"]
+    assert storage["run"].count("--retry-delay 1") == 2
     assert '--user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY"' in storage["run"]
     assert '--request PUT http://localhost:9000/launchpad-user-test' in storage["run"]
     assert job["env"]["L35_TEST_OBJECT_BUCKET"] == "launchpad-user-test"
@@ -875,14 +913,16 @@ def test_launchpad_go_job_creates_real_export_bucket_before_tests():
 
 
 @pytest.mark.parametrize("owner", ["22.39.117", "22.39.162", "22.39.168"])
-def test_launchpad_baseline_rejects_wrong_pnl_retiring_owner(tmp_path, owner):
+def test_launchpad_baseline_rejects_wrong_pnl_retiring_owner(
+    tmp_path, owner, baseline_entry,
+):
     runner = baseline_runner()
-    entries = [entry for entry in runner.load_baseline()
-               if entry["package"] in runner.PNL_PACKAGES]
-    assert entries
-    for index, entry in enumerate(entries):
-        assert entry["retiring_task"] == "22.39.154"
+    assert runner.load_baseline() == []
+    for index, package in enumerate(sorted(runner.PNL_PACKAGES)):
+        entry = baseline_entry | {"package": package, "retiring_task": "22.39.154"}
         path = tmp_path / f"wrong-pnl-owner-{index}.json"
+        path.write_text(json.dumps([entry]))
+        assert runner.load_baseline(path) == [entry]
         path.write_text(json.dumps([entry | {"retiring_task": owner}]))
         with pytest.raises(ValueError, match="retiring task"):
             runner.load_baseline(path)
@@ -890,6 +930,7 @@ def test_launchpad_baseline_rejects_wrong_pnl_retiring_owner(tmp_path, owner):
 
 def test_launchpad_pnl_service_configuration_repairs_stay_out_of_baseline():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     actual = {(entry["package"], entry["test"]) for entry in runner.load_baseline()}
     repaired = {
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app': {
@@ -996,6 +1037,7 @@ def test_launchpad_pnl_service_configuration_repairs_stay_out_of_baseline():
 def test_launchpad_baseline_records_exact_remaining_module_counts():
     runner = baseline_runner()
     entries = runner.load_baseline()
+    assert entries == []
     expected = {
         "ranking-algo": 0, "stats-workers": 0, "trading-charts": 0,
         "gateway": 0, "livestream": 0, "metadata": 0, "social": 0,
@@ -1006,7 +1048,7 @@ def test_launchpad_baseline_records_exact_remaining_module_counts():
         module: sum(entry["package"] in packages for entry in entries)
         for module, packages in runner.SERVICE_PACKAGES.items()
     } == expected
-    assert sum(entry["package"] in runner.PNL_PACKAGES for entry in entries) == 42
+    assert sum(entry["package"] in runner.PNL_PACKAGES for entry in entries) == 0
     for entry in entries:
         if entry["package"] in runner.REMAINING_PACKAGES | runner.PNL_PACKAGES:
             assert re.match(r"[\w.-]+_test.go line \d+: .+", entry["reason"])
@@ -1029,19 +1071,19 @@ def test_launchpad_go_job_builds_protocol_proofs_before_timed_tests():
     assert 'export GOTOOLCHAIN="go$(' in command
     assert "build_proof_dependencies precompiles/launchpad" in command
     download = (
-        "cd sdk/launchpad/protocol/bindings/testdata/repair37/contracts\n"
+        "cd sdk/launchpad/protocol/bindings/testdata/contract_events/contracts\n"
         "    go mod download all"
     )
     assert download in command
     assert command.index(download) < command.index(
-        "build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/repair37/contracts"
+        "build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/contract_events/contracts"
     )
-    assert "build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/repair37/contracts" in command
+    assert "build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/contract_events/contracts" in command
     assert "go list -mod=readonly -deps -test" in command
     assert '(not .Standard) (not .ForTest) (ne .Name "main") .GoFiles' in command
     assert 'test -s "$RUNNER_TEMP/launchpad-proof-dependencies.txt"' in command
     assert "xargs go build -mod=readonly" in command
-    assert "cd sdk/launchpad/protocol/coverage/testdata/repair28producer" in command
+    assert "cd sdk/launchpad/protocol/coverage/testdata/emitter_producer" in command
     assert 'cp go.mod "$RUNNER_TEMP/launchpad-repair28.mod"' in command
     assert 'go build -modfile="$RUNNER_TEMP/launchpad-repair28.mod" -mod=mod' in command
     assert "go test" not in command
@@ -1050,6 +1092,7 @@ def test_launchpad_go_job_builds_protocol_proofs_before_timed_tests():
 
 def test_launchpad_baseline_records_user_profile_producer_conflicts():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     package = "github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/app"
     entries = {entry["test"]: entry for entry in runner.load_baseline()
                if entry["package"] == package}
@@ -1063,7 +1106,7 @@ def test_launchpad_baseline_records_user_profile_producer_conflicts():
     handlers = (root / "internal/user/handlers.go").read_text()
     assert "user.ProfileCacheKey(cfg.PublicURL, wallet)" in app
     assert "return ProfileCacheKey(h.publicURL, addr)" in handlers
-    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     assert set(record["module"]["user"]["cases"]) >= {
         package + "::TestDevelopmentProfileWrite",
         package + "::TestDevelopmentProfileReads",
@@ -1074,13 +1117,14 @@ def test_launchpad_baseline_records_user_profile_producer_conflicts():
 
 def test_launchpad_baseline_records_security_canonical_field_conflict():
     runner = baseline_runner()
+    assert runner.load_baseline() == []
     package = "github.com/Sidiora-Technologies/KindleLaunch/security/policy"
     assert not any(entry["package"] == package for entry in runner.load_baseline())
     policy = (ROOT / "services/launchpad/security/policy/policy_test.go").read_text()
     case = policy.split("func TestRequestParsing(t *testing.T) {", 1)[1].split("\nfunc ", 1)[0]
     assert 'strings.NewReader(`{"Name":"ok"}`)' in case
     assert 'strings.NewReader(`{"name":"ok"}`)' not in case
-    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     assert record["module"]["security"]["cases"] == [package + "::TestRequestParsing"]
     assert record["repair"]["security_canonical_field"]["producer"] == "policy/policy.go"
     assert record["repair"]["security_canonical_field"]["canonical_key"] == "Name"
@@ -1089,13 +1133,14 @@ def test_launchpad_baseline_records_security_canonical_field_conflict():
 def test_launchpad_module_qualification_records_follow_runner_and_baseline():
     runner = baseline_runner()
     entries = runner.load_baseline()
+    assert entries == []
     job = launchpad_go_workflow()["jobs"]["launchpad-go-test"]
-    retirement = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    retirement = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     for module in (
         "stats-workers", "trading-charts", "livestream", "metadata", "discovery"
     ):
         path = "services/launchpad/" + module
-        record = tomllib.loads((ROOT / path / "repair_22_39_75.kvx").read_text())
+        record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records" / path / "repair_22_39_75.kvx").read_text())
         prefix = re.search(r"^module (.+)$", (ROOT / path / "go.mod").read_text(), re.M)[1]
         assert record["meta"] == {
             "task": "22.39.75", "module": path, "package_prefix": prefix,
@@ -1132,7 +1177,9 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
     workflow = launchpad_go_workflow()
     test_job = workflow["jobs"]["launchpad-go-test"]
     job = workflow["jobs"]["launchpad-go-ci"]
-    assert job["timeout-minutes"] == "360"
+    assert job["name"] == "Go CI"
+    assert job["timeout-minutes"] == "180"
+    assert job["strategy"]["fail-fast"] == "false"
     assert job["runs-on"] == test_job["runs-on"]
     assert job["env"] == test_job["env"]
     assert job["env"]["GOFLAGS"] == "-timeout=15m"
@@ -1148,11 +1195,16 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
                    if step.get("uses", "").startswith("actions/setup-go@")]
     assert setup_go["with"]["go-version"] == "1.27.3"
     assert job["env"]["GOTOOLCHAIN"] == "go" + setup_go["with"]["go-version"]
-    (run,) = [step for step in steps if step.get("run") == "make -C services/launchpad ci"]
+    command = (
+        'make -C services/launchpad ci '
+        'MODULES="$(realpath --relative-to=services/launchpad "${{ matrix.module }}")"'
+    )
+    (run,) = [step for step in steps if step.get("run") == command]
     assert "working-directory" not in run
     assert steps[-1] == run
     for name in (
-        "Create the pool test database", "Start the owned authorization chain",
+        "Create the pool test database", "Enable database commit timestamps",
+        "Start the owned authorization chain",
         "Install fixture binaries", "Start API NATS fixture",
         "Start object storage fixture", "Start malware scanner fixture",
         "Build native library for protocol producer proofs",
@@ -1162,13 +1214,17 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
         (fixture,) = [step for step in steps if step.get("name") == name]
         assert fixture in test_job["steps"]
         assert steps.index(fixture) < steps.index(run)
-    assert job["strategy"]["matrix"]["module"] == ["sdk/launchpad/protocol"]
+    assert set(job["strategy"]["matrix"]["module"]) == launchpad_go_modules()
     (timestamps,) = [step for step in steps
                      if step.get("name") == "Enable database commit timestamps"]
     assert "ALTER SYSTEM SET track_commit_timestamp = on" in timestamps["run"]
     assert 'docker restart "${{ job.services.postgres.id }}"' in timestamps["run"]
     assert "SHOW track_commit_timestamp" in timestamps["run"]
     assert steps.index(timestamps) < steps.index(run)
+    for go_steps in (steps, test_job["steps"]):
+        (database,) = [step for step in go_steps
+                       if step.get("name") == "Create the pool test database"]
+        assert go_steps[go_steps.index(database) + 1] is timestamps
 
 
 def test_launchpad_go_jobs_install_the_reward_schema_fixture():
@@ -1178,8 +1234,9 @@ def test_launchpad_go_jobs_install_the_reward_schema_fixture():
         (install,) = [step for step in steps
                       if step.get("name") == "Install reward schema fixture dependencies"]
         assert install["working-directory"] == (
-            "services/launchpad/pnl-tracker/internal/app/testdata/repair29"
+            "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema"
         )
+        assert (ROOT / install["working-directory"] / "package.json").is_file()
         assert install["run"] == "pnpm install --ignore-workspace --frozen-lockfile"
         (contracts,) = [step for step in steps
                         if step.get("name") == "Compile launchpad contracts for API authority proofs"]

@@ -240,7 +240,7 @@ fn receipt_keys_are_loaded_as_height_windows() {
     let mut value = example();
     value["paxeer"]["receipt_keys"] = json!([
         receipt_key(0x11, 0x22, 0, 100),
-        receipt_key(0x11, 0x33, 101, 101),
+        receipt_key(0x66, 0x33, 101, 101),
         receipt_key(0x44, 0x55, 102, u64::MAX),
     ]);
     let config = load(&value);
@@ -255,7 +255,7 @@ fn receipt_keys_are_loaded_as_height_windows() {
             .unwrap_or_else(|error| panic!("typed receipt keys: {error:?}")),
         vec![
             SequencerAuthorization::new([0x11; 32], [0x22; 32], 0, 100),
-            SequencerAuthorization::new([0x11; 32], [0x33; 32], 101, 101),
+            SequencerAuthorization::new([0x66; 32], [0x33; 32], 101, 101),
             SequencerAuthorization::new([0x44; 32], [0x55; 32], 102, u64::MAX),
         ]
     );
@@ -268,22 +268,7 @@ fn receipt_keys_are_loaded_as_height_windows() {
         ),
         (
             json!([receipt_key(1, 2, 0, 100), receipt_key(1, 3, 100, 200)]),
-            "receipt key windows must be ordered and non-overlapping",
-        ),
-        (
-            json!([receipt_key(1, 2, 0, 100), receipt_key(3, 4, 50, 60)]),
-            "receipt key windows must be ordered and non-overlapping",
-        ),
-        (
-            json!([receipt_key(1, 2, 100, 200), receipt_key(3, 4, 0, 99)]),
-            "receipt key windows must be ordered and non-overlapping",
-        ),
-        (
-            json!([
-                receipt_key(1, 2, u64::MAX, u64::MAX),
-                receipt_key(3, 4, u64::MAX, u64::MAX)
-            ]),
-            "receipt key windows must be ordered and non-overlapping",
+            "receipt key identifiers must be unique",
         ),
     ] {
         let mut invalid = value.clone();
@@ -318,6 +303,85 @@ fn receipt_keys_are_loaded_as_height_windows() {
     let mut unknown = value.clone();
     unknown["paxeer"]["receipt_keys"][0]["unexpected_operator_field"] = json!(true);
     assert!(refusal(&unknown).starts_with("unknown field `unexpected_operator_field`"));
+}
+
+#[test]
+fn distinct_receipt_key_windows_preserve_input_order() {
+    for ranges in [
+        vec![(10, 20), (15, 25)],
+        vec![(15, 25), (10, 20)],
+        vec![(10, 20), (20, 30)],
+        vec![(10, 30), (15, 20)],
+        vec![(10, 20), (10, 30)],
+        vec![(10, 20), (10, 20)],
+        vec![(30, 40), (10, 20), (15, 25)],
+        vec![(u64::MAX, u64::MAX), (0, u64::MAX)],
+        vec![(11, u64::MAX), (0, 0), (1, 10)],
+        vec![(0, 100), (50, 60)],
+        vec![(100, 200), (0, 99)],
+        vec![(u64::MAX, u64::MAX), (u64::MAX, u64::MAX)],
+    ] {
+        for same_public_key in [false, true] {
+            let mut value = example();
+            let keys: Vec<_> = ranges
+                .iter()
+                .enumerate()
+                .map(|(index, &(first, last))| {
+                    let id = u8::try_from(index + 1)
+                        .unwrap_or_else(|error| panic!("receipt key index: {error:?}"));
+                    receipt_key(
+                        id,
+                        if same_public_key { 0x22 } else { id + 10 },
+                        first,
+                        last,
+                    )
+                })
+                .collect();
+            value["paxeer"]["receipt_keys"] = json!(keys);
+            let config = load(&value);
+            let authorizations = config
+                .receipt_keys()
+                .unwrap_or_else(|error| panic!("distinct receipt keys: {error:?}"));
+            assert_eq!(authorizations.len(), ranges.len());
+            for (index, (key, &(first, last))) in authorizations.iter().zip(&ranges).enumerate() {
+                let id = u8::try_from(index + 1)
+                    .unwrap_or_else(|error| panic!("receipt key index: {error:?}"));
+                assert_eq!(
+                    *key,
+                    SequencerAuthorization::new(
+                        [id; 32],
+                        [if same_public_key { 0x22 } else { id + 10 }; 32],
+                        first,
+                        last,
+                    )
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn duplicate_receipt_key_ids_are_refused_for_every_window() {
+    for (first, last) in [(10, 20), (15, 25), (21, 30)] {
+        for same_public_key in [false, true] {
+            for reverse in [false, true] {
+                let mut value = example();
+                let mut second =
+                    receipt_key(0xab, if same_public_key { 2 } else { 3 }, first, last);
+                second["sequencer_id"] = json!(format!("0x{}", "AB".repeat(32)));
+                let mut entries = vec![receipt_key(0xab, 2, 10, 20), second];
+                if reverse {
+                    entries.reverse();
+                }
+                value["paxeer"]["receipt_keys"] = json!(entries);
+                assert_eq!(refusal(&value), "receipt key identifiers must be unique");
+                let unchecked: RelayerConfig = serde_json::from_value(value)
+                    .unwrap_or_else(|error| panic!("well-typed duplicate ids: {error:?}"));
+                assert!(unchecked.validate().is_err());
+                assert!(unchecked.receipt_keys().is_err());
+            }
+        }
+    }
 }
 
 #[test]
@@ -698,10 +762,10 @@ fn required_solana_fields_cannot_be_omitted() {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_68.rs"]
-mod repair_22_33_68_support;
+#[path = "support/attestation_policy.rs"]
+mod attestation_policy_support;
 
 #[test]
-fn repair_22_33_68_configured_root_transport() {
-    repair_22_33_68_support::configured_root_transport();
+fn configured_root_transport() {
+    attestation_policy_support::configured_root_transport();
 }

@@ -99,7 +99,7 @@ func (s *Store) LaunchedChains(ctx context.Context, limit, offset int) (Launched
 	defer rollbackRead(tx)
 	var total int
 	var maxChain string
-	if err = tx.QueryRow(ctx, `SELECT count(*)::int,COALESCE(max(chain),0)::text FROM indexer.launched_chains`).Scan(&total, &maxChain); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT count(*)::int,COALESCE(max(chain),0)::text FROM indexer.launched_chains_v1`).Scan(&total, &maxChain); err != nil {
 		return LaunchedChainsPage{}, err
 	}
 	if offset > total {
@@ -108,7 +108,7 @@ func (s *Store) LaunchedChains(ctx context.Context, limit, offset int) (Launched
 		}
 		return LaunchedChainsPage{Items: []LaunchedChainRow{}, Total: total, SnapshotID: maxChain + ":" + strconv.Itoa(total)}, nil
 	}
-	rows, err := tx.Query(ctx, `SELECT `+chainColumns+` FROM indexer.launched_chains ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2`, limit, offset)
+	rows, err := tx.Query(ctx, `SELECT `+chainColumns+` FROM indexer.launched_chains_v1 ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return LaunchedChainsPage{}, err
 	}
@@ -130,7 +130,7 @@ func (s *Store) LaunchedChain(ctx context.Context, chain uint32) (*LaunchedChain
 	}
 	defer cancel()
 	defer rollbackRead(tx)
-	rows, err := tx.Query(ctx, `SELECT `+chainColumns+` FROM indexer.launched_chains WHERE chain=$1`, int64(chain))
+	rows, err := tx.Query(ctx, `SELECT `+chainColumns+` FROM indexer.launched_chains_v1 WHERE chain=$1`, int64(chain))
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (s *Store) ChainRevenue(ctx context.Context, chain uint32, holder string, l
 	defer rollbackRead(tx)
 	var total int
 	var maxEpoch string
-	if err = tx.QueryRow(ctx, `SELECT count(*)::int,COALESCE(max(epoch),0)::text FROM indexer.chain_revenue_epochs WHERE chain=$1`, int64(chain)).Scan(&total, &maxEpoch); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT count(*)::int,COALESCE(max(epoch),0)::text FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1`, int64(chain)).Scan(&total, &maxEpoch); err != nil {
 		return ChainRevenuePage{}, err
 	}
 	if offset > total {
@@ -169,7 +169,7 @@ func (s *Store) ChainRevenue(ctx context.Context, chain uint32, holder string, l
 		}
 		return ChainRevenuePage{Epochs: []ChainRevenueEpochRow{}, Claims: []ChainRevenueClaimRow{}, Total: total, SnapshotID: maxEpoch + ":" + strconv.Itoa(total)}, nil
 	}
-	rows, err := tx.Query(ctx, `SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3`, int64(chain), limit, offset)
+	rows, err := tx.Query(ctx, `SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3`, int64(chain), limit, offset)
 	if err != nil {
 		return ChainRevenuePage{}, err
 	}
@@ -206,7 +206,7 @@ func (s *Store) ChainRevenue(ctx context.Context, chain uint32, holder string, l
 	}
 	if holder != "" && len(page.Epochs) != 0 {
 		first, last := page.Epochs[0].Epoch, page.Epochs[len(page.Epochs)-1].Epoch
-		claims, queryErr := tx.Query(ctx, `SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC`, int64(chain), holder, last, first)
+		claims, queryErr := tx.Query(ctx, `SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC`, int64(chain), holder, last, first)
 		if queryErr != nil {
 			return ChainRevenuePage{}, queryErr
 		}
@@ -258,7 +258,7 @@ func (s *Store) PoolHomeChains(ctx context.Context, pools []string) (map[string]
 	}
 	defer cancel()
 	defer rollbackRead(tx)
-	rows, err := tx.Query(ctx, `SELECT lower(pool_address),home_chain::text FROM indexer.pools WHERE lower(pool_address)=ANY($1)`, pools)
+	rows, err := tx.Query(ctx, `SELECT lower(pool_address),home_chain::text FROM indexer.pools_read_v1 WHERE lower(pool_address)=ANY($1)`, pools)
 	if err != nil {
 		return nil, err
 	}

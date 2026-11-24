@@ -53,10 +53,10 @@ const AddressMudRecord = ({ tableId, recordId, isQueryEnabled = true }: Props) =
         />
       ) }
       <Box hideBelow="lg">
-        <TableRoot borderRadius="8px" style={{ tableLayout: 'auto' }} width="100%" overflow="hidden">
+        <TableRoot borderRadius="card" tableLayout="auto" width="100%" overflow="hidden" aria-label="MUD record fields">
           { data?.schema.key_names.length && data?.schema.key_names.map((keyName, index) => (
             <TableRow key={ keyName } borderBottomStyle={ index === data.schema.key_names.length - 1 ? 'hidden' : 'solid' }>
-              <TableCell fontWeight={ 600 } whiteSpace="nowrap" fontSize="sm">
+              <TableCell fontWeight="semibold" whiteSpace="nowrap" fontSize="sm">
                 { keyName } ({ data.schema.key_types[index] })
               </TableCell>
               <TableCell colSpan={ 2 } fontSize="sm">
@@ -75,14 +75,14 @@ const AddressMudRecord = ({ tableId, recordId, isQueryEnabled = true }: Props) =
           { data?.schema.key_names.length && data?.schema.key_names.map((keyName, index) => (
             <VStack gap={ 1 } key={ keyName } alignItems="start" fontSize="sm">
               <Separator/>
-              <Text fontWeight={ 600 } whiteSpace="nowrap">
+              <Text fontWeight="semibold" whiteSpace="nowrap">
                 { keyName } ({ data.schema.key_types[index] })
               </Text>
               <Text wordBreak="break-word">{ getValueString(data.record.decoded[keyName]) }</Text>
               { index === 0 && <Time color="text.secondary" timestamp={ data.record.timestamp }/> }
             </VStack>
           )) }
-          <TableRoot borderRadius="8px" style={{ tableLayout: 'auto' }} width="100%" mt={ 2 } overflow="hidden">
+          <TableRoot borderRadius="card" tableLayout="auto" width="100%" mt={ 2 } overflow="hidden" aria-label="MUD record values">
             <AddressMudRecordValues data={ data }/>
           </TableRoot>
         </>

@@ -70,7 +70,7 @@ func bindCapabilityKey(t *testing.T, f *authViewFixture, private ed25519.Private
 }
 
 func TestGrantCapability(t *testing.T) {
-	t.Run("executable capability endpoint", TestRepairM_1421_CapabilityEndpoint)
+	t.Run("executable capability endpoint", TestCapabilityEndpoint)
 
 	t.Run("mirror", func(t *testing.T) {
 		f := newAuthViewFixture(t)

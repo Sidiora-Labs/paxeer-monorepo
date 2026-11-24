@@ -19,10 +19,10 @@ import (
 )
 
 func TestMeasurementRejectsAbsentActualProviders(t *testing.T) {
-	repairM1000MeasurementRefusals(t)
+	nativeAccountingMeasurementRefusals(t)
 }
 func TestMeasurementRejectsChangedCandidate(t *testing.T) {
-	repairM1000ChangedCandidate(t)
+	nativeAccountingChangedCandidate(t)
 }
 func TestMeasurementStorageAndTraceUseActualPostgres(t *testing.T) {
 	ctx, dsn, pool := replayPostgres(t)
@@ -156,7 +156,7 @@ func TestMeasurementCaptureBindsWrittenRecords(t *testing.T) {
 }
 
 func TestMeasurementArtifactsRequireExactBindings(t *testing.T) {
-	spec := repairM1000MeasurementSpec(t)
+	spec := nativeAccountingMeasurementSpec(t)
 	if err := validateMeasurementSource(spec); err != nil {
 		t.Fatal(err)
 	}

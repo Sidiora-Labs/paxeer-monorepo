@@ -1,0 +1,770 @@
+[manifest]
+task = "22.44.108"
+surface = "Sidiora Launchpad community"
+views = 14
+states = 14
+named_states = 0
+routes = ["bounties", "chat", "docs"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+configurations = 476
+
+[presentation]
+bounties = "Bounty cards, totals and forms retain compact desktop dimensions. The mobile creation action sits above the bottom navigation."
+chat = "Messages and conversations use content-sized columns with the earlier maximum width. The messages loading region retains the short-page footer placement."
+conversation = "Conversation pages reserve their content height while the route loads, keeping the footer at its loaded position."
+documents = "Documentation uses a 1024px maximum region, a 208px desktop sidebar and the earlier legal list layout. Narrow text columns allow long words to wrap."
+text = "Line heights retain their normal-size measures and scale with enlarged text."
+font_fallback = "Chat uses the fixed surface font-adjustment ratio while fonts load, retaining the content and footer positions."
+touch = "Interactive controls reserve at least 44px through 834px."
+scrollbar = "A stable scrollbar gutter reserves 15px of inline space."
+readiness = "Bounty, chat and documentation views wait for their displayed content, footer figures and ticker state before presentation modes begin."
+
+[result]
+status = "pass"
+renders = 476
+rendered = 476
+did_not_render = 0
+showed_nothing = 0
+cancelled = 0
+retried = 1
+findings = 0
+coverage = "Fourteen community views render across all thirty-four device, colour and presentation configurations. Seven measured views retain the five-width geometry comparison."
+
+[findings.first]
+renders = 476
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 91
+motion = 0
+scale = 360
+geometry = 0
+
+[findings.last]
+renders = 476
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+differing_parts = [136, 115, 116, 116, 116]
+comparison = "A part differs when a position, dimension, font size or line height differs from the earlier geometry by more than one CSS pixel."
+desktop = "All desktop differences are horizontal positions or widths within the reserved scrollbar gutter."
+mobile = "The narrower inline space and 44px controls change wrapping, row heights and the positions of subsequent content."
+
+[view.bounties]
+differing_parts = [13, 9, 10, 10, 10]
+
+[part.bounties.first-heading]
+widths = [390, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties.highest-value-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"highest-value-title\"]"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties.ol-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties.ol-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol:visible >> nth=0"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content >> role=button[name=/^(Post bounty|Create bounty)$/]"
+cause = "The control shares the scrollbar gutter and reserves 44px through 834px; its position follows the content and bottom navigation."
+
+[part.bounties.recently-paid-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"recently-paid-title\"]"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[view.bounties-bountyId]
+differing_parts = [12, 9, 9, 9, 9]
+
+[part.bounties-bountyId.bounty-description-heading-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"bounty-description-heading\"]"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties-bountyId.bounty-header-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content header:visible >> nth=0"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties-bountyId.bounty-submissions-heading-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"bounty-submissions-heading\"]"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties-bountyId.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties-bountyId.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties-bountyId.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties-bountyId.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties-bountyId.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties-bountyId.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties-bountyId.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties-bountyId.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties-bountyId.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content >> role=button[name=\"Sign in to submit\"]"
+cause = "The control shares the scrollbar gutter and reserves 44px through 834px; its position follows the content and bottom navigation."
+
+[view.bounties-new]
+differing_parts = [9, 6, 6, 6, 6]
+
+[part.bounties-new.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties-new.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties-new.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties-new.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.bounties-new.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties-new.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The scrollbar gutter narrows the responsive content; 44px controls increase mobile rows and reflow subsequent cards, forms and headings."
+
+[part.bounties-new.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties-new.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.bounties-new.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The control shares the scrollbar gutter and reserves 44px through 834px; its position follows the content and bottom navigation."
+
+[view.chat]
+differing_parts = [8, 6, 6, 6, 6]
+
+[part.chat.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The scrollbar gutter narrows the chat column; 44px controls change mobile content and footer placement."
+
+[part.chat.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.chat.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.chat.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.chat.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The scrollbar gutter narrows the chat column; 44px controls change mobile content and footer placement."
+
+[part.chat.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.chat.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.chat.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The control shares the scrollbar gutter and reserves 44px through 834px; its position follows the content and bottom navigation."
+
+[part.chat.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The stable scrollbar gutter reduces available inline space and shifts the centered content."
+
+[view.chat-conversationId]
+differing_parts = [9, 6, 6, 6, 6]
+
+[part.chat-conversationId.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The scrollbar gutter narrows the chat column; 44px controls change mobile content and footer placement."
+
+[part.chat-conversationId.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.chat-conversationId.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.chat-conversationId.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.chat-conversationId.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.chat-conversationId.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The scrollbar gutter narrows the chat column; 44px controls change mobile content and footer placement."
+
+[part.chat-conversationId.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.chat-conversationId.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.chat-conversationId.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The control shares the scrollbar gutter and reserves 44px through 834px; its position follows the content and bottom navigation."
+
+[view.docs]
+differing_parts = [14, 11, 11, 11, 11]
+
+[part.docs.article-1-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content article:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs.document-navigation]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content aside nav"
+cause = "The sidebar shares the scrollbar gutter and its mobile links reserve 44px, increasing the navigation height and shifting subsequent content."
+
+[part.docs.document-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content aside nav a >> nth=0"
+cause = "The sidebar shares the scrollbar gutter and its mobile links reserve 44px, increasing the navigation height and shifting subsequent content."
+
+[part.docs.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.docs.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.docs.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.docs.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.docs.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.docs.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.docs.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[view.docs-terms]
+differing_parts = [71, 68, 68, 68, 68]
+
+[part.docs-terms.1-introduction-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"1. Introduction\")):not(:has(section :is(h2,h3):text-is(\"1. Introduction\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.10-material-interests-and-conflicts-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"10. Material Interests and Conflicts\")):not(:has(section :is(h2,h3):text-is(\"10. Material Interests and Conflicts\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.11-transaction-limits-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"11. Transaction Limits\")):not(:has(section :is(h2,h3):text-is(\"11. Transaction Limits\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.12-security-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"12. Security\")):not(:has(section :is(h2,h3):text-is(\"12. Security\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.13-privacy-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"13. Privacy\")):not(:has(section :is(h2,h3):text-is(\"13. Privacy\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.14-amending-the-terms-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"14. Amending the Terms\")):not(:has(section :is(h2,h3):text-is(\"14. Amending the Terms\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.15-termination-suspensions-and-restrictions-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"15. Termination, Suspensions, and Restrictions\")):not(:has(section :is(h2,h3):text-is(\"15. Termination, Suspensions, and Restrictions\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.16-sidiora-ip-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"16. Sidiora IP\")):not(:has(section :is(h2,h3):text-is(\"16. Sidiora IP\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.17-licence-of-sidiora-ip-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"17. Licence of Sidiora IP\")):not(:has(section :is(h2,h3):text-is(\"17. Licence of Sidiora IP\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.18-licence-of-user-ip-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"18. Licence of User IP\")):not(:has(section :is(h2,h3):text-is(\"18. Licence of User IP\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.19-created-ip-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"19. Created IP\")):not(:has(section :is(h2,h3):text-is(\"19. Created IP\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.2-eligibility-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"2. Eligibility\")):not(:has(section :is(h2,h3):text-is(\"2. Eligibility\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.20-general-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"20. General\")):not(:has(section :is(h2,h3):text-is(\"20. General\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.21-prohibited-use-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"21. Prohibited Use\")):not(:has(section :is(h2,h3):text-is(\"21. Prohibited Use\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.22-representations-and-warranties-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"22. Representations and Warranties\")):not(:has(section :is(h2,h3):text-is(\"22. Representations and Warranties\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.23-technology-disclaimers-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"23. Technology Disclaimers\")):not(:has(section :is(h2,h3):text-is(\"23. Technology Disclaimers\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.24-indemnity-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"24. Indemnity\")):not(:has(section :is(h2,h3):text-is(\"24. Indemnity\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.25-liability-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"25. Liability\")):not(:has(section :is(h2,h3):text-is(\"25. Liability\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.26-governing-law-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"26. Governing Law\")):not(:has(section :is(h2,h3):text-is(\"26. Governing Law\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.27-dispute-resolution-arbitration-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"27. Dispute Resolution; Arbitration\")):not(:has(section :is(h2,h3):text-is(\"27. Dispute Resolution; Arbitration\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.28-contact-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"28. Contact\")):not(:has(section :is(h2,h3):text-is(\"28. Contact\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.29-general-terms-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"29. General Terms\")):not(:has(section :is(h2,h3):text-is(\"29. General Terms\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.3-sidiora-platform-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"3. Sidiora Platform\")):not(:has(section :is(h2,h3):text-is(\"3. Sidiora Platform\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.30-wallets-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"30. Wallets\")):not(:has(section :is(h2,h3):text-is(\"30. Wallets\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.31-voice-chat-feature-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"31. Voice Chat Feature\")):not(:has(section :is(h2,h3):text-is(\"31. Voice Chat Feature\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.32-definitions-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"32. Definitions\")):not(:has(section :is(h2,h3):text-is(\"32. Definitions\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.4-fees-and-calculations-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"4. Fees and Calculations\")):not(:has(section :is(h2,h3):text-is(\"4. Fees and Calculations\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.5-records-and-data-retention-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"5. Records and Data Retention\")):not(:has(section :is(h2,h3):text-is(\"5. Records and Data Retention\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.6-accessing-the-sidiora-platform-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"6. Accessing the Sidiora Platform\")):not(:has(section :is(h2,h3):text-is(\"6. Accessing the Sidiora Platform\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.7-transactions-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"7. Transactions\")):not(:has(section :is(h2,h3):text-is(\"7. Transactions\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.8-submission-of-instructions-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"8. Submission of Instructions\")):not(:has(section :is(h2,h3):text-is(\"8. Submission of Instructions\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.9-transactions-execution-and-records-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"9. Transactions (Execution and Records)\")):not(:has(section :is(h2,h3):text-is(\"9. Transactions (Execution and Records)\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.article-1-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content article:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.document-navigation]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content aside nav"
+cause = "The sidebar shares the scrollbar gutter and its mobile links reserve 44px, increasing the navigation height and shifting subsequent content."
+
+[part.docs-terms.document-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content aside nav a >> nth=0"
+cause = "The sidebar shares the scrollbar gutter and its mobile links reserve 44px, increasing the navigation height and shifting subsequent content."
+
+[part.docs-terms.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.docs-terms.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.docs-terms.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer follows content reflow within the scrollbar gutter; its links reserve 44px through 834px and the activity figures wrap within the remaining space."
+
+[part.docs-terms.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.docs-terms.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.docs-terms.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the shell width and the width shared by mobile navigation destinations."
+
+[part.docs-terms.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.risk-warning-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"RISK WARNING\")):not(:has(section :is(h2,h3):text-is(\"RISK WARNING\")))"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-10-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=9 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-10-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=9"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-11-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=10 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-11-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=10"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-12-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=11 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-12-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=11"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-13-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=12 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-13-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=12"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-2-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=1 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-2-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=1"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-3-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=2 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-3-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=2"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-4-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=3 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-4-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=3"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-5-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=4 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-5-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=4"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-6-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=5 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-6-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=5"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-7-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=6 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-7-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=6"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-8-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=7 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-8-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=7"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-9-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=8 >> :scope > li:visible >> nth=0"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."
+
+[part.docs-terms.ul-9-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=8"
+cause = "The scrollbar gutter narrows mobile prose and list rows; 44px navigation links move the article and its subsequent sections. Desktop content shifts horizontally within the gutter."

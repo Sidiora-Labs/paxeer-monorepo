@@ -2,8 +2,9 @@
 
 The `rpc/` directory holds the `evmrpc` Go package, its supporting packages,
 contract fixtures and tests. It serves EVM JSON-RPC over HTTP and WebSocket
-inside `paxd`. Paxeer mainnet-beta is one BFT network with EVM chain ID `125`
-(`0x7d`); the kernel participates in block proposal and execution. Receipts
+inside `paxd`. Paxeer mainnet-beta uses EVM chain ID `125`
+(`0x7d`). The LayerX kernel inside every `paxd` node executes and orders each
+transaction and builds each block; validators check and commit it. Receipts
 become final when their block is committed. An open block can already contain
 executed, receipted transactions before commitment. Select `latest` for
 committed state or `pending` for an open proposal view on a node with an
@@ -254,7 +255,7 @@ through the SDK app root, not Ethereum trie proofs. Pending tracing is also
 refused; use a committed block for historical traces. See [state.go](state.go),
 [simulate.go](simulate.go) and [tracers.go](tracers.go).
 
-Pending consumer behavior is covered in [repair_m1147_test.go](repair_m1147_test.go),
+Pending consumer behavior is covered in [access_list_pending_policy_test.go](access_list_pending_policy_test.go),
 with further open/idle state and header checks in
 [pending_simulate_test.go](pending_simulate_test.go) and
 [pending_state_test.go](pending_state_test.go).

@@ -1,13 +1,13 @@
 # Releasing paxd
 
 A Paxeer X Network release is one git tag, one [`tools/release/version.json`](tools/release/version.json)
-and a set of files built from that tag and recorded in `SHA256SUMS`. The merged network runs the
-kernel inside `paxd`, including block proposal and execution. A receipt is final when its block is
+and a set of files built from that tag and recorded in `SHA256SUMS`. The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when its block is
 committed. The EVM chain ID is `125` (`0x7d`); public node JSON-RPC uses the root URLs listed in
 [Public RPC endpoints](docs/site/paxeer-docs/src/app/public-rpc/page.tsx).
 
 Applying a release to a running network requires the matching governance upgrade plan and node
-handler. The release tooling lives in [`tools/release`](tools/release). Release **v7.0.0** carries
+handler. The release tooling lives in [`tools/release`](tools/release). Release **v7.0.2** carries
 plan **v7.0**, registered as `MergeUpgrade` in [`node/upgrades.go`](node/upgrades.go).
 Use the [merged-network activation runbook](docs/runbooks/paxeer-x-fork.md) for that plan.
 The rehearsal and fleet tools read the release version and plan from
@@ -15,16 +15,18 @@ The rehearsal and fleet tools read the release version and plan from
 
 ## Release identity
 
-- For release 7.0.0, `tools/release/version.json` must hold `version = v7.0.0` and `upgrade = v7.0`.
+- For release 7.0.2, `tools/release/version.json` must hold `version = v7.0.2` and `upgrade = v7.0`.
   `version` identifies the package (`vX.Y.Z`); `upgrade` identifies the on-chain upgrade plan
   name the release carries. The plan name must equal the constant the node registers for it (for
   `v7.0`, `MergeUpgrade` in [`node/upgrades.go`](node/upgrades.go), whose value comes from
   [`precompiles/common/precompiles.go`](precompiles/common/precompiles.go)). The later
   `v7.0-anchor-store-delete` plan is a separate coordinated operation.
+- The current release version comes from `tools/release/version.json`; release 7.0.2 keeps plan
+  `v7.0`.
 - The release tag is `paxeer-network/` + `version`. `tools/release/build-paxd.sh --print-tag` prints
   it.
 - The `Paxeer / Release Check` workflow ([`.github/workflows/paxeer-release-check.yml`](.github/workflows/paxeer-release-check.yml))
-  runs on pull requests that touch the node, the release tooling or the price sidecar. For 7.0.0,
+  runs on pull requests that touch the node, the release tooling or the price sidecar. For 7.0.2,
   it rejects a version that is not semantic, an `upgrade` name other than the declared
   `MergeUpgrade`, `AnchorStoreDeleteUpgrade` or `V6120Upgrade`,
   a tag that already exists, or a version that is not newer than the latest `paxeer-network/v*` tag,
@@ -114,6 +116,7 @@ linux/amd64 build host for the complete release package.
 ## Verifying a published binary
 
 Rebuild a tag with its build script and compare the resulting release package.
+For an earlier release package, read its script and asset list first; its package may include retired components.
 
 ```sh
 git clone https://github.com/Sidiora-Labs/paxeer-monorepo.git

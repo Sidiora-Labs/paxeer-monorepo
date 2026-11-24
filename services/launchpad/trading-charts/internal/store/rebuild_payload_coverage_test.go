@@ -29,7 +29,7 @@ func TestRebuildPromotionBindsCanonicalCandleSources(t *testing.T) {
 		{"rollup queue storage", `ALTER TABLE candles.chart_rollup_pending RENAME TO chart_rollup_pending_unavailable`, "chart_rollup_pending"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := repair75New(t)
+			f := rebuildPromotionNew(t)
 			id := "source_bound_" + string(rune('a'+index))
 			f.stage(t, id, 1, nil)
 			var err error
@@ -52,7 +52,7 @@ func TestRebuildPromotionBindsCanonicalCandleSources(t *testing.T) {
 		})
 	}
 	t.Run("refreshes staged completeness", func(t *testing.T) {
-		f := repair75New(t)
+		f := rebuildPromotionNew(t)
 		f.stage(t, "refresh_status", 1, nil)
 		if _, err := f.db.Exec(ctx, `UPDATE candles.chart_rebuild_candles SET snapshot=jsonb_set(snapshot,'{completenessStatus}','"unverified"'::jsonb) WHERE run_id='refresh_status' AND interval='1m'`); err != nil {
 			t.Fatal(err)

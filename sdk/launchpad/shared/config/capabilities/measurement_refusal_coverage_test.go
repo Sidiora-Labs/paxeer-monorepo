@@ -11,7 +11,7 @@ import (
 )
 
 func TestMeasurementCasesRejectUnobservedConditions(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	base := pinnedMeasurementPlan(t, chain)
 	for _, mode := range []string{"pin", "pending governance", "network export", "network identity", "quote without oracle", "quote request", "virtual sell", "ordinary quote", "optical request", "creation receipt", "revocation"} {
 		t.Run(mode, func(t *testing.T) {

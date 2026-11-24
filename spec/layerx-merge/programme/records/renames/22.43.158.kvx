@@ -1,0 +1,464 @@
+[manifest]
+task = "22.43.158"
+records_moved = 15
+files_renamed = 19
+
+[file.1]
+from = "services/launchpad/indexer/internal/app/repair_55_test.go"
+to = "services/launchpad/indexer/internal/app/market_recovery_test.go"
+
+[file.2]
+from = "services/launchpad/indexer/internal/app/testdata/repair_55_rpc.jsonl"
+to = "services/launchpad/indexer/internal/app/testdata/market_recovery_rpc.jsonl"
+
+[file.3]
+from = "services/launchpad/indexer/internal/config/repair_m999_test.go"
+to = "services/launchpad/indexer/internal/config/backfill_configuration_test.go"
+
+[file.4]
+from = "services/launchpad/indexer/internal/decode/repair_m995_test.go"
+to = "services/launchpad/indexer/internal/decode/native_attribution_test.go"
+
+[file.5]
+from = "services/launchpad/indexer/internal/httpapi/repair_m996_test.go"
+to = "services/launchpad/indexer/internal/httpapi/durable_delivery_health_test.go"
+
+[file.6]
+from = "services/launchpad/indexer/internal/processor/repair_54_test.go"
+to = "services/launchpad/indexer/internal/processor/native_projection_test.go"
+
+[file.7]
+from = "services/launchpad/indexer/internal/processor/repair_m1000_test.go"
+to = "services/launchpad/indexer/internal/processor/native_accounting_test.go"
+
+[file.8]
+from = "services/launchpad/indexer/internal/processor/testdata/repair_m1000_batches.json"
+to = "services/launchpad/indexer/internal/processor/testdata/native_accounting_batches.json"
+
+[file.9]
+from = "services/launchpad/indexer/internal/processor/testdata/repair_m1000_treasury.json"
+to = "services/launchpad/indexer/internal/processor/testdata/native_accounting_treasury.json"
+
+[file.10]
+from = "services/launchpad/indexer/internal/publisher/repair_m998_test.go"
+to = "services/launchpad/indexer/internal/publisher/legacy_webhook_retirement_test.go"
+
+[file.11]
+from = "services/launchpad/indexer/internal/receipt/repair_53_test.go"
+to = "services/launchpad/indexer/internal/receipt/producer_qualification_test.go"
+
+[file.12]
+from = "services/launchpad/indexer/internal/receipt/testdata/repair53-historical.jsonl.gz"
+to = "services/launchpad/indexer/internal/receipt/testdata/producer_historical.jsonl.gz"
+
+[file.13]
+from = "services/launchpad/indexer/internal/receipt/testdata/repair53-history-state.json"
+to = "services/launchpad/indexer/internal/receipt/testdata/producer_history_state.json"
+
+[file.14]
+from = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+to = "services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json"
+
+[file.15]
+from = "services/launchpad/indexer/internal/runtimedocs/repair_22_39_328_test.go"
+to = "services/launchpad/indexer/internal/runtimedocs/catalog_manifest_binding_test.go"
+
+[file.16]
+from = "services/launchpad/indexer/internal/source/repair_56_exports_test.go"
+to = "services/launchpad/indexer/internal/source/explorer_discovery_exports_test.go"
+
+[file.17]
+from = "services/launchpad/indexer/internal/source/repair_56_postgres_test.go"
+to = "services/launchpad/indexer/internal/source/explorer_discovery_postgres_test.go"
+
+[file.18]
+from = "services/launchpad/indexer/internal/source/repair_56_test.go"
+to = "services/launchpad/indexer/internal/source/explorer_discovery_test.go"
+
+[file.19]
+from = "services/launchpad/indexer/internal/source/repair_m997_test.go"
+to = "services/launchpad/indexer/internal/source/source_recovery_test.go"
+
+[file.20]
+from = "services/launchpad/indexer/cmd/indexer-runtime-docs/repair_22_39_359.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/cmd/indexer-runtime-docs/repair_22_39_359.kvx"
+
+[file.21]
+from = "services/launchpad/indexer/internal/app/repair_55.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/app/repair_55.kvx"
+
+[file.22]
+from = "services/launchpad/indexer/internal/config/repair_m999.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/config/repair_m999.kvx"
+
+[file.23]
+from = "services/launchpad/indexer/internal/decode/repair_m995.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/decode/repair_m995.kvx"
+
+[file.24]
+from = "services/launchpad/indexer/internal/httpapi/repair_m996.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/httpapi/repair_m996.kvx"
+
+[file.25]
+from = "services/launchpad/indexer/internal/processor/repair_54.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/processor/repair_54.kvx"
+
+[file.26]
+from = "services/launchpad/indexer/internal/processor/repair_m1000.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/processor/repair_m1000.kvx"
+
+[file.27]
+from = "services/launchpad/indexer/internal/publisher/repair_m998.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/publisher/repair_m998.kvx"
+
+[file.28]
+from = "services/launchpad/indexer/internal/receipt/repair_53.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/receipt/repair_53.kvx"
+
+[file.29]
+from = "services/launchpad/indexer/internal/source/repair_56.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/source/repair_56.kvx"
+
+[file.30]
+from = "services/launchpad/indexer/internal/source/repair_m997.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/internal/source/repair_m997.kvx"
+
+[file.31]
+from = "services/launchpad/indexer/repair_22_39_162.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/repair_22_39_162.kvx"
+
+[file.32]
+from = "services/launchpad/indexer/repair_22_39_462.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/repair_22_39_462.kvx"
+
+[file.33]
+from = "services/launchpad/indexer/repair_22_39_478.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/repair_22_39_478.kvx"
+
+[file.34]
+from = "services/launchpad/indexer/repair_22_39_491.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/indexer/repair_22_39_491.kvx"
+
+[reference.1]
+file = ".github/workflows/launchpad-test.yml"
+name = "repair53-producer.json"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair53-producer.json"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_53_test.go"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_54_test.go"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_55_test.go"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "repair_56_postgres_test.go"
+
+[reference.7]
+file = "GOTCHA.kvx"
+name = "repair_56_test.go"
+
+[reference.8]
+file = "GOTCHA.kvx"
+name = "repair_m1000_test.go"
+
+[reference.9]
+file = "GOTCHA.kvx"
+name = "repair_m995_test.go"
+
+[reference.10]
+file = "GOTCHA.kvx"
+name = "repair_m997_test.go"
+
+[reference.11]
+file = "GOTCHA.kvx"
+name = "repair_m999_test.go"
+
+[reference.12]
+file = "sdk/launchpad/shared/config/deployment/attest_surface_test.go"
+name = "repair53-producer.json"
+
+[reference.13]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_53_test.go"
+
+[reference.14]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_54_test.go"
+
+[reference.15]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_56_postgres_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "repair53-producer.json"
+
+[reference.17]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "repair_53_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "repair_54_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_55_rpc.jsonl"
+
+[reference.20]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_55_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1000_batches.json"
+
+[reference.22]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1000_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair_m995_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair_m998_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair_m999_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/programme/issues/1695.kvx"
+name = "repair_m996.kvx"
+
+[reference.27]
+file = "spec/layerx-merge/programme/issues/1696.kvx"
+name = "repair_54_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/programme/issues/1696.kvx"
+name = "repair_m996.kvx"
+
+[reference.29]
+file = "spec/layerx-merge/programme/issues/1697.kvx"
+name = "repair_m996_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/programme/issues/input/1695.md"
+name = "repair_m996.kvx"
+
+[reference.31]
+file = "spec/layerx-merge/programme/issues/input/1696.md"
+name = "repair_54_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/programme/records/apps/launchpad/web/src/core/network/repair_22_39_313.kvx"
+name = "repair53-producer.json"
+
+[reference.33]
+file = "spec/layerx-merge/programme/records/renames/22.43.160.kvx"
+name = "repair_22_39_328_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/programme/records/renames/22.43.160.kvx"
+name = "repair_53_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/programme/records/renames/22.43.160.kvx"
+name = "repair_m995_test.go"
+
+[reference.36]
+file = "spec/layerx-merge/programme/records/renames/22.43.160.kvx"
+name = "repair_m999_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+name = "repair53-producer.json"
+
+[reference.38]
+file = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+name = "repair_22_39_328_test.go"
+
+[reference.39]
+file = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+name = "repair_53_test.go"
+
+[reference.40]
+file = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+name = "repair_m995_test.go"
+
+[reference.41]
+file = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+name = "repair_m999_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/programme/records/sdk/launchpad/shared/config/deployment/repair_22_39_295.kvx"
+name = "repair53-producer.json"
+
+[reference.43]
+file = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx"
+name = "repair_22_39_162.kvx"
+
+[reference.44]
+file = "spec/layerx-merge/programme/records/tests/ci/repair_22_39_152.kvx"
+name = "repair53-historical.jsonl.gz"
+
+[reference.45]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair53-producer.json"
+
+[reference.46]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_53_test.go"
+
+[reference.47]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_54_test.go"
+
+[reference.48]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_55_test.go"
+
+[reference.49]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1000_test.go"
+
+[reference.50]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m995_test.go"
+
+[reference.51]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m998_test.go"
+
+[reference.52]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m999_test.go"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair53-producer.json"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_162.kvx"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_328_test.go"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_359.kvx"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_462.kvx"
+
+[reference.58]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_478.kvx"
+
+[reference.59]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_491.kvx"
+
+[reference.60]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_53.kvx"
+
+[reference.61]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_53_test.go"
+
+[reference.62]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_54_test.go"
+
+[reference.63]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_55_test.go"
+
+[reference.64]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_56_postgres_test.go"
+
+[reference.65]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_56_test.go"
+
+[reference.66]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1000_test.go"
+
+[reference.67]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1000_treasury.json"
+
+[reference.68]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m995_test.go"
+
+[reference.69]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m996_test.go"
+
+[reference.70]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m997_test.go"
+
+[reference.71]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m998_test.go"
+
+[reference.72]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m999_test.go"
+
+[reference.73]
+file = "tests/ci/data/intentional_copies.txt"
+name = "repair53-historical.jsonl.gz"
+
+[reference.74]
+file = "tests/ci/data/large_file_allowlist.txt"
+name = "repair53-producer.json"
+
+[reference.75]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "repair53-producer.json"
+
+[reference.76]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "repair_22_39_162.kvx"
+
+[reference.77]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_54_test.go"
+
+[reference.78]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_55_test.go"
+
+[reference.79]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_56_exports_test.go"
+
+[reference.80]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_56_postgres_test.go"
+
+[reference.81]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_56_test.go"

@@ -2,10 +2,12 @@ import {
   SnapshotStreamV2,
   decodeV2Contract,
   browserStreamTransportV2,
-  type StreamState,
-  type V2StreamEvent,
-  type V2TopicSnapshot,
 } from '../../../../../sdk/launchpad/packages/sdk/src/index.ts';
+import type {
+  StreamState,
+  V2StreamEvent,
+  V2TopicSnapshot,
+} from '../../../../../sdk/launchpad/packages/sdk/src/stream.ts';
 import { retryDelay } from '../contracts.ts';
 import type { MobileServices } from './service-client.ts';
 export class MarketSession {

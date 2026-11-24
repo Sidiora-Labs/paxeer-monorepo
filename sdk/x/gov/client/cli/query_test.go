@@ -19,7 +19,7 @@ import (
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func repair675Execute(ctx context.Context, clientCtx client.Context, cmd *cobra.Command, args ...string) (string, error) {
+func governanceHistoryExecute(ctx context.Context, clientCtx client.Context, cmd *cobra.Command, args ...string) (string, error) {
 	var output bytes.Buffer
 	clientCtx = clientCtx.WithOutput(&output)
 	cmd.SetOut(&output)
@@ -31,9 +31,9 @@ func repair675Execute(ctx context.Context, clientCtx client.Context, cmd *cobra.
 	return output.String(), err
 }
 
-func repair675QueryCase(t *testing.T, name string) {
+func governanceHistoryQueryCase(t *testing.T, name string) {
 	t.Helper()
-	chain := newRepair308Chain(t, "kv")
+	chain := newVoteHistoryChain(t, "kv")
 	voter := sdk.AccAddress(bytes.Repeat([]byte{11}, 20))
 	other := sdk.AccAddress(bytes.Repeat([]byte{12}, 20))
 	require.NoError(t, chain.keeper.AddVote(chain.ctx, chain.proposal.ProposalId, voter, govtypes.NewNonSplitVoteOption(govtypes.OptionYes)))
@@ -44,13 +44,13 @@ func repair675QueryCase(t *testing.T, name string) {
 	id := fmt.Sprint(chain.proposal.ProposalId)
 	query := func(cmd *cobra.Command, args ...string) string {
 		t.Helper()
-		output, err := repair675Execute(t.Context(), clientCtx, cmd, append(args, "--output=json")...)
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cmd, append(args, "--output=json")...)
 		require.NoError(t, err)
 		return output
 	}
 	fails := func(cmd *cobra.Command, args ...string) {
 		t.Helper()
-		output, err := repair675Execute(t.Context(), clientCtx, cmd, args...)
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cmd, args...)
 		require.Error(t, err)
 		require.Empty(t, output)
 	}
@@ -63,7 +63,7 @@ func repair675QueryCase(t *testing.T, name string) {
 		var params govtypes.Params
 		require.NoError(t, clientCtx.LegacyAmino.UnmarshalAsJSON([]byte(query(cli.GetCmdQueryParams())), &params))
 		require.Equal(t, govtypes.NewParams(chain.keeper.GetVotingParams(chain.ctx), chain.keeper.GetTallyParams(chain.ctx), chain.keeper.GetDepositParams(chain.ctx)), params)
-		output, err := repair675Execute(t.Context(), clientCtx, cli.GetCmdQueryParams(), "--output=text")
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cli.GetCmdQueryParams(), "--output=text")
 		require.NoError(t, err)
 		jsonOutput := query(cli.GetCmdQueryParams())
 		var value any
@@ -103,7 +103,7 @@ func repair675QueryCase(t *testing.T, name string) {
 		var got govtypes.TallyResult
 		decode(query(cli.GetCmdQueryTally(), id), &got)
 		require.Equal(t, govtypes.EmptyTallyResult(), got)
-		output, err := repair675Execute(t.Context(), clientCtx, cli.GetCmdQueryTally(), id, "--output=text")
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cli.GetCmdQueryTally(), id, "--output=text")
 		require.NoError(t, err)
 		jsonOutput := query(cli.GetCmdQueryTally(), id)
 		var value any
@@ -156,13 +156,13 @@ func repair675QueryCase(t *testing.T, name string) {
 	}
 }
 
-func (s *CLITestSuite) TestCmdParams()        { repair675QueryCase(s.T(), "params") }
-func (s *CLITestSuite) TestCmdParam()         { repair675QueryCase(s.T(), "param") }
-func (s *CLITestSuite) TestCmdProposer()      { repair675QueryCase(s.T(), "proposer") }
-func (s *CLITestSuite) TestCmdTally()         { repair675QueryCase(s.T(), "tally") }
-func (s *CLITestSuite) TestCmdGetProposal()   { repair675QueryCase(s.T(), "proposal") }
-func (s *CLITestSuite) TestCmdGetProposals()  { repair675QueryCase(s.T(), "proposals") }
-func (s *CLITestSuite) TestCmdQueryDeposits() { repair675QueryCase(s.T(), "deposits") }
-func (s *CLITestSuite) TestCmdQueryDeposit()  { repair675QueryCase(s.T(), "deposit") }
-func (s *CLITestSuite) TestCmdQueryVotes()    { repair675QueryCase(s.T(), "votes") }
-func (s *CLITestSuite) TestCmdQueryVote()     { repair675QueryCase(s.T(), "vote") }
+func (s *CLITestSuite) TestCmdParams()        { governanceHistoryQueryCase(s.T(), "params") }
+func (s *CLITestSuite) TestCmdParam()         { governanceHistoryQueryCase(s.T(), "param") }
+func (s *CLITestSuite) TestCmdProposer()      { governanceHistoryQueryCase(s.T(), "proposer") }
+func (s *CLITestSuite) TestCmdTally()         { governanceHistoryQueryCase(s.T(), "tally") }
+func (s *CLITestSuite) TestCmdGetProposal()   { governanceHistoryQueryCase(s.T(), "proposal") }
+func (s *CLITestSuite) TestCmdGetProposals()  { governanceHistoryQueryCase(s.T(), "proposals") }
+func (s *CLITestSuite) TestCmdQueryDeposits() { governanceHistoryQueryCase(s.T(), "deposits") }
+func (s *CLITestSuite) TestCmdQueryDeposit()  { governanceHistoryQueryCase(s.T(), "deposit") }
+func (s *CLITestSuite) TestCmdQueryVotes()    { governanceHistoryQueryCase(s.T(), "votes") }
+func (s *CLITestSuite) TestCmdQueryVote()     { governanceHistoryQueryCase(s.T(), "vote") }

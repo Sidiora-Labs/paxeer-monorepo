@@ -372,8 +372,7 @@ def test_genesis_chain_must_match_node_before_discovery(tmp_path):
 def test_repair_record_maps_findings_and_evidence():
     record = tomllib.loads(
         (
-            ROOT / "spec/layerx-merge/programme/records"
-            / "tools/qualification/audit_repairs/repair_22_33_771.kvx"
+            ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_771.kvx"
         ).read_text()
     )
     expected = {

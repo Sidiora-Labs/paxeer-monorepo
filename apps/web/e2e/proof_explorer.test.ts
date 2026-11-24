@@ -137,7 +137,7 @@ function explorerWireValue(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [
     key.replace(/[A-Z]/gu, (letter) => `_${letter.toLowerCase()}`),
     key === "verificationLevel"
-      ? item === "receipt-verified" ? "sequencer-signed" : item
+      ? item === "receipt-verified" ? "sequencer-signed" : item === "committed" ? "checkpoint-finalised" : item
       : explorerWireValue(item),
   ]));
 }
@@ -258,7 +258,7 @@ function restoreEnvironment(context: TestContext, key: string, value: string | u
 }
 
 async function explorer_links_and_labels_reach_real_consumers(context: TestContext): Promise<void> {
-  const { withNativeReceipt } = await import("./repair-22-33-338-receipts.ts");
+  const { withNativeReceipt } = await import("./native-receipt-fixture.ts");
   await withNativeReceipt(async read => {
     const receipt = await read();
     restoreEnvironment(context, "PAXEER_X_EXPLORER_BASE_URL", producer.origin);
@@ -300,7 +300,7 @@ async function explorer_links_and_labels_reach_real_consumers(context: TestConte
     const levels: readonly [ExplorerVerificationLevel, string][] = [
       ["unverified", "verification.unverified"],
       ["receipt-verified", "verification.receipt_verified"],
-      ["checkpoint-finalised", "verification.checkpoint_finalised"],
+      ["committed", "verification.checkpoint_finalised"],
     ];
     for (const [level, key] of levels) {
       const label = components.verificationLabel(level);

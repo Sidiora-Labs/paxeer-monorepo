@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { PublicShareError, readPublicShare } from '@/widgets/pnl/share-transport';
 import {
   BackendOriginError,
   browserConnectOrigins,
@@ -58,9 +59,32 @@ function buildCsp(): { policy: string; walletOrigins: string[] } {
   return { policy: directives.join('; '), walletOrigins };
 }
 
-export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  let destination: string | undefined;
+  if (pathname === '/new') destination = '/explore?preset=new';
+  const token = /^\/token\/(0x[0-9a-fA-F]{40})$/.exec(pathname);
+  if (token) destination = `/coin/${token[1].toLowerCase()}`;
+  const referral = /^\/r\/([A-Za-z0-9_-]{1,128})$/.exec(pathname);
+  if (referral) {
+    const cards = request.nextUrl.searchParams.getAll('cardId');
+    if (cards.length === 0) destination = `/?ref=${encodeURIComponent(referral[1])}`;
+    else if (cards.length === 1 && /^[A-Za-z0-9_-]{1,128}$/.test(cards[0])) {
+      destination = `/pnl/${encodeURIComponent(cards[0])}?ref=${encodeURIComponent(referral[1])}`;
+    }
+  }
+  const publicCard = /^\/pnl\/([^/]+)$/.exec(pathname);
+  let missingCard = false;
+  if (publicCard) {
+    try {
+      await readPublicShare(publicCard[1]);
+    } catch (error) {
+      missingCard = error instanceof PublicShareError && error.status === 404;
+    }
+  }
+  const response = destination
+    ? NextResponse.redirect(new URL(destination, request.url))
+    : NextResponse.next({ status: missingCard ? 404 : 200 });
 
   // Baseline security headers applied to EVERY route (incl. the charting
   // library branch below). HSTS forces TLS; nosniff blocks MIME-confusion
@@ -71,6 +95,8 @@ export function middleware(request: NextRequest) {
   );
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  response.headers.set('Permissions-Policy', 'clipboard-write=(self), clipboard-read=(self), unload=(self)');
 
   // Charting library gets a permissive CSP (TradingView requirement)
   if (pathname.startsWith('/charting_library')) {
@@ -89,8 +115,6 @@ export function middleware(request: NextRequest) {
   if (walletOrigins.length === 0) {
     response.headers.set('X-Frame-Options', 'SAMEORIGIN');
   }
-
-  response.headers.set('Permissions-Policy', 'clipboard-write=(self), clipboard-read=(self)');
 
   return response;
 }

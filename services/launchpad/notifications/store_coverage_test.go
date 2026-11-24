@@ -10,8 +10,8 @@ import (
 
 func TestStoreDeletesOnlyOwnedItemAndRetainsRecentInbox(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
 	store := Store{DB: db}
 	created := time.Now().UTC()
 	item, ok, err := store.CommitTrigger(ctx, InboxItem{Identity: Identity{AccountID: "store-account", TriggerEventID: "event", TemplateVersion: "v2"}, Category: "chat", Summary: "New message", CreatedAt: created}, []DeliveryAttempt{})
@@ -39,8 +39,8 @@ func TestStoreDeletesOnlyOwnedItemAndRetainsRecentInbox(t *testing.T) {
 
 func TestStoreRejectsInvalidClaimsAndCursorInputs(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
 	store := Store{DB: db}
 	valid := InboxItem{Identity: Identity{AccountID: "scope-account", TriggerEventID: "event", TemplateVersion: "v2"}, Category: "chat", Summary: "New message", CreatedAt: time.Now().UTC()}
 	for _, item := range []InboxItem{
@@ -136,8 +136,8 @@ func TestStoreRejectsInvalidClaimsAndCursorInputs(t *testing.T) {
 
 func TestTriggerTransactionRollsBackWhenOutboxCannotCommit(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
 	if _, err := db.ExecContext(ctx, `DROP TABLE discovery_notifications.outbox`); err != nil {
 		t.Fatal(err)
 	}
@@ -160,8 +160,8 @@ func TestTriggerTransactionRollsBackWhenOutboxCannotCommit(t *testing.T) {
 
 func TestSendClaimRejectsStaleTargetRevisionAndRetainsFence(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
 	store := Store{DB: db}
 	item, created, err := store.CommitTrigger(ctx, InboxItem{Identity: Identity{AccountID: "send-account", TriggerEventID: "send-event", TemplateVersion: "v2"}, Category: categoryWatchlist, Summary: "Threshold crossed", CreatedAt: time.Now().UTC()}, []DeliveryAttempt{{Channel: channelPush, TargetID: "device", TargetRevision: 7, ConsentRevision: 3}})
 	if err != nil || !created {

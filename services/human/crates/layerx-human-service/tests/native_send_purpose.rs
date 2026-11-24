@@ -1,3 +1,7 @@
+#[path = "../../layerx-human-kms/tests/support/native_profile_diagnostics.rs"]
+mod native_profile_diagnostics;
+
+use native_profile_diagnostics::NativeProfileDiagnostics;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use layerx_agent_api::identity::{
@@ -450,6 +454,7 @@ fn authenticate_native_grant(
 }
 
 struct LiveNativeSetup {
+    diagnostics: NativeProfileDiagnostics,
     clock: Arc<RuntimeClock>,
     fixture: Fixture,
     provider: AttestorKms,
@@ -466,7 +471,11 @@ struct LiveNativeSetup {
     trace: TraceId,
 }
 
-fn connect_live_attestor(fixture: &Fixture, clock: &Arc<RuntimeClock>) -> Result<AttestorKms> {
+fn connect_live_attestor(
+    fixture: &Fixture,
+    clock: &Arc<RuntimeClock>,
+    diagnostics: &NativeProfileDiagnostics,
+) -> Result<AttestorKms> {
     let nodes: Vec<_> = fixture
         .nodes
         .iter()
@@ -481,7 +490,10 @@ fn connect_live_attestor(fixture: &Fixture, clock: &Arc<RuntimeClock>) -> Result
         Duration::from_secs(120),
     )?;
     let provider = AttestorKms::connect_with_clock(config, clock.clone())?;
-    provider.admit_assertion(&fixture.owner, &fixture.owner_assertion)?;
+    diagnostics.custody(
+        "admit owner assertion",
+        provider.admit_assertion(&fixture.owner, &fixture.owner_assertion),
+    )?;
     Ok(provider)
 }
 
@@ -492,8 +504,17 @@ fn open_live_native_setup() -> Result<LiveNativeSetup> {
     if fixture.schema != "layerx-human-native-send-live.v1" {
         return Err("closed genuine live fixture profile".into());
     }
+    let diagnostics = NativeProfileDiagnostics::new(
+        clock.clone(),
+        &fixture.signers,
+        [
+            ("owner", &fixture.owner_assertion),
+            ("second", &fixture.second_assertion),
+            ("foreign", &fixture.foreign_assertion),
+        ],
+    );
     let directory = Path::new(&fixture.directory);
-    let provider = connect_live_attestor(&fixture, &clock)?;
+    let provider = connect_live_attestor(&fixture, &clock, &diagnostics)?;
     let principal = PrincipalId::new("native-owner")?;
     let key = KeyId::new("primary")?;
     let binding = PrincipalKeyBinding::new(
@@ -570,6 +591,7 @@ fn open_live_native_setup() -> Result<LiveNativeSetup> {
         .map_err(|error| std::io::Error::other(error.to_string()))?;
     let trace = TraceId::mint(trace_entropy);
     Ok(LiveNativeSetup {
+        diagnostics,
         clock,
         fixture,
         provider,
@@ -610,6 +632,7 @@ fn verify_sdk_native_grant(
 }
 
 struct GrantValidation<'a> {
+    diagnostics: &'a NativeProfileDiagnostics,
     custody: &'a CustodySigner,
     principal: &'a PrincipalId,
     key: &'a KeyId,
@@ -626,6 +649,7 @@ struct GrantValidation<'a> {
 impl GrantValidation<'_> {
     fn verify(self, scope: &mut layerx_human_service::store::PrincipalScope<'_>) -> Result<()> {
         let Self {
+            diagnostics,
             custody,
             principal,
             key,
@@ -640,49 +664,68 @@ impl GrantValidation<'_> {
         } = self;
         let mut changed_grant = (*grant).clone();
         changed_grant.owner_public_key[0] ^= 1;
-        let mismatched = ready(custody.sign_native_consent_in_scope(
-            scope,
-            NativeConsentRequest::new(
-                principal,
-                key,
-                NativeConsent::LocalGrant(&changed_grant),
-                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
-                current_time(clock.as_ref())?,
-                trace.clone(),
-            ),
-        ))?;
+        let mismatched = diagnostics.custody(
+            "changed owner grant refusal",
+            ready(custody.sign_native_consent_in_scope(
+                scope,
+                NativeConsentRequest::new(
+                    principal,
+                    key,
+                    NativeConsent::LocalGrant(&changed_grant),
+                    SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                    current_time(clock.as_ref())?,
+                    trace.clone(),
+                ),
+            ))?,
+        );
         assert!(matches!(mismatched, Err(CustodyError::StepUpMismatch)));
         let expiry_skewed_grant = NativeLocalGrantConsentV1 {
             expires_at_ms: grant.expires_at_ms - 1,
             ..(*grant).clone()
         };
-        let invalid_evidence = ready(custody.sign_native_consent_in_scope(
-            scope,
-            NativeConsentRequest::new(
-                principal,
-                key,
-                NativeConsent::LocalGrant(&expiry_skewed_grant),
-                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
-                current_time(clock.as_ref())?,
-                trace.clone(),
-            ),
-        ))?;
+        let invalid_evidence = diagnostics.custody(
+            "changed expiry grant refusal",
+            ready(custody.sign_native_consent_in_scope(
+                scope,
+                NativeConsentRequest::new(
+                    principal,
+                    key,
+                    NativeConsent::LocalGrant(&expiry_skewed_grant),
+                    SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                    current_time(clock.as_ref())?,
+                    trace.clone(),
+                ),
+            ))?,
+        );
         assert!(matches!(
             invalid_evidence,
             Err(CustodyError::InvalidEvidence)
         ));
-        provider.admit_assertion(&fixture.owner, &fixture.second_assertion)?;
-        let signed = ready(custody.sign_native_consent_in_scope(
-            scope,
-            NativeConsentRequest::new(
-                principal,
-                key,
-                NativeConsent::LocalGrant(grant),
-                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
-                current_time(clock.as_ref())?,
-                trace.clone(),
-            ),
-        ))??;
+        eprintln!(
+            "native profile step_up valid_from={} expires_at={}",
+            evidence.valid_from(),
+            evidence.expires_at()
+        );
+        diagnostics.custody(
+            "admit second assertion",
+            provider.admit_assertion(&fixture.owner, &fixture.second_assertion),
+        )?;
+        let signing_now = current_time(clock.as_ref())?;
+        diagnostics.grant(grant, signing_now);
+        let signed = diagnostics.custody(
+            "sign local grant",
+            ready(custody.sign_native_consent_in_scope(
+                scope,
+                NativeConsentRequest::new(
+                    principal,
+                    key,
+                    NativeConsent::LocalGrant(grant),
+                    SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                    signing_now,
+                    trace.clone(),
+                ),
+            ))?,
+        )?;
         assert_eq!(signed.signer_public_key(), public);
         assert_eq!(signed.disclosure_digest(), grant_digest);
         ed25519_dalek::Verifier::verify(
@@ -691,23 +734,27 @@ impl GrantValidation<'_> {
             &ed25519_dalek::Signature::from_bytes(signed.signature()),
         )
         .map_err(|_| "native custody grant signature verification refused")?;
-        let replayed = ready(custody.sign_native_consent_in_scope(
-            scope,
-            NativeConsentRequest::new(
-                principal,
-                key,
-                NativeConsent::LocalGrant(grant),
-                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
-                current_time(clock.as_ref())?,
-                trace.clone(),
-            ),
-        ))?;
+        let replayed = diagnostics.custody(
+            "consumed step up refusal",
+            ready(custody.sign_native_consent_in_scope(
+                scope,
+                NativeConsentRequest::new(
+                    principal,
+                    key,
+                    NativeConsent::LocalGrant(grant),
+                    SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                    current_time(clock.as_ref())?,
+                    trace.clone(),
+                ),
+            ))?,
+        );
         assert!(matches!(replayed, Err(CustodyError::StepUpReplayed)));
         Ok(())
     }
 }
 
 fn assert_invalid_step_up_binding(
+    diagnostics: &NativeProfileDiagnostics,
     passkeys: &Passkeys,
     scope: &mut layerx_human_service::store::PrincipalScope<'_>,
     authenticated: &layerx_human_service::auth::StepUpEvidence,
@@ -716,15 +763,18 @@ fn assert_invalid_step_up_binding(
 ) -> Result<()> {
     let (operation_digest, grant_digest, capability_digest) = digests;
     assert!(matches!(
-        CustodySigner::bind_authenticated_step_up(
-            passkeys,
-            scope,
-            authenticated,
-            operation_digest,
-            Operation::SecuritySettings,
-            grant_digest,
-            capability_digest,
-            current_time(clock)?
+        diagnostics.custody(
+            "bind authenticated step up",
+            CustodySigner::bind_authenticated_step_up(
+                passkeys,
+                scope,
+                authenticated,
+                operation_digest,
+                Operation::SecuritySettings,
+                grant_digest,
+                capability_digest,
+                current_time(clock)?
+            )
         ),
         Err(CustodyError::InvalidEvidence)
     ));
@@ -732,12 +782,17 @@ fn assert_invalid_step_up_binding(
 }
 
 fn assert_foreign_owner_refused(
+    diagnostics: &NativeProfileDiagnostics,
     sdk: &AttestorSigner,
     purpose: &NativeSendPurposeV2,
     fixture: &Fixture,
 ) {
+    diagnostics.at("foreign owner refusal");
     let stranger =
         sdk.sign_native_send_purpose(purpose, "rust-foreign-owner", &fixture.foreign_assertion);
+    if let Err(AttestorError::Refused { code, .. }) = &stranger {
+        diagnostics.report("foreign owner refusal", code);
+    }
     assert!(matches!(stranger,Err(AttestorError::Refused{code,..}) if code=="token_not_owner"));
 }
 
@@ -753,7 +808,12 @@ fn native_grant(material: &Material, public: [u8; 32]) -> Result<NativeLocalGran
 
 #[test]
 fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
+    if std::env::var_os("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE").is_none() {
+        eprintln!("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE is unset");
+        return Ok(());
+    }
     let LiveNativeSetup {
+        diagnostics,
         clock,
         fixture,
         provider,
@@ -773,37 +833,46 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         .lock()
         .map_err(|_| "native send store lock poisoned")?;
     let mut scope = store.principal(&principal)?;
-    let result = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::SendPurpose(&purpose),
-            SignAuthorization::new(Operation::ProtocolMutation, None),
-            now,
-            trace.clone(),
-        ),
-    ))??;
+    let result = diagnostics.custody(
+        "sign native purpose",
+        ready(custody.sign_native_consent_in_scope(
+            &mut scope,
+            NativeConsentRequest::new(
+                &principal,
+                &key,
+                NativeConsent::SendPurpose(&purpose),
+                SignAuthorization::new(Operation::ProtocolMutation, None),
+                now,
+                trace.clone(),
+            ),
+        ))?,
+    )?;
     let digest = verify_native_purpose_signature(&purpose, &result, public, now)?;
     let grant = native_grant(&material, public)?;
-    let missing = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&grant),
-            SignAuthorization::new(Operation::SecuritySettings, None),
-            now,
-            trace.clone(),
-        ),
-    ))?;
+    let missing = diagnostics.custody(
+        "missing step up refusal",
+        ready(custody.sign_native_consent_in_scope(
+            &mut scope,
+            NativeConsentRequest::new(
+                &principal,
+                &key,
+                NativeConsent::LocalGrant(&grant),
+                SignAuthorization::new(Operation::SecuritySettings, None),
+                now,
+                trace.clone(),
+            ),
+        ))?,
+    );
     assert!(matches!(missing, Err(CustodyError::StepUpRequired)));
+    diagnostics.at("SDK local grant signature");
     let (sdk, grant_digest) = verify_sdk_native_grant(&fixture, &provider_key, &grant, public)?;
+    diagnostics.at("passkey step up");
     let (passkeys, authenticated) =
         authenticate_native_grant(&mut scope, clock.as_ref(), &principal, grant_digest)?;
     let confirms = OperationDigest::new(grant_digest);
     let capability_digest: [u8; 32] = Sha256::digest(&grant.capability).into();
     assert_invalid_step_up_binding(
+        &diagnostics,
         &passkeys,
         &mut scope,
         &authenticated,
@@ -817,6 +886,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     drop(scope);
     let mut foreign_scope = store.principal(&foreign_principal)?;
     assert_invalid_step_up_binding(
+        &diagnostics,
         &passkeys,
         &mut foreign_scope,
         &authenticated,
@@ -825,17 +895,27 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     )?;
     drop(foreign_scope);
     let mut scope = store.principal(&principal)?;
-    let evidence = CustodySigner::bind_authenticated_step_up(
-        &passkeys,
-        &mut scope,
-        &authenticated,
-        confirms,
-        Operation::SecuritySettings,
-        grant_digest,
-        capability_digest,
-        current_time(clock.as_ref())?,
+    let binding_now = current_time(clock.as_ref())?;
+    eprintln!(
+        "native profile binding completed_at={} expires_at={} clock_seconds={binding_now}",
+        authenticated.completed_at(),
+        authenticated.expires_at()
+    );
+    let evidence = diagnostics.custody(
+        "bind authenticated step up",
+        CustodySigner::bind_authenticated_step_up(
+            &passkeys,
+            &mut scope,
+            &authenticated,
+            confirms,
+            Operation::SecuritySettings,
+            grant_digest,
+            capability_digest,
+            binding_now,
+        ),
     )?;
     GrantValidation {
+        diagnostics: &diagnostics,
         custody: &custody,
         principal: &principal,
         key: &key,
@@ -851,7 +931,8 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     .verify(&mut scope)?;
     println!("native custody genuine passkey issuance and grant consent verified");
     println!("native custody principal digest forgery ceremony-replay and consumed-evidence refusals verified");
-    assert_foreign_owner_refused(&sdk, &purpose, &fixture);
+    assert_foreign_owner_refused(&diagnostics, &sdk, &purpose, &fixture);
+    diagnostics.finish();
     Ok(())
 }
 

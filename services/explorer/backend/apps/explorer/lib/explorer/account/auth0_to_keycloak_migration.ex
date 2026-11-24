@@ -355,6 +355,8 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
   end
 
   defp export_auth0_users do
+    Logger.info("Phase 1: Exporting Auth0 users...")
+
     with {:ok, job_id} <- create_export_job(),
          {:ok, location} <- poll_export_job(job_id) do
       download_and_parse_export(location)

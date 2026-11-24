@@ -10,7 +10,7 @@ import (
 )
 
 func TestLifecycleTransitionsRequireCurrentRevisionAndDurableIntent(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, intent := f.create("lifecycle-revision")
 	decision := func(o Operation, action string) ActionDecision {
@@ -54,7 +54,7 @@ func TestLifecycleTransitionsRequireCurrentRevisionAndDurableIntent(t *testing.T
 }
 
 func TestSuspensionDecisionBindsOwnerRevisionAndExpiry(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("suspension-decision")
 	decision := SuspensionDecision{OperationID: o.ID, Revision: o.Revision, Actor: "policy_reconciler", Reason: "active_restriction", Allowed: true, ExpiresAt: time.Now().Add(time.Minute)}
@@ -83,7 +83,7 @@ func TestSuspensionDecisionBindsOwnerRevisionAndExpiry(t *testing.T) {
 }
 
 func TestOwnerEditAndRotationRequireCurrentStoredState(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.RotationSchemaSQL()); err != nil {
 		t.Fatal(err)

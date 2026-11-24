@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 import pytest
-from test_repair_22_31_355 import (
+from test_native_lifecycle import (
     broker, client, directory as generation_directory, native, paths, prepared,
     receive, staged_store, tls, traced_activation, reset as native_reset,
 )

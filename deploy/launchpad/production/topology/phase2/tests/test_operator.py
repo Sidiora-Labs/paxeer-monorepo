@@ -16,7 +16,11 @@ from phase2 import v1
 from phase2.attestations import SignatureVerifier, regular_bytes
 from phase2.operator import Journal
 from phase2.providers import connected_plan, safe_diagnostics, validate_connected_plan
-from phase2.tests.test_repair_22_31_313 import actual_adapter, connected_inputs
+from phase2.tests.test_runtime_adapter import (
+    actual_adapter,
+    build_connected_inputs,
+    connected_inputs,
+)
 
 
 def assert_connected_runtime_bindings(plan, config, documents):
@@ -80,8 +84,9 @@ class JournalTests(unittest.TestCase):
         self.path = Path(self.directory.name) / 'operator.db'
         self.journal = Journal(self.path)
         self.addCleanup(self.journal.close)
-        self.config = v1.load(TOPOLOGY / 'fixtures/synthetic-config.json')
-        self.plan = v1.compile_plan(self.config)
+        inputs = build_connected_inputs(Path(self.directory.name))
+        self.config = inputs[0]
+        self.plan = connected_plan(*inputs)
 
     def test_proposal_and_rejection_survive_new_connection(self):
         proposed = self.journal.propose(self.config, self.plan, 'operator-one')

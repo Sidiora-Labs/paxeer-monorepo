@@ -1,0 +1,356 @@
+[manifest]
+task = "22.43.181"
+records_moved = 21
+files_renamed = 21
+
+[file.1]
+from = "storage/db_engine/litt/benchmark/config/repair_118_test.go"
+to = "storage/db_engine/litt/benchmark/config/dashboard_metrics_test.go"
+
+[file.2]
+from = "storage/db_engine/litt/benchmark/config/repair_m1169_test.go"
+to = "storage/db_engine/litt/benchmark/config/config_validation_dashboard_import_test.go"
+
+[file.3]
+from = "storage/db_engine/litt/benchmark/repair_116_test.go"
+to = "storage/db_engine/litt/benchmark/cohort_range_test.go"
+
+[file.4]
+from = "storage/db_engine/litt/benchmark/repair_m1170_test.go"
+to = "storage/db_engine/litt/benchmark/workload_recovery_test.go"
+
+[file.5]
+from = "storage/db_engine/litt/benchmark/repair_m1171_test.go"
+to = "storage/db_engine/litt/benchmark/launcher_test.go"
+
+[file.6]
+from = "storage/db_engine/litt/cli/repair_112_test.go"
+to = "storage/db_engine/litt/cli/snapshot_transfer_test.go"
+
+[file.7]
+from = "storage/db_engine/litt/cli/repair_m1163_test.go"
+to = "storage/db_engine/litt/cli/cli_resource_lifecycle_test.go"
+
+[file.8]
+from = "storage/db_engine/litt/dbcache/repair_113_test.go"
+to = "storage/db_engine/litt/dbcache/cache_expiry_visibility_test.go"
+
+[file.9]
+from = "storage/db_engine/litt/disktable/repair_111_test.go"
+to = "storage/db_engine/litt/disktable/segment_capacity_test.go"
+
+[file.10]
+from = "storage/db_engine/litt/disktable/repair_m1168_test.go"
+to = "storage/db_engine/litt/disktable/batch_boundary_validation_test.go"
+
+[file.11]
+from = "storage/db_engine/litt/disktable/segment/repair_110_test.go"
+to = "storage/db_engine/litt/disktable/segment/key_durability_recovery_test.go"
+
+[file.12]
+from = "storage/db_engine/litt/disktable/segment/repair_m1162_test.go"
+to = "storage/db_engine/litt/disktable/segment/segment_file_lifecycle_test.go"
+
+[file.13]
+from = "storage/db_engine/litt/littbuilder/repair_115_test.go"
+to = "storage/db_engine/litt/littbuilder/table_builder_lifecycle_test.go"
+
+[file.14]
+from = "storage/db_engine/litt/littbuilder/repair_m1167_test.go"
+to = "storage/db_engine/litt/littbuilder/database_resource_lifecycle_test.go"
+
+[file.15]
+from = "storage/db_engine/litt/metrics/repair_117_test.go"
+to = "storage/db_engine/litt/metrics/disk_read_metrics_test.go"
+
+[file.16]
+from = "storage/db_engine/litt/repair_m1165_test.go"
+to = "storage/db_engine/litt/table_limits_and_lifecycle_test.go"
+
+[file.17]
+from = "storage/db_engine/litt/repair_m1166_test.go"
+to = "storage/db_engine/litt/config_and_documentation_test.go"
+
+[file.18]
+from = "storage/db_engine/litt/test/repair_m1172_test.go"
+to = "storage/db_engine/litt/test/cache_gc_and_lock_purge_test.go"
+
+[file.19]
+from = "storage/db_engine/litt/types/repair_m1173_test.go"
+to = "storage/db_engine/litt/types/address_byte_span_test.go"
+
+[file.20]
+from = "storage/db_engine/litt/util/repair_114_test.go"
+to = "storage/db_engine/litt/util/lock_backup_move_test.go"
+
+[file.21]
+from = "storage/db_engine/litt/util/repair_m1164_test.go"
+to = "storage/db_engine/litt/util/utility_lifecycle_test.go"
+
+[file.22]
+from = "storage/db_engine/litt/benchmark/config/repair_118.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/benchmark/config/repair_118.kvx"
+
+[file.23]
+from = "storage/db_engine/litt/benchmark/config/repair_m1169.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/benchmark/config/repair_m1169.kvx"
+
+[file.24]
+from = "storage/db_engine/litt/benchmark/repair_116.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/benchmark/repair_116.kvx"
+
+[file.25]
+from = "storage/db_engine/litt/benchmark/repair_m1170.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/benchmark/repair_m1170.kvx"
+
+[file.26]
+from = "storage/db_engine/litt/benchmark/repair_m1171.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/benchmark/repair_m1171.kvx"
+
+[file.27]
+from = "storage/db_engine/litt/cli/repair_112.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/cli/repair_112.kvx"
+
+[file.28]
+from = "storage/db_engine/litt/cli/repair_m1163.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/cli/repair_m1163.kvx"
+
+[file.29]
+from = "storage/db_engine/litt/dbcache/repair_113.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/dbcache/repair_113.kvx"
+
+[file.30]
+from = "storage/db_engine/litt/disktable/repair_111.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/disktable/repair_111.kvx"
+
+[file.31]
+from = "storage/db_engine/litt/disktable/repair_m1168.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/disktable/repair_m1168.kvx"
+
+[file.32]
+from = "storage/db_engine/litt/disktable/segment/repair_110.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/disktable/segment/repair_110.kvx"
+
+[file.33]
+from = "storage/db_engine/litt/disktable/segment/repair_m1162.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/disktable/segment/repair_m1162.kvx"
+
+[file.34]
+from = "storage/db_engine/litt/littbuilder/repair_115.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/littbuilder/repair_115.kvx"
+
+[file.35]
+from = "storage/db_engine/litt/littbuilder/repair_m1167.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/littbuilder/repair_m1167.kvx"
+
+[file.36]
+from = "storage/db_engine/litt/metrics/repair_117.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/metrics/repair_117.kvx"
+
+[file.37]
+from = "storage/db_engine/litt/repair_m1165.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/repair_m1165.kvx"
+
+[file.38]
+from = "storage/db_engine/litt/repair_m1166.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/repair_m1166.kvx"
+
+[file.39]
+from = "storage/db_engine/litt/test/repair_m1172.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/test/repair_m1172.kvx"
+
+[file.40]
+from = "storage/db_engine/litt/types/repair_m1173.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/types/repair_m1173.kvx"
+
+[file.41]
+from = "storage/db_engine/litt/util/repair_114.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/util/repair_114.kvx"
+
+[file.42]
+from = "storage/db_engine/litt/util/repair_m1164.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/litt/util/repair_m1164.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1163_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1165_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1701.kvx"
+name = "TestRepairM_1162_ConstructorErrors"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1701.kvx"
+name = "TestRepairM_1162_Rotation"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/1701.kvx"
+name = "repair_m1162.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/1701.kvx"
+name = "repair_m1162_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/programme/issues/1702.kvx"
+name = "repair_114_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/programme/issues/1703.kvx"
+name = "repair_m1163_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/programme/issues/1703.kvx"
+name = "repair_m1164_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/programme/issues/1704.kvx"
+name = "TestRepairM_1170_GeneratorExactPool"
+
+[reference.11]
+file = "spec/layerx-merge/programme/issues/1704.kvx"
+name = "repair_m1170_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/programme/issues/1705.kvx"
+name = "repair_m1172.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/programme/issues/1705.kvx"
+name = "repair_m1172_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/programme/issues/1801.kvx"
+name = "repair_114_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/programme/issues/input/1701.md"
+name = "repair_m1162.kvx"
+
+[reference.16]
+file = "spec/layerx-merge/programme/issues/input/1701.md"
+name = "repair_m1162_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/programme/issues/input/1705.md"
+name = "repair_m1172.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1163_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1165_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1162_ConstructorErrors"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1162_Rotation"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-m1164"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-m1167"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_110_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_111_test"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_111_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_112_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_113_test"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_113_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_114_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_115_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_116_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_117_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_118_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1162_test.go"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1163_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1164_test.go"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1165_test.go"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1166_test.go"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1167_test.go"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1168_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1169_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1170_test.go"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1171_test.go"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1172_test.go"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1173_test.go"

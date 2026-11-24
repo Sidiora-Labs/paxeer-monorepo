@@ -45,6 +45,9 @@ defmodule BlockScoutWeb.API.V2.MainPageControllerTest do
     end
 
     test "get last 6 transactions", %{conn: conn} do
+      previous = Application.get_env(:explorer, Explorer.Account)
+      Application.put_env(:explorer, Explorer.Account, Keyword.put(previous, :enabled, true))
+      on_exit(fn -> Application.put_env(:explorer, Explorer.Account, previous) end)
       transactions = insert_list(10, :transaction) |> with_block() |> Enum.take(-6) |> Enum.reverse()
 
       request = get(conn, "/api/v2/main-page/transactions")
@@ -117,6 +120,9 @@ defmodule BlockScoutWeb.API.V2.MainPageControllerTest do
     end
 
     test "get last 6 transactions", %{conn: conn} do
+      previous = Application.get_env(:explorer, Explorer.Account)
+      Application.put_env(:explorer, Explorer.Account, Keyword.put(previous, :enabled, true))
+      on_exit(fn -> Application.put_env(:explorer, Explorer.Account, previous) end)
       insert_list(10, :transaction) |> with_block()
 
       auth = build(:auth)
@@ -209,6 +215,7 @@ defmodule BlockScoutWeb.API.V2.MainPageControllerTest do
       observations: [
         %{
           market_id: 0,
+          accepted: true,
           sequence: 1,
           index_price: 1_000_000_000_000_000_000,
           mark_price: 2_000_000_000_000_000_000,

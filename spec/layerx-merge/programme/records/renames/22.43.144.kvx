@@ -1,0 +1,356 @@
+[manifest]
+task = "22.43.144"
+records_moved = 14
+files_renamed = 27
+
+[file.1]
+from = "services/explorer/services/libs/actix-phoenix-channel/tests/repair_22_31_272.rs"
+to = "services/explorer/services/libs/actix-phoenix-channel/tests/phoenix_channel_replies.rs"
+
+[file.2]
+from = "services/explorer/services/libs/api-client-framework/tests/repair_22_33_384.rs"
+to = "services/explorer/services/libs/api-client-framework/tests/credential_redaction.rs"
+
+[file.3]
+from = "services/explorer/services/libs/blockscout-auth/tests/repair_22_31_271.rs"
+to = "services/explorer/services/libs/blockscout-auth/tests/session_optionality.rs"
+
+[file.4]
+from = "services/explorer/services/libs/blockscout-auth/tests/repair_22_33_385.rs"
+to = "services/explorer/services/libs/blockscout-auth/tests/account_http_deadlines.rs"
+
+[file.5]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/fixtures/repair_22_33_430.json"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/fixtures/client_generation_examples.json"
+
+[file.6]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/fixtures/repair_22_33_568.json"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/fixtures/api_refusals.json"
+
+[file.7]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/health/repair_22_31_269.json"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/health/controller_lifecycle.json"
+
+[file.8]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/health_response_shape.rs"
+
+[file.9]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/model_wire_contracts.rs"
+
+[file.10]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_274.rs"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/api_pagination.rs"
+
+[file.11]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_278.rs"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/health_metadata.rs"
+
+[file.12]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_279.rs"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/api_response_preservation.rs"
+
+[file.13]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_279_cases.json"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/api_response_cases.json"
+
+[file.14]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_33_427.rs"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/configuration_and_transport.rs"
+
+[file.15]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_33_428.rs"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/health_and_action_models.rs"
+
+[file.16]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_33_568.rs"
+to = "services/explorer/services/libs/blockscout-client/crate/tests/http_lifecycle_and_refusals.rs"
+
+[file.17]
+from = "services/explorer/services/libs/blockscout-db/migration/tests/repair_22_33_413.rs"
+to = "services/explorer/services/libs/blockscout-db/migration/tests/unicode_sql_statements.rs"
+
+[file.18]
+from = "services/explorer/services/libs/blockscout-db/migration/tests/repair_22_33_415.rs"
+to = "services/explorer/services/libs/blockscout-db/migration/tests/rollback_runbook.rs"
+
+[file.19]
+from = "services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs"
+to = "services/explorer/services/libs/blockscout-service-launcher/tests/postgres_component_encoding.rs"
+
+[file.20]
+from = "services/explorer/services/libs/env-collector/tests/repair_22_33_476.rs"
+to = "services/explorer/services/libs/env-collector/tests/markdown_table_generation.rs"
+
+[file.21]
+from = "services/explorer/services/libs/env-collector/tests/repair_22_33_477.rs"
+to = "services/explorer/services/libs/env-collector/tests/readme_commands.rs"
+
+[file.22]
+from = "services/explorer/services/libs/recache/tests/repair_22_33_382.rs"
+to = "services/explorer/services/libs/recache/tests/cache_cancellation.rs"
+
+[file.23]
+from = "services/explorer/services/libs/recaptcha-verifier/tests/repair_22_33_383.rs"
+to = "services/explorer/services/libs/recaptcha-verifier/tests/verification_deadlines_and_expectations.rs"
+
+[file.24]
+from = "services/explorer/services/libs/sourcify/tests/repair_22_33_521.rs"
+to = "services/explorer/services/libs/sourcify/tests/verification_workflows.rs"
+
+[file.25]
+from = "services/explorer/services/libs/tests/repair_22_31_269.rs"
+to = "services/explorer/services/libs/tests/health_model_completeness.rs"
+
+[file.26]
+from = "services/explorer/services/libs/tests/repair_22_33_360.rs"
+to = "services/explorer/services/libs/tests/health_client_contract.rs"
+
+[file.27]
+from = "services/explorer/services/libs/tests/repair_22_33_430.rs"
+to = "services/explorer/services/libs/tests/client_generation_contract.rs"
+
+[file.28]
+from = "services/explorer/services/libs/api-client-framework/src/blockscout/repair_22_33_384.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/api-client-framework/src/blockscout/repair_22_33_384.kvx"
+
+[file.29]
+from = "services/explorer/services/libs/blockscout-auth/src/repair_22_31_271.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-auth/src/repair_22_31_271.kvx"
+
+[file.30]
+from = "services/explorer/services/libs/blockscout-auth/src/repair_22_33_385.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-auth/src/repair_22_33_385.kvx"
+
+[file.31]
+from = "services/explorer/services/libs/blockscout-client/crate/src/apis/repair_22_31_274.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-client/crate/src/apis/repair_22_31_274.kvx"
+
+[file.32]
+from = "services/explorer/services/libs/blockscout-client/crate/src/models/repair_22_33_428.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-client/crate/src/models/repair_22_33_428.kvx"
+
+[file.33]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_279.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_279.kvx"
+
+[file.34]
+from = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_33_568.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-client/crate/tests/repair_22_33_568.kvx"
+
+[file.35]
+from = "services/explorer/services/libs/blockscout-client/repair_22_33_430.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-client/repair_22_33_430.kvx"
+
+[file.36]
+from = "services/explorer/services/libs/blockscout-client/swaggers/overrides/repair_22_31_269.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-client/swaggers/overrides/repair_22_31_269.kvx"
+
+[file.37]
+from = "services/explorer/services/libs/blockscout-db/migration/src/repair_22_33_413.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-db/migration/src/repair_22_33_413.kvx"
+
+[file.38]
+from = "services/explorer/services/libs/blockscout-db/migration/src/repair_22_33_415.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-db/migration/src/repair_22_33_415.kvx"
+
+[file.39]
+from = "services/explorer/services/libs/blockscout-service-launcher/src/repair_22_33_458.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-service-launcher/src/repair_22_33_458.kvx"
+
+[file.40]
+from = "services/explorer/services/libs/recaptcha-verifier/src/repair_22_33_383.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/recaptcha-verifier/src/repair_22_33_383.kvx"
+
+[file.41]
+from = "services/explorer/services/libs/sourcify/src/repair_22_33_521.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/libs/sourcify/src/repair_22_33_521.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_269.rs"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_271.rs"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_273.rs"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_274.rs"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_278.rs"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_279.rs"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_33_430.rs"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "repair_22_33_382.rs"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "repair_22_33_458.rs"
+
+[reference.10]
+file = "spec/layerx-merge/programme/issues/1899.kvx"
+name = "repair_22_31_269.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/programme/issues/1899.kvx"
+name = "repair_22_31_269.rs"
+
+[reference.12]
+file = "spec/layerx-merge/programme/issues/input/1899.md"
+name = "repair_22_31_269.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/programme/issues/input/1899.md"
+name = "repair_22_31_269.rs"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_269.rs"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_271.rs"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_273.rs"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_274.rs"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_278.rs"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_279.rs"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_382.rs"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_430.rs"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_458.rs"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_269.rs"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_271.rs"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_272.rs"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_273.rs"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_274.rs"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_278.rs"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_279.rs"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_360.rs"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_382.rs"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_383.rs"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_384.rs"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_385.rs"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_413.rs"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_415.rs"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_427.rs"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_428.rs"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_430.rs"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_458.rs"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_476.rs"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_477.rs"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_521.rs"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_568.rs"
+
+[reference.45]
+file = "tools/qualification/audit_repairs/repair_22_33_360.kvx"
+name = "repair_22_33_360.rs"
+
+[reference.46]
+file = "tools/qualification/audit_repairs/test_repair_22_33_360.py"
+name = "repair_22_31_269.json"
+
+[reference.47]
+file = "tools/qualification/audit_repairs/test_repair_22_33_360.py"
+name = "repair_22_33_360.rs"

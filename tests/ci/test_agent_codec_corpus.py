@@ -157,14 +157,15 @@ def test_agent_vectors_prepare_codec_corpus_from_clean_checkout(tmp_path):
 
     vectors = run("make", "agent-test-vectors")
     assert vectors.returncode == 0, vectors.stdout
-    assert "running 3 tests" in vectors.stdout, vectors.stdout
+    assert "running 4 tests" in vectors.stdout, vectors.stdout
     for name in (
         "repository_corpora_are_loaded_and_fully_accounted",
+        "checkpoint_vectors_load_without_the_settlement_document",
         "unsupported_corpus_version_is_build_breaking",
         "unknown_vector_class_names_the_missing_capability",
     ):
         assert f"test {name} ... ok" in vectors.stdout, vectors.stdout
-    assert "test result: ok. 3 passed; 0 failed;" in vectors.stdout, vectors.stdout
+    assert "test result: ok. 4 passed; 0 failed;" in vectors.stdout, vectors.stdout
     generated = "retired budget pull excluded"
     assert generated in vectors.stdout, vectors.stdout
     assert vectors.stdout.index(generated) < vectors.stdout.index(

@@ -111,21 +111,42 @@ fn recorded_entry(rung: Rung) -> Result<(ActivityEntry, ReceiptActual), FeedErro
     let receipt = verified_receipt();
     let actual = ReceiptActual::from_verified(&receipt)
         .unwrap_or_else(|error| panic!("receipt actual: {error}"));
-    let delivery = EventDelivery::new(
-        EventIdentity::new([1; 32]),
+    let reference = ReceiptReference::Verified {
+        receipt_ref: ReceiptRef::new(actual.reference())
+            .unwrap_or_else(|error| panic!("receipt reference: {error:?}")),
+        rung,
+    };
+    let identity = EventIdentity::new([1; 32]);
+    let cursor = ApiCursor {
+        block_height: 1,
+        tx_index: 0,
+        log_index: 0,
+    };
+    let result = EventDelivery::new(
+        identity,
         receipt.canonical_bytes().to_vec(),
-        ApiCursor {
-            block_height: 1,
-            tx_index: 0,
-            log_index: 0,
-        },
-        ReceiptReference::Verified {
-            receipt_ref: ReceiptRef::new(actual.reference())
-                .unwrap_or_else(|error| panic!("receipt reference: {error:?}")),
-            rung,
-        },
-    )
-    .unwrap_or_else(|error| panic!("delivery: {error:?}"));
+        cursor,
+        reference.clone(),
+    );
+    let delivery = if rung == Rung::Submitted {
+        assert!(matches!(
+            result,
+            Err(layerx_agent_api::identity::ContractError::OutOfRange(
+                "receipt_reference_rung"
+            ))
+        ));
+        let mut adversarial = EventDelivery::new(
+            identity,
+            receipt.canonical_bytes().to_vec(),
+            cursor,
+            ReceiptReference::None,
+        )
+        .unwrap_or_else(|error| panic!("delivery: {error:?}"));
+        adversarial.receipt_reference = reference;
+        adversarial
+    } else {
+        result.unwrap_or_else(|error| panic!("delivery: {error:?}"))
+    };
     let activity = AgentActivity::new(
         ActivityEntryId::new("act_detailrung").unwrap_or_else(|error| panic!("entry id: {error}")),
         ActivityKind::Movement,

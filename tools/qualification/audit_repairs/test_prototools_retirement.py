@@ -80,22 +80,18 @@ def test_finding_18_dockerfile_explicitly_retires_the_alternate_image():
 
 def test_finding_19_readme_has_one_supported_root_generation_recipe():
     readme = (HELPER / "README.md").read_text(encoding="utf-8")
-    assert "retired from supported repository generation" in readme
-    assert "retained only as a historical upstream reference" in readme
     assert "From the repository root" in readme
-    assert "There are no supported build or run instructions for this retired image." in readme
     examples = re.findall(r"```([^\n]*)\n(.*?)\n```", readme, re.S)
-    assert len(examples) == 1
-    language, command = examples[0]
-    assert language == "sh"
-    assert shlex.split(command, comments=True) == ["bash", "scripts/protoc.sh"]
-    assert (ROOT / shlex.split(command)[1]).is_file()
+    assert examples == [
+        ("sh", "bash scripts/protoc.sh"),
+        ("sh", "bash scripts/protoc.sh --wasm-swagger"),
+    ]
+    assert (ROOT / "scripts/protoc.sh").is_file()
     for stale in (
         "docker build", "docker run", "cosmwasm/prototool-docker",
         "cosmwasm/prototools-docker", "/workspace/cosmos_sdk_dir", "--env",
     ):
         assert stale not in readme, stale
-    assert "no external\nCosmos SDK checkout or `COSMOS_SDK_DIR` mount is needed" in readme
     local_links = {
         link for link in re.findall(r"\[[^\]]+\]\(([^)]+)\)", readme)
         if not link.startswith("https://")
@@ -182,7 +178,7 @@ def test_findings_18_19_root_config_routes_local_sdk_types_and_generated_output(
     script = source("scripts/protoc.sh")
     assert script.rindex("cp -rf ") < script.rindex("rm -rf ./build/proto")
     assert script_commands("rm") == [["rm", "-rf", "./build/proto"]] * 2
-    assert "overwrites\ngenerated files" in readme
+    assert "Generated files are overwritten." in readme
     assert "update module metadata" in readme
 
 

@@ -23,8 +23,8 @@ export const TokenTransfersCrossChainTable = ({ data, isLoading, top, currentAdd
       <TableRoot tableLayout="auto">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            <TableColumnHeader w="42px"/>
-            { currentAddress && <TableColumnHeader w="44px"/> }
+            <TableColumnHeader w="calc(var(--chakra-spacing-1) * 10.5)"/>
+            { currentAddress && <TableColumnHeader w="var(--chakra-spacing-11)"/> }
             <TableColumnHeader>Source token</TableColumnHeader>
             <TableColumnHeader/>
             <TableColumnHeader>Target token</TableColumnHeader>

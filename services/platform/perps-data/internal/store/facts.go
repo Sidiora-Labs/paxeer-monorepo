@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
 	"strconv"
@@ -385,7 +386,7 @@ func insertFacts(ctx context.Context, tx *sql.Tx, rows []factRow) ([]bool, error
 		members [][]int
 		args    []any
 	)
-	flush := func() error {
+	flush := func() (resultErr error) {
 		if len(ctes) == 0 {
 			return nil
 		}
@@ -397,7 +398,11 @@ func insertFacts(ctx context.Context, tx *sql.Tx, rows []factRow) ([]bool, error
 		if err != nil {
 			return fmt.Errorf("store: insert facts: %w", err)
 		}
-		defer rs.Close()
+		defer func() {
+			if closeErr := rs.Close(); resultErr == nil {
+				resultErr = closeErr
+			}
+		}()
 		got := map[string]bool{}
 		for rs.Next() {
 			var (
@@ -830,12 +835,16 @@ func enqueueAll(ctx context.Context, tx *sql.Tx, msgs []outMsg) error {
 }
 
 // eventIDs runs q and returns its (event_id, subject, envelope) rows by id.
-func eventIDs(ctx context.Context, tx *sql.Tx, q string, args ...any) (map[string]*outMsg, error) {
+func eventIDs(ctx context.Context, tx *sql.Tx, q string, args ...any) (result0 map[string]*outMsg, resultErr error) {
 	rs, err := tx.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("store: enqueue: %w", err)
 	}
-	defer rs.Close()
+	defer func() {
+		if closeErr := rs.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := map[string]*outMsg{}
 	for rs.Next() {
 		var id string
@@ -897,12 +906,16 @@ ORDER BY block, tx_index, log_index, sub`
 
 // spotRegistry reads the registered spot tokens in tx: PAX, the first
 // registered non-stablecoin token, and the stablecoins.
-func spotRegistry(ctx context.Context, tx *sql.Tx) (common.Address, map[common.Address]bool, error) {
+func spotRegistry(ctx context.Context, tx *sql.Tx) (result0 common.Address, result1 map[common.Address]bool, resultErr error) {
 	rows, err := tx.QueryContext(ctx, spotRegistrySQL)
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("store: spot registry: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	var pax common.Address
 	stable := map[common.Address]bool{}
 	for rows.Next() {
@@ -1136,7 +1149,7 @@ func loadFacts(ctx context.Context, tx *sql.Tx, from, to int64) (map[uint64][]de
 	return loadRebuildFacts(ctx, tx, from, to, nil)
 }
 
-func loadRebuildFacts(ctx context.Context, tx *sql.Tx, from, to int64, scope *rebuildScope) (map[uint64][]decode.Row, error) {
+func loadRebuildFacts(ctx context.Context, tx *sql.Tx, from, to int64, scope *rebuildScope) (result0 map[uint64][]decode.Row, resultErr error) {
 	byBlock := map[uint64][]storedRow{}
 	for _, t := range storedTables() {
 		quoted := make([]string, len(t.columns))
@@ -1162,8 +1175,8 @@ func loadRebuildFacts(ctx context.Context, tx *sql.Tx, from, to int64, scope *re
 			args = append(args, scope.from, scope.to)
 			where = " AND (" + strings.Join(keys, " OR ") + ")"
 		}
-		rows, err := tx.QueryContext(ctx, `SELECT kind, `+strings.Join(quoted, ", ")+` FROM perps.`+pq.QuoteIdentifier(t.name)+
-			` WHERE block BETWEEN $1 AND $2`+where, args...)
+		rows, err := tx.QueryContext(ctx, strings.Join([]string{`SELECT kind, `, strings.Join(quoted, ", "), ` FROM perps.`, pq.QuoteIdentifier(t.name),
+			` WHERE block BETWEEN $1 AND $2`, where}, ""), args...)
 		if err != nil {
 			return nil, fmt.Errorf("store: read perps.%s: %w", t.name, err)
 		}
@@ -1174,19 +1187,31 @@ func loadRebuildFacts(ctx context.Context, tx *sql.Tx, from, to int64, scope *re
 				dest[i] = &raw[i]
 			}
 			if err := rows.Scan(dest...); err != nil {
-				rows.Close()
+				defer func() {
+					if closeErr := rows.Close(); resultErr == nil {
+						resultErr = closeErr
+					}
+				}()
 				return nil, fmt.Errorf("store: scan perps.%s: %w", t.name, err)
 			}
 			kind, _ := raw[0].(string)
 			typ, ok := t.kinds[kind]
 			if !ok {
-				rows.Close()
+				defer func() {
+					if closeErr := rows.Close(); resultErr == nil {
+						resultErr = closeErr
+					}
+				}()
 				return nil, fmt.Errorf("store: perps.%s holds kind %q of no row type", t.name, kind)
 			}
 			v := reflect.New(typ).Elem()
 			for _, c := range columnsOf(typ) {
 				if err := setField(v.FieldByIndex(c.index), raw[at[c.name]]); err != nil {
-					rows.Close()
+					defer func() {
+						if closeErr := rows.Close(); resultErr == nil {
+							resultErr = closeErr
+						}
+					}()
 					return nil, fmt.Errorf("store: perps.%s.%s: %w", t.name, c.name, err)
 				}
 			}
@@ -1281,7 +1306,11 @@ UNION SELECT market_id::text FROM perps.projection_seeds WHERE kind = $2 AND id 
 	return nil
 }
 
-func rebuildProject(ctx context.Context, tx *sql.Tx, rows []decode.Row, scope *rebuildScope, block uint64, at time.Time) error {
+func rebuildProject(ctx context.Context, tx *sql.Tx, rows []decode.Row, scope *rebuildScope, block uint64, at time.Time) (resultErr error) {
+	if block > math.MaxInt64 {
+		return fmt.Errorf("store: block %d exceeds database range", block)
+	}
+
 	var margin, stats set[common.Address]
 	var daily set[accountDay]
 	var markets set[string]
@@ -1368,7 +1397,11 @@ func rebuildProject(ctx context.Context, tx *sql.Tx, rows []decode.Row, scope *r
 	for rowsExpired.Next() {
 		var m string
 		if err := rowsExpired.Scan(&m); err != nil {
-			rowsExpired.Close()
+			defer func() {
+				if closeErr := rowsExpired.Close(); resultErr == nil {
+					resultErr = closeErr
+				}
+			}()
 			return err
 		}
 		markets.add(m)
@@ -1451,7 +1484,7 @@ func collectRecoveryScope(ctx context.Context, tx *sql.Tx, from, to int64) (*reb
 // cumulative protocol snapshots are refreshed from the first changed time.
 // Recovery supplies keys and time captured before deletion, including an empty
 // replacement range. Both leaderboards are rebuilt from surviving history.
-func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64, recovery ...Recovery) error {
+func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64, recovery ...Recovery) (resultErr error) {
 	if tx == nil {
 		return errors.New("store: Rebuild needs a transaction")
 	}
@@ -1494,12 +1527,12 @@ func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64, recovery ...Recove
 		return nil
 	}
 	for _, table := range []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily"} {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+pq.QuoteIdentifier(table)+` WHERE account = ANY($1::bytea[])`, scope.accounts); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`DELETE FROM perps.`, pq.QuoteIdentifier(table), ` WHERE account = ANY($1::bytea[])`}, ""), scope.accounts); err != nil {
 			return fmt.Errorf("store: clear perps.%s: %w", table, err)
 		}
 	}
 	for _, table := range []string{"market_stats_rolling", "market_snapshots"} {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+table+` WHERE market_id = ANY($1::numeric[])`, pq.Array(scope.markets.list)); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`DELETE FROM perps.`, pq.QuoteIdentifier(table), ` WHERE market_id = ANY($1::numeric[])`}, ""), pq.Array(scope.markets.list)); err != nil {
 			return err
 		}
 	}
@@ -1527,7 +1560,11 @@ func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64, recovery ...Recove
 		for rows.Next() {
 			var b stored
 			if err := rows.Scan(&b.number, &b.at); err != nil {
-				rows.Close()
+				defer func() {
+					if closeErr := rows.Close(); resultErr == nil {
+						resultErr = closeErr
+					}
+				}()
 				return err
 			}
 			blocks = append(blocks, b)
@@ -1539,7 +1576,11 @@ func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64, recovery ...Recove
 			return err
 		}
 		for _, b := range blocks {
-			if err := rebuildProject(ctx, tx, facts[uint64(b.number)], scope, uint64(b.number), b.at); err != nil {
+			number := b.number
+			if number < 0 {
+				return fmt.Errorf("store: block %d is negative", number)
+			}
+			if err := rebuildProject(ctx, tx, facts[uint64(number)], scope, uint64(number), b.at); err != nil {
 				return fmt.Errorf("store: rebuild block %d: %w", b.number, err)
 			}
 			var prev time.Time

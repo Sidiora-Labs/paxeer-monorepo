@@ -35,8 +35,7 @@ func chainPosition(p accounting.SourcePosition) map[string]any {
 func tokenDocument(row store.PoolRegistryRow) map[string]any {
 	token := map[string]any{literalAddress: row.Token, "name": "", "symbol": "", literalDecimals: nil, "decimalsQuality": literalUnavailable, "totalSupplyRaw": nil, "supplyQuality": literalUnavailable, "sourcePosition": nil, "metadataRevision": "0", "logoAssetId": nil}
 	if m := row.Metadata; m != nil {
-		token["name"] = m.Name
-		token["symbol"] = m.Symbol
+		token["name"], token["symbol"] = coinText(m.Name, m.Symbol)
 		token[literalDecimals] = int(m.Decimals)
 		token["decimalsQuality"] = literalVerified
 		token["totalSupplyRaw"] = m.TotalSupply
@@ -68,12 +67,20 @@ func resolvePools(ctx context.Context, o ProductionReadOptions, pools []string) 
 	if err != nil {
 		return nil, err
 	}
+	var feePolicy store.PoolFeePolicy
+	if o.PoolFeePolicy != nil {
+		feePolicy = o.PoolFeePolicy()
+	}
 	for _, pool := range known {
 		if _, hasState := reserves[pool]; !hasState {
 			return nil, errPoolStateUnavailable
 		}
 		if _, hasFee := fees[pool]; !hasFee {
-			return nil, errPoolStateUnavailable
+			fee, available := feePolicy.FeeBps(reserves[pool].CreatedAt)
+			if !available {
+				return nil, errPoolStateUnavailable
+			}
+			fees[pool] = fee
 		}
 	}
 	homeChains, err := o.Store.PoolHomeChains(ctx, known)

@@ -5,10 +5,12 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React from 'react';
 
+import type { ChartMarketResponse } from 'types/api/charts';
 import type { HomeStatsWidgetId } from 'types/homepage';
 
 import * as blockFixtures from 'mocks/blocks/block';
 import { outputRootsData } from 'mocks/optimism/outputRoots';
+import * as dailyTxsFixtures from 'mocks/stats/daily_txs';
 import * as statsFixtures from 'mocks/stats/index';
 import * as mainStatsFixtures from 'mocks/stats/main';
 import { afterAll, afterEach, beforeEach, expect, test as registerTest, vi } from 'vitest';
@@ -22,6 +24,15 @@ let utilization: number | null = statsFixtures.base.network_utilization_percenta
 let gasPrices = statsFixtures.base.gas_prices;
 const requests: Array<string> = [];
 const latestBatch = 17384;
+const marketChart: ChartMarketResponse = {
+  available_supply: '165672954',
+  chart_data: [ '2026-01-01', '2026-01-02' ].map((date) => ({
+    date,
+    closing_price: statsFixtures.base.coin_price,
+    market_cap: statsFixtures.base.market_cap,
+    tvl: statsFixtures.base.tvl,
+  })),
+};
 const server = createServer((request, response) => {
   const path = new URL(request.url!, 'http://localhost').pathname;
   requests.push(path);
@@ -34,6 +45,8 @@ const server = createServer((request, response) => {
       };
       case '/api/v2/main-page/blocks': return [ blockFixtures.base, blockFixtures.base2 ];
       case '/api/v1/pages/main': return mainStatsFixtures.base;
+      case '/api/v2/stats/charts/transactions': return dailyTxsFixtures.base;
+      case '/api/v2/stats/charts/market': return marketChart;
       case '/api/v2/main-page/arbitrum/batches/latest-number': return latestBatch;
       case '/api/v2/optimism/output-roots': return outputRootsData;
       default: response.statusCode = 404; return { error: `Unexpected fixture request: ${ path }` };
@@ -141,10 +154,11 @@ afterEach(() => {
   expect(requests.filter((path) => ![
     '/explorer/assets/configs/homepage_highlights_config.json', '/api/v2/stats', '/api/v2/main-page/blocks',
     '/api/v1/pages/main', '/api/v2/main-page/arbitrum/batches/latest-number', '/api/v2/optimism/output-roots',
+    '/api/v2/stats/charts/transactions', '/api/v2/stats/charts/market',
   ].includes(path))).toEqual([]);
 });
 
-async function heroContainerConfigLight() {
+registerTest('heroContainerConfigLight', async function heroContainerConfigLight() {
   expect(config.UI.homepage.heroBanner).toEqual(heroConfig);
   const { container } = render(React.createElement(HeroBanner));
   const hero = container.querySelector('[data-label="hero"]') as HTMLElement;
@@ -152,14 +166,14 @@ async function heroContainerConfigLight() {
   expect(hero.style.border).toBe('3px solid green');
   expect((container.querySelector('[data-label="hero-title"]') as HTMLElement).style.color).toBe('deepskyblue');
   expect(container.querySelector('[data-label="hero-search"] input')).not.toBeNull();
-}
+});
 
-async function heroCustomizationDark() {
+registerTest('heroCustomizationDark', async function heroCustomizationDark() {
   const { container } = render(React.createElement(HeroBanner), 'dark');
   await expect.poll(() => (container.querySelector('[data-label="hero"]') as HTMLElement).style.background).toBe('navy');
   expect((container.querySelector('[data-label="hero"]') as HTMLElement).style.border).toBe('3px dashed yellow');
   expect((container.querySelector('[data-label="hero-title"]') as HTMLElement).style.color).toBe('white');
-}
+});
 
 async function assertBanners(container: HTMLElement, count: number, dark: boolean) {
   await expect.poll(() => container.querySelectorAll('[data-promotional-banner]').length).toBe(count);
@@ -175,13 +189,13 @@ async function assertBanners(container: HTMLElement, count: number, dark: boolea
   expect(requests).toContain('/explorer/assets/configs/homepage_highlights_config.json');
 }
 
-async function highlightsConfiguredHomepageEntry() {
+registerTest('highlightsConfiguredHomepageEntry', async function highlightsConfiguredHomepageEntry() {
   const { container } = render(React.createElement(HeroBanner));
   await assertBanners(container, 3, false);
   expect(container.querySelector('[data-label="hero"]')).not.toBeNull();
-}
+});
 
-async function highlightsTwoAndThreeAdaptiveBanners() {
+registerTest('highlightsTwoAndThreeAdaptiveBanners', async function highlightsTwoAndThreeAdaptiveBanners() {
   banners = HIGHLIGHTS_CONFIG.slice(0, 2);
   const first = render(React.createElement(PromotionalBanners));
   await assertBanners(first.container, 2, false);
@@ -191,9 +205,9 @@ async function highlightsTwoAndThreeAdaptiveBanners() {
   const reopened = render(React.createElement(PromotionalBanners), 'dark');
   await assertBanners(reopened.container, 3, true);
   expect(requests.filter((path) => path === '/explorer/assets/configs/homepage_highlights_config.json')).toHaveLength(2);
-}
+});
 
-async function highlightsStatisticsRemainSeparate() {
+registerTest('highlightsStatisticsRemainSeparate', async function highlightsStatisticsRemainSeparate() {
   const empty = render(React.createElement(Highlights));
   expect(empty.container.querySelector('[data-label="home-highlights"]')).toBeNull();
   empty.unmount();
@@ -201,120 +215,133 @@ async function highlightsStatisticsRemainSeparate() {
   expect(container.querySelector('[data-highlight="coin_price"]')?.textContent).toContain('$1.00');
   expect(container.querySelector('[data-promotional-banner]')).toBeNull();
   expect(requests).toEqual([]);
-}
+});
 
-async function nullableUtilizationAndNumericBehavior() {
-  for (const [ value, expectedColor ] of [ [ null, undefined ], [ 0, 'green' ], [ 55.1234, 'orange' ], [ 91.2345, 'red' ] ] as const) {
-    utilization = value;
-    const { container, unmount } = render(React.createElement(HomeRpcDataContextProvider, null, React.createElement(LatestBlocks)));
-    await expect.poll(() => container.querySelectorAll('[data-latest-block]').length).toBe(2);
-    const note = container.querySelector('[data-note]') as HTMLElement;
-    await expect.poll(() => note.textContent).toContain('Current epoch: #42');
-    if (value === null) {
-      expect(note.textContent).not.toContain('Network utilization:');
-      expect(note.textContent).not.toContain('%');
-    } else {
-      await expect.poll(() => note.textContent).toContain(`${ value.toFixed(2) }%`);
-      const number = Array.from(note.querySelectorAll('span')).find((span) => span.textContent === `${ value.toFixed(2) }%`)!;
-      expect(number.className).toBeTruthy();
-      const rules = Array.from(document.querySelectorAll('style')).flatMap((style) => Array.from(style.sheet?.cssRules ?? []));
-      const colorClass = Array.from(number.classList).find((className) => className.startsWith('css-'));
-      const colorRule = rules.find((rule) => rule.cssText.includes(`.${ colorClass }`));
-      expect(colorRule?.cssText).toContain(`var(--chakra-colors-${ expectedColor }-600)`);
-    }
-    expect(requests).toContain('/api/v2/stats');
-    unmount();
+registerTest.each([
+  [ null, undefined ],
+  [ 0, 'positive' ],
+  [ 55.1234, 'warning' ],
+  [ 91.2345, 'negative' ],
+] as const)('nullableUtilizationAndNumericBehavior %s', async function nullableUtilizationAndNumericBehavior(value, expectedColor) {
+  utilization = value;
+  const { container, unmount } = render(React.createElement(HomeRpcDataContextProvider, null, React.createElement(LatestBlocks)));
+  await expect.poll(() => container.querySelectorAll('[data-latest-block]').length).toBe(2);
+  const note = container.querySelector('[data-note]') as HTMLElement;
+  await expect.poll(() => note.textContent).toContain('Current epoch: #42');
+  if (value === null) {
+    expect(note.textContent).not.toContain('Network utilization:');
+    expect(note.textContent).not.toContain('%');
+  } else {
+    await expect.poll(() => note.textContent).toContain(`${ value.toFixed(2) }%`);
+    const number = Array.from(note.querySelectorAll('span')).find((span) => span.textContent === `${ value.toFixed(2) }%`)!;
+    expect(number.className).toBeTruthy();
+    const rules = Array.from(document.querySelectorAll('style')).flatMap((style) => Array.from(style.sheet?.cssRules ?? []));
+    const colorClass = Array.from(number.classList).find((className) => className.startsWith('css-'));
+    const colorRule = rules.find((rule) => rule.cssText.includes(`.${ colorClass }`));
+    expect(colorRule?.cssText).toContain(`var(--chakra-colors-${ expectedColor })`);
   }
-}
+  expect(requests).toContain('/api/v2/stats');
+  unmount();
+});
 
 function widgetValues(container: HTMLElement) {
-  return Object.fromEntries(Array.from(container.querySelectorAll('[data-highlight]')).map((row) => [
-    row.getAttribute('data-highlight'), row.querySelector('[data-value]')?.textContent,
+  return Object.fromEntries(Array.from(container.querySelectorAll('[data-stat]')).map((row) => [
+    row.getAttribute('data-stat'), row.querySelector('[data-value]')?.textContent,
   ]));
 }
 
-async function statsWidgetSelectionAndProducerValues() {
+const serviceTileValues = {
+  total_blocks: Number(mainStatsFixtures.base.total_blocks!.value).toLocaleString(),
+  average_block_time: `${ Number(mainStatsFixtures.base.average_block_time!.value).toFixed(1) }s`,
+  total_txs: Number(mainStatsFixtures.base.total_transactions!.value).toLocaleString(),
+  wallet_addresses: Number(mainStatsFixtures.base.total_addresses!.value).toLocaleString(),
+  gas_tracker: '23.75 Gwei',
+};
+const backendTileValues = {
+  total_blocks: Number(statsFixtures.base.total_blocks).toLocaleString(),
+  average_block_time: '6.2s',
+  total_txs: Number(statsFixtures.base.total_transactions).toLocaleString(),
+  wallet_addresses: Number(statsFixtures.base.total_addresses).toLocaleString(),
+  gas_tracker: '23.75 Gwei',
+};
+
+registerTest('statsCoreTilesAndProducerValues', async function statsCoreTilesAndProducerValues() {
   expect(config.UI.homepage.stats).toEqual(allWidgetIds);
   const { container } = render(React.createElement(Stats));
-  await expect.poll(() => widgetValues(container).wallet_addresses).toBe(Number(mainStatsFixtures.base.total_addresses!.value).toLocaleString());
-  await expect.poll(() => widgetValues(container).latest_batch).toBe(latestBatch.toLocaleString());
-  await expect.poll(() => widgetValues(container)).toEqual({
-    total_blocks: blockFixtures.base.height.toLocaleString(),
-    average_block_time: `${ Number(mainStatsFixtures.base.average_block_time!.value).toFixed(1) }s`,
-    total_txs: Number(mainStatsFixtures.base.total_transactions!.value).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }),
-    wallet_addresses: Number(mainStatsFixtures.base.total_addresses!.value).toLocaleString(),
-    gas_tracker: '23.8 Gwei',
-    btc_locked: '3,337.49',
-    current_epoch: '42',
-    total_operational_txs: Number(mainStatsFixtures.base.total_operational_transactions!.value).toLocaleString(),
-    latest_batch: latestBatch.toLocaleString(),
-  });
-  expect(container.querySelector('[data-highlight="latest_l1_state_batch"]')).toBeNull();
+  await expect.poll(() => widgetValues(container).wallet_addresses).toBe(serviceTileValues.wallet_addresses);
+  await expect.poll(() => widgetValues(container).total_blocks).toBe(serviceTileValues.total_blocks);
+  await expect.poll(() => widgetValues(container)).toEqual(serviceTileValues);
+  expect(Array.from(container.querySelectorAll('[data-stat] h2'), (label) => label.textContent))
+    .toEqual([ 'Total blocks', 'Average block time', 'Total transactions', 'Wallet addresses', 'Gas price' ]);
+  for (const id of [ 'btc_locked', 'current_epoch', 'total_operational_txs', 'latest_batch', 'latest_l1_state_batch' ]) {
+    expect(container.querySelector(`[data-stat="${ id }"]`)).toBeNull();
+  }
   expect(requests).toContain('/api/v1/pages/main');
   expect(requests).toContain('/api/v2/stats');
-  expect(requests).toContain('/api/v2/main-page/blocks');
-}
+  expect(requests).not.toContain('/api/v2/main-page/blocks');
+  expect(requests).not.toContain('/api/v2/main-page/arbitrum/batches/latest-number');
+  expect(requests).not.toContain('/api/v2/optimism/output-roots');
+});
 
-async function statsDisabledWidgetsAndMissingGas() {
+registerTest('statsMissingGasKeepsCoreTiles', async function statsMissingGasKeepsCoreTiles() {
   config.UI.homepage.stats.splice(0, config.UI.homepage.stats.length, 'wallet_addresses', 'gas_tracker');
   gasPrices = null;
   const { container } = render(React.createElement(Stats));
-  await expect.poll(() => widgetValues(container)).toEqual({ wallet_addresses: Number(mainStatsFixtures.base.total_addresses!.value).toLocaleString() });
-  for (const id of allWidgetIds.filter((id) => id !== 'wallet_addresses')) {
-    expect(container.querySelector(`[data-highlight="${ id }"]`)).toBeNull();
+  await expect.poll(() => widgetValues(container)).toEqual({ ...serviceTileValues, gas_tracker: '—' });
+  for (const id of allWidgetIds) {
+    const tile = container.querySelector(`[data-stat="${ id }"]`);
+    if (id in serviceTileValues) {
+      expect(tile).not.toBeNull();
+    } else {
+      expect(tile).toBeNull();
+    }
   }
   expect(requests).not.toContain('/api/v2/main-page/arbitrum/batches/latest-number');
-}
+});
 
-async function statsCoinSelectionAndEmptySelection() {
+registerTest('statsConfiguredMarketChartsAndCoreTiles', async function statsConfiguredMarketChartsAndCoreTiles() {
   config.UI.homepage.stats.splice(0);
   const empty = render(React.createElement(Stats));
   await expect.poll(() => requests.includes('/api/v2/stats')).toBe(true);
-  expect(empty.container.querySelector('[data-label="home-stats"]')).toBeNull();
+  expect(empty.container.querySelector('[data-label="home-stats"]')).not.toBeNull();
+  await expect.poll(() => widgetValues(empty.container)).toEqual(serviceTileValues);
+  expect(empty.container.querySelector('[data-label="home-market-history"]')).toBeNull();
   empty.unmount();
   config.UI.homepage.charts.push('coin_price', 'market_cap');
   const { container } = render(React.createElement(Stats));
-  await expect.poll(() => widgetValues(container).coin_price).toBe('$0.001997');
-  await expect.poll(() => widgetValues(container)).toEqual({ coin_price: '$0.001997', market_cap: '$330,809.96' });
-}
+  await expect.poll(() => widgetValues(container)).toEqual(serviceTileValues);
+  for (const [ id, field, title ] of [ [ 'coin_price', 'closing_price', 'ETH price' ], [ 'market_cap', 'market_cap', 'ETH market value' ] ] as const) {
+    const chart = container.querySelector(`[data-label="home-market-history"][data-indicator="${ id }"]`)!;
+    await expect.poll(() => chart.querySelector('[data-points]')?.getAttribute('data-points')).toBe('2');
+    expect(chart.querySelector('[data-title]')?.textContent).toBe(title);
+    expect(chart.querySelector('svg')?.getAttribute('aria-label')).toBe(title);
+    expect(chart.querySelector('desc')?.textContent?.trim()).toBe(marketChart.chart_data.map((sample) => (
+      `${ new Date(sample.date).toLocaleDateString() }: ${ Number(sample[field]).toLocaleString(undefined, { maximumSignificantDigits: 21 }) }`
+    )).join('; '));
+  }
+  expect(requests).toContain('/api/v2/stats/charts/market');
+});
 
-async function statsDefaultBackendWidgets() {
+registerTest('statsDefaultBackendTiles', async function statsDefaultBackendTiles() {
   vi.resetModules();
   window.__envs = { ...window.__envs, NEXT_PUBLIC_STATS_API_HOST: '', NEXT_PUBLIC_HOMEPAGE_STATS: '', NEXT_PUBLIC_ROLLUP_TYPE: '' };
   const { 'default': BackendStats } = await import('./Stats');
   const { container } = render(React.createElement(BackendStats));
-  await expect.poll(() => widgetValues(container).wallet_addresses).toBe(Number(statsFixtures.base.total_addresses).toLocaleString());
-  await expect.poll(() => widgetValues(container)).toEqual({
-    total_blocks: blockFixtures.base.height.toLocaleString(),
-    average_block_time: '6.2s',
-    total_txs: Number(statsFixtures.base.total_transactions).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }),
-    wallet_addresses: Number(statsFixtures.base.total_addresses).toLocaleString(),
-    gas_tracker: '23.8 Gwei',
-  });
+  await expect.poll(() => widgetValues(container).wallet_addresses).toBe(backendTileValues.wallet_addresses);
+  await expect.poll(() => widgetValues(container)).toEqual(backendTileValues);
   expect(requests).not.toContain('/api/v1/pages/main');
-}
+  await expect.poll(() => requests).toContain('/api/v2/stats/charts/transactions');
+  expect(container.querySelector('[data-label="home-stats-history"] [data-title]')?.textContent)
+    .toBe('Blockscout transaction history in 14 days');
+});
 
-async function statsOptimisticStateBatch() {
+registerTest('statsOptimisticCoreTiles', async function statsOptimisticCoreTiles() {
   vi.resetModules();
   window.__envs = { ...window.__envs, NEXT_PUBLIC_ROLLUP_TYPE: 'optimistic', NEXT_PUBLIC_HOMEPAGE_STATS: '["latest_l1_state_batch"]' };
   const { 'default': OptimisticStats } = await import('./Stats');
   const { container } = render(React.createElement(OptimisticStats));
-  await expect.poll(() => widgetValues(container)).toEqual({ latest_l1_state_batch: outputRootsData.items[0].l2_output_index.toLocaleString() });
-  expect(requests).toContain('/api/v2/optimism/output-roots');
-}
-
-function test(proof: () => Promise<void>) {
-  registerTest(proof.name, proof);
-}
-
-test(heroContainerConfigLight);
-test(heroCustomizationDark);
-test(highlightsConfiguredHomepageEntry);
-test(highlightsTwoAndThreeAdaptiveBanners);
-test(highlightsStatisticsRemainSeparate);
-test(nullableUtilizationAndNumericBehavior);
-test(statsWidgetSelectionAndProducerValues);
-test(statsDisabledWidgetsAndMissingGas);
-test(statsCoinSelectionAndEmptySelection);
-test(statsDefaultBackendWidgets);
-test(statsOptimisticStateBatch);
+  await expect.poll(() => widgetValues(container)).toEqual(backendTileValues);
+  expect(container.querySelector('[data-stat="latest_l1_state_batch"]')).toBeNull();
+  expect(requests).not.toContain('/api/v2/optimism/output-roots');
+  await expect.poll(() => requests).toContain('/api/v2/stats/charts/transactions');
+});

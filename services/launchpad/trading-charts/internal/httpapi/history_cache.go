@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -343,7 +344,10 @@ func (c *HistoryCache) read(ctx context.Context, r HistoryRequest, mode, algorit
 			return chartCacheValue{}, err
 		}
 		after, err := c.Revision.Read(ctx, r)
-		if err != nil || after != version {
+		if err != nil {
+			return chartCacheValue{}, fmt.Errorf("history revision read failed: %w", err)
+		}
+		if after != version {
 			return chartCacheValue{}, errors.New("history revision changed during fill")
 		}
 		watermark, _ := json.Marshal(page.Watermark)
@@ -414,6 +418,7 @@ func (h ProductionHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		r.From = r.To - maxHistorySpan
 	}
 	if h.Cache == nil || h.Algorithm == "" {
+		slog.ErrorContext(req.Context(), "chart history unavailable", "err", "history cache or algorithm absent")
 		historyError(w, 503, "DEPENDENCY_UNAVAILABLE", "history cache authority unavailable", true)
 		return
 	}
@@ -421,6 +426,7 @@ func (h ProductionHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 	defer cancel()
 	value, err := h.Cache.read(ctx, r, mode, h.Algorithm, h.HistoricalPermit, h.Source, h.Supply)
 	if err != nil || ctx.Err() != nil {
+		slog.ErrorContext(ctx, "chart history read failed", "err", errors.Join(err, ctx.Err()))
 		historyError(w, 503, "DEPENDENCY_UNAVAILABLE", "canonical history unavailable", true)
 		return
 	}

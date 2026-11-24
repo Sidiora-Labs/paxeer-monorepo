@@ -152,7 +152,9 @@ export function ExchangeOrderControls({
   const field = (label: string, key: keyof PerpsOrderInputs) => (
     <TextField
       label={label}
+      name={key}
       inputMode="decimal"
+      autoComplete="off"
       value={inputs[key]}
       onChange={(event) => { onChange(key, event.target.value); }}
     />
@@ -442,7 +444,9 @@ function AccountExchangeActions({
           />
           <TextField
             label={`Collateral (${collateral.symbol})`}
+            name="open_position_collateral"
             inputMode="decimal"
+            autoComplete="off"
             value={openCollateralText}
             onChange={(event) => {
               setOpenCollateralText(event.target.value);
@@ -450,7 +454,9 @@ function AccountExchangeActions({
           />
           <TextField
             label="Leverage (x)"
+            name="open_position_leverage"
             inputMode="decimal"
+            autoComplete="off"
             value={leverageText}
             onChange={(event) => {
               setLeverageText(event.target.value);
@@ -563,7 +569,9 @@ function AccountExchangeActions({
         <div className="flex flex-col gap-3">
           <TextField
             label={`Amount (${collateral.symbol})`}
+            name="margin_amount"
             inputMode="decimal"
+            autoComplete="off"
             value={marginText}
             onChange={(event) => {
               setMarginText(event.target.value);

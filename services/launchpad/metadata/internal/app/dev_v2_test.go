@@ -35,6 +35,8 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/internaltest"
 )
 
+const eventEmitterFixturePath = "../../../../../sdk/launchpad/protocol/bindings/testdata/contract_events/EventEmitter.json"
+
 // The development v2 fixture builds app.New against Postgres and Redis,
 // replaying the deployed chain-125 factory receipt and its real indexer output.
 // Other creator-flow tests use the in-process geth helper below for wallets
@@ -94,7 +96,7 @@ func (c *devChain) emitTokenDeployed(t *testing.T, token, pool, creator string, 
 		t.Fatal(err)
 	}
 	height := new(big.Int).Add(head.Number, big.NewInt(1))
-	rawABI, err := os.ReadFile("../../../../../sdk/launchpad/protocol/bindings/testdata/repair37/EventEmitter.json")
+	rawABI, err := os.ReadFile(eventEmitterFixturePath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +356,7 @@ func checkMediaContract(t *testing.T, f devFixture) {
 // real indexer's retained creation output.
 func trackedDevFactory(t *testing.T) (string, *types.Receipt) {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/repair_m1006_factory.json")
+	raw, err := os.ReadFile("testdata/metadata_maintenance_factory.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +368,7 @@ func trackedDevFactory(t *testing.T) (string, *types.Receipt) {
 	if err = json.Unmarshal(evidence.Receipt, &receipt); err != nil {
 		t.Fatal(err)
 	}
-	indexed, err := os.ReadFile("testdata/repair_m1006_indexer.json")
+	indexed, err := os.ReadFile("testdata/metadata_maintenance_indexer.json")
 	if err != nil {
 		t.Fatal(err)
 	}

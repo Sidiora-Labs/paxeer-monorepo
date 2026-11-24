@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,7 +38,7 @@ func NewCredentials(ctx context.Context, options secrets.Options, keys ...string
 		}
 		value, e := p.GetRequired(ctx, key)
 		if e != nil {
-			return nil, ErrUnavailable
+			return nil, fmt.Errorf("%w: load credential %s: %w", ErrUnavailable, key, e)
 		}
 		c.values[key] = value
 	}
@@ -67,10 +69,13 @@ func (c *Credentials) Refresh(ctx context.Context) error {
 	for _, k := range keys {
 		value, e := c.provider.GetRequired(ctx, k)
 		if e != nil || value == "" {
+			if e == nil {
+				e = errors.New("credential value is empty")
+			}
 			c.mu.Lock()
 			c.ready = false
 			c.mu.Unlock()
-			return ErrUnavailable
+			return fmt.Errorf("%w: refresh credential %s: %w", ErrUnavailable, k, e)
 		}
 		next[k] = value
 	}
@@ -289,6 +294,10 @@ func (r *HTTPRuntime) Handler() http.Handler {
 	}
 	return mux
 }
+
+// InternalHandler must be served only on a private listener that requires and
+// verifies a client certificate, never on a public router. The runtime's
+// InternalPolicy authorizes both the account removal and chat intent routes.
 func (r *HTTPRuntime) InternalHandler() http.Handler { return r.Notifications.InternalHandler() }
 func (r *HTTPRuntime) Ready(ctx context.Context) error {
 	if r == nil || r.DB == nil {
@@ -365,6 +374,9 @@ func (r *HTTPRuntime) maintain(ctx context.Context) error {
 			e = r.Discovery.Store.ExpireSnapshots(bounded, time.Now().UTC())
 		}
 		cancel()
+		if e != nil {
+			log.Printf("notification maintenance failed: %v", e)
+		}
 		if e != nil && !errors.Is(e, ErrUnavailable) {
 			return e
 		}

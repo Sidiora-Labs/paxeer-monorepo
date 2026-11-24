@@ -1,0 +1,492 @@
+{
+  "name": "Inference peer, WebAssembly playground and codebase map",
+  "directory": "pages/dist",
+  "build": "node ../build.mjs",
+  "address": "http://127.0.0.1:4177",
+  "readyPath": "/peer/index.html",
+  "views": [
+    {
+      "name": "inference-peer",
+      "path": "/peer/index.html",
+      "states": [
+        {
+          "name": "manifest-collapsed",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "summary:has-text(\"Measure the participant manifest\")"
+            }
+          ]
+        },
+        {
+          "name": "validation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#measure"
+            },
+            {
+              "action": "fill",
+              "selector": "#region",
+              "value": "1"
+            },
+            {
+              "action": "press",
+              "selector": "#region",
+              "key": "Tab"
+            },
+            {
+              "action": "fill",
+              "selector": "#host",
+              "value": "invalid"
+            },
+            {
+              "action": "press",
+              "selector": "#host",
+              "key": "Tab"
+            }
+          ]
+        },
+        {
+          "name": "measurement-error",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#manifest-v1",
+              "value": "00"
+            },
+            {
+              "action": "fill",
+              "selector": "#region",
+              "value": "US"
+            },
+            {
+              "action": "click",
+              "selector": "#measure"
+            },
+            {
+              "action": "wait",
+              "text": "Measurement failed"
+            }
+          ]
+        },
+        {
+          "name": "host-offer",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "summary:has-text(\"Host offer\")"
+            }
+          ]
+        },
+        {
+          "name": "host-deal",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "summary:has-text(\"Host deal\")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "inference-room-status",
+      "path": "/peer/index.html?state=room-status"
+    },
+    {
+      "name": "playground-parse",
+      "path": "/playground/parse.html",
+      "states": [
+        {
+          "name": "empty",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#input",
+              "value": ""
+            },
+            {
+              "action": "click",
+              "selector": "#output[style*=\"color: rgb(170, 0, 0)\"]"
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#input",
+              "value": "(module"
+            },
+            {
+              "action": "wait",
+              "text": "wasm-tools parse"
+            },
+            {
+              "action": "click",
+              "selector": "#output[style*=\"color: rgb(170, 0, 0)\"]"
+            }
+          ]
+        },
+        {
+          "name": "filled",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#input",
+              "value": "(module (func (export \"answer\") (result i32) i32.const 42))"
+            },
+            {
+              "action": "click",
+              "selector": "#download:enabled"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "playground-print",
+      "path": "/playground/print.html",
+      "states": [
+        {
+          "name": "skeleton",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#skeleton"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "playground-parse-route",
+      "path": "/playground/parse"
+    },
+    {
+      "name": "playground-print-route",
+      "path": "/playground/print"
+    },
+    {
+      "name": "playground-print-empty",
+      "path": "/playground/print.html?state=print-empty"
+    },
+    {
+      "name": "playground-print-error",
+      "path": "/playground/print.html?state=print-error"
+    },
+    {
+      "name": "playground-print-drop",
+      "path": "/playground/print.html?state=print-drop"
+    },
+    {
+      "name": "playground-project",
+      "path": "/playground/index.html"
+    },
+    {
+      "name": "playground-project-destination",
+      "path": "/project.html"
+    },
+    {
+      "name": "codebase-map",
+      "path": "/map/index.html",
+      "states": [
+        {
+          "name": "systems-selection",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Systems\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            }
+          ]
+        },
+        {
+          "name": "packages",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Packages\")"
+            }
+          ]
+        },
+        {
+          "name": "packages-selection",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Packages\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            }
+          ]
+        },
+        {
+          "name": "files",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Files\")"
+            }
+          ]
+        },
+        {
+          "name": "files-selection",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Files\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            }
+          ]
+        },
+        {
+          "name": "symbols",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Symbols\")"
+            }
+          ]
+        },
+        {
+          "name": "symbols-selection",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Symbols\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            }
+          ]
+        },
+        {
+          "name": "imports",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Imports\")"
+            }
+          ]
+        },
+        {
+          "name": "imports-selection",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Files\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item:has-text(\"app.js\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inspector-content button:has-text(\"Imports\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            }
+          ]
+        },
+        {
+          "name": "routes",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Routes\")"
+            }
+          ]
+        },
+        {
+          "name": "delivery",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Delivery\")"
+            }
+          ]
+        },
+        {
+          "name": "delivery-selection",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Delivery\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            }
+          ]
+        },
+        {
+          "name": "file-symbols",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Files\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            },
+            {
+              "action": "click",
+              "selector": "#inspector-content button:has-text(\"Symbols\")"
+            }
+          ]
+        },
+        {
+          "name": "file-imports",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Files\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            },
+            {
+              "action": "click",
+              "selector": "#inspector-content button:has-text(\"Imports\")"
+            }
+          ]
+        },
+        {
+          "name": "file-imports-empty",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Files\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item:has-text(\"generate.mjs\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inspector-content button:has-text(\"Imports\")"
+            }
+          ]
+        },
+        {
+          "name": "wave",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".view-button:has-text(\"Delivery\")"
+            },
+            {
+              "action": "click",
+              "selector": "#inventory .inventory-item >> nth=0"
+            }
+          ]
+        },
+        {
+          "name": "search",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#search",
+              "value": "element"
+            }
+          ]
+        },
+        {
+          "name": "search-selection",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#search",
+              "value": "element"
+            },
+            {
+              "action": "click",
+              "selector": "#search-results .inventory-item >> nth=0"
+            }
+          ]
+        },
+        {
+          "name": "search-empty",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#search",
+              "value": "no-matching-source-item"
+            }
+          ]
+        },
+        {
+          "name": "help",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#help-button"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "codebase-map-empty",
+      "path": "/map-empty/index.html"
+    },
+    {
+      "name": "codebase-map-error",
+      "path": "/map-error/index.html"
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://github.com/bytecodealliance/wasm-tools",
+      "file": "pages/project.html",
+      "status": 302,
+      "headers": {
+        "location": "http://127.0.0.1:4177/project.html",
+        "content-type": "text/html; charset=utf-8"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 12,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 28,
+      "max": 40
+    }
+  ]
+}

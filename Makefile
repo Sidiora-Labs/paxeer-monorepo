@@ -18,6 +18,7 @@ AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
 AGENT_BOUNDARY_COMMAND ?= $(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked --
 AGENT_BOUNDARY_MODE ?=
 HUMAN_CARGO ?= cargo
+HUMAN_TEST_SCOPE ?= --workspace
 HUMAN_API_GEN ?= $(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked --
 HUMAN_API_SCHEMA_DIR ?= services/human/schema/human-api
 HUMAN_API_OUT_DIR ?= apps/web/src/api/generated
@@ -1742,7 +1743,7 @@ human-build:
 	$(HUMAN_NPM) run build
 
 human-test: human-test-hosted-provisioning
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked $(HUMAN_TEST_SCOPE)
 	$(HUMAN_NPM) test
 
 HUMAN_TARGET_DIR ?= $(or $(CARGO_TARGET_DIR),$(CURDIR)/services/human/target)
@@ -1978,6 +1979,7 @@ public-tls-test-prerequisites:
 	cargo build --manifest-path services/platform/Cargo.toml --locked -p layerx-platform-paxeer-boundary -p layerx-runtime-clock --target-dir "$(PUBLIC_TLS_TEST_TARGET_DIR)"
 
 AGENT_TEST_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),.lane-target))
+AGENT_TEST_SCOPE ?= --workspace
 
 .PHONY: agent-test-native-prerequisites
 agent-test agent-test-sanitize: agent-test-native-prerequisites
@@ -1990,7 +1992,7 @@ agent-test-native-prerequisites:
 	LAYERX_TEST_NATIVE_BUILD_DIR="$(abspath $(BUILD_DIR))" CARGO_TARGET_DIR="$(AGENT_TEST_TARGET_DIR)" sh services/agent/tools/run-real-node-tests.sh prepare
 
 agent-test: public-tls-test-prerequisites
-	LAYERX_PAXEER_BOUNDARY_BIN="$(PUBLIC_TLS_TEST_BOUNDARY)" LAYERX_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" LAYERX_TEST_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked --workspace
+	LAYERX_PAXEER_BOUNDARY_BIN="$(PUBLIC_TLS_TEST_BOUNDARY)" LAYERX_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" LAYERX_TEST_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked $(AGENT_TEST_SCOPE)
 
 agent-lint:
 	$(AGENT_CARGO) clippy --manifest-path $(AGENT_MANIFEST) --locked --workspace --all-targets -- -D warnings
@@ -2466,7 +2468,7 @@ agent-check-secrets:
 
 ci: public-audit test reproducible scan-consensus test-sanitizers
 
-.PHONY: paxeer-build paxeer-lint paxeer-test paxeer-ci developer-dashboard-install \
+.PHONY: paxeer-build paxeer-lint paxeer-go-lint paxeer-test paxeer-ci developer-dashboard-install \
 	developer-dashboard-build developer-dashboard-static-test specgen-build \
 	specgen-test specgen-lint core-test-all workspace-install workspace-build workspace-test \
 	workspace-lint workspace-inventory-check workspace-ci hpx-public-check monorepo-ci \
@@ -2552,6 +2554,9 @@ paxd-version-check:
 paxeer-lint: paxeer-tools-install
 	$(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) lint
 
+paxeer-go-lint: paxeer-tools-install paxd-native-libs
+	GOPROXY=off "$(PAXEER_GOLANGCI_LINT)" run
+
 paxeer-test:
 	GOPROXY=off $(PAXEER_MAKE) test
 
@@ -2587,7 +2592,7 @@ paxeer-npm-build: paxeer-hardhat-compilers-ready
 
 paxeer-npm-static-test: paxeer-npm-dependencies-ready
 	npm --prefix contracts exec -- tsc --noEmit --project contracts/tsconfig.json
-	find tests/integration/dapp_tests -type f -name '*.js' -exec node --check {} \;
+	find tests/integration/dapp_tests \( -path '*/node_modules' -o -path '*/artifacts' -o -path '*/cache' \) -prune -o -type f -name '*.js' -exec node --check {} \;
 	npm --prefix tests/integration/rpc_tests exec -- tsc --noEmit --project tests/integration/rpc_tests/tsconfig.json
 
 paxeer-tools-install:
@@ -2630,7 +2635,9 @@ paxeer-manifest-lint: workspace-inventory-check paxeer-npm-static-test
 	sh tools/benchmark/loadtest/contracts/evm/setup.sh
 	forge fmt --check --root tools/benchmark/loadtest/contracts/evm
 	@set -eu; for manifest in $(PAXEER_LOCKED_RUST_MANIFESTS); do cargo clippy --manifest-path "$$manifest" --locked --offline --all-targets -- -D warnings; done
-	@test -z "$$(find . \( -path ./.git -o -path ./services/platform -o -path ./spec -o -name node_modules \) -prune -o -type f -name '*.go' -print0 | xargs -0 gofmt -l)"
+	@set -eu; formatted=$$(mktemp); trap 'rm -f "$$formatted"' EXIT HUP INT TERM; \
+	find . \( -path ./.git -o -path ./services/platform -o -path ./spec -o -path ./core/deps -o -path ./build -o -path ./tools/hyperfide/tests/fixtures -o -name node_modules \) -prune -o -type f -name '*.go' -exec gofmt -l {} + > "$$formatted"; \
+	cat "$$formatted"; test ! -s "$$formatted"
 	$(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) lint
 	@set -eu; for directory in $(PAXEER_NESTED_GO_DIRS); do (cd "$$directory" && test -z "$$(gofmt -l .)" && GOPROXY=off go vet ./... && go mod verify); done
 
@@ -2845,7 +2852,7 @@ PROGRAMS_RELEASE_RUNTIME_LIB := programs/target/release/liblayerx_programs_sandb
 PROGRAMS_NATIVE_LDLIBS := -lssl
 
 .PHONY: programs-build programs-lint programs-test programs-core-test programs-protocol-regression programs-adversarial programs-conservation programs-qualify programs-module-boundaries programs-abi-drift programs-porting-v2-references \
-	programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-bench programs-interpreter-bench programs-quickstart programs-sdk-rust programs-sdk-c programs-sdk-assemblyscript
+	programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-bench programs-interpreter-bench programs-quickstart programs-sdk-rust programs-sdk-rust-artifacts programs-sdk-c programs-sdk-assemblyscript
 
 .PHONY: programs-js-install
 programs-js-install:
@@ -3145,7 +3152,14 @@ programs-interpreter-bench:
 	cd programs && $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-interpreter-compiled-equivalent
 	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' LAYERX_COMPILED_EQUIVALENT_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_interpreter_compiled_equivalent.wasm' $(PROGRAMS_CARGO) bench --locked -p layerx-programs-runtime --bench interpreter
 
-programs-test: programs-module-boundaries programs-abi-drift programs-core-test programs-protocol-regression programs-adversarial programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-sdk-rust programs-sdk-c programs-sdk-assemblyscript programs-porting-v2-references
+PROGRAMS_REGISTRY_TRANSACTION_PRODUCER := $(abspath $(BUILD_DIR)/tests/programs_registry_transactions)
+.PHONY: programs-registry-fixtures
+programs-registry-fixtures:
+	@mkdir -p $(dir $(PROGRAMS_REGISTRY_TRANSACTION_PRODUCER))
+	go build -mod=readonly -o '$(PROGRAMS_REGISTRY_TRANSACTION_PRODUCER)' ./programs/crates/layerx-programs-registry/tests/support/chain_transactions
+
+programs-test: export LAYERX_REGISTRY_TRANSACTION_PRODUCER = $(PROGRAMS_REGISTRY_TRANSACTION_PRODUCER)
+programs-test: programs-registry-fixtures paxai-host-boundary-build $(BUILD_DIR)/tests/kernel/codec/lxp_test_result_codes programs-module-boundaries programs-abi-drift programs-core-test programs-protocol-regression programs-adversarial programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-sdk-rust programs-sdk-c programs-sdk-assemblyscript programs-porting-v2-references
 	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' $(PROGRAMS_CARGO) test --locked --workspace
 
 programs-porting-v2-references: $(BUILD_DIR)/tests/programs_call_activity
@@ -3182,13 +3196,15 @@ programs-reference-web-reader:
 programs-reference-fixtures:
 	sh scripts/programs/program-fixtures.sh
 
-programs-sdk-rust:
+programs-sdk-rust-artifacts:
 	npm --prefix programs/sdk/rust ci --ignore-scripts --no-audit --no-fund
 	sh programs/sdk/rust/quickstart/build.sh all
 	sh programs/sdk/rust/response-fixture/build.sh
 	sh programs/sdk/rust/examples/escrow/build.sh
 	sh programs/sdk/rust/examples/vault/build.sh
-	cd programs && $(PROGRAMS_CARGO) test --locked -p layerx-program-sdk --test bindgen_conformance generated_client_guest_and_typescript_are_compiler_inputs -- --ignored --exact
+
+programs-sdk-rust: programs-sdk-rust-artifacts
+	cd programs && $(PROGRAMS_CARGO) test --locked -p layerx-program-sdk --test bindgen_conformance generated_client_guest_and_typescript_are_compiler_inputs -- --exact
 
 programs-sdk-assemblyscript:
 	npm --prefix programs/sdk/assemblyscript run test:source

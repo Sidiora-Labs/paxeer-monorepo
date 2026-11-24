@@ -41,13 +41,15 @@ type OpenControl =
 
 function AmountField({
   labelKey,
+  name,
   value,
   onChange,
   disabled,
-}: Readonly<{ labelKey: string; value: string; onChange: (value: string) => void; disabled: boolean }>) {
+}: Readonly<{ labelKey: string; name: string; value: string; onChange: (value: string) => void; disabled: boolean }>) {
   return (
     <KitTextField
       label={copyEntry(labelKey).message}
+      name={name}
       value={value}
       disabled={disabled}
       onChange={(event) => {
@@ -98,7 +100,7 @@ function BoundAgentControls({
   const [errorSentence, setErrorSentence] = useState<string | undefined>(undefined);
   const [lastJourney, setLastJourney] = useState<JourneyProgress | undefined>(undefined);
   const [challenge, setChallenge] = useState<KeyChallengePresentation | undefined>(undefined);
-  const [reopening, setReopening] = useState(true);
+  const [reopening, setReopening] = useState(false);
   const [unknownControl, setUnknownControl] = useState<OpenControl | undefined>(undefined);
 
   const controls = controlsFor(agent, ownerAccount === undefined ? {} : { ownerAccount });
@@ -179,6 +181,22 @@ function BoundAgentControls({
       if (generation === lifecycle.current) setBusy(false);
     }
   }, [agent.agent_id, agents, onAgent, onChanged]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void agents.recoverPending(agent.agent_id).then((recovered) => {
+      if (!cancelled && recovered !== undefined) {
+        setReopening(true);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setReopening(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.agent_id, agents]);
 
   const unknownOutcomeResolved = useCallback(() => {
     setUnknownControl(undefined);
@@ -486,12 +504,14 @@ function BoundAgentControls({
                 <AmountField
                   disabled={busy}
                   labelKey="agent.keys.rotation-delay.label"
+                  name="rotation_delay"
                   value={open.delay}
                   onChange={(value) => { if (!busyRef.current) { setOpen({ ...open, delay: value }); } }}
                 />
                 <AmountField
                   disabled={busy}
                   labelKey="agent.keys.rotation-window.label"
+                  name="rotation_window"
                   value={open.window}
                   onChange={(value) => { if (!busyRef.current) { setOpen({ ...open, window: value }); } }}
                 />
@@ -501,6 +521,7 @@ function BoundAgentControls({
               <AmountField
                 disabled={busy}
                 labelKey="agent.limit.amount.label"
+                name="agent_limit_amount"
                 value={open.input}
                 onChange={(value) => {
                   if (!busyRef.current) {
@@ -513,6 +534,7 @@ function BoundAgentControls({
               <AmountField
                 disabled={busy}
                 labelKey="agent.reclaim.amount.label"
+                name="agent_reclaim_amount"
                 value={open.input}
                 onChange={(value) => {
                   if (!busyRef.current) {
@@ -525,6 +547,7 @@ function BoundAgentControls({
               <AmountField
                 disabled={busy}
                 labelKey="agent.fund.amount.label"
+                name="agent_fund_amount"
                 value={open.input}
                 onChange={(value) => {
                   if (!busyRef.current) {

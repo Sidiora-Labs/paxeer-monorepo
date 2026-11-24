@@ -31,8 +31,10 @@ RUN groupadd $APP_USER \
     && useradd -g $APP_USER $APP_USER
 
 COPY --from=build /app/target/release/sig-provider-server /app/sig-provider-server
+COPY --chmod=755 docker/explorer-sig-provider/entrypoint.sh /app/entrypoint.sh
 # Change directory access for app user
 RUN chown -R $APP_USER:$APP_USER /app
 USER app
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["./sig-provider-server"]

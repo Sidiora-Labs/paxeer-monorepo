@@ -2,8 +2,9 @@
 
 The first-party x402 suite: every vector is a wire document of the x402 v2
 message it names, together with whether the model must accept it. Paxeer
-mainnet-beta is one BFT network with its kernel integrated into `paxd`, EVM
-chain id 125 and CAIP-2 identifier `eip155:125`. A receipt is final once its
+mainnet-beta uses EVM chain id 125 and CAIP-2 identifier `eip155:125`. The
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it. A receipt is final once its
 block is committed; wire acceptance alone does not prove that event.
 
 ## Files

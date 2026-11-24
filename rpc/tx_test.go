@@ -766,7 +766,7 @@ func TestGetTransactionReceiptContractCreationFailure(t *testing.T) {
 }
 
 func TestGetTransactionByHashFromMempool(t *testing.T) {
-	repairM1297TransactionLookups(t)
+	rpcBehaviorTransactionLookups(t)
 }
 
 func TestGetTransactionByBlockHashAndIndexSuccess(t *testing.T) {
@@ -1665,7 +1665,7 @@ func TestGetTransactionByBlockHashAndIndexFullSuccess(t *testing.T) {
 }
 
 func TestEncodeReceiptFullPath(t *testing.T) {
-	repairM1297TransactionLookups(t)
+	rpcBehaviorTransactionLookups(t)
 	// Test receipt encoding with logs and bloom filter
 	txHash := tx1.Hash()
 
@@ -1778,9 +1778,9 @@ func TestEncodeRPCTransactionSuccess(t *testing.T) {
 	}
 }
 
-// repairM1297BlockTranscript serves the canonical block recorded from a real
+// rpcBehaviorBlockTranscript serves the canonical block recorded from a real
 // executor, with the consensus envelope at index zero and EVM transaction at one.
-type repairM1297BlockTranscript struct {
+type rpcBehaviorBlockTranscript struct {
 	*MockClient
 	block           *coretypes.ResultBlock
 	results         *coretypes.ResultBlockResults
@@ -1788,32 +1788,32 @@ type repairM1297BlockTranscript struct {
 	unconfirmed     tmtypes.Tx
 }
 
-func (p *repairM1297BlockTranscript) Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error) {
+func (p *rpcBehaviorBlockTranscript) Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error) {
 	if p.block != nil && (height == nil || *height == p.block.Block.Height) {
 		return p.block, nil
 	}
 	return p.MockClient.Block(ctx, height)
 }
-func (p *repairM1297BlockTranscript) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coretypes.ResultBlock, error) {
+func (p *rpcBehaviorBlockTranscript) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coretypes.ResultBlock, error) {
 	if p.block != nil && common.BytesToHash(hash) == common.BytesToHash(p.block.BlockID.Hash) {
 		return p.block, nil
 	}
 	return p.MockClient.BlockByHash(ctx, hash)
 }
-func (p *repairM1297BlockTranscript) BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
+func (p *rpcBehaviorBlockTranscript) BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
 	if p.block != nil && height != nil && *height == p.block.Block.Height {
 		return p.results, nil
 	}
 	return p.MockClient.BlockResults(ctx, height)
 }
-func (p *repairM1297BlockTranscript) EvmTxByHash(hash common.Hash) (tmtypes.Tx, bool) {
+func (p *rpcBehaviorBlockTranscript) EvmTxByHash(hash common.Hash) (tmtypes.Tx, bool) {
 	if hash == p.unconfirmedHash && len(p.unconfirmed) > 0 {
 		return p.unconfirmed, true
 	}
 	return nil, false
 }
 
-func repairM1297TransactionLookups(t *testing.T) {
+func rpcBehaviorTransactionLookups(t *testing.T) {
 	t.Helper()
 	sender := occutils.NewSigner()
 	q := newSubscribeSequencer(t, sender)
@@ -1829,7 +1829,7 @@ func repairM1297TransactionLookups(t *testing.T) {
 	canonical := tmtypes.Tx(q.accepter.txBytes[0])
 	// Record the accepted transaction at the consensus mempool interface too;
 	// the RPC under test must decode its own signed submission through that path.
-	peer := &repairM1297BlockTranscript{MockClient: &MockClient{latestOverride: 1}, unconfirmedHash: hash, unconfirmed: canonical}
+	peer := &rpcBehaviorBlockTranscript{MockClient: &MockClient{latestOverride: 1}, unconfirmedHash: hash, unconfirmed: canonical}
 	wm := evmrpc.NewWatermarkManager(peer, q.ctxProvider, nil, nil)
 	api := evmrpc.NewTransactionAPI(peer, &q.app.EvmKeeper, q.ctxProvider, q.txConfig, "", evmrpc.ConnectionTypeHTTP,
 		utils.None[time.Duration](), wm, evmrpc.NewBlockCache(10), &sync.Mutex{})
@@ -1931,15 +1931,15 @@ func repairM1297TransactionLookups(t *testing.T) {
 	require.Nil(t, unknown)
 }
 
-func repairM1297TransactionLookupsProof(t *testing.T) {
-	repairM1297TransactionLookups(t)
+func rpcBehaviorTransactionLookupsProof(t *testing.T) {
+	rpcBehaviorTransactionLookups(t)
 }
 
 // The trace policy consumes consensus block transcripts; tracing itself reads
 // genuine persisted TraceDB rows through the enabled legacy HTTP methods.
-type repairM1297TraceTranscript struct{ *MockClient }
+type rpcBehaviorTraceTranscript struct{ *MockClient }
 
-func (p *repairM1297TraceTranscript) Block(_ context.Context, height *int64) (*coretypes.ResultBlock, error) {
+func (p *rpcBehaviorTraceTranscript) Block(_ context.Context, height *int64) (*coretypes.ResultBlock, error) {
 	h := int64(100)
 	if height != nil {
 		h = *height
@@ -1948,15 +1948,15 @@ func (p *repairM1297TraceTranscript) Block(_ context.Context, height *int64) (*c
 		Header: mockBlockHeader(h), Data: tmtypes.Data{Txs: []tmtypes.Tx{}}, LastCommit: &tmtypes.Commit{Height: h - 1},
 	}}, nil
 }
-func (p *repairM1297TraceTranscript) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coretypes.ResultBlock, error) {
+func (p *rpcBehaviorTraceTranscript) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coretypes.ResultBlock, error) {
 	h := new(big.Int).SetBytes(hash).Int64()
 	return p.Block(ctx, &h)
 }
-func (p *repairM1297TraceTranscript) BlockResults(_ context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
+func (p *rpcBehaviorTraceTranscript) BlockResults(_ context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
 	return &coretypes.ResultBlockResults{Height: *height, TxsResults: []*abci.ExecTxResult{}}, nil
 }
 
-func repairM1297LegacyTraceLookback(t *testing.T) {
+func rpcBehaviorLegacyTraceLookback(t *testing.T) {
 	a := app.Setup(t, false, false, false)
 	primeReceiptStore(t, a.EvmKeeper.ReceiptStore(), 100)
 	cache, err := evmkeeper.NewTraceDB(t.TempDir())
@@ -1979,7 +1979,7 @@ func repairM1297LegacyTraceLookback(t *testing.T) {
 	cfg.HTTPPort = seqReceiptFreePort9005(t)
 	cfg.MaxTraceLookbackBlocks = 10
 	cfg.EnabledLegacyPaxApis = []string{"pax_traceBlockByNumberExcludeTraceFail", "pax_traceBlockByHashExcludeTraceFail"}
-	peer := &repairM1297TraceTranscript{MockClient: &MockClient{latestOverride: 100}}
+	peer := &rpcBehaviorTraceTranscript{MockClient: &MockClient{latestOverride: 100}}
 	server, err := evmrpc.NewEVMHTTPServer(cfg, peer, &a.EvmKeeper, a.BeginBlockKeepers, a.BaseApp, a.TracerAnteHandler, provider,
 		func(int64) client.TxConfig { return a.GetTxConfig() }, "", nil)
 	require.NoError(t, err)
@@ -2007,7 +2007,7 @@ func repairM1297LegacyTraceLookback(t *testing.T) {
 }
 
 func init() {
-	evmrpc.RepairM1297Proofs["transaction-tests-vacuous"] = repairM1297TransactionLookupsProof
+	evmrpc.RPCBehaviorProofs["transaction-tests-vacuous"] = rpcBehaviorTransactionLookupsProof
 }
 
-func init() { evmrpc.RepairM1297Proofs["legacy-trace-lookback"] = repairM1297LegacyTraceLookback }
+func init() { evmrpc.RPCBehaviorProofs["legacy-trace-lookback"] = rpcBehaviorLegacyTraceLookback }

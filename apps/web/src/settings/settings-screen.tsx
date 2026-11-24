@@ -313,16 +313,20 @@ export function SettingsScreen({
               <label className="flex flex-col gap-1 text-sm font-semibold text-foreground">
                 {copyEntry("settings.profile.display_name").message}
                 <SettingsTextInput
+                  name="display_name"
                   value={displayName}
                   disabled={savingProfile}
                   maxLength={128}
                   autoComplete="name"
+                  required
+                  aria-invalid={displayName.trim().length === 0 || undefined}
                   onChange={(event) => { setDisplayName(event.target.value); }}
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm font-semibold text-foreground">
                 {copyEntry("settings.profile.avatar").message}
                 <SettingsTextInput
+                  name="avatar_url"
                   value={avatarUrl}
                   disabled={savingProfile}
                   type="url"

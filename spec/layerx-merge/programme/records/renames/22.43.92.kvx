@@ -1,0 +1,953 @@
+[manifest]
+task = "22.43.92"
+records_moved = 20
+files_renamed = 105
+directories_renamed = 1
+
+[file.1]
+from = "programs/crates/layerx-programs-ai-market/examples/repair_478_fixture.rs"
+to = "programs/crates/layerx-programs-ai-market/examples/fund_state_fixture.rs"
+
+[file.2]
+from = "programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/support/fund_state_fixture.rs"
+
+[file.3]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_31_253.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/market_projection_consistency.rs"
+
+[file.4]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_31_254.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/deployment_chain_binding.rs"
+
+[file.5]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/evaluator_aggregation_authority.rs"
+
+[file.6]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/fuel_and_codec_invariants.rs"
+
+[file.7]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_228.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/admission_reveal_recovery.rs"
+
+[file.8]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/authenticated_consumer_recovery.rs"
+
+[file.9]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/market_state_producers.rs"
+
+[file.10]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/reward_finality_and_execution.rs"
+
+[file.11]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_39_169.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/read_header_codec.rs"
+
+[file.12]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs"
+to = "programs/crates/layerx-programs-ai-market/tests/room_reward_state_reads.rs"
+
+[file.13]
+from = "programs/crates/layerx-programs-sandbox/tests/repair_22_31_262.rs"
+to = "programs/crates/layerx-programs-sandbox/tests/native_submission_lifecycle.rs"
+
+[file.14]
+from = "programs/crates/layerx-programs-sandbox/tests/repair_22_33_231.rs"
+to = "programs/crates/layerx-programs-sandbox/tests/durable_lease_lifecycle.rs"
+
+[file.15]
+from = "programs/crates/layerx-programs-sandbox/tests/repair_22_33_232.rs"
+to = "programs/crates/layerx-programs-sandbox/tests/native_receipt_recovery.rs"
+
+[file.16]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/native.terminal.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/native.terminal.hex"
+
+[file.17]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.activity.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.activity.hex"
+
+[file.18]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.binding.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.binding.key.hex"
+
+[file.19]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.binding.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.binding.ops.hex"
+
+[file.20]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.binding.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.binding.value.hex"
+
+[file.21]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.lease.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.lease.key.hex"
+
+[file.22]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.lease.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.lease.ops.hex"
+
+[file.23]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.lease.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.lease.value.hex"
+
+[file.24]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.root.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.root.hex"
+
+[file.25]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.state.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.state.key.hex"
+
+[file.26]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.state.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.state.ops.hex"
+
+[file.27]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.after.state.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.after.state.value.hex"
+
+[file.28]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.binding.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.binding.key.hex"
+
+[file.29]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.binding.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.binding.ops.hex"
+
+[file.30]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.binding.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.binding.value.hex"
+
+[file.31]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.lease.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.lease.key.hex"
+
+[file.32]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.lease.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.lease.ops.hex"
+
+[file.33]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.lease.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.lease.value.hex"
+
+[file.34]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.root.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.root.hex"
+
+[file.35]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.state.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.state.key.hex"
+
+[file.36]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.state.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.state.ops.hex"
+
+[file.37]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.before.state.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.before.state.value.hex"
+
+[file.38]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.ethereum.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.ethereum.hex"
+
+[file.39]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.id.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.id.hex"
+
+[file.40]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.input.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.input.hex"
+
+[file.41]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.payload.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.payload.hex"
+
+[file.42]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.result.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.result.hex"
+
+[file.43]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxActivate.tx.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxActivate.tx.hex"
+
+[file.44]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.activity.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.activity.hex"
+
+[file.45]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.binding.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.binding.key.hex"
+
+[file.46]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.binding.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.binding.ops.hex"
+
+[file.47]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.binding.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.binding.value.hex"
+
+[file.48]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.lease.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.lease.key.hex"
+
+[file.49]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.lease.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.lease.ops.hex"
+
+[file.50]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.lease.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.lease.value.hex"
+
+[file.51]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.root.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.root.hex"
+
+[file.52]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.state.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.state.key.hex"
+
+[file.53]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.state.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.state.ops.hex"
+
+[file.54]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.after.state.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.after.state.value.hex"
+
+[file.55]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.binding.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.binding.key.hex"
+
+[file.56]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.binding.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.binding.ops.hex"
+
+[file.57]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.binding.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.binding.value.hex"
+
+[file.58]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.lease.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.lease.key.hex"
+
+[file.59]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.lease.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.lease.ops.hex"
+
+[file.60]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.lease.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.lease.value.hex"
+
+[file.61]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.root.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.root.hex"
+
+[file.62]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.state.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.state.key.hex"
+
+[file.63]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.state.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.state.ops.hex"
+
+[file.64]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.before.state.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.before.state.value.hex"
+
+[file.65]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.ethereum.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.ethereum.hex"
+
+[file.66]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.id.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.id.hex"
+
+[file.67]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.input.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.input.hex"
+
+[file.68]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.payload.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.payload.hex"
+
+[file.69]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.result.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.result.hex"
+
+[file.70]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.tx.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.tx.hex"
+
+[file.71]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.activity.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.activity.hex"
+
+[file.72]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.binding.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.binding.key.hex"
+
+[file.73]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.binding.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.binding.ops.hex"
+
+[file.74]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.binding.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.binding.value.hex"
+
+[file.75]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.lease.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.lease.key.hex"
+
+[file.76]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.lease.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.lease.ops.hex"
+
+[file.77]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.lease.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.lease.value.hex"
+
+[file.78]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.root.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.root.hex"
+
+[file.79]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.state.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.state.key.hex"
+
+[file.80]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.state.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.state.ops.hex"
+
+[file.81]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.after.state.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.after.state.value.hex"
+
+[file.82]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.before.binding.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.before.binding.key.hex"
+
+[file.83]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.before.binding.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.before.binding.ops.hex"
+
+[file.84]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.before.binding.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.before.binding.value.hex"
+
+[file.85]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.before.root.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.before.root.hex"
+
+[file.86]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.ethereum.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.ethereum.hex"
+
+[file.87]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.id.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.id.hex"
+
+[file.88]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.input.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.input.hex"
+
+[file.89]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.payload.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.payload.hex"
+
+[file.90]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.result.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.result.hex"
+
+[file.91]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxFund.tx.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/sandboxFund.tx.hex"
+
+[file.92]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.archive.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.archive.key.hex"
+
+[file.93]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.archive.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.archive.ops.hex"
+
+[file.94]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.archive.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.archive.value.hex"
+
+[file.95]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.archive_blob.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.archive_blob.key.hex"
+
+[file.96]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.archive_blob.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.archive_blob.ops.hex"
+
+[file.97]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.archive_blob.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.archive_blob.value.hex"
+
+[file.98]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.binding.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.binding.key.hex"
+
+[file.99]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.binding.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.binding.ops.hex"
+
+[file.100]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.binding.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.binding.value.hex"
+
+[file.101]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.root.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.root.hex"
+
+[file.102]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.state.key.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.state.key.hex"
+
+[file.103]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.state.ops.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.state.ops.hex"
+
+[file.104]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/terminal.state.value.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/terminal.state.value.hex"
+
+[file.105]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings/usage.frames.hex"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings/usage.frames.hex"
+
+[file.106]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings"
+to = "programs/crates/layerx-programs-sandbox/src/native_submission_recordings"
+
+[file.107]
+from = "programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx"
+
+[file.108]
+from = "programs/crates/layerx-programs-ai-market/repair_22_39_316.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/repair_22_39_316.kvx"
+
+[file.109]
+from = "programs/crates/layerx-programs-ai-market/repair_22_39_333.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/repair_22_39_333.kvx"
+
+[file.110]
+from = "programs/crates/layerx-programs-ai-market/repair_22_39_389.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/repair_22_39_389.kvx"
+
+[file.111]
+from = "programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx"
+
+[file.112]
+from = "programs/crates/layerx-programs-ai-market/src/repair_22_31_253.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/src/repair_22_31_253.kvx"
+
+[file.113]
+from = "programs/crates/layerx-programs-ai-market/src/repair_22_31_615.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/src/repair_22_31_615.kvx"
+
+[file.114]
+from = "programs/crates/layerx-programs-ai-market/src/repair_22_33_217.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/src/repair_22_33_217.kvx"
+
+[file.115]
+from = "programs/crates/layerx-programs-ai-market/src/repair_22_39_142.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/src/repair_22_39_142.kvx"
+
+[file.116]
+from = "programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx"
+
+[file.117]
+from = "programs/crates/layerx-programs-ai-market/src/repair_22_39_169.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/src/repair_22_39_169.kvx"
+
+[file.118]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.kvx"
+
+[file.119]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx"
+
+[file.120]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_39_153.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_39_153.kvx"
+
+[file.121]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_39_365.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_39_365.kvx"
+
+[file.122]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_39_375.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_39_375.kvx"
+
+[file.123]
+from = "programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.kvx"
+
+[file.124]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_31_262.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-sandbox/src/repair_22_31_262.kvx"
+
+[file.125]
+from = "programs/crates/layerx-programs-sandbox/src/repair_22_33_231.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-sandbox/src/repair_22_33_231.kvx"
+
+[file.126]
+from = "programs/crates/layerx-programs-sandbox/tests/repair_22_33_232.kvx"
+to = "spec/layerx-merge/programme/records/programs/crates/layerx-programs-sandbox/tests/repair_22_33_232.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_31_253.rs"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_22_31_615.kvx"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_22_33_217"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_22_33_223.rs"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_22_33_260.rs"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.7]
+file = "GOTCHA.kvx"
+name = "repair_22_39_142.kvx"
+
+[reference.8]
+file = "GOTCHA.kvx"
+name = "repair_22_39_167.kvx"
+
+[reference.9]
+file = "GOTCHA.kvx"
+name = "repair_22_39_389.kvx"
+
+[reference.10]
+file = "GOTCHA.kvx"
+name = "repair_478_fixture.rs"
+
+[reference.11]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+name = "repair_22_31_262_recordings"
+
+[reference.12]
+file = "rpc/fund_allowance_test.go"
+name = "repair_478_fixture"
+
+[reference.13]
+file = "scripts/programs/dependency-policy.sh"
+name = "repair_22_33_231.rs"
+
+[reference.14]
+file = "services/platform/hosted/gateway/repair_22_31_620.kvx"
+name = "repair_478_fixture.rs"
+
+[reference.15]
+file = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+name = "repair_478_fixture.rs"
+
+[reference.16]
+file = "spec/layerx-merge/dispositions/d13-6.kvx"
+name = "repair_22_39_167.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_262.rs"
+
+[reference.18]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_262_recordings"
+
+[reference.19]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "repair_22_39_169.rs"
+
+[reference.20]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "repair_478_fixture.rs"
+
+[reference.21]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_478_fixture.rs"
+
+[reference.22]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair_22_33_223.rs"
+
+[reference.23]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair_22_33_233.rs"
+
+[reference.24]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair_22_33_260.rs"
+
+[reference.25]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.26]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "repair_22_39_142.kvx"
+
+[reference.27]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "repair_22_39_167.kvx"
+
+[reference.28]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "repair_22_39_169.kvx"
+
+[reference.29]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "repair_22_39_169.rs"
+
+[reference.30]
+file = "spec/layerx-merge/dispositions/d22-33.kvx"
+name = "repair_22_39_167.kvx"
+
+[reference.31]
+file = "spec/layerx-merge/dispositions/d22-35.kvx"
+name = "repair_22_39_142.kvx"
+
+[reference.32]
+file = "spec/layerx-merge/programme/issues/1739.kvx"
+name = "repair_22_33_233.kvx"
+
+[reference.33]
+file = "spec/layerx-merge/programme/issues/1739.kvx"
+name = "repair_22_33_233.rs"
+
+[reference.34]
+file = "spec/layerx-merge/programme/issues/1740.kvx"
+name = "repair_22_33_233.rs"
+
+[reference.35]
+file = "spec/layerx-merge/programme/issues/1741.kvx"
+name = "repair_22_33_233.kvx"
+
+[reference.36]
+file = "spec/layerx-merge/programme/issues/1741.kvx"
+name = "repair_22_33_233.rs"
+
+[reference.37]
+file = "spec/layerx-merge/programme/issues/1748.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.38]
+file = "spec/layerx-merge/programme/issues/1749.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.39]
+file = "spec/layerx-merge/programme/issues/1750.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.40]
+file = "spec/layerx-merge/programme/issues/1768.kvx"
+name = "repair_22_33_260.rs"
+
+[reference.41]
+file = "spec/layerx-merge/programme/issues/1814.kvx"
+name = "repair_22_31_253.rs"
+
+[reference.42]
+file = "spec/layerx-merge/programme/issues/input/1739.md"
+name = "repair_22_33_233.kvx"
+
+[reference.43]
+file = "spec/layerx-merge/programme/issues/input/1739.md"
+name = "repair_22_33_233.rs"
+
+[reference.44]
+file = "spec/layerx-merge/programme/issues/input/1740.md"
+name = "repair_22_33_233.rs"
+
+[reference.45]
+file = "spec/layerx-merge/programme/issues/input/1741.md"
+name = "repair_22_33_233.kvx"
+
+[reference.46]
+file = "spec/layerx-merge/programme/issues/input/1741.md"
+name = "repair_22_33_233.rs"
+
+[reference.47]
+file = "spec/layerx-merge/programme/issues/input/1748.md"
+name = "repair_22_33_261.rs"
+
+[reference.48]
+file = "spec/layerx-merge/programme/issues/input/1749.md"
+name = "repair_22_33_261.rs"
+
+[reference.49]
+file = "spec/layerx-merge/programme/issues/input/1750.md"
+name = "repair_22_33_261.rs"
+
+[reference.50]
+file = "spec/layerx-merge/programme/issues/input/1768.md"
+name = "repair_22_33_260.rs"
+
+[reference.51]
+file = "spec/layerx-merge/programme/issues/input/1814.md"
+name = "repair_22_31_253.rs"
+
+[reference.52]
+file = "spec/layerx-merge/programme/records/precompiles/layerxprograms/repair_m213.kvx"
+name = "repair_22_31_262_recordings"
+
+[reference.53]
+file = "spec/layerx-merge/programme/records/programs/repair_22_39_454.kvx"
+name = "repair_22_33_231.rs"
+
+[reference.54]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_33_223"
+
+[reference.55]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_33_223.kvx"
+
+[reference.56]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_39_365.kvx"
+
+[reference.57]
+file = "spec/layerx-merge/programme/records/renames/22.43.235.kvx"
+name = "repair_22_39_333.kvx"
+
+[reference.58]
+file = "spec/layerx-merge/programme/records/renames/22.43.240.kvx"
+name = "repair_22_39_333.kvx"
+
+[reference.59]
+file = "spec/layerx-merge/programme/records/renames/22.43.98.kvx"
+name = "repair_22_39_167.kvx"
+
+[reference.60]
+file = "spec/layerx-merge/programme/records/renames/22.43.98.kvx"
+name = "repair_22_39_169"
+
+[reference.61]
+file = "spec/layerx-merge/programme/records/renames/22.43.98.kvx"
+name = "repair_22_39_169.kvx"
+
+[reference.62]
+file = "spec/layerx-merge/programme/records/renames/22.43.98.kvx"
+name = "repair_22_39_333.kvx"
+
+[reference.63]
+file = "spec/layerx-merge/programme/records/renames/22.43.98.kvx"
+name = "repair_22_39_389.kvx"
+
+[reference.64]
+file = "spec/layerx-merge/programme/records/rpc/repair_478.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.65]
+file = "spec/layerx-merge/programme/records/rpc/repair_478.kvx"
+name = "repair_478_fixture.rs"
+
+[reference.66]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"
+name = "repair_22_31_253.rs"
+
+[reference.67]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"
+name = "repair_22_33_228"
+
+[reference.68]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"
+name = "repair_22_33_260.rs"
+
+[reference.69]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.70]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"
+name = "repair_22_39_142.kvx"
+
+[reference.71]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"
+name = "repair_478_fixture.rs"
+
+[reference.72]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_262.rs"
+
+[reference.73]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_217.rs"
+
+[reference.74]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_223.rs"
+
+[reference.75]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_233.kvx"
+
+[reference.76]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_233.rs"
+
+[reference.77]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_260.rs"
+
+[reference.78]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.79]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_39_167.kvx"
+
+[reference.80]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_478_fixture.rs"
+
+[reference.81]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_253.rs"
+
+[reference.82]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_254.rs"
+
+[reference.83]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_262.rs"
+
+[reference.84]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_262_recordings"
+
+[reference.85]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_615.kvx"
+
+[reference.86]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_217.kvx"
+
+[reference.87]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_217.rs"
+
+[reference.88]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_223.kvx"
+
+[reference.89]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_223.rs"
+
+[reference.90]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_228.rs"
+
+[reference.91]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_231.rs"
+
+[reference.92]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_232.rs"
+
+[reference.93]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_233.kvx"
+
+[reference.94]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_233.rs"
+
+[reference.95]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_260.rs"
+
+[reference.96]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_261.rs"
+
+[reference.97]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_142.kvx"
+
+[reference.98]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_153.kvx"
+
+[reference.99]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_167.kvx"
+
+[reference.100]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_169"
+
+[reference.101]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_169.kvx"
+
+[reference.102]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_252.kvx"
+
+[reference.103]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_316.kvx"
+
+[reference.104]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_333.kvx"
+
+[reference.105]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_365.kvx"
+
+[reference.106]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_375.kvx"
+
+[reference.107]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_389.kvx"
+
+[reference.108]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_400.kvx"
+
+[reference.109]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_400.rs"
+
+[reference.110]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_445.kvx"
+
+[reference.111]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_478_fixture.rs"

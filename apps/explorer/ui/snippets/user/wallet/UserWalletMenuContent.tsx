@@ -28,8 +28,8 @@ const UserWalletMenuContent = ({ isAutoConnectDisabled, address, domain, isRecon
   return (
     <Box>
       { isAutoConnectDisabled && <UserWalletAutoConnectAlert/> }
-      <Text fontSize="sm" fontWeight={ 600 } mb={ 1 }>My wallet</Text>
-      <Text fontSize="sm" mb={ 5 } fontWeight={ 400 } color="text.secondary">
+      <Text fontSize="sm" fontWeight="semibold" mb={ 1 }>My wallet</Text>
+      <Text fontSize="sm" mb={ 5 } fontWeight="normal" color="text.secondary">
         Your wallet is used to interact with apps and contracts in the explorer.
       </Text>
       <Flex alignItems="center" columnGap={ 2 } justifyContent="space-between">
@@ -37,20 +37,26 @@ const UserWalletMenuContent = ({ isAutoConnectDisabled, address, domain, isRecon
           address={{ hash: address, ens_domain_name: domain }}
           truncation="dynamic"
           fontSize="sm"
-          fontWeight={ 700 }
+          fontWeight="bold"
         />
-        { isReconnecting ? <Spinner size="sm" m="2px" flexShrink={ 0 }/> : (
+        { isReconnecting ? <Spinner size="sm" m={ 'var(--chakra-spacing-0\\.5)' } flexShrink={ 0 }/> : (
           <IconButton
             aria-label="Open wallet"
             variant="icon_secondary"
             size="2xs"
             onClick={ handleOpenWalletClick }
           >
-            <IconSvg name="gear"/>
+            <IconSvg aria-hidden={ true } name="gear"/>
           </IconButton>
         ) }
       </Flex>
-      <Button size="sm" width="full" variant="outline" onClick={ onDisconnect } mt={ 6 }>
+      <Button
+        size="sm"
+        width="full"
+        variant="outline"
+        onClick={ onDisconnect }
+        mt={ 6 }
+      >
         Disconnect
       </Button>
     </Box>

@@ -27,11 +27,11 @@ export function MarketCapChip({ raw, variant = 'chip', size = 'sm', className }:
       {variant === 'chip' ? <span aria-hidden="true" className="text-text-faint">MC</span> : null}
       {value === null ? (
         <>
-          <span aria-hidden="true" className="text-text-faint">&mdash;</span>
+          <span aria-hidden="true" className={variant === 'media' ? 'text-on-media' : 'text-text-faint'}>&mdash;</span>
           <span className="sr-only">not available yet</span>
         </>
       ) : (
-        <span className={cn('font-bold', variant === 'media' ? 'text-success' : 'text-text')}>{value}</span>
+        <span className={cn('font-bold', variant === 'media' ? 'text-on-media-success' : 'text-text')}>{value}</span>
       )}
     </span>
   );

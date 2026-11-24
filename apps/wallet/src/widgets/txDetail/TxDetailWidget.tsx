@@ -118,10 +118,10 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
     tx?.status === 'ok' ? 'Succeeded' : tx?.status === 'error' ? 'Failed' : 'Pending';
   const statusColor =
     tx?.status === 'ok'
-      ? 'text-green-400'
+      ? 'text-pax-success'
       : tx?.status === 'error'
-        ? 'text-red-400'
-        : 'text-amber-400';
+        ? 'text-pax-error'
+        : 'text-pax-warning';
   const directionLabel = multipleTransfers
     ? 'Token transfers'
     : direction === 'self'
@@ -135,8 +135,8 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
     multipleTransfers || direction === 'self' || direction === 'unrelated'
       ? 'text-pax-muted'
       : isSent
-        ? 'text-red-400'
-        : 'text-green-400';
+        ? 'text-pax-error'
+        : 'text-pax-success';
   const counterparty = primaryTransfer
     ? shortenAddress(isSent ? primaryTransfer.to?.hash || '' : primaryTransfer.from?.hash || '')
     : shortenAddress(isSent ? tx?.to?.hash || '' : tx?.from?.hash || '');
@@ -189,19 +189,20 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center text-center py-16 px-4 gap-4 mt-4"
           >
-            <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center">
-              <AlertTriangle className="w-7 h-7 text-red-400" />
+            <div className="w-16 h-16 rounded-2xl bg-pax-error-muted flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7 text-pax-error" />
             </div>
             <div className="space-y-1">
-              <p className="text-base font-semibold text-white/80">Could not load transaction</p>
-              <p className="text-sm text-pax-muted max-w-[260px] leading-relaxed">
+              <p className="text-base font-semibold text-pax-light">Could not load transaction</p>
+              <p className="text-sm text-pax-muted max-w-size-260 leading-relaxed">
                 {(error as Error).message}
               </p>
             </div>
             {onPaxscan && (
               <button
+                type="button"
                 onClick={() => onPaxscan(`/tx/${txHash}`)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.08] text-sm font-medium press-scale"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-pax-overlay text-sm font-medium press-scale"
               >
                 <ExternalLink className="w-4 h-4" />
                 Try PaxScan
@@ -216,7 +217,7 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                 <Image
                   src={iconUrl}
                   alt={symbol}
-                  className="w-16 h-16 rounded-full bg-white/10 object-cover"
+                  className="w-16 h-16 rounded-full bg-pax-overlay object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/wallet/default_icon.webp';
                   }}
@@ -224,12 +225,11 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                   height={64}
                 />
                 <div
-                  className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center ${isSent ? 'bg-red-500' : 'bg-green-500'}`}
+                  className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center ${isSent ? 'bg-pax-error' : 'bg-pax-success'}`}
                 >
                   <SvgIcon
                     name={isSent ? 'arrow-up-right' : 'arrow-down-left'}
                     className="w-3.5 h-3.5"
-                    style={{ filter: 'brightness(0) invert(1)' }}
                   />
                 </div>
               </div>
@@ -241,12 +241,12 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-amber-500/10  "
+                className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-pax-warning-muted"
               >
-                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <Clock className="w-4 h-4 text-pax-warning shrink-0" />
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-amber-400">Transaction Pending</p>
-                  <p className="text-[11px] text-amber-300/70 mt-0.5">
+                  <p className="text-xs font-semibold text-pax-warning">Transaction Pending</p>
+                  <p className="text-size-11 text-pax-warning/80 mt-0.5">
                     Waiting for confirmation on the network
                   </p>
                 </div>
@@ -258,16 +258,16 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-4 px-4 py-3 rounded-xl bg-red-500/8  "
+                className="mb-4 px-4 py-3 rounded-xl bg-pax-error-muted  "
               >
-                <p className="text-xs font-semibold text-red-400 mb-1">Revert reason</p>
-                <p className="text-xs text-red-300/80 font-mono break-all leading-relaxed">
+                <p className="text-xs font-semibold text-pax-error mb-1">Revert reason</p>
+                <p className="text-xs text-pax-error font-mono break-all leading-relaxed">
                   {revertReason}
                 </p>
               </motion.div>
             )}
 
-            <div className="glass-card  divide-white/[0.06] overflow-hidden">
+            <div className="glass-card  divide-pax-line overflow-hidden">
               <DetailRow label="Date" value={tx.timestamp ? fmtDate(tx.timestamp) : '—'} />
               <DetailRow label="Status" value={statusLabel} valueClass={statusColor} />
               {!multipleTransfers && direction !== 'unrelated' && (
@@ -276,8 +276,9 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
               <DetailRow label="Network" value="Paxeer" />
               <DetailRow label="Network Fee" value={fmtFee()} />
               <button
+                type="button"
                 onClick={() => onPaxscan?.(`/tx/${tx.hash}`)}
-                className="w-full py-3.5 text-center text-sm font-medium text-pax-accent hover:bg-white/[0.02] transition-colors"
+                className="w-full py-3 text-center text-sm font-medium text-pax-accent hover:bg-pax-control transition-colors"
               >
                 View on PaxScan
               </button>
@@ -303,13 +304,13 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                       </span>
                     </div>
                     {gasInfo.utilPct !== null && (
-                      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-pax-control overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
                             gasInfo.utilPct > 90
-                              ? 'bg-red-400'
+                              ? 'bg-pax-error'
                               : gasInfo.utilPct > 70
-                                ? 'bg-amber-400'
+                                ? 'bg-pax-warning'
                                 : 'bg-pax-accent'
                           }`}
                           style={{ width: `${Math.min(gasInfo.utilPct, 100)}%` }}
@@ -330,7 +331,7 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
             {multipleTransfers && (
               <div
                 aria-label="Token transfers"
-                className="glass-card mt-4  divide-white/[0.06] overflow-hidden"
+                className="glass-card mt-4  divide-pax-line overflow-hidden"
               >
                 <div className="px-4 py-3">
                   <p className="text-xs font-semibold text-pax-muted">
@@ -347,16 +348,11 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                   return (
                     <div key={i} className="flex items-center gap-3 px-4 py-3">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${ttSent ? 'bg-red-500/10' : 'bg-green-500/10'}`}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${ttSent ? 'bg-pax-error-muted' : 'bg-pax-success-muted'}`}
                       >
                         <SvgIcon
                           name={ttSent ? 'arrow-up-right' : 'arrow-down-left'}
                           className="w-3.5 h-3.5"
-                          style={{
-                            filter: ttSent
-                              ? 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(338deg) brightness(118%) contrast(119%)'
-                              : 'invert(69%) sepia(61%) saturate(588%) hue-rotate(88deg) brightness(93%) contrast(93%)',
-                          }}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -370,7 +366,7 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                         </p>
                       </div>
                       <p
-                        className={`text-sm font-medium shrink-0 ${ttSent ? 'text-red-400' : 'text-green-400'}`}
+                        className={`text-sm font-medium shrink-0 ${ttSent ? 'text-pax-error' : 'text-pax-success'}`}
                       >
                         {ttSelf ? '' : ttSent ? '-' : '+'}
                         {ttAmt} {ttSym}
@@ -386,8 +382,9 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
 
       <div className="px-4 pb-6 pt-2">
         <button
+          type="button"
           onClick={onBack}
-          className="w-full py-3.5 rounded-2xl bg-white/[0.08] text-white font-semibold text-sm press-scale hover:bg-white/[0.12] transition-colors"
+          className="min-h-[var(--touch-target)] w-full py-3 rounded-2xl bg-pax-overlay text-pax-light font-semibold text-sm press-scale hover:bg-pax-overlay transition-colors"
         >
           Close
         </button>
@@ -408,7 +405,7 @@ function DetailRow({
   mono?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3.5">
+    <div className="flex items-center justify-between px-4 py-3">
       <span className="text-sm text-pax-muted">{label}</span>
       <span className={`text-sm font-medium text-right ${mono ? 'font-mono' : ''} ${valueClass}`}>
         {value}

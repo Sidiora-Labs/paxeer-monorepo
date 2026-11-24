@@ -204,6 +204,7 @@ CREATE TABLE IF NOT EXISTS source_observations(
     chain TEXT PRIMARY KEY,
     source_head INTEGER,
     source_head_at INTEGER,
+    tx_index_disabled INTEGER NOT NULL DEFAULT 0,
     indexed_position INTEGER,
     last_success_at INTEGER,
     last_error TEXT,
@@ -469,6 +470,7 @@ pub struct BackfillCursor {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourceObservation {
     pub reconciled: bool,
+    pub tx_index_disabled: bool,
     pub source_head: Option<u64>,
     pub indexed_position: Option<u64>,
     pub last_success_at: Option<u64>,
@@ -747,6 +749,15 @@ impl Store {
         if observed_at_column == 0 {
             connection.execute_batch(
                 "ALTER TABLE source_observations ADD COLUMN source_head_at INTEGER",
+            )?;
+        }
+        let index_disabled_column: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('source_observations') WHERE name = 'tx_index_disabled'",
+            [], |row| row.get(0),
+        )?;
+        if index_disabled_column == 0 {
+            connection.execute_batch(
+                "ALTER TABLE source_observations ADD COLUMN tx_index_disabled INTEGER NOT NULL DEFAULT 0",
             )?;
         }
         let depth_column: i64 = connection.query_row(
@@ -2735,6 +2746,34 @@ impl Store {
         source_head: Option<u64>,
         indexed_position: Option<u64>,
     ) -> Result<(), IndexError> {
+        self.record_observation_success(chain, source_head, indexed_position, None)
+    }
+
+    /// Records a successful consensus observation and its declared transaction index state.
+    ///
+    /// # Errors
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
+    pub fn record_comet_success(
+        &self,
+        source_head: u64,
+        indexed_position: Option<u64>,
+        tx_index_disabled: bool,
+    ) -> Result<(), IndexError> {
+        self.record_observation_success(
+            "comet",
+            Some(source_head),
+            indexed_position,
+            Some(tx_index_disabled),
+        )
+    }
+
+    fn record_observation_success(
+        &self,
+        chain: &str,
+        source_head: Option<u64>,
+        indexed_position: Option<u64>,
+        tx_index_disabled: Option<bool>,
+    ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
         let connection = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let observed_at: i64 = connection.query_row(
@@ -2751,6 +2790,13 @@ impl Store {
                  consecutive_failures = 0",
             params![chain, source_head.map(signed).transpose()?, indexed_position.map(signed).transpose()?, observed_at],
         )?;
+        if let Some(disabled) = tx_index_disabled {
+            connection.execute(
+                "UPDATE source_observations SET tx_index_disabled = ?2,
+                     last_error = NULL, last_error_at = NULL WHERE chain = ?1",
+                params![chain, disabled],
+            )?;
+        }
         connection.execute(
             "UPDATE source_sessions SET reconciled = 1 WHERE chain = ?1",
             params![chain],
@@ -2789,7 +2835,7 @@ impl Store {
         let row = connection
             .query_row(
                 "SELECT source_head, indexed_position, last_success_at, last_error, last_error_at, consecutive_failures,
-                        COALESCE((SELECT reconciled FROM source_sessions WHERE chain = ?1), 0)
+                        COALESCE((SELECT reconciled FROM source_sessions WHERE chain = ?1), 0), tx_index_disabled
                  FROM source_observations WHERE chain = ?1",
                 params![chain],
                 |row| {
@@ -2801,14 +2847,16 @@ impl Store {
                         row.get::<_, Option<i64>>(4)?,
                         row.get::<_, i64>(5)?,
                         row.get::<_, bool>(6)?,
+                        row.get::<_, bool>(7)?,
                     ))
                 },
             )
             .optional()?;
         row.map(
-            |(head, indexed, success, error, error_at, failures, reconciled)| {
+            |(head, indexed, success, error, error_at, failures, reconciled, tx_index_disabled)| {
                 Ok(SourceObservation {
                     reconciled,
+                    tx_index_disabled,
                     source_head: head.map(unsigned).transpose()?,
                     indexed_position: indexed.map(unsigned).transpose()?,
                     last_success_at: success.map(unsigned).transpose()?,

@@ -576,7 +576,7 @@ func TestExpeditedProposalPassAndConvertToRegular(t *testing.T) {
 		})
 	}
 
-	t.Run("minority vote survives committed restart and regular tally", repairM679ConversionRestart)
+	t.Run("minority vote survives committed restart and regular tally", governanceLifecycleConversionRestart)
 }
 
 func TestEndBlockerProposalHandlerFailed(t *testing.T) {

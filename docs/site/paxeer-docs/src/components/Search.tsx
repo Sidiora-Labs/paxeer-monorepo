@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLightDismiss } from './useLightDismiss'
 
 interface SearchEntry {
   title: string
@@ -35,7 +36,9 @@ export function Search() {
   const dialogTitleId = useId()
   const resultsId = useId()
   const helpId = useId()
-  const terms = useMemo(() => query.toLowerCase().trim().split(/\s+/).filter(Boolean), [query])
+  useLightDismiss(dialogRef)
+  const deferredQuery = useDeferredValue(query)
+  const terms = useMemo(() => deferredQuery.toLowerCase().trim().split(/\s+/).filter(Boolean), [deferredQuery])
   const sections = useMemo(() => ['All docs', ...new Set((entries ?? []).map((entry) => entry.section))], [entries])
   const matches = useMemo(() => {
     const candidates = (entries ?? []).filter((entry) => section === 'All docs' || entry.section === section)
@@ -47,10 +50,10 @@ export function Search() {
       const searchable = `${title} ${pageTitle} ${entry.section.toLowerCase()} ${content}`
       if (!terms.every((term) => searchable.includes(term))) return []
       const score = terms.reduce((total, term) => total + (title.includes(term) ? 8 : 0) + (pageTitle.includes(term) ? 3 : 0) + (content.includes(term) ? 1 : 0), 0)
-        + (title === query.trim().toLowerCase() ? 20 : 0)
+        + (title === deferredQuery.trim().toLowerCase() ? 20 : 0)
       return [{ ...entry, score }]
     }).sort((a, b) => b.score - a.score)
-  }, [entries, query, section, terms])
+  }, [entries, deferredQuery, section, terms])
   const results = matches
 
   useEffect(() => {
@@ -73,16 +76,12 @@ export function Search() {
     }
     if (!dialog.open) dialog.showModal()
     inputRef.current?.focus()
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = overflow }
   }, [isOpen])
 
   useEffect(() => {
     if (!isOpen || entries) return
-    const controller = new AbortController()
     setStatus('loading')
-    fetch('/search-index.json', { signal: controller.signal })
+    fetch('/search-index.json')
       .then(async (response) => {
         if (!response.ok) throw new Error('Search index unavailable')
         const data: unknown = await response.json()
@@ -92,8 +91,8 @@ export function Search() {
         setEntries(data)
         setStatus('ready')
       })
-      .catch(() => { if (!controller.signal.aborted) setStatus('error') })
-    return () => controller.abort()
+      .catch(() => { setStatus('error') })
+    return undefined
   }, [isOpen, entries, retry])
 
   useEffect(() => {
@@ -111,7 +110,7 @@ export function Search() {
   return (
     <>
       <button type="button" className="search-trigger" aria-haspopup="dialog" aria-expanded={isOpen} aria-label="Search documentation" onClick={() => setIsOpen(true)}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <svg className="icon icon-sm" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="1.7" />
           <path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
         </svg>
@@ -123,24 +122,27 @@ export function Search() {
         aria-labelledby={dialogTitleId}
         onCancel={() => setIsOpen(false)}
         onClose={() => setIsOpen(false)}
-        onClick={(event) => {
-          if (event.target !== event.currentTarget) return
-          const rect = event.currentTarget.getBoundingClientRect()
-          if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setIsOpen(false)
-        }}
+
       >
         <h2 id={dialogTitleId} className="sr-only">Search Paxeer documentation</h2>
         <div className="search-input-row">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg className="icon icon-md" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="1.7" />
             <path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
           </svg>
           <input
             ref={inputRef}
+            name="documentation-query"
+            autoFocus
             value={query}
             onChange={(event) => { setQuery(event.target.value); setSelectedIndex(0) }}
             onKeyDown={(event) => {
-              if (!results.length) return
+              if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                dialogRef.current?.close()
+                return
+              }
+              if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 || !results.length) return
               if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault()
                 setSelectedIndex((index) => (index + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length)
@@ -168,9 +170,9 @@ export function Search() {
             <button key={name} type="button" aria-pressed={section === name} onClick={() => { setSection(name); setSelectedIndex(0); inputRef.current?.focus() }}>{name}</button>
           ))}
         </div>
-        {status === 'loading' && <p className="search-empty" role="status">Loading documentation…</p>}
-        {status === 'error' && <div className="search-empty" role="status"><p>Search could not load. Please try again.</p><button type="button" onClick={() => setRetry((value) => value + 1)}>Retry search</button></div>}
-        {status === 'ready' && results.length === 0 && <div className="search-empty" role="status"><strong>No results for “{query.trim()}”</strong><p>Try a method name, command, or a different section.</p></div>}
+        {status === 'loading' && <p className="search-empty" role="status" tabIndex={0}>Loading documentation…</p>}
+        {status === 'error' && <div className="search-empty" role="status" tabIndex={0}><p>Search could not load. Please try again.</p><button type="button" onClick={() => setRetry((value) => value + 1)}>Retry search</button></div>}
+        {status === 'ready' && results.length === 0 && <div className="search-empty" role="status" tabIndex={0}><strong>No results for “{query.trim()}”</strong><p>Try a method name, command, or a different section.</p></div>}
         <div id={resultsId} role="listbox" aria-label="Documentation results" className="search-results">
           {status === 'ready' && results.map((result, index) => (
             <a

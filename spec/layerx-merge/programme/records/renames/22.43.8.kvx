@@ -1,0 +1,324 @@
+[manifest]
+task = "22.43.8"
+records_moved = 15
+files_renamed = 17
+
+[file.1]
+from = "apps/explorer/ui/shared/AppError/custom/repair-22-33-319.spec.ts"
+to = "apps/explorer/ui/shared/AppError/custom/rateLimitCaptcha.spec.ts"
+
+[file.2]
+from = "apps/explorer/ui/shared/repair-22-33-320.spec.ts"
+to = "apps/explorer/ui/shared/ErrorBoundaryNavigation.spec.ts"
+
+[file.3]
+from = "apps/explorer/ui/shared/TokenTransfer/repair-22-33-321.spec.ts"
+to = "apps/explorer/ui/shared/TokenTransfer/TokenTransferIdentity.spec.ts"
+
+[file.4]
+from = "apps/explorer/ui/shared/Utilization/repair-22-33-322.spec.ts"
+to = "apps/explorer/ui/shared/Utilization/UtilizationLocale.spec.ts"
+
+[file.5]
+from = "apps/explorer/ui/shared/gas/repair-22-33-323.spec.ts"
+to = "apps/explorer/ui/shared/gas/gasPriceValues.spec.ts"
+
+[file.6]
+from = "apps/explorer/ui/shared/layout/repair-22-33-324.spec.ts"
+to = "apps/explorer/ui/shared/layout/layoutReadiness.spec.ts"
+
+[file.7]
+from = "apps/explorer/ui/shared/entities/address/repair-22-33-325.spec.ts"
+to = "apps/explorer/ui/shared/entities/address/AddressEntityChainLinks.spec.ts"
+
+[file.8]
+from = "apps/explorer/ui/shared/monaco/repair-22-33-326.spec.ts"
+to = "apps/explorer/ui/shared/monaco/editorModelSearch.spec.ts"
+
+[file.9]
+from = "apps/explorer/ui/shared/monaco/utils/repair-22-33-327.spec.ts"
+to = "apps/explorer/ui/shared/monaco/utils/sourceDecorationsAndImports.spec.ts"
+
+[file.10]
+from = "apps/explorer/ui/shared/monaco/utils/repair-22-33-327.monaco.d.ts"
+to = "apps/explorer/ui/shared/monaco/utils/monacoInternals.d.ts"
+
+[file.11]
+from = "apps/explorer/ui/shared/nft/repair-22-33-328.spec.ts"
+to = "apps/explorer/ui/shared/nft/nftMediaLifecycle.spec.ts"
+
+[file.12]
+from = "apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts"
+to = "apps/explorer/ui/shared/pagination/paginationNavigation.spec.ts"
+
+[file.13]
+from = "apps/explorer/ui/shared/reCaptcha/repair-22-33-330.spec.ts"
+to = "apps/explorer/ui/shared/reCaptcha/captchaRetry.spec.ts"
+
+[file.14]
+from = "apps/explorer/ui/shared/reCaptcha/repair-22-33-330.fixture.tsx"
+to = "apps/explorer/ui/shared/reCaptcha/renderReCaptcha.fixture.tsx"
+
+[file.15]
+from = "apps/explorer/ui/shared/statusLadder/repair-22-33-331.spec.ts"
+to = "apps/explorer/ui/shared/statusLadder/statusLadderRefresh.spec.ts"
+
+[file.16]
+from = "apps/explorer/ui/shared/web3/providers/repair-22-33-332.spec.ts"
+to = "apps/explorer/ui/shared/web3/providers/ReownProviderInitialization.spec.ts"
+
+[file.17]
+from = "apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"
+to = "apps/explorer/ui/shared/Page/entityPageComposition.spec.tsx"
+
+[file.18]
+from = "apps/explorer/ui/shared/AppError/custom/repair-22-33-319.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/AppError/custom/repair-22-33-319.kvx"
+
+[file.19]
+from = "apps/explorer/ui/shared/Page/repair-22-35-6.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/Page/repair-22-35-6.kvx"
+
+[file.20]
+from = "apps/explorer/ui/shared/TokenTransfer/repair-22-33-321.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/TokenTransfer/repair-22-33-321.kvx"
+
+[file.21]
+from = "apps/explorer/ui/shared/Utilization/repair-22-33-322.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/Utilization/repair-22-33-322.kvx"
+
+[file.22]
+from = "apps/explorer/ui/shared/entities/address/repair-22-33-325.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/entities/address/repair-22-33-325.kvx"
+
+[file.23]
+from = "apps/explorer/ui/shared/gas/repair-22-33-323.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/gas/repair-22-33-323.kvx"
+
+[file.24]
+from = "apps/explorer/ui/shared/layout/repair-22-33-324.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/layout/repair-22-33-324.kvx"
+
+[file.25]
+from = "apps/explorer/ui/shared/monaco/repair-22-33-326.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/monaco/repair-22-33-326.kvx"
+
+[file.26]
+from = "apps/explorer/ui/shared/monaco/utils/repair-22-33-327.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/monaco/utils/repair-22-33-327.kvx"
+
+[file.27]
+from = "apps/explorer/ui/shared/nft/repair-22-33-328.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/nft/repair-22-33-328.kvx"
+
+[file.28]
+from = "apps/explorer/ui/shared/pagination/repair-22-33-329.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/pagination/repair-22-33-329.kvx"
+
+[file.29]
+from = "apps/explorer/ui/shared/reCaptcha/repair-22-33-330.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/reCaptcha/repair-22-33-330.kvx"
+
+[file.30]
+from = "apps/explorer/ui/shared/repair-22-33-320.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/repair-22-33-320.kvx"
+
+[file.31]
+from = "apps/explorer/ui/shared/statusLadder/repair-22-33-331.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/statusLadder/repair-22-33-331.kvx"
+
+[file.32]
+from = "apps/explorer/ui/shared/web3/providers/repair-22-33-332.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/shared/web3/providers/repair-22-33-332.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair-22-35-6.spec.tsx"
+
+[reference.2]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-320.spec.ts"
+
+[reference.3]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-321.spec.ts"
+
+[reference.4]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-322.spec.ts"
+
+[reference.5]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-327.monaco.d.ts"
+
+[reference.6]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-327.spec.ts"
+
+[reference.7]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-328.spec.ts"
+
+[reference.8]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-329.spec.ts"
+
+[reference.9]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-330.spec.ts"
+
+[reference.10]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-331.spec.ts"
+
+[reference.11]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "repair-22-33-332.spec.ts"
+
+[reference.12]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-319.spec.ts"
+
+[reference.13]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-323.spec.ts"
+
+[reference.14]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-325.spec.ts"
+
+[reference.15]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-326.spec.ts"
+
+[reference.16]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-329.spec.ts"
+
+[reference.17]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-330.spec.ts"
+
+[reference.18]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-331.spec.ts"
+
+[reference.19]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-332.spec.ts"
+
+[reference.20]
+file = "spec/layerx-merge/dispositions/d22-34.kvx"
+name = "repair-22-35-6.spec.tsx"
+
+[reference.21]
+file = "spec/layerx-merge/programme/issues/1719.kvx"
+name = "repair-22-33-329.spec.ts"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-319.spec.ts"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-323.spec.ts"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-324.spec.ts"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-325.spec.ts"
+
+[reference.26]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-326.spec.ts"
+
+[reference.27]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-328.spec.ts"
+
+[reference.28]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-329.spec.ts"
+
+[reference.29]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-330.spec.ts"
+
+[reference.30]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-331.spec.ts"
+
+[reference.31]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-332.spec.ts"
+
+[reference.32]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-35-6.spec.tsx"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-319.spec.ts"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-320.spec.ts"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-321.spec.ts"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-322.spec.ts"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-323.spec.ts"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-324.spec.ts"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-325.spec.ts"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-326.spec.ts"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-327.spec.ts"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-328.spec.ts"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-329.spec.ts"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-330.spec.ts"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-331.spec.ts"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-332.spec.ts"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-35-6.kvx"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-35-6.spec.tsx"

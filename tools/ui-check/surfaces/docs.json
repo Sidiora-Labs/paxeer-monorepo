@@ -1,0 +1,1517 @@
+{
+  "name": "Paxeer X documentation",
+  "directory": "../../../docs/site/paxeer-docs",
+  "build": "CIRCLE_NODE_TOTAL=3 npm run build",
+  "start": "node ../../../tools/ui-check/surfaces/docs/start.mjs",
+  "address": "http://localhost:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "home",
+      "path": "/",
+      "states": [
+        {
+          "name": "javascript",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-JavaScript"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "python",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-Python"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "invalid-endpoint",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#rpc-endpoint",
+              "value": "invalid"
+            },
+            {
+              "action": "press",
+              "selector": "#rpc-endpoint",
+              "key": "Tab"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "copied-code",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".copy-snippet"
+            },
+            {
+              "action": "wait",
+              "text": "Copied"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "faq-expanded",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".cd-faq details:nth-of-type(1) > summary"
+            },
+            {
+              "action": "click",
+              "selector": ".cd-faq details:nth-of-type(2) > summary"
+            },
+            {
+              "action": "click",
+              "selector": ".cd-faq details:nth-of-type(3) > summary"
+            },
+            {
+              "action": "click",
+              "selector": ".cd-faq details:nth-of-type(4) > summary"
+            },
+            {
+              "action": "click",
+              "selector": ".cd-faq details:nth-of-type(5) > summary"
+            },
+            {
+              "action": "click",
+              "selector": ".cd-faq details:nth-of-type(6) > summary"
+            }
+          ],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ]
+        },
+        {
+          "name": "theme-switched",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".header-tools button[aria-label*=\"theme\"]"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "a2a",
+      "path": "/a2a/"
+    },
+    {
+      "name": "accounts",
+      "path": "/accounts/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "activities",
+      "path": "/activities/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "admin-hpx",
+      "path": "/admin-hpx/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "agent-budgets",
+      "path": "/agent-budgets/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "agent-runtime",
+      "path": "/agent-runtime/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "agents",
+      "path": "/agents/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "assets",
+      "path": "/assets/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "bridge",
+      "path": "/bridge/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "building-a-frontend",
+      "path": "/building-a-frontend/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "checkpoints",
+      "path": "/checkpoints/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "cli",
+      "path": "/cli/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "commerce",
+      "path": "/commerce/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "configuration",
+      "path": "/configuration/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "consensus",
+      "path": "/consensus/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "contracts",
+      "path": "/contracts/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "custody",
+      "path": "/custody/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "data-availability",
+      "path": "/data-availability/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "debugging-transactions",
+      "path": "/debugging-transactions/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "developer-funding",
+      "path": "/developer-funding/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "discovery",
+      "path": "/discovery/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "docker",
+      "path": "/docker/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "emulator",
+      "path": "/emulator/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "engine",
+      "path": "/engine/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "escrow",
+      "path": "/escrow/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "evm",
+      "path": "/evm/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "fees",
+      "path": "/fees/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "finality",
+      "path": "/finality/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "foundry",
+      "path": "/foundry/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "funding",
+      "path": "/funding/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "governance",
+      "path": "/governance/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "guarantors",
+      "path": "/guarantors/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "hardhat",
+      "path": "/hardhat/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "human-interface",
+      "path": "/human-interface/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "identity",
+      "path": "/identity/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "installation",
+      "path": "/installation/",
+      "states": [
+        {
+          "name": "search-explore",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "wait",
+              "text": "All docs"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "search-results",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "fill",
+              "selector": "input[name=\"documentation-query\"]",
+              "value": "payment"
+            },
+            {
+              "action": "wait",
+              "text": "result"
+            }
+          ],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ]
+        },
+        {
+          "name": "search-empty",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "fill",
+              "selector": "input[name=\"documentation-query\"]",
+              "value": "no-such-documentation-zzzz"
+            },
+            {
+              "action": "wait",
+              "text": "No results for"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "search-section",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "click",
+              "selector": ".search-filters button:nth-child(2)"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "search-selected",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "fill",
+              "selector": "input[name=\"documentation-query\"]",
+              "value": "payment"
+            },
+            {
+              "action": "press",
+              "selector": "input[name=\"documentation-query\"]",
+              "key": "ArrowDown"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "search-dismissed",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "press",
+              "selector": "input[name=\"documentation-query\"]",
+              "key": "Escape"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "contents-expanded",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".mobile-toc > summary"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "illustration-paused",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".doc-figure:not(.doc-figure--compact) button"
+            },
+            {
+              "action": "wait",
+              "text": "Resume motion"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "copied-page",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".copy-for-agent-btn"
+            },
+            {
+              "action": "wait",
+              "text": "Copied"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "copied-example",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".code-block-frame .copy-button >> nth=0"
+            },
+            {
+              "action": "wait",
+              "text": "Copied"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "assistant-empty",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            }
+          ],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ]
+        },
+        {
+          "name": "assistant-draft",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "fill",
+              "selector": "textarea[name=\"question\"]",
+              "value": "How do I make my first Paxeer X payment?"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "assistant-answer",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "fill",
+              "selector": "textarea[name=\"question\"]",
+              "value": "How do I make my first Paxeer X payment?"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-composer button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Sources \u00b7 1"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "assistant-sources",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "fill",
+              "selector": "textarea[name=\"question\"]",
+              "value": "How do I make my first Paxeer X payment?"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-composer button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Sources \u00b7 1"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-sources > summary"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "assistant-cleared",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "fill",
+              "selector": "textarea[name=\"question\"]",
+              "value": "How do I make my first Paxeer X payment?"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-composer button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Sources \u00b7 1"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-header button:has-text(\"Clear\")"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "assistant-dismissed",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "click",
+              "selector": "[aria-label=\"Close assistant\"]"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "main-navigation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[aria-label=\"Open main navigation\"]"
+            }
+          ],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ]
+        },
+        {
+          "name": "documentation-navigation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-menu-button"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "interchain",
+      "path": "/interchain/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "interop",
+      "path": "/interop/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "json-rpc-unsupported",
+      "path": "/json-rpc-unsupported/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "json-rpc",
+      "path": "/json-rpc/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "launchpad",
+      "path": "/launchpad/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "layerx-kernel",
+      "path": "/layerx-kernel/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "mandates",
+      "path": "/mandates/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "market-makers",
+      "path": "/market-makers/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "mcp",
+      "path": "/mcp/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "mirrors",
+      "path": "/mirrors/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "modules",
+      "path": "/modules/"
+    },
+    {
+      "name": "modules-epoch",
+      "path": "/modules/epoch/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "modules-mint",
+      "path": "/modules/mint/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "modules-oracle",
+      "path": "/modules/oracle/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "modules-store",
+      "path": "/modules/store/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "modules-tokenfactory",
+      "path": "/modules/tokenfactory/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "network-operations",
+      "path": "/network-operations/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "network-parameters",
+      "path": "/network-parameters/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "node-troubleshooting",
+      "path": "/node-troubleshooting/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "operators",
+      "path": "/operators/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "oracle-risk",
+      "path": "/oracle-risk/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "paid-apis",
+      "path": "/paid-apis/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "parallelization",
+      "path": "/parallelization/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "paxeer-vs-layerx",
+      "path": "/paxeer-vs-layerx/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "payments-quickstart",
+      "path": "/payments-quickstart/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "payments",
+      "path": "/payments/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "perpetuals",
+      "path": "/perpetuals/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "platform-api",
+      "path": "/platform-api/"
+    },
+    {
+      "name": "precompiles",
+      "path": "/precompiles/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "program-workspace",
+      "path": "/program-workspace/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "programs",
+      "path": "/programs/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "proofs",
+      "path": "/proofs/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "public-rpc",
+      "path": "/public-rpc/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "python",
+      "path": "/python/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "querying-evm",
+      "path": "/querying-evm/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "receipts",
+      "path": "/receipts/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "registry",
+      "path": "/registry/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "relay-archive",
+      "path": "/relay-archive/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "rest-grpc",
+      "path": "/rest-grpc/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "run-node",
+      "path": "/run-node/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "sandbox",
+      "path": "/sandbox/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "sdk-quickstarts",
+      "path": "/sdk-quickstarts/"
+    },
+    {
+      "name": "sdk",
+      "path": "/sdk/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "security",
+      "path": "/security/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "sequencing",
+      "path": "/sequencing/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "services",
+      "path": "/services/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "settlement",
+      "path": "/settlement/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "sidiora",
+      "path": "/sidiora/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "spot-exchange",
+      "path": "/spot-exchange/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "storage-scan",
+      "path": "/storage-scan/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "storage",
+      "path": "/storage/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "streams",
+      "path": "/streams/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "subscriptions",
+      "path": "/subscriptions/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "system-map",
+      "path": "/system-map/",
+      "states": [
+        {
+          "name": "system-query",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "input[name=\"system-query\"]",
+              "value": "Paxeer chain node"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "system-empty",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "input[name=\"system-query\"]",
+              "value": "no-such-system-zzzz"
+            },
+            {
+              "action": "wait",
+              "text": "No systems match these filters."
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "system-cleared",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "input[name=\"system-query\"]",
+              "value": "no-such-system-zzzz"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Clear filters\")"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "system-filtered",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "select[name=\"system-kind\"]",
+              "key": "ArrowDown"
+            },
+            {
+              "action": "press",
+              "selector": "select[name=\"system-kind\"]",
+              "key": "Enter"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "system-change",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "select[name=\"system-change\"]",
+              "key": "ArrowDown"
+            },
+            {
+              "action": "press",
+              "selector": "select[name=\"system-change\"]",
+              "key": "Enter"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        },
+        {
+          "name": "system-expanded",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#system-chain-node > summary"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "unified-network",
+      "path": "/unified-network/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "wasm-runtime",
+      "path": "/wasm-runtime/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "wasm",
+      "path": "/wasm/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "wasmbinding",
+      "path": "/wasmbinding/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "webhooks",
+      "path": "/webhooks/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "xdk",
+      "path": "/xdk/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "xweb",
+      "path": "/xweb/",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "search-loading",
+      "path": "/installation/?render=search-loading",
+      "states": [
+        {
+          "name": "search-loading",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Loading documentation\u2026"
+            }
+          ],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "search-error",
+      "path": "/installation/?render=search-error",
+      "states": [
+        {
+          "name": "search-error",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Search could not load. Please try again."
+            }
+          ],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "search-retry",
+      "path": "/installation/?render=search-retry",
+      "states": [
+        {
+          "name": "search-retry",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Search documentation\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Search could not load. Please try again."
+            },
+            {
+              "action": "click",
+              "selector": ".search-empty button"
+            },
+            {
+              "action": "wait",
+              "text": "All docs"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "assistant-loading",
+      "path": "/installation/?render=assistant-loading",
+      "states": [
+        {
+          "name": "assistant-loading",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "fill",
+              "selector": "textarea[name=\"question\"]",
+              "value": "How do I make my first Paxeer X payment?"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-composer button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Preparing your answer"
+            }
+          ],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "assistant-stopped",
+      "path": "/installation/?render=assistant-stopped",
+      "states": [
+        {
+          "name": "assistant-stopped",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "fill",
+              "selector": "textarea[name=\"question\"]",
+              "value": "How do I make my first Paxeer X payment?"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-composer button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Preparing your answer"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-composer button:has-text(\"Stop\")"
+            },
+            {
+              "action": "wait",
+              "text": "Answer stopped."
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "assistant-error",
+      "path": "/installation/?render=assistant-error",
+      "states": [
+        {
+          "name": "assistant-error",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "fill",
+              "selector": "textarea[name=\"question\"]",
+              "value": "How do I make my first Paxeer X payment?"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-composer button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The answer was interrupted. Please try again."
+            }
+          ],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "assistant-retry",
+      "path": "/installation/?render=assistant-retry",
+      "states": [
+        {
+          "name": "assistant-retry",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".docs-assistant-launch-button"
+            },
+            {
+              "action": "fill",
+              "selector": "textarea[name=\"question\"]",
+              "value": "How do I make my first Paxeer X payment?"
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-composer button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The answer was interrupted. Please try again."
+            },
+            {
+              "action": "click",
+              "selector": ".docs-assistant-retry"
+            },
+            {
+              "action": "wait",
+              "text": "Sources \u00b7 1"
+            }
+          ],
+          "modes": [
+            "default"
+          ]
+        }
+      ],
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "not-found",
+      "path": "/404.html",
+      "modes": [
+        "default"
+      ]
+    }
+  ],
+  "answers": [],
+  "typeScale": [
+    {
+      "min": 12,
+      "max": 14
+    },
+    {
+      "min": 15,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 18,
+      "max": 22
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 24,
+      "max": 30
+    },
+    {
+      "min": 28,
+      "max": 36
+    },
+    {
+      "min": 32,
+      "max": 44
+    },
+    {
+      "min": 38,
+      "max": 70
+    }
+  ]
+}

@@ -122,8 +122,8 @@ func TestCapacityWorkloadRetainsProviderOutputAndFaultCoordinates(t *testing.T) 
 
 func TestCapacityInputIdentityAndBindingRefusals(t *testing.T) {
 	ctx := context.Background()
-	node := repair997Serve(t)
-	live := repair997Open(t, fopts(node.server.URL))
+	node := sourceRecoveryServe(t)
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	opts := capacityBoundOptions(t, live)
 	providers := CapacityProviders{Live: live, Historical: &HistoricalSource{RPC: live}}
 	for _, change := range []func(*CapacityOptions){

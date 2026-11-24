@@ -694,6 +694,7 @@ impl NativeEvidence {
 }
 
 #[test]
+#[ignore = "runs in the program interface harness"]
 fn native_receipt_authorized_interface_reads() {
     let root = directory("PAXEER_X_INTERFACE_FIXTURES");
     for (name, abi, dynamic) in CASES {
@@ -828,10 +829,10 @@ fn verify_native_case(root: &Path, name: &str, expected: &ProgramInterface) {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_221.rs"]
-mod repair_22_33_221;
+#[path = "support/chain_deployment_support.rs"]
+mod chain_deployment_support;
 
 #[test]
 fn node_transaction_result_and_interface_transport() {
-    repair_22_33_221::native_interface_transport();
+    chain_deployment_support::native_interface_transport();
 }

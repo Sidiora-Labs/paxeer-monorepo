@@ -20,7 +20,7 @@ func TestRewardJourneyDatabaseCancellation(t *testing.T) {
 	for _, action := range []string{"rewards", "preview", "prepare", "prepare replay", "community", "community replay", "watch first", "watch unchanged", "source"} {
 		t.Run(action, func(t *testing.T) {
 			fixture := func(t *testing.T) (func() error, *internaltest.QueryCancellation, string) {
-				f := repair62Chain(t)
+				f := rewardHistoryChain(t)
 				boundLedger := f.ledger
 				if action == "community replay" {
 					boundLedger = storage(t)

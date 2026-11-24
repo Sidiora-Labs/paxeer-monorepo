@@ -17,7 +17,7 @@ import (
 func TestReceiptSettlementValidatesSourceBoundTransferEvidence(t *testing.T) {
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	var raw []byte
 	if err := pool.QueryRow(ctx, `SELECT payload FROM indexer.indexer_accounting_fills_v1 ORDER BY log_index LIMIT 1`).Scan(&raw); err != nil {
 		t.Fatal(err)

@@ -2,15 +2,15 @@
 
 `layerx-platform-gateway` builds the `layerx-gateway` binary in the
 [platform Cargo workspace](../../Cargo.toml). It provides hosted APIs and a
-JSON-RPC ingress to the single Paxeer network. `paxd` contains the kernel,
-executes transactions and proposes blocks; receipt finality is BFT block
-commit. Tenant domains are database namespaces in that network.
+JSON-RPC ingress to Paxeer. The LayerX kernel inside `paxd` executes and orders
+each transaction and builds each block; validators check and commit it. Receipt
+finality is block commit. Tenant domains are database namespaces in that network.
 
 Public node JSON-RPC is served at the root path, with EVM chain ID **125**
-(`0x7d`); see the [public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
+(`0x7d`); see the [public RPC reference](../../../../docs/readme/PUBLIC-RPC.md).
 Those nodes expose `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`
 namespaces. The `px` namespace is served at the node root from node state;
-only `px_register` and `px_requestFunds` are hosted operations.
+`px_openSession`, `px_register` and `px_requestFunds` are hosted operations.
 Mainnet-beta uses real value; obtain
 hosted service coordinates, credentials and any allocation policy from its operator.
 
@@ -35,21 +35,28 @@ Send node JSON-RPC 2.0 requests to `POST /` with
 The expected chain ID is `0x7d`. Native balance reads use `eth_call` with
 `all_balances(address)` against the bank precompile
 `0x0000000000000000000000000000000000001001`.
+For the illustrative account `0x102132435465768798a9bacbdcedfe0f1e2d3c4b`:
+
+```json
+{"jsonrpc":"2.0","id":"balances","method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000001001","data":"0x0c5e2789000000000000000000000000102132435465768798a9bacbdcedfe0f1e2d3c4b"},"latest"]}
+```
+
 Decode the result as the bank ABI's coin array; amounts are full-width integers.
 
 The **hosted gateway**, at the operator-provided origin, also accepts `POST /`.
 Its dispatcher is [src/rpc.rs](src/rpc.rs), reached through
 [src/main.rs](src/main.rs). The gateway-owned [OpenRPC contract](openrpc.json)
-declares the gateway's `px_*` methods and `pax_sequencerReceipt`. `GET /openrpc.json`
-serves the gateway schema with the inference methods filtered out. Public nodes
+declares the gateway's `px_*` methods and `pax_sequencerReceipt`, plus five
+node inference reads. `GET /openrpc.json` serves the gateway schema with the
+inference methods filtered out. `/rpc/schema` is not a discovery endpoint. Public nodes
 serve their own `px` namespace at `POST /`; use the hosted gateway for
-`px_register` and `px_requestFunds`.
+`px_openSession`, `px_register` and `px_requestFunds`.
 Hosted requests may be single objects or batches of 1..32 entries; notification-only requests
 produce HTTP 204. Malformed JSON answers `-32700`, invalid request envelopes
 `-32600`, and unknown methods `-32601`.
 
-Retired `/rpc`, `/rpc/schema`, `/rpc/ws` and `/rpc/evm/ws` coordinates return
-HTTP 404 at the gateway. There is no unified WebSocket
+The `/rpc`, `/rpc/schema`, `/rpc/ws` and `/rpc/evm/ws` coordinates
+are retired and return HTTP 404 at the gateway. There is no unified WebSocket
 execution router; the HTTP relay does not provide subscriptions.
 The retired `lx_*` methods answer `-32601` without contacting a backend.
 Use native signed transactions and chain reads for network execution.
@@ -60,6 +67,11 @@ There is no separate LayerX interface or router in the merged network.
 
 `LAYERX_GATEWAY_PAXEER_RPC_URLS` is a JSON array of two to eight distinct node
 URLs, each supplied as a JSON string identifying a node RPC endpoint.
+For example:
+
+```json
+["https://api-mainnet-beta.paxeer.network/", "https://api1.mainnet-beta.paxeer.network/"]
+```
 
 Invalid arrays refuse startup. The relay tries configured nodes in order,
 checks `eth_chainId` equals 125, and requires HTTP 200 and a valid JSON-RPC
@@ -236,7 +248,7 @@ Programs ordinals 1, 2 and 7 are added by the gateway. This registry describes
 admitted protocol data; it does not restore retired activity submission APIs.
 A fuller example is [module-registry.example.json](../../../interop/deploy/gateway/module-registry.example.json).
 
-Public node details: [public-rpc.md](../../../../docs/site/docs/reference/public-rpc.md).
+Public node details: [public-rpc.md](../../../../docs/readme/PUBLIC-RPC.md).
 Method and evidence references: [PublicRpc](../../../../docs/wiki/PublicRpc.md),
 [CommitmentLevels](../../../../docs/wiki/CommitmentLevels.md) and
 [PublicAPI](../../../../docs/wiki/PublicAPI.md).

@@ -126,15 +126,21 @@ const TokenInfoForm = ({ address, tokenName, application, onSubmit }: Props) => 
 
           <FormFieldText<Fields> name="token_name" required placeholder="Token name" { ...fieldProps } readOnly/>
           <FormFieldAddress<Fields> name="address" required placeholder="Token contract address" { ...fieldProps } readOnly/>
-          <FormFieldText<Fields> name="requester_name" required placeholder="Requester name" { ...fieldProps }/>
-          <FormFieldEmail<Fields> name="requester_email" required placeholder="Requester email" { ...fieldProps }/>
+          <FormFieldText<Fields> name="requester_name" required placeholder="Requester name" inputProps={{ autoComplete: 'name' }} { ...fieldProps }/>
+          <FormFieldEmail<Fields> name="requester_email" required placeholder="Requester email" inputProps={{ autoComplete: 'email' }} { ...fieldProps }/>
 
           <TokenInfoFormSectionHeader>Project info</TokenInfoFormSectionHeader>
           <FormFieldText<Fields> name="project_name" placeholder="Project name" { ...fieldProps } rules={ nonWhitespaceFieldRules }/>
           <TokenInfoFieldProjectSector { ...fieldProps } config={ configQuery.data.projectSectors }/>
-          <FormFieldEmail<Fields> name="project_email" required placeholder="Official project email address" { ...fieldProps }/>
-          <FormFieldUrl<Fields> name="project_website" required placeholder="Official project website" { ...fieldProps }/>
-          <FormFieldUrl<Fields> name="docs" placeholder="Docs" { ...fieldProps }/>
+          <FormFieldEmail<Fields>
+            name="project_email"
+            required
+            placeholder="Official project email address"
+            inputProps={{ autoComplete: 'email' }}
+            { ...fieldProps }
+          />
+          <FormFieldUrl<Fields> name="project_website" required placeholder="Official project website" inputProps={{ autoComplete: 'url' }} { ...fieldProps }/>
+          <FormFieldUrl<Fields> name="docs" placeholder="Docs" inputProps={{ autoComplete: 'url' }} { ...fieldProps }/>
           <TokenInfoFieldSupport { ...fieldProps }/>
           <GridItem colSpan={{ base: 1, lg: 2 }}>
             <TokenInfoFieldIconUrl { ...fieldProps }/>
@@ -144,7 +150,7 @@ const TokenInfoForm = ({ address, tokenName, application, onSubmit }: Props) => 
               name="project_description"
               required
               placeholder="Project description"
-              maxH="160px"
+              maxH="40"
               rules={{ maxLength: 300, ...nonWhitespaceFieldRules }}
               asComponent="Textarea"
               { ...fieldProps }
@@ -178,7 +184,7 @@ const TokenInfoForm = ({ address, tokenName, application, onSubmit }: Props) => 
             <FormFieldText<Fields>
               name="comment"
               placeholder="Comment"
-              maxH="160px"
+              maxH="40"
               rules={{ maxLength: 300 }}
               asComponent="Textarea"
               { ...fieldProps }

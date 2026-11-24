@@ -104,7 +104,7 @@ const AddressBlocksValidated = ({ shouldRender = true, isQueryEnabled = true }: 
   const content = query.data?.items ? (
     <>
       <Box hideBelow="lg">
-        <TableRoot tableLayout="auto">
+        <TableRoot tableLayout="auto" aria-label="Blocks validated" aria-busy={ query.isPlaceholderData }>
           <TableHeaderSticky top={ query.pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }>
             <TableRow>
               <TableColumnHeader>Block</TableColumnHeader>

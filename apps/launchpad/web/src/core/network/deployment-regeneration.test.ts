@@ -52,10 +52,12 @@ function deploymentRegenerationPreservesFullHelper() {
   expect(output.PRIVATE_FIXTURE_WAGMI_STORAGE_KEY).toBe(deployment.PRIVATE_FIXTURE_WAGMI_STORAGE_KEY);
   expect(output.OPTIONAL_CONTRACT_CAPABILITIES).toEqual(deployment.OPTIONAL_CONTRACT_CAPABILITIES);
   const approval = output.isActiveApprovalSpender as typeof deployment.isActiveApprovalSpender;
-  expect(approval(data.router)).toBe(true);
+  expect(approval(data.launchpadPrecompile)).toBe(true);
+  expect(approval(data.router)).toBe(false);
   expect(approval(data.treasury)).toBe(false);
   const assertApproval = output.assertActiveApprovalSpender as typeof deployment.assertActiveApprovalSpender;
-  expect(() => assertApproval(data.router)).not.toThrow();
+  expect(() => assertApproval(data.launchpadPrecompile)).not.toThrow();
+  expect(() => assertApproval(data.router)).toThrow(/no verified active deployment/);
   expect(() => assertApproval(data.treasury)).toThrow(/no verified active deployment/);
   const assertOptional = output.assertOptionalContractCapability as typeof deployment.assertOptionalContractCapability;
   for (const capability of ['metaAg', 'pecorOrders'] as const) {
@@ -125,7 +127,7 @@ function deploymentRegenerationFeedsWebConsumers() {
     contracts.OPTICAL_REGISTRY_ADDRESS, contracts.PROTOCOL_CONFIG_ADDRESS, contracts.USDL_ADDRESS,
   ]).toEqual([data.router, data.quoter, data.feesRouter, data.opticalRegistry, data.protocolConfig, data.usdl]);
   expect(productionTradeDeployment).toEqual({
-    revision: data.manifestSha256, router: data.router, quoter: data.quoter,
+    revision: data.manifestSha256, router: data.router, spender: data.launchpadPrecompile, quoter: data.quoter,
     registry: data.poolRegistry, emitter: data.eventEmitter, usdl: data.usdl,
     pins: deployment.CORE_TRADE_EXECUTION_ROLES.map(role => {
       const identity = data.roleIdentity[role];
@@ -133,8 +135,8 @@ function deploymentRegenerationFeedsWebConsumers() {
         ...('implementationAddress' in identity ? { implementation: identity.implementationAddress, implementationHash: identity.implementationHash } : {}) };
     }),
   });
-  expect(contracts.erc20ApprovalRequest({ token: data.usdl, spender: data.router, amount: 1n })).toMatchObject({
-    chainId: data.chainId, address: data.usdl, functionName: 'approve', args: [data.router, 1n],
+  expect(contracts.erc20ApprovalRequest({ token: data.usdl, spender: data.launchpadPrecompile, amount: 1n })).toMatchObject({
+    chainId: data.chainId, address: data.usdl, functionName: 'approve', args: [data.launchpadPrecompile, 1n],
   });
   expect(() => contracts.erc20ApprovalRequest({ token: data.usdl, spender: data.treasury, amount: 1n })).toThrow(/spender/);
 }

@@ -13,14 +13,13 @@ const SettingsLocalTime = () => {
   const { isLocalTime, toggleIsLocalTime } = settingsContext;
 
   return (
-    <Switch
+    <Switch minH="calc(var(--chakra-spacing-8) + var(--chakra-spacing-0\\.5))"
       id="local-time"
       defaultChecked={ isLocalTime }
       onChange={ toggleIsLocalTime }
       direction="rtl"
       justifyContent="space-between"
       w="100%"
-      minH="34px"
     >
       Local time format
     </Switch>

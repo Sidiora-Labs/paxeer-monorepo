@@ -6,7 +6,7 @@ defmodule Explorer.Market.Fetcher.HistoryTest do
   alias Explorer.Market.{MarketHistory, Source}
   alias Explorer.Market.Fetcher.History
   alias Explorer.Market.Source.TestSource
-  alias Explorer.Market.Source.CryptoCompare
+  alias Explorer.Market.Source.{CryptoCompare, DefiLlama}
   alias Explorer.Repo
   alias Plug.Conn
 
@@ -14,7 +14,12 @@ defmodule Explorer.Market.Fetcher.HistoryTest do
     source_configuration = Application.get_env(:explorer, Source)
     history_configuration = Application.get_env(:explorer, History)
 
-    Application.put_env(:explorer, Source, native_coin_history_source: TestSource)
+    Application.put_env(:explorer, Source,
+      native_coin_history_source: TestSource,
+      secondary_coin_history_source: DefiLlama,
+      market_cap_history_source: DefiLlama,
+      tvl_history_source: CryptoCompare
+    )
 
     Application.put_env(
       :explorer,
@@ -51,17 +56,23 @@ defmodule Explorer.Market.Fetcher.HistoryTest do
   test "handle_info with native_coin_price_history" do
     source_configuration = Application.get_env(:explorer, Source)
     crypto_compare_configuration = Application.get_env(:explorer, CryptoCompare)
+    adapter_configuration = Application.get_env(:tesla, :adapter)
 
     bypass = Bypass.open()
 
-    Application.put_env(:explorer, Source, native_coin_history_source: CryptoCompare)
+    Application.put_env(
+      :explorer,
+      Source,
+      Keyword.put(source_configuration, :native_coin_history_source, CryptoCompare)
+    )
+
     Application.put_env(:explorer, CryptoCompare, base_url: "http://localhost:#{bypass.port}", coin_symbol: "TEST")
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
     on_exit(fn ->
       Application.put_env(:explorer, Source, source_configuration)
       Application.put_env(:explorer, CryptoCompare, crypto_compare_configuration)
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
+      Application.put_env(:tesla, :adapter, adapter_configuration)
     end)
 
     resp =
@@ -105,15 +116,19 @@ defmodule Explorer.Market.Fetcher.HistoryTest do
           records: []
         }
       },
-      day_count: 1
+      day_count: 1,
+      tasks: %{},
+      cycle_finished?: false
     }
 
     records = [
       %{date: ~D[2018-04-01], closing_price: Decimal.new(10), opening_price: Decimal.new(5), secondary_coin: false}
     ]
 
-    assert {:noreply, state} == History.handle_info(:native_coin_price_history, state)
-    assert_receive {_ref, {:native_coin_price_history, {:ok, ^records}}}
+    assert {:noreply, fetching_state} = History.handle_info(:native_coin_price_history, state)
+    assert_receive {ref, {:native_coin_price_history, {:ok, ^records}}}
+    assert fetching_state == %{state | tasks: %{ref => :native_coin_price_history}}
+    Process.demonitor(ref, [:flush])
   end
 
   test "handle_info with successful tasks" do
@@ -156,23 +171,44 @@ defmodule Explorer.Market.Fetcher.HistoryTest do
           records: []
         }
       },
-      day_count: 1
+      day_count: 1,
+      tasks: %{},
+      cycle_finished?: false
+    }
+
+    price_ref = make_ref()
+    market_cap_ref = make_ref()
+    tvl_ref = make_ref()
+
+    state = %{
+      state
+      | tasks: %{
+          price_ref => :native_coin_price_history,
+          market_cap_ref => :market_cap_history,
+          tvl_ref => :tvl_history
+        }
     }
 
     assert {:noreply, new_state} =
-             History.handle_info({nil, {:native_coin_price_history, {:ok, price_records}}}, state)
+             History.handle_info({price_ref, {:native_coin_price_history, {:ok, price_records}}}, state)
+
+    refute Map.has_key?(new_state.tasks, price_ref)
 
     assert get_in(new_state.types_states, [:native_coin_price_history, :finished?])
     assert get_in(new_state.types_states, [:native_coin_price_history, :records]) == price_records
 
     assert {:noreply, new_state} =
-             History.handle_info({nil, {:market_cap_history, {:ok, market_cap_records}}}, new_state)
+             History.handle_info({market_cap_ref, {:market_cap_history, {:ok, market_cap_records}}}, new_state)
 
     assert get_in(new_state.types_states, [:market_cap_history, :finished?])
     assert get_in(new_state.types_states, [:market_cap_history, :records]) == market_cap_records
 
-    assert {:noreply, _final_state} =
-             History.handle_info({nil, {:tvl_history, {:ok, tvl_records}}}, new_state)
+    assert {:noreply, final_state} =
+             History.handle_info({tvl_ref, {:tvl_history, {:ok, tvl_records}}}, new_state)
+
+    assert final_state.tasks == %{}
+    assert final_state.cycle_finished?
+    assert final_state.types_states.tvl_history.records == tvl_records
 
     assert record2 = Repo.get_by(MarketHistory, date: Enum.at(price_records, 1).date)
     assert record1 = Repo.get_by(MarketHistory, date: Enum.at(price_records, 0).date)
@@ -187,16 +223,22 @@ defmodule Explorer.Market.Fetcher.HistoryTest do
   test "current day values are saved in state" do
     bypass = Bypass.open()
     crypto_compare_configuration = Application.get_env(:explorer, CryptoCompare)
+    adapter_configuration = Application.get_env(:tesla, :adapter)
     source_configuration = Application.get_env(:explorer, Source)
 
-    Application.put_env(:explorer, Source, native_coin_history_source: CryptoCompare)
+    Application.put_env(
+      :explorer,
+      Source,
+      Keyword.put(source_configuration, :native_coin_history_source, CryptoCompare)
+    )
+
     Application.put_env(:explorer, CryptoCompare, base_url: "http://localhost:#{bypass.port}", coin_symbol: "TEST")
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
     on_exit(fn ->
       Application.put_env(:explorer, CryptoCompare, crypto_compare_configuration)
       Application.put_env(:explorer, Source, source_configuration)
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
+      Application.put_env(:tesla, :adapter, adapter_configuration)
     end)
 
     resp =
@@ -229,13 +271,13 @@ defmodule Explorer.Market.Fetcher.HistoryTest do
       """
 
     Bypass.expect(bypass, fn conn ->
-      case conn.params["limit"] do
+      case Conn.fetch_query_params(conn).query_params["limit"] do
         "365" -> Conn.resp(conn, 200, resp.(1_522_566_018, 10))
         _ -> Conn.resp(conn, 200, resp.(1_522_633_818, 20))
       end
     end)
 
-    {:ok, _pid} = History.start_link([])
+    start_supervised!(History)
 
     :timer.sleep(500)
 
@@ -253,11 +295,13 @@ defmodule Explorer.Market.Fetcher.HistoryTest do
   end
 
   test "handle info for DOWN message" do
-    assert {:noreply, %{}} == History.handle_info({:DOWN, nil, :process, nil, nil}, %{})
+    state = %{tasks: %{}}
+    assert {:noreply, ^state} = History.handle_info({:DOWN, make_ref(), :process, self(), :normal}, state)
   end
 
   @tag capture_log: true
   test "start_link" do
-    assert {:ok, _} = History.start_link([])
+    assert {:ok, pid} = start_supervised(History)
+    assert Process.alive?(pid)
   end
 end

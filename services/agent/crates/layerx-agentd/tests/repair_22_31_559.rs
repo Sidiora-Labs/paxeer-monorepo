@@ -28,7 +28,6 @@ use layerx_client::sequencer::SequencerEndpoint;
 use layerx_proof::receipt::{AuthorizedBatch, ReceiptCheck};
 use layerx_wire::hash::program_execution_batch_id;
 use serde_json::{json, Value};
-use sha2::Digest as _;
 
 mod support;
 
@@ -170,6 +169,24 @@ impl Drop for NodeTranscript {
     }
 }
 
+fn retain_requested_spend(store: &mut Store, tenant: &TenantId, receipt: &AuthenticatedReceipt) {
+    let protocol = require_some(receipt.receipt().protocol(), "protocol receipt");
+    must(budget::hold_unknown(
+        store,
+        &budget::UnknownReservation {
+            tenant: tenant.clone(),
+            id: receipt.activity_id(),
+            amount: protocol.amount(),
+            expiry_sequence: 5_000,
+            resolved: Some(if protocol.result_code() == 0 {
+                budget::UnknownOutcome::Executed
+            } else {
+                budget::UnknownOutcome::Failed
+            }),
+        },
+    ));
+}
+
 fn authority(node: &NodeTranscript, version: u16) -> EvidenceAuthority {
     let endpoint = node.endpoint();
     assert_eq!(must(endpoint.chain_id()), 125);
@@ -183,6 +200,21 @@ fn authority(node: &NodeTranscript, version: u16) -> EvidenceAuthority {
         ))
         .with_receipt_keys(must(endpoint.receipt_keys())),
     )
+}
+
+fn receipt_time_ms() -> u64 {
+    let case = producer("success");
+    require_some(
+        must(layerx_wire::receipt::decode(&fixed_receipt(&case))).protocol(),
+        "protocol receipt",
+    )
+    .timestamp()
+}
+
+fn fixed_receipt(case: &Value) -> Vec<u8> {
+    must(hex::decode(
+        require_some(case["signedReceipt"].as_str(), "signed receipt").trim_start_matches("0x"),
+    ))
 }
 
 fn protocol(spent: u128, start: u64, length: u64) -> ProtocolBudgetState {
@@ -202,7 +234,8 @@ fn protocol(spent: u128, start: u64, length: u64) -> ProtocolBudgetState {
     bytes[210..226].copy_from_slice(&spent.to_be_bytes());
     bytes[242..250].copy_from_slice(&length.to_be_bytes());
     bytes[250..258].copy_from_slice(&start.to_be_bytes());
-    bytes[258..266].copy_from_slice(&5_000_u64.to_be_bytes());
+    bytes[258..266]
+        .copy_from_slice(&must(start.checked_add(length).ok_or("budget expiry")).to_be_bytes());
     ProtocolBudgetState {
         evidence: support::raw_state_leaf_with(
             bytes,
@@ -257,6 +290,7 @@ fn restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corrupti
     {
         let mut store = must(Store::open(&root));
         // Current authenticated ingress binds idempotency to the transaction hash.
+        retain_requested_spend(&mut store, &tenant_a, &authenticated);
         must(receipt::store_verified_if_absent(
             &mut store,
             tenant_a.clone(),
@@ -264,6 +298,7 @@ fn restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corrupti
             authenticated.canonical_bytes(),
             &authenticated,
         ));
+        retain_requested_spend(&mut store, &tenant_b, &authenticated);
         must(receipt::store_verified_if_absent(
             &mut store,
             tenant_b.clone(),
@@ -293,7 +328,11 @@ fn restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corrupti
     let authenticated_receipt = must(verifier.verify_current_receipt(&record.evidence));
     assert_eq!(
         authenticated_receipt.receipt_ref(),
-        <[u8; 32]>::from(sha2::Sha256::digest(authenticated.canonical_bytes()))
+        must(layerx_wire::hash::receipt_digest(&must(
+            layerx_wire::receipt::encode_unsigned(&must(layerx_wire::receipt::decode(
+                authenticated.canonical_bytes()
+            )))
+        )))
     );
     assert_eq!(authenticated_receipt.activity_id(), hash);
     assert_eq!(
@@ -313,7 +352,11 @@ fn restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corrupti
     let recovery = must(recover_tenant_budget_with_evidence(
         &mut store,
         &tenant_a,
-        &request(&inventory, &verifier, protocol(amount, 1, 100)),
+        &request(
+            &inventory,
+            &verifier,
+            protocol(amount, receipt_time_ms(), 100),
+        ),
     ));
     finish_restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corruption_1_repair_22_31_559(FinishRestartRecoversCurrentReceiptsHoldsMissingEvidenceAndRefusesCorruption1Repair2231559Context { node, verifier, amount, hash, tenant_a, tenant_b, root, store, recovery });
 }
@@ -359,7 +402,7 @@ fn finish_restart_recovers_current_receipts_holds_missing_evidence_and_refuses_c
     let recovery = must(recover_tenant_budget_with_evidence(
         &mut store,
         &tenant_b,
-        &request(&missing, &verifier, protocol(0, 1, 100)),
+        &request(&missing, &verifier, protocol(0, receipt_time_ms(), 100)),
     ));
     assert!(matches!(
         recovery.admission,
@@ -387,7 +430,11 @@ fn finish_restart_recovers_current_receipts_holds_missing_evidence_and_refuses_c
         recover_tenant_budget_with_evidence(
             &mut store,
             &tenant_a,
-            &request(&corrupt, &verifier, protocol(amount, 1, 100))
+            &request(
+                &corrupt,
+                &verifier,
+                protocol(amount, receipt_time_ms(), 100)
+            )
         ),
         Err(RecoveryRefusal::Recovery {
             budget_id: BUDGET_ID,
@@ -470,7 +517,14 @@ fn governed_current_receipt_authority_enforces_signature_version_and_height_wind
 }
 
 fn legacy(store: &mut Store, tenant: &TenantId) -> ReceiptEvidenceRecord {
-    let original = support::raw_receipt_at([0x11; 32], 0, 25, 4);
+    let original = support::raw_receipt_at_time(
+        [0x11; 32],
+        0,
+        25,
+        4,
+        receipt_time_ms() + 3,
+        receipt_time_ms() + 3,
+    );
     let mut header = original.canonical_header().to_vec();
     assert_eq!(
         must(layerx_wire::receipt::decode_batch_header(&header)).network_id(),
@@ -526,6 +580,7 @@ fn mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusa
     let root = support::directory("repair-559-mixed");
     let mut store = must(Store::open(&root));
     let old = legacy(&mut store, &tenant);
+    retain_requested_spend(&mut store, &tenant, &authenticated);
     must(receipt::store_verified_if_absent(
         &mut store,
         tenant.clone(),
@@ -562,7 +617,7 @@ fn mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusa
         .collect();
     let request = BudgetRecoveryRequest {
         budget_id: BUDGET_ID,
-        protocol_budget: protocol(amount + 25, 1, 100),
+        protocol_budget: protocol(amount + 25, receipt_time_ms(), 100),
         verifier: verifier.clone(),
         receipts_with_evidence: &receipts,
         receipts_without_evidence: &inventory.without_evidence,
@@ -611,13 +666,13 @@ fn continue_mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archi
             &tenant,
             &[],
             &[duplicate.clone(), duplicate],
-            &protocol(amount, 1, 100),
+            &protocol(amount, receipt_time_ms(), 100),
             &verifier
         ),
         Err(RestartError::DuplicateReceipt)
     ));
     let windowed = BudgetRecoveryRequest {
-        protocol_budget: protocol(25, 4, 1),
+        protocol_budget: protocol(25, receipt_time_ms() + 3, 1),
         ..request
     };
     let recovery = must(recover_tenant_budget_with_evidence(
@@ -673,6 +728,7 @@ fn failed_current_receipt_does_not_consume_budget() {
     let tenant = must(TenantId::new("failed"));
     let root = support::directory("repair-559-failed");
     let mut store = must(Store::open(&root));
+    retain_requested_spend(&mut store, &tenant, &authenticated);
     must(receipt::store_verified_if_absent(
         &mut store,
         tenant.clone(),
@@ -687,7 +743,7 @@ fn failed_current_receipt_does_not_consume_budget() {
     let recovery = must(recover_tenant_budget_with_evidence(
         &mut store,
         &tenant,
-        &request(&inventory, &verifier, protocol(0, 1, 100)),
+        &request(&inventory, &verifier, protocol(0, receipt_time_ms(), 100)),
     ));
     assert_eq!(recovery.recovered.budget_accounting.receipt_consumed, 0);
     assert!(recovery.admission.is_ok());

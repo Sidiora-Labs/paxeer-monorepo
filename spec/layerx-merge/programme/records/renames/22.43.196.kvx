@@ -1,0 +1,32 @@
+[manifest]
+task = "22.43.196"
+records_moved = 7
+files_renamed = 0
+
+[file.1]
+from = "tests/modules/repair_22_31_100.kvx"
+to = "spec/layerx-merge/programme/records/tests/modules/repair_22_31_100.kvx"
+
+[file.2]
+from = "tests/modules/repair_22_31_101.kvx"
+to = "spec/layerx-merge/programme/records/tests/modules/repair_22_31_101.kvx"
+
+[file.3]
+from = "tests/modules/repair_22_31_127.kvx"
+to = "spec/layerx-merge/programme/records/tests/modules/repair_22_31_127.kvx"
+
+[file.4]
+from = "tests/modules/repair_22_31_98.kvx"
+to = "spec/layerx-merge/programme/records/tests/modules/repair_22_31_98.kvx"
+
+[file.5]
+from = "tests/modules/repair_22_33_1133.kvx"
+to = "spec/layerx-merge/programme/records/tests/modules/repair_22_33_1133.kvx"
+
+[file.6]
+from = "tests/modules/repair_22_33_1137.kvx"
+to = "spec/layerx-merge/programme/records/tests/modules/repair_22_33_1137.kvx"
+
+[file.7]
+from = "tests/modules/repair_22_33_6.kvx"
+to = "spec/layerx-merge/programme/records/tests/modules/repair_22_33_6.kvx"

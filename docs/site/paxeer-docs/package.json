@@ -1,6 +1,6 @@
 {
   "name": "paxeer-docs",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Paxeer X documentation for the EVM chain, LayerX agent economy, payments, markets and deterministic programs",
   "scripts": {
@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "test:static": "npm run lint",
+    "test:static": "npm run lint && node scripts/generate-systems.mjs --check",
     "generate:llms": "node scripts/generate-llms.mjs",
     "generate:systems": "node scripts/generate-systems.mjs",
     "prepare:docs": "npm run generate:systems && npm run generate:llms && npm run search:index",

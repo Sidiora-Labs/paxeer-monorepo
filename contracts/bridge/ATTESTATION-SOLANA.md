@@ -1,9 +1,9 @@
 # Solana identity in the Paxeer X Network bridge attestations
 
-Paxeer mainnet-beta is one BFT network, with EVM chain id `125` (`0x7d`). Its
-kernel is part of the network and proposes blocks; a Paxeer transaction receipt
-is final when its block is committed. Solana is a foreign custody destination
-of the bridge.
+Paxeer mainnet-beta uses EVM chain id `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it; a Paxeer transaction receipt is final when its block is
+committed. Solana is a foreign custody destination of the bridge.
 
 The bridge uses the same attestation layouts across destinations. An attestor
 signs `keccak256` of a packed preimage with secp256k1 and returns 65 bytes of

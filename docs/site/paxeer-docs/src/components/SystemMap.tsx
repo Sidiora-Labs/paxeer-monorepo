@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import systems from '@/lib/systems.json'
+import { CodeBlockWrapper } from './CodeBlockWrapper'
 import { pageTitleForPath } from './nav'
 import styles from './SystemMap.module.css'
 
@@ -14,7 +15,7 @@ for (const system of systems) {
   if (group) group.push(system)
   else groups.set(system.kind, [system])
 }
-const changeLabels = { new: 'New', changed: 'Changed', unchanged: 'Unchanged' }
+const changeLabels = { new: 'New', changed: 'Changed', unchanged: 'Unchanged', retired: 'Retired' }
 
 export function SystemMap() {
   const [query, setQuery] = useState('')
@@ -63,35 +64,35 @@ export function SystemMap() {
   const count = systems.filter(matches).length
 
   return <div className={styles.map}>
-    <div className={styles.filters} role="search" aria-label="Find a system">
+    <search className={styles.filters} aria-label="Find a system">
       <label className={styles.search}>Find by name
-        <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="System name or identifier" />
+        <input type="search" name="system-query" autoComplete="off" value={query} onChange={event => setQuery(event.target.value)} placeholder="System name or identifier" />
       </label>
       <label>Kind
-        <select value={kind} onChange={event => setKind(event.target.value)}>
+        <select name="system-kind" value={kind} onChange={event => setKind(event.target.value)}>
           <option value="">All kinds</option>
           {Array.from(groups.keys()).map(value => <option key={value} value={value}>{value}</option>)}
         </select>
       </label>
       <label>Change in 7.0.0
-        <select value={change} onChange={event => setChange(event.target.value)}>
+        <select name="system-change" value={change} onChange={event => setChange(event.target.value)}>
           <option value="">All changes</option>
           {Object.entries(changeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </label>
       <button type="button" className="pill-button small-button" onClick={clearFilters}>Clear filters</button>
-    </div>
+    </search>
     <p role="status" aria-live="polite" aria-atomic="true">{count} of {systems.length} systems</p>
     {count === 0 && <p>No systems match these filters. Clear the filters or try another name.</p>}
     {Array.from(groups, ([groupKind, members]) => <section key={groupKind} hidden={!members.some(matches)} aria-labelledby={`kind-${groupKind}`}>
       <h2 id={`kind-${groupKind}`} className={styles.kind}>{groupKind} <span>({members.filter(matches).length})</span></h2>
       {members.map(system => <details key={system.id} id={`system-${system.id}`} hidden={!matches(system)} className={styles.system}>
-        <summary><strong>{system.title}</strong> <span className={styles.change}>{changeLabels[system.change as keyof typeof changeLabels]}</span></summary>
+        <summary><strong>{system.title}</strong> <span className={styles.change} data-change={system.change}>{changeLabels[system.change as keyof typeof changeLabels]}</span></summary>
         <div className={styles.details}>
           <p><code>{system.id}</code></p>
           <dl>
             <dt>Directory</dt><dd><code>{system.path}</code></dd>
-            <dt>Build command</dt><dd><pre tabIndex={0} aria-label={`Build command for ${system.title}`}><code>{system.build}</code></pre></dd>
+            <dt>Build command</dt><dd><CodeBlockWrapper label={`Build command for ${system.title}`}><pre><code>{system.build}</code></pre></CodeBlockWrapper></dd>
             <dt>Build output</dt><dd><code>{system.artefact}</code></dd>
             <dt>Configuration</dt><dd><code>{system.configuration}</code></dd>
             <dt>Ports</dt><dd>{system.ports.length ? system.ports.map(port => <code key={port} className={styles.port}>{port}</code>) : 'None listed'}</dd>

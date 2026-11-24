@@ -17,7 +17,7 @@
       "rerecorded": "2.2.0 re-record: responses whose bytes changed (platform24h, poolDetailReal, statsBatch, statsBatchReal) keep their previous requestId/X-Request-ID/generatedAt values; every other response is the previous recording unchanged."
     },
     "quote": "Committed ABI read vectors for precompiles/launchpad/views.go and pool.go using modules/launchpad/types/params.go defaults and keeper/market.go initial pool state; two block snapshots include a funded buy. These vectors qualify the SDK boundary, not execution of chain transactions.",
-    "quoteSource": "sdk/launchpad/shared/config/capabilities/testdata/repair38-rpc.json: epochs.historical.pool and snapshots[0].quote; encoded with viem using the production quoteExactInput ABI. The fixed mined header is a loopback boundary fixture, not a live-chain execution claim."
+    "quoteSource": "sdk/launchpad/shared/config/capabilities/testdata/preflight-rpc.json: epochs.historical.pool and snapshots[0].quote; encoded with viem using the production quoteExactInput ABI. The fixed mined header is a loopback boundary fixture, not a live-chain execution claim."
   },
   "snapshot": {
     "data": {

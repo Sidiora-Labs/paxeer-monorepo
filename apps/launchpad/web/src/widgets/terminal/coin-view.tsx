@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SearchX } from 'lucide-react';
@@ -54,8 +55,8 @@ function sameTarget(a: CoinTarget, b: CoinTarget): boolean {
 function CenterSkeleton() {
   return (
     <div aria-busy="true" className="flex flex-col gap-1">
-      <Skeleton variant="block" height={52} label="pair header" className="rounded-md" />
-      <Skeleton variant="block" height={420} label="chart" className="rounded-md" />
+      <Skeleton variant="block" height={surfaceSpacing(13)} label="pair header" className="rounded-md" />
+      <Skeleton variant="block" height={surfaceSpacing(105)} label="chart" className="rounded-md" />
       <Skeleton variant="rows" rows={6} label="trades" className="rounded-md bg-surface-1" />
     </div>
   );
@@ -77,11 +78,12 @@ export default function TerminalCoinView({ poolAddress }: { poolAddress: string 
   }, [redirectTo, router]);
 
   const pool = target.kind === 'render' ? target.pool : null;
+  const recentPool = target.kind === 'render' ? target.pool : null;
   useEffect(() => {
-    if (pool) recordRecentPool(pool);
-  }, [pool]);
+    if (recentPool) recordRecentPool(recentPool);
+  }, [recentPool]);
 
-  const left = <TerminalLeftRail activePool={pool ?? requested} />;
+  const left = <TerminalLeftRail activePool={recentPool} />;
   const status = <TerminalStatusBar poolAddress={pool} />;
 
   if (target.kind === 'not-found') {

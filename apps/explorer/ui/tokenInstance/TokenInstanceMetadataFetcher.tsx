@@ -40,10 +40,10 @@ const TokenInstanceMetadataFetcher = ({ hash, id }: Props) => {
     >
       <DialogContent>
         <DialogHeader mb={ 4 }>Sending request</DialogHeader>
-        <DialogBody mb={ 0 } minH="78px">
+        <DialogBody mb={ 0 } minH="20">
           { config.services.reCaptchaV2.siteKey ? (
             <>
-              <Center h="80px">
+              <Center h="20">
                 <Spinner size="lg"/>
               </Center>
               <ReCaptcha { ...recaptcha } hideWarning/>

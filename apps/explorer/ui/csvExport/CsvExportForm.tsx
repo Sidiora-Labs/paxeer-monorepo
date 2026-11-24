@@ -109,7 +109,7 @@ const CsvExportForm = ({ hash, resource, filterType, filterValue, fileNameTempla
         noValidate
         onSubmit={ handleSubmit(onFormSubmit) }
       >
-        <Flex columnGap={ 5 } rowGap={ 3 } flexDir={{ base: 'column', lg: 'row' }} alignItems={{ base: 'flex-start', lg: 'center' }} flexWrap="wrap">
+        <Flex columnGap={ 5 } rowGap={ 3 } alignItems="flex-start" flexWrap="wrap">
           { exportType !== 'holders' && <CsvExportFormField name="from" formApi={ formApi }/> }
           { exportType !== 'holders' && <CsvExportFormField name="to" formApi={ formApi }/> }
         </Flex>
@@ -120,7 +120,7 @@ const CsvExportForm = ({ hash, resource, filterType, filterValue, fileNameTempla
           mt={ 8 }
           loading={ formState.isSubmitting }
           loadingText="Download"
-          disabled={ Boolean(formState.errors.from || formState.errors.to || recaptcha.isInitError) }
+          disabled={ recaptcha.isInitError }
         >
           Download
         </Button>

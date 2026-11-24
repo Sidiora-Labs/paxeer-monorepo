@@ -79,9 +79,9 @@ tokio = { version = "1.38.0", features = ["full"] }
 lazy_static = "1.4.0"
 
 [[test]]
-name = "repair_22_33_430"
-path = "../../tests/repair_22_33_430.rs"
+name = "client_generation_contract"
+path = "../../tests/client_generation_contract.rs"
 
 [[test]]
-name = "repair_22_33_360"
-path = "../../tests/repair_22_33_360.rs"
+name = "health_client_contract"
+path = "../../tests/health_client_contract.rs"

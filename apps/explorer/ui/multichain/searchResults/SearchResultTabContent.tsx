@@ -62,7 +62,7 @@ interface Props {
 const SearchResultTabContent = ({ isLoading, searchTerm, chainId, queries, queryType, beforeContent }: Props) => {
   const content = (() => {
     if (isLoading && !searchTerm) {
-      return <ContentLoader maxW="240px"/>;
+      return <ContentLoader maxW="calc(var(--chakra-spacing-1) * 60)"/>;
     }
 
     if (!searchTerm) {
@@ -83,7 +83,7 @@ const SearchResultTabContent = ({ isLoading, searchTerm, chainId, queries, query
     const isPending = queryType ? queries[queryType].isPending : isLoading;
 
     if (isPending && !hasResults && failedQueryTypes.length === 0) {
-      return <ContentLoader maxW="240px"/>;
+      return <ContentLoader maxW="calc(var(--chakra-spacing-1) * 60)"/>;
     }
 
     if (!hasResults && failedQueryTypes.length === 0) {

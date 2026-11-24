@@ -22,8 +22,8 @@ export const recipe = defineSlotRecipe({
       borderRadius: 'var(--accordion-radius)',
       cursor: 'pointer',
       _focusVisible: {
-        outline: '2px solid',
-        outlineColor: 'colorPalette.focusRing',
+        outline: 'var(--chakra-border-widths-2) solid',
+        outlineColor: 'focusRing',
       },
     },
     itemBody: {
@@ -34,16 +34,17 @@ export const recipe = defineSlotRecipe({
       overflow: 'hidden',
       borderRadius: 'var(--accordion-radius)',
       _open: {
-        animationName: 'expand-height, fade-in',
+        _motionSafe: { animationName: 'expand-height, fade-in' },
         animationDuration: 'moderate',
       },
       _closed: {
-        animationName: 'collapse-height, fade-out',
+        _motionSafe: { animationName: 'collapse-height, fade-out' },
         animationDuration: 'moderate',
       },
     },
     itemIndicator: {
-      transition: 'rotate 0.2s ease-in-out',
+      _motionReduce: { transitionProperty: 'color, background-color, border-color, opacity' },
+      transition: 'rotate var(--chakra-durations-normal) var(--chakra-easings-standard)',
       transformOrigin: 'center',
     },
   },
@@ -67,7 +68,7 @@ export const recipe = defineSlotRecipe({
     variant: {
       outline: {
         item: {
-          borderBottomWidth: '1px',
+          borderBottomWidth: 'var(--chakra-border-widths-1)',
         },
         itemIndicator: {
           color: 'gray.500',
@@ -75,7 +76,7 @@ export const recipe = defineSlotRecipe({
       },
       faq: {
         item: {
-          borderBottomWidth: '1px',
+          borderBottomWidth: 'var(--chakra-border-widths-1)',
         },
         itemTrigger: {
           textStyle: 'heading.md',
@@ -125,11 +126,11 @@ export const recipe = defineSlotRecipe({
       size: 'md',
       css: {
         itemIndicator: {
-          boxSize: '14px',
-          margin: '5px',
+          boxSize: 'var(--chakra-spacing-3\\.5)',
+          margin: 'var(--chakra-spacing-1\\.25)',
         },
         itemBody: {
-          paddingLeft: '36px',
+          paddingLeft: 'var(--chakra-spacing-9)',
         },
         itemTrigger: {
           gap: '3',

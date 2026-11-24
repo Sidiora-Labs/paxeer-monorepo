@@ -41,7 +41,7 @@ func TestDevelopmentTradeProjectsVerifiedReceipt(t *testing.T) {
 			t.Fatalf("indexer %s table is absent from its migration", table)
 		}
 	}
-	chain := newRepair58Chain(t)
+	chain := newReceiptRecoveryChain(t)
 	pool := "0x" + strings.Repeat("7a", 20)
 	poolID := common.HexToHash("0x" + strings.Repeat("7a", 32))
 	sender := strings.ToLower(crypto.PubkeyToAddress(chain.key.PublicKey).Hex())

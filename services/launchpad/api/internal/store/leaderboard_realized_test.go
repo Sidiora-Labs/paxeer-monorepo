@@ -86,7 +86,7 @@ func TestTraderRealizedRowsSelectsHistoryForWindowSellers(t *testing.T) {
 	}
 	insert := func(sequence int, side, sender, owner string, height, ts int64, token, paid, usdl string) {
 		t.Helper()
-		projected, movement := repairM984Fill(t, side, sender, owner, height, ts, token, paid, usdl)
+		projected, movement := transferBasisFill(t, side, sender, owner, height, ts, token, paid, usdl)
 		fill, err := json.Marshal(projected)
 		if err != nil {
 			t.Fatal(err)

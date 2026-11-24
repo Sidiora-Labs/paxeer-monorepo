@@ -10,7 +10,11 @@ CI = ROOT / "tests/ci"
 
 def test_tests_ci_python_modules_are_collectable_or_helpers():
     modules = set(CI.rglob("*.py"))
-    tests = {path for path in modules if path.name.startswith("test_")}
+    tests = {
+        path
+        for path in modules
+        if path.name.startswith("test_") or path.name == "conftest.py"
+    }
     imported = set()
     for test in sorted(tests):
         tree = ast.parse(test.read_text(encoding="utf-8"), filename=str(test))
@@ -51,7 +55,8 @@ def test_tests_ci_python_modules_are_collectable_or_helpers():
         r"(?:^|\s)(?:python(?:\d+(?:\.\d+)*)?|pytest)\s+([^\n;&|]+)"
     )
     module_path = re.compile(
-        r"(?<![\w./-])(?:\./)?(tests/ci/[^\s\"';&|]+\.py)(?![\w./-])"
+        r"(?<![\w./-])(?:\./|\$(?:GITHUB_WORKSPACE|\{GITHUB_WORKSPACE\})/)?"
+        r"(tests/ci/[^\s\"';&|]+\.py)(?![\w./-])"
     )
     for name in tracked:
         path = ROOT / name
@@ -82,7 +87,8 @@ def test_tests_ci_python_modules_are_collectable_or_helpers():
         str(path.relative_to(ROOT)) for path in modules - tests - imported - invoked
     )
     assert not uncollected, (
-        "Python modules must start with test_, be imported by a test module, "
+        "Python modules must start with test_, be named conftest.py, "
+        "be imported by a test module, "
         "or be run by path in a tracked tools shell script, Makefile, or public workflow:\n"
         + "\n".join(uncollected)
     )

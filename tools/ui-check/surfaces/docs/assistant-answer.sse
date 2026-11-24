@@ -1,0 +1,9 @@
+event: sources
+data: {"sources": [{"title": "Your first payment", "url": "/payments-quickstart/"}]}
+
+event: delta
+data: {"text": "# Your first payment\n\nQuote, commit, and verify a Paxeer X payment using the application SDK or a signed ledger transaction.\n\n## Choose your integration\n\nUse the application SDK when you want account-level payment journeys and bearer-token authentication. Use the native CLI when you control the wallet identity and its EVM key and need explicit transaction signing, receipt policy, fee limits, and commitment selection. The CLI submits ledger calls as signed EIP-1559 transactions on chain ID 125.\n\n## 1. Install the application packages\n\n```\nnpm install @sidiora/layerx-sdk@0.1.0 @sidiora/layerx-buyer-middleware@0.1.0\n```\n\nThe packages require Node.js 22 or newer. Their sources are `services/agent/sdk/typescript` and `services/platform/middleware/buyer`. In the sample under `services/platform/examples/samples/first-payment-typescript`, configure `LAYERX_API_URL` with your environment's API base URL and `LAYERX_API_TOKEN` with its account bearer token. Use HTTPS outside a loopback emulator. These credentials identify your API account; do not embed them in browser bundles or logs.\n\n[Read the payment quickstart](/payments-quickstart/)."}
+
+event: done
+data: {}
+

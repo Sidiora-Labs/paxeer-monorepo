@@ -26,7 +26,7 @@ check() {
 
 : "${BRINGUP_HOSTS_FILE:?the serving-discovery integration target requires a disposable host map}"
 listing="$("$front" names)"
-selection="$(printf '%s\n' "$listing" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-selection "$repo_root/docs/site/docs/reference/public-rpc.md" "" "")"
+selection="$(printf '%s\n' "$listing" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-selection "$repo_root/docs/readme/PUBLIC-RPC.md" "" "")"
 read -r expected_primary expected_backup <<<"$selection"
 
 fixture_env=(

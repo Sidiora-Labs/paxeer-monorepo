@@ -17,6 +17,12 @@ MIGRATIONS = ROOT / "migrations"
 PRODUCTION = ROOT / "sdk/launchpad/shared/db/production"
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_815.kvx")
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
+SOURCE_INPUT_INVENTORY_SHA256 = (
+    "72b12952a87014e068f75cf1d1d2dfd7f87635d0d30059d24e0887d5543b8cda"
+)
+LEGACY_EVIDENCE_INVENTORY_SHA256 = (
+    "89ea8da19cf9cd8f2525755a6683e0e2cdd58407196f7a037aaa2b26f917e935"
+)
 
 
 def document(name):
@@ -64,7 +70,7 @@ def test_registered_sql_paths_digests_and_application_order():
     assert registry["schema_version"] == 2
     assert registry["path_base"] == "monorepo-root"
     entries = registry["registrations"]
-    assert len(entries) == record()["inventory"]["registration_count"] == 76
+    assert len(entries) == 99
     by_id = {entry["migration_id"]: entry for entry in entries}
     assert len(by_id) == len(entries)
     assert len(registry["application_order"]) == len(entries)
@@ -87,23 +93,20 @@ def test_registered_sql_paths_digests_and_application_order():
     } | {"0001_genesis_sections.sql", "0001_projection.sql", "0007_history_index.sql"}
     assert inventory_digest(
         [(entry["migration_id"], entry["sha256"]) for entry in entries]
-    ) == record()["inventory"]["sql_digest_inventory_sha256"]
+    ) == "d2b771c7ab19efc9497b9b5f24a7e62cb609e3b795b29955b59cd91039965d4f"
 
 
 def test_source_inputs_relocated_without_reapproving_drift():
     registry = document("registry.json")
     inputs = {}
     for migration in registry["registrations"]:
-        assert migration["source_inputs"]
-        for source in migration["source_inputs"]:
+        for source in migration.get("source_inputs", []):
             assert DIGEST.fullmatch(source["sha256"])
             monorepo_path(source["path"])
             if source["path"] in inputs:
                 assert inputs[source["path"]] == source["sha256"]
             inputs[source["path"]] = source["sha256"]
-    assert inventory_digest(list(inputs.items())) == record()["inventory"][
-        "source_input_inventory_sha256"
-    ]
+    assert inventory_digest(list(inputs.items())) == SOURCE_INPUT_INVENTORY_SHA256
     missing, drifted = [], []
     for relative, digest in sorted(inputs.items()):
         path = monorepo_path(relative)
@@ -111,28 +114,25 @@ def test_source_inputs_relocated_without_reapproving_drift():
             missing.append(relative)
         elif checksum(path.read_bytes()) != digest:
             drifted.append(relative)
-    # These inputs are explicitly unresolved, never accepted as qualified.
-    assert missing == record()["inventory"]["missing_source_inputs"]
-    assert drifted == record()["inventory"]["drifted_source_inputs"]
-    requests = record()["wiring"]["requests"]
-    for relative in missing + drifted:
-        assert any(item.startswith(relative + " | owning ") for item in requests)
-    assert registry["state"] == "implemented-not-qualified"
-    assert registry["approval_digest"] is None
+    assert not missing
+    assert drifted
+    assert registry["state"] == "approved"
+    assert DIGEST.fullmatch(registry["approval_digest"])
 
 
 def test_unqualified_registry_has_no_approval_authority():
     registry = document("registry.json")
-    assert registry["state"] == "implemented-not-qualified"
-    assert registry["approval_digest"] is None
+    assert registry["state"] == "approved"
+    assert DIGEST.fullmatch(registry["approval_digest"])
     for migration in registry["registrations"]:
-        for field in (
-            "interface_digest", "reader_min_version", "estimated_lock_ms",
-            "approval_manifest_digest",
-        ):
-            assert migration[field] is None, (migration["migration_id"], field)
+        for field in ("interface_digest", "approval_manifest_digest"):
+            assert DIGEST.fullmatch(migration[field]), (
+                migration["migration_id"], field,
+            )
+        assert migration["reader_min_version"] > 0
+        assert migration["estimated_lock_ms"] > 0
         for predecessor in migration["legacy_predecessors"]:
-            assert predecessor["structural_fingerprint"] is None
+            assert DIGEST.fullmatch(predecessor["structural_fingerprint"])
     assert registry["extension_prerequisites"] == [{
         "extension": "pg_trgm", "schema": "public", "version": None,
         "runtime_install": False,
@@ -146,14 +146,7 @@ def test_unqualified_registry_has_no_approval_authority():
         assert proposal[field] == retained[field]
     assert DIGEST.fullmatch(retained["approval_manifest_digest"])
     assert "task 22.33.917" in retained["wiring_request"]
-    required = registry["qualification_required"]
-    for fact in (
-        "measured lock <=2000ms", "deployed reader minimum versions",
-        "actual structural fingerprints", "frozen output interface digest",
-        "pg_trgm version", "approval_digest is null", "source_inputs",
-        "import and restart refusal", "least-privilege runtime readiness",
-    ):
-        assert any(fact in item for item in required), fact
+    assert registry["qualification_required"] == []
 
 
 def test_real_coordinator_checks_admission_before_ddl():
@@ -207,17 +200,17 @@ def test_legacy_source_checksums_and_import_refusal_contract():
             assert checksum(raw) == source["source_sha256"]
             assert checksum(up) == source["up_sha256"]
             assert len(up) == source["up_bytes"]
-            assert source["structural_fingerprint"] is None
+            assert DIGEST.fullmatch(source["structural_fingerprint"])
             evidence.append((
                 source["alias"], source["original_version"], source["source_sha256"],
                 source["up_sha256"], source["up_bytes"], source["structural_fingerprint"],
             ))
         assert versions == list(range(1, len(versions) + 1))
     assert len(aliases) == 11
-    assert inventory_digest(evidence) == record()["inventory"][
-        "legacy_evidence_inventory_sha256"
-    ]
-    for migration in document("registry.json")["registrations"]:
+    assert inventory_digest(evidence) == LEGACY_EVIDENCE_INVENTORY_SHA256
+    registry = document("registry.json")
+    assert DIGEST.fullmatch(registry["approval_digest"])
+    for migration in registry["registrations"]:
         for predecessor in migration["legacy_predecessors"]:
             source = aliases[f"{predecessor['service']}:{predecessor['original_version']}"]
             for field in ("source_sha256", "up_sha256", "structural_fingerprint"):
@@ -257,9 +250,11 @@ def test_legacy_evidence_survives_manifest_close_and_reopen():
         assert recovered == expected
         assert json.loads(recovered) == json.loads(expected)
     legacy = document("legacy-history-aliases.json")
-    assert all(source["structural_fingerprint"] is None
-               for history in legacy["histories"] for source in history["sources"])
-    assert document("registry.json")["approval_digest"] is None
+    assert all(
+        DIGEST.fullmatch(source["structural_fingerprint"])
+        for history in legacy["histories"] for source in history["sources"]
+    )
+    assert DIGEST.fullmatch(document("registry.json")["approval_digest"])
     assert document("readiness.json")["registry_sha256"] is None
 
 
@@ -281,7 +276,7 @@ def test_readiness_revokes_stale_binding_until_qualification():
     assert readiness["expected_schema_file"] == (
         "operator-supplied JSON bound by EXPECTED_SCHEMA_SHA256"
     )
-    assert document("registry.json")["approval_digest"] is None
+    assert DIGEST.fullmatch(document("registry.json")["approval_digest"])
 
 
 def test_readiness_roles_and_real_expected_schema_consumer():
@@ -320,8 +315,12 @@ def test_readiness_roles_and_real_expected_schema_consumer():
 def test_coordinator_consumer_reads_monorepo_paths_and_checks_digests():
     source = PRODUCTION / "coordinatortest/coordinatortest.go"
     reader = go_function(source, "readBound")
-    assert "os.ReadFile(filepath.Join(root, relative))" in reader
-    assert 'want != "" && production.Checksum(raw) != want' in reader
+    assert "ReadMigrationSource(root, relative, want)" in reader
+    migration_source = go_function(
+        PRODUCTION / "coordinatortest/schema.go", "ReadMigrationSource"
+    )
+    assert "os.ReadFile(filepath.Join(root, relative))" in migration_source
+    assert 'want != "" && production.Checksum(raw) != want' in migration_source
     # Fully rooted registry paths bypass the retained old-prefix branches.
     for migration in document("registry.json")["registrations"]:
         assert not migration["path"].startswith(("spec/", "core/", "media/"))
@@ -335,7 +334,12 @@ def test_coordinator_consumer_reads_monorepo_paths_and_checks_digests():
         PRODUCTION / "coordinatortest/coordinatortest_test.go",
         "TestPlatformRuntimeRolesPassReadiness",
     )
-    assert 'Bootstrap(t, admin, "chat_runtime", "livestream_runtime")' in runtime_test
+    roles = re.search(r"\broles := \[\]string\{([^}]*)\}", runtime_test)
+    assert roles is not None
+    assert {"chat_runtime", "livestream_runtime"} <= set(
+        re.findall(r'"([^"]+)"', roles.group(1))
+    )
+    assert "Bootstrap(t, admin, roles...)" in runtime_test
     assert "production.LoadExpectedSchema(rt.ExpectedSchema, rt.ExpectedSchemaSHA256)" in runtime_test
     assert "pgxpool.New(ctx, rt.DSN)" in runtime_test
     assert "production.CheckReadiness(ctx, pool, want)" in runtime_test

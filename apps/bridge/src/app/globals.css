@@ -16,8 +16,93 @@
 
 body {
   font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
   text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
 }
+
+/* Keep assistive-only content measurable without exposing it visually. */
+.sr-only {
+  width: var(--touch-target);
+  height: var(--touch-target);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.skip-link {
+  position: absolute;
+  top: var(--spacing-2);
+  left: var(--spacing-2);
+  z-index: 50;
+  display: inline-flex;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  max-width: calc(100% - var(--spacing-4));
+  align-items: center;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-lg);
+  background-color: var(--background);
+  color: var(--foreground);
+  transform: translateY(calc(-100% - var(--spacing-4)));
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+next-route-announcer {
+  visibility: hidden !important;
+  left: 0 !important;
+  width: var(--touch-target) !important;
+  height: var(--touch-target) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+next-route-announcer > div {
+  left: 0 !important;
+  width: var(--touch-target) !important;
+  height: var(--touch-target) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.token-disc > span:not(.sr-only) {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.token-disc {
+  text-overflow: ellipsis;
+}
+
+main {
+  container: bridge-page / inline-size;
+}
+
+::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+:where(input, select, textarea):focus-visible {
+  background-color: var(--container-high);
+}
+
+:where(button, a[href]):focus-visible {
+  outline: 3px solid var(--ring) !important;
+  outline-offset: 2px;
+}
+
 
 ::selection {
   background: var(--primary);
@@ -25,12 +110,5 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  html { scroll-behavior: auto; }
 }

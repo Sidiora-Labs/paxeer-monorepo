@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashSet};
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -849,13 +850,59 @@ fn proof_layerxauth_0x101c_receipts() {
     assert_eq!(bad_cursor["error"]["code"], "invalid_cursor");
 }
 
-/// Consumes only logs emitted by the Go application proof; run via its declared gate.
+fn run_history_proof(package: &str, producer: &str, pattern: &str, consume: fn(Value)) {
+    let mut input = Vec::new();
+    std::io::stdin()
+        .lock()
+        .read_to_end(&mut input)
+        .unwrap_or_else(|error| panic!("read application receipts: {error}"));
+    if input.is_empty() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(4)
+            .unwrap_or_else(|| panic!("repository root"));
+        let output = Command::new("go")
+            .current_dir(root)
+            .args([
+                "test",
+                "-count=1",
+                "-v",
+                &format!("./precompiles/{package}/"),
+                "-run",
+                pattern,
+            ])
+            .output()
+            .unwrap_or_else(|error| panic!("run application producer: {error}"));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            output.status.success(),
+            "real EVM producer: {stdout}{stderr}"
+        );
+        assert!(
+            stdout.contains(&format!("--- PASS: {producer}")),
+            "application producer must execute its consumer assertions: {stdout}{stderr}"
+        );
+    } else {
+        consume(
+            serde_json::from_slice(&input)
+                .unwrap_or_else(|error| panic!("application receipts: {error}")),
+        );
+    }
+}
+
+/// Consumes logs emitted by the Go application proof, including after store restart.
 #[test]
 fn proof_layerxpay_0x101b() {
-    let document: Value =
-        serde_json::from_reader(std::io::stdin().lock()).unwrap_or_else(|error| {
-            panic!("run TestProofLayerxpay0x101b with producer bytes on stdin: {error}")
-        });
+    run_history_proof(
+        "layerxpay",
+        "TestProofLayerxpay0x101b",
+        "^TestProofLayerxpay0x101b$",
+        assert_layerxpay_history,
+    );
+}
+
+fn assert_layerxpay_history(document: Value) {
     let abi: Value = serde_json::from_slice(
         &std::fs::read(document["abi"].as_str().unwrap_or_default())
             .unwrap_or_else(|error| panic!("{error}")),
@@ -1101,15 +1148,18 @@ fn commit_ledger_units(
     units
 }
 
-/// Consumes application-produced logs over stdin, then restarts the real store.
+/// Consumes application-produced logs, then restarts the real store.
 #[test]
 fn proof_layerxledger_0x101a() {
-    let proof: Value = serde_json::from_reader(std::io::stdin().lock()).unwrap_or_else(|error| {
-        panic!(
-            "{}: {error:?}",
-            "precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer"
-        )
-    });
+    run_history_proof(
+        "layerxledger",
+        "TestProofLayerxledger0x101a/indexer",
+        "^TestProofLayerxledger0x101a$/^indexer$",
+        assert_layerxledger_history,
+    );
+}
+
+fn assert_layerxledger_history(proof: Value) {
     let abi: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../precompiles/layerxledger/abi.json"

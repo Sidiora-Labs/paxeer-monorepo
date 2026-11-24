@@ -7,9 +7,9 @@ import { route } from 'nextjs-routes';
 
 import { layerLabels } from 'lib/rollups/utils';
 import { Link } from 'toolkit/chakra/link';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
 import VerificationSteps from 'ui/shared/verificationSteps/VerificationSteps';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 const WITHDRAWAL_STATUS_STEPS: Array<ArbitrumTransactionMessageStatus> = [
   'Syncing with base layer',

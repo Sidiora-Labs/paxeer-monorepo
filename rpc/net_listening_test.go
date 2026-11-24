@@ -8,7 +8,7 @@ import (
 )
 
 func TestNetListeningReportsNetInfo(t *testing.T) {
-	f := newRepair1291Fixture(t, "rpc-test-network", false)
+	f := newRPCMetadataFixture(t, "rpc-test-network", false)
 	_, httpClient := f.server(t, false)
 	_, wsClient := f.server(t, true)
 	for _, listening := range []bool{false, true, false} {
@@ -26,6 +26,6 @@ func TestNetListeningReportsNetInfo(t *testing.T) {
 	defer func() { f.consensus.Environment.Router = router }()
 	for _, consumer := range []*gethrpc.Client{httpClient, wsClient} {
 		var result bool
-		repair1291RPCError(t, consumer.CallContext(t.Context(), &result, "net_listening"), -32603)
+		rpcMetadataRPCError(t, consumer.CallContext(t.Context(), &result, "net_listening"), -32603)
 	}
 }

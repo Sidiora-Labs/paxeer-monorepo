@@ -23,7 +23,7 @@ const SearchResultListItem = ({ children, ...rest }: Props) => {
       _hover={{
         color: 'hover',
       }}
-      borderBottomWidth="1px"
+      borderBottomWidth="1"
       borderBottomStyle="solid"
       borderBottomColor="border.divider"
       _last={{

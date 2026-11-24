@@ -15,12 +15,24 @@ def test_go_toolchain_pins_agree_with_go_mod():
         f"go.mod: Go {version!r} disagrees with sdk/cosmovisor/go.mod "
         f"Go {cosmovisor.group(1)}"
     )
+    launchpad_makefile = "services/launchpad/Makefile"
+    launchpad = re.search(
+        r"^export\s+GOTOOLCHAIN\s*:=\s*go(\S+)\s*$",
+        (root / launchpad_makefile).read_text(),
+        re.M,
+    )
+    assert launchpad is not None, f"{launchpad_makefile} must export GOTOOLCHAIN"
     workflow_pin = re.compile(r"^\s*(?:-\s*)?(go-version|GO_VERSION)\s*:\s*(.*)$")
     workflows = sorted((root / ".github/workflows").glob("*.yml"))
     assert workflows, ".github/workflows must contain workflow files"
     pins_checked = 0
 
     for path in workflows:
+        expected_version = version
+        version_source = "go.mod"
+        if path.name == "launchpad-test.yml":
+            expected_version = launchpad.group(1)
+            version_source = f"{launchpad_makefile} GOTOOLCHAIN"
         for number, line in enumerate(path.read_text().splitlines(), 1):
             match = workflow_pin.match(line)
             if match is None:
@@ -28,9 +40,9 @@ def test_go_toolchain_pins_agree_with_go_mod():
             value = match.group(2).split("#", 1)[0].strip().strip("'\"")
             if "${{" in value:
                 continue
-            assert value == version, (
+            assert value == expected_version, (
                 f"{path.relative_to(root)}:{number}: {match.group(1)} {value!r} "
-                f"disagrees with go.mod Go {version}"
+                f"disagrees with {version_source} Go {expected_version}"
             )
             pins_checked += 1
 

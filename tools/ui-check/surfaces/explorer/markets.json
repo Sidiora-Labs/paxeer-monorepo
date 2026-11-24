@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "market_id": 0,
+      "symbol": "BTC-USD",
+      "chainflow_symbol": "BTCUSDT",
+      "latest": {
+        "index": 0,
+        "index_price": "67012500000000000000000",
+        "mark_price": "67020250000000000000000",
+        "source_timestamp_ms": 1767323044400,
+        "sequence": 9002,
+        "update_hash": "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "block_number": 34800123,
+        "timestamp": "2026-01-02T03:04:05.000000Z"
+      }
+    },
+    {
+      "market_id": 17,
+      "symbol": "SOL-USD",
+      "chainflow_symbol": "SOLUSDT",
+      "latest": null
+    }
+  ],
+  "chain_head": 34800135
+}

@@ -121,7 +121,7 @@ def command_packages(command, directory, manifests, seen=None):
         # Ignore embedded language/heredoc bodies; only executable shell lines
         # with a supported command can contribute coverage.
         if not re.match(
-            r"\s*\(?\s*(?:[A-Za-z_]\w*=\S+\s+)*(?:npm|pnpm|yarn|python3|cd)\s", line
+            r"\s*\(?\s*(?:[A-Za-z_]\w*=\S+\s+)*(?:npm|pnpm|yarn|python3|node|cd)\s", line
         ):
             continue
         lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|()")
@@ -146,6 +146,23 @@ def command_packages(command, directory, manifests, seen=None):
             directory = posixpath.normpath(posixpath.join(directory, words[1]))
             continue
         if words[0] == "python3":
+            web_wrapper = ROOT / "apps/launchpad/web/scripts/prepare-test-environment.py"
+            if (
+                len(words) == 7
+                and (ROOT / directory / words[1]).resolve() == web_wrapper
+                and words[2:] == ["--", "pnpm", "exec", "vitest", "run"]
+            ):
+                source = web_wrapper.read_text()
+                assert (
+                    "command = args.command[1:] if args.command[:1] == ['--'] else args.command"
+                    in source
+                )
+                assert "runner = setup.start(command, 'vitest', cwd=WEB)" in source
+                assert "result = runner.wait()" in source
+                assert "code = result" in source and "return code" in source
+                assert "apps/launchpad/web/package.json" in manifests
+                covered.add("apps/launchpad/web/package.json")
+                continue
             wrapper = ROOT / "tools/ci/run_wallet_vitest.py"
             if len(words) != 2 or (ROOT / directory / words[1]).resolve() != wrapper:
                 continue
@@ -233,6 +250,17 @@ def command_packages(command, directory, manifests, seen=None):
     return covered
 
 
+def step_applies(step, row):
+    condition = step.get("if")
+    if condition is None:
+        return True
+    comparison = re.fullmatch(r"matrix\.([\w-]+)\s*(==|!=)\s*'([^']*)'", condition)
+    if comparison is None or comparison[1] not in row:
+        return False
+    equal = str(row[comparison[1]]) == comparison[3]
+    return equal if comparison[2] == "==" else not equal
+
+
 def workflow_coverage(manifests):
     covered = set()
     make_commands = []
@@ -255,7 +283,7 @@ def workflow_coverage(manifests):
             for row in matrix_rows(job):
                 for step in job.get("steps", []):
                     if (
-                        "run" not in step or "if" in step
+                        "run" not in step or not step_applies(step, row)
                         or step.get("continue-on-error") == "true"
                     ):
                         continue
@@ -268,6 +296,18 @@ def workflow_coverage(manifests):
                         make_commands.extend(re.findall(
                             r"^\s*make\s+([^\n;&|]+)", command, re.MULTILINE
                         ))
+                        for line in command.replace("\\\n", " ").splitlines():
+                            if not line.lstrip().startswith("scripts/ci/release-gate.sh "):
+                                continue
+                            words = shlex.split(line)
+                            boundary = words.index("--")
+                            assert words[boundary + 1] == "make"
+                            wrapper = (ROOT / words[0]).read_text()
+                            assert (
+                                'exec bash "$root/scripts/ci/beta-ledger-check.sh"' in wrapper
+                            )
+                            assert '-- "$*"' in wrapper
+                            make_commands.append(shlex.join(words[boundary + 2:]))
     # These workflow-reached targets invoke the package scripts through Make variables.
     makefile = (ROOT / "Makefile").read_text().replace("\\\n", " ")
     reached = {
@@ -291,10 +331,19 @@ def workflow_coverage(manifests):
         if target not in reached:
             continue
         if target == "programs-test":
-            prerequisites = re.search(
-                r"^programs-test:([^\n]+)", makefile, re.MULTILINE
+            prerequisites = next(
+                (
+                    line.partition(":")[2]
+                    for line in makefile.splitlines()
+                    if line.startswith("programs-test:")
+                    and not re.match(
+                        r"\s*(?:export\s+)?[A-Za-z_]\w*\s*=",
+                        line.partition(":")[2],
+                    )
+                ),
+                "",
             )
-            assert prerequisites and "programs-sdk-assemblyscript" in prerequisites[1].split()
+            assert "programs-sdk-assemblyscript" in prerequisites.split()
         recipe = re.search(
             r"^" + re.escape(declaration) + r"[^\n]*\n((?:\t[^\n]*\n)+)",
             makefile, re.MULTILINE,
@@ -361,21 +410,39 @@ def test_js_launchpad_and_wallet_runners_recognised():
     expected = expected_launchpad | {wallet_package}
     assert expected <= packages_with_tests(manifests)
     assert expected <= covered
-    test_step = next(
-        step for step in launchpad["steps"] if step["name"] == "Test package"
-    )
     for row in rows:
+        test_steps = [
+            step for step in launchpad["steps"]
+            if step.get("name") in {
+                "Test package", "Prepare chain fixtures and run web Vitest"
+            }
+            and step_applies(step, row)
+        ]
+        assert len(test_steps) == 1
+        test_step = test_steps[0]
         command = expand_matrix(test_step["run"], row)
         directory = expand_matrix(test_step["working-directory"], row)
+        if row["package"] != "apps/launchpad/web":
+            assert directory == "apps/launchpad"
+            assert shlex.split(command) == [
+                "pnpm", "--filter", "./../../" + row["package"],
+                "--fail-if-no-match", "run", "test",
+            ]
         assert command_packages(command, directory, manifests) == {
             manifest_at(row["package"])
         }
         for rejected in (
-            command.rsplit("run test", 1)[0] + "run build",
+            command.replace("vitest run", "vitest build")
+            if row["package"] == "apps/launchpad/web"
+            else command.rsplit("run test", 1)[0] + "run build",
             "echo " + shlex.quote(command),
             shlex.quote(command),
             command + " || true",
-            command.replace(row["package"], "sdk/launchpad/packages/not-a-package"),
+            command.replace(
+                "scripts/prepare-test-environment.py", "scripts/missing-test-environment.py"
+            )
+            if row["package"] == "apps/launchpad/web"
+            else command.replace(row["package"], "sdk/launchpad/packages/not-a-package"),
         ):
             assert not command_packages(rejected, directory, manifests), rejected
     build_step = next(
@@ -424,10 +491,46 @@ def test_js_exclusion_list_entries_exist():
         assert name in packages, f"Stale exclusion (not a tracked test package): {name}"
         assert (ROOT / name).is_file(), name
         assert len(reason.split()) >= 8, f"Explain the external dependency for {name}"
-    perps = (ROOT / "apps/perps/tests/e2e-local-node.test.ts").read_text()
-    assert all(key in perps for key in (
-        "LOCAL_NODE_RPC", "LOCAL_NODE_KEY", "NEXT_PUBLIC_PERPS_GATEWAY_URL"
-    ))
     assert "apps/perps/package.json" in recorded
     assert "tests/integration/rpc_tests/package.json" in recorded
     assert "test:portable" in manifests["tools/codebase-map/package.json"]["scripts"]
+
+
+def test_js_perps_workspace_root_and_local_node_suites():
+    manifests = tracked_manifests()
+    package = "apps/perps/package.json"
+    command = "node --test --import tsx tests/*.test.ts"
+    assert manifests[package]["scripts"]["test"] == command
+    assert command_packages("pnpm test", "apps/perps", manifests) == {package}
+    assert not command_packages("pnpm run build", "apps/perps", manifests)
+    recorded = exclusions()
+    reason = recorded[package]
+    assert command in reason
+    local_suites = {
+        "local-market-config.test.ts": ("LOCAL_NODE_RPC",),
+        "local-spot-token-state.test.ts": ("LOCAL_NODE_RPC",),
+        "local-order-tick.test.ts": (
+            "LOCAL_NODE_RPC",
+            "LOCAL_NODE_KEY",
+            "NEXT_PUBLIC_PERPS_GATEWAY_URL",
+        ),
+        "local-fee-tier.test.ts": (
+            "LOCAL_NODE_RPC",
+            "LOCAL_NODE_KEY",
+            "NEXT_PUBLIC_PERPS_GATEWAY_URL",
+        ),
+    }
+    for filename, variables in local_suites.items():
+        assert filename in reason
+        source = (ROOT / "apps/perps/tests" / filename).read_text()
+        declaration = re.search(r"const ENV_NAMES = \[(.*?)\] as const;", source, re.S)
+        assert declaration, filename
+        assert tuple(re.findall(r'"([^"]+)"', declaration[1])) == variables
+        assert "if (!value) throw new Error(`${name} is not set`)" in source
+        for variable in variables:
+            assert variable in reason
+    wallet_workspace = yaml.safe_load(
+        (ROOT / "services/wallet/pnpm-workspace.yaml").read_text()
+    )
+    assert wallet_workspace["packages"] == ["gateway", "../../sdk/wallet", "demo"]
+    assert "apps/perps" not in recorded["services/wallet/package.json"]

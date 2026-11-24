@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
+
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 )
 
@@ -61,6 +63,10 @@ func (l *Limiter) Middleware(next http.Handler) http.Handler {
 			}()
 			next.ServeHTTP(w, r)
 		default:
+			if strings.HasPrefix(r.URL.Path, "/v2/") {
+				rest.WriteV2APIError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+				return
+			}
 			w.Header().Set("Retry-After", "1")
 			sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable",
 				"server at capacity, retry shortly")

@@ -12,8 +12,8 @@ import (
 
 func TestIssuedReceiptsRequireCompleteUniqueBatchBindings(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := a.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -58,8 +58,10 @@ func TestIssuedReceiptsRequireCompleteUniqueBatchBindings(t *testing.T) {
 			case "duplicate receipt":
 				qualified = append(append([]*QualifiedReceipt(nil), receipts...), q)
 			case "unbounded receipts":
+				changed.Blocks = append(changed.Blocks, store.BlockCompleteness{Height: changed.Blocks[0].Height + 1, Hash: common.HexToHash("0xabc").Hex(), FetchComplete: true, RequiredDecodeComplete: true})
 				qualified = make([]*QualifiedReceipt, 4097)
 			case "unbounded records":
+				changed.Blocks = append(changed.Blocks, store.BlockCompleteness{Height: changed.Blocks[0].Height + 1, Hash: common.HexToHash("0xabc").Hex(), FetchComplete: true, RequiredDecodeComplete: true})
 				changed.Records = make([]store.RawRecord, 65537)
 			case "raw height without block":
 				qualified = nil

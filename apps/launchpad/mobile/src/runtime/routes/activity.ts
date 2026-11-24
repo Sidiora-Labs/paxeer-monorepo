@@ -1,13 +1,10 @@
 import {
   Operations as BuiltOperations,
   SdkClient as BuiltSdkClient,
-} from '@kindle/sdk';
-import {
-  Operations as SourceOperations,
-  SdkClient as SourceSdkClient,
   decodeContract,
-} from '../../../../../../sdk/launchpad/packages/sdk/src/index.ts';
-import type { QuoteBody } from '../../../../../../sdk/launchpad/packages/sdk/src/index.ts';
+} from '@kindle/sdk';
+import type { SdkClient as SourceSdkClient } from '../../../../../../sdk/launchpad/packages/sdk/src/index.ts';
+import type { QuoteBody } from '../../../../../../sdk/launchpad/packages/sdk/src/types.gen.ts';
 import { createPublicClient, defineChain, getAddress, http } from 'viem';
 import type { PublicConfiguration } from '../service-client.ts';
 import { onchainQuote } from '../onchain-quote.ts';
@@ -16,18 +13,35 @@ import { validatePublicSnapshot } from '../offline-cache.ts';
 export async function streams(
   sdk: SourceSdkClient | BuiltSdkClient,
   signal: AbortSignal,
+  cursor?: string,
 ) {
   signal.throwIfAborted();
   const response =
-    sdk instanceof SourceSdkClient
-      ? await new SourceOperations(sdk).call(
+    sdk instanceof BuiltSdkClient
+      ? await new BuiltOperations(sdk).call(
           'IF_STREAM_LIST',
-          { query: { status: 'live', limit: 50 } },
+          {
+            query: {
+              status: 'live',
+              limit: 50,
+              ...(cursor ? { cursor } : {}),
+            },
+          },
           { signal },
         )
-      : await new BuiltOperations(sdk).call(
+      : await new (
+          await import(
+            '../../../../../../sdk/launchpad/packages/sdk/src/index.ts'
+          )
+        ).Operations(sdk).call(
           'IF_STREAM_LIST',
-          { query: { status: 'live', limit: 50 } },
+          {
+            query: {
+              status: 'live',
+              limit: 50,
+              ...(cursor ? { cursor } : {}),
+            },
+          },
           { signal },
         );
   validatePublicSnapshot('live', response);
@@ -71,20 +85,24 @@ export async function quote(
 
 export const IF_TX_STATUS = 'IF_TX_STATUS';
 
-export function receipt(
+export async function receipt(
   sdk: SourceSdkClient | BuiltSdkClient,
   hash: string,
   signal: AbortSignal,
 ) {
   if (!/^0x[0-9a-fA-F]{64}$/.test(hash))
     throw new Error('Invalid transaction hash');
-  return sdk instanceof SourceSdkClient
-    ? new SourceOperations(sdk).call(
+  return sdk instanceof BuiltSdkClient
+    ? new BuiltOperations(sdk).call(
         IF_TX_STATUS,
         { path: { transactionHash: hash } },
         { signal },
       )
-    : new BuiltOperations(sdk).call(
+    : new (
+        await import(
+          '../../../../../../sdk/launchpad/packages/sdk/src/index.ts'
+        )
+      ).Operations(sdk).call(
         IF_TX_STATUS,
         { path: { transactionHash: hash } },
         { signal },

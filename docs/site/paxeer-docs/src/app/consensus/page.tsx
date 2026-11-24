@@ -13,7 +13,7 @@ export default function Consensus() {
       </div>
 
       <h2>Overview</h2>
-      <p>Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel is part of the network and proposes blocks. A receipt is final when its block is committed. The tree includes a Tendermint-derived consensus stack and configurable Autobahn components; the application executes transactions and commits state. Network safety depends on the protocol&apos;s validator and trust assumptions, while observed block time and throughput depend on the deployed configuration.</p>
+      <p>The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when validators commit its block. The tree includes a Tendermint-derived consensus stack and configurable Autobahn components; the application executes transactions and commits state. Network safety depends on the protocol&apos;s validator and trust assumptions, while observed block time and throughput depend on the deployed configuration.</p>
       <h2>Autobahn and Validator Committees</h2>
       <p>Autobahn uses application and lane proposals, votes, quorum certificates, committees, and timeouts. Their types are defined under <code>consensus/autobahn/types/</code>; the protocol state is coordinated under <code>consensus/internal/autobahn/</code>.</p>
       <p>Use the deployment&apos;s Autobahn configuration to inspect its lane and committee settings. Track throughput and block intervals through node metrics.</p>

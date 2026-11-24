@@ -89,6 +89,7 @@ const query = new QueryClient({ defaultOptions: { queries: { retry: false, gcTim
 const config = createConfig({ chains: [paxeerWalletChain], connectors: [], multiInjectedProviderDiscovery: false, pollingInterval: 100, transports: { 125: http(url, { retryCount: 0 }) } });
 const root = createRoot(document.getElementById('root')!);
 let current: ReturnType<typeof useOptimisticReceipt> | undefined;
+let reverterAddress: Hex | undefined;
 function Probe({ hash }: { hash?: Hex }) { current = useOptimisticReceipt(hash, { poolAddress: pool }); return null; }
 async function render(hash?: Hex) {
   await act(async () => { root.render(<WagmiProvider config={config} reconnectOnMount={false}><QueryClientProvider client={query}><Probe hash={hash} /></QueryClientProvider></WagmiProvider>); });
@@ -115,6 +116,7 @@ test('pending beyond two seconds stays unresolved; only actual success/revert re
   const hash = await nodeRpc<Hex>('eth_sendTransaction', [{ from, to, value: '0x7b', gas: '0x5208' }]);
   await render(hash);
   await act(async () => { await new Promise((r) => setTimeout(r, 2300)); });
+  await waitUntil(() => current?.state === 'checking');
   expect(current?.receipt).toBeUndefined(); expect(current?.isPending).toBe(true); expect(current?.isOptimistic).toBe(false); expect(current?.state).toBe('checking');
   await waitUntil(() => sockets.size > 0); notify(hash);
   await act(async () => { await new Promise((r) => setTimeout(r, 150)); });
@@ -128,6 +130,7 @@ test('pending beyond two seconds stays unresolved; only actual success/revert re
   const deployed=await rpc.getTransactionReceipt({hash:deployHash});
   expect(deployed.status).toBe('success');
   const reverter=deployed.contractAddress;
+  reverterAddress=reverter??undefined;
   expect(reverter).toBeTruthy();
   const revertedHash = await nodeRpc<Hex>('eth_sendTransaction', [{ from, to: reverter, value: '0x0', gas: '0x186a0' }]);
   await render(revertedHash);
@@ -141,3 +144,31 @@ test('pending beyond two seconds stays unresolved; only actual success/revert re
   expect(current?.receipt).toMatchObject(await rpc.getTransactionReceipt({ hash: revertedHash }));
   await render(undefined); expect(current?.state).toBe('idle'); expect(current?.receipt).toBeUndefined(); expect(current?.isPending).toBe(false);
 }, 20000);
+
+async function receiptReplacementReleasesCancelledAndFollowsRepricedTransactions() {
+  const [from, to] = await nodeRpc<Hex[]>('eth_accounts');
+  await nodeRpc('evm_setAutomine', [false]);
+  expect(reverterAddress).toBeTruthy();
+  for (const kind of ['cancelled', 'changed_action', 'repriced', 'repriced_reverted'] as const) {
+    const destination = kind === 'repriced_reverted' ? reverterAddress! : to;
+    const value = kind === 'repriced_reverted' ? '0x0' : '0x7b';
+    const nonce = await rpc.getTransactionCount({ address: from, blockTag: 'pending' });
+    const original = await nodeRpc<Hex>('eth_sendTransaction', [{ from, to: destination, value, gas: '0x186a0', gasPrice: '0x3b9aca00', nonce: `0x${nonce.toString(16)}` }]);
+    await render(original);
+    await waitUntil(() => current?.state === 'checking');
+    const replacement = await nodeRpc<Hex>('eth_sendTransaction', [{ from, to: kind === 'cancelled' ? from : destination, value: kind === 'cancelled' ? '0x0' : kind === 'changed_action' ? '0x7c' : value, gas: '0x186a0', gasPrice: '0x77359400', nonce: `0x${nonce.toString(16)}` }]);
+    await nodeRpc('evm_mine');
+    await act(async () => { await current!.inspectReplacement(replacement); });
+    expect(current?.isPending).toBe(false);
+    if (kind === 'repriced' || kind === 'repriced_reverted') {
+      expect(current?.state).toBe(kind === 'repriced' ? 'confirmed_success' : 'confirmed_reverted');
+      expect(current?.receipt).toMatchObject(await rpc.getTransactionReceipt({ hash: replacement }));
+    } else {
+      expect(current?.state).toBe(kind);
+      expect(current?.receipt).toBeUndefined();
+    }
+    await render(undefined);
+    expect(current?.state).toBe('idle');
+  }
+}
+test(receiptReplacementReleasesCancelledAndFollowsRepricedTransactions, { timeout: 30000 }, receiptReplacementReleasesCancelledAndFollowsRepricedTransactions);

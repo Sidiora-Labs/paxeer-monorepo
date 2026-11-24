@@ -1,10 +1,10 @@
 mod auth_fixture {
-    include!("support/repair_22_33_44_auth.rs");
+    include!("support/passkey_session_fixture.rs");
 }
 use auth_fixture::{auth_config, register_session, required, SoftwareAuthenticator};
 
 mod durable_approval {
-    include!("support/repair_22_33_44_approval.rs");
+    include!("support/approval_session_fixture.rs");
 }
 
 use layerx_human_test_support as support;
@@ -416,7 +416,9 @@ fn decide_at(pending: u64) {
         &map,
         support::retention_uniform(10_000),
     );
-    let mut scope = store.principal(&support::principal("mara")).or_fail("principal scope");
+    let mut scope = store
+        .principal(&support::principal("mara"))
+        .or_fail("principal scope");
     let passkeys = required(Passkeys::new(auth_config()), "passkeys");
     let mut authenticator = SoftwareAuthenticator::new();
     let session = register_session(&passkeys, &mut scope, &mut authenticator, 100);

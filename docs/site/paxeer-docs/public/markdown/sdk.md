@@ -19,7 +19,7 @@ Chain maintainers work in `sdk/`, `modules/`, and `node/`. Application developer
 3. Track the transaction hash, execution receipt, and covering committed block.
 4. Verify receipt signatures and committed inclusion before treating a payment as final.
 
-The [network overview](https://docs.paxeer.app/unified-network) explains how these execution surfaces compose. The kernel executes within the BFT network; an execution receipt becomes final when its covering block is committed.
+The [network overview](https://docs.paxeer.app/unified-network) explains how these execution surfaces compose. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. An execution receipt becomes final when validators commit its covering block.
 
 ## Overview
 
@@ -92,6 +92,10 @@ Chain module source directories under `modules/`:
 - `launchpad`, `spot`, `perps`, `sequencer`, `store`, `xweb`, `lxphost`
 
 - `layerxagent`, `layerxanchor`, `layerxauth`, `layerxbridge`, `layerxchains`, `layerxcustody`, `layerxexchange`, `layerxgov`, `layerxledger`, `layerxpay`
+
+- Anchor — writes retire at the v7.0 upgrade height and bonds return to their owners; archive reads remain until the separate anchor-store deletion plan.
+
+- Custody — calls retire at the v7.0 upgrade height; remaining balances move to the custody authority and pending claims are cancelled.
 
 ## BaseApp
 

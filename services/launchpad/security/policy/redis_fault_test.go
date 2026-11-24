@@ -19,9 +19,10 @@ import (
 )
 
 func TestRealRedisAtomicExpiryCrashRecovery(t *testing.T) {
+	const caseTimeout = 20 * time.Second
 	directory := t.TempDir()
 	socket := filepath.Join(directory, "redis.sock")
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), caseTimeout)
 	defer cancel()
 	log, err := os.Create(filepath.Join(directory, "redis.log"))
 	if err != nil {
@@ -38,8 +39,12 @@ func TestRealRedisAtomicExpiryCrashRecovery(t *testing.T) {
 		}
 		return command
 	}
-	client := func() *redis.Client {
-		return redis.NewClient(&redis.Options{Network: "unix", Addr: socket, DialTimeout: 100 * time.Millisecond, ReadTimeout: 100 * time.Millisecond, WriteTimeout: 100 * time.Millisecond, MaxRetries: -1})
+	client := func(timeout time.Duration) *redis.Client {
+		return redis.NewClient(&redis.Options{
+			Network: "unix", Addr: socket,
+			DialTimeout: timeout, ReadTimeout: timeout, WriteTimeout: timeout, PoolTimeout: timeout,
+			ContextTimeoutEnabled: true, MaxRetries: -1, DialerRetries: 1,
+		})
 	}
 	command := start()
 	live := true
@@ -49,7 +54,7 @@ func TestRealRedisAtomicExpiryCrashRecovery(t *testing.T) {
 			_ = command.Wait()
 		}
 	})
-	a, b := client(), client()
+	a, b := client(caseTimeout), client(caseTimeout)
 	defer a.Close()
 	defer b.Close()
 	wait := func() {
@@ -98,11 +103,14 @@ func TestRealRedisAtomicExpiryCrashRecovery(t *testing.T) {
 	}
 	_ = command.Wait()
 	live = false
-	if allowed, _, err := Take(ctx, b, "l45-phase2", "account-write", "one-principal", 1); err == nil || allowed {
+	// Outage checks keep a short timeout to assert fail-closed admission while Redis is stopped.
+	outage := client(100 * time.Millisecond)
+	defer outage.Close()
+	if allowed, _, err := Take(ctx, outage, "l45-phase2", "account-write", "one-principal", 1); err == nil || allowed {
 		t.Fatal("outage admitted", allowed, err)
 	}
 	for i := 0; i < 2000; i++ {
-		if allowed, _, err := Take(ctx, b, "l45-phase3", "account-write", "principal-"+strconv.Itoa(i), 1); err == nil || allowed {
+		if allowed, _, err := Take(ctx, outage, "l45-phase3", "account-write", "principal-"+strconv.Itoa(i), 1); err == nil || allowed {
 			t.Fatal("mutation admitted during Redis loss", i, allowed, err)
 		}
 	}
@@ -121,13 +129,13 @@ func TestRealRedisAtomicExpiryCrashRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cachedReads int
-	handler, err := Admission(AdmissionOptions{Redis: b, Namespace: "l45-phase3", Class: "public-read", Cost: 1, CachedPublicRead: true, Edge: edge}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { cachedReads++; w.WriteHeader(204) }))
+	handler, err := Admission(AdmissionOptions{Redis: outage, Namespace: "l45-phase3", Class: "public-read", Cost: 1, CachedPublicRead: true, Edge: edge}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { cachedReads++; w.WriteHeader(204) }))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 10; i++ {
 		record := httptest.NewRecorder()
-		handler.ServeHTTP(record, httptest.NewRequest("GET", "/cached", nil))
+		handler.ServeHTTP(record, httptest.NewRequest("GET", "/cached", nil).WithContext(ctx))
 		if record.Code != 204 {
 			t.Fatal(record.Code)
 		}
@@ -135,12 +143,12 @@ func TestRealRedisAtomicExpiryCrashRecovery(t *testing.T) {
 	if cachedReads != 10 {
 		t.Fatal("cached read lease unavailable", cachedReads)
 	}
-	uncached, err := Admission(AdmissionOptions{Redis: b, Namespace: "l45-phase3", Class: "public-read", Cost: 1, Edge: edge}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("uncached outage read admitted") }))
+	uncached, err := Admission(AdmissionOptions{Redis: outage, Namespace: "l45-phase3", Class: "public-read", Cost: 1, Edge: edge}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("uncached outage read admitted") }))
 	if err != nil {
 		t.Fatal(err)
 	}
 	record := httptest.NewRecorder()
-	uncached.ServeHTTP(record, httptest.NewRequest("GET", "/uncached", nil))
+	uncached.ServeHTTP(record, httptest.NewRequest("GET", "/uncached", nil).WithContext(ctx))
 	if record.Code != 503 {
 		t.Fatal(record.Code)
 	}

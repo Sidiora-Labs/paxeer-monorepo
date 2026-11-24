@@ -23,7 +23,7 @@ import signer as signer_service
 from client import SignerClient
 from provider import FileProvider
 
-FIXTURES = Path(__file__).with_name('fixtures') / 'repair_22_31_355'
+FIXTURES = Path(__file__).with_name('fixtures') / 'native_lifecycle'
 
 
 def write_seed(path, seed):
@@ -70,7 +70,7 @@ class NativeKeyHarness:
                       chain_rpc_url='http://127.0.0.1:8545',
                       consensus_rpc_url='http://127.0.0.1:26657')
         if recorded:
-            from test_repair_22_31_355 import RecordedNativePeer
+            from test_native_lifecycle import RecordedNativePeer
 
             self.peer = RecordedNativePeer(config, self.root)
             self.resources.callback(self.peer.close)

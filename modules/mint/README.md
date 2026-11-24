@@ -11,7 +11,7 @@ This directory holds the Go mint module, its query and governance clients, state
 - [module.go](module.go) — module registration, genesis import and export, query services, migrations and simulation wiring.
 - [gov.go](gov.go) — validates and stores a governance replacement minter.
 - [module_test.go](module_test.go) — module route and governance handler tests.
-- [repair_m571_test.go](repair_m571_test.go) — proposal validation, serialization and README proposal example tests.
+- [gov_proposal_test.go](gov_proposal_test.go) — proposal validation, serialization and README proposal example tests.
 - [README.md](README.md) — module behavior and usage.
 
 ## Build and test

@@ -13,7 +13,7 @@ import (
 )
 
 func TestNotificationIntentFollowsRecipientPreferences(t *testing.T) {
-	f := newRepair1027Fixture(t)
+	f := newChatAdmissionFixture(t)
 	ctx := context.Background()
 	redis := f.redis.client(t)
 	t.Cleanup(func() { _ = redis.Close() })

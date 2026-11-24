@@ -51,8 +51,8 @@ func TestMeasurementCommandPersistsRefusedPinnedBlockEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	buildDigest := repairM951Digest(binary)
-	manifestPath := filepath.Join(repairM951Root(t), "sdk/launchpad/shared/config/deployment/current.json")
+	buildDigest := sourceIndexTestDigest(binary)
+	manifestPath := filepath.Join(sourceIndexTestRoot(t), "sdk/launchpad/shared/config/deployment/current.json")
 	manifestRaw, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatal(err)
@@ -67,8 +67,8 @@ func TestMeasurementCommandPersistsRefusedPinnedBlockEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := repairM951Candidate(t)
-	_, indexPath, sourceDigest := repairM951Index(t, root)
+	root := sourceIndexTestCandidate(t)
+	_, indexPath, sourceDigest := sourceIndexTestIndex(t, root)
 	build := capabilities.ConsumerBuildIdentity{BuildSHA256: buildDigest, CandidateSHA256: sourceDigest, ManifestSHA256: engine.Revision().ManifestSHA256, SourceManifestSHA256: manifest.SourceManifestSHA256, RevisionSHA256: engine.Revision().RevisionSHA256, NetworkSHA256: strings.Repeat("c", 64), Addresses: manifest.Addresses()}
 	plan := capabilities.MeasurementPlan{SchemaVersion: 1, CandidateSHA256: sourceDigest, HarnessBuildSHA256: buildDigest, GoBuild: build, FrontendBuild: build, SamplesPerCase: 1, Concurrency: 1, DeadlineMilliseconds: 10000, P95BudgetMicroseconds: 10000000, MaxErrorBasisPoints: 0, MaxRawBytes: 1 << 20}
 	// The reported hash belongs to a different height from the approved probe.
@@ -78,7 +78,7 @@ func TestMeasurementCommandPersistsRefusedPinnedBlockEvidence(t *testing.T) {
 		probe.OpticalRequest.Pool = common.HexToAddress("0x04")
 		plan.Cases = append(plan.Cases, probe)
 	}
-	approved := authority{SchemaVersion: 1, Realm: "private_fixture", EndpointID: "chain", URLVariable: "MEASUREMENT_BOUND_CHAIN", URLSHA256: repairM951Digest([]byte(endpoint)), GenesisHash: actualGenesis, CommittedBlocks: map[string]uint64{genesis.Hex(): manifest.ActivationHeight}, ManifestFileSHA256: repairM951Digest(manifestRaw), PoolRuntimeHash: poolRuntime, SerialInterfaceSHA256: serial}
+	approved := authority{SchemaVersion: 1, Realm: "private_fixture", EndpointID: "chain", URLVariable: "MEASUREMENT_BOUND_CHAIN", URLSHA256: sourceIndexTestDigest([]byte(endpoint)), GenesisHash: actualGenesis, CommittedBlocks: map[string]uint64{genesis.Hex(): manifest.ActivationHeight}, ManifestFileSHA256: sourceIndexTestDigest(manifestRaw), PoolRuntimeHash: poolRuntime, SerialInterfaceSHA256: serial}
 	t.Setenv(approved.URLVariable, endpoint)
 	bounds := budget{SamplesPerCase: 1, Concurrency: 1, DeadlineMilliseconds: 10000, P95BudgetMicroseconds: 10000000, MaxErrorBasisPoints: 0, MaxRawBytes: 1 << 20, ReadDeadlineMilliseconds: 1000, AttestationMaxAgeSeconds: 60}
 	previousFlags, previousArgs := flag.CommandLine, os.Args
@@ -97,7 +97,7 @@ func TestMeasurementCommandPersistsRefusedPinnedBlockEvidence(t *testing.T) {
 				if err := os.WriteFile(path, raw, 0600); err != nil {
 					t.Fatal(err)
 				}
-				return path, repairM951Digest(raw)
+				return path, sourceIndexTestDigest(raw)
 			}
 			policyPath, policyDigest := write("policy.json", bounds)
 			candidate.PolicySHA256 = policyDigest
@@ -139,7 +139,7 @@ func TestMeasurementCommandPersistsRefusedPinnedBlockEvidence(t *testing.T) {
 			planPath, planDigest := write("plan.json", candidate)
 			os.Args = []string{"measure", "-plan", planPath, "-plan-sha256", planDigest, "-authority", authorityPath, "-source-root", root, "-source-index", indexPath, "-policy", policyPath, "-manifest", manifestPath, "-go-export", exportPath, "-frontend-export", exportPath, "-go-build", executable, "-frontend-build", executable, "-raw-output", rawPath, "-report-output", reportPath}
 			flag.CommandLine = flag.NewFlagSet("measure", flag.ContinueOnError)
-			repairM951Issue(t, run(), want)
+			sourceIndexTestIssue(t, run(), want)
 			if mode == "capture" {
 				raw, err := os.ReadFile(rawPath)
 				if err != nil || len(raw) == 0 {
@@ -150,7 +150,7 @@ func TestMeasurementCommandPersistsRefusedPinnedBlockEvidence(t *testing.T) {
 					t.Fatal(err)
 				}
 				var report capabilities.MeasurementReport
-				if err := json.Unmarshal(data, &report); err != nil || report.MeasurementPassed || report.ReleaseReady || report.FailedSamples != 9 || report.CompletedSamples != 9 || report.PlanFileSHA256 != planDigest || report.RawSHA256 != repairM951Digest(raw) {
+				if err := json.Unmarshal(data, &report); err != nil || report.MeasurementPassed || report.ReleaseReady || report.FailedSamples != 9 || report.CompletedSamples != 9 || report.PlanFileSHA256 != planDigest || report.RawSHA256 != sourceIndexTestDigest(raw) {
 					t.Fatalf("refused probe report: %+v %v", report, err)
 				}
 				for _, sample := range report.Samples {

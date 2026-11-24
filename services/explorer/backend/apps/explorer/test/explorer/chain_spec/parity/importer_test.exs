@@ -146,6 +146,13 @@ defmodule Explorer.ChainSpec.Parity.ImporterTest do
   end
 
   describe "import_genesis_accounts/1" do
+    setup do
+      Repo.delete_all(CoinBalanceDaily)
+      Repo.delete_all(CoinBalance)
+      Repo.delete_all(Address)
+      :ok
+    end
+
     test "imports accounts" do
       TestHelper.eth_get_block_by_number_expectation(1)
 

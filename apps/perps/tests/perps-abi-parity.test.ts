@@ -4,11 +4,14 @@ import { test } from "node:test";
 
 import type { Abi, AbiParameter } from "viem";
 
-import { PerpsPrecompileABI as appPerpsPrecompileABI } from "../src/core/network/abi/PerpsPrecompile";
+import { PerpsPrecompileABI as appPerpsPrecompileABI } from "@paxeer-network/paxeer-backend/core/network/abi/PerpsPrecompile";
 
 const PerpsPrecompileABI = appPerpsPrecompileABI;
 
-type ComparedEntry = Extract<Abi[number], { type: "function" | "event" | "error" }>;
+type ComparedEntry = Extract<
+  Abi[number],
+  { type: "function" | "event" | "error" }
+>;
 
 function parameterType(parameter: AbiParameter): string {
   if ("components" in parameter) {
@@ -20,9 +23,17 @@ function parameterType(parameter: AbiParameter): string {
 function indexEntries(abi: Abi, source: string): Map<string, ComparedEntry> {
   const entries = new Map<string, ComparedEntry>();
   for (const entry of abi) {
-    if (entry.type !== "function" && entry.type !== "event" && entry.type !== "error") continue;
+    if (
+      entry.type !== "function" &&
+      entry.type !== "event" &&
+      entry.type !== "error"
+    )
+      continue;
     const signature = `${entry.type} ${entry.name}(${entry.inputs.map(parameterType).join(",")})`;
-    assert.ok(!entries.has(signature), `${source} has duplicate entry ${signature}`);
+    assert.ok(
+      !entries.has(signature),
+      `${source} has duplicate entry ${signature}`,
+    );
     entries.set(signature, entry);
   }
   assert.ok(entries.size > 0, `${source} has no functions, events or errors`);
@@ -43,14 +54,22 @@ function normalizeKeys(value: unknown): unknown {
 
 function perpsAbiMatchesChain() {
   const chainAbi: Abi = JSON.parse(
-    readFileSync(new URL("../../../precompiles/perps/abi/abi.json", import.meta.url), "utf8"),
+    readFileSync(
+      new URL("../../../precompiles/perps/abi/abi.json", import.meta.url),
+      "utf8",
+    ),
   );
   const app = indexEntries(PerpsPrecompileABI, "PerpsPrecompileABI");
   const chain = indexEntries(chainAbi, "precompiles/perps/abi/abi.json");
 
-  for (const signature of [...new Set([...app.keys(), ...chain.keys()])].sort()) {
+  for (const signature of [
+    ...new Set([...app.keys(), ...chain.keys()]),
+  ].sort()) {
     assert.ok(app.has(signature), `PerpsPrecompileABI is missing ${signature}`);
-    assert.ok(chain.has(signature), `PerpsPrecompileABI has extra entry ${signature}`);
+    assert.ok(
+      chain.has(signature),
+      `PerpsPrecompileABI has extra entry ${signature}`,
+    );
     assert.deepEqual(
       normalizeKeys(app.get(signature)),
       normalizeKeys(chain.get(signature)),

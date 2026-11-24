@@ -119,7 +119,7 @@ type Config struct {
 	Owner                                     string
 	Batch, MaxAttempts                        int
 	LeaseDuration, PublishTimeout, RetryDelay time.Duration
-	// IdleInterval separates two relay passes that both succeeded.
+	// IdleInterval follows a successful pass that claimed fewer than Batch rows.
 	IdleInterval time.Duration
 	// MaxHeadAge is the largest age of the oldest open outbox row of a ready
 	// Publisher.
@@ -252,14 +252,19 @@ func (p *Publisher) Run(ctx context.Context) error {
 		return errors.New("publish: publisher and context required")
 	}
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		wait := p.idle
-		err := p.relay.Pass(ctx)
+		claimed, err := p.relay.PassCount(ctx)
 		if err != nil && ctx.Err() != nil {
 			return ctx.Err()
 		}
 		p.observe(err, time.Now())
 		if err != nil {
 			wait = p.relay.RetryDelay
+		} else if claimed == p.relay.Batch {
+			continue
 		}
 		timer := time.NewTimer(wait)
 		select {
@@ -359,8 +364,16 @@ func (s *sink) PublishBatch(ctx context.Context, leases []delivery.Lease) []deli
 	}
 	futures := make([]jetstream.PubAckFuture, len(leases))
 	last := out[0].Ack.Sequence
-	for i := 1; i < len(leases); i++ {
-		if futures[i], out[i].Err = s.send(leases[i], down, jetstream.WithExpectLastSequence(last+uint64(i)-1)); out[i].Err != nil {
+	offset := uint64(0)
+	for i := 1; i < len(leases); i, offset = i+1, offset+1 {
+		if last > math.MaxUint64-offset {
+			out[i].Err = errors.New("publish: broker sequence exceeds uint64")
+			for j := i + 1; j < len(out); j++ {
+				out[j].Err = errPredecessor
+			}
+			break
+		}
+		if futures[i], out[i].Err = s.send(leases[i], down, jetstream.WithExpectLastSequence(last+offset)); out[i].Err != nil {
 			// The broker refuses every later message on its expectation;
 			// they are not sent.
 			for j := i + 1; j < len(out); j++ {

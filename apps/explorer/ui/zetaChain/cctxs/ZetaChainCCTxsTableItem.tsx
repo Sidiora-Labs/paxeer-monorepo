@@ -22,7 +22,7 @@ const ZetaChainCCTxsTableItem = ({ tx, enableTimeIncrement, isLoading, animation
   return (
     <TableRow key={ tx.index } animation={ animation }>
       <TableCell pr={ 4 }>
-        <HStack alignItems="start" lineHeight="24px">
+        <HStack alignItems="start" lineHeight="h2">
           <TxEntityZetaChainCC
             hash={ tx.index }
             isLoading={ isLoading }

@@ -19,8 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -93,6 +95,7 @@ type Config struct {
 
 	RuntimeProfile         string `env:"RUNTIME_PROFILE"`
 	BindAddress            string `env:"BIND_ADDRESS"`
+	PrivateListenAddress   string `env:"USER_PRIVATE_LISTEN_ADDRESS"`
 	RuntimeBudgetFile      string `env:"DB_BUDGET_FILE"`
 	RuntimeBudgetSHA256    string `env:"DB_BUDGET_SHA256"`
 	RuntimeBudgetDocument  string `env:"DB_BUDGET_DOCUMENT"`
@@ -143,6 +146,13 @@ func Load() (Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
+	for _, d := range cfg.boundDocuments() {
+		if d[0] != "" || d[1] != "" || d[2] != "" {
+			if _, err := boundBytes(d[0], d[1], d[2]); err != nil {
+				return Config{}, fmt.Errorf("config: %s: %w", d[3], err)
+			}
+		}
+	}
 	cfg.registerInlineDocuments()
 	return cfg, nil
 }
@@ -150,6 +160,9 @@ func Load() (Config, error) {
 // Validate enforces field-level rules beyond presence.
 func (c *Config) Validate() error {
 	var errs []error
+	if c.NodeEnv == nodeEnvProduction && c.RuntimeProfile != "" {
+		errs = append(errs, c.validatePrivateListenAddress())
+	}
 	for _, d := range c.boundDocuments() {
 		if d[0] != "" && d[1] != "" {
 			errs = append(errs, fmt.Errorf("runtime_document_source_ambiguous: %s_FILE and %s_DOCUMENT are both set", d[3], d[3]))
@@ -188,6 +201,18 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (c *Config) validatePrivateListenAddress() error {
+	host, port, err := net.SplitHostPort(c.PrivateListenAddress)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("USER_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	privatePort, err := strconv.Atoi(port)
+	if err != nil || privatePort < 1 || privatePort > 65535 || privatePort == c.Port {
+		return fmt.Errorf("USER_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	return nil
 }
 
 func requireURL(name, raw string) error {
@@ -250,21 +275,39 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	var mu sync.Mutex
 	var failure error
 	check := func(checkCtx context.Context) error {
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		mu.Lock()
 		defer mu.Unlock()
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		if failure != nil {
 			return failure
 		}
 		for key, old := range consumed {
+			if err := checkCtx.Err(); err != nil {
+				return err
+			}
 			value, err := provider.GetRequired(checkCtx, key)
 			if err != nil {
+				if contextErr := checkCtx.Err(); contextErr != nil {
+					return contextErr
+				}
 				failure = fmt.Errorf("required_secret_unavailable: %s", key)
 				return failure
+			}
+			if contextErr := checkCtx.Err(); contextErr != nil {
+				return contextErr
 			}
 			if value != old {
 				failure = fmt.Errorf("required_secret_rotated_restart_required: %s", key)
 				return failure
 			}
+		}
+		if err := checkCtx.Err(); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -323,12 +366,19 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	if options.Transport != runtimedb.TransportDirect {
 		return nil, fmt.Errorf("runtime_transaction_pooler_seam_unavailable")
 	}
-	pool, err := runtimedb.NewPool(ctx, c.DatabaseURL, options)
+	connection, err := url.Parse(c.DatabaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("runtime_database_configuration_invalid: %w", err)
+	}
+	parameters := connection.Query()
+	parameters.Set("search_path", "users,pg_catalog")
+	connection.RawQuery = parameters.Encode()
+	pool, err := runtimedb.NewPool(ctx, connection.String(), options)
 	if err != nil {
 		return nil, err
 	}
 	if err = c.CheckRuntimeSchema(ctx, pool); err != nil {
-		pool.Close()
+		runtimedb.ClosePool(pool)
 		return nil, err
 	}
 	return pool, nil

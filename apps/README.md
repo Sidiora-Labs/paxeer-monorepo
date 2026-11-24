@@ -2,9 +2,7 @@
 
 This directory holds the wallet, explorer, bridge, trading, launchpad, name-site,
 inference-peer and Human interface applications for the Paxeer network. They use
-the repository's SDKs, node APIs and application services. Paxeer mainnet-beta is
-one BFT network running `paxd`, with EVM chain ID `125`; its kernel participates in
-block proposal, and receipts are final when their blocks commit.
+the repository's SDKs, node APIs and application services. These applications talk to `paxd`, whose LayerX kernel executes each transaction on arrival and returns a signed execution receipt. A receipt is final when the block that covers it is committed. The EVM chain ID is `125`.
 
 ## Layout
 
@@ -84,12 +82,12 @@ network inputs; variable names are listed without deployment values.
   reads `NAMES_RPC_URL`, `NAMES_RESOLVER`, `NAMES_CONSENSUS_RPC_URL`,
   `NAMES_BUCKET_BASE_URL` and `NAMES_SHELL_DOMAIN`.
   [next.config.ts](names/next.config.ts) configures the shell framework.
-- **Perps:** [gateway.ts](perps/src/core/network/gateway.ts) reads
-  `NEXT_PUBLIC_PERPS_GATEWAY_URL`; [rpc.ts](perps/src/core/rpc.ts) reads
+- **Perps:** [gateway.ts](perps/packages/paxeer-backend/src/core/network/gateway.ts) reads
+  `NEXT_PUBLIC_PERPS_GATEWAY_URL`; [rpc.ts](perps/packages/paxeer-backend/src/core/rpc.ts) reads
   `NEXT_PUBLIC_PAXEER_RPC_URLS` and `NEXT_PUBLIC_PAXEER_RPC_URL`.
   [The deployment guide](perps/deploy/README.md) documents the remaining inputs,
   including market proxy, wallet and error-reporting configuration. Tracked
-  configuration includes [next.config.js](perps/next.config.js),
+  configuration includes [next.config.js](perps/apps/web/next.config.js),
   [railway.json](perps/railway.json),
   [deploy/.env.production.example](perps/deploy/.env.production.example) and
   [deploy/build-args.production.env](perps/deploy/build-args.production.env).

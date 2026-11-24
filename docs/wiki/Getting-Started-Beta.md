@@ -1,8 +1,8 @@
 # Getting started
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`).
-The kernel runs inside the network and proposes blocks. Use ordinary signed
-EVM transactions for transfers and native precompile calls; a receipt is final
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Use ordinary signed EVM transactions for transfers and native precompile calls; a receipt is final
 when its block is committed. [Unified network](UnifiedNetwork.md) describes
 the execution and evidence model.
 

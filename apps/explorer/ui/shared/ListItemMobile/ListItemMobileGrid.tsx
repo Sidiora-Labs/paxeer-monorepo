@@ -16,7 +16,7 @@ const Container = chakra(({ animation, children, className }: ContainerProps) =>
       animation={ animation }
       rowGap={ 2 }
       columnGap={ 2 }
-      gridTemplateColumns="86px auto"
+      gridTemplateColumns={ 'calc(var(--chakra-spacing-20) + var(--chakra-spacing-1\\.5)) minmax(0, 1fr)' }
       alignItems="start"
       paddingY={ 4 }
       borderColor="border.divider"
@@ -43,8 +43,8 @@ const Label = chakra(({ children, className, isLoading }: LabelProps) => {
     <Skeleton
       className={ className }
       loading={ isLoading }
-      fontWeight={ 500 }
-      my="5px"
+      fontWeight="medium"
+      my={ 1.25 }
       justifySelf="start"
     >
       { children }
@@ -61,7 +61,7 @@ const Value = chakra(({ children, className }: ValueProps) => {
   return (
     <GridItem
       className={ className }
-      py="5px"
+      py={ 1.25 }
       color="text.secondary"
       overflow="hidden"
     >

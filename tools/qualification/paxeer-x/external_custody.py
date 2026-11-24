@@ -16,7 +16,7 @@ SCOPE = ['services/human/tools/copy-lint', 'apps/web/copy', 'apps/web/src',
          'apps/web/e2e/copy.test.ts', 'tools/paxeer-x/gates/104.26.2.sh',
          'tools/qualification/paxeer-x/external_custody.py']
 DEADLINE = time.monotonic() + 1740
-NODE = '/root/lx-toolchains/node24/bin/node'
+NODE = 'node'
 
 
 def require(value, message):
@@ -79,7 +79,7 @@ def build():
     environment = dict(os.environ)
     environment['CARGO_BUILD_JOBS'] = '2'
     environment.setdefault('CARGO_TARGET_DIR', str(directory / 'copy-lint-target'))
-    cargo = '/root/.cargo/bin/cargo'
+    cargo = "cargo"
     manifest = 'services/human/tools/copy-lint/Cargo.toml'
     output = execute([cargo, 'build', '--locked', '--manifest-path', manifest,
                       '--all-targets', '--message-format=json'], 'external-custody-build', environment)

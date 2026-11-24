@@ -16,7 +16,7 @@ import (
 )
 
 func TestViewerRoutesBindLiveStateRestrictionsAndTokenAuthority(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	pending, _ := f.create("viewer-pending")
 	live, _ := f.create("viewer-live")
@@ -102,7 +102,7 @@ func TestViewerRoutesBindLiveStateRestrictionsAndTokenAuthority(t *testing.T) {
 }
 
 func TestPrivateViewerSessionRequiresOwnerAndCurrentPrivacyStore(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("private-viewer-session")
 	o, err := f.store.BindProvider(ctx, o.ID, "private_viewer_provider")
@@ -172,7 +172,7 @@ func TestPrivateViewerSessionRequiresOwnerAndCurrentPrivacyStore(t *testing.T) {
 }
 
 func TestPlaybackWebhookRejectsUnboundRequestsAfterSignatureVerification(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	pending, _ := f.create("playback-pending")
 	live, _ := f.create("playback-live")

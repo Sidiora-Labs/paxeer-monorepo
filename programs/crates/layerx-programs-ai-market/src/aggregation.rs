@@ -1559,7 +1559,7 @@ fn process_votes<'a>(
     Ok(votes)
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn persist_finalization_journal(
     call: &Call<'_>,
     settlement_before: &[u8],

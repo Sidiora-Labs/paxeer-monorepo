@@ -738,7 +738,7 @@ fn bind_committed_evidence(
     (signer, digest)
 }
 
-#[path = "support/repair_22_33_105.rs"]
+#[path = "support/native_settlement_support.rs"]
 mod repair_path;
 
 #[test]

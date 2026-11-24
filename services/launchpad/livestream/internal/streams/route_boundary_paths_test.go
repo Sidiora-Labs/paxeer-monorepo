@@ -17,7 +17,7 @@ import (
 )
 
 func TestConnectedRoutesRejectInvalidRequestsAtTheirBoundaries(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	if _, err := f.database.Exec(t.Context(), f.store.RotationSchemaSQL()); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestConnectedRoutesRejectInvalidRequestsAtTheirBoundaries(t *testing.T) {
 }
 
 func TestConnectedRoutesReportMissingStreamIdentity(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	const missing = "11111111-1111-4111-8111-111111111111"
 	base := "/v2/streams/" + missing
 	viewers, err := NewViewerCounter(f.redis, "livestream", 100000)

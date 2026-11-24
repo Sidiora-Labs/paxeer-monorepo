@@ -223,7 +223,7 @@ def main():
         raw = os.environ.get(variable)
         require(bool(raw), "missing genuine input " + variable)
         protected(Path(raw))
-    target = Path(os.environ.get("CARGO_TARGET_DIR", "/root/lx-target/interop")).resolve() / "debug" / "deps"
+    target = Path(os.environ.get("CARGO_TARGET_DIR") or str(root / "services/interop/target")).resolve() / "debug" / "deps"
     require(target.is_dir(), "compiled migration test targets required")
     families = {"layerx_migrate": 2, "operator": 1, "funded_operator": 1,
                 "migration_v2_connected": 1, "testnets": 1}

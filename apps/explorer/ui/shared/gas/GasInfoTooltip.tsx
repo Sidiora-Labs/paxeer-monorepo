@@ -51,7 +51,7 @@ const GasInfoTooltip = ({ children, data, dataUpdatedAt, placement }: Props) => 
           </Flex>
         </Flex>
       ) }
-      <Grid rowGap={ 2 } columnGap="10px" gridTemplateColumns={ `repeat(${ columnNum }, minmax(min-content, auto))` }>
+      <Grid rowGap={ 2 } columnGap={ 2 } gridTemplateColumns={ `repeat(${ columnNum }, minmax(min-content, auto))` }>
         <GasInfoTooltipRow name="Fast" info={ data.gas_prices.fast }/>
         <GasInfoTooltipRow name="Normal" info={ data.gas_prices.average }/>
         <GasInfoTooltipRow name="Slow" info={ data.gas_prices.slow }/>

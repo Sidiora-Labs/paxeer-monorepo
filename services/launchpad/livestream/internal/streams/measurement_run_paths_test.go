@@ -64,7 +64,7 @@ func measurementRunConfig(t *testing.T) MediaMeasurementConfig {
 	authority := MediaMeasurementAuthority{RunID: "run_coverage", Candidate: binding, Interface: binding, Topology: binding, Generator: binding, WorkloadVersion: "kindle-500k-dau-v1", RootMixSHA256: binding, RootLedgerSHA256: binding, Lane: "L40", LaneRPS: 668, ApprovalReference: "approved", ExpiresAt: expires}
 	quota := MediaQuotaAuthority{AccountID: "account_1", ConcurrentViewers: 20000, ConcurrentBroadcasters: 1, ApprovalReference: "approved", ExpiresAt: expires}
 	license := MediaLicenseAuthority{ContentID: "content_1", StreamID: streamID, ProviderID: "provider_1", PlaybackID: "playback_1", RightsReference: "approved", Regions: []string{"region_1"}, SegmentURLs: []string{segment}, SegmentHashes: map[string]string{segment: measurementSHA([]byte("segment-bytes"))}, ValidUntil: expires}
-	budget := repairM1001Budget()
+	budget := studioRecoveryBudget()
 	budget.VendorUserID = quota.AccountID
 	budget.PeakDurationSeconds = 600
 	profile := MediaNetworkProfile{Region: "region_1", AuthorityReference: "approved", DownstreamBitsPerSecond: 40000000000, LatencyMS: 10}

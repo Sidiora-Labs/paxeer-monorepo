@@ -48,7 +48,7 @@ func TestPlanArchiveDeliverThroughTheCommand(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("plan exit %d: %s", code, errOut)
 	}
-	if out != "wallets=4 eligible=2 funded=1 already_migrated=1\n" {
+	if out != "wallets=4 eligible=2 funded=1 already_migrated=1 deliverable=0 waiting_identity=2 external_identity=0\n" {
 		t.Fatalf("plan printed %q", out)
 	}
 
@@ -74,7 +74,7 @@ func TestPlanArchiveDeliverThroughTheCommand(t *testing.T) {
 		t.Fatalf("archive counts before archive exit %d out %q: %s", code, out, errOut)
 	}
 	code, out, errOut = invoke(env, "deliver", "--report-only-counts")
-	if code != 1 || out != "wallets=4 eligible=3 funded=1 migrated=1 eligible_not_migrated=2\n" || !strings.Contains(errOut, "eligible wallets are not migrated: 2 of 3") {
+	if code != 1 || out != "wallets=4 eligible=3 funded=1 migrated=1 deliverable=2 waiting_identity=0 external_identity=0 eligible_not_migrated=2\n" || !strings.Contains(errOut, "eligible wallets are not migrated: 2 deliverable wallets") {
 		t.Fatalf("deliver counts before deliver exit %d out %q: %s", code, out, errOut)
 	}
 	nodeBefore := fixture.Delivery.Fingerprint(t)
@@ -107,7 +107,7 @@ func TestPlanArchiveDeliverThroughTheCommand(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("deliver exit %d: %s", code, errOut)
 	}
-	if out != "eligible=2 funded_archived=1 read=2 verified=2 imported=2 refreshed=2 test_signed=2 matched=2\n" {
+	if out != "eligible=2 deliverable=2 waiting_identity=0 external_identity=0 funded_archived=1 read=2 verified=2 imported=2 refreshed=2 test_signed=2 matched=2\n" {
 		t.Fatalf("deliver printed %q", out)
 	}
 	if strings.Contains(out+errOut, masterB64) {
@@ -119,11 +119,11 @@ func TestPlanArchiveDeliverThroughTheCommand(t *testing.T) {
 	}
 
 	code, out, _ = invoke(env, "plan")
-	if code != 0 || out != "wallets=4 eligible=0 funded=1 already_migrated=3\n" {
+	if code != 0 || out != "wallets=4 eligible=0 funded=1 already_migrated=3 deliverable=0 waiting_identity=0 external_identity=0\n" {
 		t.Fatalf("plan after deliver exit %d printed %q", code, out)
 	}
 	code, out, errOut = invoke(env, "deliver", "--report-only-counts")
-	if code != 0 || out != "wallets=4 eligible=3 funded=1 migrated=3 eligible_not_migrated=0\n" {
+	if code != 0 || out != "wallets=4 eligible=3 funded=1 migrated=3 deliverable=0 waiting_identity=0 external_identity=0 eligible_not_migrated=0\n" {
 		t.Fatalf("deliver counts after deliver exit %d out %q: %s", code, out, errOut)
 	}
 	code, out, errOut = invoke(env, "archive", "--report-only-counts")
@@ -163,7 +163,7 @@ func TestDeliverExitsNonZeroOnMismatch(t *testing.T) {
 	if code != 1 || !strings.Contains(errOut, migrate.ErrRehearsal.Error()) {
 		t.Fatalf("deliver exit %d: %s", code, errOut)
 	}
-	if out != "eligible=1 funded_archived=0 read=0 verified=0 imported=0 refreshed=0 test_signed=0 matched=0\n" {
+	if out != "eligible=1 deliverable=1 waiting_identity=0 external_identity=0 funded_archived=0 read=0 verified=0 imported=0 refreshed=0 test_signed=0 matched=0\n" {
 		t.Fatalf("deliver printed %q", out)
 	}
 	if fixture.Delivery.Fingerprint(t) != before {
@@ -229,7 +229,7 @@ func TestUsageAndMissingEnvironment(t *testing.T) {
 
 func TestMoveDeltaAndRehearseThroughTheCommand(t *testing.T) {
 	pg := testsupport.StartPostgres(t)
-	testsupport.ApplyGatewayLedger(t, pg.DB, "005_agent_actions.sql")
+	sourceLedger := testsupport.ApplyGatewayLedger(t, pg.DB, "005_agent_actions.sql")
 	_, masterB64 := testsupport.MasterKey(t)
 	vs := testsupport.GatewayVectors(t, masterB64, 3)
 	standard := testsupport.InsertWallet(t, pg.DB, vs[0], "standard")
@@ -244,16 +244,35 @@ func TestMoveDeltaAndRehearseThroughTheCommand(t *testing.T) {
 		migrate.EnvDatabaseURL:            target.URL,
 		rehearsal.EnvGatewayMigrationsDir: testsupport.GatewayMigrationsDir(t),
 	}
+	migrations, err := rehearsal.LoadMigrations(env[rehearsal.EnvGatewayMigrationsDir])
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedAppliedAfter := len(migrations.Files) - len(sourceLedger)
+	sourceCounts := testsupport.TableCounts(t, pg.DB)
+	var copiedRows int64
+	for _, rows := range sourceCounts {
+		copiedRows += rows
+	}
+	gateway := pg.Database(t, "gateway_schema")
+	testsupport.ApplyGatewayMigrations(t, gateway.DB)
+	gatewayTables := testsupport.TableCounts(t, gateway.DB)
+	var droppedTables int
+	for name := range sourceCounts {
+		if _, present := gatewayTables[name]; !present {
+			droppedTables++
+		}
+	}
 
 	code, out, errOut := invoke(env, "move")
 	if code != 0 {
 		t.Fatalf("move exit %d: %s", code, errOut)
 	}
 	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
-	if len(lines) != 14 || lines[13] != "tables=13 rows=18 ledger_before=5 applied_after=17" {
+	if len(lines) != len(sourceCounts)+1 || lines[len(sourceCounts)] != fmt.Sprintf("tables=%d rows=%d ledger_before=%d applied_after=%d", len(sourceCounts), copiedRows, len(sourceLedger), expectedAppliedAfter) {
 		t.Fatalf("move printed %q", out)
 	}
-	for _, l := range lines[:13] {
+	for _, l := range lines[:len(sourceCounts)] {
 		f := strings.Fields(l)
 		if len(f) != 5 || strings.TrimPrefix(f[1], "source_") != strings.TrimPrefix(f[2], "target_") || strings.TrimPrefix(f[3], "source_") != strings.TrimPrefix(f[4], "target_") {
 			t.Fatalf("move line %q", l)
@@ -270,11 +289,11 @@ func TestMoveDeltaAndRehearseThroughTheCommand(t *testing.T) {
 		t.Fatalf("second move exit %d: %s", code, errOut)
 	}
 	code, out, errOut = invoke(env, "move", "--delta")
-	if code != 0 || !strings.HasSuffix(out, "tables=10 dropped=3 moved=0\n") {
+	if code != 0 || !strings.HasSuffix(out, fmt.Sprintf("tables=%d dropped=%d moved=0\n", len(sourceCounts)-droppedTables, droppedTables)) {
 		t.Fatalf("delta exit %d out %q: %s", code, out, errOut)
 	}
 	code, out, errOut = invoke(env, "plan")
-	if code != 0 || out != "wallets=3 eligible=2 funded=1 already_migrated=0\n" {
+	if code != 0 || out != "wallets=3 eligible=2 funded=1 already_migrated=0 deliverable=0 waiting_identity=2 external_identity=0\n" {
 		t.Fatalf("plan on the moved database exit %d out %q: %s", code, out, errOut)
 	}
 
@@ -320,9 +339,9 @@ func TestMoveDeltaAndRehearseThroughTheCommand(t *testing.T) {
 		}
 		sourceRows += n
 	}
-	copySummary := fmt.Sprintf("tables=%d rows=%d ledger_before=22 applied_after=0\n", len(sourceBefore)-1, sourceRows)
+	copySummary := fmt.Sprintf("tables=%d rows=%d ledger_before=%d applied_after=0\n", len(sourceBefore)-1, sourceRows, len(migrations.Files))
 	deliveryBefore := fixture.Delivery.Fingerprint(t)
-	summary := "wallets=3 eligible=2 funded_archived=1 already_migrated=0 read=2 verified=2 imported=2 refreshed=2 test_signed=2 matched=2\n"
+	summary := "wallets=3 eligible=2 funded_archived=1 already_migrated=0 deliverable=2 waiting_identity=0 external_identity=0 read=2 verified=2 imported=2 refreshed=2 test_signed=2 matched=2\n"
 	env[archive.EnvPath] = filepath.Join(t.TempDir(), "full.archive")
 	code, out, errOut = invoke(env, "rehearse")
 	if code != 0 || !strings.HasPrefix(out, summary+copySummary) || !strings.Contains(out, "\ntable=wallets source_rows=3 target_rows=3 source_sha256=") {
@@ -343,7 +362,7 @@ func TestMoveDeltaAndRehearseThroughTheCommand(t *testing.T) {
 	if err := pg.DB.QueryRow(`select count(*) from _migrations`).Scan(&files); err != nil {
 		t.Fatal(err)
 	}
-	if files != 22 {
+	if files != len(migrations.Files) {
 		t.Fatalf("source ledger has %d migrations", files)
 	}
 }

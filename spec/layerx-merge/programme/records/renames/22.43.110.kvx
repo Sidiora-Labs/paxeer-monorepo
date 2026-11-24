@@ -1,0 +1,629 @@
+[manifest]
+task = "22.43.110"
+records_moved = 11
+files_renamed = 38
+directories_renamed = 5
+
+[file.1]
+from = "sdk/launchpad/protocol/bindings/repair_22_40_20.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/bindings/repair_22_40_20.kvx"
+
+[file.2]
+from = "sdk/launchpad/protocol/bindings/repair_37.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/bindings/repair_37.kvx"
+
+[file.3]
+from = "sdk/launchpad/protocol/bindings/repair_m948.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/bindings/repair_m948.kvx"
+
+[file.4]
+from = "sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+
+[file.5]
+from = "sdk/launchpad/protocol/catalog/repair_m924.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/catalog/repair_m924.kvx"
+
+[file.6]
+from = "sdk/launchpad/protocol/coverage/repair_28.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/coverage/repair_28.kvx"
+
+[file.7]
+from = "sdk/launchpad/protocol/repair_22_33_971.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/repair_22_33_971.kvx"
+
+[file.8]
+from = "sdk/launchpad/protocol/repair_22_39_460.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/repair_22_39_460.kvx"
+
+[file.9]
+from = "sdk/launchpad/protocol/repair_22_39_476.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/repair_22_39_476.kvx"
+
+[file.10]
+from = "sdk/launchpad/protocol/repair_61.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/repair_61.kvx"
+
+[file.11]
+from = "sdk/launchpad/protocol/repair_m1012.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/protocol/repair_m1012.kvx"
+
+[file.12]
+from = "sdk/launchpad/protocol/bindings/repair_22_40_20_test.go"
+to = "sdk/launchpad/protocol/bindings/chain_launch_abi_test.go"
+
+[file.13]
+from = "sdk/launchpad/protocol/bindings/repair_37_test.go"
+to = "sdk/launchpad/protocol/bindings/event_bindings_integration_test.go"
+
+[file.14]
+from = "sdk/launchpad/protocol/bindings/repair_m948_test.go"
+to = "sdk/launchpad/protocol/bindings/recorded_event_bindings_test.go"
+
+[file.15]
+from = "sdk/launchpad/protocol/catalog/repair_22_39_476_test.go"
+to = "sdk/launchpad/protocol/catalog/reviewed_catalog_validation_test.go"
+
+[file.16]
+from = "sdk/launchpad/protocol/catalog/repair_m924_test.go"
+to = "sdk/launchpad/protocol/catalog/optical_registry_review_test.go"
+
+[file.17]
+from = "sdk/launchpad/protocol/coverage/repair_22_39_476_test.go"
+to = "sdk/launchpad/protocol/coverage/recorded_measurement_test.go"
+
+[file.18]
+from = "sdk/launchpad/protocol/coverage/repair_28_test.go"
+to = "sdk/launchpad/protocol/coverage/emitter_caller_evidence_test.go"
+
+[file.19]
+from = "sdk/launchpad/protocol/generator-inputs/test_repair_22_33_971.py"
+to = "sdk/launchpad/protocol/generator-inputs/test_artifact_signature_paths.py"
+
+[file.20]
+from = "sdk/launchpad/protocol/repair_61_test.go"
+to = "sdk/launchpad/protocol/event_schema_integration_test.go"
+
+[file.21]
+from = "sdk/launchpad/protocol/repair_m1012_test.go"
+to = "sdk/launchpad/protocol/fee_strategy_role_schema_test.go"
+
+[file.22]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/ERC1967Proxy.json"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/ERC1967Proxy.json"
+
+[file.23]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/EventEmitter.json"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/EventEmitter.json"
+
+[file.24]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/PoolBeacon.json"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/PoolBeacon.json"
+
+[file.25]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/contracts/contracts_test.go"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/contracts/contracts_test.go"
+
+[file.26]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/contracts/go.mod"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/contracts/go.mod"
+
+[file.27]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/contracts/go.sum"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/contracts/go.sum"
+
+[file.28]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/decoder_consumer.go.txt"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/decoder_consumer.go.txt"
+
+[file.29]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/generate.cjs"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/generate.cjs"
+
+[file.30]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37/native_producer.go.txt"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events/native_producer.go.txt"
+
+[file.31]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/beacon-rpc.json"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/beacon-rpc.json"
+
+[file.32]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/emitter-rpc.json"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/emitter-rpc.json"
+
+[file.33]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native-execution.json"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/native-execution.json"
+
+[file.34]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native-node-rpc.json"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/native-node-rpc.json"
+
+[file.35]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native_recorder.go.txt"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/native_recorder.go.txt"
+
+[file.36]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/producer-revision.txt"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/producer-revision.txt"
+
+[file.37]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/record_native.py"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/record_native.py"
+
+[file.38]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/record_node.py"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/record_node.py"
+
+[file.39]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/record_retained.py"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/record_retained.py"
+
+[file.40]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948/retained_recorder.go.txt"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events/retained_recorder.go.txt"
+
+[file.41]
+from = "sdk/launchpad/protocol/catalog/testdata/repair-m924/artifact.json"
+to = "sdk/launchpad/protocol/catalog/testdata/optical_registry/artifact.json"
+
+[file.42]
+from = "sdk/launchpad/protocol/catalog/testdata/repair-m924/build-input.json"
+to = "sdk/launchpad/protocol/catalog/testdata/optical_registry/build-input.json"
+
+[file.43]
+from = "sdk/launchpad/protocol/catalog/testdata/repair-m924/capture.cjs"
+to = "sdk/launchpad/protocol/catalog/testdata/optical_registry/capture.cjs"
+
+[file.44]
+from = "sdk/launchpad/protocol/catalog/testdata/repair-m924/review.json"
+to = "sdk/launchpad/protocol/catalog/testdata/optical_registry/review.json"
+
+[file.45]
+from = "sdk/launchpad/protocol/coverage/testdata/repair28producer/go.mod"
+to = "sdk/launchpad/protocol/coverage/testdata/emitter_producer/go.mod"
+
+[file.46]
+from = "sdk/launchpad/protocol/coverage/testdata/repair28producer/main.go"
+to = "sdk/launchpad/protocol/coverage/testdata/emitter_producer/main.go"
+
+[file.47]
+from = "sdk/launchpad/protocol/testdata/repair61/compile.cjs"
+to = "sdk/launchpad/protocol/testdata/fee_strategy_events/compile.cjs"
+
+[file.48]
+from = "sdk/launchpad/protocol/testdata/repair61/consumer.go.txt"
+to = "sdk/launchpad/protocol/testdata/fee_strategy_events/consumer.go.txt"
+
+[file.49]
+from = "sdk/launchpad/protocol/testdata/repair61/producer.go.txt"
+to = "sdk/launchpad/protocol/testdata/fee_strategy_events/producer.go.txt"
+
+[file.50]
+from = "sdk/launchpad/protocol/bindings/testdata/repair37"
+to = "sdk/launchpad/protocol/bindings/testdata/contract_events"
+
+[file.51]
+from = "sdk/launchpad/protocol/bindings/testdata/repair_m948"
+to = "sdk/launchpad/protocol/bindings/testdata/recorded_events"
+
+[file.52]
+from = "sdk/launchpad/protocol/catalog/testdata/repair-m924"
+to = "sdk/launchpad/protocol/catalog/testdata/optical_registry"
+
+[file.53]
+from = "sdk/launchpad/protocol/coverage/testdata/repair28producer"
+to = "sdk/launchpad/protocol/coverage/testdata/emitter_producer"
+
+[file.54]
+from = "sdk/launchpad/protocol/testdata/repair61"
+to = "sdk/launchpad/protocol/testdata/fee_strategy_events"
+
+[reference.1]
+file = ".github/workflows/launchpad-test.yml"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37"
+
+[reference.2]
+file = ".github/workflows/launchpad-test.yml"
+name = "sdk/launchpad/protocol/coverage/testdata/repair28producer"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "TestRepairM_948_NativeExecutorNode"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "TestRepair_37_native_family_events"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "newRepairM948Chain"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "repair37Run"
+
+[reference.7]
+file = "GOTCHA.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_37_test.go"
+
+[reference.8]
+file = "GOTCHA.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948"
+
+[reference.9]
+file = "scripts/workspace/check-paxeer-manifests-test.sh"
+name = "sdk/launchpad/protocol/bindings/repair_37_test.go"
+
+[reference.10]
+file = "scripts/workspace/check-paxeer-manifests-test.sh"
+name = "sdk/launchpad/protocol/coverage/repair_28_test.go"
+
+[reference.11]
+file = "services/launchpad/metadata/internal/app/dev_v2_test.go"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37"
+
+[reference.12]
+file = "services/launchpad/metadata/internal/app/dev_v2_test.go"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37/EventEmitter.json"
+
+[reference.13]
+file = "services/launchpad/metadata/internal/metadata/development_v2_test.go"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37"
+
+[reference.14]
+file = "services/launchpad/metadata/internal/metadata/development_v2_test.go"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37/EventEmitter.json"
+
+[reference.15]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "repair37"
+
+[reference.16]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37"
+
+[reference.17]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37/EventEmitter.json"
+
+[reference.18]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "TestRepair_37_beacon_ownership_handoff"
+
+[reference.19]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "TestRepair_37_native_family_events"
+
+[reference.20]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "TestRepair_61_event_argument_collision"
+
+[reference.21]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "coverage/repair_28_test.go"
+
+[reference.22]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair28StartProducer"
+
+[reference.23]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair37/contracts"
+
+[reference.24]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair37Run"
+
+[reference.25]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair61Run"
+
+[reference.26]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_37_test.go"
+
+[reference.27]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_37_test.go"
+
+[reference.28]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37"
+
+[reference.29]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "testdata/repair28producer"
+
+[reference.30]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_m948_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/dispositions/d22-32.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_37_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/programme/issues/1690.kvx"
+name = "TestRepairM_948_NativeExecutorNode"
+
+[reference.33]
+file = "spec/layerx-merge/programme/issues/1690.kvx"
+name = "TestRepairM_948_NativeExecutorTransport"
+
+[reference.34]
+file = "spec/layerx-merge/programme/issues/1690.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_m948.kvx"
+
+[reference.35]
+file = "spec/layerx-merge/programme/issues/1690.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_m948_test.go"
+
+[reference.36]
+file = "spec/layerx-merge/programme/issues/1690.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948"
+
+[reference.37]
+file = "spec/layerx-merge/programme/issues/1690.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native-node-rpc.json"
+
+[reference.38]
+file = "spec/layerx-merge/programme/issues/1690.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native_recorder.go.txt"
+
+[reference.39]
+file = "spec/layerx-merge/programme/issues/1690.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/producer-revision.txt"
+
+[reference.40]
+file = "spec/layerx-merge/programme/issues/1691.kvx"
+name = "TestRepairM_948_NativeExecutorNode"
+
+[reference.41]
+file = "spec/layerx-merge/programme/issues/1691.kvx"
+name = "TestRepairM_948_NativeExecutorTransport"
+
+[reference.42]
+file = "spec/layerx-merge/programme/issues/1691.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_m948_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/programme/issues/1691.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948"
+
+[reference.44]
+file = "spec/layerx-merge/programme/issues/1691.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native-execution.json"
+
+[reference.45]
+file = "spec/layerx-merge/programme/issues/1691.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/producer-revision.txt"
+
+[reference.46]
+file = "spec/layerx-merge/programme/issues/input/1690.md"
+name = "TestRepairM_948_NativeExecutorTransport"
+
+[reference.47]
+file = "spec/layerx-merge/programme/issues/input/1690.md"
+name = "recordM948Values"
+
+[reference.48]
+file = "spec/layerx-merge/programme/issues/input/1690.md"
+name = "sdk/launchpad/protocol/bindings/repair_m948.kvx"
+
+[reference.49]
+file = "spec/layerx-merge/programme/issues/input/1690.md"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948"
+
+[reference.50]
+file = "spec/layerx-merge/programme/issues/input/1690.md"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native_recorder.go.txt"
+
+[reference.51]
+file = "spec/layerx-merge/programme/issues/input/1691.md"
+name = "TestRepairM_948_NativeExecutorNode"
+
+[reference.52]
+file = "spec/layerx-merge/programme/issues/input/1691.md"
+name = "TestRepairM_948_NativeExecutorTransport"
+
+[reference.53]
+file = "spec/layerx-merge/programme/issues/input/1691.md"
+name = "sdk/launchpad/protocol/bindings/repair_m948_test.go"
+
+[reference.54]
+file = "spec/layerx-merge/programme/records/renames/22.43.13.kvx"
+name = "sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+
+[reference.55]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepairM_948_NativeExecutorNode"
+
+[reference.56]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_37_native_family_events"
+
+[reference.57]
+file = "spec/layerx-merge/qualification.kvx"
+name = "newRepairM948Chain"
+
+[reference.58]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m948_test.go"
+
+[reference.59]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_m948_test.go"
+
+[reference.60]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_948_NativeExecutorNode"
+
+[reference.61]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_948_NativeExecutorTransport"
+
+[reference.62]
+file = "spec/layerx-merge/spec.kvx"
+name = "newRepairM948Chain"
+
+[reference.63]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair37Run"
+
+[reference.64]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_22_40_20.kvx"
+
+[reference.65]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_22_40_20_test.go"
+
+[reference.66]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_37_test.go"
+
+[reference.67]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_m948.kvx"
+
+[reference.68]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/repair_m948_test.go"
+
+[reference.69]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948"
+
+[reference.70]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native-execution.json"
+
+[reference.71]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/native-node-rpc.json"
+
+[reference.72]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948/producer-revision.txt"
+
+[reference.73]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+
+[reference.74]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/catalog/repair_m924_test.go"
+
+[reference.75]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/coverage/repair_28_test.go"
+
+[reference.76]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/generator-inputs/test_repair_22_33_971.py"
+
+[reference.77]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/repair_22_39_460.kvx"
+
+[reference.78]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/repair_22_39_476.kvx"
+
+[reference.79]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/repair_61_test.go"
+
+[reference.80]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/launchpad/protocol/repair_m1012_test.go"
+
+[reference.81]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37"
+
+[reference.82]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "sdk/launchpad/protocol/coverage/testdata/repair28producer"
+
+[reference.83]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_924_CheckoutProvenance"
+
+[reference.84]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_924_ReviewRefusals"
+
+[reference.85]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_924_ReviewedArtifactConsumer"
+
+[reference.86]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_28_EmitterCallerEvidence"
+
+[reference.87]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_37_beacon_ownership_handoff"
+
+[reference.88]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_37_native_family_events"
+
+[reference.89]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_37_retained_emitter_v2"
+
+[reference.90]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_61_canonical_schema"
+
+[reference.91]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_61_event_argument_collision"
+
+[reference.92]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "sdk/launchpad/protocol/bindings/repair_37_test.go"
+
+[reference.93]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "sdk/launchpad/protocol/catalog/repair_m924_test.go"
+
+[reference.94]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "sdk/launchpad/protocol/coverage/repair_28_test.go"
+
+[reference.95]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "sdk/launchpad/protocol/repair_61_test.go"
+
+[reference.96]
+file = "tools/qualification/audit_repairs/test_repair_22_40_18.py"
+name = "sdk/launchpad/protocol/bindings/testdata/repair_m948"
+
+[reference.97]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/launchpad/protocol/bindings/repair_37_test.go"
+
+[reference.98]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37"
+
+[reference.99]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/launchpad/protocol/bindings/testdata/repair37/contracts/go.mod"
+
+[reference.100]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/launchpad/protocol/coverage/repair_28_test.go"
+
+[reference.101]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/launchpad/protocol/coverage/testdata/repair28producer"
+
+[reference.102]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/launchpad/protocol/coverage/testdata/repair28producer/go.mod"

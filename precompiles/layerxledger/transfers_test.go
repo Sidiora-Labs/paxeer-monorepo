@@ -219,7 +219,7 @@ func TestPrecompileSend(t *testing.T) {
 }
 
 func TestPrecompileSendReopen(t *testing.T) {
-	f := newRepair144Fixture(t)
+	f := newLedgerAccountFixture(t)
 	f.p.success(t, f.sender, "mint", f.asset, f.from, big.NewInt(250))
 	payload := f.envelope(t, 0, 40, 0xa1)
 	branch, _ := f.p.ctx.CacheContext()

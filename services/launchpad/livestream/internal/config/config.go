@@ -217,8 +217,32 @@ func Load() (Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
+	if err := cfg.validateStartupDocuments(); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
 	cfg.registerInlineDocuments()
 	return cfg, nil
+}
+
+// validateStartupDocuments verifies the production documents before the
+// process starts serving. The database pool and readiness checks parse these
+// same bytes later; checking their bindings here makes a changed document fail
+// at configuration load instead of after listeners have started.
+func (c *Config) validateStartupDocuments() error {
+	if c.NodeEnv != nodeEnvProduction {
+		return nil
+	}
+	var errs []error
+	for _, document := range c.boundDocuments()[:2] {
+		if (document[0] == "") == (document[1] == "") {
+			errs = append(errs, fmt.Errorf("%s document source is required", document[3]))
+			continue
+		}
+		if _, err := boundBytes(document[0], document[1], document[2]); err != nil {
+			errs = append(errs, fmt.Errorf("%s document binding: %w", document[3], err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Validate enforces the same field-level rules as the zod livestreamEnvSchema.
@@ -344,21 +368,39 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	var mu sync.Mutex
 	var failure error
 	check := func(checkCtx context.Context) error {
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		mu.Lock()
 		defer mu.Unlock()
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		if failure != nil {
 			return failure
 		}
 		for key, old := range consumed {
+			if err := checkCtx.Err(); err != nil {
+				return err
+			}
 			value, err := provider.GetRequired(checkCtx, key)
 			if err != nil {
+				if contextErr := checkCtx.Err(); contextErr != nil {
+					return contextErr
+				}
 				failure = fmt.Errorf("required_secret_unavailable: %s", key)
 				return failure
+			}
+			if contextErr := checkCtx.Err(); contextErr != nil {
+				return contextErr
 			}
 			if value != old {
 				failure = fmt.Errorf("required_secret_rotated_restart_required: %s", key)
 				return failure
 			}
+		}
+		if err := checkCtx.Err(); err != nil {
+			return err
 		}
 		return nil
 	}

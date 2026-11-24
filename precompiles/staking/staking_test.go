@@ -1462,7 +1462,7 @@ func TestPrecompile_Run_DelegatorUnbondingDelegations(t *testing.T) {
 
 func TestPrecompile_Run_Redelegations(t *testing.T) {
 	t.Run("fails if value passed", func(t *testing.T) {
-		testApp, ctx, req := repair126RedelegationState(t)
+		testApp, ctx, req := redelegationState(t)
 		p, err := staking.NewPrecompile(testApp.GetPrecompileKeepers())
 		require.NoError(t, err)
 		input, err := p.ABI.Pack(staking.RedelegationsMethod, req.DelegatorAddr, req.SrcValidatorAddr, req.DstValidatorAddr, req.Pagination.Key)
@@ -1474,7 +1474,7 @@ func TestPrecompile_Run_Redelegations(t *testing.T) {
 		require.Error(t, db.GetPrecompileError())
 		require.Contains(t, db.GetPrecompileError().Error(), "sending funds to a non-payable function")
 	})
-	t.Run("should return redelegations (static call allowed)", repairM1201RedelegationShares)
+	t.Run("should return redelegations (static call allowed)", assertRedelegationShares)
 }
 
 func TestPrecompile_Run_DelegatorValidators(t *testing.T) {
@@ -2477,5 +2477,5 @@ func TestStakingPrecompileStaticCallPrevention(t *testing.T) {
 		})
 	}
 
-	t.Run("delegation query allowed in staticcall", repairM1201StaticDelegation)
+	t.Run("delegation query allowed in staticcall", assertStaticDelegation)
 }

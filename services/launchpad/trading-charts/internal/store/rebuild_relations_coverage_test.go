@@ -28,17 +28,17 @@ func TestRebuildPromotionKeepsStagedRunWhenDurableRelationUnavailable(t *testing
 		{"stream projection", "api_stream", "stream_projection", "TABLE"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := repair75New(t)
+			f := rebuildPromotionNew(t)
 			f.stage(t, "staged", 1, nil)
 			ctx := context.Background()
 			original := tc.schema + "." + tc.relation
 			held := tc.relation + "_held"
-			repair75Exec(t, f.db, "ALTER "+tc.kind+" "+original+" RENAME TO "+held)
+			rebuildPromotionExec(t, f.db, "ALTER "+tc.kind+" "+original+" RENAME TO "+held)
 			revision, err := f.st.PromoteRebuild(ctx, "staged")
 			if revision != 0 || err == nil || !strings.Contains(err.Error(), tc.relation) {
 				t.Fatalf("unavailable %s changed promotion: revision=%d err=%v", original, revision, err)
 			}
-			repair75Exec(t, f.db, "ALTER "+tc.kind+" "+tc.schema+"."+held+" RENAME TO "+tc.relation)
+			rebuildPromotionExec(t, f.db, "ALTER "+tc.kind+" "+tc.schema+"."+held+" RENAME TO "+tc.relation)
 			var status string
 			var clock, frames int
 			if err := f.db.QueryRow(ctx, `SELECT (SELECT status FROM candles.chart_rebuild_runs WHERE run_id='staged'),(SELECT revision FROM candles.chart_series_clock),(SELECT count(*) FROM api_stream.stream_delivery_outbox)`).Scan(&status, &clock, &frames); err != nil || status != "validated" || clock != 1 || frames != 7 {
@@ -61,11 +61,11 @@ func TestRebuildPromotionPreservesStagedRunOnDurableWriteRefusal(t *testing.T) {
 		{"completed run", "chart_rebuild_runs", "UPDATE"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := repair75New(t)
+			f := rebuildPromotionNew(t)
 			f.stage(t, "staged", 1, nil)
 			ctx := context.Background()
-			repair75Exec(t, f.db, `CREATE FUNCTION candles.refuse_rebuild_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'durable write refused'; END $$`)
-			repair75Exec(t, f.db, `CREATE TRIGGER refuse_rebuild_write BEFORE `+tc.operation+` ON candles.`+tc.relation+` FOR EACH ROW EXECUTE FUNCTION candles.refuse_rebuild_write()`)
+			rebuildPromotionExec(t, f.db, `CREATE FUNCTION candles.refuse_rebuild_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'durable write refused'; END $$`)
+			rebuildPromotionExec(t, f.db, `CREATE TRIGGER refuse_rebuild_write BEFORE `+tc.operation+` ON candles.`+tc.relation+` FOR EACH ROW EXECUTE FUNCTION candles.refuse_rebuild_write()`)
 			revision, err := f.st.PromoteRebuild(ctx, "staged")
 			if revision != 0 || err == nil || !strings.Contains(err.Error(), "durable write refused") {
 				t.Fatalf("durable write refusal %s: revision=%d err=%v", tc.relation, revision, err)

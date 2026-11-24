@@ -33,7 +33,7 @@ export default function DoNotSellPage() {
           <li><strong>Telegram Support:</strong>{' '}
             <a
               href="https://t.me/Sidiorafunsupport"
-              className="text-accent underline"
+              className="inline-flex min-w-touch-target-min items-center text-accent underline"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -53,7 +53,7 @@ export default function DoNotSellPage() {
           <li>Visit{' '}
             <a
               href="https://www.allaboutcookies.org"
-              className="text-accent underline"
+              className="inline-flex min-w-touch-target-min items-center text-accent underline"
               target="_blank"
               rel="noopener noreferrer"
             >
