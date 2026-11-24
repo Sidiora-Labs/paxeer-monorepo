@@ -5,6 +5,11 @@
 
 pub mod chain;
 
+#[allow(dead_code)]
+#[path = "../../committed_program_transport.rs"]
+mod committed_program_transport;
+pub(crate) use committed_program_transport::admission;
+
 use chain::ChainFixture;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_programs::{

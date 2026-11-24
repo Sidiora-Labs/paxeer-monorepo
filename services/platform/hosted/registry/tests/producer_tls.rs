@@ -195,15 +195,10 @@ fn signing_service(tls: &transport::Tls, root: &Path) -> transport::Listener {
 }
 
 fn publication() -> String {
-    let fixture = support::deploy_fixture(
-        support::WASM_V1,
-        layerx_programs_runtime::UpgradePolicy::Authority(support::AUTHORITY),
-        70,
-        support::NOW,
-    );
-    let verifier = support::verifier_for_fixture(&fixture, 1000);
-    let evidence = verifier
-        .verify_deployment(&fixture.proof, support::NOW)
+    let admission = support::admission(1);
+    let evidence = admission
+        .verifier
+        .verify_deployment(&admission.proof, admission.now)
         .unwrap_or_else(|error| panic!("verified publication: {error:?}"));
     serde_json::json!({"program_id":layerx_programs::hex::encode(&evidence.program().bytes()), "lifecycle":"active", "versions":[{"version":evidence.version(), "code_hash":layerx_programs::hex::encode(&evidence.code_hash()), "deployment_receipt_digest":layerx_programs::hex::encode(&evidence.receipt_digest())}]}).to_string()
 }
@@ -408,6 +403,7 @@ struct Webhooks {
     redis: std::process::Child,
     child: Option<std::process::Child>,
     command: Command,
+    _readiness: transport::Listener,
     pub port: u16,
 }
 
@@ -463,6 +459,7 @@ impl Webhooks {
             ("REDIS_PASSWORD", "integration-only".to_owned()),
             ("CURSOR_KEY", "11".repeat(32)),
             ("KMS_TOKEN", "kms-integration".to_owned()),
+            ("NODE_TOKEN", "node-integration".to_owned()),
             ("COMPONENT_TOKEN", "component-integration".to_owned()),
             ("AUTHORITY_TOKEN", "authority-integration".to_owned()),
             ("SOURCE_TRIGGER_TOKEN", "notification-token".to_owned()),
@@ -478,6 +475,11 @@ impl Webhooks {
             fs::write(root.join(name), value).unwrap_or_else(|error| panic!("{error}"));
             command.env(format!("LAYERX_WEBHOOKS_{name}_FILE"), root.join(name));
         }
+        support::chain::configure_chain_policy(root, &mut command);
+        let readiness = transport::readiness_listener(root, support::chain::RECEIPT_CHAIN_ID, 77);
+        let readiness_url = format!("https://localhost:{}", readiness.port);
+        command.env("LAYERX_WEBHOOKS_NODE_URL", &readiness_url);
+        command.env("LAYERX_WEBHOOKS_COMET_URL", &readiness_url);
         fs::write(root.join("consumer-token"), "consumer-token")
             .unwrap_or_else(|error| panic!("{error}"));
         for kind in ["JOURNEY", "APPROVAL", "PROGRAM", "PAYMENT"] {
@@ -494,8 +496,26 @@ impl Webhooks {
             redis,
             child: None,
             command,
+            _readiness: readiness,
             port,
         };
+        let mut redis_ready = false;
+        for _ in 0..100 {
+            assert!(
+                result
+                    .redis
+                    .try_wait()
+                    .unwrap_or_else(|error| panic!("redis status: {error}"))
+                    .is_none(),
+                "redis exited before listening"
+            );
+            if TcpStream::connect(("127.0.0.1", redis_port)).is_ok() {
+                redis_ready = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(redis_ready, "redis did not listen within 100 attempts");
         result.restart();
         result
     }
