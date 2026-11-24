@@ -16822,6 +16822,42 @@ value = "One. The release document prevails. RELEASE.md keeps its form. Two. The
 basis = "Gotcha 4878."
 affects = []
 
+[decision.3952]
+title = "The expected maps of the sweeps summary case file take the member for the fourth result name"
+value = "One. The module prevails. spec/layerx-merge/programme/sweeps_summary.py and spec/layerx-merge/programme/sweeps/summary.kvx keep their form. Two. In spec/layerx-merge/programme/tests/test_sweeps_summary.py each of the four maps takes the member targets_no_tests with the value 0 on a line of its own directly after its member targets_not_run, at the indent of that member. Every other line of the file stays. Three. Scope: only spec/layerx-merge/programme/tests/test_sweeps_summary.py changes. The count of cases of the file stays. No case leaves and no case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Four. Target: the verification of task 22.39.1168 passes. It runs the case file with pytest. Task 22.39.1168."
+basis = "Gotcha 4879."
+affects = []
+
+[decision.3953]
+title = "The callers case file follows the function owners for the README file under api and the record for the component verify"
+value = "One. The module and the record prevail. spec/layerx-merge/programme/retired.py, tools/paxeer-x/retired_callers.json, tools/paxeer-x/tests/retired_callers_test.py, node/upgrades.go and precompiles/setup.go keep their form. Two. In the case test_owners_maps_prefixes line 38 of spec/layerx-merge/programme/tests/test_retired_callers.py takes the domain 17 for the entry api/README.md. Every other line of the case stays. Three. The case test_callers_runs_the_scan_for_one_component keeps its name and takes the fixture monkeypatch. It requires that the call of callers for the component verify with the root gives an empty list. It requires that at least one import line of node/upgrades.go ends with the package path and that each such line holds a symbol of the component. It requires that exactly one row of tools/paxeer-x/retired_callers.json has the path node and holds layerxverify among its symbols. The requirements for a component name that the record does not hold stay: CalledProcessError, the return code 2, the command list and the refusal text. Four. The same case then replaces the function run of the module subprocess through monkeypatch by a function that records its arguments and its working directory and returns a completed process with a given exit code and a given output. For the exit code 1 and an output of three lines of the component verify, which name the first import place of node/upgrades.go twice and the place node/app.go line 7 once, it requires that callers gives the two places in that order, that the one recorded call is the scan command for the component verify with the root as its working directory and that owners gives the domain 5 for both files of the result. It requires ValueError from callers for each of four inputs: the exit code 0 with the three lines, the exit code 1 with an empty output, the exit code 1 with a line that holds no line number and the exit code 1 with a line of the component anchor. Five. The requirements of the present case for found places in the tree and for the lines of precompiles/setup.go leave with this form. Six. Scope: only spec/layerx-merge/programme/tests/test_retired_callers.py changes. The count of cases of the file stays two. No case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Seven. Target: the verification of task 22.39.1169 passes. It runs the case file with pytest. Task 22.39.1169."
+basis = "Gotcha 4880."
+affects = []
+
+[decision.3954]
+title = "The activation plan case and the gate manifest case take the section meta of their data files"
+value = "One. The data files prevail. spec/layerx-merge/programme/data/activation-plan.kvx, spec/layerx-merge/programme/data/wave-gates.kvx and spec/layerx-merge/programme/activation.py keep their form. Two. In the case test_plan_order_matches_known_plans of spec/layerx-merge/programme/tests/test_activation_plan.py line 16 becomes three lines. The first loads the plan file into a name of its own. The second requires that its section meta equals a map of the one member format_version with the value 1. The third compares the list of its section names with the name meta followed by the five plan names, each after the prefix plan and a dot. Every other line of the file stays. Three. In the case test_manifest_names_every_wave of spec/layerx-merge/programme/tests/test_gate_manifest.py one line is added directly after line 13. It takes the section meta out of the loaded manifest and requires that it equals a map of the one member format_version with the value 1, in the form of line 69 of spec/layerx-merge/programme/tests/test_precompile_activation.py. Every other line of the file stays. Four. Scope: only spec/layerx-merge/programme/tests/test_activation_plan.py and spec/layerx-merge/programme/tests/test_gate_manifest.py change. The count of cases of each file stays two. No case leaves and no case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Five. Target: the verification of task 22.39.1170 passes. It runs both case files with pytest. Task 22.39.1170."
+basis = "Gotcha 4881."
+affects = []
+
+[decision.3955]
+title = "The kvx case takes the five task status values of the workflow file"
+value = "One. The workflow file prevails. spec/workflow.kvx and the loader of the programme directory keep their form. Two. Line 16 of spec/layerx-merge/programme/tests/test_kvx.py compares the key task of the section status_values with the five task status values of the workflow file, in the order of line 80 of that file. Every other line of the file stays. Three. Scope: only spec/layerx-merge/programme/tests/test_kvx.py changes. The count of cases of the file stays two. No case leaves and no case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Four. Target: the verification of task 22.39.1171 passes. It runs the case file with pytest. Task 22.39.1171."
+basis = "Gotcha 4882."
+affects = []
+
+[decision.3956]
+title = "The list of the merge constant case follows the function constant_sites"
+value = "One. The function prevails. spec/layerx-merge/programme/activation.py and sdk/launchpad/shared/config/deployment/attest_surface_test.go keep their form. Two. The list of lines 25 to 30 of spec/layerx-merge/programme/tests/test_merge_constant.py takes the path sdk/launchpad/shared/config/deployment/attest_surface_test.go as its fifth entry, after the entry precompiles/common/precompiles.go. Every other line of the file stays. Three. Scope: only spec/layerx-merge/programme/tests/test_merge_constant.py changes. The file keeps its one case and the case gains no skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Four. Target: the verification of task 22.39.1172 passes. It runs the case file with pytest. Task 22.39.1172."
+basis = "Gotcha 4883."
+affects = []
+
+[decision.3957]
+title = "The run card schema case follows the feature sections of the spec"
+value = "One. The module prevails. spec/layerx-merge/programme/runcards.py and spec/layerx-merge/spec.kvx keep their form. Two. Line 66 of spec/layerx-merge/programme/tests/test_runcard_schema.py compares the keys of the map with the numbers 1 to 22. Line 75 takes the value 23 in place of the value 18. Every other line of the file stays. Three. Scope: only spec/layerx-merge/programme/tests/test_runcard_schema.py changes. The count of cases of the file stays two. No case leaves and no case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Four. Target: the verification of task 22.39.1173 passes. It runs the case file with pytest. Task 22.39.1173."
+basis = "Gotcha 4884."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46482,6 +46518,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1173]
+title = "Let the run card schema case follow the feature sections of the spec"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/tests/test_runcard_schema.py"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_runcard_schema.py"
+do_1 = "do_1 Gotcha 4884, decision 3957. Read lines 26 to 54 of spec/layerx-merge/programme/runcards.py and the case test_check_card_refuses_wrong_role of spec/layerx-merge/programme/tests/test_runcard_schema.py."
+symbols = []
+
+[capability.22.39.1172]
+title = "Let the list of the merge constant case follow the function constant_sites"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/tests/test_merge_constant.py"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_merge_constant.py"
+do_1 = "do_1 Gotcha 4883, decision 3956. Read the function constant_sites of spec/layerx-merge/programme/activation.py, line 78 of sdk/launchpad/shared/config/deployment/attest_surface_test.go and spec/layerx-merge/programme/tests/test_merge_constant.py whole."
+symbols = []
+
+[capability.22.39.1171]
+title = "Let the kvx case take the five task status values of the workflow file"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/tests/test_kvx.py"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_kvx.py"
+do_1 = "do_1 Gotcha 4882, decision 3955. Read lines 79 and 80 of spec/workflow.kvx and the case test_loads_workflow_sections of spec/layerx-merge/programme/tests/test_kvx.py."
+symbols = []
+
+[capability.22.39.1170]
+title = "Let the activation plan case and the gate manifest case take the section meta of their data files"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/tests/test_activation_plan.py", "spec/layerx-merge/programme/tests/test_gate_manifest.py"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_activation_plan.py spec/layerx-merge/programme/tests/test_gate_manifest.py"
+do_1 = "do_1 Gotcha 4881, decision 3954. Read the head of spec/layerx-merge/programme/data/activation-plan.kvx and of spec/layerx-merge/programme/data/wave-gates.kvx, the function load_plans of spec/layerx-merge/programme/activation.py, the first case of spec/layerx-merge/programme/tests/test_activation_plan.py, the first case of spec/layerx-merge/programme/tests/test_gate_manifest.py and line 69 of spec/layerx-merge/programme/tests/test_precompile_activation.py."
+symbols = []
+
+[capability.22.39.1169]
+title = "Let the callers case file follow the function owners and the record for the component verify"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/tests/test_retired_callers.py"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_retired_callers.py"
+do_1 = "do_1 Gotcha 4880, decision 3953. Read the functions callers and owners of spec/layerx-merge/programme/retired.py, both cases of spec/layerx-merge/programme/tests/test_retired_callers.py, the component verify and the row with the path node of tools/paxeer-x/retired_callers.json and the import lines of node/upgrades.go."
+symbols = []
+
+[capability.22.39.1168]
+title = "Let the expected maps of the sweeps summary case file follow the summary section of the module"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/tests/test_sweeps_summary.py"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_sweeps_summary.py"
+do_1 = "do_1 Gotcha 4879, decision 3952. Read the constant RESULTS and the function sweeps_summary of spec/layerx-merge/programme/sweeps_summary.py and the four maps of spec/layerx-merge/programme/tests/test_sweeps_summary.py."
+symbols = []
 
 [capability.22.39.1167]
 title = "Let the file lists of the governance suite script follow the release document"
@@ -405399,6 +405489,192 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.1173]
+title = "Let the run card schema case follow the feature sections of the spec"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1173"]
+interfaces = []
+do_1 = "do_1 Gotcha 4884, decision 3957. Read lines 26 to 54 of spec/layerx-merge/programme/runcards.py and the case test_check_card_refuses_wrong_role of spec/layerx-merge/programme/tests/test_runcard_schema.py."
+do_2 = "do_2 Change lines 66 and 75 under decision 3957 point two. Point one holds."
+do_3 = "do_3 Point three holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point four holds. The case loads the whole spec file, which takes some seconds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/tests/test_runcard_schema.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_runcard_schema.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_runcard_schema.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1172]
+title = "Let the list of the merge constant case follow the function constant_sites"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1172"]
+interfaces = []
+do_1 = "do_1 Gotcha 4883, decision 3956. Read the function constant_sites of spec/layerx-merge/programme/activation.py, line 78 of sdk/launchpad/shared/config/deployment/attest_surface_test.go and spec/layerx-merge/programme/tests/test_merge_constant.py whole."
+do_2 = "do_2 Change the list under decision 3956 point two. Point one holds."
+do_3 = "do_3 Point three holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point four holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/tests/test_merge_constant.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_merge_constant.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_merge_constant.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1171]
+title = "Let the kvx case take the five task status values of the workflow file"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1171"]
+interfaces = []
+do_1 = "do_1 Gotcha 4882, decision 3955. Read lines 79 and 80 of spec/workflow.kvx and the case test_loads_workflow_sections of spec/layerx-merge/programme/tests/test_kvx.py."
+do_2 = "do_2 Change line 16 under decision 3955 point two. Point one holds."
+do_3 = "do_3 Point three holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point four holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/tests/test_kvx.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_kvx.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_kvx.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1170]
+title = "Let the activation plan case and the gate manifest case take the section meta of their data files"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1170"]
+interfaces = []
+do_1 = "do_1 Gotcha 4881, decision 3954. Read the head of spec/layerx-merge/programme/data/activation-plan.kvx and of spec/layerx-merge/programme/data/wave-gates.kvx, the function load_plans of spec/layerx-merge/programme/activation.py, the first case of spec/layerx-merge/programme/tests/test_activation_plan.py, the first case of spec/layerx-merge/programme/tests/test_gate_manifest.py and line 69 of spec/layerx-merge/programme/tests/test_precompile_activation.py."
+do_2 = "do_2 Change spec/layerx-merge/programme/tests/test_activation_plan.py under decision 3954 point two and spec/layerx-merge/programme/tests/test_gate_manifest.py under point three. Point one holds."
+do_3 = "do_3 Point four holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point five holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/tests/test_activation_plan.py", "spec/layerx-merge/programme/tests/test_gate_manifest.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_activation_plan.py spec/layerx-merge/programme/tests/test_gate_manifest.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_activation_plan.py spec/layerx-merge/programme/tests/test_gate_manifest.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1169]
+title = "Let the callers case file follow the function owners and the record for the component verify"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1169"]
+interfaces = []
+do_1 = "do_1 Gotcha 4880, decision 3953. Read the functions callers and owners of spec/layerx-merge/programme/retired.py, both cases of spec/layerx-merge/programme/tests/test_retired_callers.py, the component verify and the row with the path node of tools/paxeer-x/retired_callers.json and the import lines of node/upgrades.go."
+do_2 = "do_2 Change line 38 under decision 3953 point two. Point one holds."
+do_3 = "do_3 Write the second case under points three, four and five. Point six holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point seven holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/tests/test_retired_callers.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_retired_callers.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_retired_callers.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1168]
+title = "Let the expected maps of the sweeps summary case file follow the summary section of the module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1168"]
+interfaces = []
+do_1 = "do_1 Gotcha 4879, decision 3952. Read the constant RESULTS and the function sweeps_summary of spec/layerx-merge/programme/sweeps_summary.py and the four maps of spec/layerx-merge/programme/tests/test_sweeps_summary.py."
+do_2 = "do_2 Change the four maps under decision 3952 point two. Point one holds."
+do_3 = "do_3 Point three holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No other file changes."
+do_4 = "do_4 Run the verification. Point four holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/tests/test_sweeps_summary.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_sweeps_summary.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_sweeps_summary.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1167]
 title = "Let the file lists of the governance suite script follow the release document"
