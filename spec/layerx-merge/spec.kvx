@@ -405553,7 +405553,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1174]
 title = "Let the callers case file take a case that runs the function callers on a temporary tracked tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
