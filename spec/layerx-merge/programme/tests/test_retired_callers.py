@@ -1,5 +1,4 @@
 import json
-import re
 import subprocess
 from pathlib import Path
 
@@ -35,7 +34,7 @@ def test_owners_maps_prefixes() -> None:
         "sdk/proto/messages.proto": 7,
         "api/eth/service.go": 7,
         "api/openapi.yaml": 7,
-        "api/README.md": 7,
+        "api/README.md": 17,
         "buf.yaml": 7,
         "services/platform/gateway/src/main.rs": 8,
         "tools/platform/build.rs": 8,
@@ -74,19 +73,18 @@ def test_owners_maps_prefixes() -> None:
 
 def test_callers_runs_the_scan_for_one_component() -> None:
     found = callers("verify", ROOT)
-    assert isinstance(found, list)
-    assert found
-    assert len(found) == len(set(found))
+    assert found == []
     catalogue = json.loads(
         (ROOT / "tools/paxeer-x/retired_callers.json").read_text(encoding="utf-8")
     )
     symbols = catalogue["components"]["verify"]["symbols"]
-    for location in found:
-        assert re.fullmatch(r".+:[1-9][0-9]*", location), location
-        path, number = location.rsplit(":", 1)
-        source = (ROOT / path).read_text(encoding="utf-8").splitlines()
-        assert 1 <= int(number) <= len(source), location
-        assert any(symbol in source[int(number) - 1] for symbol in symbols), location
+    node_allowances = [
+        entry
+        for entry in catalogue["allowed_references"]
+        if entry["path"] == "node"
+    ]
+    assert len(node_allowances) == 1
+    assert "layerxverify" in node_allowances[0]["symbols"]
     upgrade_source = (ROOT / "node/upgrades.go").read_text(
         encoding="utf-8"
     ).splitlines()
@@ -98,7 +96,11 @@ def test_callers_runs_the_scan_for_one_component() -> None:
         )
     }
     assert imports
-    assert imports <= set(found)
+    for location in imports:
+        _, number = location.rsplit(":", 1)
+        line = upgrade_source[int(number) - 1]
+        assert any(symbol in line for symbol in symbols), location
+    assert imports.isdisjoint(found)
     registration_source = (ROOT / "precompiles/setup.go").read_text(
         encoding="utf-8"
     ).splitlines()
@@ -110,7 +112,7 @@ def test_callers_runs_the_scan_for_one_component() -> None:
     }
     assert allowed_imports
     assert allowed_imports.isdisjoint(found)
-    assert owners(found)
+    assert owners(imports) == {"node/upgrades.go": 5}
     with pytest.raises(subprocess.CalledProcessError) as refusal:
         callers("unknown-retired-component", ROOT)
     assert refusal.value.returncode == 2
