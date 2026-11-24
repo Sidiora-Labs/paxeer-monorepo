@@ -405522,7 +405522,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.1175]
 title = "Let the data file and the case of the precompile activation follow the gate functions and the merge address table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
