@@ -230,6 +230,7 @@ type StreamOutboxConfig struct {
 	Routes                                    []StreamRoute
 	Batch, MaxAttempts                        int
 	LeaseDuration, PublishTimeout, RetryDelay time.Duration
+	RetentionWindow                           time.Duration
 }
 
 // StreamRoute binds NATS subject filters to the JetStream stream that captures
@@ -360,6 +361,12 @@ type streamPublicationLease struct {
 }
 
 func NewStreamOutboxRelay(pool *pgxpool.Pool, nc *nats.Conn, config StreamOutboxConfig, guard func(context.Context, pgx.Tx) error, budget *WorkBudget) (*StreamOutboxRelay, error) {
+	if config.RetentionWindow == 0 {
+		config.RetentionWindow = DefaultStreamRetention
+	}
+	if config.RetentionWindow < StreamReplayWindow {
+		return nil, errors.New("stream: retention window is shorter than the 72h reader replay window")
+	}
 	routed := (len(config.Routes) == 0 && token.MatchString(config.Stream)) || (config.Stream == "" && validStreamRoutes(config.Routes))
 	if pool == nil || nc == nil || nc.IsClosed() || guard == nil || budget == nil || !routed || !token.MatchString(config.Owner) || config.Batch < 1 || config.Batch > 1000 || config.MaxAttempts < 1 || config.MaxAttempts > 100 || config.LeaseDuration < time.Second || config.LeaseDuration > 5*time.Minute || config.PublishTimeout <= 0 || config.PublishTimeout >= config.LeaseDuration || config.RetryDelay < time.Second || config.RetryDelay > time.Hour {
 		return nil, errors.New("stream: actual fenced PG/JetStream and bounded configuration required")
@@ -538,6 +545,8 @@ func (r *StreamOutboxRelay) RunOnce(ctx context.Context) error {
 	return failures
 }
 
+// StreamOutboxStats describes the pending range and retained publications.
+// LeaseExpiryCount and MaxAcknowledgementLatencyMS cover retained rows only.
 type StreamOutboxStats struct {
 	PendingRows, PendingBytes, QuarantinedRows, LeaseExpiryCount, MaxAcknowledgementLatencyMS, GapPartitions int64
 	OldestUnpublishedAgeSeconds                                                                              float64
@@ -545,11 +554,23 @@ type StreamOutboxStats struct {
 
 func (r *StreamOutboxRelay) Stats(ctx context.Context) (StreamOutboxStats, error) {
 	var s StreamOutboxStats
-	err := r.pool.QueryRow(ctx, `SELECT count(*) FILTER(WHERE p.state IS NULL OR p.state='pending'),COALESCE(sum(octet_length(o.frame)) FILTER(WHERE p.state IS NULL OR p.state<>'published'),0)::bigint,count(*) FILTER(WHERE p.state='quarantined'),COALESCE(sum(p.lease_expiry_count),0)::bigint,COALESCE(max(p.acknowledgement_latency_ms),0)::bigint,COALESCE(EXTRACT(EPOCH FROM(clock_timestamp()-min(o.created_at) FILTER(WHERE p.state IS NULL OR p.state<>'published'))),0)::double precision FROM api_stream.stream_delivery_outbox o LEFT JOIN api_stream.stream_delivery_publications p USING(partition_id,sequence)`).Scan(&s.PendingRows, &s.PendingBytes, &s.QuarantinedRows, &s.LeaseExpiryCount, &s.MaxAcknowledgementLatencyMS, &s.OldestUnpublishedAgeSeconds)
+	err := r.pool.QueryRow(ctx, `SELECT pending.rows,pending.bytes,
+ (SELECT count(*) FROM api_stream.stream_delivery_publications WHERE state='quarantined'),
+ (SELECT COALESCE(sum(lease_expiry_count),0)::bigint FROM api_stream.stream_delivery_publications WHERE lease_expiry_count>0),
+ COALESCE((SELECT acknowledgement_latency_ms FROM api_stream.stream_delivery_publications WHERE acknowledgement_latency_ms IS NOT NULL ORDER BY acknowledgement_latency_ms DESC LIMIT 1),0),
+ COALESCE(EXTRACT(EPOCH FROM(clock_timestamp()-pending.oldest)),0)::double precision
+FROM (SELECT count(*) FILTER(WHERE p.state IS NULL OR p.state='pending') AS rows,
+ COALESCE(sum(octet_length(o.frame)) FILTER(WHERE p.state IS NULL OR p.state<>'published'),0)::bigint AS bytes,
+ min(o.created_at) FILTER(WHERE p.state IS NULL OR p.state<>'published') AS oldest
+ FROM api_stream.stream_projection s LEFT JOIN api_stream.stream_delivery_offsets c USING(partition_id)
+ CROSS JOIN LATERAL (SELECT frame,created_at,sequence FROM api_stream.stream_delivery_outbox
+  WHERE partition_id=s.partition_id AND sequence>=COALESCE(c.next_sequence,1) ORDER BY sequence OFFSET 0) o
+ LEFT JOIN LATERAL (SELECT state FROM api_stream.stream_delivery_publications
+  WHERE partition_id=s.partition_id AND sequence=o.sequence OFFSET 0) p ON true) pending`).Scan(&s.PendingRows, &s.PendingBytes, &s.QuarantinedRows, &s.LeaseExpiryCount, &s.MaxAcknowledgementLatencyMS, &s.OldestUnpublishedAgeSeconds)
 	if err != nil {
 		return s, err
 	}
-	err = r.pool.QueryRow(ctx, `SELECT count(*) FROM api_stream.stream_projection s JOIN api_stream.stream_delivery_offsets c USING(partition_id) LEFT JOIN api_stream.stream_delivery_outbox o ON o.partition_id=c.partition_id AND o.sequence=c.next_sequence WHERE c.next_sequence<=s.sequence AND o.sequence IS NULL`).Scan(&s.GapPartitions)
+	err = r.pool.QueryRow(ctx, `SELECT count(*) FROM api_stream.stream_projection s JOIN api_stream.stream_delivery_offsets c USING(partition_id) LEFT JOIN LATERAL (SELECT sequence FROM api_stream.stream_delivery_outbox WHERE partition_id=c.partition_id AND sequence=c.next_sequence LIMIT 1) o ON true WHERE c.next_sequence<=s.sequence AND o.sequence IS NULL`).Scan(&s.GapPartitions)
 	return s, err
 }
 func (r *StreamOutboxRelay) Ready(ctx context.Context, maxAge time.Duration) error {
