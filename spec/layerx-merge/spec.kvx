@@ -16906,6 +16906,36 @@ value = "One. A pass of a job inside the function Run of the types HTTPRuntime a
 basis = "Gotcha 4892."
 affects = []
 
+[decision.3966]
+title = "A snapshot request serves the topics that have started, and an open stream sends its client to a new snapshot when a further bound topic starts"
+value = "One. A snapshot request whose topics are all valid answers the status 200 when at least one requested topic has a first frame. The document holds one entry for each requested topic with a first frame, in the present form of an entry, and no entry for a requested topic without one. The resume cursor and the stored initial offsets of the snapshot hold the partitions of the topics with an entry and no other. The document is valid as TopicSnapshot. No interface type and no generated file changes. Two. When no requested topic has a first frame the request answers the status 404 with the code TOPIC_NOT_STARTED as today. The answers for an unknown topic, for a topic the caller may not read and for a store that is not available stay as they are. Three. The function Resume accepts a cursor of point one. A bound topic that has no first frame and no offset in the cursor is a waiting topic and takes no part in the replay. The comparisons of the counts hold for the topics with a frame. A bound topic that has a first frame and no offset in the cursor ends with ErrCursor as today, so a client that resumes after such a topic has started is sent to a new snapshot. Four. An open stream with at least one waiting topic learns within three seconds that a waiting topic has a first frame, also while no frame of its other topics arrives. It then ends the subscription in the form it has today for ErrCursor: the control resnapshot_required with the code RESUME_INVALID and the snapshot route of its topics. The read for this is one bounded statement over the waiting topics and runs only for a stream that has waiting topics. A stream without a waiting topic keeps its statements and its pace. Both transports of the api hold this point. Five. The order of frames, the replay limits, the checks of the session and of the generation and the form of each frame stay as they are. A snapshot read and a resume write no row for a topic. Six. New cases with the name prefix TestSnapshotStartedTopics under services/launchpad/api/internal/broker run on a real PostgreSQL in the form of the present cases of the package. Case a: a request for three topics of which one has a frame, one has a row with the sequence 0 and no frame and one has no row answers a document with one entry that is valid as TopicSnapshot, and its cursor holds one offset. Case b: a request for topics of which none has a frame answers ErrTopicNotStarted. Case c: Resume with the cursor of case a and the same three topics succeeds and delivers a new frame of the started topic in order. Case d: after the first frame of a waiting topic is committed, the open replay of case c reports the end of point four within three seconds without a further frame of the started topic. Case e: Resume with the cursor of case a after a waiting topic has started ends with ErrCursor. Case f: a snapshot of a signed in caller stores initial offsets for the started topics only, and its resume succeeds. Case g: a request whose topics all have frames answers the entries and the offsets that it answers today. A case under services/launchpad/api/internal/ws shows the status 200 for the request of case a over the route and the status 404 with the code TOPIC_NOT_STARTED for the request of case b. A case for each transport shows the control of point four. Seven. Scope: files under services/launchpad/api/internal/broker, services/launchpad/api/internal/ws and services/launchpad/api/internal/sse change, and services/launchpad/api/internal/rolecheck/statements.json with each other record that names a changed statement of services/launchpad/api/internal/broker/postgres_stream.go by file and line in the same commit. Tasks 22.39.1179, 22.39.1180 and 22.39.1181 change other rows of that record at the same time: change only what this task names. Task 22.44.136 changes the client side and no file of this task. No case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Eight. Target: the verification of task 22.39.1182 passes. It runs the lint stage of the api module, the cases of the api packages internal/broker, internal/ws, internal/sse and internal/rolecheck and requires a case with the name prefix TestSnapshotStartedTopics. Task 22.39.1182."
+basis = "Gotcha 4893."
+affects = []
+
+[decision.3967]
+title = "The coin view of a pool without a trade shows a complete first state from the stats topic, asks no snapshot that cannot be served, and turns live with the first trade without a reload"
+value = "One. The stream client of sdk/launchpad/packages/sdk accepts a snapshot whose entries are a part of the requested topics, in both of its classes. It still refuses an entry for a topic that was not requested, a topic that appears twice and a snapshot without an entry. It keeps the requested topics for the subscription and for a later resume, installs the entries it got, and offers the list of the requested topics without an entry to its caller. A snapshot with all requested topics behaves as today. The public types of the package gain members and lose none. Two. The session of the coin view accepts a snapshot that holds the stats topic and lacks the trades topic, the price topic or both. Its state then holds the stats, an empty trade list, no price frame, the watermark and the generation time of the stats entry, and a mark that the pool has no trade yet. A snapshot without the stats topic is refused as today. Three. With that mark the view shows the first state of a pool without a trade: the figures of the stats, the price from the spot price of the stats payload where it holds one and else the text the price display has for a pool without a trade, the trade list in its empty form with the text No trades yet, the chart in its empty form, and the tag Waiting for trades. It shows no warning mark, no text Syncing, no control Try again and no notice of stale data for this state. Four. When the open stream ends with the control resnapshot_required while the session holds that mark, the session takes a new snapshot at once, without the count of its three repeats and without a change of the shown state to a waiting or a failed form. After the new snapshot holds the trade and the price, the view shows them, the mark leaves, and the view is live without a reload. A resync without the mark keeps the present repeats and their present form. Five. The chart feed asks no snapshot of a candles topic while the session holds the mark of point two and while the history route of the pool holds no candle. In that time it shows the empty form, and it reads the history route again when the session reports the first trade and otherwise at its present pace for an empty series, bounded below by five seconds. With the first candle in the history it starts its stream as today. A pool with trades keeps the present start of the chart. Six. No request of the coin view of a pool without a trade answers with a failed status while the api serves decision 3966. Against an api that still answers the status 404 with the code TOPIC_NOT_STARTED for the joined request, the session falls back to the present repeat of apps/launchpad/web/src/core/realtime/topic-snapshot.ts and shows the first state of point three from the pool detail it already holds, without a warning mark. Seven. New cases. sdk/launchpad/packages/sdk/test/stream-started-topics.test.mjs holds cases of the stream client with a transport double: a snapshot with one of three requested topics installs, subscribes with the three topics and the cursor, and reports two topics without an entry; an entry for a topic that was not requested and a snapshot without an entry are refused; a snapshot with all topics behaves as before. apps/launchpad/web/src/page-modules/token/market-first-state.test.ts holds cases of the session with a transport double: a snapshot with the stats topic alone gives the state of point two; the control resnapshot_required then leads to a second snapshot request within one second and, with all three topics in it, to a state with the trade and the price and the stream state live, while no state in between is resync-required for a listener; a fourth and a fifth such control in a row still lead to a new snapshot. A render case shows the texts of point three and the absence of the text Syncing, of the control Try again and of a warning mark. A case of the chart feed shows that no snapshot is asked while the history is empty and the mark holds, and that the stream starts after the first candle. Eight. Scope: files under sdk/launchpad/packages/sdk and apps/launchpad/web/src change. The mobile app uses the same client: it gains no change in this task, and the final message says how its session answers a snapshot with a part of the topics. No case gains a skip mark and no present case is removed: a case that pins the refusal of a part snapshot takes the new form. The final message names each changed line, any point that cannot be held in this form and any remaining question. Nine. Target: the verification of task 22.44.136 passes. It requires the two new case files, runs the cases of the client package and runs the cases of the web. Task 22.44.136."
+basis = "Gotcha 4894."
+affects = []
+
+[decision.3968]
+title = "The rewards routes read the node in two groups for a whole page and stand under a bound that the reads of a page fit"
+value = "One. The function Rewards of services/launchpad/pnl-tracker/internal/production/l18/journeys.go reads the contract values of all markets of a page in two groups: first the three reads of the token contract for every market, then the two reads of the fee contract for every market. Where the node handle offers batch calls, each group is one batch call, in parts of at most 100 calls. Where it does not, the reads of a group run side by side with at most eight at a time. The count of round trips of a page no longer grows with the count of its markets where the node handle offers batch calls. Two. Every read stays pinned to the block hash of the position with the canonical requirement, as the function read does today, and the checks of the function Preview on the pool, the owner and the strategy stay. The values of a page come from one position. An error of one read ends the request as today. Three. The bound of the routes becomes a value of the configuration of the module with the default of five seconds, an accepted range from one second to fifteen seconds and a refusal at the start outside it. Inside the request each node round trip stands under a bound of its own of two seconds and each store statement under the bound it has today. The check of the caller and of the query stays before the first node read. Four. When the bound ends first, the route answers the status 503 with the retry mark and a retry time as today, and the log names the count of markets of the page and the group that ran. No part answer is given. Five. The function PrepareClaim takes the same bound value. Its reads are those of one market and stay in their order. Six. New cases with the name prefix TestRewardsBounded under services/launchpad/pnl-tracker/internal/production/l18 use a node double that counts its calls and waits 300 milliseconds in each call. Case a: a wallet with twelve markets and a node handle with batch calls gets the status 200 with twelve items, and the double has seen at most six round trips for the request. Case b: the same wallet with a node handle without batch calls gets the status 200 within the default bound, and the double has seen at most eight calls at a time. Case c: a node double that never answers ends the request with the status 503 and the retry mark after the bound, with the bound set to one second in the case. Case d: a value of the bound outside the range is refused at the start. Case e: a failed read of one market ends the request with the error it gives today. Case f: the items of case a equal the items that the present code gives for the same double, value for value. Seven. Scope: files under services/launchpad/pnl-tracker/internal/production/l18, the configuration of the module and the place where the app builds the routes change, and services/launchpad/pnl-tracker/internal/rolecheck/statements.json with each other record that names a changed statement of services/launchpad/pnl-tracker/internal/production/l18/journeys.go by file and line in the same commit. Task 22.39.1178 changes other files of the module and other rows of that record at the same time: change only what this task names. Where the module holds a document of its variables, the new variable stands in it. No case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Eight. Target: the verification of task 22.39.1183 passes. It runs the lint stage of the module, the cases of the packages internal/production/l18, internal/rolecheck and internal/app and requires a case with the name prefix TestRewardsBounded. Task 22.39.1183."
+basis = "Gotcha 4895."
+affects = []
+
+[decision.3969]
+title = "The readiness of the charts, stats and accounts services names the state of each accounting consumer and answers unavailable when a consumer has made no progress for a bound of time while deliveries fail"
+value = "One. Each accounting consumer of the three services holds its state in the process: the time of its last delivery that ended with success, the time and the class of its last delivery that ended with an error, the count of deliveries in a row that ended with an error and the count of pools or wallets that wait in a retry. The live wallet path of the accounts service holds the same for its passes. The state is bounded and holds no address list. Two. Each service adds one custom check for each consumer to its readiness, with a name that ends with the word consumer. The check answers ready while the consumer has no failed delivery after its last success, and while failures and successes mix. It fails when the last delivery ended with an error and no delivery has ended with success for longer than a bound. The bound is a value of the configuration of each module with the default of five minutes, an accepted range from thirty seconds to one hour and a refusal at the start outside it. A consumer without any delivery since the start is ready. Three. One pool or one wallet that waits in a retry while other deliveries end with success does not fail the check. The retry answer of decisions 3960 to 3962 for a source that is not yet available counts as an error for point two only after the consumer has made no progress at all for the bound. Four. When a check of point two changes its answer, the service writes one log line with the name of the consumer, the class of the last error, the count of failures in a row and the age of the last success, and it writes no line for each further failed delivery beyond the lines the consumer writes today. Each service exports the four values of point one as metrics under its present metric names form. Five. The checks read the state in the process and send no statement and no node call. The readiness keeps its bound and its present checks. The liveness answer does not change. Six. New cases with the name prefix TestConsumerReadiness in the package internal/app of each of the three modules use a consumer double or an injected clock. Case a: after a success the check is ready. Case b: failures in a row for longer than the bound fail the check and write one log line, and the readiness route answers unavailable with the name of the check. Case c: the next success makes the check ready again and writes one log line. Case d: failures of one pool beside successes of other pools keep the check ready. Case e: a value of the bound outside the range is refused at the start. No case waits longer than two seconds. Seven. Scope: files under services/launchpad/trading-charts, services/launchpad/stats-* and services/launchpad/pnl-tracker change, with each record of a module that names a changed statement by file and line in the same commit. sdk/launchpad/shared does not change. Tasks 22.39.1176, 22.39.1177 and 22.39.1178 have changed the consumers before this task starts: build on their form. Where a module holds a document of its variables, the new variable stands in it. No case gains a skip mark. The final message names each changed line, any point that cannot be held in this form and any remaining question. Eight. Target: the verification of task 22.39.1184 passes. It runs the lint stage of the three modules, the cases of their packages internal/app and internal/consumer, the cases of the package internal/production/l16 of the accounts module, and requires a case with the name prefix TestConsumerReadiness in each of the three modules. Task 22.39.1184."
+basis = "Gotcha 4896."
+affects = []
+
+[decision.3970]
+title = "A view asks one resource again after a failure at a bounded pace that grows, and a state that a repeat cannot change offers no control Try again"
+value = "One. The rule of pace holds for each resource of a view, that is one route with one set of arguments, whatever the count of panels and queries that read it. After an answer with the retry mark or a failed connection the view sends at most five requests for the resource in the first fifteen seconds. After that it sends at most one request in fifteen seconds, then at most one in thirty seconds, then at most one in sixty seconds, and it stays at that pace while the answers fail. A success ends the pace and gives back the usual schedule. A press on a control Try again and the return of a hidden view to the front send one request at once. Two. The rule holds for the trade list, the candle reads, the small charts of the pool lists, the poll and the recovery of the chart feed and every other reader of the market data layer of apps/launchpad/web/src/core/market. The place of the rule is the shared retry and cache policy of apps/launchpad/web/src/core, so that a new reader takes it without code of its own. Readers of one resource share one query. Three. While a resource fails, its panel keeps the last good values where it has some and marks them with the notice the view has for data that may be out of date. A panel without a value shows its waiting form in the first fifteen seconds and after that its form for data that is not available, with the control Try again. It does not change between the two forms at each repeat. Four. A state that says the api does not serve a thing offers no control Try again. That holds for the search of a kind that answers the status 412, for the leaders view without competitions and for every use of the not available yet form of apps/launchpad/web/src/ui/primitives/states.tsx whose cause is an answer of that class. The text of such a state stays. A state whose cause is a failed read keeps its control. Five. New cases. apps/launchpad/web/src/core/retry-pace.test.ts holds cases with an injected clock and a counting fetch double that answers the status 503 with the retry mark: for the trade list, for the candles of one pool read by two panels and for nine small charts of nine pools, the count of requests for each resource is at most five in the first fifteen seconds and at most seven in the first two minutes, and a success gives back the usual schedule. A case of the chart feed counts the history requests of one pool under the same double and holds the same bounds. A render case of the search view with the status 412 and a render case of the leaders view without competitions show their text without a control Try again. A render case of a failed read shows the control. Six. Scope: files under apps/launchpad/web/src change. Task 22.44.136 changes the session of the coin view and the start of the chart feed at the same time: change only what this task names in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts and keep both changes. No case gains a skip mark and no present case is removed: a case that pins a pace above the rule takes the new form. The final message names each changed line, any point that cannot be held in this form and any remaining question. Seven. Target: the verification of task 22.44.137 passes. It requires the new case file and runs the cases of the web. Task 22.44.137."
+basis = "Gotcha 4897."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46566,6 +46596,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.137]
+title = "Bound the pace at which a view of the launchpad asks a failing resource again and take the control Try again from states that a repeat cannot change"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s apps/launchpad/web/src/core/retry-pace.test.ts && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4897, decision 3970. Read apps/launchpad/web/src/core/transient-retry.ts and apps/launchpad/web/src/core/cache-policy.ts whole, the query functions under apps/launchpad/web/src/core/market, the trade list and its panel, the poll, the failure and the recovery functions of apps/launchpad/web/src/widgets/trading/udf-datafeed.ts, apps/launchpad/web/src/core/app-foundation/search-client.ts with the search view, the leaders view and the not available yet form of apps/launchpad/web/src/ui/primitives/states.tsx. Find with a counting fetch double which reader sends the repeats that gotcha 4897 part one names, and name it in the final message."
+symbols = []
+
+[capability.22.39.1184]
+title = "Let the readiness of the charts, stats and accounts services name the state of each accounting consumer and answer unavailable when a consumer makes no progress while deliveries fail"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts", "services/launchpad/stats-workers", "services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/trading-charts && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/consumer/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness) && (cd services/launchpad/stats-* && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/consumer/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness) && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/production/l16/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness)"
+do_1 = "do_1 Gotcha 4896, decision 3969. Read sdk/launchpad/shared/http/health.go, the place where each of the three apps builds its readiness and starts its consumer loops, the delivery loop of each accounting consumer and the pass loop of the live wallet path of the accounts module."
+symbols = []
+
+[capability.22.39.1183]
+title = "Let the rewards routes of the accounts service read the node in two groups for a whole page under a bound that the reads fit"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 30m ./internal/production/l18/... ./internal/rolecheck/... ./internal/app/... && GOWORK=off go test -count=1 -list ^TestRewardsBounded ./internal/production/l18/ | grep -q ^TestRewardsBounded)"
+do_1 = "do_1 Gotcha 4895, decision 3968. Read services/launchpad/pnl-tracker/internal/production/l18/http.go whole, the functions checkpoint, read, reads, Preview and PrepareClaim of services/launchpad/pnl-tracker/internal/production/l18/creator.go, the function Rewards of services/launchpad/pnl-tracker/internal/production/l18/journeys.go with the functions it calls, the place in services/launchpad/pnl-tracker/internal/app/app.go that builds the node handle and the routes of this package, and the configuration of the module."
+symbols = []
+
+[capability.22.44.136]
+title = "Let the coin view of a pool without a trade show a complete first state from the stats topic and turn live with the first trade without a reload"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/sdk", "apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s sdk/launchpad/packages/sdk/test/stream-started-topics.test.mjs && test -s apps/launchpad/web/src/page-modules/token/market-first-state.test.ts && (cd apps/launchpad && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test) && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotchas 4893 and 4894, decisions 3966 and 3967. Read both classes of sdk/launchpad/packages/sdk/src/stream.ts whole, apps/launchpad/web/src/page-modules/token/market-session.ts whole, apps/launchpad/web/src/core/realtime/topic-snapshot.ts, the start of the stream and the history reads in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts, apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx, apps/launchpad/web/src/widgets/coin/freshness-notice.tsx and the present case files beside them."
+symbols = []
+
+[capability.22.39.1182]
+title = "Let a snapshot request serve the topics that have started and let an open stream send its client to a new snapshot when a further bound topic starts"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/broker", "services/launchpad/api/internal/ws", "services/launchpad/api/internal/sse", "services/launchpad/api/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off go test -count=1 -timeout 30m ./internal/broker/... ./internal/ws/... ./internal/sse/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestSnapshotStartedTopics ./internal/broker/ | grep -q ^TestSnapshotStartedTopics)"
+do_1 = "do_1 Gotcha 4893, decision 3966. Read the functions projections, Snapshot, Resume, CheckDelivery, Check and Batch of services/launchpad/api/internal/broker/postgres_stream.go, the function StreamFailure of services/launchpad/api/internal/broker/handoff.go, the snapshot route in services/launchpad/api/internal/ws/ws.go, the loops of both transports under services/launchpad/api/internal/ws and services/launchpad/api/internal/sse that send the control resnapshot_required, and the cases of the package internal/broker that run on PostgreSQL."
+symbols = []
 
 [capability.22.39.1181]
 title = "Let the jobs of the discovery and notification runtime retry after an error with a bounded backoff and let the readiness of the api read the runtime"
@@ -212550,6 +212625,161 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.137]
+title = "Bound the pace at which a view of the launchpad asks a failing resource again and take the control Try again from states that a repeat cannot change"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.137"]
+interfaces = []
+do_1 = "do_1 Gotcha 4897, decision 3970. Read apps/launchpad/web/src/core/transient-retry.ts and apps/launchpad/web/src/core/cache-policy.ts whole, the query functions under apps/launchpad/web/src/core/market, the trade list and its panel, the poll, the failure and the recovery functions of apps/launchpad/web/src/widgets/trading/udf-datafeed.ts, apps/launchpad/web/src/core/app-foundation/search-client.ts with the search view, the leaders view and the not available yet form of apps/launchpad/web/src/ui/primitives/states.tsx. Find with a counting fetch double which reader sends the repeats that gotcha 4897 part one names, and name it in the final message."
+do_2 = "do_2 Place the rule under decision 3970 points one and two and the forms under points three and four."
+do_3 = "do_3 Write the cases under point five. Point six holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside apps/launchpad/web/src changes."
+do_4 = "do_4 Run the verification. Point seven holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/core/retry-pace.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s apps/launchpad/web/src/core/retry-pace.test.ts && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1184]
+title = "Let the readiness of the charts, stats and accounts services name the state of each accounting consumer and answer unavailable when a consumer makes no progress while deliveries fail"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1176", "22.39.1177", "22.39.1178"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1184"]
+interfaces = []
+do_1 = "do_1 Gotcha 4896, decision 3969. Read sdk/launchpad/shared/http/health.go, the place where each of the three apps builds its readiness and starts its consumer loops, the delivery loop of each accounting consumer and the pass loop of the live wallet path of the accounts module."
+do_2 = "do_2 Hold the state under decision 3969 point one, add the checks under points two and three and the log and the metrics under point four. Point five holds."
+do_3 = "do_3 Write the cases under point six and bring the records under point seven in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside the paths of point seven changes."
+do_4 = "do_4 Run the verification. Point eight holds. The cases need the PostgreSQL of the test environment, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts", "services/launchpad/stats-workers", "services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && GOWORK=off go vet ./...) && (cd services/launchpad/stats-* && GOWORK=off go vet ./...) && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/trading-charts && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/consumer/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness) && (cd services/launchpad/stats-* && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/consumer/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness) && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/production/l16/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1183]
+title = "Let the rewards routes of the accounts service read the node in two groups for a whole page under a bound that the reads fit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1183"]
+interfaces = []
+do_1 = "do_1 Gotcha 4895, decision 3968. Read services/launchpad/pnl-tracker/internal/production/l18/http.go whole, the functions checkpoint, read, reads, Preview and PrepareClaim of services/launchpad/pnl-tracker/internal/production/l18/creator.go, the function Rewards of services/launchpad/pnl-tracker/internal/production/l18/journeys.go with the functions it calls, the place in services/launchpad/pnl-tracker/internal/app/app.go that builds the node handle and the routes of this package, and the configuration of the module."
+do_2 = "do_2 Change the reads under decision 3968 points one and two and the bound under points three to five."
+do_3 = "do_3 Write the cases under point six and bring the records under point seven in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside services/launchpad/pnl-tracker changes."
+do_4 = "do_4 Run the verification. Point eight holds. The cases need the PostgreSQL of the test environment, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 30m ./internal/production/l18/... ./internal/rolecheck/... ./internal/app/... && GOWORK=off go test -count=1 -list ^TestRewardsBounded ./internal/production/l18/ | grep -q ^TestRewardsBounded)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.136]
+title = "Let the coin view of a pool without a trade show a complete first state from the stats topic and turn live with the first trade without a reload"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.136"]
+interfaces = []
+do_1 = "do_1 Gotchas 4893 and 4894, decisions 3966 and 3967. Read both classes of sdk/launchpad/packages/sdk/src/stream.ts whole, apps/launchpad/web/src/page-modules/token/market-session.ts whole, apps/launchpad/web/src/core/realtime/topic-snapshot.ts, the start of the stream and the history reads in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts, apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx, apps/launchpad/web/src/widgets/coin/freshness-notice.tsx and the present case files beside them."
+do_2 = "do_2 Change the client under decision 3967 point one, the session under points two and four, the view under point three and the chart feed under point five. Point six holds."
+do_3 = "do_3 Write the cases under point seven. Point eight holds. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside sdk/launchpad/packages/sdk and apps/launchpad/web/src changes."
+do_4 = "do_4 Run the verification. Point nine holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/sdk", "apps/launchpad/web/src"]
+tests = []
+planned_paths = ["sdk/launchpad/packages/sdk/test/stream-started-topics.test.mjs", "apps/launchpad/web/src/page-modules/token/market-first-state.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s sdk/launchpad/packages/sdk/test/stream-started-topics.test.mjs && test -s apps/launchpad/web/src/page-modules/token/market-first-state.test.ts && (cd apps/launchpad && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test) && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1182]
+title = "Let a snapshot request serve the topics that have started and let an open stream send its client to a new snapshot when a further bound topic starts"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1182"]
+interfaces = []
+do_1 = "do_1 Gotcha 4893, decision 3966. Read the functions projections, Snapshot, Resume, CheckDelivery, Check and Batch of services/launchpad/api/internal/broker/postgres_stream.go, the function StreamFailure of services/launchpad/api/internal/broker/handoff.go, the snapshot route in services/launchpad/api/internal/ws/ws.go, the loops of both transports under services/launchpad/api/internal/ws and services/launchpad/api/internal/sse that send the control resnapshot_required, and the cases of the package internal/broker that run on PostgreSQL."
+do_2 = "do_2 Change the snapshot read under decision 3966 points one and two, the resume under point three and the open stream under point four. Point five holds."
+do_3 = "do_3 Write the cases under point six and bring the records under point seven in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside the paths of point seven changes."
+do_4 = "do_4 Run the verification. Point eight holds. The cases need the PostgreSQL of the test environment, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/broker", "services/launchpad/api/internal/ws", "services/launchpad/api/internal/sse", "services/launchpad/api/internal/rolecheck"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && GOWORK=off go vet ./internal/broker/... ./internal/ws/... ./internal/sse/... ./internal/rolecheck/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off go test -count=1 -timeout 30m ./internal/broker/... ./internal/ws/... ./internal/sse/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestSnapshotStartedTopics ./internal/broker/ | grep -q ^TestSnapshotStartedTopics)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
