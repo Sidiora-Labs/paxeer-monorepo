@@ -213144,7 +213144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1195]
 title = "Let the stream relay of the api write its retention line only for a pass that removed frames"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213174,7 +213174,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.150]
 title = "Open the Explore view on Trending and let an empty preset say what it lists and lead to a list with coins"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213856,7 +213856,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.138]
 title = "Lay the foundation of the launchpad look: the token values of the brief, the colour mode with its control, type weights and shape, the primitives and the create part of the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
