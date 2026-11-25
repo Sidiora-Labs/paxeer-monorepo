@@ -234,34 +234,40 @@ async function noticeOffsetClearsCoinControlsAndNavigationAtEachBreakpoint() {
   try {
     const page = await browser.newPage();
     await page.setContent(`<style>${css}</style>${container.innerHTML}<div class="foundation-shell" data-shell-route-id="coin"></div>`);
-    for (const route of ['coin', 'explore']) {
-      await page.locator('.foundation-shell').evaluate((shell, id) => {
-        shell.setAttribute('data-shell-route-id', id);
-      }, route);
-      for (const width of [390, 600, 601, 767, 768, 900, 1023, 1024, 1440]) {
-        await page.setViewportSize({ width, height: 900 });
-        const result = await page.evaluate(({ route, width }) => {
-          const layer = document.querySelector<HTMLElement>('.sl-notifications')!;
-          const toaster = document.querySelector<HTMLElement>('[data-sonner-toaster]')!;
-          const measure = document.createElement('div');
-          const token = width >= 1024
-            ? 'var(--sl-space-6)'
-            : route === 'coin'
-              ? 'calc(var(--sl-trade-cta-clearance) + env(safe-area-inset-bottom, 0rem))'
-              : width < 768
-                ? 'calc(var(--sl-bottom-nav-height) + var(--sl-space-8) + env(safe-area-inset-bottom, 0rem))'
-                : 'calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0rem))';
-          measure.style.height = token;
-          layer.append(measure);
-          const expected = getComputedStyle(measure).height;
-          measure.remove();
-          return { actual: getComputedStyle(toaster).bottom, expected, position: toaster.dataset.yPosition };
-        }, { route, width });
-        expect(result, `${route} at ${width}px`).toEqual({
-          actual: result.expected,
-          expected: result.expected,
-          position: 'bottom',
-        });
+    for (const bannerHeight of [null, 120, 240]) {
+      await page.evaluate((height) => {
+        if (height === null) document.documentElement.style.removeProperty('--sl-cookie-banner-height');
+        else document.documentElement.style.setProperty('--sl-cookie-banner-height', `${height}px`);
+      }, bannerHeight);
+      for (const route of ['coin', 'explore']) {
+        await page.locator('.foundation-shell').evaluate((shell, id) => {
+          shell.setAttribute('data-shell-route-id', id);
+        }, route);
+        for (const width of [390, 600, 601, 767, 768, 900, 1023, 1024, 1440]) {
+          await page.setViewportSize({ width, height: 900 });
+          const result = await page.evaluate(({ route, width }) => {
+            const layer = document.querySelector<HTMLElement>('.sl-notifications')!;
+            const toaster = document.querySelector<HTMLElement>('[data-sonner-toaster]')!;
+            const measure = document.createElement('div');
+            const token = width >= 1024
+              ? 'calc(var(--sl-space-6) + var(--sl-cookie-banner-height, 0px))'
+              : route === 'coin'
+                ? 'calc(var(--sl-trade-cta-clearance) + env(safe-area-inset-bottom, 0rem) + var(--sl-cookie-banner-height, 0px))'
+                : width < 768
+                  ? 'calc(var(--sl-bottom-nav-height) + var(--sl-space-8) + env(safe-area-inset-bottom, 0rem) + var(--sl-cookie-banner-height, 0px))'
+                  : 'calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0rem) + var(--sl-cookie-banner-height, 0px))';
+            measure.style.height = token;
+            layer.append(measure);
+            const expected = getComputedStyle(measure).height;
+            measure.remove();
+            return { actual: getComputedStyle(toaster).bottom, expected, position: toaster.dataset.yPosition };
+          }, { route, width });
+          expect(result, `${route} at ${width}px with cookie height ${bannerHeight}`).toEqual({
+            actual: result.expected,
+            expected: result.expected,
+            position: 'bottom',
+          });
+        }
       }
     }
   } finally {

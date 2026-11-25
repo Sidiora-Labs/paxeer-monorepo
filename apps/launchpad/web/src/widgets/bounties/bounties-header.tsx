@@ -140,7 +140,7 @@ export function CreateBountyNotice({
       announce
       onDismiss={gate.dismiss}
       className={cn(
-        'fixed inset-x-4 bottom-[calc(var(--sl-bounty-notice-bottom)+env(safe-area-inset-bottom,0px))] z-[var(--sl-z-toast)] md:static md:inset-auto md:z-auto',
+        'fixed inset-x-4 bottom-[calc(var(--sl-bounty-notice-bottom)+env(safe-area-inset-bottom,0px)+var(--sl-cookie-banner-height,0px))] z-[var(--sl-z-toast)] md:static md:inset-auto md:z-auto',
         className
       )}
     >
@@ -157,7 +157,7 @@ export function CreateBountyNotice({
 /** Phone-only "Post bounty" action above the bottom navigation. */
 export function CreateBountyFab({ gate }: { gate: CreateBountyGate }) {
   return (
-    <div className="fixed bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-space-4)+env(safe-area-inset-bottom,0px))] right-4 z-[var(--sl-z-sticky)] md:hidden" data-floating-action="" data-testid="post-bounty-fab">
+    <div className="fixed bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-space-4)+env(safe-area-inset-bottom,0px)+var(--sl-cookie-banner-height,0px))] right-4 z-[var(--sl-z-sticky)] md:hidden" data-floating-action="" data-testid="post-bounty-fab">
       <CreateBountyButton gate={gate} label="Post bounty" pill className="min-h-control-height-md px-5" />
     </div>
   );
