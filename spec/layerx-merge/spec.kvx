@@ -213226,7 +213226,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1181]
 title = "Let the jobs of the discovery and notification runtime retry after an error with a bounded backoff and let the readiness of the api read the runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
