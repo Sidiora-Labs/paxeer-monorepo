@@ -213183,7 +213183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1182]
 title = "Let a snapshot request serve the topics that have started and let an open stream send its client to a new snapshot when a further bound topic starts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
