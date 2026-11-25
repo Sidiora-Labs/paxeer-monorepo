@@ -73,6 +73,11 @@ const (
 	rateLimitWindow = 60 * time.Second
 )
 
+const (
+	backgroundJobErrorThreshold = 3
+	backgroundJobErrorInterval  = 30 * time.Second
+)
+
 // App is a fully-wired, ready-to-run pnl service.
 type App struct {
 	journeys *pnlJourneys
@@ -89,6 +94,7 @@ type App struct {
 	readinessStop     context.CancelFunc
 	tracker           *sharedprocess.Tracker
 	Router            http.Handler
+	backgroundJobNow  func() time.Time
 
 	logger      *slog.Logger
 	pool        *pgxpool.Pool
@@ -484,6 +490,12 @@ func (a *App) startBackgroundJobs(ctx context.Context) {
 func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn func(context.Context) error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	now := time.Now
+	if a.backgroundJobNow != nil {
+		now = a.backgroundJobNow
+	}
+	failedPasses := 0
+	var lastError time.Time
 	for {
 		select {
 		case <-ctx.Done():
@@ -493,7 +505,19 @@ func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn 
 				return
 			}
 			if err := fn(ctx); err != nil {
-				a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
+				failedPasses++
+				if failedPasses < backgroundJobErrorThreshold {
+					a.logger.Warn("background job pass failed", slog.String("job", name), slog.Any("err", err), slog.Int("failed_passes", failedPasses))
+				} else {
+					current := now()
+					if failedPasses == backgroundJobErrorThreshold || current.Sub(lastError) >= backgroundJobErrorInterval {
+						a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err), slog.Int("failed_passes", failedPasses))
+						lastError = current
+					}
+				}
+			} else if failedPasses > 0 {
+				a.logger.Info("background job recovered", slog.String("job", name), slog.Int("failed_passes", failedPasses))
+				failedPasses = 0
 			}
 		}
 	}
