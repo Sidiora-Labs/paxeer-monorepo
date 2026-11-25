@@ -17140,6 +17140,18 @@ value = "One. While the notice shows, each element of gotcha 4930 part two keeps
 basis = "Gotcha 4930."
 affects = []
 
+[decision.4005]
+title = "The live path of the pnl module asks log ranges the nodes accept, ends the pages of a transaction inside its time bound, and asks the second node for every answer that says a height is no longer held"
+value = "One. The package l16 gets one constant for the largest range of blocks it asks of a node in one log read, with the value 2,000. The function liveTransferLogs (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go line 883) reads a range above that constant as consecutive ranges of at most that many blocks, in ascending order, and joins their logs in that order. The halving on an error and on more than 10,000 logs (line 887) stays for each of these ranges as it is today, and the bounds on the count of the logs stay. The pages of the function liveMovementPages (line 722) keep their size of 10,000 blocks, their alignment and their proofs: a progress that was written before this change continues after it without a difference. Two. The function liveContinueTx (line 361) ends the pages of one transaction on a page that is aligned to the creation height, as today, after at most liveEnrollmentPages pages, as today, and in addition after the first page at whose end more than a set time has passed since the function began. That time is one value of the package of the type time.Duration with the default of 30 seconds, which a case may set. The first page of a transaction is always read to its end. Where the pages end before the target for the one cause or the other, the rest of the function runs over the range that was read, the progress is written (line 654) and the answer is that the enrolment is in progress, exactly as today for the limit of four pages. The time bound of 90 seconds (line 368) stays. Three. The function liveRead (services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go line 49) asks the second node where the first node answers a read in one of the five forms of gotcha 4931 part three: an error whose text, compared without regard to case, holds one of the texts pruned, before earliest available block, unknown block and block not found by hash, and the not-found error of the client (ethereum.NotFound) for the read of a header, a block, a transaction or a receipt. The texts have one definition in the package. The check of the chain identifier of the second node stays as it is and stays before the read. Where the second node answers with an error or with nothing as well, its answer is given, as today. Every other error of the first node is given as today without a read at the second node. The functions liveHeaderByNumber and liveHeaderByHash (lines 64 and 76) follow by the function they call. Four. The conditions on a receipt and on a block that the function liveTransferLogs holds after its reads stay as they are: an empty receipt after both nodes were asked is the integrity error of today. Five. New cases with the name prefix TestLiveNodeRange in the package l16. They stand in for the nodes as the present cases of services/launchpad/pnl-tracker/internal/production/l16/live_incremental_test.go do (line 292) or as the case TestLiveTransferRangeSplitsAndReceiptRecovery of services/launchpad/pnl-tracker/internal/production/l16/replay_boundaries_test.go (line 20) does, and they use the texts of gotcha 4931 word for word. Case a: a first node that refuses every log read over more than 2,000 blocks with the text of part two and counts its reads. A page of 10,000 blocks is read with exactly five log reads of 2,000 blocks in ascending order and with no refused read, and the logs and the proof of the page equal those of a node that answers the whole page in one read. Case b: a first node that answers a log read by range in form 2 and a second node that holds the range. The logs of the second node are taken, and the first node is asked once for each range. The same with a second node of another chain identifier gives the integrity error of today. Case c: a first node that answers a receipt and a block by hash in form 5 and a second node that holds them. The answers of the second node are taken. Where both nodes answer in form 5, the error is the one of today. Case d: a first node that answers in the forms 3 and 4 and a second node that holds the block. The log read of the function reservesSettledAfter (services/launchpad/pnl-tracker/internal/production/l16/mark_price.go line 182) is answered by the second node. Case e: the continuation of a wallet over three pages with the value of point two set so that it has passed at the end of the first page. The first transaction ends after one page with the progress written and the answer that the enrolment is in progress, the next transactions continue at the second and at the third page, and the final snapshot and its records equal those of the same continuation with the default value on a node that answers at once, which reads the three pages in one transaction. Case f: each text of point three is matched without regard to case, and an error of another text, for example a refused connection, is given without a read at the second node. Six. Every present case stays word for word and passes, with one exception: where a present case counts the reads of a node or expects the halving of a range above 2,000 blocks, its expectation follows point one, and the final message names the case and the changed lines. No case gains a skip mark and no case is removed. Seven. Not part of this task: the size and the proofs of the pages; the functions of the first rebuild and of the baselines, which read the first node directly; the rule which wallets are followed and for how long; configuration values and members of documents, of which none is added. Only files of the package l16 of the pnl module change. Eight. The final message names the changed lines and, with file and line and without a change to it, every read of the function liveContinueTx and of the functions it calls that still goes to the first node alone. One sentence is enough for the direct reads of the first rebuild and of the baselines, which are known. Nine. Target: the verification of task 22.39.1200 passes. It runs the lint stage of the pnl module and the cases of the module with its reviewed list, and requires a case with the name prefix TestLiveNodeRange in the package l16. Task 22.39.1200. "
+basis = "Gotcha 4931."
+affects = []
+
+[decision.4006]
+title = "A wallet stays followed while the session of its owner lives: the enrolment and the live pass of the pnl module no longer end with the age of the wallet signature, and a request that changes something keeps the bound"
+value = "One. The function EnqueueOwned (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go line 1155) no longer refuses a principal for the age of its proof time: the condition at line 1160 goes. A principal that passes its validation and whose session the identity service confirms is enrolled as today, and its row is written as today with the proof time and the end of the access of the principal. Two. The live pass no longer bounds a wallet by the age of its proof time: the condition on the column proof_at leaves the statement of the function processWallet (line 1297), and the refusal before the commit (line 1450) goes. The other conditions of the statement stay (the row not cancelled, its end in the future, the pause after an attempt), and so do the validation of the principal and the checks of the session at the identity service before and after the work. Three. So a wallet is followed while the session of its owner is confirmed and a request of the owner has renewed its row within the lifetime of an access: a page that stays open and asks for the portfolio keeps the wallet followed. The rule that a wallet is followed only through a session of its owner stays. Four. The function EnrollmentMiddleware (line 1188) keeps the bound of fifteen minutes for a request that changes something. For a method other than GET and HEAD it answers 403 with the text of today where the proof time of the principal is older than fifteen minutes, before the enrolment and before the next handler. A GET or a HEAD request is enrolled and answered whatever the age of the proof time. The answers 401 and 503 of the middleware stay as they are, and the answer 403 stays for every other cause of the scope error. The function RebuildOwned (line 1668) is reached by a POST route behind the middleware and so keeps the bound. The route that enrols by itself (the function enrollHTTP of services/launchpad/pnl-tracker/internal/app/app.go, line 1174) calls the function EnqueueOwned and so enrols every confirmed session; that file does not change. Five. The record of the runtime statements of the module (services/launchpad/pnl-tracker/internal/rolecheck/statements.json) holds a digest of each statement. The statement of point two changes, so the entry of the record for the second statement of the function processWallet of the file live_transfers.go gets the digest of the new text. The case TestRuntimeRoleStatements of services/launchpad/pnl-tracker/internal/rolecheck/runtime_role_statements_test.go (line 247) prints the text of a statement whose digest differs (line 106), and the digest is the SHA-256 of that text in hexadecimal digits. No other entry and no other member of that entry changes unless that case shows it. Six. New cases with the name prefix TestLiveOwnerSession in the package l16, written as the present case TestLiveWalletEnrollmentReplayAndCancellation of services/launchpad/pnl-tracker/internal/production/l16/live_wallet_test.go (line 55) is. Case a: a principal whose proof time is sixteen minutes old and one whose proof time is two days old, each with a confirmed session and an access that has not ended, are enrolled, and the row holds the proof time of the principal. Case b: the pass selects a wallet whose row holds a proof time older than fifteen minutes and an end in the future, works it and commits: the accepted height of the row stands at the accepted head afterwards. Case c: a wallet whose row has ended is not selected, and a wallet whose session the identity service refuses is not worked, both as today. Case d: through the middleware a GET request of a principal with a proof time of sixteen minutes is answered by the next handler, a POST request of the same principal answers 403 with the text of today and does not reach the next handler, and a POST request of a principal with a proof time of one minute reaches it. Seven. Every present case stays word for word and passes, with one exception: the present case of point six expects the refusal of a proof time of sixteen minutes (line 80); its expectation follows point one, and the final message names the changed lines. No case gains a skip mark and no case is removed. Eight. Not part of this task: the web, whose notice for the answer 403 stays for the causes that remain; the gateway and the lifetime of an access; the question which wallets are followed without a session of their owner; the file services/launchpad/pnl-tracker/internal/app/app.go; configuration values, of which none is added. Only files of the package l16 of the pnl module and the record of point five change. Nine. This reverses a deliberate bound of the first design for the reads only. The cause is part four of gotcha 4932: the bound guarded no read and ended the accounts of every signed-in wallet after fifteen minutes. Ten. Target: the verification of task 22.39.1201 passes. It runs the lint stage of the pnl module and the cases of the module with its reviewed list, which hold the case of point five, and requires a case with the name prefix TestLiveOwnerSession in the package l16. Task 22.39.1201. "
+basis = "Gotcha 4932."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46800,6 +46812,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1201]
+title = "Keep a wallet followed while the session of its owner lives: the enrolment and the live pass of the pnl module no longer end with the age of the wallet signature"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "services/launchpad/pnl-tracker/internal/rolecheck/statements.json"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestLiveOwnerSession ./internal/production/l16/ | grep -q ^TestLiveOwnerSession)"
+do_1 = "do_1 Gotcha 4932, decision 4006. Read the functions EnqueueOwned (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go line 1155) and EnrollmentMiddleware (line 1188), the function processWallet (line 1258) from its statement at line 1297 to its commit, the present case TestLiveWalletEnrollmentReplayAndCancellation of services/launchpad/pnl-tracker/internal/production/l16/live_wallet_test.go (line 55) with the identity service its file stands in for, and the case TestRuntimeRoleStatements of services/launchpad/pnl-tracker/internal/rolecheck/runtime_role_statements_test.go (line 247)."
+symbols = []
+
+[capability.22.39.1200]
+title = "Let the live path of the pnl module ask log ranges the nodes accept, end the pages of a transaction inside its time bound, and ask the second node for every answer that says a height is no longer held"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestLiveNodeRange ./internal/production/l16/ | grep -q ^TestLiveNodeRange)"
+do_1 = "do_1 Gotcha 4931, decision 4005. Read the function liveRead of services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go (line 49) with the two functions of the same file that call it (lines 64 and 76), the functions liveContinueTx (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go line 361), liveMovementPages (line 722) and liveTransferLogs (line 883) to their ends, the function reservesSettledAfter of services/launchpad/pnl-tracker/internal/production/l16/mark_price.go (line 174), and the present cases TestLiveWalletIncrementalEnrollmentRestart of services/launchpad/pnl-tracker/internal/production/l16/live_incremental_test.go (line 292) with the node its file stands in for, and TestLiveTransferRangeSplitsAndReceiptRecovery of services/launchpad/pnl-tracker/internal/production/l16/replay_boundaries_test.go (line 20)."
+symbols = []
 
 [capability.22.44.153]
 title = "Let the trade button and the other fixed elements above the tab bar stand above the notice about cookies while it shows"
@@ -213112,6 +213142,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1201]
+title = "Keep a wallet followed while the session of its owner lives: the enrolment and the live pass of the pnl module no longer end with the age of the wallet signature"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1201"]
+interfaces = []
+do_1 = "do_1 Gotcha 4932, decision 4006. Read the functions EnqueueOwned (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go line 1155) and EnrollmentMiddleware (line 1188), the function processWallet (line 1258) from its statement at line 1297 to its commit, the present case TestLiveWalletEnrollmentReplayAndCancellation of services/launchpad/pnl-tracker/internal/production/l16/live_wallet_test.go (line 55) with the identity service its file stands in for, and the case TestRuntimeRoleStatements of services/launchpad/pnl-tracker/internal/rolecheck/runtime_role_statements_test.go (line 247)."
+do_2 = "do_2 Write the cases a to d of decision 4006 point six first and see the cases a, b and d fail on the tree as it is. Then give the function EnqueueOwned the rule of point one, the function processWallet the rule of point two and the function EnrollmentMiddleware the rule of point four, and renew the entry of the record as point five says. Point seven names the one present case whose expectation changes. Point eight holds: only files of the package l16 of the pnl module and the record services/launchpad/pnl-tracker/internal/rolecheck/statements.json change."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point ten holds. The cases need the PostgreSQL of the test environment and the anvil program, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. Another task changes other functions of the file live_transfers.go and adds cases to the package l16 at the same time; it does not change the functions and the case this task names. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "services/launchpad/pnl-tracker/internal/rolecheck/statements.json"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestLiveOwnerSession ./internal/production/l16/ | grep -q ^TestLiveOwnerSession)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1200]
+title = "Let the live path of the pnl module ask log ranges the nodes accept, end the pages of a transaction inside its time bound, and ask the second node for every answer that says a height is no longer held"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1200"]
+interfaces = []
+do_1 = "do_1 Gotcha 4931, decision 4005. Read the function liveRead of services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go (line 49) with the two functions of the same file that call it (lines 64 and 76), the functions liveContinueTx (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go line 361), liveMovementPages (line 722) and liveTransferLogs (line 883) to their ends, the function reservesSettledAfter of services/launchpad/pnl-tracker/internal/production/l16/mark_price.go (line 174), and the present cases TestLiveWalletIncrementalEnrollmentRestart of services/launchpad/pnl-tracker/internal/production/l16/live_incremental_test.go (line 292) with the node its file stands in for, and TestLiveTransferRangeSplitsAndReceiptRecovery of services/launchpad/pnl-tracker/internal/production/l16/replay_boundaries_test.go (line 20)."
+do_2 = "do_2 Write the cases a to f of decision 4005 point five first and see the cases a to e fail on the tree as it is. Then give the function liveTransferLogs the rule of point one, the function liveContinueTx the rule of point two and the function liveRead the rule of point three. Point four holds. Points six and seven hold: only files of the package l16 of the pnl module change."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point nine holds and point eight names what the final message holds; the reading of point eight is part of the task and is done before the final message is written. The cases need the PostgreSQL of the test environment and the anvil program, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. Another task changes files of the package internal/app of the pnl module at the same time; it does not change the package l16. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestLiveNodeRange ./internal/production/l16/ | grep -q ^TestLiveNodeRange)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.153]
 title = "Let the trade button and the other fixed elements above the tab bar stand above the notice about cookies while it shows"
 status = "pending"
@@ -213174,7 +213264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1199]
 title = "Let the holders job call the refresh of the analytics only for a coin that changed, and repeat a serialization failure of that refresh before it is an error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213264,7 +213354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1197]
 title = "Let the two settlement lookups of the pnl module find the transfer of the settlement asset at the address of the launchpad module for a fill of the native execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213294,7 +213384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1196]
 title = "Let the job loop of the pnl service warn for a first failed pass, report an error from the third failed pass in a row at most every 30 seconds, and write one line when the job passes again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213475,7 +213565,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.148]
 title = "Let the candle merge of the chart compare the drawn members at an equal revision, so that the live chart survives two answers for one bar"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

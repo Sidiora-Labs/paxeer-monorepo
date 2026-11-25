@@ -78,7 +78,7 @@ func TestLiveWalletEnrollmentReplayAndCancellation(t *testing.T) {
 	}
 	stale := p
 	stale.ProofAt = time.Now().Add(-16 * time.Minute)
-	if err = worker.EnqueueOwned(ctx, stale); !errors.Is(err, auth.ErrScopeDenied) {
+	if err = worker.EnqueueOwned(ctx, stale); err != nil {
 		t.Fatal(err)
 	}
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
