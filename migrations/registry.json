@@ -123,7 +123,7 @@
           "structural_fingerprint": "b2bab48cb9f6f4646339f31ad813ff0179f953ae2d4da9cbbea545748951b341"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -166,7 +166,7 @@
           "structural_fingerprint": "84b84b8f66519421cce40bd4da74df52207203f39d1a872ef8a9b62929870582"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -205,7 +205,7 @@
           "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -244,7 +244,7 @@
           "structural_fingerprint": "f97e5dd3d73c3d7a0988bb37828b6cd4b457bebacf566bbfba00e9f5b56d4007"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -283,7 +283,7 @@
           "structural_fingerprint": "17b1d3f81de8f32c18b93c4fc4abfb49f417507c283c1666610c89d9afe5ed2a"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -322,7 +322,7 @@
           "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -369,7 +369,7 @@
           "structural_fingerprint": "ed3a19bd30039af11064d218d72eb54e00c368790aedd4da33f4a7ad259f2141"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -408,7 +408,7 @@
           "structural_fingerprint": "1a924d48a69b24551f5d46e270bd6b4f9d9e5c90963bc8d09ad3c0d1e88edf91"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -438,7 +438,7 @@
         190000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -477,7 +477,7 @@
           "structural_fingerprint": "17b1d3f81de8f32c18b93c4fc4abfb49f417507c283c1666610c89d9afe5ed2a"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -506,7 +506,7 @@
           "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -549,7 +549,7 @@
           "structural_fingerprint": "ed3a19bd30039af11064d218d72eb54e00c368790aedd4da33f4a7ad259f2141"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -584,7 +584,7 @@
           "structural_fingerprint": "1a924d48a69b24551f5d46e270bd6b4f9d9e5c90963bc8d09ad3c0d1e88edf91"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -608,7 +608,7 @@
       "sha256": "2f77e922553f640bc6a25ad748afd4ac7a53d454eff14a369aa3c8ab1fce345f",
       "predecessor_ids": [],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -645,7 +645,7 @@
           "structural_fingerprint": "b2bab48cb9f6f4646339f31ad813ff0179f953ae2d4da9cbbea545748951b341"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -694,7 +694,7 @@
           "structural_fingerprint": "84b84b8f66519421cce40bd4da74df52207203f39d1a872ef8a9b62929870582"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -731,7 +731,7 @@
           "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -768,7 +768,7 @@
           "structural_fingerprint": "f97e5dd3d73c3d7a0988bb37828b6cd4b457bebacf566bbfba00e9f5b56d4007"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -792,7 +792,7 @@
       "sha256": "7b0f040ca17a6e019053cd7d8b499e119c6de5e1ae7603fa13a966ac71fdd8eb",
       "predecessor_ids": [],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -823,7 +823,7 @@
           "structural_fingerprint": "17b1d3f81de8f32c18b93c4fc4abfb49f417507c283c1666610c89d9afe5ed2a"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -861,7 +861,7 @@
           "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -901,7 +901,7 @@
           "structural_fingerprint": "ed3a19bd30039af11064d218d72eb54e00c368790aedd4da33f4a7ad259f2141"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -943,7 +943,7 @@
           "structural_fingerprint": "1a924d48a69b24551f5d46e270bd6b4f9d9e5c90963bc8d09ad3c0d1e88edf91"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -980,7 +980,7 @@
           "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1017,7 +1017,7 @@
           "structural_fingerprint": "f97e5dd3d73c3d7a0988bb37828b6cd4b457bebacf566bbfba00e9f5b56d4007"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1054,7 +1054,7 @@
           "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1094,7 +1094,7 @@
           "structural_fingerprint": "17b1d3f81de8f32c18b93c4fc4abfb49f417507c283c1666610c89d9afe5ed2a"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1125,7 +1125,7 @@
           "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1156,7 +1156,7 @@
           "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1194,7 +1194,7 @@
           "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1225,7 +1225,7 @@
           "structural_fingerprint": "f97e5dd3d73c3d7a0988bb37828b6cd4b457bebacf566bbfba00e9f5b56d4007"
         }
       ],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1251,7 +1251,7 @@
         330000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1278,7 +1278,7 @@
         80000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1306,7 +1306,7 @@
         190001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1332,7 +1332,7 @@
         440000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1359,7 +1359,7 @@
         160001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1387,7 +1387,7 @@
         190001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1414,7 +1414,7 @@
         60001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1442,7 +1442,7 @@
       "sha256": "e66fd72a34500955a6a48775bc40a8f7a958b7e6e9d49dfe226d12d1c07da687",
       "predecessor_ids": [],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1469,7 +1469,7 @@
         60001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1499,7 +1499,7 @@
         100001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1525,7 +1525,7 @@
         130000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1552,7 +1552,7 @@
         160001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1580,7 +1580,7 @@
         130001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1606,7 +1606,7 @@
         200000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1632,7 +1632,7 @@
         200001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1656,7 +1656,7 @@
       "sha256": "26fde2648699722a9531fbcc00935e6b7bed0bf3de8defc3e376062de7a1ae03",
       "predecessor_ids": [],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1680,7 +1680,7 @@
       "sha256": "544d0f8219da6203484603e32a8086443a443f9793d9c2ecb0e2523652cbc805",
       "predecessor_ids": [],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1706,7 +1706,7 @@
         210001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1737,7 +1737,7 @@
         80004
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1764,7 +1764,7 @@
         330002
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1795,7 +1795,7 @@
         390001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1826,7 +1826,7 @@
         380000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1846,7 +1846,7 @@
         380000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1867,7 +1867,7 @@
         60001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1913,7 +1913,7 @@
         400000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1945,7 +1945,7 @@
         450000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -1971,7 +1971,7 @@
         160002
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2021,7 +2021,7 @@
         180000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2042,7 +2042,7 @@
         60001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2062,7 +2062,7 @@
         340001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2082,7 +2082,7 @@
         340002
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2102,7 +2102,7 @@
         340003
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2120,7 +2120,7 @@
       "sha256": "a45d7165bd5998fde966de7f830fb3a0d4a23d18e621a5e449ee4b5373b67e95",
       "predecessor_ids": [],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2148,7 +2148,7 @@
       "sha256": "bf10cc35a7ad09249d5166fc16b2426f50813a2713ef199f9a7c9c530f363a3d",
       "predecessor_ids": [],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2174,7 +2174,7 @@
         130000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2202,7 +2202,7 @@
         60001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2228,7 +2228,7 @@
         340004
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2254,7 +2254,7 @@
         340008
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2282,12 +2282,12 @@
         60001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
-      "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
+      "backfill_strategy": "Wallet enrollment resumes verified inventory snapshots in bounded pages; no inferred source facts or automatic legacy backfill.",
       "destructive": false,
       "approval_manifest_digest": "989b6bdffdf32df339856a89d71ff39cf2bf74e4f673884c94a5069fd1372ea1",
       "source_inputs": [
@@ -2311,7 +2311,7 @@
         150005
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2339,7 +2339,7 @@
         190004
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2365,7 +2365,7 @@
         190002
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2391,7 +2391,7 @@
         130000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2417,7 +2417,7 @@
         370001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2443,7 +2443,7 @@
         380001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2469,7 +2469,7 @@
         150005
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2495,7 +2495,7 @@
         160002
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2521,7 +2521,7 @@
         190000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2547,7 +2547,7 @@
         150006
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "nontransactional",
@@ -2591,7 +2591,7 @@
         410000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2621,7 +2621,7 @@
         80009
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2647,7 +2647,7 @@
         350001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2673,7 +2673,7 @@
         390001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2704,7 +2704,7 @@
         410001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2746,7 +2746,7 @@
         60002
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2788,7 +2788,7 @@
         350002
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2818,7 +2818,7 @@
         150008
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2844,7 +2844,7 @@
         210000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2870,7 +2870,7 @@
         210002
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2896,7 +2896,7 @@
         450000
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2922,7 +2922,7 @@
         190003
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -2948,7 +2948,7 @@
         60003
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "nontransactional",
@@ -2986,7 +2986,7 @@
         60004
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "nontransactional",
@@ -3023,7 +3023,7 @@
         60005
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -3057,7 +3057,7 @@
         450001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -3084,7 +3084,7 @@
         360001
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
@@ -3104,7 +3104,7 @@
         60006
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "nontransactional",
@@ -3154,7 +3154,7 @@
         60007
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "nontransactional",
@@ -3204,7 +3204,7 @@
         150003
       ],
       "legacy_predecessors": [],
-      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "interface_digest": "a07a9f5bd34f0c50770828e78ad580aeeef28c54adbaab82e9464f92ab1374c0",
       "reader_min_version": 1,
       "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",

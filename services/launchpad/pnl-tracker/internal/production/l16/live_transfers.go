@@ -13,11 +13,13 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting/sourcebootstrap"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -355,12 +357,382 @@ func (s *Service) liveRebuildTx(ctx context.Context, tx pgx.Tx, wallet, token st
 	return snapshot, nil
 }
 
-func (a *BaselineAuthority) liveMovementPages(ctx context.Context, tx pgx.Tx, token string, start, end int64) ([]movement, string, string, error) {
+func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token string, target int64, seed *RebuildSnapshot, history ...*liveReplayHistory) (RebuildSnapshot, error) {
+	end := target
+	paged := true
+	var snapshot RebuildSnapshot
+	if !address.MatchString(wallet) || !address.MatchString(token) || wallet == zeroAddress || token == zeroAddress || end <= 0 {
+		return snapshot, ErrBaselineUnavailable
+	}
+	bounded, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	a := s.authority
+	var err error
+	if err = a.epochGuard(bounded, tx); err != nil {
+		return snapshot, err
+	}
+	partition := "125:" + wallet + ":" + token
+	if _, err = tx.Exec(bounded, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "portfolio:"+a.generation+":"+wallet); err != nil {
+		return snapshot, err
+	}
+	if _, err = tx.Exec(bounded, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, partition); err != nil {
+		return snapshot, err
+	}
+	owner, epoch, err := a.sourceLease(bounded, tx)
+	if err != nil {
+		return snapshot, err
+	}
+	var start int64
+	var creationHash, pool, creationTx string
+	if err = tx.QueryRow(bounded, `SELECT height,block_hash,pool,transaction_hash FROM indexer.indexer_canonical_creations_v1 WHERE token=$1`, token).Scan(&start, &creationHash, &pool, &creationTx); err != nil {
+		return snapshot, err
+	}
+	if start <= 0 || end < start || !paged && end-start > 10000 {
+		return snapshot, ErrBaselineUnavailable
+	}
+	creation, err := sourcebootstrap.CanonicalCreation(bounded, tx, a.sourceStream, pool)
+	if err != nil {
+		return snapshot, err
+	}
+	if creation.Height != start || creation.BlockHash != creationHash || creation.TransactionHash != creationTx || strings.ToLower(creation.Factory) != a.factory {
+		return snapshot, delivery.ErrIntegrity
+	}
+	bindingRaw, err := json.Marshal(struct {
+		Creation                        sourcebootstrap.Creation
+		Token, Pool, Algorithm, Release string
+	}{creation, token, pool, Algorithm, s.release})
+	if err != nil {
+		return snapshot, err
+	}
+	if seed != nil && seed.CreationHeight != start {
+		seed = nil
+	}
+	progress, progressPartition, err := s.readLiveProgressTx(bounded, tx, partition, delivery.Hash(bindingRaw), seed)
+	if err != nil {
+		return snapshot, err
+	}
+	if progress.Snapshot.Height == 0 {
+		creationHeader, reported, e := a.liveHeaderByNumber(bounded, start)
+		if e != nil {
+			return snapshot, e
+		}
+		if reported != creationHash || creationHeader.Time > 1<<63-1 {
+			return snapshot, delivery.ErrIntegrity
+		}
+		progress.CreationTime = creationHeader.Time
+	}
+	progress.Snapshot.CreationHeight = start
+	_, progress.TargetHash, err = a.liveHeaderByNumber(bounded, target)
+	if err != nil {
+		return snapshot, err
+	}
+	if seed != nil && progress.Snapshot.Height == seed.Height {
+		progress.Snapshot.State = seed.State
+		progress.Snapshot.LastIdentity = seed.LastIdentity
+	}
+	from := start
+	if progress.Snapshot.Height > 0 {
+		_, priorHash, e := a.liveHeaderByNumber(bounded, progress.Snapshot.Height)
+		if e != nil {
+			return snapshot, e
+		}
+		if priorHash != progress.Snapshot.BlockHash {
+			return progress.Snapshot, ErrParity
+		}
+		from = progress.Snapshot.Height + 1
+	}
+	if from > target {
+		if progress.Snapshot.Height != target {
+			return snapshot, delivery.ErrIntegrity
+		}
+		progress.Snapshot.SourceOwner, progress.Snapshot.SourceEpoch = owner, epoch
+		if err = liveHistoryResult(progress.Snapshot, progress.Records, history); err != nil {
+			return snapshot, err
+		}
+		return progress.Snapshot, nil
+	}
+	// Enrollment ends each transaction on a creation-aligned movement page.
+	{
+		limit := start + ((from-start)/10000+liveEnrollmentPages)*10000 - 1
+		if end > limit {
+			end = limit
+		}
+	}
+	moves, movementDigest, endHash, err := a.liveMovementPages(bounded, tx, token, from, end, &progress)
+	if err != nil {
+		return snapshot, err
+	}
+	if from == start {
+		if err = rebuildCreationPath(moves, start, creationHash, creationTx, a.factory, pool); err != nil {
+			return snapshot, err
+		}
+	}
+	var fills []accounting.FillV1
+	cursorHeight, cursorTx, cursorLog := from-1, int64(-1), int64(-1)
+	for {
+		rows, e := tx.Query(bounded, `SELECT payload,source_fact_digest FROM indexer.indexer_accounting_fills_v1 WHERE (payload->'position'->>'height')::bigint BETWEEN $1 AND $2 AND payload->'token'->>'address'=$3 AND ((payload->'position'->>'height')::bigint,(payload->'position'->>'transactionIndex')::bigint,(payload->'position'->>'logIndex')::bigint)>($4,$5,$6) ORDER BY (payload->'position'->>'height')::bigint,(payload->'position'->>'transactionIndex')::bigint,(payload->'position'->>'logIndex')::bigint LIMIT 10000`, from, end, token, cursorHeight, cursorTx, cursorLog)
+		if e != nil {
+			return snapshot, e
+		}
+		count := 0
+		for rows.Next() {
+			var raw []byte
+			var digest string
+			if e = rows.Scan(&raw, &digest); e != nil {
+				rows.Close()
+				return snapshot, e
+			}
+			fill, de := accounting.DecodeFillV1(raw)
+			if de != nil {
+				rows.Close()
+				return snapshot, de
+			}
+			d, de := accounting.FillDigest(fill)
+			if de != nil || string(d) != digest {
+				rows.Close()
+				return snapshot, delivery.ErrIntegrity
+			}
+			fills = append(fills, fill)
+			count++
+			cursorHeight, e = strconv.ParseInt(fill.Position.Height, 10, 64)
+			if e != nil {
+				rows.Close()
+				return snapshot, e
+			}
+			cursorTx, e = strconv.ParseInt(fill.Position.TransactionIndex, 10, 64)
+			if e != nil {
+				rows.Close()
+				return snapshot, e
+			}
+			cursorLog, e = strconv.ParseInt(fill.Position.LogIndex, 10, 64)
+			if e != nil {
+				rows.Close()
+				return snapshot, e
+			}
+			if len(fills) > 1000000 {
+				rows.Close()
+				return snapshot, ErrBaselineUnavailable
+			}
+		}
+		e = rows.Err()
+		rows.Close()
+		if e != nil {
+			return snapshot, e
+		}
+		if count < 10000 {
+			break
+		}
+	}
+	settlements := map[string]receiptSettlement{}
+	for _, fill := range fills {
+		settlement, e := a.liveReceiptSettlement(bounded, tx, fill)
+		if e != nil {
+			return snapshot, e
+		}
+		key := settlement.tokenMovement.TransactionHash + ":" + strconv.FormatUint(uint64(settlement.tokenMovement.LogIndex), 10)
+		if _, ok := settlements[key]; ok {
+			return snapshot, delivery.ErrIntegrity
+		}
+		settlements[key] = settlement
+	}
+
+	contractAddress := common.HexToAddress(token)
+	decimalRaw, e := a.rpc.CallContractAtHash(bounded, ethereum.CallMsg{To: &contractAddress, Data: []byte{0x31, 0x3c, 0xe5, 0x67}}, common.HexToHash(progress.TargetHash))
+	if e != nil {
+		return snapshot, e
+	}
+	if len(decimalRaw) != 32 || new(big.Int).SetBytes(decimalRaw).Cmp(big.NewInt(255)) > 0 {
+		return snapshot, delivery.ErrIntegrity
+	}
+	tokenDecimals := int(new(big.Int).SetBytes(decimalRaw).Int64())
+	records := make([]EconomicRecord, 0)
+	state := progress.Snapshot.State
+	if progress.Snapshot.Height == 0 {
+		state = Empty()
+	}
+	last := progress.Snapshot.LastIdentity
+	headers := map[string]time.Time{}
+	gasRecorded := map[string]EconomicRecord{}
+	for _, m := range moves {
+		if m.From != wallet && m.To != wallet {
+			continue
+		}
+		at, ok := headers[m.BlockHash]
+		if !ok {
+			h, e := a.liveHeaderByHash(bounded, common.HexToHash(m.BlockHash))
+			if e != nil {
+				return snapshot, e
+			}
+			if h == nil || h.Number == nil || h.Number.Int64() != m.Height || h.Time > 1<<63-1 {
+				return snapshot, delivery.ErrIntegrity
+			}
+			at = time.Unix(int64(h.Time), 0).UTC()
+			headers[m.BlockHash] = at
+		}
+		key := m.TransactionHash + ":" + strconv.FormatUint(uint64(m.LogIndex), 10)
+		var settlement *receiptSettlement
+		if found, ok := settlements[key]; ok {
+			copy := found
+			settlement = &copy
+		}
+		movementBytes, e := json.Marshal(m)
+		if e != nil {
+			return snapshot, e
+		}
+		record, include, e := normalizeMovement(wallet, token, m, settlement, at, delivery.Hash(movementBytes))
+		if e != nil {
+			return snapshot, e
+		}
+		if !include {
+			continue
+		}
+		record.TokenDecimals = &tokenDecimals
+		record.Leg.Predecessor = last
+		if record.GasPAXRaw != "" && record.Leg.Sender == wallet {
+			if prior, ok := gasRecorded[m.TransactionHash]; ok {
+				if prior.GasPAXRaw != record.GasPAXRaw || prior.BlockHash != record.BlockHash || prior.SourceDigest != record.SourceDigest || prior.Leg.Height != record.Leg.Height || prior.Leg.TransactionIndex != record.Leg.TransactionIndex || !prior.CommittedAt.Equal(record.CommittedAt) {
+					return snapshot, delivery.ErrIntegrity
+				}
+				record.GasPAXRaw = "0"
+			} else {
+				gasRecorded[m.TransactionHash] = record
+			}
+		}
+		if record.Leg.Kind == sideSell || record.Leg.Kind == movementOutgoing || record.Leg.Kind == movementBurn {
+			var allocation Disposal
+			state, allocation, e = Dispose(state, record.Leg.Quantity, record.Leg.ActualUSDL)
+			record.Allocation = &allocation
+		} else {
+			state, e = Apply(state, record.Leg)
+		}
+		if e != nil {
+			return snapshot, e
+		}
+		record.State = state
+		last, e = record.Leg.Identity.Key()
+		if e != nil {
+			return snapshot, e
+		}
+		records = append(records, record)
+		if !paged && len(records) > 10000 || len(records) > 1000000 {
+			return snapshot, ErrBaselineUnavailable
+		}
+	}
+	allRecords := append(progress.Records, records...)
+	if len(allRecords) > 1000000 {
+		return snapshot, ErrBaselineUnavailable
+	}
+	snapshot = RebuildSnapshot{Generation: a.generation, Partition: partition, Algorithm: Algorithm, ReleaseDigest: s.release, CreationHeight: start, Height: end, BlockHash: endHash, MovementDigest: movementDigest, SourceOwner: owner, SourceEpoch: epoch, NodeIDs: s.nodeIDs, State: state, LastIdentity: last}
+	endHeader, err := a.liveHeaderByHash(bounded, common.HexToHash(endHash))
+	if err != nil {
+		return snapshot, err
+	}
+	if endHeader == nil || endHeader.Number == nil || endHeader.Number.Int64() != end || endHeader.Time > 1<<63-1 {
+		return snapshot, delivery.ErrIntegrity
+	}
+	snapshot.ObservedThrough = time.Unix(int64(endHeader.Time), 0).UTC()
+	if err = liveCheckpoints(bounded, &snapshot, &progress, records); err != nil {
+		return snapshot, err
+	}
+	snapshot.InputDigest, err = liveRecordDigest(&progress, records)
+	if err != nil {
+		return snapshot, err
+	}
+	progress.Snapshot, progress.Records = snapshot, allRecords
+	if err = s.liveArchiveRecordsTx(bounded, tx, snapshot, records); err != nil {
+		return snapshot, err
+	}
+	if end < target {
+		finalOwner, finalEpoch, e := a.sourceLease(bounded, tx)
+		if e != nil {
+			return snapshot, e
+		}
+		if finalOwner != owner || finalEpoch != epoch {
+			return snapshot, delivery.ErrLease
+		}
+		if err = s.writeLiveProgressTx(bounded, tx, progressPartition, progress); err != nil {
+			return snapshot, err
+		}
+		if err = a.epochGuard(bounded, tx); err != nil {
+			return snapshot, err
+		}
+		return snapshot, errLiveEnrollmentPending
+	}
+	firstBalance, err := a.observedBalance(bounded, token, wallet, endHash)
+	if err != nil {
+		return snapshot, err
+	}
+	chain, err := s.second.ChainID(bounded)
+	if err != nil {
+		return snapshot, err
+	}
+	if chain.Cmp(big.NewInt(125)) != 0 {
+		return snapshot, delivery.ErrIntegrity
+	}
+	_, otherHash, err := reportedHeaderByNumber(bounded, s.second, big.NewInt(end))
+	if err != nil {
+		return snapshot, err
+	}
+	data := append(append([]byte(nil), balanceSelector...), common.LeftPadBytes(common.HexToAddress(wallet).Bytes(), 32)...)
+	contract := common.HexToAddress(token)
+	rawBalance, err := s.second.CallContractAtHash(bounded, ethereum.CallMsg{To: &contract, Data: data}, common.HexToHash(endHash))
+	if err != nil {
+		return snapshot, err
+	}
+	if len(rawBalance) != 32 {
+		return snapshot, delivery.ErrIntegrity
+	}
+	secondBalance := new(big.Int).SetBytes(rawBalance)
+	values, err := state.values()
+	if err != nil {
+		return snapshot, err
+	}
+	snapshot.NodeBalances = [2]string{firstBalance.String(), secondBalance.String()}
+	if otherHash != endHash || firstBalance.Cmp(secondBalance) != 0 || firstBalance.Cmp(add(values[0], values[1])) != 0 {
+		payload, _ := json.Marshal(snapshot)
+		if _, err = tx.Exec(bounded, `INSERT INTO `+a.table("inventory_l16_quarantine_v2")+` (generation,partition,height,block_hash,reason,payload) VALUES ($1,$2,$3,$4,'dual_node_or_inventory_parity',$5) ON CONFLICT DO NOTHING`, a.generation, partition, end, endHash, payload); err != nil {
+			return snapshot, err
+		}
+		return snapshot, ErrParity
+	}
+	progress.Snapshot = snapshot
+	if err = s.writeLiveProgressTx(bounded, tx, progressPartition, progress); err != nil {
+		return snapshot, err
+	}
+	finalOwner, finalEpoch, err := a.sourceLease(bounded, tx)
+	if err != nil {
+		return snapshot, err
+	}
+	if finalOwner != owner || finalEpoch != epoch {
+		return snapshot, delivery.ErrLease
+	}
+	if err = s.liveArchiveRecordsTx(bounded, tx, snapshot, records); err != nil {
+		return snapshot, err
+	}
+	if err = a.epochGuard(bounded, tx); err != nil {
+		return snapshot, err
+	}
+	if err = liveHistoryResult(snapshot, allRecords, history); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
+}
+
+func (a *BaselineAuthority) liveMovementPages(ctx context.Context, tx pgx.Tx, token string, start, end int64, continuing ...*liveReplayProgress) ([]movement, string, string, error) {
 	all := []movement{}
 	proofs := []string{}
+	var progress *liveReplayProgress
+	if len(continuing) > 0 {
+		progress = continuing[0]
+		proofs = append(proofs, progress.PageProofs...)
+	}
 	lastHash := ""
 	for from := start; from <= end; {
 		to := from + 9999
+		if progress != nil {
+			to = progress.Snapshot.CreationHeight + ((from-progress.Snapshot.CreationHeight)/10000+1)*10000 - 1
+		}
+
 		if to > end {
 			to = end
 		}
@@ -457,24 +829,48 @@ func (a *BaselineAuthority) liveMovementPages(ctx context.Context, tx pgx.Tx, to
 		if len(all)+len(rpcMoves) > 1000000 {
 			return nil, "", "", ErrBaselineUnavailable
 		}
-		_, reportedTo, e := reportedHeaderByNumber(ctx, a.rpc, big.NewInt(to))
+		_, reportedTo, e := a.liveHeaderByNumber(ctx, to)
 		if e != nil {
 			return nil, "", "", e
 		}
 		if reportedTo != blocks[to] {
 			return nil, "", "", delivery.ErrIntegrity
 		}
-		raw, e := json.Marshal(rpcMoves)
+		pageMoves := rpcMoves
+		if progress != nil && len(progress.OpenPageMoves) > 0 {
+			pageMoves = append(append([]movement{}, progress.OpenPageMoves...), rpcMoves...)
+		}
+		raw, e := json.Marshal(pageMoves)
 		if e != nil {
 			return nil, "", "", e
 		}
-		proofs = append(proofs, delivery.Hash(raw))
+		if progress != nil {
+			pageEnd := progress.Snapshot.CreationHeight + ((from-progress.Snapshot.CreationHeight)/10000+1)*10000 - 1
+			progress.OpenPageMoves = nil
+			if to < pageEnd {
+				progress.OpenPageMoves = pageMoves
+			} else {
+				proofs = append(proofs, delivery.Hash(raw))
+			}
+		} else {
+			proofs = append(proofs, delivery.Hash(raw))
+		}
 		all = append(all, rpcMoves...)
 		lastHash = blocks[to]
 		if to == end {
 			break
 		}
 		from = to + 1
+	}
+	if progress != nil {
+		progress.PageProofs = append([]string{}, proofs...)
+		if progress.OpenPageMoves != nil {
+			raw, e := json.Marshal(progress.OpenPageMoves)
+			if e != nil {
+				return nil, "", "", e
+			}
+			proofs = append(proofs, delivery.Hash(raw))
+		}
 	}
 	raw, e := json.Marshal(proofs)
 	if e != nil {
@@ -484,7 +880,9 @@ func (a *BaselineAuthority) liveMovementPages(ctx context.Context, tx pgx.Tx, to
 }
 
 func (a *BaselineAuthority) liveTransferLogs(ctx context.Context, token string, from, to int64) ([]types.Log, error) {
-	logs, e := a.rpc.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: big.NewInt(from), ToBlock: big.NewInt(to), Addresses: []common.Address{common.HexToAddress(token)}, Topics: [][]common.Hash{{transferTopic}}})
+	logs, e := liveRead(ctx, a, func(client *ethclient.Client) ([]types.Log, error) {
+		return client.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: big.NewInt(from), ToBlock: big.NewInt(to), Addresses: []common.Address{common.HexToAddress(token)}, Topics: [][]common.Hash{{transferTopic}}})
+	})
 	if e == nil && len(logs) <= 10000 {
 		return logs, nil
 	}
@@ -503,13 +901,17 @@ func (a *BaselineAuthority) liveTransferLogs(ctx context.Context, token string, 
 		}
 		return append(left, right...), nil
 	}
-	block, e := reportedBlockByNumber(ctx, a.rpc, big.NewInt(from))
+	block, e := liveRead(ctx, a, func(client *ethclient.Client) (reportedBlock, error) {
+		return reportedBlockByNumber(ctx, client, big.NewInt(from))
+	})
 	if e != nil {
 		return nil, e
 	}
 	result := []types.Log{}
 	for index, transaction := range block.Transactions {
-		receipt, e := a.rpc.TransactionReceipt(ctx, transaction)
+		receipt, e := liveRead(ctx, a, func(client *ethclient.Client) (*types.Receipt, error) {
+			return client.TransactionReceipt(ctx, transaction)
+		})
 		if e != nil {
 			return nil, e
 		}
@@ -539,7 +941,9 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 	if e := accounting.ValidateFillV1(fill); e != nil {
 		return result, e
 	}
-	receipt, e := a.rpc.TransactionReceipt(ctx, common.HexToHash(fill.Position.TransactionHash))
+	receipt, e := liveRead(ctx, a, func(client *ethclient.Client) (*types.Receipt, error) {
+		return client.TransactionReceipt(ctx, common.HexToHash(fill.Position.TransactionHash))
+	})
 	if e != nil {
 		return result, e
 	}
@@ -553,7 +957,7 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 	if delivery.Hash(raw) != fill.Provenance.ReceiptSHA256 {
 		return result, delivery.ErrIntegrity
 	}
-	header, e := a.rpc.HeaderByHash(ctx, receipt.BlockHash)
+	header, e := a.liveHeaderByHash(ctx, receipt.BlockHash)
 	if e != nil {
 		return result, e
 	}
@@ -866,7 +1270,8 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 	var p auth.IdentityPrincipal
 	var priorHeight int64
 	var priorHash *string
-	e = tx.QueryRow(bounded, `SELECT wallet,account_id,session_id,auth_epoch,proof_at,expires_at,accepted_height,accepted_hash FROM inventory_l16_live_owners_v1 WHERE cancelled_at IS NULL AND expires_at>clock_timestamp() AND proof_at>clock_timestamp()-interval '15 minutes' AND ($1='' AND last_attempt_at<clock_timestamp()-interval '1 second' OR $1=wallet) ORDER BY last_attempt_at,wallet LIMIT 1 FOR UPDATE SKIP LOCKED`, selectedWallet).Scan(&p.Wallet, &p.AccountID, &p.SessionID, &p.AuthEpoch, &p.ProofAt, &p.AccessExpiresAt, &priorHeight, &priorHash)
+	var priorSnapshot, priorSource *string
+	e = tx.QueryRow(bounded, `SELECT wallet,account_id,session_id,auth_epoch,proof_at,expires_at,accepted_height,accepted_hash,accepted_snapshot::text,source_digest FROM inventory_l16_live_owners_v1 WHERE cancelled_at IS NULL AND expires_at>clock_timestamp() AND proof_at>clock_timestamp()-interval '15 minutes' AND ($1='' AND last_attempt_at<clock_timestamp()-interval '1 second' OR $1=wallet) ORDER BY last_attempt_at,wallet LIMIT 1 FOR UPDATE SKIP LOCKED`, selectedWallet).Scan(&p.Wallet, &p.AccountID, &p.SessionID, &p.AuthEpoch, &p.ProofAt, &p.AccessExpiresAt, &priorHeight, &priorHash, &priorSnapshot, &priorSource)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -886,14 +1291,21 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 	if e != nil {
 		return false, e
 	}
-	if head < priorHeight || head == priorHeight && (priorHash == nil || *priorHash != headHash) {
-		return false, delivery.ErrIntegrity
+	seeds, e := w.acceptedSnapshotsTx(bounded, tx, p.Wallet, priorHeight, priorHash, priorSnapshot, priorSource)
+	if e != nil {
+		return false, e
 	}
-	if head == priorHeight {
-		if _, e = tx.Exec(bounded, `UPDATE inventory_l16_live_owners_v1 SET last_attempt_at=clock_timestamp() WHERE wallet=$1`, p.Wallet); e != nil {
+	if priorHeight > 0 {
+		_, canonical, e := a.liveHeaderByNumber(bounded, priorHeight)
+		if e != nil {
 			return false, e
 		}
-		return true, tx.Commit(bounded)
+		if priorHash == nil || canonical != *priorHash {
+			return w.quarantineLiveWalletTx(bounded, tx, p.Wallet, priorHeight, canonical)
+		}
+	}
+	if head < priorHeight || head == priorHeight && (priorHash == nil || *priorHash != headHash) {
+		return false, delivery.ErrIntegrity
 	}
 	var quarantined bool
 	if e = tx.QueryRow(bounded, `SELECT EXISTS(SELECT 1 FROM inventory_l16_quarantine_v2 WHERE generation=$1 AND left(partition,length($2))=$2 AND height<=$3)`, a.generation, "125:"+p.Wallet+":", head).Scan(&quarantined); e != nil {
@@ -901,6 +1313,12 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 	}
 	if quarantined {
 		return false, ErrParity
+	}
+	if head == priorHeight {
+		if _, e = tx.Exec(bounded, `UPDATE inventory_l16_live_owners_v1 SET last_attempt_at=clock_timestamp() WHERE wallet=$1`, p.Wallet); e != nil {
+			return false, e
+		}
+		return true, tx.Commit(bounded)
 	}
 	owner, epoch, e := a.sourceLease(bounded, tx)
 	if e != nil {
@@ -910,9 +1328,10 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 		return false, e
 	}
 	snapshots := []RebuildSnapshot{}
+	histories := map[string]liveReplayHistory{}
 	after := ""
 	for {
-		rows, e := tx.Query(bounded, `SELECT DISTINCT t.token FROM indexer.indexer_token_transfers_v1 t JOIN indexer.indexer_canonical_creations_v1 c ON c.token=t.token WHERE t.chain_id=125 AND t.height<=$1 AND (t.from_address=$2 OR t.to_address=$2) AND t.token>$3 ORDER BY t.token LIMIT 10000`, head, p.Wallet, after)
+		rows, e := tx.Query(bounded, `SELECT token FROM (SELECT DISTINCT t.token FROM indexer.indexer_token_transfers_v1 t JOIN indexer.indexer_canonical_creations_v1 c ON c.token=t.token WHERE t.chain_id=125 AND t.height>$4 AND t.height<=$1 AND (t.from_address=$2 OR t.to_address=$2) UNION SELECT unnest($5::text[])) tokens WHERE token>$3 ORDER BY token LIMIT 10000`, head, p.Wallet, after, priorHeight, liveSeedTokens(seeds))
 		if e != nil {
 			return false, e
 		}
@@ -931,7 +1350,24 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 			return false, e
 		}
 		for _, token := range tokens {
-			snapshot, e := w.service.liveRebuildTx(bounded, tx, p.Wallet, token, head)
+			var seed *RebuildSnapshot
+			if prior, ok := seeds[token]; ok && prior.Algorithm == Algorithm && prior.ReleaseDigest == w.service.release {
+				seed = &prior
+			}
+			var history liveReplayHistory
+			snapshot, e := w.service.liveContinueTx(bounded, tx, p.Wallet, token, head, seed, &history)
+			if errors.Is(e, errLiveEnrollmentPending) {
+				if _, e = tx.Exec(bounded, `UPDATE inventory_l16_live_owners_v1 SET last_attempt_at=clock_timestamp() WHERE wallet=$1`, p.Wallet); e != nil {
+					return false, e
+				}
+				if e = w.identity.CheckStreamSession(bounded, p.StreamPrincipal()); e != nil {
+					return false, e
+				}
+				if e = a.epochGuard(bounded, tx); e != nil {
+					return false, e
+				}
+				return true, tx.Commit(bounded)
+			}
 			if errors.Is(e, ErrParity) {
 				if _, e = tx.Exec(bounded, `ROLLBACK TO SAVEPOINT live_wallet_fold`); e != nil {
 					return false, e
@@ -961,6 +1397,7 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 				return false, delivery.ErrIntegrity
 			}
 			snapshots = append(snapshots, snapshot)
+			histories[snapshot.Partition] = history
 			if len(snapshots) > 100000 {
 				return false, ErrBaselineUnavailable
 			}
@@ -970,7 +1407,12 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 			break
 		}
 	}
-	summary, source, e := w.commitWalletTx(bounded, tx, p.Wallet, head, headHash, snapshots)
+	for _, snapshot := range snapshots {
+		if e = w.service.livePersistReplayTx(bounded, tx, snapshot, nil); e != nil {
+			return false, e
+		}
+	}
+	summary, source, e := w.commitWalletTx(bounded, tx, p.Wallet, head, headHash, snapshots, histories)
 	if e != nil {
 		return false, e
 	}
@@ -1026,7 +1468,7 @@ func (w *LiveTransferWorker) acceptedHeadTx(ctx context.Context, tx pgx.Tx) (int
 	return height, blockHash, nil
 }
 
-func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wallet string, head int64, headHash string, snapshots []RebuildSnapshot) (l17.Summary, string, error) {
+func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wallet string, head int64, headHash string, snapshots []RebuildSnapshot, histories map[string]liveReplayHistory) (l17.Summary, string, error) {
 	var summary l17.Summary
 	raw, e := json.Marshal(struct {
 		Generation, Release, Wallet, Hash string
@@ -1037,6 +1479,10 @@ func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wall
 		return summary, "", e
 	}
 	source := delivery.Hash(raw)
+	a := w.service.authority
+	if _, e = tx.Exec(ctx, `INSERT INTO `+a.table("inventory_l16_snapshots_v2")+` (generation,partition,snapshot_digest,payload,height,block_hash,release_digest) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`, a.generation, "live-wallet:"+wallet, source, raw, head, headHash, w.service.release); e != nil {
+		return summary, "", e
+	}
 	var revisionRaw string
 	if e = tx.QueryRow(ctx, `SELECT COALESCE(max(revision),0)::text FROM portfolio_snapshots WHERE wallet=$1`, wallet).Scan(&revisionRaw); e != nil {
 		return summary, "", e
@@ -1064,7 +1510,7 @@ func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wall
 		if len(parts) != 3 || parts[1] != wallet || snapshot.Height != head || snapshot.BlockHash != headHash || !snapshot.ObservedThrough.Equal(at) {
 			return summary, "", delivery.ErrIntegrity
 		}
-		mark, e := w.service.authority.markPriceTx(ctx, tx, parts[2], head, headHash)
+		mark, e := w.service.authority.liveMarkPriceTx(ctx, tx, parts[2], head, headHash)
 		if e != nil {
 			return summary, "", e
 		}
@@ -1094,7 +1540,7 @@ func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wall
 		return summary, "", e
 	}
 	if len(snapshots) > 0 {
-		if e = w.service.commitRebuiltHistoryTx(ctx, tx, wallet, id, source, snapshots, w.repository); e != nil {
+		if e = w.service.commitRebuiltHistoryTx(ctx, tx, wallet, id, source, snapshots, w.repository, histories); e != nil {
 			return summary, "", e
 		}
 	} else {
@@ -1105,7 +1551,7 @@ func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wall
 	return summary, source, nil
 }
 
-func (s *Service) livePersistReplayTx(ctx context.Context, tx pgx.Tx, snapshot RebuildSnapshot, records []EconomicRecord) error {
+func (s *Service) liveArchiveRecordsTx(ctx context.Context, tx pgx.Tx, snapshot RebuildSnapshot, records []EconomicRecord) error {
 	a := s.authority
 	for _, record := range records {
 		identity, err := record.Leg.Identity.Key()
@@ -1127,6 +1573,14 @@ func (s *Service) livePersistReplayTx(ctx context.Context, tx pgx.Tx, snapshot R
 		if old != digest {
 			return delivery.ErrIntegrity
 		}
+	}
+	return nil
+}
+
+func (s *Service) livePersistReplayTx(ctx context.Context, tx pgx.Tx, snapshot RebuildSnapshot, records []EconomicRecord) error {
+	a := s.authority
+	if err := s.liveArchiveRecordsTx(ctx, tx, snapshot, records); err != nil {
+		return err
 	}
 	raw, err := json.Marshal(snapshot)
 	if err != nil {

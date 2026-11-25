@@ -14,7 +14,9 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -40,6 +42,14 @@ var decimalsSelector = crypto.Keccak256([]byte("decimals()"))[:4]
 // with no fill at or below head also has no mark. Errors are dependency or
 // integrity failures and fail the fold.
 func (a *BaselineAuthority) markPriceTx(ctx context.Context, tx pgx.Tx, token string, head int64, headHash string) (*l17.Price, error) {
+	return a.priceTx(ctx, tx, token, head, headHash, false)
+}
+
+func (a *BaselineAuthority) liveMarkPriceTx(ctx context.Context, tx pgx.Tx, token string, head int64, headHash string) (*l17.Price, error) {
+	return a.priceTx(ctx, tx, token, head, headHash, true)
+}
+
+func (a *BaselineAuthority) priceTx(ctx context.Context, tx pgx.Tx, token string, head int64, headHash string, indexed bool) (*l17.Price, error) {
 	var raw []byte
 	var digest string
 	err := tx.QueryRow(ctx, `SELECT payload,source_fact_digest FROM indexer.indexer_accounting_fills_v1 WHERE payload->'token'->>'address'=$1 AND (payload->'position'->>'height')::bigint<=$2 ORDER BY (payload->'position'->>'height')::bigint DESC,(payload->'position'->>'transactionIndex')::bigint DESC,(payload->'position'->>'logIndex')::bigint DESC LIMIT 1`, token, head).Scan(&raw, &digest)
@@ -79,15 +89,39 @@ func (a *BaselineAuthority) markPriceTx(ctx context.Context, tx pgx.Tx, token st
 	if err != nil || !clean {
 		return nil, err
 	}
-	reserves, err := a.rpc.CallContractAtHash(ctx, ethereum.CallMsg{To: &pool, Data: effectiveReservesSelector}, blockHash)
-	if err != nil {
-		return nil, err
+	var effectiveUSDL, tokenReserve *big.Int
+	if indexed {
+		var virtualRaw, realRaw, tokenRaw string
+		err = tx.QueryRow(ctx, `SELECT virtual_reserve,real_reserve,token_reserve FROM indexer.pool_state_snapshots_v1 WHERE pool_id=$1 AND block_number=$2 AND log_index=$3`, "0x"+strings.Repeat("0", 24)+strings.TrimPrefix(fill.PoolAddress, "0x"), height, logIndex).Scan(&virtualRaw, &realRaw, &tokenRaw)
+		if err != nil {
+			return nil, err
+		}
+		virtual, e := Uint256(virtualRaw)
+		if e != nil {
+			return nil, e
+		}
+		real, e := Uint256(realRaw)
+		if e != nil {
+			return nil, e
+		}
+		tokenReserve, e = Uint256(tokenRaw)
+		if e != nil {
+			return nil, e
+		}
+		effectiveUSDL = new(big.Int).Add(virtual, real)
+		if effectiveUSDL.BitLen() > 256 {
+			return nil, delivery.ErrIntegrity
+		}
+	} else {
+		reserves, e := a.rpc.CallContractAtHash(ctx, ethereum.CallMsg{To: &pool, Data: effectiveReservesSelector}, blockHash)
+		if e != nil {
+			return nil, e
+		}
+		if len(reserves) != 64 {
+			return nil, delivery.ErrIntegrity
+		}
+		effectiveUSDL, tokenReserve = new(big.Int).SetBytes(reserves[:32]), new(big.Int).SetBytes(reserves[32:])
 	}
-	if len(reserves) != 64 {
-		return nil, delivery.ErrIntegrity
-	}
-	effectiveUSDL := new(big.Int).SetBytes(reserves[:32])
-	tokenReserve := new(big.Int).SetBytes(reserves[32:])
 	if effectiveUSDL.Sign() == 0 || tokenReserve.Sign() == 0 {
 		return nil, nil
 	}
@@ -144,7 +178,9 @@ func (a *BaselineAuthority) reservesSettledAfter(ctx context.Context, blockHash 
 	if emitterQueried {
 		addresses = append(addresses, common.HexToAddress(emitter))
 	}
-	logs, err := a.rpc.FilterLogs(ctx, ethereum.FilterQuery{BlockHash: &blockHash, Addresses: addresses})
+	logs, err := liveRead(ctx, a, func(client *ethclient.Client) ([]types.Log, error) {
+		return client.FilterLogs(ctx, ethereum.FilterQuery{BlockHash: &blockHash, Addresses: addresses})
+	})
 	if err != nil {
 		return false, err
 	}

@@ -5198,7 +5198,8 @@
             "transaction_hash",
             "transaction_index",
             "log_index",
-            "payload"
+            "payload",
+            "factory"
           ],
           "argument_types": [],
           "grant_option": false,
@@ -5426,6 +5427,25 @@
           ],
           "columns": [
             "block_number"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "indexer",
+          "object": "pool_state_snapshots_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_id",
+            "virtual_reserve",
+            "real_reserve",
+            "token_reserve",
+            "block_number",
+            "log_index"
           ],
           "argument_types": [],
           "grant_option": false,
