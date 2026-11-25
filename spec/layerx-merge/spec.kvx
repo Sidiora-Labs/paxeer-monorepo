@@ -213204,7 +213204,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.153]
 title = "Let the trade button and the other fixed elements above the tab bar stand above the notice about cookies while it shows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
