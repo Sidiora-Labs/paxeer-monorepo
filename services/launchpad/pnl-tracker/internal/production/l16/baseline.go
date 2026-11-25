@@ -47,6 +47,7 @@ CREATE TABLE inventory_l16_baseline_uses (
 type BaselineAuthority struct {
 	pool                                                                   *pgxpool.Pool
 	rpc                                                                    *ethclient.Client
+	liveFallback                                                           *ethclient.Client
 	schema, sourceStream, consumerID, generation, owner, projectionVersion string
 	// factory is the deployed SidioraFactory (shared/config/deployment
 	// manifest role), the only minter of a canonical market's supply.
