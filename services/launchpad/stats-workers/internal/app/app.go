@@ -66,14 +66,15 @@ const (
 
 // App is a fully-wired, ready-to-run stats service.
 type App struct {
-	jobs       []statsRuntimeJob
-	accounting *consumer.SourceVerifiedAccountingConsumer
-	transports []*natsdriver.Consumer
-	nats       *nats.Conn
-	rpc        *ethclient.Client
-	secretStop context.CancelFunc
-	tracker    *sharedprocess.Tracker
-	Router     http.Handler
+	jobs        []statsRuntimeJob
+	accounting  *consumer.SourceVerifiedAccountingConsumer
+	transports  []*natsdriver.Consumer
+	nats        *nats.Conn
+	rpc         *ethclient.Client
+	rpcFallback *ethclient.Client
+	secretStop  context.CancelFunc
+	tracker     *sharedprocess.Tracker
+	Router      http.Handler
 
 	logger *slog.Logger
 	store  *store.Store
@@ -186,7 +187,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 		}
 	}()
 	var nc *nats.Conn
-	var rpc *ethclient.Client
+	var rpc, rpcFallback *ethclient.Client
 	if cfg.NodeEnv == valueProduction {
 		var d statsRuntimeDocument
 		if err = config.ReadBoundDocument(cfg.DeliveryConfigFile, cfg.DeliveryConfigSHA256, &d); err != nil {
@@ -210,6 +211,17 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 				rpc.Close()
 			}
 		}()
+		if cfg.RPCURLFallback != "" {
+			rpcFallback, err = ethclient.DialContext(ctx, cfg.RPCURLFallback)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if !secretOwned {
+					rpcFallback.Close()
+				}
+			}()
+		}
 		guard, e := queue.NewEpochGuard("recovery", d.Epoch, d.Region)
 		if e != nil {
 			return nil, e
@@ -261,7 +273,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 		if e != nil {
 			return nil, e
 		}
-		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{MarketEffect: projector.Effect, Pool: pool, Deliveries: durable, Partitions: partitions, Repository: repository, Authority: authority, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: valueIndexer, RPC: rpc, MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills})
+		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{MarketEffect: projector.Effect, Pool: pool, Deliveries: durable, Partitions: partitions, Repository: repository, Authority: authority, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: valueIndexer, RPC: rpc, RPCFallback: rpcFallback, Logger: logger, LeaseDuration: 30 * time.Second, ProofTimeout: min(5*time.Second, d.Consumers[0].AckWait/2), MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills})
 		if e != nil {
 			return nil, e
 		}
@@ -491,7 +503,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 	}
 	secretOwned = true
 	return &App{jobs: jobs, secretStop: secretStop, tracker: tracker,
-		accounting: accountingConsumer, transports: transports, nats: nc, rpc: rpc,
+		accounting: accountingConsumer, transports: transports, nats: nc, rpc: rpc, rpcFallback: rpcFallback,
 		Router: runtimeHandler(tracker, handler, metrics),
 		logger: logger,
 		store:  st,
@@ -508,6 +520,9 @@ func (a *App) Close() {
 	}
 	if a.nats != nil {
 		a.nats.Close()
+	}
+	if a.rpcFallback != nil {
+		a.rpcFallback.Close()
 	}
 	if a.rpc != nil {
 		a.rpc.Close()
