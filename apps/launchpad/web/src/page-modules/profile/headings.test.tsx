@@ -16,7 +16,7 @@ afterAll(close);
 function profile_signed_out_has_one_visible_heading() {
   const view = mount(<ProfileModule />, '/profile');
   expectHeading(view.container, 'Sign in to see your profile');
-  expect(view.container.querySelector('h1')?.className).toBe('text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text');
+  expect(view.container.querySelector('h1')?.className).toBe('text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-semibold text-text');
 }
 
 async function profile_connected_loading_empty_and_error_keep_one_heading() {

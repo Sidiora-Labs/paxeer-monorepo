@@ -54,7 +54,7 @@ export function Chip({
   const isOn = selected || pressed === true;
   const interactive = !!href || !!rest.onClick || pressed !== undefined;
   const classes = cn(
-    'inline-flex shrink-0 items-center gap-1.5 rounded-pill font-bold transition-colors duration-fast',
+    'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xs font-semibold transition-colors duration-fast',
     interactive && 'border border-control-edge',
     variant === 'token'
       ? 'min-h-[var(--sl-badge-height-sm)] px-2 py-0.5 text-xs'
@@ -86,7 +86,7 @@ export function Chip({
       ) : null}
       <span>{children}</span>
       {count !== undefined ? (
-        <span className="text-xs text-text-faint" data-numeric>
+        <span className="text-xs tabular-nums text-inherit" data-numeric>
           {formatCount(count)}
         </span>
       ) : null}
@@ -122,7 +122,7 @@ export function PercentPill({
   value,
   variant = 'pill',
   size = 'sm',
-  arrow = false,
+  arrow = true,
   decimals = 2,
   flash = null,
   className,
@@ -154,7 +154,7 @@ export function PercentPill({
         ? 'bg-percent-up-soft'
         : direction === 'down'
           ? 'bg-percent-down-soft'
-          : 'bg-surface-3'
+          : 'bg-surface-2'
       : '';
   const sizing =
     size === 'lg'
@@ -171,7 +171,7 @@ export function PercentPill({
     <span
       data-numeric
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-pill font-bold tabular-nums',
+        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-direction font-semibold tabular-nums',
         sizing,
         tone,
         bg,
@@ -185,6 +185,28 @@ export function PercentPill({
       <span>{formatPercent(value, { decimals })}</span>
     </span>
   );
+}
+
+export function DirectionChip(props: Omit<PercentPillProps, 'variant' | 'arrow' | 'size'>) {
+  return <PercentPill {...props} variant="pill" arrow size="sm" className={cn('text-num-sm', props.className)} />;
+}
+
+export type CoinBadgeKind = 'hot' | 'new' | 'graduated' | 'creator' | 'pool';
+
+const coinBadgeTone: Record<CoinBadgeKind, string> = {
+  hot: 'text-danger',
+  new: 'text-info',
+  graduated: 'text-accent',
+  creator: 'text-text-muted',
+  pool: 'text-text-muted',
+};
+
+export function CoinBadge({ kind }: { kind: CoinBadgeKind }) {
+  return <span className={cn('sl-badge-outline inline-flex items-center whitespace-nowrap rounded-pill px-1.5 text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)]', coinBadgeTone[kind])}>{kind}</span>;
+}
+
+export function VerifiedMark() {
+  return <span role="img" aria-label="Verified" className="inline-flex size-icon-sm items-center justify-center rounded-pill bg-accent text-on-accent"><Check aria-hidden="true" className="size-3" /></span>;
 }
 
 /* --------------------------------------------------------- StatusBadge */
@@ -213,15 +235,15 @@ const statusLabel: Record<BadgeStatus, string> = {
 };
 
 const statusClass: Record<BadgeStatus, string> = {
-  open: 'bg-status-open text-on-accent rounded-xs',
-  paid: 'bg-status-paid text-on-warning rounded-xs',
-  submission: 'bg-status-submission text-on-info rounded-xs',
-  ending: 'bg-status-ending text-on-warning rounded-xs',
-  finished: 'bg-danger-soft text-status-finished rounded-xs',
-  live: 'bg-accent text-on-accent rounded-pill',
-  recent: 'bg-accent-soft text-accent rounded-pill',
-  detected: 'bg-accent-soft text-accent rounded-pill',
-  neutral: 'bg-surface-3 text-text-muted rounded-xs',
+  open: 'text-accent',
+  paid: 'text-warning',
+  submission: 'text-info',
+  ending: 'text-warning',
+  finished: 'text-danger',
+  live: 'text-accent',
+  recent: 'text-info',
+  detected: 'text-accent',
+  neutral: 'text-text-muted',
 };
 
 export interface StatusBadgeProps {
@@ -254,8 +276,8 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-1.5 font-bold uppercase tracking-[var(--sl-tracking-label)]',
-        size === 'md' ? 'h-6 text-xs' : 'h-5 text-2xs',
+        'sl-badge-outline inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-pill px-1.5 font-semibold uppercase tracking-[var(--sl-tracking-label)]',
+        size === 'md' ? 'h-6 text-2xs' : 'h-5 text-2xs',
         statusClass[status],
         className
       )}
@@ -491,7 +513,7 @@ export function ShortAddress({
           onClick={handleCopy}
           aria-label={`Copy address ${short}`}
           className={cn(
-            'inline-flex size-5 shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text',
+            'inline-flex size-5 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-surface-hover hover:text-text',
             copied && 'text-accent'
           )}
         >
@@ -512,7 +534,7 @@ export function ShortAddress({
           rel="noreferrer noopener"
           onClick={(event) => event.stopPropagation()}
           aria-label="View on Paxeer explorer, opens in new tab"
-          className="inline-flex size-5 shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text"
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-surface-hover hover:text-text"
         >
           <ExternalLink aria-hidden="true" className="size-icon-sm" />
         </a>

@@ -3,6 +3,8 @@
 import { displayCoinText } from '@/utils/coin-text';
 import { launchpadChartRoles } from '@/app/presentation-tokens';
 import { surfaceColor } from '@/core/app-foundation/surface-color';
+import { getColorScheme } from '@/core/app-foundation/color-mode';
+import { useColorMode } from '@/core/app-foundation/use-color-mode';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ChartingLibraryWidgetConstructor, ChartingLibraryWidgetOptions, IBasicDataFeed, IChartingLibraryWidget, ResolutionString, TimeFrameItem } from '../../../public/charting_library/charting_library';
 import { CandlestickChart } from 'lucide-react';
@@ -140,15 +142,7 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
   const accessibleIntervalRef = useRef<ChartInterval | null>(null);
   const presentationRef = useRef<ChartMarkPresentation>({ enabled: true });
 
-  const [darkScheme, setDarkScheme] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const syncScheme = () => setDarkScheme(media.matches);
-    syncScheme();
-    media.addEventListener('change', syncScheme);
-    return () => media.removeEventListener('change', syncScheme);
-  }, []);
+  const { scheme } = useColorMode();
 
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -339,7 +333,7 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
         locale: 'en',
         fullscreen: false,
         autosize: true,
-        theme: darkScheme ? 'dark' : 'light',
+        theme: getColorScheme(),
         custom_font_family: getComputedStyle(document.documentElement).getPropertyValue('--sl-font-sans').trim(),
         time_frames: TIME_FRAMES,
         toolbar_bg: palette.canvas,
@@ -426,7 +420,26 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
       container.removeAttribute('data-chart-focus');
       restoreContainer();
     };
-  }, [loaded, poolAddress, mode, feedSupply, retryGeneration, update, darkScheme]);
+  }, [loaded, poolAddress, mode, feedSupply, retryGeneration, update]);
+
+  useEffect(() => {
+    const widget = widgetRef.current;
+    if (!widget || !chartReadyRef.current) return;
+    let current = true;
+    void widget.changeTheme(scheme).then(() => {
+      if (!current || widgetRef.current !== widget) return;
+      const palette = readPalette();
+      widget.applyOverrides(widgetOverrides(palette) ?? {});
+      widget.applyStudiesOverrides(studiesOverrides(palette) ?? {});
+      for (const [property, role] of Object.entries(launchpadChartRoles)) {
+        const color = surfaceColor(role);
+        if (color) widget.setCSSCustomProperty(property, color);
+      }
+    }).catch((reason: unknown) => {
+      if (current) setError(reportUserFacingError(reason, "Chart colours can't update right now", 'chart theme'));
+    });
+    return () => { current = false; };
+  }, [scheme, accessibleGeneration]);
 
   useEffect(() => {
     const widget = widgetRef.current;
@@ -462,7 +475,7 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
     if (!widget || !chartReadyRef.current) return;
     if (settings.markers) widget.activeChart().refreshMarks();
     else widget.activeChart().clearMarks();
-  }, [settings.markers, markerActors, accessibleGeneration]);
+  }, [settings.markers, markerActors, accessibleGeneration, scheme]);
 
   const timeframe = resolutionToWsTimeframe(interval);
   // A pool with no recorded fill has no candles: its newest trade page is empty with no older cursor
