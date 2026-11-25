@@ -9,6 +9,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store/accountingtest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -21,8 +22,12 @@ func TestUntradedPoolPageClassification(t *testing.T) {
 		run  func(context.Context, store.AccountingPageRequest) (store.AccountingPage, error)
 	}{{"trades", f.Model.Trades}, {"candles", f.Model.Candles}} {
 		t.Run(read.name, func(t *testing.T) {
+			model := accountingtest.Version
+			if read.name == "candles" {
+				model = candlewire.SeriesModelVersion
+			}
 			page, err := read.run(t.Context(), request)
-			if !errors.Is(err, store.ErrAccountingUntraded) || page.Items == nil || len(page.Items) != 0 || page.Revision != "" || string(page.Watermark) != "null" || page.NextSequence != nil || page.NextStart != nil || page.SeriesModelVersion != accountingtest.Version {
+			if !errors.Is(err, store.ErrAccountingUntraded) || page.Items == nil || len(page.Items) != 0 || page.Revision != "" || string(page.Watermark) != "null" || page.NextSequence != nil || page.NextStart != nil || page.SeriesModelVersion != model {
 				t.Fatalf("untraded page: %+v %v", page, err)
 			}
 			if _, err := uuid.Parse(page.SnapshotID); err != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store/accountingtest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
 	"github.com/go-chi/chi/v5"
@@ -79,7 +80,7 @@ func TestUntradedPoolPageCacheAndFirstCommit(t *testing.T) {
 					if !ok {
 						t.Fatal(data)
 					}
-					if _, err := uuid.Parse(id); err != nil || data["seriesModelVersion"] != accountingtest.Version {
+					if _, err := uuid.Parse(id); err != nil || data["seriesModelVersion"] != candlewire.SeriesModelVersion {
 						t.Fatalf("candle identity: %v", data)
 					}
 				}

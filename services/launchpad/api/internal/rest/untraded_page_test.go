@@ -11,6 +11,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store/accountingtest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/go-chi/chi/v5"
@@ -56,7 +57,7 @@ func TestUntradedPoolPageRoutes(t *testing.T) {
 					if !ok {
 						t.Fatal(data)
 					}
-					if _, err := uuid.Parse(id); err != nil || data["seriesModelVersion"] != accountingtest.Version || i > 0 && id != identity {
+					if _, err := uuid.Parse(id); err != nil || data["seriesModelVersion"] != candlewire.SeriesModelVersion || i > 0 && id != identity {
 						t.Fatalf("candle identity: %v", data)
 					}
 					identity = id

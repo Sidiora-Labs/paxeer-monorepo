@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting/sourcebootstrap"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -404,6 +405,7 @@ type accountingPriceSource struct {
 	Provenance    accounting.Provenance     `json:"provenance"`
 }
 type accountingCandle struct {
+	raw               json.RawMessage
 	PoolAddress       string                `json:"poolAddress"`
 	Interval          string                `json:"interval"`
 	Start             int64                 `json:"start"`
@@ -473,6 +475,7 @@ func (s *AccountingReadModel) Candles(ctx context.Context, r AccountingPageReque
 		return AccountingPage{}, err
 	}
 	out, vector, err := s.snapshot(ctx, tx, r)
+	out.SeriesModelVersion = candlewire.SeriesModelVersion
 	if err != nil {
 		return out, err
 	}
@@ -504,6 +507,7 @@ func (s *AccountingReadModel) Candles(ctx context.Context, r AccountingPageReque
 			rows.Close()
 			return out, ErrDataIntegrity
 		}
+		c.raw = raw
 		candles = append(candles, c)
 	}
 	rows.Close()
@@ -528,25 +532,14 @@ func (s *AccountingReadModel) Candles(ctx context.Context, r AccountingPageReque
 		return out, err
 	}
 	for _, c := range candles {
-		prices := make([]map[string]any, 4)
-		sources := []accountingPriceSource{c.OpenSource, c.HighSource, c.LowSource, c.CloseSource}
-		for i, p := range []accountingRational{c.Open, c.High, c.Low, c.Close} {
-			f, ok := fills[sources[i].SourceFillID]
-			if !ok || f.Token != c.Token || f.Settlement != c.Settlement {
-				return out, ErrDataIntegrity
-			}
-			prices[i], err = canonicalPrice(p, sources[i], f)
-			if err != nil {
-				return out, err
-			}
+		item, err := candlewire.FromStoredBar(c.raw, fills)
+		if err != nil {
+			return out, ErrDataIntegrity
 		}
-		item := map[string]any{literalPoolAddress: c.PoolAddress, "interval": c.Interval, "start": time.Unix(c.Start, 0).UTC().Format("2006-01-02T15:04:05.000Z"), "open": prices[0], "high": prices[1], "low": prices[2], "close": prices[3], "volumeUsdlRaw": c.VolumeUSDLRaw, "volumeTokenRaw": c.VolumeTokenRaw, "buyVolumeUsdlRaw": c.BuyVolumeUSDLRaw, "sellVolumeUsdlRaw": c.SellVolumeUSDLRaw, "trades": strconv.FormatUint(c.Trades, 10), "revision": strconv.FormatUint(c.Revision, 10), "synthetic": false, "coverage": literalPartial, "firstPosition": c.OpenSource.Position, "lastPosition": c.CloseSource.Position, "seriesModelVersion": out.SeriesModelVersion, "snapshotId": out.SnapshotID, "uniqueTraderCount": nil, "largeTradeCount": nil, "largeTradePolicyId": nil, "largeTradeThresholdUsdlRaw": nil}
+		item.SnapshotId = out.SnapshotID
 		raw, err := json.Marshal(item)
 		if err != nil {
 			return out, err
-		}
-		if err = interfaces.ValidateJSON("Candle", raw); err != nil {
-			return out, ErrDataIntegrity
 		}
 		out.Items = append(out.Items, raw)
 	}

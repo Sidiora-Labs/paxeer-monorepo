@@ -11,6 +11,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire/testfixture"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting/sourcebootstrap"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -242,9 +243,7 @@ func (f Fixture) CommitConsumer(t *testing.T, consumer string, fill accounting.F
 		if _, err = tx.Exec(ctx, `INSERT INTO candles.chart_pool_fences VALUES('125',$1,1,false) ON CONFLICT DO NOTHING`, Pool); err != nil {
 			t.Fatal(err)
 		}
-		source := map[string]any{"sourceFillId": fill.SourceFillID, "position": fill.Position, "actualEmitter": fill.ActualEmitter, "provenance": fill.Provenance}
-		price := map[string]string{"numerator": "1", "denominator": "1"}
-		candle, err := json.Marshal(map[string]any{"poolAddress": Pool, "interval": "1m", "start": start, "open": price, "high": price, "low": price, "close": price, "openSource": source, "highSource": source, "lowSource": source, "closeSource": source, "volumeUsdlRaw": fill.USDLAmountRaw, "volumeTokenRaw": fill.TokenAmountRaw, "buyVolumeUsdlRaw": fill.USDLAmountRaw, "sellVolumeUsdlRaw": "0", "trades": 1, "revision": 1, "token": fill.Token, "settlement": fill.Settlement})
+		candle, err := testfixture.CommittedBar(fill, "1m")
 		if err != nil {
 			t.Fatal(err)
 		}
