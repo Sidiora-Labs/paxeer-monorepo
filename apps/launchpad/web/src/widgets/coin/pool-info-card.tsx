@@ -44,7 +44,7 @@ export default function PoolInfoCard({ poolAddress }: { poolAddress: string }) {
       </dl>
       {snapshot.isError
         ? <UnavailableState variant="chip" wrap title="Pool information" plural="auto" operation="IF_POOL_STATS" status={null} onRetry={() => { void snapshot.refetch(); }} className="self-start" />
-        : !loading && !stats && unavailable ? <UnavailableState variant="inline" title="Liquidity" operation={unavailable.operation} status={unavailable.status} className="text-xs" /> : null}
+        : !loading && !stats && unavailable ? <UnavailableState variant="inline" title="Liquidity" operation={unavailable.operation} status={unavailable.status} notServed={unavailable.notServed} className="text-xs" /> : null}
     </section>
   );
 }

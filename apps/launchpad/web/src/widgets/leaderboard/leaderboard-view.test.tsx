@@ -106,7 +106,7 @@ describe('leaderboard view without a backend', () => {
     // Nothing fabricated: no USDL figure and no digits in the unavailable frame beyond the segment labels.
     expect(frame.textContent).not.toContain('USDL');
     expect(frame.textContent!.replace(/1[DWM]/g, '')).not.toMatch(/\d/);
-    expect(frame.querySelector('button:not([role=radio])')!.textContent).toBe('Try again');
+    expect(frame.querySelector('button:not([role=radio])')).toBeNull();
     // The rolling board follows the hero.
     expect(view.container.querySelector('#traders-board-title')).not.toBeNull();
     expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);

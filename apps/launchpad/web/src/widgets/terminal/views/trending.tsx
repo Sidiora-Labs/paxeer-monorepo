@@ -25,7 +25,7 @@ export default function TerminalTrendingView() {
 
   let body: ReactNode;
   if (data.ranking.state === 'unsupported') {
-    body = <div className="rounded-md bg-surface-1"><UnavailableState title="Trending" operation={data.ranking.operation} status={data.ranking.status} message={data.ranking.message} onRetry={data.reload} /></div>;
+    body = <div className="rounded-md bg-surface-1"><UnavailableState title="Trending" operation={data.ranking.operation} status={data.ranking.status} notServed={data.ranking.notServed} message={data.ranking.message} onRetry={data.reload} /></div>;
   } else if (data.ranking.state === 'error') {
     body = <div className="rounded-md bg-surface-1"><ErrorState title="Trending can't load right now" message={userFacingMessage(data.ranking.error)} onRetry={data.ranking.retry} /></div>;
   } else {

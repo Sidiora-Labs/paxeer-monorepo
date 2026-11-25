@@ -27,7 +27,7 @@ function CalloutsTab({ pool }: { pool: string }) {
   const views = useMemo(() => (callouts.state === 'ready' ? callouts.data.data.items.map(poolCalloutView) : []), [callouts]);
   const statsFor = useCalloutStats(views);
   if (callouts.state === 'loading') return <div aria-busy="true" className="flex flex-col gap-2"><span className="sr-only">Loading callouts</span><CalloutCardSkeleton /><CalloutCardSkeleton /></div>;
-  if (callouts.state === 'unsupported') return <UnavailableState title="Callouts for this coin" plural operation={callouts.operation} status={callouts.status} message="Callouts are coming soon. Check back later." />;
+  if (callouts.state === 'unsupported') return <UnavailableState title="Callouts for this coin" plural operation={callouts.operation} status={callouts.status} notServed={callouts.notServed} message="Callouts are coming soon. Check back later." />;
   if (callouts.state === 'error') return <ErrorState title="Callouts can't load right now" message={userFacingMessage(callouts.error)} onRetry={callouts.retry} />;
   if (views.length === 0) return <EmptyState icon={Megaphone} title="No callouts yet" body="Be the first to post a callout for this coin." />;
   return <section className="flex flex-col gap-2" aria-label="Callouts">

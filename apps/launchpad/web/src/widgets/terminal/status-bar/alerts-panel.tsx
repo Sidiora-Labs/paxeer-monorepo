@@ -45,7 +45,7 @@ function failure(operation: string, error: unknown): Failure {
 
 function FailureNote({ value, title }: { value: Failure; title: string }) {
   return value.kind === 'unsupported'
-    ? <UnavailableState variant="inline" title={title} operation={value.marker.operation} status={value.marker.status} />
+    ? <UnavailableState variant="inline" title={title} operation={value.marker.operation} status={value.marker.status} notServed={value.marker.notServed} />
     : <ErrorState variant="inline" message={value.message} />;
 }
 

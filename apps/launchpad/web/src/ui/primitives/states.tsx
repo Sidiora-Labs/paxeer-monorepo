@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Button } from './button';
 import { IconButton } from './button';
 import { CountPill } from './badges';
+import { toUnsupported } from '@/core/market/unsupported';
 import { plainCopy, plainText, userFacingMessage } from '@/core/user-facing-error';
 
 /* ------------------------------------------------------- Human copy */
@@ -255,6 +256,7 @@ export interface UnavailableStateProps {
   /** Body copy. Machine text (codes, statuses, "Failed to fetch") is reworded before it is shown. */
   message?: string;
   onRetry?: () => void;
+  notServed?: boolean;
   title?: string;
   /**
    * Verb agreement for the title. Omitted keeps the historical "is" wording;
@@ -289,7 +291,8 @@ export function UnavailableState({
   operation,
   status,
   message,
-  onRetry,
+  onRetry: retry,
+  notServed,
   title = 'This section',
   plural = false,
   error,
@@ -300,8 +303,8 @@ export function UnavailableState({
   className,
 }: UnavailableStateProps) {
   // The operation id and status are technical detail: they are never rendered.
-  void operation;
   void status;
+  const onRetry = notServed || toUnsupported(operation, error)?.notServed ? undefined : retry;
   const fallback = 'Check back soon';
   const body =
     message !== undefined || error === undefined

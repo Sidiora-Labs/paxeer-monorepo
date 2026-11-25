@@ -1,5 +1,5 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
 import type { SdkClient } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
@@ -22,7 +22,7 @@ export async function loadHoldersPage(poolAddress: string, cursor: string | null
 export function useHolders(poolAddress: string | null | undefined, cursor: string | null = null): Loadable<HoldersPage> {
   const statsClient = browserStatsClient();
   const pool = poolAddress && /^0x[0-9a-fA-F]{40}$/.test(poolAddress) ? poolAddress.toLowerCase() : null;
-  const query = useQuery({
+  const query = useMarketQuery({
     queryKey: queryKeys.holders(statsClient?.config.apiOrigin ?? '', pool ?? '', cursor),
     queryFn: ({ signal }) => loadHoldersPage(pool as string, cursor, signal, statsClient),
     enabled: pool !== null && statsClient !== null,

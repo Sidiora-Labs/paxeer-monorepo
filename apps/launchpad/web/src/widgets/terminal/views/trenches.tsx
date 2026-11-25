@@ -191,7 +191,7 @@ function NewPairsBody({ state, timeframe }: { state: ExploreRowsState; timeframe
   const metadata = state.metadata.state === 'ready' ? state.metadata.data : {};
   const ranking = state.ranking;
   if (state.loading || ranking.state === 'loading') return <><span className="sr-only" role="status">Loading new pairs</span><TableRowsSkeleton rows={1} columns={3} dense /></>;
-  if (ranking.state === 'unsupported') return <UnavailableState title="New pairs" operation={ranking.operation} status={ranking.status} onRetry={state.reload} />;
+  if (ranking.state === 'unsupported') return <UnavailableState title="New pairs" operation={ranking.operation} status={ranking.status} notServed={ranking.notServed} onRetry={state.reload} />;
   if (ranking.state === 'error') return <ErrorState title="New pairs can't load right now" message={userFacingMessage(ranking.error)} onRetry={state.reload} variant="inline" />;
   if (buckets.newPairs.length === 0) return <EmptyState icon={Sprout} title="No new coins yet" body="New launches appear here as soon as they are created." action={<Button variant="secondary" size="sm" href="/create">Create coin</Button>} />;
   return (

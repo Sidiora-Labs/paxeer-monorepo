@@ -1,5 +1,6 @@
 'use client';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
+import { type UseQueryResult } from '@tanstack/react-query';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { useOperations } from './operations';
@@ -16,7 +17,7 @@ export type { PoolSnapshot, PoolIdentity } from './pool-resolver';
 export function usePoolSnapshot(address: string | null | undefined): UseQueryResult<PoolSnapshot> {
   const operations = useOperations();
   const candidate = address && /^0x[0-9a-fA-F]{40}$/.test(address) ? address.toLowerCase() : null;
-  return useQuery({
+  return useMarketQuery({
     queryKey: queryKeys.poolSnapshot(candidate ?? ''),
     queryFn: ({ signal }) => resolvePoolSnapshot(candidate as string, { operations }, signal),
     enabled: candidate !== null,

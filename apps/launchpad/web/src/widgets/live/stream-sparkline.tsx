@@ -22,7 +22,7 @@ export function StreamSparkline({ poolAddress, variant = 'overlay', className }:
   const sizing = variant === 'hero' ? 'h-auto w-full' : undefined;
 
   if (query.isPending) return <Sparkline data={[]} width={width} height={height} loading className={cn(sizing, className)} />;
-  if (query.isError) {
+  if (query.isError && !query.data) {
     if (decorative) return null;
     const marker = toUnsupported('IF_CANDLES', query.error);
     return (
@@ -32,19 +32,23 @@ export function StreamSparkline({ poolAddress, variant = 'overlay', className }:
         operation="IF_CANDLES"
         status={marker?.status ?? null}
         message={marker?.message ?? query.error.message}
+        error={query.error}
         onRetry={() => { void query.refetch(); }}
         className={className}
       />
     );
   }
   return (
-    <Sparkline
-      data={query.data.closes}
-      width={width}
-      height={height}
-      label="24h price"
-      decorative={decorative}
-      className={cn(sizing, className)}
-    />
+    <span className={className}>
+      {query.isError ? <span role="status" className="text-xs text-text-faint">Prices may be out of date</span> : null}
+      <Sparkline
+        data={query.data?.closes ?? []}
+        width={width}
+        height={height}
+        label="24h price"
+        decorative={decorative}
+        className={cn(sizing, className)}
+      />
+    </span>
   );
 }

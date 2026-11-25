@@ -51,7 +51,7 @@ export default function ProfileStats({ wallet, createdAt, className }: ProfileSt
         </>
       ) : stats.state === 'unsupported' ? (
         <div className="flex items-baseline">
-          <UnavailableState variant="inline" title="Follower counts" plural operation={stats.operation} status={stats.status} />
+          <UnavailableState variant="inline" title="Follower counts" plural operation={stats.operation} status={stats.status} notServed={stats.notServed} error={stats.error} />
         </div>
       ) : collected ? (
         <>

@@ -79,7 +79,7 @@ export default function PlatformMetricsFooter() {
           variant="inline"
           title="Platform activity"
           operation={marker.operation}
-          status={marker.status}
+          status={marker.status} notServed={marker.notServed} error={marker.error}
           className="text-2xs"
         />
       );

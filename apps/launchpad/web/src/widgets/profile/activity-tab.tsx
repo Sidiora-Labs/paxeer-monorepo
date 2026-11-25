@@ -101,7 +101,7 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
   if (activity.state === 'loading') {
     body = <Skeleton variant="rows" rows={5} label="activity" />;
   } else if (activity.state === 'unsupported' && activity.unavailable) {
-    body = <UnavailableState title="Activity" operation={activity.unavailable.operation} status={activity.unavailable.status} message="Check back in a bit" onRetry={activity.retry} />;
+    body = <UnavailableState title="Activity" operation={activity.unavailable.operation} status={activity.unavailable.status} notServed={activity.unavailable.notServed} message="Check back in a bit" onRetry={activity.retry} />;
   } else if (activity.state === 'error' && collected) {
     body = <CollectedPlaceholder label="Transfers" />;
   } else if (activity.state === 'error') {

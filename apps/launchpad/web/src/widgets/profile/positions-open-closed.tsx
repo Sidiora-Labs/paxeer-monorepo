@@ -146,7 +146,7 @@ export function PositionsOpenClosed({ wallet, mode, isOwner, className }: Positi
 
   if (portfolio.loadable.state === 'loading') return <Skeleton variant="rows" rows={1} label={`Loading ${mode} positions`} className={className} />;
   if (issue) return <PortfolioIssueState issue={issue} className={className} />;
-  if (portfolio.loadable.state === 'unsupported') return <UnavailableState title={label} plural operation={portfolio.loadable.operation} status={portfolio.loadable.status} message="Check back in a bit" onRetry={portfolio.refetch} className={className} />;
+  if (portfolio.loadable.state === 'unsupported') return <UnavailableState title={label} plural operation={portfolio.loadable.operation} status={portfolio.loadable.status} notServed={portfolio.loadable.notServed} error={portfolio.loadable.error} message="Check back in a bit" onRetry={portfolio.refetch} className={className} />;
   if (portfolio.loadable.state === 'error') {
     if (portfolio.owner && isSignedOutError(portfolio.loadable.error)) {
       return <SignedOutState title={`Sign in to see your ${mode} positions`} body="Sign in again to see your positions." className={className} />;

@@ -79,7 +79,7 @@ export function CalloutsRail({ title = 'Best callouts', initialWindow = '1d', ma
               </div>
             ) : feed.state === 'unsupported' ? (
               <div className="rounded-md bg-surface-1">
-                <UnavailableState title="Callouts" plural="auto" operation={feed.operation} status={feed.status} message={feed.status === 503 ? 'Check back in a bit' : undefined} onRetry={() => { void queryClient.invalidateQueries({ queryKey: queryKeys.feed('relevance', cursor, 50) }); }} />
+                <UnavailableState title="Callouts" plural="auto" operation={feed.operation} status={feed.status} notServed={feed.notServed} error={feed.error} message={feed.status === 503 ? 'Check back in a bit' : undefined} onRetry={() => { void queryClient.invalidateQueries({ queryKey: queryKeys.feed('relevance', cursor, 50) }); }} />
               </div>
             ) : feed.state === 'error' ? (
               <div className="rounded-md bg-surface-1"><ErrorState title="Can't load callouts right now" message="Check your connection and try again" onRetry={feed.retry} /></div>

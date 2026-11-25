@@ -1216,6 +1216,7 @@ describe('shared states: plural titles, raw-error suppression, panel and chip va
         title="Live streams"
         plural="auto"
         message="Failed to fetch"
+        error={new TypeError('Failed to fetch')}
         onRetry={() => {
           retried += 1;
         }}

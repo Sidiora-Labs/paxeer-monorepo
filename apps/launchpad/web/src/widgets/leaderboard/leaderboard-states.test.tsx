@@ -6,6 +6,7 @@ import { setTimeout as wait } from 'node:timers/promises';
 import React, { act } from 'react';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { SdkClient, type V2ContractTypes } from '@kindle/sdk';
+import { marketRetryPace } from '@/core/retry-pace';
 import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 
 interface BrowserDom { window: Window & typeof globalThis }
@@ -228,6 +229,7 @@ afterEach(() => {
   for (const response of held.keys()) response.destroy();
   held.clear(); requests.length = 0;
   answer = 'pending'; retryAfterMs = 1_000; retryable = true;
+  marketRetryPace.clear();
   vi.useRealTimers();
   window.localStorage.clear();
   document.documentElement.style.removeProperty('color-scheme');
@@ -296,26 +298,32 @@ for (const caller of callers) {
         }
 
         async function leaderboardUnavailable() {
-          vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+          vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
           const { container, queryClient } = mount(element(caller), width, scheme);
           await waitFor(() => held.size === 1);
           release('unavailable');
           const key = queryKeys.leaderboard('trader', '24h', limits[caller]);
-          await waitFor(() => queryClient.getQueryState(key)?.fetchFailureCount === 1 && unavailable(container, caller));
+          await waitFor(() => queryClient.getQueryState(key)?.fetchFailureCount === 1);
           expect(requests).toHaveLength(1);
           expect(queryClient.getQueryState(key)?.fetchStatus).toBe('fetching');
-          expect(placeholder(container)).toBe(false);
-          expect(container.textContent).not.toMatch(/DEPENDENCY_UNAVAILABLE|IF_LEADERBOARDS|503/);
-          expect(container.querySelector('a[href^="/profile/"]')).toBeNull();
-          if (caller !== 'ticker') expect(retryButton(container).disabled).toBe(false);
-          expectTokens(container, caller, 'unavailable', width, scheme);
+          expect(placeholder(container)).toBe(true);
           await advance(999);
           expect(requests).toHaveLength(1);
           await advance(1);
           await waitFor(() => queryClient.getQueryState(key)?.fetchFailureCount === 2);
           expect(requests).toHaveLength(2);
-          expect(unavailable(container, caller)).toBe(true);
+          expect(placeholder(container)).toBe(true);
+          for (const [index, delay] of [2_000, 4_000, 8_000].entries()) {
+            await advance(delay);
+            await waitFor(() => queryClient.getQueryState(key)?.fetchFailureCount === index + 3);
+          }
+          await waitFor(() => unavailable(container, caller));
+          expect(requests).toHaveLength(5);
           expect(placeholder(container)).toBe(false);
+          expect(container.textContent).not.toMatch(/DEPENDENCY_UNAVAILABLE|IF_LEADERBOARDS|503/);
+          expect(container.querySelector('a[href^="/profile/"]')).toBeNull();
+          if (caller !== 'ticker') expect(retryButton(container).disabled).toBe(false);
+          expectTokens(container, caller, 'unavailable', width, scheme);
         }
 
         it(leaderboardPending.name, leaderboardPending);
@@ -329,48 +337,52 @@ for (const caller of callers) {
 
 describe.each(callers)('%s retry budget', caller => {
   async function leaderboardRequestsStayBoundedForSixtySeconds() {
-    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
     answer = 'unavailable';
     const started = Date.now();
     const { container, queryClient } = mount(element(caller));
     const key = queryKeys.leaderboard('trader', '24h', limits[caller]);
-    await waitFor(() => queryClient.getQueryState(key)?.fetchFailureCount === 1 && unavailable(container, caller));
+    await waitFor(() => queryClient.getQueryState(key)?.fetchFailureCount === 1);
+    expect(placeholder(container)).toBe(true);
     for (const [index, delay] of [1_000, 2_000, 4_000, 8_000].entries()) {
       await advance(delay);
       await waitFor(() => queryClient.getQueryState(key)?.fetchFailureCount === index + 2);
       expect(requests).toHaveLength(index + 2);
-      expect(placeholder(container)).toBe(false);
+      expect(placeholder(container)).toBe(index < 3);
     }
     expect(queryClient.getQueryState(key)?.status).toBe('error');
-    await advance(45_000);
-    act(() => { focusManager.setFocused(false); focusManager.setFocused(true); onlineManager.setOnline(false); onlineManager.setOnline(true); });
-    await advance(0);
-    expect(Date.now() - started).toBe(60_000);
     expect(requests.map(request => request.at - started)).toEqual([0, 1_000, 3_000, 7_000, 15_000]);
-    expect(requests).toHaveLength(5);
+    await advance(30_000);
+    await waitFor(() => requests.length === 6 && queryClient.getQueryState(key)?.fetchFailureCount === 1);
+    expect(requests[5].at - started).toBe(45_000);
+    expect(unavailable(container, caller)).toBe(true);
+    expect(placeholder(container)).toBe(false);
+    await advance(60_000);
+    await waitFor(() => requests.length === 7 && queryClient.getQueryState(key)?.fetchFailureCount === 1);
+    expect(requests[6].at - started).toBe(105_000);
+    await advance(15_000);
+    expect(requests).toHaveLength(7);
+    expect(unavailable(container, caller)).toBe(true);
     expect(placeholder(container)).toBe(false);
     if (caller === 'ticker') return;
 
     answer = 'pending';
     act(() => retryButton(container).click());
     await waitFor(() => held.size === 1);
-    expect(requests).toHaveLength(6);
+    expect(requests).toHaveLength(8);
+    expect(requests[7].at - started).toBe(120_000);
     expect(placeholder(container)).toBe(false);
     expect(unavailable(container, caller)).toBe(true);
-    release('unavailable');
-    await waitFor(() => queryClient.getQueryState(key)?.fetchFailureCount === 1);
-    expect(placeholder(container)).toBe(false);
-    answer = 'rows';
-    await advance(1_000);
+    release('rows');
     await waitFor(() => container.querySelector(`a[href="/profile/${wallet}"]`) !== null && !placeholder(container));
-    expect(requests).toHaveLength(7);
+    expect(requests).toHaveLength(8);
   }
 
   it(leaderboardRequestsStayBoundedForSixtySeconds.name, leaderboardRequestsStayBoundedForSixtySeconds);
 });
 
 async function leaderboardRetryDelayUsesTheCacheCap() {
-  vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+  vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
   answer = 'unavailable'; retryAfterMs = 60_000;
   const { queryClient } = mount(<LeaderboardPanel initialWindow="24h" />);
   const key = queryKeys.leaderboard('trader', '24h', 25);
@@ -381,12 +393,15 @@ async function leaderboardRetryDelayUsesTheCacheCap() {
   await waitFor(() => queryClient.getQueryState(key)?.status === 'error');
   expect(requests).toHaveLength(2);
   expect(requests[1].at - requests[0].at).toBe(15_000);
-  await advance(45_000);
+  await advance(14_999);
   expect(requests).toHaveLength(2);
+  await advance(1);
+  await waitFor(() => requests.length === 3);
+  expect(requests[2].at - requests[0].at).toBe(30_000);
 }
 
 async function leaderboardNonRetryableUnavailableAnswersOnce() {
-  vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+  vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
   answer = 'unavailable'; retryable = false;
   const { container, queryClient } = mount(<LeaderboardPanel initialWindow="24h" />);
   await waitFor(() => queryClient.getQueryState(queryKeys.leaderboard('trader', '24h', 25))?.status === 'error');

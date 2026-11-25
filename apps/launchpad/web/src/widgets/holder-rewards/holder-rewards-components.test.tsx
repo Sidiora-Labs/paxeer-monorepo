@@ -161,7 +161,8 @@ describe('holder rewards components', () => {
     );
     expect(unindexed).toContain('Holder rewards are not available yet');
     expect(unindexed).not.toContain('IF_HOLDER_REWARDS_POOLS');
-    expect(unindexed).toContain('Try again');
+    expect(unindexed).not.toContain('<button');
+    expect(unindexed).not.toContain('Try again');
     const degraded = html(
       <HolderRewardsUnavailable
         availability={classifyHolderRewardsFailure(
@@ -181,6 +182,7 @@ describe('holder rewards components', () => {
     );
     expect(degraded).not.toContain('IF_HOLDER_REWARDS_POOLS');
     expect(degraded).toContain('Try again in a moment');
+    expect(degraded).toContain('<button');
     expect(degraded).not.toContain('DEPENDENCY_UNAVAILABLE');
     const failed = html(
       <HolderRewardsUnavailable

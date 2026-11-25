@@ -59,8 +59,8 @@ describe('transient retry policy', () => {
   it('keeps last-good data when a refetch ran out of transient retries, but not for other failures', () => {
     const refetch = () => Promise.resolve() as never;
     const blip = new HttpError(503, envelope('DEPENDENCY_UNAVAILABLE', true, 1000));
-    expect(loadable({ status: 'error', data: [1], error: blip, refetch }, 'IF_FEED')).toEqual({ state: 'ready', data: [1] });
-    expect(loadable({ status: 'error', data: undefined, error: blip, refetch }, 'IF_FEED')).toMatchObject({ state: 'unsupported', status: 503 });
+    expect(loadable({ status: 'error', data: [1], error: blip, refetch }, 'IF_FEED')).toEqual({ state: 'ready', data: [1], stale: true });
+    expect(loadable({ status: 'error', data: undefined, error: blip, refetch }, 'IF_FEED')).toMatchObject({ state: 'unsupported', status: 503, error: blip });
     expect(loadable({ status: 'error', data: [1], error: new HttpError(422), refetch }, 'IF_FEED').state).toBe('error');
   });
 });

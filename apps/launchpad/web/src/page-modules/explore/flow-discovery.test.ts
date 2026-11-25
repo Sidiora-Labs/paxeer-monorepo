@@ -202,8 +202,9 @@ async function discoveryShowsPoolLookupFailureWithoutDroppingTheRankedCoins() {
   expect(view.container.textContent).toContain('Pool details not available yet');
   expect(current!.loading).toBe(false);
   const before = replay.requests.length;
-  act(() => button(view.container, 'Try again').click());
-  await waitFor(() => replay.requests.length > before && view.queryClient.isFetching() === 0);
+  expect(view.container.querySelector('button')).toBeNull();
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+  expect(replay.requests).toHaveLength(before);
   expect(view.container.querySelector(`a[href="/coin/${real}"]`)).not.toBeNull();
 }
 
@@ -256,7 +257,9 @@ async function discoveryHomeSourcesExposeTheirRetryActions() {
       expect(movers).toBeDefined();
     });
     await waitFor(() => view.container.textContent?.includes('Pool details not available yet') === true && view.queryClient.isFetching() === 0);
-    expect(view.container.textContent).toContain('Try again');
+    const unavailable = Array.from(view.container.querySelectorAll('[role="status"]')).find(element => element.textContent?.includes('Pool details not available yet'));
+    expect(unavailable).toBeDefined();
+    expect(unavailable!.querySelector('button')).toBeNull();
     expect(view.container.querySelector(`a[href="/coin/${real}"]`)).not.toBeNull();
   }
 }

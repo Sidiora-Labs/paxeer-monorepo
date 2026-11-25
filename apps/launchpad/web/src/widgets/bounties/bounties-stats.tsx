@@ -54,7 +54,7 @@ function Value({ total, className }: { total: BountyTotal; className?: string })
 export function BountiesStats({ stats, openCount, openLoading = false, serviceDown = false, variant = 'chips', className }: BountiesStatsProps) {
   const totals = bountyTotals({ stats, openCount, openLoading, serviceDown });
   const note = serviceDown ? null
-    : stats.state === 'unsupported' ? <UnavailableState variant={variant === 'chips' ? 'chip' : 'inline'} title="Bounty totals" plural="auto" operation={stats.operation} status={stats.status} />
+    : stats.state === 'unsupported' ? <UnavailableState variant={variant === 'chips' ? 'chip' : 'inline'} title="Bounty totals" plural="auto" operation={stats.operation} status={stats.status} notServed={stats.notServed} error={stats.error} />
     : stats.state === 'error' ? <ErrorState variant="inline" title="Totals can't load right now" message="Totals can't load right now, try again" onRetry={stats.retry} />
     : null;
 

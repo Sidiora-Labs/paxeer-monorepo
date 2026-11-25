@@ -51,7 +51,7 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
   if (state.loading || ranking.state === 'loading') {
     body = <div role="status" aria-label={`Loading ${title.toLowerCase()}`} className="absolute inset-0 overflow-hidden"><TableRowsSkeleton rows={6} columns={3} dense /></div>;
   } else if (ranking.state === 'unsupported') {
-    body = <UnavailableState title={title} operation={ranking.operation} status={ranking.status} message={ranking.message} onRetry={state.reload} className="p-4" />;
+    body = <UnavailableState title={title} operation={ranking.operation} status={ranking.status} notServed={ranking.notServed} message={ranking.message} onRetry={state.reload} className="p-4" />;
   } else if (ranking.state === 'error') {
     body = <ErrorState title={`${title} can't load right now`} message={userFacingMessage(ranking.error)} onRetry={ranking.retry} className="p-4" />;
   } else if (rows.length === 0) {

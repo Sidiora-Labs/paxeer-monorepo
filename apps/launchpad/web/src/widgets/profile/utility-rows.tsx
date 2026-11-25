@@ -89,7 +89,7 @@ function CashbackRow({ wallet }: { wallet: string }) {
     return <UtilityRow icon={icon} title={title} caption={<Skeleton width={surfaceSpacing(40)} height={surfaceSpacing(3)} label="cashback balance" />} action={<Button size="sm" variant="primary" disabled>Claim</Button>} />;
   }
   if (state.state === 'unsupported') {
-    return <UtilityRow icon={icon} title={title} caption={<UnavailableState variant="inline" title="Cashback" operation={state.operation} status={state.status} className="text-xs" />} action={<Button size="sm" variant="secondary" onClick={() => { void query.refetch(); }}>Try again</Button>} />;
+    return <UtilityRow icon={icon} title={title} caption={<UnavailableState variant="inline" title="Cashback" operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} className="text-xs" />} action={<Button size="sm" variant="secondary" onClick={() => { void query.refetch(); }}>Try again</Button>} />;
   }
   if (state.state === 'error' && isSignedOutError(state.error)) {
     return (
@@ -173,7 +173,7 @@ function CalloutHistoryRow({ wallet }: { wallet: string }) {
   let detail: ReactNode = null;
   if (open) {
     if (state.state === 'loading') detail = <Skeleton variant="rows" rows={2} label="callout history" />;
-    else if (state.state === 'unsupported') detail = <UnavailableState variant="panel" title="Callout history" operation={state.operation} status={state.status} message="Check back in a bit" onRetry={() => { void query.refetch(); }} className="p-4" />;
+    else if (state.state === 'unsupported') detail = <UnavailableState variant="panel" title="Callout history" operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} message="Check back in a bit" onRetry={() => { void query.refetch(); }} className="p-4" />;
     else if (state.state === 'error') detail = <ErrorState variant="inline" message="Can't load your callouts right now" />;
     else if (state.data.length === 0) detail = <EmptyState icon={History} title="No callouts yet" body="Post a callout on a coin and track how it runs here" action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} className="p-4" />;
     else {

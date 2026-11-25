@@ -123,7 +123,7 @@ export function CalloutComposer({ poolAddress, onPosted, variant = 'inline', cla
         inputProps={{ value: position, onChange: event => setPosition(event.target.value), disabled: posting, maxLength: 160, placeholder: 'Holding 1,200 tokens' }}
       />
       {submit.state === 'unsupported' ? (
-        <UnavailableState variant="inline" title="Posting callouts" operation={submit.operation} status={submit.status} />
+        <UnavailableState variant="inline" title="Posting callouts" operation={submit.operation} status={submit.status} notServed={submit.notServed} />
       ) : submit.state === 'error' ? (
         <p role="alert" className="text-xs text-danger">{submit.message}</p>
       ) : submit.state === 'posted' ? (
