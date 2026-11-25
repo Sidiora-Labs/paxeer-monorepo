@@ -213423,7 +213423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1176]
 title = "Let the charts consumer prove the first position of a pool from the indexed records before it takes the partition lease, for any distance between creation and first trade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
