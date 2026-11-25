@@ -212859,7 +212859,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1188]
 title = "Let the ranking judge an open fill pool by pool instead of refusing its whole refresh"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
