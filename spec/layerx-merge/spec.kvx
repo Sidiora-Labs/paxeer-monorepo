@@ -17092,6 +17092,18 @@ value = "One. The default preset is Trending. The list of the presets of apps/la
 basis = "Gotcha 4922."
 affects = []
 
+[decision.3997]
+title = "The stream relay of the api writes its retention line only for a pass that removed frames"
+value = "One. The loop of the function Run of services/launchpad/api/internal/app/stream_relay.go writes the line stream relay retention pass, with the count removed_frames, only when the pass removed at least one frame. A pass that removed nothing writes no line. The level, the message and the member of the line stay as they are. Two. Nothing else of the loop changes: the order of the calls of a pass, the idle interval, the wait after a failure, the line stream relay pass failed at the level error (line 221) and the state the readiness reads. Three. New cases with the name prefix TestStreamRelayQuietPass in the package internal/app of the api, on the PostgreSQL and the broker of the present cases of the relay and with a logger that writes into a buffer of the case, as the present case TestOutboxBoundedReaderReplay of services/launchpad/api/internal/app/stream_bounded_test.go does (line 27). Case a: a relay whose outbox holds nothing to publish and nothing to remove runs for at least twenty passes. The buffer holds no line stream relay retention pass and no line at the level error or warn. The case counts the passes by what it reads from the relay or from the database and does not rely on a pause alone. Case b: a relay whose outbox holds published frames older than the retention window runs until they are removed. The buffer holds exactly one line stream relay retention pass for each pass that removed frames, the counts of these lines add up to the removed frames, and no line holds the count 0. Four. Every present case stays word for word and passes, the assertion of the count line of the case TestOutboxBoundedReaderReplay (line 155) among them. Five. Not part of this task: the shared module, the function Prune and its schedule, the other loops of the api, the documents. Only files of the package internal/app of the api change. Six. The final message names the changed lines, and every other line at the level info that a loop of the api writes for a pass in which nothing happened, with file and line, found by a search of the package, without a change to it. Seven. Target: the verification of task 22.39.1195 passes. It runs the lint stage of the api module and the cases of the package internal/app, and requires a case with the name prefix TestStreamRelayQuietPass in that package. Task 22.39.1195. "
+basis = "Gotcha 4923."
+affects = []
+
+[decision.3998]
+title = "The job loop of the pnl service reports a failed pass by its row of failures: a warning first, an error from the third failed pass in a row and then at most every 30 seconds, and one line when the job passes again"
+value = "One. The function loop of services/launchpad/pnl-tracker/internal/app/app.go (line 484) counts, for its job, the failed passes in a row. A pass that passes sets the count to zero. Two. The first and the second failed pass of a row each write one line at the level warn with the message background job pass failed and the members job, err and failed_passes (the count of the row). Three. The third failed pass of a row writes the line background job failed at the level error, as today, with the further member failed_passes. While the row lasts, a later failed pass writes that line again only when at least 30 seconds have passed since the last such line of the job, each time with the count the row has reached. Four. The first pass that passes after a row of failures writes one line at the level info with the message background job recovered and the members job and failed_passes (the length of the row that ended). A pass that passes after a pass that passed writes nothing, as today. Five. The numbers 3 and 30 seconds are constants of the package. The loop reads the time for point three through a clock that only cases replace. Nothing else of the loop changes: a failed pass never ends the loop, a cancelled context ends it as today, the interval and the jobs stay, and the loop gives the job no second try inside a pass. Six. New cases with the name prefix TestBackgroundLoopStreak in the package internal/app, without a database, with a logger that writes into a buffer of the case and an interval of one millisecond. Case a: a job that fails in its second pass and passes otherwise. The buffer holds exactly one line at the level warn with failed_passes=1, exactly one line background job recovered with failed_passes=1, and no line at the level error. Case b: a job that fails in every pass, with the clock of the case standing still. After at least ten passes the buffer holds exactly two lines at the level warn (failed_passes=1 and failed_passes=2) and exactly one line at the level error (failed_passes=3). The case then moves its clock by 30 seconds, and the next failed pass writes exactly one further line at the level error with the count the row has reached. Case c: a job that fails five times in a row and then passes. The buffer holds one line background job recovered with failed_passes=5, and a failure after it starts a new row with a line at the level warn and failed_passes=1. Case d: a context cancelled during a row of failures ends the loop, and the loop writes no line after the pass in which it was cancelled. Seven. The present cases TestBackgroundLoopContinuesAfterErrorAndStopsOnCancellation and TestBackgroundLoopStopsAfterCancellationInFirstRun of services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go (lines 730 and 755) stay word for word and pass, and so does every other present case. The new cases pass under the race detector in twenty runs in a row. Eight. Not part of this task: the jobs and what they read, the job community fee ownership and the time limit of its reads from the chain node, the readiness of the service, the other services. Only files of the package internal/app of the pnl module change. Nine. The final message names the changed lines, and for the jobs at 100 ms and at one second the count of lines in a minute that a job which fails in every pass wrote before the change and writes after it. Ten. Target: the verification of task 22.39.1196 passes. It runs the lint stage of the pnl module, the cases of the module with its reviewed list, the cases with the name prefix TestBackgroundLoop of the package internal/app twenty times under the race detector, and requires a case with the name prefix TestBackgroundLoopStreak in that package. Task 22.39.1196. "
+basis = "Gotcha 4924."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46752,6 +46764,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1196]
+title = "Let the job loop of the pnl service warn for a first failed pass, report an error from the third failed pass in a row at most every 30 seconds, and write one line when the job passes again"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=20 -race -run ^TestBackgroundLoop ./internal/app/ && GOWORK=off go test -count=1 -list ^TestBackgroundLoopStreak ./internal/app/ | grep -q ^TestBackgroundLoopStreak)"
+do_1 = "do_1 Gotcha 4924, decision 3998. Read the function loop of services/launchpad/pnl-tracker/internal/app/app.go (line 484) with its three callers (lines 465 and 552 and the function startJourneyJobs at line 927), and the present cases TestBackgroundLoopContinuesAfterErrorAndStopsOnCancellation and TestBackgroundLoopStopsAfterCancellationInFirstRun of services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go (lines 730 and 755)."
+symbols = []
+
+[capability.22.39.1195]
+title = "Let the stream relay of the api write its retention line only for a pass that removed frames"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/app/... && GOWORK=off go test -count=1 -list ^TestStreamRelayQuietPass ./internal/app/ | grep -q ^TestStreamRelayQuietPass)"
+do_1 = "do_1 Gotcha 4923, decision 3997. Read the function Run of services/launchpad/api/internal/app/stream_relay.go (line 202) to its end, the function Prune of sdk/launchpad/shared/delivery/stream_retention.go (line 73) with the schedule of its lease, and the present cases of the relay in the files stream_bounded_test.go and stream_relay_production_test.go of the package internal/app of the api with the fixture they share (the database, the broker and the document of the relay)."
+symbols = []
 
 [capability.22.44.150]
 title = "Open the Explore view on Trending and let an empty preset say what it lists and lead to a list with coins"
@@ -212992,6 +213022,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1196]
+title = "Let the job loop of the pnl service warn for a first failed pass, report an error from the third failed pass in a row at most every 30 seconds, and write one line when the job passes again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1196"]
+interfaces = []
+do_1 = "do_1 Gotcha 4924, decision 3998. Read the function loop of services/launchpad/pnl-tracker/internal/app/app.go (line 484) with its three callers (lines 465 and 552 and the function startJourneyJobs at line 927), and the present cases TestBackgroundLoopContinuesAfterErrorAndStopsOnCancellation and TestBackgroundLoopStopsAfterCancellationInFirstRun of services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go (lines 730 and 755)."
+do_2 = "do_2 Write the cases a to d of decision 3998 point six first and see the cases a and b fail on the tree as it is. Then bring the function loop into the form of points one to five. Points seven and eight hold: only files of the package internal/app of the pnl module change, and the two present cases stay word for word."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point ten holds and point nine names what the final message holds. The cases need the PostgreSQL of the test environment and the anvil program, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=20 -race -run ^TestBackgroundLoop ./internal/app/ && GOWORK=off go test -count=1 -list ^TestBackgroundLoopStreak ./internal/app/ | grep -q ^TestBackgroundLoopStreak)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1195]
+title = "Let the stream relay of the api write its retention line only for a pass that removed frames"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1195"]
+interfaces = []
+do_1 = "do_1 Gotcha 4923, decision 3997. Read the function Run of services/launchpad/api/internal/app/stream_relay.go (line 202) to its end, the function Prune of sdk/launchpad/shared/delivery/stream_retention.go (line 73) with the schedule of its lease, and the present cases of the relay in the files stream_bounded_test.go and stream_relay_production_test.go of the package internal/app of the api with the fixture they share (the database, the broker and the document of the relay)."
+do_2 = "do_2 Write the cases a and b of decision 3997 point three first and see case a fail on the tree as it is. Then change the line of point one. Points two, four and five hold: only files of the package internal/app of the api change."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point seven holds and point six names what the final message holds. The cases need the PostgreSQL of the test environment and the anvil program, which the variables of the packages name. The cases of the relay need the broker program of the test environment, which the variables of the present cases name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. Another task changes files of the package internal/app of the api at the same time: where the main line has changed a file of the package, keep its changes. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && GOWORK=off go vet ./internal/app/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/app/... && GOWORK=off go test -count=1 -list ^TestStreamRelayQuietPass ./internal/app/ | grep -q ^TestStreamRelayQuietPass)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.150]
 title = "Open the Explore view on Trending and let an empty preset say what it lists and lead to a list with coins"
 status = "pending"
@@ -213206,7 +213296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1190]
 title = "Let the attribution of a direct trade on the native execution find the settlement transfer at the address of the launchpad module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
