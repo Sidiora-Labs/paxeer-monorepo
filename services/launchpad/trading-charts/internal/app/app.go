@@ -46,6 +46,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/migrate"
@@ -81,6 +82,10 @@ type App struct {
 
 // New runs migrations and builds every component.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
+	accountingHealth, err := newConsumerReadiness(cfg, "accounting_consumer", logger, time.Now)
+	if err != nil {
+		return nil, err
+	}
 	secretCheck, secretStop, secretErr := cfg.ResolveProductionSecrets(ctx)
 	if secretErr != nil {
 		return nil, secretErr
@@ -267,6 +272,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		return nil, err
 	}
+	if accountingConsumer != nil {
+		accountingConsumer.Progress = accountingHealth
+		secretChecks["accounting_consumer"] = accountingHealth.Check
+	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins:    cfg.CORSAllowedOrigins,
 		TrustedProxies: trustedProxies,
@@ -330,7 +339,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	httpapi.RegisterWS(ctx, router, httpapi.WSDeps{})
 
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", consumerhealth.Metrics(metrics, "chartsd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone, accountingHealth))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err

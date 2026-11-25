@@ -43,6 +43,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumer"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/migrate"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/store"
@@ -91,6 +92,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 }
 
 func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Logger, openPool func(context.Context, *config.Config, shareddb.PoolOptions) (*pgxpool.Pool, error)) (*App, error) {
+	accountingHealth, err := newConsumerReadiness(cfg, "accounting_consumer", logger, time.Now)
+	if err != nil {
+		return nil, err
+	}
 	secretCheck, secretStop, secretErr := cfg.ResolveProductionSecrets(ctx)
 	if secretErr != nil {
 		return nil, secretErr
@@ -297,7 +302,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			}
 			transports = append(transports, transport)
 			current := transport
-			jobs = append(jobs, statsRuntimeJob{name: "market accounting", run: consumerJobRunAgain("market accounting", runtimeHealth, func(ctx context.Context) error { return accountingConsumer.Run(ctx, current) }, waitConsumerJob, systemConsumerJobClock{})})
+			jobs = append(jobs, statsRuntimeJob{name: "market accounting", run: consumerJobRunAgain("market accounting", &statsRuntimeHealth{failures: map[string]error{}}, func(ctx context.Context) error { return accountingConsumer.Run(ctx, current) }, waitConsumerJob, systemConsumerJobClock{})})
 		}
 		publisher, e := natsdriver.NewPublisher(nc, d.Phase2.OutputStream)
 		if e != nil {
@@ -439,6 +444,10 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 	for name, check := range secretChecks {
 		secretChecks[name] = loggedStatsCheck(logger, name, check)
 	}
+	if accountingConsumer != nil {
+		accountingConsumer.Progress = accountingHealth
+		secretChecks["accounting_consumer"] = accountingHealth.Check
+	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins: cfg.CORSAllowedOrigins,
 		Health: sharedhttp.HealthDeps{
@@ -496,7 +505,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 	})(router)
 
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", consumerhealth.Metrics(metrics, "statsd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone, accountingHealth))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err

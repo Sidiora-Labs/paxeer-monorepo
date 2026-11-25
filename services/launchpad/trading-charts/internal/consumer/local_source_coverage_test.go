@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
@@ -269,6 +270,7 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	consumer.Progress = consumerhealth.New("accounting_consumer", 5*time.Minute, nil, time.Now)
 	lease, err := consumer.config.Lease(ctx, fills[0])
 	if err != nil || lease.Epoch < 1 {
 		t.Fatalf("canonical pool bootstrap: %+v, %v", lease, err)
@@ -289,6 +291,9 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 			}
 			consumed++
 		}
+	}
+	if snapshot := consumer.Progress.Snapshot(); snapshot.LastSuccess.IsZero() || snapshot.ConsecutiveFailures != 0 || snapshot.RetryPartitions != 0 {
+		t.Fatalf("committed delivery progress: %+v", snapshot)
 	}
 	var inbox, watermark int
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM candles.chart_inbox`).Scan(&inbox); err != nil || inbox != len(fills) {

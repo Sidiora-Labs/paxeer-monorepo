@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -402,6 +403,7 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 		}
 		return
 	}
+	consumer.Progress = consumerhealth.New("inventory_consumer", 5*time.Minute, nil, time.Now)
 	count := 0
 	for count < len(frames) {
 		messages, e := transport.Fetch(ctx)
@@ -417,6 +419,9 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 			}
 			count++
 		}
+	}
+	if snapshot := consumer.Progress.Snapshot(); snapshot.LastSuccess.IsZero() || snapshot.ConsecutiveFailures != 0 || snapshot.RetryPartitions != 0 {
+		t.Fatalf("committed inventory progress: %+v", snapshot)
 	}
 	if count != len(frames) {
 		t.Fatal(count, len(frames))
