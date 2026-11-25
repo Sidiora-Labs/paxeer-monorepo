@@ -213505,7 +213505,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.151]
 title = "Judge the state of the chart by the heartbeat and the contiguity of its stream, so that a coin without a recent trade does not read as out of date"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
