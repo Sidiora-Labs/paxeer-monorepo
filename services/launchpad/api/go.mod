@@ -6,9 +6,9 @@ module github.com/Sidiora-Technologies/KindleLaunch/core/api
 go 1.27.0
 
 require (
-	github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts v0.0.0
 	github.com/Sidiora-Technologies/KindleLaunch/core/discovery v0.0.0
 	github.com/Sidiora-Technologies/KindleLaunch/core/notifications v0.0.0
+	github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts v0.0.0
 	github.com/Sidiora-Technologies/KindleLaunch/protocol v0.0.0-00010101000000-000000000000
 	github.com/Sidiora-Technologies/KindleLaunch/shared v0.0.0
 	github.com/caarlos0/env/v11 v11.4.1
