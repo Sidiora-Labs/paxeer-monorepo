@@ -1013,6 +1013,7 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 		if e != nil {
 			return result, e
 		}
+		holder := settlementAssetHolder(f)
 		var tokenCandidates, quoteCandidates []movement
 		for _, log := range receipt.Logs {
 			if log == nil {
@@ -1035,7 +1036,7 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 			if emitter == f.Token.Address && m.Amount == f.TokenAmountRaw && (f.Side == sideBuy && m.From == f.PoolAddress || f.Side == sideSell && m.To == f.PoolAddress) {
 				tokenCandidates = append(tokenCandidates, m)
 			}
-			if emitter == f.Settlement.Address && m.Amount == f.USDLAmountRaw && (f.Side == sideBuy && m.To == f.PoolAddress || f.Side == sideSell && m.From == f.PoolAddress) {
+			if emitter == f.Settlement.Address && m.Amount == f.USDLAmountRaw && (f.Side == sideBuy && m.To == holder || f.Side == sideSell && m.From == holder) {
 				quoteCandidates = append(quoteCandidates, m)
 			}
 		}
