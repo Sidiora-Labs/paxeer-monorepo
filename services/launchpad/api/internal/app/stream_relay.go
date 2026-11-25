@@ -206,7 +206,7 @@ func (s *streamRelay) Run(ctx context.Context, logger *slog.Logger) {
 		err := s.relay.RunOnce(ctx)
 		removed, pruneErr := s.relay.Prune(ctx)
 		err = errors.Join(err, pruneErr)
-		if logger != nil {
+		if logger != nil && removed > 0 {
 			logger.Info("stream relay retention pass", slog.Int64("removed_frames", removed))
 		}
 		if ctx.Err() != nil {
