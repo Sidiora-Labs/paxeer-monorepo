@@ -213265,7 +213265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1200]
 title = "Let the live path of the pnl module ask log ranges the nodes accept, end the pages of a transaction inside its time bound, and ask the second node for every answer that says a height is no longer held"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
