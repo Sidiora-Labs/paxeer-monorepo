@@ -176,7 +176,11 @@ func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 				_ = control("resnapshot_required", lastWritten, broker.StreamFailure(e), nil)
 				return
 			}
-			if replay.CheckDelivery(ctx) != nil || write(frame, cursor) != nil {
+			if err := replay.CheckDelivery(ctx); err != nil {
+				_ = control("resnapshot_required", lastWritten, broker.StreamFailure(err), nil)
+				return
+			}
+			if write(frame, cursor) != nil {
 				return
 			}
 			lastWritten = cursor
@@ -207,7 +211,11 @@ func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 			closeAt = drainTimer.C
 			drain = nil
 		case <-heartbeat.C:
-			if replay.CheckDelivery(ctx) != nil || rc.SetWriteDeadline(time.Now().Add(time.Second)) != nil {
+			if err := replay.CheckDelivery(ctx); err != nil {
+				_ = control("resnapshot_required", lastWritten, broker.StreamFailure(err), nil)
+				return
+			}
+			if rc.SetWriteDeadline(time.Now().Add(time.Second)) != nil {
 				return
 			}
 			if _, e := w.Write([]byte(":hb\n\n")); e != nil {

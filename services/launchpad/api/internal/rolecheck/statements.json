@@ -1264,7 +1264,7 @@
     "id": "broker/postgres_stream.PostgresStream.Resume.1",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresStream.Resume",
-    "line": 355,
+    "line": 356,
     "expression": "\"SELECT generation::text,transaction_timestamp() FROM \"+s.table(\"stream_generation\")+\" WHERE singleton\"",
     "sql": "SELECT generation::text,transaction_timestamp() FROM \"api_stream\".\"stream_generation\" WHERE singleton",
     "bindings": {},
@@ -1293,7 +1293,7 @@
     "id": "broker/postgres_stream.PostgresStream.Resume.2",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresStream.Resume",
-    "line": 364,
+    "line": 365,
     "expression": "\"SELECT s.scope,s.initial_offsets,transaction_timestamp(),g.generation::text FROM \"+s.table(\"stream_snapshots\")+\" s CROSS JOIN \"+s.table(\"stream_generation\")+\" g WHERE s.snapshot_id=$1 AND s.account_id=$2 AND s.session_id=$3 AND s.auth_epoch=$4 AND s.filter_digest=$5 AND s.expires_at>transaction_timestamp() AND g.singleton AND s.generation=g.generation\"",
     "sql": "SELECT s.scope,s.initial_offsets,transaction_timestamp(),g.generation::text FROM \"api_stream\".\"stream_snapshots\" s CROSS JOIN \"api_stream\".\"stream_generation\" g WHERE s.snapshot_id=$1 AND s.account_id=$2 AND s.session_id=$3 AND s.auth_epoch=$4 AND s.filter_digest=$5 AND s.expires_at>transaction_timestamp() AND g.singleton AND s.generation=g.generation",
     "bindings": {},
@@ -1332,7 +1332,7 @@
     "id": "broker/postgres_stream.PostgresStream.Resume.3",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresStream.Resume",
-    "line": 391,
+    "line": 403,
     "expression": "\"SELECT COALESCE(min(sequence),0)::text FROM \"+s.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1\"",
     "sql": "SELECT COALESCE(min(sequence),0)::text FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1",
     "bindings": {},
@@ -1361,7 +1361,7 @@
     "id": "broker/postgres_stream.PostgresStream.Resume.4",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresStream.Resume",
-    "line": 402,
+    "line": 414,
     "expression": "\"SELECT count(*),COALESCE(sum(octet_length(frame)),0)::bigint FROM (SELECT frame FROM \"+s.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT 10001) retained\"",
     "sql": "SELECT count(*),COALESCE(sum(octet_length(frame)),0)::bigint FROM (SELECT frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT 10001) retained",
     "bindings": {},
@@ -1393,7 +1393,7 @@
     "id": "broker/postgres_stream.PostgresReplay.Check.1",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresReplay.Check",
-    "line": 458,
+    "line": 483,
     "expression": "\"SELECT generation::text FROM \"+r.source.table(\"stream_generation\")+\" WHERE singleton\"",
     "sql": "SELECT generation::text FROM \"api_stream\".\"stream_generation\" WHERE singleton",
     "bindings": {},
@@ -1417,10 +1417,38 @@
     "ctes": []
   },
   {
+    "id": "broker/postgres_stream.PostgresReplay.Check.2",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresReplay.Check",
+    "line": 491,
+    "expression": "\"SELECT EXISTS(SELECT 1 FROM \"+r.source.table(\"stream_projection\")+\" WHERE topic=ANY($1) AND sequence>0 AND frame IS NOT NULL)\"",
+    "sql": "SELECT EXISTS(SELECT 1 FROM \"api_stream\".\"stream_projection\" WHERE topic=ANY($1) AND sequence>0 AND frame IS NOT NULL)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "frame",
+      "sequence",
+      "topic"
+    ],
+    "ctes": []
+  },
+  {
     "id": "broker/postgres_stream.PostgresReplay.Batch.1",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresReplay.Batch",
-    "line": 501,
+    "line": 535,
     "expression": "\"SELECT sequence::text,frame FROM \"+r.source.table(\"stream_delivery_outbox\")+\" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4\"",
     "sql": "SELECT sequence::text,frame FROM \"api_stream\".\"stream_delivery_outbox\" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4",
     "bindings": {},

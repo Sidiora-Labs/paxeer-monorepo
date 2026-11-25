@@ -22,7 +22,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func topicNotStartedRead(t *testing.T, server *httptest.Server, topics []string, status int, code string) {
+func topicNotStartedRead(t *testing.T, server *httptest.Server, topics []string, status int, code string, expected ...string) {
 	t.Helper()
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/v2/snapshots?"+url.Values{"topics": {strings.Join(topics, ",")}}.Encode(), nil)
 	if err != nil {
@@ -52,8 +52,16 @@ func topicNotStartedRead(t *testing.T, server *httptest.Server, topics []string,
 				} `json:"snapshot"`
 			} `json:"data"`
 		}
-		if err := json.Unmarshal(raw, &result); err != nil || len(result.Data.Snapshot.Topics) != len(topics) {
+		if len(expected) == 0 {
+			expected = topics
+		}
+		if err := json.Unmarshal(raw, &result); err != nil || len(result.Data.Snapshot.Topics) != len(expected) {
 			t.Fatalf("snapshot topics: %s %v", raw, err)
+		}
+		for i, entry := range result.Data.Snapshot.Topics {
+			if entry.Topic != expected[i] {
+				t.Fatalf("snapshot topic: %s, want %s", entry.Topic, expected[i])
+			}
 		}
 		return
 	}
@@ -89,7 +97,7 @@ func TestTopicNotStartedHubSnapshots(t *testing.T) {
 	server, _ := newServer(t, ws.Options{PrivateStream: stream, AllowedOrigins: []string{"https://web.example"}, Logger: logger})
 	missing := "market.price.0x3333333333333333333333333333333333333333"
 	topicNotStartedRead(t, server, []string{missing}, 404, "TOPIC_NOT_STARTED")
-	topicNotStartedRead(t, server, []string{topic, missing}, 404, "TOPIC_NOT_STARTED")
+	topicNotStartedRead(t, server, []string{topic, missing}, 200, "", topic)
 	if _, err := pool.Exec(context.Background(), `INSERT INTO api_stream.stream_projection(topic,sequence) VALUES($1,0)`, missing); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +135,7 @@ func TestTopicNotStartedHubSnapshots(t *testing.T) {
 }
 
 func TestTopicNotStartedUnknownTopicPrecedence(t *testing.T) {
-	stream, pool, _ := wsStreamFixture(t)
+	stream, pool, topic := wsStreamFixture(t)
 	registry, err := rest.NewDevelopmentStream(context.Background(), rest.DevelopmentStreamOptions{
 		Pool: pool, Store: store.New(pool, nil), SigningKey: []byte(strings.Repeat("k", 32)), Authority: sharedauth.HTTPStreamAuthority{},
 	})
@@ -137,6 +145,7 @@ func TestTopicNotStartedUnknownTopicPrecedence(t *testing.T) {
 	server, _ := newServer(t, ws.Options{PrivateStream: stream, TopicRegistry: registry, AllowedOrigins: []string{"https://web.example"}})
 	missing := "market.price.0x3333333333333333333333333333333333333333"
 	topicNotStartedRead(t, server, []string{missing}, 404, "NOT_FOUND")
+	topicNotStartedRead(t, server, []string{topic, missing}, 404, "NOT_FOUND")
 	topicNotStartedRead(t, server, []string{"market.rankings.trending"}, 404, "TOPIC_NOT_STARTED")
 }
 
