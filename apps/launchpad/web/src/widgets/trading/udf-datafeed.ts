@@ -106,7 +106,14 @@ export class CanonicalCandleRevisionMerge {
     if (candle.poolAddress.toLowerCase() !== pool.toLowerCase() || candle.interval !== interval) return 'resync';
     const key = `${candle.poolAddress.toLowerCase()}:${candle.interval}:${candle.start}`;
     const revision = BigInt(candle.revision);
-    const content = canonicalChartContent(Object.fromEntries(Object.entries(candle).filter(([key]) => key !== 'snapshotId')));
+    const content = canonicalChartContent({
+      prices: [candle.open, candle.high, candle.low, candle.close].map(price => ({ numerator: price.numerator, denominator: price.denominator })),
+      volumeUsdlRaw: candle.volumeUsdlRaw,
+      volumeTokenRaw: candle.volumeTokenRaw,
+      buyVolumeUsdlRaw: candle.buyVolumeUsdlRaw,
+      sellVolumeUsdlRaw: candle.sellVolumeUsdlRaw,
+      trades: candle.trades,
+    });
     const old = this.candles.get(key);
     if (old && revision < old.revision) return 'ignore';
     if (old && revision === old.revision) return content === old.content ? 'ignore' : 'resync';
