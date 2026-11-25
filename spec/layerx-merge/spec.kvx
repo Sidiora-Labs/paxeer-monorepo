@@ -213374,7 +213374,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1177]
 title = "Let the stats consumer bootstrap a pool from the canonical creation record of the pool and prove it from the indexed records before the lease"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
