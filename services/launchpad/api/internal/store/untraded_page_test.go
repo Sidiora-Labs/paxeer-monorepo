@@ -70,8 +70,8 @@ func TestUntradedPoolPageClassification(t *testing.T) {
 	f.Exec(t, `UPDATE indexer.indexer_block_completeness SET stream_id=$1 WHERE height=100`, accountingtest.Stream)
 	fill, position := f.Publish(t)
 	for _, read := range []func(context.Context, store.AccountingPageRequest) (store.AccountingPage, error){f.Model.Trades, f.Model.Candles} {
-		if _, err := read(t.Context(), request); !errors.Is(err, store.ErrAccountingNotReady) {
-			t.Fatalf("position without offsets: %v", err)
+		if page, err := read(t.Context(), request); !errors.Is(err, store.ErrAccountingUntraded) || page.Items == nil || len(page.Items) != 0 || page.Revision != "" || string(page.Watermark) != "null" {
+			t.Fatalf("position awaiting consumer offsets: %+v %v", page, err)
 		}
 	}
 	f.Commit(t, fill, position)
@@ -101,8 +101,8 @@ func TestUntradedPoolPageRequiresAbsentConsumerOffsets(t *testing.T) {
 			f.Exec(t, "INSERT INTO "+pgx.Identifier{schema, "delivery_partition_offsets"}.Sanitize()+" VALUES($1,$2,'market',$3,$4,1,'',1,'')", consumer, accountingtest.Generation, "125:"+accountingtest.Pool, strings.Repeat("a", 64))
 			r := store.AccountingPageRequest{Pool: accountingtest.Pool, Limit: 5, Interval: "1m", From: 1699999980000, To: 1700000040000}
 			for _, read := range []func(context.Context, store.AccountingPageRequest) (store.AccountingPage, error){f.Model.Trades, f.Model.Candles} {
-				if _, err := read(t.Context(), r); !errors.Is(err, store.ErrAccountingNotReady) {
-					t.Fatalf("consumer offset: %v", err)
+				if _, err := read(t.Context(), r); !errors.Is(err, store.ErrDataIntegrity) {
+					t.Fatalf("unverified consumer offset: %v", err)
 				}
 			}
 		})
