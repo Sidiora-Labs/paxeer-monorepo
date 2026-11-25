@@ -16936,6 +16936,24 @@ value = "One. The rule of pace holds for each resource of a view, that is one ro
 basis = "Gotcha 4897."
 affects = []
 
+[decision.3971]
+title = "The launchpad web takes the look of its visual brief while the arrangement and the sizes of its views stay"
+value = "One. The brief at spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md is the target for every view of the launchpad web. It changes colour, surface, type weight, shape, the composition inside a panel and every state. The arrangement of the views and the sizes stay, and decision 3708 stays in force: no size grows above the present state. The rules of the render check stay: contrast, visible focus, touch size up to the width 834, the type steps, reduced motion, text at double size and no sideways scroll from the width 360. Where a value of the brief fails a measure of the check, the value moves in lightness and keeps its hue, and the final message names it. Two. What stays: the accent hue and the mark of the product, the font family, the routes, the texts of the legal documents and the data layer. A task of this series changes markup, classes, composition and the forms of states. It changes nothing in what a view sends, in the trade, wallet and sign-in flows, in the stream client, in the market, realtime, wallet and client modules under apps/launchpad/web/src/core or in a service. A view may use a read that the application already has for another view, and adds no route. The package files and the lock file of the workspace stay as they are: the series adds no dependency. Three. Order. Task 22.44.138 lays the foundation: token values, colour mode, type weights, shape, the primitives and the shared components. The tasks 22.44.139 to 22.44.146 then change their views at the same time, each inside its own directories. Task 22.44.147 closes the series at the joined state. Four. Directories. apps/launchpad/web/src/app/tokens.css, apps/launchpad/web/src/app/presentation-tokens.ts, apps/launchpad/web/src/app/globals.css, apps/launchpad/web/src/core/app-foundation, apps/launchpad/web/src/ui/primitives and apps/launchpad/web/src/ui/shared change in the tasks 22.44.138 and 22.44.147 alone, with one exception: task 22.44.139 owns apps/launchpad/web/src/ui/shared/cookie-banner.tsx. apps/launchpad/web/src/shell changes in the tasks 22.44.139 and 22.44.147 alone. Task 22.44.140 owns apps/launchpad/web/src/page-modules/home, apps/launchpad/web/src/page-modules/new, apps/launchpad/web/src/widgets/home, apps/launchpad/web/src/widgets/social, apps/launchpad/web/src/app/not-found.tsx and apps/launchpad/web/src/app/auth. Task 22.44.141 owns apps/launchpad/web/src/page-modules/explore, apps/launchpad/web/src/page-modules/search, apps/launchpad/web/src/page-modules/watchlist and apps/launchpad/web/src/widgets/explore. Task 22.44.142 owns apps/launchpad/web/src/page-modules/token, apps/launchpad/web/src/widgets/coin, apps/launchpad/web/src/widgets/trading, apps/launchpad/web/src/widgets/trade, apps/launchpad/web/src/widgets/my-token and apps/launchpad/web/src/features/metadata-media. Task 22.44.143 owns apps/launchpad/web/src/page-modules/create, apps/launchpad/web/src/page-modules/create-chain, apps/launchpad/web/src/widgets/create and apps/launchpad/web/src/widgets/create-chain. Task 22.44.144 owns apps/launchpad/web/src/page-modules/profile, apps/launchpad/web/src/page-modules/live, apps/launchpad/web/src/widgets/profile, apps/launchpad/web/src/widgets/live, apps/launchpad/web/src/widgets/pnl and apps/launchpad/web/src/app/pnl. Task 22.44.145 owns apps/launchpad/web/src/page-modules/leaderboard, apps/launchpad/web/src/page-modules/rewards, apps/launchpad/web/src/page-modules/holder-rewards, the widget directories of the same three names and apps/launchpad/web/src/app/r. Task 22.44.146 owns apps/launchpad/web/src/page-modules/terminal, apps/launchpad/web/src/page-modules/swap, apps/launchpad/web/src/page-modules/meta-ag and the widget directories of the same three names. Every other directory under apps/launchpad/web/src/page-modules and apps/launchpad/web/src/widgets and the document views under apps/launchpad/web/src/app/docs belong to task 22.44.139. A task changes a file of another task only for a renamed token or a case that its own change breaks, and names it in the final message. Where a view needs a form that the primitives lack, its task builds the form inside its own widget directory and names it in the final message, and task 22.44.147 moves it to the primitives. A view reads the token names of apps/launchpad/web/src/app/tokens.css and holds no colour value, no size and no radius as a literal. Five. Cases. A case that pins a class, a colour value, a weight, a radius, a label of a tab or a composition changes with the change it pins. No case gains a skip mark, and no case is removed without a case for the new form in its place. Cases of reads, sends and flows stay as they are. Six. Words. A view keeps its texts unless the brief names another form. Comments and names of cases describe a form in their own words and name no other product or site: a task rewrites such a place in every file it changes, and task 22.44.147 rewrites the rest. Seven. States. Every list, table, panel and view of a task has its waiting, empty, failed and signed-out form in the shapes of section 5 of the brief. A coin, a pool, a ranking or a list without activity is shown as a calm first state with its next step, never in the form of a failure, and a control for a retry stands only beside a read that failed. Tasks 22.44.138 to 22.44.147."
+basis = "Gotcha 4898."
+affects = []
+
+[decision.3972]
+title = "The launchpad shows the dark set to a visitor without a choice, offers the choice of dark, light or the device mode, and takes the default of a deployment from one variable"
+value = "One. The root element of the document carries the mode in the attribute data-color-mode with one of the values dark, light and device. Under dark the dark values of apps/launchpad/web/src/app/tokens.css apply whatever the device prefers, under light the light values, and under device the set follows the device preference as it does today. The property color-scheme of the root follows the mode, so that the controls and the scroll bars of the browser match. Two. The mode of a load is the stored choice of the visitor. Without a stored choice it is the default of the deployment, which is dark unless the build variable NEXT_PUBLIC_COLOR_MODE_DEFAULT names light or device. Any other value of the variable counts as dark. The document that the server sends carries the default, and a short script in the head of the document sets the stored choice before the first paint, so that no load shows one set and then the other. A stored value outside the three counts as no choice, and so does a browser that refuses the storage. Three. One module under apps/launchpad/web/src/core/app-foundation answers which mode and which set are in effect and tells its readers when they change. The chart, the colour of the browser frame and every other reader ask that module. No reader asks the device preference itself, and the chart takes the new scheme without a reload when the choice changes. Four. The control offers the three choices by name, shows the present one and is a primitive under apps/launchpad/web/src/ui/primitives. Task 22.44.139 places it in the account menu of the top bar and in the lower group of the rail, reachable signed in and signed out. A choice applies at once and holds for later loads. Five. The render check. tools/ui-check/surfaces/launchpad/environment.mjs sets the variable to device for the build of the check, so that the light and the dark scheme of the check keep measuring the two sets. Nothing in the application detects the check: the variable is a setting that any deployment may use. Six. New cases. apps/launchpad/web/src/core/app-foundation/color-mode.test.tsx: without the variable and without a stored choice the mode is dark; the variable with the values light and device gives those defaults and any other value gives dark; a stored choice prevails over the default; a stored value outside the three and a storage that throws count as no choice; a choice through the control changes the attribute at once and is stored; the module tells a reader of the change. apps/launchpad/web/src/app/tokens.test.ts: each colour role of section 2 of the brief has its dark and its light value in apps/launchpad/web/src/app/tokens.css, the three modes select them, and the dark canvas of apps/launchpad/web/src/app/presentation-tokens.ts equals the one of apps/launchpad/web/src/app/tokens.css. Task 22.44.138 builds this, and task 22.44.139 places the control."
+basis = "Gotcha 4899."
+affects = []
+
+[decision.3973]
+title = "Each task of the launchpad look proves its views with its own part of the render check, and the create views get a part of their own"
+value = "One. Parts and tasks. Task 22.44.138 proves the foundation with the home part. Task 22.44.139 proves the shell with the community part, whose views it owns: bounties, chat and the documents. Task 22.44.140 owns the home part: home, new, the view for a missing page and the return view of the sign-in. Task 22.44.141 owns the explore part: explore, search and watchlist. Task 22.44.142 owns the coin part: the coin view, the token views and the metadata view. Task 22.44.143 owns the new create part. Task 22.44.144 owns the live part: profile, profit card and the live views. Task 22.44.145 owns the rewards part: ranking, rewards, holder rewards and the short link view. Task 22.44.146 owns the terminal part: terminal, swap and orders. Two. The create part. Task 22.44.138 moves the create view and the create view of a chain, with their states, from tools/ui-check/surfaces/launchpad/parts/coin.json to the new file tools/ui-check/surfaces/launchpad/parts/create.json. tools/ui-check/surfaces/launchpad/parts.mjs then names eight parts, binds the route roots coin, token and tokens to the coin part and the root create to the create part, and holds the create part to every rule it holds the coin part to. The views of tools/ui-check/surfaces/launchpad.json stay as they are. Three. Proof. The verification of a task runs the consistency of the parts, the render check of its part, the type check and the cases of the web. A part passes with no finding of any kind in any view state, in both schemes and in every mode. A finding is repaired in the view: no view, state, mode or kind leaves a part, the type steps of the part stay, and no part gains a list of reported kinds. A part file changes where a step presses a control that moved, and gains a state where the brief adds a form that shows only after a press: the coins tab of the home at phone widths, an open option row of the create view, the menu of the chart toolbar and the open colour mode control. tools/ui-check/surfaces/launchpad.json changes with its part as tools/ui-check/surfaces/launchpad/parts.mjs requires. Four. Record. Each task writes the record spec/layerx-merge/programme/records/ui/ with its task number and the ending kvx: the revision, the command of the render run, the counts of views, states and renders, the count of findings by kind, and one line for each view of the task with the sections of the brief it follows and what changed. The record is written from a render run at the final revision: a record without a run is no proof. Five. The closing task runs every part at the joined state, repairs what the joined changes left, moves the forms of decision 3971 point four to the primitives, rewrites the places of decision 3971 point six, compares every view with section 7 of the brief at the widths 390, 834, 1440 and 1920 in both sets from the renders of its run, and names in its record each view with its section and its state. Tasks 22.44.138 to 22.44.147."
+basis = "Gotcha 4900."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46596,6 +46614,96 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.147]
+title = "Close the launchpad look at the joined state: every part of the render check without a finding, shared forms in the primitives and every view compared with the brief"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.147.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && for p in home community coin create explore rewards live terminal; do NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/$p.json --out /tmp/ui-check/launchpad-$p || exit 1; done && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotchas 4898 to 4900, decisions 3971 to 3973. Read spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md whole and the records of the tasks 22.44.138 to 22.44.146 under spec/layerx-merge/programme/records/ui/. Run every part of the render check once at the start and keep its result as the list of work."
+symbols = []
+
+[capability.22.44.146]
+title = "Bring the terminal, swap and order views of the launchpad to the visual brief"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.146.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4898 parts eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/terminal, apps/launchpad/web/src/page-modules/swap, apps/launchpad/web/src/page-modules/meta-ag and the widget directories of the same three names with their cases and tools/ui-check/surfaces/launchpad/parts/terminal.json."
+symbols = []
+
+[capability.22.44.145]
+title = "Bring the ranking, rewards and holder rewards views of the launchpad to the visual brief"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.145.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4898 parts eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/leaderboard, apps/launchpad/web/src/page-modules/rewards, apps/launchpad/web/src/page-modules/holder-rewards, the widget directories of the same three names and apps/launchpad/web/src/app/r with their cases and tools/ui-check/surfaces/launchpad/parts/rewards.json."
+symbols = []
+
+[capability.22.44.144]
+title = "Bring the profile views, the profit card and the live views of the launchpad to the visual brief"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.144.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4898 parts eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/profile, apps/launchpad/web/src/page-modules/live, apps/launchpad/web/src/widgets/profile, apps/launchpad/web/src/widgets/live, apps/launchpad/web/src/widgets/pnl and apps/launchpad/web/src/app/pnl with their cases and tools/ui-check/surfaces/launchpad/parts/live.json."
+symbols = []
+
+[capability.22.44.143]
+title = "Bring the create views of the launchpad to the visual brief with closed option rows for every group that has a default"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.143.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/create.json --out /tmp/ui-check/launchpad-create && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4898 parts six and nine, gotcha 4900, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/create, apps/launchpad/web/src/page-modules/create-chain, apps/launchpad/web/src/widgets/create and apps/launchpad/web/src/widgets/create-chain with their cases and tools/ui-check/surfaces/launchpad/parts/create.json."
+symbols = []
+
+[capability.22.44.142]
+title = "Bring the coin and token views of the launchpad to the visual brief: header, chart frame and toolbar, the first state before a trade, the trade panel and the side column"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.142.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4898 parts five, eight and nine, decisions 3971 and 3973, and the record of task 22.44.136, which gave the coin view of a pool without a trade its first state. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/token, apps/launchpad/web/src/widgets/coin, apps/launchpad/web/src/widgets/trading, apps/launchpad/web/src/widgets/trade and apps/launchpad/web/src/widgets/my-token with their cases, the viewer under apps/launchpad/web/src/features/metadata-media and tools/ui-check/surfaces/launchpad/parts/coin.json."
+symbols = []
+
+[capability.22.44.141]
+title = "Bring the explore, search and watchlist views of the launchpad to the visual brief"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.141.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4898 parts four, eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/explore, apps/launchpad/web/src/page-modules/search, apps/launchpad/web/src/page-modules/watchlist and apps/launchpad/web/src/widgets/explore with their cases and tools/ui-check/surfaces/launchpad/parts/explore.json."
+symbols = []
+
+[capability.22.44.140]
+title = "Bring the home of the launchpad to the visual brief and let it show coins first at phone widths"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.140.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4898 parts three, eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/home, apps/launchpad/web/src/page-modules/new, apps/launchpad/web/src/widgets/home and apps/launchpad/web/src/widgets/social with their cases, apps/launchpad/web/src/app/not-found.tsx, the return view under apps/launchpad/web/src/app/auth and tools/ui-check/surfaces/launchpad/parts/home.json."
+symbols = []
+
+[capability.22.44.139]
+title = "Bring the shell of the launchpad and its bounty, chat and document views to the visual brief and place the colour mode control"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.139.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4898 parts two and nine, gotcha 4899, decisions 3971 to 3973. Read sections 1, 2, 4, 5, 6 and 9 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, every file under apps/launchpad/web/src/shell with its cases, apps/launchpad/web/src/ui/shared/cookie-banner.tsx with its case, the page modules and the widgets of the bounty and chat views, the document views under apps/launchpad/web/src/app/docs and tools/ui-check/surfaces/launchpad/parts/community.json."
+symbols = []
+
+[capability.22.44.138]
+title = "Lay the foundation of the launchpad look: the token values of the brief, the colour mode with its control, type weights and shape, the primitives and the create part of the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.138.kvx && test -s apps/launchpad/web/src/core/app-foundation/color-mode.test.tsx && test -s apps/launchpad/web/src/app/tokens.test.ts && test -s tools/ui-check/surfaces/launchpad/parts/create.json && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotchas 4898 to 4900, decisions 3971 to 3973. Read spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md whole. Then read apps/launchpad/web/src/app/tokens.css, apps/launchpad/web/src/app/presentation-tokens.ts, apps/launchpad/web/src/app/globals.css, apps/launchpad/web/src/app/layout.tsx with the root layout beside it, the files under apps/launchpad/web/src/core/app-foundation, apps/launchpad/web/src/widgets/trading/tv-chart.tsx, every file under apps/launchpad/web/src/ui/primitives and apps/launchpad/web/src/ui/shared with its cases, tools/ui-check/surfaces/launchpad/environment.mjs, tools/ui-check/surfaces/launchpad/parts.mjs, tools/ui-check/surfaces/launchpad/parts/coin.json and the part of the description of tools/ui-check about surfaces."
+symbols = []
 
 [capability.22.44.137]
 title = "Bound the pace at which a view of the launchpad asks a failing resource again and take the control Try again from states that a repeat cannot change"
@@ -212625,6 +212733,326 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.147]
+title = "Close the launchpad look at the joined state: every part of the render check without a finding, shared forms in the primitives and every view compared with the brief"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.139", "22.44.140", "22.44.141", "22.44.142", "22.44.143", "22.44.144", "22.44.145", "22.44.146"]
+reqs = ["22998.1"]
+capabilities = ["22.44.147"]
+interfaces = []
+do_1 = "do_1 Gotchas 4898 to 4900, decisions 3971 to 3973. Read spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md whole and the records of the tasks 22.44.138 to 22.44.146 under spec/layerx-merge/programme/records/ui/. Run every part of the render check once at the start and keep its result as the list of work."
+do_2 = "do_2 Repair every finding in its view under decision 3973 point three. Move each form that a record names under decision 3971 point four to apps/launchpad/web/src/ui/primitives and let its views use the primitive. Remove a literal colour, size or radius from every view that still holds one."
+do_3 = "do_3 Compare every view with section 7 of the brief at the widths 390, 834, 1440 and 1920 in both sets from the renders of the run, and repair what differs: a border on a panel, a title in a weight of the earlier look, a row of controls that wraps, a first state in the form of a failure, a control without its state. Rewrite the places of decision 3971 point six: after this task no comment and no name of a case under apps/launchpad/web/src names another product or site. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Record: write the record under decision 3973 points four and five with one line for each view of the surface: its part, its section of the brief and its state. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, all eight parts one after another, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.147.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.147.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && for p in home community coin create explore rewards live terminal; do NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/$p.json --out /tmp/ui-check/launchpad-$p || exit 1; done && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.146]
+title = "Bring the terminal, swap and order views of the launchpad to the visual brief"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.138"]
+reqs = ["22998.1"]
+capabilities = ["22.44.146"]
+interfaces = []
+do_1 = "do_1 Gotcha 4898 parts eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/terminal, apps/launchpad/web/src/page-modules/swap, apps/launchpad/web/src/page-modules/meta-ag and the widget directories of the same three names with their cases and tools/ui-check/surfaces/launchpad/parts/terminal.json."
+do_2 = "do_2 Terminal: the tabs are text tabs, the tools at the right quiet icon buttons, the tables the table of section 5 of the brief with the coin row as first column, the panels and the rails flush with hairlines. The empty form of a table stands inside its frame under the heads at the height of its content. The arrangement and the sizes of the terminal stay."
+do_3 = "do_3 Swap and orders: the panel, the amount fields, the summary lines, the settings and the action take the forms of section 5 as the trade panel of the coin view does. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Cases, part and record: the cases of the terminal tabs, tables and rails and of the swap panel follow decision 3971 point five. Decision 3973 points three and four hold for the part and the record. The part is the terminal part. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, the terminal part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.146.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.146.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.145]
+title = "Bring the ranking, rewards and holder rewards views of the launchpad to the visual brief"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.138"]
+reqs = ["22998.1"]
+capabilities = ["22.44.145"]
+interfaces = []
+do_1 = "do_1 Gotcha 4898 parts eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/leaderboard, apps/launchpad/web/src/page-modules/rewards, apps/launchpad/web/src/page-modules/holder-rewards, the widget directories of the same three names and apps/launchpad/web/src/app/r with their cases and tools/ui-check/surfaces/launchpad/parts/rewards.json."
+do_2 = "do_2 Ranking: build the ranking paragraph of section 7 of the brief: text tabs, the period as a segmented control, tables of section 5 with the first three places in their rank colours, totals as figures above the table. A ranking without a competition or before its first period shows one empty form of section 5 with neutral words and no retry, as task 22.44.137 leaves the control, in place of the tinted banner."
+do_3 = "do_3 The rewards view, the holder rewards views and the short link view take the tables, the panels, the figures and the states of the brief without a change of their arrangement. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Cases, part and record: the cases of the ranking head, the cup forms and the rewards tables follow decision 3971 point five. Decision 3973 points three and four hold for the part and the record. The part is the rewards part. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, the rewards part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.145.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.145.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.144]
+title = "Bring the profile views, the profit card and the live views of the launchpad to the visual brief"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.138"]
+reqs = ["22998.1"]
+capabilities = ["22.44.144"]
+interfaces = []
+do_1 = "do_1 Gotcha 4898 parts eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/profile, apps/launchpad/web/src/page-modules/live, apps/launchpad/web/src/widgets/profile, apps/launchpad/web/src/widgets/live, apps/launchpad/web/src/widgets/pnl and apps/launchpad/web/src/app/pnl with their cases and tools/ui-check/surfaces/launchpad/parts/live.json."
+do_2 = "do_2 Profile: build the profile paragraph of section 7 of the brief: the head, the counts in one line, the tabs as text tabs, positions as coin rows with the value of the position and its result at the right. The form for a visitor who is not signed in is the empty form of section 5 with the inverse button, at the height of its content."
+do_3 = "do_3 The profit card and the live views take the tokens, the panels, the components and the states of the brief without a change of their arrangement. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Cases, part and record: the cases of the profile head, the tabs and the positions follow decision 3971 point five. Decision 3973 points three and four hold for the part and the record. The part is the live part. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, the live part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.144.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.144.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.143]
+title = "Bring the create views of the launchpad to the visual brief with closed option rows for every group that has a default"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.138"]
+reqs = ["22998.1"]
+capabilities = ["22.44.143"]
+interfaces = []
+do_1 = "do_1 Gotcha 4898 parts six and nine, gotcha 4900, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/create, apps/launchpad/web/src/page-modules/create-chain, apps/launchpad/web/src/widgets/create and apps/launchpad/web/src/widgets/create-chain with their cases and tools/ui-check/surfaces/launchpad/parts/create.json."
+do_2 = "do_2 Create view: build the create paragraph of section 7 of the brief. The order is image, name, ticker, description, then the groups that have a default, each as one closed option row of section 5 that names its present choice and opens in place: social links, pair, creator rewards with their receiver, trading rules. A group with a failure opens by itself and shows its message. The cost summary and the action end the form and stay in view at phone widths. The values that the form sends stay exactly as they are, with every group closed and with every group open."
+do_3 = "do_3 The create view of a chain takes the same fields, option rows, summary and action. The preview card of both views is the coin card of section 5. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Cases, part and record: a case proves that the form with every group closed sends the same values as the present form with its defaults, and that a failure inside a closed group opens it. The cases of the wizard follow decision 3971 point five. Decision 3973 points three and four hold for the part and the record. The part is the create part. Add the state of one open option row. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, the create part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.143.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.143.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/create.json --out /tmp/ui-check/launchpad-create && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.142]
+title = "Bring the coin and token views of the launchpad to the visual brief: header, chart frame and toolbar, the first state before a trade, the trade panel and the side column"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.138", "22.44.136"]
+reqs = ["22998.1"]
+capabilities = ["22.44.142"]
+interfaces = []
+do_1 = "do_1 Gotcha 4898 parts five, eight and nine, decisions 3971 and 3973, and the record of task 22.44.136, which gave the coin view of a pool without a trade its first state. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/token, apps/launchpad/web/src/widgets/coin, apps/launchpad/web/src/widgets/trading, apps/launchpad/web/src/widgets/trade and apps/launchpad/web/src/widgets/my-token with their cases, the viewer under apps/launchpad/web/src/features/metadata-media and tools/ui-check/surfaces/launchpad/parts/coin.json."
+do_2 = "do_2 Header and chart: build the header and the chart paragraphs of section 7 of the brief. At phone widths the header is two rows and the toolbar of the chart one row that scrolls sideways, and the secondary controls stand behind one menu. The chart takes its colours from the tokens in both sets through the module of decision 3972 point three."
+do_3 = "do_3 First state: before the first trade the chart area shows the empty form of the application and the header a neutral chip. The drawing of the chart library for missing data, its warning marks and its text never show, in the chart and in the volume pane. A retry stands only beside a read that failed. Trade panel, side column, trades and holders: build their paragraphs of section 7. At phone widths the trade action stays in view above the bar of destinations and opens the trade sheet. The token views and the metadata view take the same forms. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Cases, part and record: a render case of a pool without a trade proves the empty form of the chart area and the absence of the library drawing, of a warning mark and of a retry. A render case at the width 390 proves that the header holds two rows and the toolbar one. Decision 3973 points three and four hold for the part and the record. The part is the coin part. Add the state of the open menu of the chart toolbar. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, the coin part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.142.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.142.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.141]
+title = "Bring the explore, search and watchlist views of the launchpad to the visual brief"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.138"]
+reqs = ["22998.1"]
+capabilities = ["22.44.141"]
+interfaces = []
+do_1 = "do_1 Gotcha 4898 parts four, eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/explore, apps/launchpad/web/src/page-modules/search, apps/launchpad/web/src/page-modules/watchlist and apps/launchpad/web/src/widgets/explore with their cases and tools/ui-check/surfaces/launchpad/parts/explore.json."
+do_2 = "do_2 Explore: the presets are one row of one kind of control, and the filters, the columns and the switch between list and grid are quiet icon buttons at the right. The table is the table of section 5 of the brief with the coin row as its first column, and the grid uses the coin card. Each row shows the image of its coin or the initials form. The waiting, the empty and the failed form of the list stand inside the frame of the table under its heads."
+do_3 = "do_3 Search and watchlist take the same rows, cards and states. A search of a kind that the api does not serve shows its text without a retry, as task 22.44.137 leaves it. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Cases, part and record: the cases of the explore rows, the presets and the toolbar follow decision 3971 point five. Decision 3973 points three and four hold for the part and the record. The part is the explore part. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, the explore part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.141.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.141.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.140]
+title = "Bring the home of the launchpad to the visual brief and let it show coins first at phone widths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.138"]
+reqs = ["22998.1"]
+capabilities = ["22.44.140"]
+interfaces = []
+do_1 = "do_1 Gotcha 4898 parts three, eight and nine, decisions 3971 and 3973. Read sections 1, 2, 4, 5 and 7 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, the files under apps/launchpad/web/src/page-modules/home, apps/launchpad/web/src/page-modules/new, apps/launchpad/web/src/widgets/home and apps/launchpad/web/src/widgets/social with their cases, apps/launchpad/web/src/app/not-found.tsx, the return view under apps/launchpad/web/src/app/auth and tools/ui-check/surfaces/launchpad/parts/home.json."
+do_2 = "do_2 Board from the width 1024: the columns stay and take the form of section 7 of the brief: flush columns with hairlines between them, a head on the canvas, coin rows and callout cards of section 5, and the empty form of section 5 at the height of its content."
+do_3 = "do_3 Below 1024: the home gets the three tabs coins, callouts and top with coins first. The coins tab shows the ranking that the first board column reads, as coin rows, through the read the application has for it. With no coin on the platform it shows the empty form with the action to create one. The new view, the view for a missing page and the return view of the sign-in take the forms of the brief. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Cases, part and record: a render case proves that the home below 1024 shows the coins tab first and a coin row for a coin of the ranking, and that the empty forms of the three tabs carry no retry. Decision 3973 points three and four hold for the part and the record. The part is the home part. Add the state of the callouts tab at phone widths. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, the home part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.140.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.140.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.139]
+title = "Bring the shell of the launchpad and its bounty, chat and document views to the visual brief and place the colour mode control"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.138"]
+reqs = ["22998.1"]
+capabilities = ["22.44.139"]
+interfaces = []
+do_1 = "do_1 Gotcha 4898 parts two and nine, gotcha 4899, decisions 3971 to 3973. Read sections 1, 2, 4, 5, 6 and 9 of spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md, every file under apps/launchpad/web/src/shell with its cases, apps/launchpad/web/src/ui/shared/cookie-banner.tsx with its case, the page modules and the widgets of the bounty and chat views, the document views under apps/launchpad/web/src/app/docs and tools/ui-check/surfaces/launchpad/parts/community.json."
+do_2 = "do_2 Shell: build section 6 of the brief for the top bar, the rail, the activity strip, the bar of destinations, the footer and the cookie notice. The parts of the shell keep their places and their heights. The sign-in dialog, the wallet control, the search dialog, the menus and the sheets of the shell take the forms of section 5. Place the colour mode control under decision 3972 point four."
+do_3 = "do_3 Views: the bounty views, the chat views, the documents and every directory that decision 3971 point four gives to this task take the tokens, the panels, the components and the states of the brief without a change of their arrangement. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Cases, part and record: the cases of the shell, among them the parity cases, follow decision 3971 point five. Decision 3973 points three and four hold for the part and the record. The part is the community part. Add the state of the open colour mode control to one view of the part. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record and runs the consistency of the parts, the community part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.139.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.139.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.138]
+title = "Lay the foundation of the launchpad look: the token values of the brief, the colour mode with its control, type weights and shape, the primitives and the create part of the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.138"]
+interfaces = []
+do_1 = "do_1 Gotchas 4898 to 4900, decisions 3971 to 3973. Read spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md whole. Then read apps/launchpad/web/src/app/tokens.css, apps/launchpad/web/src/app/presentation-tokens.ts, apps/launchpad/web/src/app/globals.css, apps/launchpad/web/src/app/layout.tsx with the root layout beside it, the files under apps/launchpad/web/src/core/app-foundation, apps/launchpad/web/src/widgets/trading/tv-chart.tsx, every file under apps/launchpad/web/src/ui/primitives and apps/launchpad/web/src/ui/shared with its cases, tools/ui-check/surfaces/launchpad/environment.mjs, tools/ui-check/surfaces/launchpad/parts.mjs, tools/ui-check/surfaces/launchpad/parts/coin.json and the part of the description of tools/ui-check about surfaces."
+do_2 = "do_2 Colour mode: build decision 3972 points one to five, with the control as a primitive that has no place in the shell yet. Tokens: give every role of section 2 of the brief its dark and its light value in apps/launchpad/web/src/app/tokens.css and apps/launchpad/web/src/app/presentation-tokens.ts, add the roles that the brief names and the file lacks, and keep every token name that a view reads. Type and shape: set the weights of section 3 and the radii, the motion and the elevation of section 4. The sizes stay: the type steps, the control heights, the heights of bars and rows."
+do_3 = "do_3 Primitives: bring every primitive under apps/launchpad/web/src/ui/primitives and every shared component under apps/launchpad/web/src/ui/shared except the cookie notice to section 5 of the brief, and add the forms that the brief names and the directory lacks: the inverse button, the direction chip, the text tabs with their underline, the segmented control, the coin row, the progress line, the option row, the panel and the sheet. Each new form has a case. The states follow decision 3971 point seven. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
+do_4 = "do_4 Render check: build decision 3973 point two and decision 3972 point five. Write the cases of decision 3972 point six. Bring the home part to zero findings with the smallest change that the new values need in a view: the composition of the views belongs to the later tasks. Write the record under decision 3973 point four with, in place of the lines for views, one line for each role whose value moved under decision 3971 point one. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_5 = "do_5 Run the verification. It requires the record, the two new case files and the new part file, and runs the consistency of the parts, the home part, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.138.kvx", "apps/launchpad/web/src/core/app-foundation/color-mode.test.tsx", "apps/launchpad/web/src/app/tokens.test.ts", "tools/ui-check/surfaces/launchpad/parts/create.json"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.138.kvx && test -s apps/launchpad/web/src/core/app-foundation/color-mode.test.tsx && test -s apps/launchpad/web/src/app/tokens.test.ts && test -s tools/ui-check/surfaces/launchpad/parts/create.json && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

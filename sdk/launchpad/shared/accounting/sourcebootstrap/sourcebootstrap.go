@@ -20,7 +20,7 @@ import (
 // Domains of the two checkpoint tuples. Changing either changes every digest
 // already stored in delivery_partition_offsets.
 const (
-	StatsDomain  = "stats-source-bootstrap-v1"
+	StatsDomain  = "stats-source-bootstrap-v2"
 	ChartsDomain = "charts-source-bootstrap-v2"
 )
 
@@ -37,13 +37,15 @@ type Querier interface {
 }
 
 // StatsEvidence is what the stats consumer bootstraps a market partition from:
-// the replay runs from the stream's first indexer commit through the commit
-// holding the pool's first fill.
+// the replay runs from the commit boundary before pool creation through the
+// commit holding the pool's first fill.
 type StatsEvidence struct {
 	SourceStream, Pool, ProjectionVersion string
 	PublicationID                         string
 	PayloadDigest                         accounting.Digest
-	InitialPreviousHeight                 int64
+	ReplayFromHeight                      int64
+	CreationTransactionHash               string
+	CreationLogIndex                      int64
 	FirstCommitID                         string
 	FirstCommitLastHeight                 int64
 	FirstCommitBlockHash                  string
@@ -51,7 +53,7 @@ type StatsEvidence struct {
 
 // Checkpoint is the stats delivery_partition_offsets.checkpoint_digest.
 func (e StatsEvidence) Checkpoint() accounting.Digest {
-	return accounting.Digest(accounting.HashTuple(StatsDomain, e.SourceStream, e.Pool, e.ProjectionVersion, e.PublicationID, string(e.PayloadDigest), strconv.FormatInt(e.InitialPreviousHeight, 10), e.FirstCommitID, strconv.FormatInt(e.FirstCommitLastHeight, 10), e.FirstCommitBlockHash))
+	return accounting.Digest(accounting.HashTuple(StatsDomain, e.SourceStream, e.Pool, e.ProjectionVersion, e.PublicationID, string(e.PayloadDigest), strconv.FormatInt(e.ReplayFromHeight, 10), e.CreationTransactionHash, strconv.FormatInt(e.CreationLogIndex, 10), e.FirstCommitID, strconv.FormatInt(e.FirstCommitLastHeight, 10), e.FirstCommitBlockHash))
 }
 
 // ChartsEvidence is what the charts consumer bootstraps a market partition
@@ -88,14 +90,6 @@ func MarketPublication(ctx context.Context, q Querier, sourceEventID, projection
 	var wire []byte
 	err := q.QueryRow(ctx, `SELECT payload FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'facet'='market' AND payload->>'sourceFillId'=$1 AND payload->'positions'->0->>'projectionVersion'=$2`, sourceEventID, projectionVersion).Scan(&wire)
 	return wire, err
-}
-
-// InitialPreviousHeight is the previous_height of the stream's first indexer
-// commit. pgx.ErrNoRows is returned unchanged.
-func InitialPreviousHeight(ctx context.Context, q Querier, sourceStream string) (int64, error) {
-	var height int64
-	err := q.QueryRow(ctx, `SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 ORDER BY previous_height LIMIT 1`, sourceStream).Scan(&height)
-	return height, err
 }
 
 // Commit is the indexer commit whose range holds a height.
@@ -179,7 +173,12 @@ func LoadStats(ctx context.Context, q Querier, partitionSchema, sourceStream, pr
 		return e, classify(err)
 	}
 	e.PublicationID, e.PayloadDigest = publication.PublicationID, position.PayloadDigest
-	if e.InitialPreviousHeight, err = InitialPreviousHeight(ctx, q, sourceStream); err != nil {
+	creation, err := CanonicalCreation(ctx, q, sourceStream, pool)
+	if err != nil {
+		return e, classify(err)
+	}
+	e.CreationTransactionHash, e.CreationLogIndex = creation.TransactionHash, creation.LogIndex
+	if e.ReplayFromHeight, err = PreviousHeightContaining(ctx, q, sourceStream, creation.Height); err != nil {
 		return e, classify(err)
 	}
 	commit, err := CommitContaining(ctx, q, sourceStream, height)
