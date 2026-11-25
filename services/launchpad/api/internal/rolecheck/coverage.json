@@ -22,6 +22,9 @@
       ]
     },
     {
+      "file": "sdk/launchpad/shared/delivery/stream_retention.go"
+    },
+    {
       "file": "sdk/launchpad/shared/queue/queue.go",
       "functions": [
         "Assert"

@@ -448,5 +448,20 @@
     "file": "services/launchpad/pnl-tracker/internal/store/store.go",
     "function": "Store.withXactLock",
     "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/stream_retention.go",
+    "function": "StreamOutboxRelay.acquireRetention",
+    "reason": "The API relay owns stream retention; the pnl runtime appends committed portfolio frames."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/stream_retention.go",
+    "function": "StreamOutboxRelay.pruneRetentionBatch",
+    "reason": "The API relay owns stream retention; the pnl runtime appends committed portfolio frames."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/stream_retention.go",
+    "function": "StreamOutboxRelay.Prune",
+    "reason": "The API relay owns stream retention; the pnl runtime appends committed portfolio frames."
   }
 ]
