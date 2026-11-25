@@ -213235,7 +213235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1201]
 title = "Keep a wallet followed while the session of its owner lives: the enrolment and the live pass of the pnl module no longer end with the age of the wallet signature"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
