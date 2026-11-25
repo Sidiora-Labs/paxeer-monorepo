@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -19,6 +20,11 @@ import (
 )
 
 const liveEnrollmentPages int64 = 4
+const liveLogRangeBlocks int64 = 2000
+
+var liveEnrollmentPageTime time.Duration = 30 * time.Second
+
+var liveHistoryUnavailableTexts = [...]string{"pruned", "before earliest available block", "unknown block", "block not found by hash"}
 
 var errLiveEnrollmentPending = errors.New("wallet enrollment in progress")
 
@@ -46,9 +52,25 @@ type liveWalletInput struct {
 	Snapshots                         []RebuildSnapshot
 }
 
+func liveHistoryUnavailable(err error) bool {
+	if errors.Is(err, ethereum.NotFound) {
+		return true
+	}
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	for _, text := range liveHistoryUnavailableTexts {
+		if strings.Contains(message, text) {
+			return true
+		}
+	}
+	return false
+}
+
 func liveRead[T any](ctx context.Context, a *BaselineAuthority, read func(*ethclient.Client) (T, error)) (T, error) {
 	value, err := read(a.rpc)
-	if err == nil || a.liveFallback == nil || !strings.Contains(strings.ToLower(err.Error()), "pruned") {
+	if err == nil || a.liveFallback == nil || !liveHistoryUnavailable(err) {
 		return value, err
 	}
 	chain, e := a.liveFallback.ChainID(ctx)
