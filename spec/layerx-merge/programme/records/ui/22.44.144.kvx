@@ -1,0 +1,106 @@
+[profile]
+sections = "1, 2, 4, 5 and 7"
+head = "The account image and name precede the portfolio value, result and period; counts occupy one scrolling line."
+tabs = "Text tabs retain the Open, Closed, Replies and Activity sections and the owner menu."
+positions = "Each coin row links to its coin, with quantity and identity at the left and position value and result at the right. Closed positions retain known realized amounts and basis quality."
+rails = "Leaderboard and top trades remain flush columns separated by neutral hairlines."
+signed_out = "A content-height empty form offers one inverse sign-in action."
+
+[profit_card]
+sections = "1, 2, 4, 5 and 7"
+figures = "Neutral panels show exact published amounts and returns, right-aligned tabular values and directional profit text."
+sharing = "The sharing form uses the shared controls, a floating surface and the existing publication selections and actions."
+states = "Container-width recovery panels wrap their text and controls; an expired card offers the profile destination and a failed read offers a retry."
+
+[live]
+sections = "1, 2, 4, 5 and 7"
+directory = "The hero, ranked rows and show-all grid retain their arrangement, with neutral panels, square coin images, muted labels and tabular values."
+controls = "The creator console uses inverse sign-in, secondary controls and neutral inner panels."
+states = "Waiting cards use surface-three blocks; the empty directory offers one secondary action; failed directory reads retain one retry."
+
+[coverage]
+part = "live"
+views = 20
+named_states = 2
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[view.live]
+sections = "1, 2, 4, 5 and 7"
+change = "Hero and ranked rows use neutral surfaces, lighter titles and a single empty-state action."
+
+[view.live_all]
+sections = "1, 2, 4, 5 and 7"
+change = "The directory grid retains its sort and pagination with a view title in the existing large type step."
+
+[view.pnl]
+sections = "1, 2, 4, 5 and 7"
+change = "The public card uses a neutral panel and aligned figures; expired and failed reads use compact state forms."
+
+[view.profile]
+sections = "1, 2, 4, 5 and 7"
+change = "The signed-out form fits its content and uses an inverse sign-in action."
+
+[view.profile_wallet]
+sections = "1, 2, 4, 5 and 7"
+change = "The head includes value, result and period; counts stay on one line; positions are flat coin links."
+
+[view.profile_activity]
+sections = "1, 2, 4, 5 and 7"
+change = "Coin names use semibold type while amounts retain their emphasis; waiting rows reserve the table header and comfortable row geometry, and the empty form fits the activity panel."
+
+[view.profile_closed]
+sections = "1, 2, 4, 5 and 7"
+change = "Closed position rows retain value, realized result, known realized subtotal and basis quality."
+
+[view.profile_replies]
+sections = "1, 2, 4, 5 and 7"
+change = "Replies use hairline-separated rows; the empty form fits its content."
+
+[view.live_empty]
+sections = "1, 2, 4, 5 and 7"
+change = "The hero and ranked frames show a neutral first state and one creation action."
+
+[view.live_error]
+sections = "1, 2, 4, 5 and 7"
+change = "Directory failure stays in the hero and ranked frames with a single retry in the hero."
+
+[view.live_loading]
+sections = "1, 2, 4, 5 and 7"
+change = "Waiting blocks follow the hero and ranked card shapes."
+
+[view.live_all_empty]
+sections = "1, 2, 4, 5 and 7"
+change = "The directory grid keeps its neutral first state and one secondary creation action."
+
+[view.live_all_error]
+sections = "1, 2, 4, 5 and 7"
+change = "The directory grid retains its failed-read recovery action in a neutral panel."
+
+[view.live_all_loading]
+sections = "1, 2, 4, 5 and 7"
+change = "Waiting cards use the same square coin image shape and neutral surface-three blocks."
+
+[view.pnl_expired]
+sections = "1, 2, 4, 5 and 7"
+change = "A compact neutral form explains that the card is gone and links to the profile."
+
+[view.pnl_missing]
+sections = "1, 2, 4, 5 and 7"
+change = "The missing card retains the application destination for a missing page."
+
+[view.pnl_error]
+sections = "1, 2, 4, 5 and 7"
+change = "A compact failed-read form offers retry and the profile destination."
+
+[view.profile_wallet_empty]
+sections = "1, 2, 4, 5 and 7"
+change = "The head and counts retain their structure; the empty position list fits its content."
+
+[view.profile_wallet_error]
+sections = "1, 2, 4, 5 and 7"
+change = "The value and list placeholders share the existing profile recovery notice."
+
+[view.profile_wallet_loading]
+sections = "1, 2, 4, 5 and 7"
+change = "Waiting values and counts keep the profile head structure."

@@ -195,6 +195,13 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
     const openRows = open.container.querySelectorAll('ul[aria-label="Open positions"] > li');
     expect(openRows).toHaveLength(1);
     expect(openRows[0].textContent).toContain('0x1111...1111');
+    const coinRow = openRows[0].querySelector('a')!;
+    expect(openRows[0].querySelectorAll('a')).toHaveLength(1);
+    expect(coinRow.textContent).toContain('Position value');
+    expect(coinRow.textContent).toContain('Unrealized -0.75 USDL');
+    expect(coinRow.className).toContain('sl-hairline');
+    expect(coinRow.className).toContain('sl-row-wash-down');
+    expect(coinRow.querySelector('svg.lucide-arrow-down-right')).not.toBeNull();
     expect(Array.from(open.container.querySelectorAll('a')).some(link => link.textContent === 'Sell')).toBe(false);
     unmount(open);
 
@@ -204,6 +211,9 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
     expect(closedRows).toHaveLength(1);
     expect(closedRows[0].textContent).toContain('+2.50 USDL');
     expect(closedRows[0].textContent).toContain('complete');
+    expect(closedRows[0].querySelectorAll('a')).toHaveLength(1);
+    expect(closedRows[0].querySelector('a')?.className).toContain('sl-row-wash-up');
+    expect(closedRows[0].querySelector('svg.lucide-arrow-up-right')).not.toBeNull();
     expect(closed.container.querySelector(`a[href="${poolPath(125, poolB)}"]`)).not.toBeNull();
     unmount(closed);
   });

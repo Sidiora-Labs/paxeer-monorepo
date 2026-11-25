@@ -3,7 +3,7 @@
 import { displayCoinText } from '@/utils/coin-text';
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { Archive, Wallet } from 'lucide-react';
+import { Archive, ArrowDownRight, ArrowUpRight, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, Button, EmptyState, ErrorState, LoadMore, Skeleton, UnavailableState } from '@/ui/primitives';
 import { formatTokenAmount, formatUsdl, shortAddress } from '@/utils/format';
@@ -48,67 +48,48 @@ function Amount({ raw, signed = false, className }: { raw: bigint | string | nul
   return <MaskedAmount className={cn('tabular-nums font-bold text-num-md', signed ? signClass(value) : 'text-text', className)}>{formatUsdl(value, { signed })}</MaskedAmount>;
 }
 
-function TokenCell({ address, identity, href }: { address: string; identity: TokenIdentity; href: string }) {
-  return (
-    <Link prefetch={false} href={href} className="flex min-h-10 min-w-0 items-center gap-3 rounded-sm">
-      <Avatar src={identity.logo} name={identity.symbol ?? identity.name} size="lg" shape="square" decorative />
-      <span className="min-w-0">
-        <span className="flex min-w-0 items-baseline gap-1 text-sm font-bold text-text"><span className="min-w-0 truncate" title={identity.name}>{identity.name}</span>{identity.symbol ? <span className="min-w-0 truncate font-semibold text-text-muted" title={identity.symbol}>{identity.symbol}</span> : null}</span>
-        <span className="block truncate font-mono-sl text-xs text-text-faint">{shortAddress(address, 6, 4)}</span>
-      </span>
-    </Link>
-  );
-}
-
 /** Coin page link: the launchpad pool when the metadata registry names it, else the token address (the coin route resolves a token to its pool). */
 export function coinHref(tokenAddress: string, poolAddress?: string | null): string {
   return poolPath(125, poolAddress && /^0x[0-9a-fA-F]{40}$/.test(poolAddress) ? poolAddress : tokenAddress);
 }
 
+function PositionResult({ raw, label }: { raw: bigint | null; label: string }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-num-sm tabular-nums', raw !== null && raw > 0n ? 'bg-percent-up-soft text-percent-up' : raw !== null && raw < 0n ? 'bg-percent-down-soft text-percent-down' : 'bg-surface-2 text-text-muted')}>
+      <span className="sr-only">{label} </span>
+      {raw !== null && raw > 0n ? <ArrowUpRight aria-hidden="true" className="size-3" /> : raw !== null && raw < 0n ? <ArrowDownRight aria-hidden="true" className="size-3" /> : null}
+      <Amount raw={raw} signed className="text-num-sm font-semibold text-inherit" />
+    </span>
+  );
+}
+
 function PositionRow({ position, identity, poolAddress, mode, owner }: { position: PortfolioPosition; identity: TokenIdentity; poolAddress: string | null; mode: 'open' | 'closed'; owner: boolean }) {
   const decimals = identity.decimals ?? position.markPrice?.baseAsset.decimals ?? null;
   const valueRaw = positionValueRaw(position);
-  const unrealized = position.unrealizedPnlRaw === null ? null : BigInt(position.unrealizedPnlRaw);
-  const realized = position.realizedPnlRaw === null ? null : BigInt(position.realizedPnlRaw);
-  const href = coinHref(position.tokenAddress, poolAddress);
+  const result = mode === 'open' ? position.unrealizedPnlRaw : position.realizedPnlRaw;
+  const resultRaw = result === null ? null : BigInt(result);
   const knownRealized = BigInt(position.knownRealizedSubtotalUsdlRaw);
   const dust = valueRaw !== null && valueRaw > 0n && valueRaw < 10_000n;
   return (
-    <li className={cn('grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 rounded-md bg-surface-2 px-3 py-2 sm:min-h-14', mode === 'open' ? 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]')}>
-      <TokenCell address={position.tokenAddress} identity={identity} href={href} />
-      {mode === 'open' ? (
-        <>
-          <div className="min-w-0 text-right">
-            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Quantity</span>
-            <MaskedAmount className="block truncate text-xs text-text-faint tabular-nums [contain:inline-size]">{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount>
-          </div>
-          <div className="min-w-0 text-right">
-            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Value</span>
-            <Amount raw={valueRaw} className={cn(dust && 'text-text-faint')} />
-            {valueRaw === null ? <span className="block text-2xs text-text-faint">no price yet</span> : null}
-          </div>
-          <div className="min-w-0 text-right">
-            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Unrealized</span>
-            <Amount raw={unrealized} signed />
-          </div>
-          {owner ? <Button variant="secondary" size="sm" href={href} className="col-span-2 sm:col-span-1">Sell</Button> : <span aria-hidden="true" className="hidden sm:block sm:w-14" />}
-        </>
-      ) : (
-        <>
-          <div className="min-w-0 text-right">
-            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Realized</span>
-            <Amount raw={realized} signed />
-          </div>
-          <div className="min-w-0 text-right">
-            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Known realized</span>
-            <Amount raw={knownRealized} signed />
-          </div>
-          <div className="min-w-0 text-right">
-            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Basis</span>
-            <span className="text-xs text-text-muted">{position.realizedBasisQuality}</span>
-          </div>
-        </>
-      )}
+    <li>
+      <Link prefetch={false} href={coinHref(position.tokenAddress, poolAddress)} className={cn('sl-hairline flex min-w-0 items-center gap-3 px-3 py-2 transition-colors duration-fast hover:bg-surface-1 sm:min-h-14', resultRaw !== null && resultRaw > 0n && 'sl-row-wash-up', resultRaw !== null && resultRaw < 0n && 'sl-row-wash-down')}>
+        <Avatar src={identity.logo} name={identity.symbol ?? identity.name} size="lg" shape="square" decorative />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm font-semibold text-text" title={identity.name}>{identity.name}</span>
+          <span className="flex min-w-0 items-baseline gap-2 text-xs text-text-muted">
+            <span className="min-w-0 truncate" title={position.tokenAddress}>{identity.symbol ?? shortAddress(position.tokenAddress, 6, 4)}</span>
+            {mode === 'open' ? <MaskedAmount className="min-w-0 truncate tabular-nums"><span className="sr-only">Quantity </span>{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount> : <span className="min-w-0 truncate"><span className="sr-only">Basis </span>{position.realizedBasisQuality}</span>}
+          </span>
+          {mode === 'open' && owner ? <span className="text-xs font-medium text-text-muted">Sell</span> : null}
+        </span>
+        <span className="flex min-w-0 max-w-full flex-col items-end gap-0.5 text-right">
+          <span className="sr-only">Position value </span>
+          <Amount raw={valueRaw} className={cn(dust && 'text-text-faint')} />
+          {valueRaw === null ? <span className="text-2xs text-text-faint">no price yet</span> : null}
+          <PositionResult raw={resultRaw} label={mode === 'open' ? 'Unrealized' : 'Realized'} />
+          {mode === 'closed' ? <span className="text-xs text-text-muted"><span className="sr-only">Known realized </span><Amount raw={knownRealized} signed className="text-xs font-medium" /></span> : null}
+        </span>
+      </Link>
     </li>
   );
 }
@@ -170,11 +151,7 @@ export function PositionsOpenClosed({ wallet, mode, isOwner, className }: Positi
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <div className={cn('hidden px-3 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:grid sm:gap-x-4', mode === 'open' ? 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]')} aria-hidden="true">
-        <span>Coin</span>
-        {mode === 'open' ? <><span className="text-right">Quantity</span><span className="text-right">Value</span><span className="text-right">Unrealized</span><span className="w-14" /></> : <><span className="text-right">Realized</span><span className="text-right">Known realized</span><span className="text-right">Basis</span></>}
-      </div>
-      <ul aria-label={mode === 'open' ? 'Open positions' : 'Closed positions'} className="flex flex-col gap-0.5">
+      <ul aria-label={mode === 'open' ? 'Open positions' : 'Closed positions'} className="flex flex-col">
         {rows.map(position => (
           <PositionRow key={position.positionId} position={position} mode={mode} owner={portfolio.owner} identity={tokenIdentity(position.tokenAddress, metadata.data?.[position.tokenAddress.toLowerCase()])} poolAddress={metadata.data?.[position.tokenAddress.toLowerCase()]?.pool_address ?? null} />
         ))}

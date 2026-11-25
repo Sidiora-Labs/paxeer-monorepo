@@ -21,9 +21,9 @@ export function formatJoinedDate(iso: string): string {
 
 function Stat({ value, label }: { value: ReactNode; label: string }) {
   return (
-    <div className="flex min-w-16 flex-col">
-      <dd data-numeric className="order-1 text-sm font-semibold tabular-nums text-text">{value}</dd>
-      <dt className="order-2 text-xs text-text-faint">{label}</dt>
+    <div className="flex shrink-0 items-baseline gap-1">
+      <dd data-numeric className="order-1 text-sm font-bold tabular-nums text-text">{value}</dd>
+      <dt className="order-2 text-xs text-text-muted">{label}</dt>
     </div>
   );
 }
@@ -33,12 +33,12 @@ export default function ProfileStats({ wallet, createdAt, className }: ProfileSt
   const stats = useFollowStats(wallet);
   const collected = useProfileIssue('follow-stats', stats.state === 'error' ? { label: 'Follower counts', error: stats.error, retry: stats.retry } : null);
   return (
-    <div className={cn('grid min-w-0 grid-cols-[minmax(0,1fr)]', className)}>
-      <dl aria-hidden="true" className="invisible col-start-1 row-start-1 flex min-h-10 flex-wrap items-start gap-x-8 gap-y-2 pointer-events-none">
+    <div className={cn('grid min-w-0 grid-cols-[minmax(0,1fr)] overflow-x-auto', className)}>
+      <dl aria-hidden="true" className="invisible col-start-1 row-start-1 flex min-h-10 flex-nowrap items-baseline gap-4 whitespace-nowrap pointer-events-none">
         <Stat value={<Skeleton width={surfaceSpacing(8)} height={surfaceSpacing(5)} />} label="Followers" />
         <Stat value={<Skeleton width={surfaceSpacing(8)} height={surfaceSpacing(5)} />} label="Following" />
       </dl>
-      <dl className="col-start-1 row-start-1 flex min-h-10 flex-wrap items-start gap-x-8 gap-y-2">
+      <dl className="col-start-1 row-start-1 flex min-h-10 flex-nowrap items-baseline gap-4 whitespace-nowrap">
       {stats.state === 'loading' ? (
         <>
           <Stat value={<Skeleton width={surfaceSpacing(8)} height={surfaceSpacing(5)} />} label="Followers" />
