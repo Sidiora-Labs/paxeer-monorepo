@@ -20,19 +20,20 @@ export interface Preset {
   /** Client-side order applied on top of the snapshot; null keeps the server rank. */
   defaultSort: SortState;
   description: string;
+  emptyDescription: string;
 }
 
 export const presets: readonly Preset[] = Object.freeze([
-  { id: 'movers', label: 'Movers', icon: Rocket, category: 'movers', defaultSort: null, description: 'Biggest price moves right now' },
-  { id: 'new', label: 'New', icon: Sparkles, category: 'new', defaultSort: null, description: 'Newest coins' },
-  { id: 'trending', label: 'Trending', icon: Flame, category: 'trending', defaultSort: null, description: 'Hottest coins right now' },
-  { id: 'volume', label: 'Volume', icon: ChartColumn, category: 'volume', defaultSort: null, description: 'Most traded coins' },
-  { id: 'breakout', label: 'Breakout', icon: Zap, category: 'breakout', defaultSort: null, description: 'Coins breaking out' },
-  { id: 'unusual', label: 'Unusual', icon: Activity, category: 'unusual', defaultSort: null, description: 'Coins with unusual activity' },
-  { id: 'mcap', label: 'Market cap', icon: Coins, category: 'trending', defaultSort: { key: 'mcap', direction: 'desc' }, description: 'Trending coins by market cap' },
+  { id: 'trending', label: 'Trending', icon: Flame, category: 'trending', defaultSort: null, description: 'Hottest coins right now', emptyDescription: 'Trending lists the highest-ranked coins right now.' },
+  { id: 'new', label: 'New', icon: Sparkles, category: 'new', defaultSort: null, description: 'Newest coins', emptyDescription: 'New lists the newest coins.' },
+  { id: 'movers', label: 'Movers', icon: Rocket, category: 'movers', defaultSort: null, description: 'Biggest price moves right now', emptyDescription: 'Movers lists coins with strong price moves outside Trending.' },
+  { id: 'volume', label: 'Volume', icon: ChartColumn, category: 'volume', defaultSort: null, description: 'Most traded coins', emptyDescription: 'Volume lists the most traded coins.' },
+  { id: 'breakout', label: 'Breakout', icon: Zap, category: 'breakout', defaultSort: null, description: 'Coins breaking out', emptyDescription: 'Breakout lists coins gaining momentum.' },
+  { id: 'unusual', label: 'Unusual', icon: Activity, category: 'unusual', defaultSort: null, description: 'Coins with unusual activity', emptyDescription: 'Unusual lists coins with unusual trading activity.' },
+  { id: 'mcap', label: 'Market cap', icon: Coins, category: 'trending', defaultSort: { key: 'mcap', direction: 'desc' }, description: 'Trending coins by market cap', emptyDescription: 'Market cap lists Trending coins by market cap.' },
 ]);
 
-const defaultPreset: Preset = presets[0];
+export const defaultPreset: Preset = presets[0];
 
 export function presetFor(value: string | null | undefined): Preset {
   return presets.find(preset => preset.id === value) ?? defaultPreset;

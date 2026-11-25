@@ -125,7 +125,7 @@ describe('preset tiers', () => {
     ]);
     expect(overflowPresets('narrow').map((preset) => preset.id)).toEqual([
       'new',
-      'trending',
+      'movers',
       'volume',
       'breakout',
       'unusual',
@@ -136,7 +136,7 @@ describe('preset tiers', () => {
 
 describe('PresetTabs', () => {
   it('renders one segmented container whose active segment is the only accent fill', () => {
-    const html = renderToStaticMarkup(<PresetTabs active="movers" />);
+    const html = renderToStaticMarkup(<PresetTabs active="trending" />);
     const doc = new dom.window.DOMParser().parseFromString(html, 'text/html');
     const nav = doc.querySelector('nav[aria-label="Explore presets"]')!;
     expect(nav.children).toHaveLength(1);
@@ -145,7 +145,7 @@ describe('PresetTabs', () => {
     expect(links.map((link) => link.textContent)).toEqual(presets.map((preset) => preset.label));
     expect(
       links.filter((link) => link.className.includes('bg-accent')).map((link) => link.textContent),
-    ).toEqual(['Movers']);
+    ).toEqual(['Trending']);
     expect(links[0].getAttribute('aria-current')).toBe('page');
     expect(links[0].getAttribute('href')).toBe('/explore');
     expect(links[3].getAttribute('href')).toBe('/explore?preset=volume');
@@ -154,7 +154,7 @@ describe('PresetTabs', () => {
   });
 
   it('hides overflow presets by breakpoint and keeps a More trigger below xl', () => {
-    const html = renderToStaticMarkup(<PresetTabs active="movers" />);
+    const html = renderToStaticMarkup(<PresetTabs active="trending" />);
     const doc = new dom.window.DOMParser().parseFromString(html, 'text/html');
     const items = [...doc.querySelectorAll('nav li')];
     expect(items[0].className).not.toContain('hidden');
@@ -177,7 +177,7 @@ describe('PresetTabs', () => {
 
   it('lists only the presets hidden at the current width in the More menu', async () => {
     viewportWidth = 390;
-    const node = await mount(<PresetTabs active="movers" />);
+    const node = await mount(<PresetTabs active="trending" />);
     const trigger = node.querySelector<HTMLButtonElement>('button[aria-label="More presets"]')!;
     await act(async () => {
       trigger.click();
@@ -190,7 +190,7 @@ describe('PresetTabs', () => {
     const entries = [...menu.querySelectorAll('[role="menuitemradio"]')];
     expect(entries.map((entry) => entry.textContent)).toEqual([
       'New',
-      'Trending',
+      'Movers',
       'Volume',
       'Breakout',
       'Unusual',

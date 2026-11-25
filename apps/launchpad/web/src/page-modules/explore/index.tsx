@@ -71,12 +71,19 @@ function ExplorePage() {
       <EmptyState
         variant="panel"
         icon={TrendingUp}
-        title="No coins yet"
-        body="Coins show up here once they start trading"
+        title={`No coins in ${preset.label} yet`}
+        body={preset.emptyDescription}
         action={
           <Button variant="primary" size="sm" href="/create">
             Create coin
           </Button>
+        }
+        secondaryAction={
+          preset.id !== 'new' ? (
+            <Button variant="secondary" size="sm" href="/explore?preset=new">
+              Browse new coins
+            </Button>
+          ) : null
         }
         announce
       />
