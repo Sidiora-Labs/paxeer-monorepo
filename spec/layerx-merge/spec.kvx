@@ -213361,7 +213361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1178]
 title = "Let the live wallet path of the accounts service continue from the last accepted commit of a wallet and read no state at an earlier height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1179"]
