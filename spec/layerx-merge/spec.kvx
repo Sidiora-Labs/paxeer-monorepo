@@ -213422,7 +213422,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1184]
 title = "Let the readiness of the charts, stats and accounts services name the state of each accounting consumer and answer unavailable when a consumer makes no progress while deliveries fail"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1176", "22.39.1177", "22.39.1178"]
