@@ -8,6 +8,7 @@ import { isTransientError, readRetryFields } from '@/core/transient-retry';
 import { reportUserFacingError } from '@/core/user-facing-error';
 import { beforeFirstFrameTransport } from '@/core/realtime/topic-snapshot';
 import { getPublicClient } from '@/core/wallet-sdk/client';
+import { HEARTBEAT_LIVENESS_MS } from '@/page-modules/token/market-presentation';
 import { decodeV2Contract, type V2ContractTypes } from '@kindle/sdk';
 import { parseAbi, type Address } from 'viem';
 import type { LibrarySymbolInfo, ResolutionString } from '../../../public/charting_library/charting_library';
@@ -304,7 +305,7 @@ type ReplayChartSubscription = {
   operation?: AbortController;
   timer?: ReturnType<typeof setTimeout>;
   retryTimer?: ReturnType<typeof setTimeout>;
-  lagTimer?: ReturnType<typeof setTimeout>;
+  livenessTimer?: ReturnType<typeof setTimeout>;
   merge: CanonicalCandleRevisionMerge;
   cursor: string | null;
   sequence: bigint;
@@ -604,6 +605,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   const current = (sub: ReplayChartSubscription) => !disposed && sub.alive && subscriptions.get(sub.guid) === sub;
   const notify = (sub: ReplayChartSubscription, state: ChartStreamState, reason: string | null = null) => {
     if (!current(sub)) return;
+    if (state !== 'live') clearLiveness(sub);
     sub.freshness = { ...sub.freshness, connectionStatus: state, lagReason: reason };
     emitFreshness({ ...sub.freshness });
     publishChartMeasurement({ kind: 'replay_state', received_utc_ns: chartMeasurementUtcNs(), topic: `market.candles.${poolAddress.toLowerCase()}.${resolutionToWsTimeframe(sub.resolution)}`, generation: sub.generation, sequence: sub.sequence.toString(), replay_complete: sub.snapshotReady && !sub.replaying && sub.acknowledged, pending_bytes: sub.pendingBytes, state, reason });
@@ -612,15 +614,25 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     if (watermark === null || watermark.integrity !== 'healthy') throw new Error('Candle source watermark unavailable');
     if (sub.watermark && (BigInt(watermark.height) < BigInt(sub.watermark.height) || (watermark.height === sub.watermark.height && watermark.blockHash.toLowerCase() !== sub.watermark.blockHash.toLowerCase()))) throw new Error('Candle watermark regression');
     sub.watermark = watermark;
-    const received = Date.now();
-    sub.freshness = { ...sub.freshness, sourceObservedAt: watermark.observedAt, lastReceivedAt: received, lastSourceHeight: watermark.height };
-    if (sub.lagTimer !== undefined) clearTimeout(sub.lagTimer);
-    const lag = received - Date.parse(watermark.observedAt);
-    if (lag > 1000) notify(sub, 'degraded', 'Prices may be a little behind');
-    else {
-      emitFreshness({ ...sub.freshness });
-      sub.lagTimer = setTimeout(() => { sub.lagTimer = undefined; notify(sub, 'degraded', 'Prices may be a little behind'); }, Math.max(1, 1001 - lag));
-    }
+    sub.freshness = { ...sub.freshness, sourceObservedAt: watermark.observedAt, lastReceivedAt: Date.now(), lastSourceHeight: watermark.height };
+    emitFreshness({ ...sub.freshness });
+  }
+  function clearLiveness(sub: ReplayChartSubscription) {
+    if (sub.livenessTimer !== undefined) clearTimeout(sub.livenessTimer);
+    sub.livenessTimer = undefined;
+  }
+  function armLiveness(sub: ReplayChartSubscription) {
+    clearLiveness(sub);
+    if (!current(sub) || sub.freshness.connectionStatus !== 'live' || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
+    sub.livenessTimer = setTimeout(() => {
+      sub.livenessTimer = undefined;
+      if (current(sub) && sub.freshness.connectionStatus === 'live' && (typeof document === 'undefined' || document.visibilityState !== 'hidden')) fail(sub, 'Live updates are reconnecting');
+    }, HEARTBEAT_LIVENESS_MS);
+  }
+  function receiveStreamFrame(sub: ReplayChartSubscription) {
+    sub.freshness = { ...sub.freshness, lastReceivedAt: Date.now() };
+    armLiveness(sub);
+    emitFreshness({ ...sub.freshness });
   }
   function applyCandle(sub: ReplayChartSubscription, candle: CanonicalCandle, emit = true) {
     const result = sub.merge.accept(candle, poolAddress, resolutionToWsTimeframe(sub.resolution));
@@ -718,10 +730,11 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     drain(sub); sub.cursor = sub.checkpoint; sub.checkpoint = null;
     sub.replaying = false; sub.retries = 0;
     if (sub.timer !== undefined) clearTimeout(sub.timer); sub.timer = undefined;
-    const lag = sub.freshness.sourceObservedAt === null ? Infinity : Date.now() - Date.parse(sub.freshness.sourceObservedAt);
-    notify(sub, lag > 1000 ? 'degraded' : 'live', lag > 1000 ? 'Source observation is more than 1000 ms behind' : null);
+    notify(sub, 'live');
+    armLiveness(sub);
   }
   function cancelReplay(sub: ReplayChartSubscription) {
+    clearLiveness(sub);
     sub.operation?.abort(); sub.operation = undefined;
     sub.connection?.close(); sub.connection = undefined;
     if (sub.retryTimer !== undefined) clearTimeout(sub.retryTimer);
@@ -732,8 +745,8 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     sub.alive = false; ++sub.generation;
     cancelReplay(sub);
     sub.requests.forEach(request => request.abort()); sub.requests.clear();
-    for (const timer of [sub.timer, sub.lagTimer]) if (timer !== undefined) clearTimeout(timer);
-    sub.timer = undefined; sub.lagTimer = undefined; sub.pending = []; sub.pendingBytes = 0;
+    if (sub.timer !== undefined) clearTimeout(sub.timer);
+    sub.timer = undefined; sub.pending = []; sub.pendingBytes = 0;
   }
   function schedulePoll(sub: ReplayChartSubscription, immediate = false) {
     if (!current(sub) || sub.timer !== undefined) return;
@@ -754,6 +767,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
       sub.failures = 0;
       // An empty page for a pool with no fills carries no watermark; that is an empty series, not an outage.
       if (page.watermark !== null || page.items.length > 0) observe(sub, page.watermark);
+      if (!sub.connection && sub.freshness.connectionStatus === 'offline') notify(sub, 'degraded', 'Live updates are paused');
     } catch (error) {
       if (current(sub) && !controller.signal.aborted && generation === sub.generation) { sub.failures++; notify(sub, 'offline', reportUserFacingError(error, 'Live updates are paused', 'chart history updates')); }
     } finally {
@@ -777,7 +791,6 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     if (!current(sub)) return;
     cancelReplay(sub);
     if (sub.timer !== undefined) clearTimeout(sub.timer); sub.timer = undefined;
-    if (sub.lagTimer !== undefined) clearTimeout(sub.lagTimer); sub.lagTimer = undefined;
     sub.requests.forEach(request => request.abort());
     ++sub.generation;
     const marketState = market?.getSnapshot();
@@ -829,8 +842,9 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
           try {
             if (value !== null && typeof value === 'object' && 'op' in value) {
               const control = decodeV2Contract('StreamControl', value);
-              if (control.op === 'heartbeat' && control.subscriptionId === null) return;
+              if (control.op === 'heartbeat' && control.subscriptionId === null) { receiveStreamFrame(sub); return; }
               if (control.subscriptionId !== subscriptionId) throw new Error('Unbound chart replay control');
+              receiveStreamFrame(sub);
               if (control.op === 'subscribed') { sub.acknowledged = true; return; }
               if (control.op === 'checkpoint') {
                 if (!sub.acknowledged || !control.cursor) throw new Error('Replay checkpoint before acknowledgement');
@@ -845,11 +859,12 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
             const event = decodeV2Contract('CandleEvent', value);
             if (event.topic !== topic || event.revision !== event.payload.revision || event.watermark === null || event.watermark.integrity !== 'healthy' || BigInt(event.watermark.height) < BigInt(event.payload.lastPosition.height) || (event.watermark.height === event.payload.lastPosition.height && event.watermark.blockHash.toLowerCase() !== event.payload.lastPosition.blockHash.toLowerCase())) throw new Error('Candle event scope mismatch');
             const next = BigInt(event.sequence);
-            if (next <= sub.sequence) { const buffered = sub.pending.find(item => item.sequence === event.sequence); if (buffered && canonicalChartContent(buffered) !== canonicalChartContent(event)) throw new Error('Conflicting buffered replay sequence'); const retained = visibleCandles.get(candleIdentity(event.payload)); if (!buffered && (!retained || BigInt(event.payload.revision) > BigInt(retained.revision))) throw new Error('Unexpected candle revision on old sequence'); if (!buffered && sub.merge.accept(event.payload, poolAddress, resolutionToWsTimeframe(sub.resolution)) === 'resync') throw new Error('Conflicting replayed candle'); return; }
+            if (next <= sub.sequence) { const buffered = sub.pending.find(item => item.sequence === event.sequence); if (buffered && canonicalChartContent(buffered) !== canonicalChartContent(event)) throw new Error('Conflicting buffered replay sequence'); const retained = visibleCandles.get(candleIdentity(event.payload)); if (!buffered && (!retained || BigInt(event.payload.revision) > BigInt(retained.revision))) throw new Error('Unexpected candle revision on old sequence'); if (!buffered && sub.merge.accept(event.payload, poolAddress, resolutionToWsTimeframe(sub.resolution)) === 'resync') throw new Error('Conflicting replayed candle'); receiveStreamFrame(sub); return; }
             if (next !== sub.sequence + 1n && (!event.coalesced || event.sourceSequenceFirst === null || event.sourceSequenceLast === null || BigInt(event.sourceSequenceFirst) !== sub.sequence + 1n || BigInt(event.sourceSequenceLast) !== next)) throw new Error('Unresolved candle delivery gap');
             if (sub.pending.length >= 2048 || sub.pendingBytes + frameBytes > 256 * 1024) throw new Error('Chart replay buffer exceeded');
             if (sub.replaying || sub.loading) { sub.pending.push(event); sub.pendingBytes += frameBytes; } else applyCandle(sub, event.payload);
             sub.sequence = next; observe(sub, event.watermark);
+            receiveStreamFrame(sub);
             if (receivedUtcNs !== null) publishChartMeasurement({ kind: 'candle_delivery', received_utc_ns: receivedUtcNs, event, topic, sequence: event.sequence, revision: event.revision, source_event_id: event.payload.close.source.sourceEventId, generation });
           } catch (error) { sub.cursor = null; fail(sub, reportUserFacingError(error, 'Live updates are reconnecting', 'chart live update')); }
         },
@@ -868,7 +883,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     if (changed) for (const sub of subscriptions.values()) void recover(sub, true);
   });
   replayBindingListeners.add(bindingChanged);
-  const visible = () => { if (document.visibilityState === 'visible') { marketRetryPace.retryNow(historyError); marketRetryPace.retryNow(annotationError); bindingChanged(); if (visibleCandles.size) void reconcileMarkers(); } };
+  const visible = () => { if (document.visibilityState === 'hidden') { for (const sub of subscriptions.values()) clearLiveness(sub); } else if (document.visibilityState === 'visible') { marketRetryPace.retryNow(historyError); marketRetryPace.retryNow(annotationError); bindingChanged(); if (visibleCandles.size) void reconcileMarkers(); } };
   const online = () => bindingChanged();
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visible);
   if (typeof window !== 'undefined') window.addEventListener('online', online);
@@ -913,7 +928,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
       subscriptions: subscriptions.size,
       requests: metadata.requestCount() + historyRequests.size + [...subscriptions.values()].reduce((count, sub) => count + sub.requests.size, 0),
       sockets: [...subscriptions.values()].filter(sub => sub.connection !== undefined).length,
-      timers: [...subscriptions.values()].reduce((count, sub) => count + [sub.timer, sub.retryTimer, sub.lagTimer].filter(timer => timer !== undefined).length, 0),
+      timers: [...subscriptions.values()].reduce((count, sub) => count + [sub.timer, sub.retryTimer, sub.livenessTimer].filter(timer => timer !== undefined).length, 0),
     }),
     dispose: () => {
       if (disposed) return; disposed = true;
