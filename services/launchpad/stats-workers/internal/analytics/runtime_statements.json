@@ -983,7 +983,7 @@
       "function": "newWithRuntimePool",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 427,
+      "line": 432,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1006,7 +1006,7 @@
       ],
       "sequences": [],
       "id": "app_app_newWithRuntimePool_1",
-      "source_sha256": "ea4b2d2ef293bb9c112d6fad4a93ae49ef43eae0f99ad968a6cfb022baa83e37"
+      "source_sha256": "010cbecae2794f223deb9629172c060d5d80e4b8cde448a69798f404d10edeff"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/readiness.go",
@@ -1036,7 +1036,7 @@
       "function": "catchUpStatsHolders",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 943,
+      "line": 952,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1059,14 +1059,14 @@
       ],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_1",
-      "source_sha256": "ea4b2d2ef293bb9c112d6fad4a93ae49ef43eae0f99ad968a6cfb022baa83e37"
+      "source_sha256": "010cbecae2794f223deb9629172c060d5d80e4b8cde448a69798f404d10edeff"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
       "function": "catchUpStatsHolders",
       "call": 2,
       "expression": "`SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`",
-      "line": 949,
+      "line": 958,
       "sql": "SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4",
       "kind": "SELECT",
       "tables": [
@@ -1088,7 +1088,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_2",
-      "source_sha256": "ea4b2d2ef293bb9c112d6fad4a93ae49ef43eae0f99ad968a6cfb022baa83e37"
+      "source_sha256": "010cbecae2794f223deb9629172c060d5d80e4b8cde448a69798f404d10edeff"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1345,7 +1345,7 @@
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 206,
+      "line": 207,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1368,14 +1368,14 @@
       ],
       "sequences": [],
       "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_1",
-      "source_sha256": "a0d08bced3a49f51b7cbb9a613f875a7a952f02cb5173b9b2793b5d9c155ccd7"
+      "source_sha256": "c13ac34c2949d52c8487867cd6bb400f29d2f1612bb1ba10e6610b0884d1d895"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 2,
       "expression": "`SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11`",
-      "line": 242,
+      "line": 243,
       "sql": "SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11",
       "kind": "SELECT",
       "tables": [
@@ -1413,14 +1413,14 @@
       "functions": [],
       "sequences": [],
       "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_2",
-      "source_sha256": "a0d08bced3a49f51b7cbb9a613f875a7a952f02cb5173b9b2793b5d9c155ccd7"
+      "source_sha256": "c13ac34c2949d52c8487867cd6bb400f29d2f1612bb1ba10e6610b0884d1d895"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 3,
       "expression": "`SELECT p.payload=$2::jsonb AND convert_from(s.position,'UTF8')::jsonb=$3::jsonb FROM indexer.indexer_accounting_publications_v1 p JOIN `+q+`.indexer_market_partition_positions_v1 s ON s.projection_version=$4 AND s.partition_kind='market' AND s.partition_key=$5 AND s.sequence=$6 WHERE p.publication_id=$1`",
-      "line": 271,
+      "line": 272,
       "sql": "SELECT p.payload=$2::jsonb AND convert_from(s.position,'UTF8')::jsonb=$3::jsonb FROM indexer.indexer_accounting_publications_v1 p JOIN \"indexer\".indexer_market_partition_positions_v1 s ON s.projection_version=$4 AND s.partition_kind='market' AND s.partition_key=$5 AND s.sequence=$6 WHERE p.publication_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1441,7 +1441,7 @@
       ],
       "sequences": [],
       "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_3",
-      "source_sha256": "a0d08bced3a49f51b7cbb9a613f875a7a952f02cb5173b9b2793b5d9c155ccd7"
+      "source_sha256": "c13ac34c2949d52c8487867cd6bb400f29d2f1612bb1ba10e6610b0884d1d895"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_legacy.go",

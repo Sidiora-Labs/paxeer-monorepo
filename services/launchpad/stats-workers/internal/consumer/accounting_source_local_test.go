@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
@@ -306,6 +307,7 @@ func TestSourceVerifiedAccountingFromLocalChainAndBroker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	consumer.Progress = consumerhealth.New("accounting_consumer", 5*time.Minute, nil, time.Now)
 	brokerURL := os.Getenv("L20_NATS_URL")
 	if brokerURL == "" {
 		t.Fatal("L20_NATS_URL required")
@@ -391,6 +393,9 @@ func TestSourceVerifiedAccountingFromLocalChainAndBroker(t *testing.T) {
 	}
 	if err := consumer.ConsumeBatch(ctx, messages); err != nil {
 		t.Fatal(err)
+	}
+	if snapshot := consumer.Progress.Snapshot(); snapshot.LastSuccess.IsZero() || snapshot.ConsecutiveFailures != 0 || snapshot.RetryPartitions != 0 {
+		t.Fatalf("committed delivery progress: %+v", snapshot)
 	}
 	if err := consumer.Consume(ctx, nil); err == nil {
 		t.Fatal("missing broker message accepted")

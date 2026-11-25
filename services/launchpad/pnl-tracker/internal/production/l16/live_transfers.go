@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting/sourcebootstrap"
@@ -1136,6 +1137,7 @@ type LiveIdentityAuthority interface {
 }
 
 type LiveTransferWorker struct {
+	Progress   *consumerhealth.State
 	service    *Service
 	repository l17.Repository
 	identity   LiveIdentityAuthority
@@ -1252,7 +1254,27 @@ func (w *LiveTransferWorker) processNext(ctx context.Context) (bool, error) {
 	return w.processWallet(ctx, "")
 }
 
-func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet string) (bool, error) {
+func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet string) (changed bool, result error) {
+	var retryWallet string
+	var pending bool
+	defer func() {
+		if ctx.Err() != nil && errors.Is(result, context.Canceled) {
+			return
+		}
+		if result == nil && !changed {
+			return
+		}
+		observed := result
+		class := consumerhealth.ErrorClass(observed)
+		if pending && result == nil {
+			observed = errLiveEnrollmentPending
+			class = consumerhealth.SourceUnavailableClass
+		}
+		if errors.Is(observed, ErrBaselineUnavailable) {
+			class = consumerhealth.SourceUnavailableClass
+		}
+		w.Progress.Record(observed, class, retryWallet)
+	}()
 	bounded, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	a := w.service.authority
@@ -1278,6 +1300,7 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 	if e != nil {
 		return false, e
 	}
+	retryWallet = p.Wallet
 	if e = p.Validate(time.Now()); e != nil {
 		return false, e
 	}
@@ -1357,6 +1380,7 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 			var history liveReplayHistory
 			snapshot, e := w.service.liveContinueTx(bounded, tx, p.Wallet, token, head, seed, &history)
 			if errors.Is(e, errLiveEnrollmentPending) {
+				pending = true
 				if _, e = tx.Exec(bounded, `UPDATE inventory_l16_live_owners_v1 SET last_attempt_at=clock_timestamp() WHERE wallet=$1`, p.Wallet); e != nil {
 					return false, e
 				}

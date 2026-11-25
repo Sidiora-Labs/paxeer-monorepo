@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumerhealth"
+
 	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
@@ -155,6 +157,7 @@ type AccountingConfig struct {
 	SeriesCheckpoint                          func(context.Context, pgx.Tx, accounting.PublicationV1) (engine.SeriesCheckpoint, error)
 }
 type AccountingConsumer struct {
+	Progress       *consumerhealth.State
 	config         AccountingConfig
 	preflightLease bool
 	reprocess      *ReprocessRequest
@@ -167,7 +170,19 @@ func NewAccountingConsumer(config AccountingConfig) (*AccountingConsumer, error)
 	}
 	return &AccountingConsumer{config: config}, nil
 }
-func (c *AccountingConsumer) Consume(ctx context.Context, message *natsdriver.Message) error {
+func (c *AccountingConsumer) Consume(ctx context.Context, message *natsdriver.Message) (result error) {
+	if c != nil && message != nil {
+		defer func() {
+			if ctx.Err() != nil && errors.Is(result, context.Canceled) {
+				return
+			}
+			class := consumerhealth.ErrorClass(result)
+			if errors.Is(result, ErrAccountingSourceUnavailable) {
+				class = consumerhealth.SourceUnavailableClass
+			}
+			c.Progress.Record(result, class, consumerhealth.RetryKey(message.Wire))
+		}()
+	}
 	if c == nil || message == nil || message.Subject != accounting.MarketSubject || message.Stream == "" || message.Sequence == 0 || message.EventID == "" {
 		return errors.New("charts: real bounded market broker message required")
 	}

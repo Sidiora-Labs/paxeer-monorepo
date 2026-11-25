@@ -5,7 +5,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -21,11 +23,15 @@ func TestLiveWalletPublishesEmptyCompletePortfolio(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	worker.Progress = consumerhealth.New("live_wallet_consumer", 5*time.Minute, nil, time.Now)
 	if err = worker.EnqueueOwned(ctx, principal); err != nil {
 		t.Fatal(err)
 	}
 	if count, err := worker.RunOnce(ctx); err != nil || count != 1 {
 		t.Fatal(count, err)
+	}
+	if snapshot := worker.Progress.Snapshot(); snapshot.LastSuccess.IsZero() || snapshot.ConsecutiveFailures != 0 {
+		t.Fatalf("committed wallet progress: %+v", snapshot)
 	}
 	summary, err := worker.RebuildOwned(ctx, principal)
 	if err != nil || summary.PositionCount != 0 || summary.BasisQuality != "complete" {
@@ -71,6 +77,9 @@ func TestLiveWalletPublishesEmptyCompletePortfolio(t *testing.T) {
 		}
 		if _, err = worker.processWallet(ctx, wallet); !errors.Is(err, delivery.ErrIntegrity) {
 			t.Fatal(err)
+		}
+		if snapshot := worker.Progress.Snapshot(); snapshot.LastError.IsZero() || snapshot.ConsecutiveFailures == 0 || snapshot.RetryPartitions != 1 {
+			t.Fatalf("refused wallet progress: %+v", snapshot)
 		}
 	}
 }

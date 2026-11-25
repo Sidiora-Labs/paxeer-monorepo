@@ -55,6 +55,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/card"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/config"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/migrate"
@@ -98,6 +99,10 @@ type App struct {
 
 // New runs migrations and builds every component.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
+	accountingHealth, err := newConsumerReadiness(cfg, "inventory_consumer", logger, time.Now)
+	if err != nil {
+		return nil, err
+	}
 	secretCheck, secretStop, secretErr := cfg.ResolveProductionSecrets(ctx)
 	if secretErr != nil {
 		return nil, secretErr
@@ -282,6 +287,19 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		return nil, err
 	}
+	if accountingConsumer != nil {
+		accountingConsumer.Progress = accountingHealth
+		secretChecks["inventory_consumer"] = accountingHealth.Check
+	}
+	var liveHealth *consumerhealth.State
+	if journeys != nil {
+		liveHealth, err = newConsumerReadiness(cfg, "live_wallet_consumer", logger, time.Now)
+		if err != nil {
+			return nil, err
+		}
+		journeys.live.Progress = liveHealth
+		secretChecks["live_wallet_consumer"] = liveHealth.Check
+	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins:    cfg.CORSAllowedOrigins,
 		TrustedProxies: trustedProxies,
@@ -361,7 +379,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	})(router)
 
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", consumerhealth.Metrics(metrics, "pnld", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone, accountingHealth, liveHealth))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err

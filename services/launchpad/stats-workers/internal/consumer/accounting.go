@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting/sourcebootstrap"
@@ -278,6 +279,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 }
 
 type SourceVerifiedAccountingConsumer struct {
+	Progress  *consumerhealth.State
 	bootstrap *statsBootstrapper
 	consumer  *AccountingConsumer
 	lease     func(context.Context, accounting.FillV1) (delivery.PartitionLease, error)
@@ -308,7 +310,23 @@ func (c *SourceVerifiedAccountingConsumer) Run(ctx context.Context, driver *nats
 	}
 }
 
-func (c *SourceVerifiedAccountingConsumer) ConsumeBatch(ctx context.Context, messages []*natsdriver.Message) error {
+func (c *SourceVerifiedAccountingConsumer) ConsumeBatch(ctx context.Context, messages []*natsdriver.Message) (result error) {
+	if c != nil && len(messages) > 0 && len(messages) <= 64 {
+		defer func() {
+			if ctx != nil && ctx.Err() != nil && errors.Is(result, context.Canceled) {
+				return
+			}
+			class := consumerhealth.ErrorClass(result)
+			if errors.Is(result, ErrAccountingSourceUnavailable) {
+				class = consumerhealth.SourceUnavailableClass
+			}
+			for _, message := range messages {
+				if message != nil {
+					c.Progress.Record(result, class, consumerhealth.RetryKey(message.Wire))
+				}
+			}
+		}()
+	}
 	if c == nil || c.consumer == nil || c.lease == nil || ctx == nil || len(messages) < 1 || len(messages) > 64 {
 		return projectionstats.ErrInvalid
 	}
