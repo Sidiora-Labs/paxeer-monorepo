@@ -17038,6 +17038,18 @@ value = "One. A fill of the source at or below the cutoff height for which stats
 basis = "Gotcha 4913."
 affects = []
 
+[decision.3988]
+title = "The runtime role of the stats service reads the column factory of the view of the canonical creations"
+value = "One. In migrations/grants.json the entry of the runtime role stats_runtime for the view indexer.indexer_canonical_creations_v1 gains the column factory in its list of columns. No other right changes and none is taken away. Two. The statement of the function CanonicalCreation stays as it is. The comparison of the emitter of the raw log with the factory is part of the proof of the creation. Three. Decision 3983 point three holds. The task renews the approval of migrations/registry.json with the approve mode of the schema tool as its last change under migrations, on an empty database of a PostgreSQL server of major version 18, and takes the registry as the tool writes it. No entry is added, removed or reordered, no migration file changes, and the count and the inventory digest of tools/qualification/audit_repairs/test_migration_registry_and_readiness.py stay as they are. Four. On a database that holds the roles and the rights of the registry with the new record, the task takes the role stats_runtime with SET ROLE and lets the database plan each of the five statements of sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go with EXPLAIN, and the final message names the five answers. Where the database refuses one of them for a missing read right on a column of a view the role already reads, the entry of that view gains the column in the same form and the final message names it. Where a refusal has another cause, nothing changes for it and the final message names the statement and the answer. Five. This task adds no case. A later task brings the statements of sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go into the record of gotcha 4914 part four. It comes after task 22.39.1187, which changes that record and two of those statements. Six. Task 22.39.1187 and this task both write every approval digest of the registry, so they do not run beside one another (decision 3978 point three): task 22.39.1187 requires this task as well. Seven. Target: the verification of task 22.39.1189 passes. It runs the cases of the package sdk/launchpad/shared/db/production/cmd/launchpad-schema, requires the case TestRepositoryRegistryRequiresApproval and runs tools/qualification/audit_repairs/test_migration_registry_and_readiness.py with pytest. Task 22.39.1189. "
+basis = "Gotcha 4914."
+affects = []
+
+[decision.3989]
+title = "The attribution of a direct trade on the native execution looks for the settlement transfer at the address of the launchpad module"
+value = "One. Where the emitter of a fill is the native execution address 0x0000000000000000000000000000000000001017, the function attribute takes the address of the launchpad module as the holder of the settlement asset. Where the emitter is another address, the holder is the pool as today. The holder of the token is the pool in both forms. Two. For a buy the rule asks for exactly one transfer of the settlement asset from the sender to the holder with the exact input and exactly one transfer of the token from the pool to the sender with the exact output. For a sell it asks for exactly one transfer of the token from the sender to the pool with the exact input and exactly one transfer of the settlement asset from the holder to the sender with the exact output. Every other condition of the function stays as it is: the direct call of 132 bytes with the value zero, the selector, the pool and the exact input in the call data, the minimum output, the deadline, exactly one event of the router with the same pool, sender and amounts, and exactly one primary fill whose sender is the sender of the transaction. The attribution it gives and its three evidence entries keep their form. Three. The address of the launchpad module has one definition in the indexer, in the package internal/decode beside the native execution address. It is computed from the module name launchpad as the first twenty bytes of its SHA-256 digest, as the chain computes it, and no other place of the indexer writes the address out. No configuration value and no member of a manifest is added for it. Four. New cases with the name prefix TestNativeHolderAttribution. Case a, package internal/decode: the definition of point three equals 0x7b3937a5f4397ec652546ef2e72a9e9a35d5ac52 and equals the recipient of the settlement transfer of the recorded swaps NativeSwap and TenantSwap of services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json. Case b, package internal/receipt: the fills of the two recorded swaps, taken through the helpers the present replay cases of services/launchpad/indexer/internal/receipt/producer_qualification_test.go use, hold the quality qualified_calldata with payer, recipient, trader and caller of the router equal to the sender, and the two transfer evidence entries name the log indexes of the two transfers of the receipt. Case c, package internal/receipt: each of these changes of the recorded native receipt leaves the quality unavailable: the settlement transfer goes to the pool or to another address in place of the holder, its amount differs by one, a second transfer of the same asset, addresses and amount is present, the token transfer comes from another address than the pool, the Swap event names another sender, and the call data is one word longer. Where the helpers of the present cases cannot give a changed receipt to the qualification, the case calls the function attribute with the bundle and the decoded events of the recorded receipt. Case d, package internal/receipt: a sell on the native execution, built from the recorded buy with the forms the chain writes (the transfer of the token from the sender to the pool, the transfer of the settlement asset from the holder to the sender, the Swap event of the native execution address with the side of a sell and the Sell event of the router), gets the quality qualified_calldata. The same sell with the settlement transfer from the pool in place of the holder stays unavailable. Case e, package internal/receipt: a buy and a sell whose fill another address than the native execution address emits keep the rule of today: the settlement transfer at the pool is taken, and the same transfer at the address of the launchpad module is not. Case f, package internal/processor: a fill with the attribution of case b passes the test of same owner of the function planInventory and of the function qualifiedInventoryEnrichment, in the form the present cases of the file inventory_integrity_test.go use. Five. Every present case stays word for word and passes, the cases of gotcha 4915 part two among them. One exception: where a present case holds a fixed value that follows from the attribution of a fill of a native receipt, a digest of the fill or of a frame for instance, the value follows the new attribution, and the final message names the case, the file, the former and the new value and the reason. No case gains a skip mark and no case is removed. Six. Not part of this task: the other entries of the router (buyWithPermit, sellWithPermit, swapTokenForToken, multicall, and a creation with a first purchase) keep the quality unavailable and go to a later task; the execution policy and the input derivation of a fill; stored fills, which keep the attribution they were written with. Only files under services/launchpad/indexer change. Seven. The final message names the definition of point three with its file and line, the changed lines of the function attribute, each new case with the place its receipt comes from, each present case that changed under point five, every other place of the launchpad services that derives the attribution of a fill again from its receipt and would compare it with a stored one (search for it and name file and line, or say that none exists), and any condition of the function that a real direct trade of the form of gotcha 4915 part four would still not meet. Eight. Target: the verification of task 22.39.1190 passes. It runs the lint stage of the indexer module and every case of the module, and requires a case with the name prefix TestNativeHolderAttribution in each of the packages internal/decode, internal/receipt and internal/processor. Task 22.39.1190. "
+basis = "Gotcha 4915."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46698,6 +46710,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1190]
+title = "Let the attribution of a direct trade on the native execution find the settlement transfer at the address of the launchpad module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=indexer && (cd services/launchpad/indexer && GOWORK=off GOFLAGS=-timeout=18m python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestNativeHolderAttribution ./internal/decode/ | grep -q ^TestNativeHolderAttribution && GOWORK=off go test -count=1 -list ^TestNativeHolderAttribution ./internal/receipt/ | grep -q ^TestNativeHolderAttribution && GOWORK=off go test -count=1 -list ^TestNativeHolderAttribution ./internal/processor/ | grep -q ^TestNativeHolderAttribution)"
+do_1 = "do_1 Gotcha 4915, decision 3989. Read the function attribute of services/launchpad/indexer/internal/receipt/qualified.go from line 505 to its end and the place of the same file that calls it, the function makeFill above it, the address at line 26 of services/launchpad/indexer/internal/decode/registry.go, the functions planInventory of services/launchpad/indexer/internal/processor/inventory.go and qualifiedInventoryEnrichment of the same package, the helpers of the replay cases of services/launchpad/indexer/internal/receipt/producer_qualification_test.go (receiptReplayInputsFromProducer, receiptReplayOpen, receiptReplayFill and receiptReplaySwapRestart), the receipts of the members NativeSwap and TenantSwap of services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json, the case at line 369 of services/launchpad/indexer/internal/receipt/private_node_test.go, the file inventory_integrity_test.go of the package internal/processor, and on the chain side, for the forms of the transfers only, the functions PullQuote and PayQuote of modules/launchpad/keeper/custody.go."
+symbols = []
+
+[capability.22.39.1189]
+title = "Give the runtime role of the stats service the read right on the column factory of the view of the canonical creations"
+reqs = ["22998.1"]
+touches = ["migrations"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 30m ./db/production/cmd/launchpad-schema/... && GOWORK=off go test -count=1 -list ^TestRepositoryRegistryRequiresApproval ./db/production/cmd/launchpad-schema/ | grep -q ^TestRepositoryRegistryRequiresApproval) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
+do_1 = "do_1 Gotcha 4914, decision 3988. Read the function CanonicalCreation of sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go with its statement at line 131 and the four other functions of that file that hold a statement (FirstMarketPosition, MarketPublication, CommitContaining and PreviousHeightContaining), line 113 of services/launchpad/stats-*/internal/consumer/source_bootstrap.go, migrations/190001.sql line 10, the entries of the runtime roles stats_runtime, candles_runtime and pnl_runtime for the view indexer_canonical_creations_v1 in migrations/grants.json, and the function approvalManifestDigest and the approve mode of sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go."
+symbols = []
 
 [capability.22.39.1188]
 title = "Let the ranking judge an open fill pool by pool instead of refusing its whole refresh"
@@ -212857,9 +212887,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1190]
+title = "Let the attribution of a direct trade on the native execution find the settlement transfer at the address of the launchpad module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1190"]
+interfaces = []
+do_1 = "do_1 Gotcha 4915, decision 3989. Read the function attribute of services/launchpad/indexer/internal/receipt/qualified.go from line 505 to its end and the place of the same file that calls it, the function makeFill above it, the address at line 26 of services/launchpad/indexer/internal/decode/registry.go, the functions planInventory of services/launchpad/indexer/internal/processor/inventory.go and qualifiedInventoryEnrichment of the same package, the helpers of the replay cases of services/launchpad/indexer/internal/receipt/producer_qualification_test.go (receiptReplayInputsFromProducer, receiptReplayOpen, receiptReplayFill and receiptReplaySwapRestart), the receipts of the members NativeSwap and TenantSwap of services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json, the case at line 369 of services/launchpad/indexer/internal/receipt/private_node_test.go, the file inventory_integrity_test.go of the package internal/processor, and on the chain side, for the forms of the transfers only, the functions PullQuote and PayQuote of modules/launchpad/keeper/custody.go."
+do_2 = "do_2 Write the cases a and b of decision 3989 point four first and see case b fail on the tree as it is. Then write the definition under point three and bring the function attribute into the form of points one and two. Then write the cases c to f. Point six holds: no file outside services/launchpad/indexer changes, and no file of the chain is changed."
+do_3 = "do_3 Run the whole case set of the module by hand with the command of the verification and look for a present case that changed its answer. Point five decides each of them. Then make the search of point seven."
+do_4 = "do_4 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point eight holds. The cases need the PostgreSQL of the test environment and the anvil program, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=indexer && (cd services/launchpad/indexer && GOWORK=off GOFLAGS=-timeout=18m python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestNativeHolderAttribution ./internal/decode/ | grep -q ^TestNativeHolderAttribution && GOWORK=off go test -count=1 -list ^TestNativeHolderAttribution ./internal/receipt/ | grep -q ^TestNativeHolderAttribution && GOWORK=off go test -count=1 -list ^TestNativeHolderAttribution ./internal/processor/ | grep -q ^TestNativeHolderAttribution)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1189]
+title = "Give the runtime role of the stats service the read right on the column factory of the view of the canonical creations"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1189"]
+interfaces = []
+do_1 = "do_1 Gotcha 4914, decision 3988. Read the function CanonicalCreation of sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go with its statement at line 131 and the four other functions of that file that hold a statement (FirstMarketPosition, MarketPublication, CommitContaining and PreviousHeightContaining), line 113 of services/launchpad/stats-*/internal/consumer/source_bootstrap.go, migrations/190001.sql line 10, the entries of the runtime roles stats_runtime, candles_runtime and pnl_runtime for the view indexer_canonical_creations_v1 in migrations/grants.json, and the function approvalManifestDigest and the approve mode of sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go."
+do_2 = "do_2 Add the column under decision 3988 point one. Create an empty database on the PostgreSQL server of the test environment and check that the server reports the major version 18. From the module sdk/launchpad/shared run the approve mode of the tool (go run ./db/production/cmd/launchpad-schema approve --migrations with the path of the directory migrations of the working tree) with the variable LAUNCHPAD_ADMIN_DATABASE_URL naming that database. Take the registry as the tool writes it. Then make the check of point four before the database is removed. Where the database of the approve mode holds no roles or rights, apply the registry to a second empty database with the apply mode of the tool in the way the cases of the package do it and make the check there. Give each statement its parameters as typed null values or use the generic plan form of EXPLAIN, and take the name of the schema of the partition positions from the entry of the role where a statement needs one. Where the check adds a column under point four, run the approve mode again afterwards, so that the approval is the last change under migrations. Where the test environment does not allow the check, say so in the final message and go on. Then remove the databases. Check in the difference of the working tree that migrations/grants.json gained exactly the one column and what point four added, that no entry of the registry was added, removed or reordered, that no migration file changed, that server_major_version is 18, that every entry holds the new approval digest and that the interface digest of every entry is the checksum of migrations/grants.json. Decision 3983 point two holds for any other file the tool writes."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The final message names the former and the new approval digest, the major version of the server, the five answers of the check of step two, every added column and every changed file. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./db/production/...)"
+verify_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 30m ./db/production/cmd/launchpad-schema/... && GOWORK=off go test -count=1 -list ^TestRepositoryRegistryRequiresApproval ./db/production/cmd/launchpad-schema/ | grep -q ^TestRepositoryRegistryRequiresApproval) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1188]
 title = "Let the ranking judge an open fill pool by pool instead of refusing its whole refresh"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -212892,7 +212983,7 @@ title = "Let the reads of the source commits by height use an index and let the 
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.1184", "22.39.1186"]
+requires = ["22.39.1184", "22.39.1186", "22.39.1189"]
 reqs = ["22998.1"]
 capabilities = ["22.39.1187"]
 interfaces = []
@@ -212920,7 +213011,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1186]
 title = "Give the runtime role of the charts service the read right on the view its history route reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
