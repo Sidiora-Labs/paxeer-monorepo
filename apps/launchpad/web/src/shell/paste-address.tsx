@@ -85,10 +85,10 @@ export default function PasteAddress() {
         open={fallbackOpen}
         onClose={close}
         aria-label="Open a coin by address"
-        className="w-72 max-w-[calc(100dvw-var(--sl-space-6))] rounded-md bg-surface-2 p-3 shadow-pop"
+        className="sl-sheet sl-floating w-72 max-w-[calc(100dvw-var(--sl-space-6))] rounded-md p-3"
       >
         <form onSubmit={submit} className="flex w-full min-w-0 flex-col gap-2">
-          <label htmlFor={inputId} className="text-xs font-bold text-text-muted">
+          <label htmlFor={inputId} className="text-xs font-medium text-text-muted">
             Paste the coin address here
           </label>
           <input
@@ -106,7 +106,7 @@ export default function PasteAddress() {
             placeholder="0x…"
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? `${inputId}-error` : undefined}
-            className="sl-field min-h-control-height-md py-2 w-full rounded-sm bg-surface-3 px-3 font-mono text-sm text-text placeholder:text-text-faint"
+            className="sl-field min-h-control-height-md py-2 w-full rounded-sm bg-surface-2 px-3 font-mono text-sm text-text placeholder:text-text-faint"
           />
           {error ? (
             <p id={`${inputId}-error`} role="alert" className="text-xs text-danger">

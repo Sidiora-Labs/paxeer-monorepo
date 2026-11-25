@@ -1,0 +1,10 @@
+.sl-mobile-destinations {
+  background: var(--sl-surface-1);
+}
+
+@supports (backdrop-filter: blur(1rem)) {
+  .sl-mobile-destinations {
+    background: color-mix(in srgb, var(--sl-surface-1) 82%, transparent);
+    backdrop-filter: blur(var(--sl-floating-blur));
+  }
+}

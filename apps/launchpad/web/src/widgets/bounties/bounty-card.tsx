@@ -50,7 +50,7 @@ export function BountyCard({ bounty, creator, stats, valuationContext, href, now
         <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
         {bounty.poolAddress ? <span className="relative z-10 flex min-w-0 items-center"><BountyTokenChip poolAddress={bounty.poolAddress} stats={stats} /></span> : null}
       </div>
-      <h3 id={titleId} className="line-clamp-2 text-md font-bold text-text">
+      <h3 id={titleId} className="line-clamp-2 text-md font-semibold text-text">
         <Link prefetch={false} href={target} className="flex items-center focus-visible:bg-surface-3 focus-visible:underline after:absolute after:inset-0 after:rounded-lg after:content-['']">
           {bounty.title}
         </Link>

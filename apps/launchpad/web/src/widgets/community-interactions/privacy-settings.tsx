@@ -5,7 +5,7 @@ import { Button, FormField } from '@/ui/primitives';
 import { InteractionClient, type Inbox, type Privacy } from './interaction-client';
 
 const walletPattern = /^0x[0-9a-fA-F]{40}$/u;
-const selectClass = 'h-control-height-md w-full rounded-sm bg-surface-2 px-3 text-base text-text outline-none transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-focus disabled:text-text-disabled';
+const selectClass = 'sl-field h-control-height-md w-full rounded-sm bg-surface-2 px-3 text-base text-text outline-none transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-focus disabled:text-text-disabled';
 
 export function PrivacySettings({ client }: { client: InteractionClient }) {
   const [privacy, setPrivacy] = useState<Privacy | null>(null); const [inbox, setInbox] = useState<Inbox>('nobody'); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [wallet, setWallet] = useState(''); const id = useId(); const walletID = useId();
@@ -17,7 +17,7 @@ export function PrivacySettings({ client }: { client: InteractionClient }) {
   return <section aria-label="Privacy" className="flex flex-col gap-4 rounded-md bg-surface-1 p-4">
     <form onSubmit={event => { void save(event); }} aria-busy={busy || undefined} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor={id} className="text-sm font-bold text-text">Who can send you direct messages?</label>
+        <label htmlFor={id} className="text-sm font-semibold text-text">Who can send you direct messages?</label>
         <select id={id} disabled={!privacy || busy} value={inbox} onChange={event => setInbox(event.target.value as Inbox)} className={selectClass}><option value="everyone">Everyone</option><option value="followed_only">People you follow</option><option value="nobody">Nobody</option></select>
       </div>
       <div className="flex justify-end"><Button type="submit" variant="primary" size="md" disabled={!privacy || busy} loading={busy}>Save</Button></div>

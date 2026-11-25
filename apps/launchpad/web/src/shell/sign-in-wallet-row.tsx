@@ -56,7 +56,7 @@ export function WalletMark({
   );
 }
 
-/** Wallet row for the sign-in dialog: 56px card on surface-3, provider mark, name, status badge in text. */
+/** Wallet row with a provider mark, name and text status badge on surface 2. */
 export default function SignInWalletRow({
   name,
   icon,
@@ -72,7 +72,7 @@ export default function SignInWalletRow({
     <>
       <WalletMark icon={icon} name={name} />
       <span className="min-w-0 flex-1">
-        <span className="block break-words text-base font-bold text-text">{name}</span>
+        <span className="block truncate text-base font-semibold text-text" title={name}>{name}</span>
         {detail ? (
           <span className="block break-words text-xs text-text-muted">{detail}</span>
         ) : null}
@@ -86,7 +86,7 @@ export default function SignInWalletRow({
     </>
   );
   const classes = cn(
-    'flex min-h-14 py-2 w-full items-center gap-3 rounded-md bg-surface-3 px-3 text-left transition-colors duration-fast',
+    'flex min-h-14 py-2 w-full items-center gap-3 rounded-sm bg-surface-2 px-3 text-left transition-colors duration-fast',
     onSelect && !disabled && 'hover:bg-surface-hover',
     disabled && 'text-text-disabled',
     className
@@ -123,7 +123,7 @@ export function MoreWalletsRow({
       onClick={onToggle}
       aria-expanded={open}
       aria-controls={controls}
-      className="flex min-h-14 py-2 w-full items-center gap-3 rounded-md bg-surface-3 px-3 text-left transition-colors duration-fast hover:bg-surface-hover"
+      className="flex min-h-14 py-2 w-full items-center gap-3 rounded-sm bg-surface-2 px-3 text-left transition-colors duration-fast hover:bg-surface-hover"
     >
       <span
         aria-hidden="true"
@@ -131,7 +131,7 @@ export function MoreWalletsRow({
       >
         <Wallet className="size-icon-md" />
       </span>
-      <span className="min-w-0 flex-1 text-base font-bold text-text">
+      <span className="min-w-0 flex-1 text-base font-semibold text-text">
         {open ? 'Fewer wallets' : 'More wallets'}
       </span>
       <span className="text-xs text-text-faint" data-numeric>
