@@ -213133,7 +213133,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1183]
 title = "Let the rewards routes of the accounts service read the node in two groups for a whole page under a bound that the reads fit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
