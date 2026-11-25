@@ -734,6 +734,10 @@ func JourneysEnabled(cfg config.Config) bool {
 }
 
 func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, rdb *goredis.Client, rpc *ethclient.Client, nc *nats.Conn, baseline *inventory.BaselineAuthority, accounting *inventory.AccountingConsumer) (*pnlJourneys, error) {
+	rewardsTimeout, err := cfg.RewardsTimeout()
+	if err != nil {
+		return nil, err
+	}
 	var d pnlJourneyDocument
 	if err := config.ReadBoundDocument(cfg.JourneyConfigFile, cfg.JourneyConfigSHA256, &d); err != nil {
 		return nil, err
@@ -874,7 +878,7 @@ func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	if err != nil {
 		return nil, err
 	}
-	rewardsHTTP := l18.HTTP{Service: rewards, Authenticate: func(request *http.Request) (l18.Actor, error) {
+	rewardsHTTP := l18.HTTP{Service: rewards, Timeout: rewardsTimeout, Authenticate: func(request *http.Request) (l18.Actor, error) {
 		principal, e := identity.AuthenticateRequest(request.Context(), request)
 		if e != nil {
 			return l18.Actor{}, e
