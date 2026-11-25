@@ -212920,7 +212920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1186]
 title = "Give the runtime role of the charts service the read right on the view its history route reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
