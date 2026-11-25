@@ -213219,7 +213219,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1199]
 title = "Let the holders job call the refresh of the analytics only for a coin that changed, and repeat a serialization failure of that refresh before it is an error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
