@@ -513,11 +513,18 @@ func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1,
 	sig := "buy(address,uint256,uint256,uint256)"
 	inputAsset, outputAsset := common.HexToAddress(f.Settlement.Address), common.HexToAddress(f.Token.Address)
 	input, output := f.USDLAmountRaw, f.TokenAmountRaw
+	pool := common.HexToAddress(f.PoolAddress)
+	settlementHolder := pool
+	if common.HexToAddress(f.ActualEmitter) == decode.LaunchpadPrecompileAddress {
+		settlementHolder = decode.LaunchpadModuleAddress
+	}
+	inputHolder, outputHolder := settlementHolder, pool
 	if f.Side == "sell" {
 		name, actor, inKey, outKey = "Sell", "seller", "tokensIn", "usdlOut"
 		sig = "sell(address,uint256,uint256,uint256)"
 		inputAsset, outputAsset = outputAsset, inputAsset
 		input, output = f.TokenAmountRaw, f.USDLAmountRaw
+		inputHolder, outputHolder = pool, settlementHolder
 	}
 	if !bytes.Equal(data[:4], crypto.Keccak256([]byte(sig))[:4]) || !bytes.Equal(data[4:16], make([]byte, 12)) || common.BytesToAddress(data[16:36]) != common.HexToAddress(f.PoolAddress) || new(big.Int).SetBytes(data[36:68]).String() != input {
 		return unavailable
@@ -559,9 +566,8 @@ func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1,
 		return index, count == 1
 	}
 	payer := common.HexToAddress(sender)
-	pool := common.HexToAddress(f.PoolAddress)
-	inIndex, inOK := match(inputAsset, payer, pool, input)
-	outIndex, outOK := match(outputAsset, pool, payer, output)
+	inIndex, inOK := match(inputAsset, payer, inputHolder, input)
+	outIndex, outOK := match(outputAsset, outputHolder, payer, output)
 	if !inOK || !outOK {
 		return unavailable
 	}
