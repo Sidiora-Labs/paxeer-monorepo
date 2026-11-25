@@ -32,12 +32,7 @@ export function profileHref(wallet: string): string {
 
 const toneClass = { success: 'text-success', danger: 'text-danger', neutral: 'text-text' } as const;
 
-/**
- * Leaderboard row (components.md 36): rank with podium tone and crown for
- * 1-3, avatar or initials, handle (or short address), short wallet, signed
- * PnL and an optional prize pill. The handle link covers the whole row; the
- * actions slot sits above it so Follow stays a separate control.
- */
+/** Ranked trader row with a separate follow control and right-aligned figures. */
 export function RankRow({ rank, wallet, identity, metricSigned, metricLabel = 'Profit', prizeRaw = null, self = false, size = 'md', actions, qualityNote = null, className }: RankRowProps) {
   const address = wallet.toLowerCase();
   const handle = identity?.displayName?.trim() || null;
@@ -45,45 +40,29 @@ export function RankRow({ rank, wallet, identity, metricSigned, metricLabel = 'P
   const tone = metricSigned === null ? 'neutral' : metricTone(metricSigned);
   const large = size === 'lg';
   return (
-    <li
-      className={cn(
-        'relative grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-sm sm:grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,auto)_auto] px-3 transition-colors duration-fast hover:bg-surface-hover',
-        // components.md 36 / layout.md: leaderboard rows are 48 (board) and 64 (cup results).
-        large ? 'min-h-list-row-lg py-2' : 'min-h-12 py-1',
-        self && 'bg-accent-soft',
-        className,
-      )}
-      data-rank={rank}
-      data-self={self || undefined}
-    >
-      <RankBadge rank={rank} className={cn('shrink-0 justify-center', large ? 'w-10' : 'w-8')} />
-      <Avatar src={identity?.avatarUrl ?? null} name={handle ?? short} size={large ? 'xl' : 'md'} decorative />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <Link prefetch={false}
-            href={profileHref(address)}
-            className="inline-flex min-w-0 flex-1 items-center text-md font-bold leading-[var(--sl-leading-base)] text-text after:absolute after:inset-0 after:content-['']"
-          >
-            <span className="min-w-0 truncate">{handle ?? short}</span>
-          </Link>
-          {self ? <span className="inline-flex h-5 shrink-0 items-center rounded-xs bg-surface-3 px-1.5 text-2xs font-bold uppercase tracking-wide text-text-muted">You</span> : null}
+    <tr className={cn('sl-hairline relative transition-colors duration-fast hover:bg-surface-1', large ? 'h-list-row-lg' : 'h-12', self && 'bg-surface-2', className)} data-rank={rank} data-self={self || undefined}>
+      <td className="px-1 align-middle"><RankBadge rank={rank} className="justify-center" /></td>
+      <td className="min-w-0 py-1 align-middle">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar src={identity?.avatarUrl ?? null} name={handle ?? short} size={large ? 'xl' : 'md'} decorative />
+          <div className="min-w-0 flex-1">
+            <Link prefetch={false} href={profileHref(address)} title={handle ?? short} className="block min-w-0 text-md font-semibold leading-[var(--sl-leading-base)] text-text after:absolute after:inset-0 after:content-['']">
+              <span className="block truncate">{handle ?? short}</span>
+            </Link>
+            {handle ? <p className="truncate font-mono text-xs text-text-muted">{short}</p> : null}
+            {self ? <span className="text-2xs font-semibold uppercase tracking-wide text-text-muted">You</span> : null}
+          </div>
         </div>
-        {handle ? <p className="truncate font-mono text-xs leading-[var(--sl-leading-xs)] text-text-muted">{short}</p> : null}
-      </div>
-      <div className="col-span-2 col-start-3 row-start-2 flex min-w-0 flex-col items-end gap-1 text-right sm:col-span-1 sm:col-start-auto sm:row-auto">
-        <span className={cn('text-md font-bold leading-[var(--sl-leading-base)] tabular-nums', toneClass[tone])} data-numeric>
+      </td>
+      <td className="px-2 py-1 text-right align-middle">
+        <span className={cn('text-num-md font-semibold tabular-nums', toneClass[tone])} data-numeric>
           <span className="sr-only">{metricLabel} </span>
           {metricSigned === null ? <span aria-label="no data yet">&mdash;</span> : formatUsdl(metricSigned, { signed: true })}
         </span>
-        {qualityNote ? <span className="text-2xs text-text-faint">{qualityNote}</span> : null}
-        {prizeRaw !== null ? (
-          <span className="inline-flex h-6 items-center rounded-pill bg-surface-3 px-2 text-xs font-bold text-text" data-numeric>
-            <span className="sr-only">Prize </span>
-            {formatUsdl(prizeRaw, { fractionDigits: 0 })}
-          </span>
-        ) : null}
-      </div>
-      {actions ? <div className="relative z-10 col-start-4 row-start-1 flex items-center sm:col-start-auto sm:row-auto">{actions}</div> : null}
-    </li>
+        {qualityNote ? <span className="block text-2xs text-text-faint">{qualityNote}</span> : null}
+        {prizeRaw !== null ? <span className="block text-xs tabular-nums text-text-muted" data-numeric><span>Prize </span>{formatUsdl(prizeRaw, { fractionDigits: 0 })}</span> : null}
+      </td>
+      <td className="align-middle"><div className="relative z-10 flex justify-end">{actions}</div></td>
+    </tr>
   );
 }

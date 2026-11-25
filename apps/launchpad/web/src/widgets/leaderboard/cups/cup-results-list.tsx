@@ -10,6 +10,7 @@ import { RankRowSkeleton } from '@/ui/shared/skeletons';
 import { formatUsdl, relativeAge, shortAddress } from '@/utils/format';
 import { FollowButton } from '@/widgets/social/follow-button';
 import { profileHref, RankRow } from '../rank-row';
+import { RankingTable } from '../ranking-table';
 import { cupHighlights, cupOperations, metricTone, prizeForRank, type Cup, type CupStanding } from './cups-contract';
 import { useCupResults, useCupRetry, useCupStandingsPages } from './use-cup';
 
@@ -63,7 +64,7 @@ function Highlights({ cup, items, identities }: HighlightsProps) {
                   <Avatar src={identity?.avatarUrl ?? null} name={name} size="2xl" decorative />
                 </div>
                 <div className="relative flex flex-col gap-1 bg-surface-2 p-3">
-                  <span className="truncate text-sm font-bold text-text">{name}</span>
+                  <span className="truncate text-sm font-semibold text-text">{name}</span>
                   <span className={cn('text-sm font-bold tabular-nums', toneClass[metricTone(row.metricSigned)])} data-numeric>{formatUsdl(row.metricSigned, { signed: true })}</span>
                   {prizeForRank(cup, row) !== null ? <span className="text-2xs text-text-muted">Prize {formatUsdl(prizeForRank(cup, row), { fractionDigits: 0 })}</span> : null}
                 </div>
@@ -91,36 +92,22 @@ function StandingsPanel({ cup, title, state, onRetry, highlights, pagination }: 
   return (
     <div className="flex flex-col gap-4">
       {highlights && state.state === 'ready' ? <Highlights cup={cup} items={cupHighlights(items)} identities={identities} /> : null}
-      <section aria-labelledby="cup-standings-title" className="rounded-lg bg-surface-1 p-3 sm:p-4">
+      <section aria-labelledby="cup-standings-title" className="min-w-0">
         <SectionHeader title={<span id="cup-standings-title" className="text-2xs uppercase tracking-[var(--sl-tracking-label)] text-text-faint">{title}</span>} level={3} loading={state.state === 'loading'} />
         <div className="mt-3">
-          {state.state === 'loading' ? <RankRowSkeleton count={6} size="lg" /> : null}
-          {state.state === 'unsupported' ? <UnavailableState title="Cup standings" operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} message="Check back soon" onRetry={state.retry ?? onRetry} /> : null}
-          {state.state === 'error' ? <ErrorState title="Couldn't load standings" message="Something went wrong, try again" onRetry={state.retry} /> : null}
-          {state.state === 'ready' && items.length === 0 ? <EmptyState icon={Medal} title={highlights ? 'No winners' : 'No one has qualified yet'} body={highlights ? 'Nobody qualified for this cup' : 'Standings fill in as people trade during the cup'} /> : null}
-          {state.state === 'ready' && items.length > 0 ? (
-            <>
-              <ol className="flex flex-col gap-0.5" aria-label={title}>
-                {items.map(row => {
-                  const wallet = row.wallet.toLowerCase();
-                  const identity = identities[wallet];
-                  return (
-                    <RankRow
-                      key={wallet}
-                      rank={row.rank}
-                      wallet={wallet}
-                      identity={identity}
-                      metricSigned={row.metricSigned}
-                      prizeRaw={prizeForRank(cup, row)}
-                      size="lg"
-                      actions={<FollowButton wallet={wallet} handle={identity?.displayName ?? null} variant="icon" />}
-                    />
-                  );
-                })}
-              </ol>
-              <p className="mt-3 font-mono text-2xs text-text-faint">Updated {relativeAge(state.data.generatedAt)} ago</p>
-            </>
-          ) : null}
+          <RankingTable label={title} state={
+            state.state === 'loading' ? <RankRowSkeleton count={6} size="lg" /> :
+            state.state === 'unsupported' ? <UnavailableState title="Cup standings" operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} message="Check back soon" onRetry={state.retry ?? onRetry} /> :
+            state.state === 'error' ? <ErrorState title="Couldn't load standings" message="Something went wrong, try again" onRetry={state.retry} /> :
+            items.length === 0 ? <EmptyState icon={Medal} title={highlights ? 'No winners' : 'No one has qualified yet'} body={highlights ? 'Nobody qualified for this cup' : 'Standings fill in as people trade during the cup'} /> : null
+          }>
+            {items.map(row => {
+              const wallet = row.wallet.toLowerCase();
+              const identity = identities[wallet];
+              return <RankRow key={wallet} rank={row.rank} wallet={wallet} identity={identity} metricSigned={row.metricSigned} prizeRaw={prizeForRank(cup, row)} size="lg" actions={<FollowButton wallet={wallet} handle={identity?.displayName ?? null} variant="icon" />} />;
+            })}
+          </RankingTable>
+          {state.state === 'ready' && items.length > 0 ? <p className="mt-3 font-mono text-2xs tabular-nums text-text-faint">Updated {relativeAge(state.data.generatedAt)} ago</p> : null}
           {state.state === 'ready' && pagination && pagination.nextCursor !== null ? (
             <div className="mt-3 flex flex-col gap-3" aria-busy={pagination.loading}>
               {pagination.failure?.state === 'unsupported' ? (
@@ -175,12 +162,6 @@ function LiveStandings({ cup }: { cup: Cup }) {
  * have nothing to rank yet.
  */
 export function CupResultsList({ cup, className }: CupResultsListProps) {
-  if (cup.status === 'scheduled') {
-    return (
-      <section className={cn('rounded-lg bg-surface-1', className)}>
-        <EmptyState icon={Medal} title="Standings open when the cup starts" body="Trades count from the moment the cup starts" />
-      </section>
-    );
-  }
+  if (cup.status === 'scheduled') return null;
   return <div className={className}>{cup.status === 'finished' ? <FinalResults cup={cup} /> : <LiveStandings cup={cup} />}</div>;
 }

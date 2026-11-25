@@ -1,0 +1,100 @@
+[meta]
+task = "22.44.145"
+product = "Sidiora launchpad"
+brief = "spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md"
+
+[view.ranking]
+sections = ["1", "2", "4", "5", "7"]
+form = "Text tabs, segmented periods, hairline tables with rank colours, right-aligned figures and a compact neutral competition first state; line spacing follows enlarged text."
+
+[view.rewards]
+sections = ["1", "2", "4", "5", "7"]
+form = "Reward panels keep their arrangement, exact amounts use table columns, and sign-in uses the inverse action."
+
+[view.holder_rewards]
+sections = ["1", "2", "4", "5", "7"]
+form = "Totals sit on the canvas above neutral coin panels and a hairline table; rank colours identify the first three places and controls scroll within their row."
+
+[view.chain_revenue]
+sections = ["1", "2", "4", "5", "7"]
+form = "A neutral panel contains epoch rows, waiting blocks, an empty form and a recovery action for a failed read."
+
+[view.short_link]
+sections = ["1", "2", "4", "5", "7"]
+form = "Referral links open the existing home or profit-card view with its destination presentation."
+
+[presentation]
+views = 15
+states = 18
+renders = 612
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[view.holder_rewards_empty]
+sections = ["1", "2", "4", "5", "7"]
+form = "The totals remain above one compact, neutral first-payout form and the empty table."
+
+[view.holder_rewards_error]
+sections = ["1", "2", "4", "5", "7"]
+form = "A failed rewards read presents a plain reason and a recovery action below the totals."
+
+[view.holder_rewards_loading]
+sections = ["1", "2", "4", "5", "7"]
+form = "Waiting blocks reserve the totals, coin panel and table content while their reads settle."
+
+[view.leaderboard]
+sections = ["1", "2", "4", "5", "7"]
+form = "Text tabs and segmented periods precede a neutral competition first state and a hairline ranking table; captions stay within the scrolling table."
+
+[view.leaderboard_callouts]
+sections = ["1", "2", "4", "5", "7"]
+form = "The callouts list keeps its column on wide screens and its text tab at narrow widths."
+
+[view.leaderboard_empty]
+sections = ["1", "2", "4", "5", "7"]
+form = "The ranking retains its column heads with a compact empty form beneath them and a neutral competition first state."
+
+[view.leaderboard_error]
+sections = ["1", "2", "4", "5", "7"]
+form = "Failed ranking reads show their plain reason and a recovery action within the table region."
+
+[view.leaderboard_loading]
+sections = ["1", "2", "4", "5", "7"]
+form = "The competition and ranking reserve their content with waiting blocks beneath the period control."
+
+[view.leaderboard_month]
+sections = ["1", "2", "4", "5", "7"]
+form = "The month segment selects the same hairline table with rank colours and right-aligned profit figures."
+
+[view.leaderboard_rewards]
+sections = ["1", "2", "4", "5", "7"]
+form = "The rewards tab keeps its panels and inverse sign-in action with the shared type steps."
+
+[view.leaderboard_squads]
+sections = ["1", "2", "4", "5", "7"]
+form = "The squads tab uses the compact empty form before the first squad ranking."
+
+[view.leaderboard_week]
+sections = ["1", "2", "4", "5", "7"]
+form = "The week segment selects the same hairline table with rank colours and right-aligned profit figures."
+
+[view.r_shortCode]
+sections = ["1", "2", "4", "5", "7"]
+form = "A valid referral opens its existing destination with the destination presentation."
+
+[state.holder_rewards_grid]
+form = "Coin panels retain one-line reward figures and units; labels wrap and long figures scroll within their slot."
+
+[state.holder_rewards_filters]
+form = "Filter choices open from the single scrolling controls row, whose accessible labels stay within that region."
+
+[state.holder_rewards_sort]
+form = "Sort choices open from the same controls row and retain the selected order."

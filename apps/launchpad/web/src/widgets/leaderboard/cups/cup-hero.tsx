@@ -1,10 +1,9 @@
 'use client';
 import type { ReactNode } from 'react';
-import { Info, Trophy } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Loadable } from '@/core/market/unsupported';
-import { technicalDetail } from '@/core/user-facing-error';
-import { CountdownProgress, DisclosureRow, ErrorState, StatusBadge, UnavailableState } from '@/ui/primitives';
+import { CountdownProgress, EmptyState, ErrorState, StatusBadge, UnavailableState } from '@/ui/primitives';
 import { formatUsdl } from '@/utils/format';
 import { CupRulesDisclosure } from './cup-rules-disclosure';
 import { cupBadge, cupModeLabel, type Cup } from './cups-contract';
@@ -12,142 +11,56 @@ import { cupBadge, cupModeLabel, type Cup } from './cups-contract';
 export interface CupHeroProps {
   cup: Loadable<Cup | null>;
   onRetry: () => void;
-  /** Period control rendered inside the frame, bottom-left above the cup name (the pump.fun hero anatomy). */
   control?: ReactNode;
   className?: string;
 }
 
-/**
- * The frame never collapses: every state keeps the same art area (tall on
- * phones, 16:7 from md), the in-frame control, a name row, a prize line and a
- * rules row, so the page structure survives a failed or unserved cup query.
- * The art area sits above the text block, which carries the secondary surface
- * (pump.fun anatomy). The frame grows with its content
- * instead of clipping it, so a long notice on a narrow phone never hides the
- * rules row.
- */
-const frame = '@container/cup relative grid grid-cols-1 rounded-lg bg-surface-1 before:col-start-1 before:row-start-1 before:w-full before:min-w-0 before:aspect-[3/4] before:min-h-90 before:content-[""] sm:before:aspect-[4/3] md:before:aspect-[16/7] md:before:min-h-85';
-const content = 'col-start-1 row-start-1 flex min-w-0 flex-col';
-const block = 'relative min-w-0 mt-auto flex shrink-0 flex-col gap-2 [&>*]:shrink-0 rounded-b-lg bg-surface-2 px-4 pt-4 pb-1 md:px-6 md:pt-5';
-const nameClass = 'text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold uppercase tracking-[var(--sl-tracking-label)] text-text';
-const prizeClass = 'text-2xl font-extrabold tabular-nums';
-const rulesLabel = 'Schedule, scoring, eligibility and rules';
-const emptyTitle = 'No competition scheduled';
-const emptyPrize = 'No prize pool announced';
-const emptyBody = 'There is no cup running right now, check the 1D, 1W and 1M boards';
-const placeholderPrizeClass = 'text-balance text-[length:var(--sl-text-prize-placeholder)] leading-[var(--sl-leading-xl)] font-bold text-text-faint';
-
-/**
- * Our own flat mark in the art area (decorative). It takes whatever height the
- * text block leaves and scales the disc down to fit, so the block never covers it.
- */
-function Mark() {
-  return (
-    <div aria-hidden="true" data-cup-art className="pointer-events-none flex min-h-16 flex-1 items-center justify-center py-3">
-      <div className="flex aspect-square h-full max-h-24 items-center justify-center rounded-pill bg-surface-2 lg:max-h-32">
-        <Trophy className="size-1/2 text-text-faint" />
-      </div>
-    </div>
-  );
-}
-
-function Control({ children }: { children?: ReactNode }) {
-  return children ? <div className="mb-1 flex">{children}</div> : null;
-}
-
-/**
- * Cup hero (components.md 38). Variants come from the real IF_CUP_CURRENT
- * answer: live, scheduled, finished, none (served `cup: null`), and the
- * unavailable state when no service serves `/v2/cups/current`. Art is a flat
- * surface-2 mark with our own trophy; the bottom block sits on the secondary surface.
- * No prize figure or ranking is ever shown unless it came from the record.
- * Unavailable and failed answers use the shared state notices (chip variant)
- * inside the frame rather than replacing it.
- */
 export function CupHero({ cup, onRetry, control, className }: CupHeroProps) {
-  if (cup.state === 'loading') {
-    return (
-      <section aria-busy="true" aria-label="Competition" data-cup-state="loading" className={cn(frame, className)}>
-        <div className={content}>
-          <Mark />
-          <div className={block}>
-            <Control>{control}</Control>
-            <span className="sr-only">Loading competition</span>
-            <h2 aria-hidden="true" className={nameClass}><span className="sl-skeleton text-transparent">{emptyTitle}</span></h2>
-            <p aria-hidden="true" className={placeholderPrizeClass}><span className="sl-skeleton text-transparent">{emptyPrize}</span></p>
-            <p aria-hidden="true" className="max-w-lg text-sm text-transparent"><span className="sl-skeleton">{emptyBody}</span></p>
-            <div aria-hidden="true" inert className="sl-skeleton min-w-0 -mx-3">
-              <DisclosureRow id="cup-rules-loading" icon={Info} label={rulesLabel} disabled
-                trailing={<span className="hidden shrink-0 text-xs font-semibold sm:inline">Coming with the next cup</span>}
-                className="invisible min-w-0" />
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (cup.state === 'unsupported' || cup.state === 'error' || cup.data === null) {
-    // Every case reads as plain copy; the unserved route keeps its operation and status as a developer-only attribute.
-    const title = cup.state === 'error' ? "Couldn't load the cup" : emptyTitle;
-    const body = cup.state === 'unsupported'
-      ? 'Prizes and results show up here once cups start'
-      : cup.state === 'ready'
-        ? emptyBody
-        : null;
-    const detail = cup.state === 'unsupported' ? technicalDetail(cup.operation, cup.status) : null;
-    return (
-      <section aria-label="Competition" title={detail ?? undefined} data-operation={detail ?? undefined} data-cup-state={cup.state === 'ready' ? 'none' : cup.state} className={cn(frame, className)}>
-        <div className={content}>
-          <Mark />
-          <div className={block}>
-            <Control>{control}</Control>
-            <h2 className={nameClass}>{title}</h2>
-            <p className={placeholderPrizeClass}>{emptyPrize}</p>
-            {cup.state === 'unsupported' ? (
-              <UnavailableState variant="chip" wrap title="Competitions" plural operation={cup.operation} status={cup.status} notServed={cup.notServed} error={cup.error} onRetry={cup.retry ?? onRetry} className="self-start" />
-            ) : null}
-            {cup.state === 'error' ? <ErrorState variant="chip" wrap error={cup.error} onRetry={cup.retry} className="self-start" /> : null}
-            {body ? <p className="max-w-lg text-sm text-text-muted">{body}</p> : null}
-            <DisclosureRow
-              id="cup-rules-unavailable"
-              icon={Info}
-              label={rulesLabel}
-              disabled
-              trailing={<span className="hidden shrink-0 text-xs font-semibold text-text-faint sm:inline">Coming with the next cup</span>}
-              className="-mx-3"
-            />
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  const record = cup.data;
-  const badge = cupBadge(record.status);
+  const record = cup.state === 'ready' ? cup.data : null;
+  const badge = record ? cupBadge(record.status) : null;
+  const empty = cup.state === 'ready' && record === null || cup.state === 'unsupported' && cup.notServed;
   return (
-    <section aria-labelledby="cup-hero-title" data-cup-state={record.status} className={cn(frame, className)}>
-      <div className={content}>
-        <Mark />
-        <div className={block}>
-          <Control>{control}</Control>
+    <section
+      aria-label="Competition"
+      aria-busy={cup.state === 'loading' || undefined}
+      data-cup-state={record?.status ?? (cup.state === 'ready' ? 'none' : cup.state)}
+      className={cn('flex min-w-0 flex-col gap-3', className)}
+    >
+      {control ? <div className="flex min-w-0">{control}</div> : null}
+      {cup.state === 'loading' ? (
+        <div className="flex min-w-0 flex-col gap-2 py-4">
+          <span className="sr-only">Loading competition</span>
+          <span aria-hidden="true" className="sl-skeleton h-6 w-2/3" />
+          <span aria-hidden="true" className="sl-skeleton h-8 w-1/2" />
+          <span aria-hidden="true" className="sl-skeleton h-4 w-3/4" />
+        </div>
+      ) : empty ? (
+        <EmptyState headingLevel={2} icon={Trophy} title="No competition scheduled" body="Prizes and results show up here once cups start" />
+      ) : cup.state === 'error' ? (
+        <ErrorState headingLevel={2} title="Couldn't load the cup" error={cup.error} onRetry={cup.retry} />
+      ) : cup.state === 'unsupported' ? (
+        <UnavailableState headingLevel={2} title="Competitions" plural operation={cup.operation} status={cup.status} notServed={cup.notServed} error={cup.error} onRetry={cup.retry ?? onRetry} />
+      ) : record && badge ? (
+        <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 id="cup-hero-title" className={nameClass}>{record.name}</h2>
+            <h2 id="cup-hero-title" className="text-md font-semibold text-text">{record.name}</h2>
             <StatusBadge status={badge.status} size={record.status === 'live' ? 'md' : 'sm'}>{badge.label}</StatusBadge>
             <span className="text-xs text-text-muted">{cupModeLabel[record.mode]}</span>
           </div>
-          <p className={cn(prizeClass, 'text-success')} data-numeric>
-            <span className="sr-only">Prize pool </span>
-            {formatUsdl(record.prizePoolRaw, { fractionDigits: 0 })}
-          </p>
-          <p className="text-sm text-text-muted">
-            {record.status === 'scheduled' ? <>Starts in <CountdownProgress endsAt={record.startsAt} variant="text" className="inline" /></> : null}
-            {record.status === 'live' ? <>Ends in <CountdownProgress endsAt={record.endsAt} startsAt={record.startsAt} variant="text" className="inline" /></> : null}
-            {record.status === 'finished' ? <>Ended {new Date(record.endsAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}, final results below</> : null}
-          </p>
-          <CupRulesDisclosure cup={record} className="-mx-3" />
+          <dl>
+            <dt className="text-xs text-text-muted">Prize pool</dt>
+            <dd className="text-2xl font-bold tabular-nums text-text" data-numeric>{formatUsdl(record.prizePoolRaw, { fractionDigits: 0 })}</dd>
+          </dl>
+          {record.status === 'scheduled' ? (
+            <EmptyState icon={Trophy} title="Standings open when the cup starts" body={<>Starts in <CountdownProgress endsAt={record.startsAt} variant="text" className="inline" /></>} />
+          ) : (
+            <p className="text-sm tabular-nums text-text-muted">
+              {record.status === 'live' ? <>Ends in <CountdownProgress endsAt={record.endsAt} startsAt={record.startsAt} variant="text" className="inline" /></> : <>Ended {new Date(record.endsAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}, final results below</>}
+            </p>
+          )}
+          <CupRulesDisclosure cup={record} />
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

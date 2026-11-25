@@ -1,10 +1,13 @@
 'use client';
+import '@/widgets/rewards/rewards-presentation.css';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { defineChain, formatEther, type Address } from 'viem';
 import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
 import { getPaxeerRpcUrl } from '@/core/rpc';
+import { Coins } from 'lucide-react';
+import { Button, EmptyState, ErrorState, Skeleton } from '@/ui/primitives';
 import { userFacingMessage } from '@/core/user-facing-error';
 import { VIRTUAL_CHAIN_ID_BASE } from '../create-chain/chain-domain';
 import { homeChainClient } from '../trade/home-chain';
@@ -87,22 +90,23 @@ export default function ChainRevenue({ poolAddress, initial }: { poolAddress: st
     }
   }, [wallet, address, chainId, data, pending]);
 
-  if (!validPool || (!data && !error) || data?.chain === 0) return null;
+  if (!validPool || data?.chain === 0) return null;
   const open = data?.epochs.filter(row => !row.claimed && row.claimable !== null && row.claimable > 0n) ?? [];
   const latest = data?.epochs.at(-1);
   const mayOpen = !!data && (!latest || Date.now() / 1000 >= Number(latest.openedAt) + 3600);
   return (
-    <section aria-labelledby="chain-revenue-title" className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
-      <h2 id="chain-revenue-title" className="text-sm font-bold text-text">Chain revenue</h2>
-      {data?.epochs.length === 0 ? <p className="text-xs text-text-muted">No revenue epochs yet.</p> : null}
-      {data?.epochs.map(row => <div key={row.epoch.toString()} className="flex items-center justify-between gap-2 text-xs text-text">
+    <section aria-labelledby="chain-revenue-title" className="rewards-presentation flex min-w-0 flex-col gap-2 rounded-lg bg-surface-1 p-3">
+      <h2 id="chain-revenue-title" className="text-sm font-semibold text-text">Chain revenue</h2>
+      {!data && !error ? <Skeleton variant="rows" rows={1} label="chain revenue" /> : null}
+      {data?.epochs.length === 0 ? <EmptyState icon={Coins} title="No revenue epochs yet." body="Revenue appears here after the first epoch opens" /> : null}
+      {data?.epochs.map(row => <div key={row.epoch.toString()} className="sl-hairline flex flex-wrap items-center justify-between gap-2 py-2 text-xs tabular-nums text-text">
         <span>Epoch {row.epoch.toString()} · {formatEther(row.amount)} PAX</span>
         {row.claimed ? <span>Claimed</span> : row.claimable !== null ? <span>{formatEther(row.claimable)} PAX claimable</span> : <span>Connect wallet to see your share</span>}
-        {!row.claimed && row.claimable !== null && row.claimable > 0n ? <button disabled={pending} onClick={() => void submit('claim', [row.epoch])}>Claim</button> : null}
+        {!row.claimed && row.claimable !== null && row.claimable > 0n ? <Button variant="secondary" size="sm" disabled={pending} onClick={() => void submit('claim', [row.epoch])}>Claim</Button> : null}
       </div>)}
-      {open.length > 0 ? <button disabled={pending} onClick={() => void submit('batch', open.map(row => row.epoch))}>Claim all open epochs</button> : null}
-      {mayOpen && address ? <button disabled={pending} onClick={() => void submit('open')}>Open next epoch</button> : null}
-      {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
+      {open.length > 0 ? <Button variant="secondary" size="sm" disabled={pending} onClick={() => void submit('batch', open.map(row => row.epoch))}>Claim all open epochs</Button> : null}
+      {mayOpen && address ? <Button variant="secondary" size="sm" disabled={pending} onClick={() => void submit('open')}>Open next epoch</Button> : null}
+      {error ? <ErrorState title="Chain revenue" message={error} onRetry={() => setRevision(value => value + 1)} /> : null}
     </section>
   );
 }

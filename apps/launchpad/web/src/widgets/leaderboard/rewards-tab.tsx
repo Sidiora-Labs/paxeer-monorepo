@@ -19,7 +19,7 @@ export function RewardsTab({ className }: RewardsTabProps) {
           icon={Lock}
           title="Sign in to see your rewards"
           body="Your cup prizes and creator rewards show up here"
-          action={<Button variant="primary" size="md" onClick={() => openModal('rewards')}>Sign in</Button>}
+          action={<Button variant="inverse" size="md" onClick={() => openModal('rewards')}>Sign in</Button>}
         />
       </section>
     );
