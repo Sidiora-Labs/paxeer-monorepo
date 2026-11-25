@@ -21,8 +21,8 @@ describe('PoolStats 2.2.0 display reads over the recorded bytes', () => {
     expect(statsMarketCap(real)).toEqual({ value: '10098226981', reason: null });
     expect(formatUsdl(marketCapRaw(real), { compact: true })).toBe('10.1K USDL');
     expect(statsCirculatingMarketCap(real).value).toBe('48505893');
-    expect(statsShare(real, 'top10')).toEqual({ value: 100, reason: null });
-    expect(statsShare(real, 'creator')).toEqual({ value: 100, reason: null });
+    expect(statsShare(real, 'top10')).toEqual({ value: 0.4803, reason: null });
+    expect(statsShare(real, 'creator')).toEqual({ value: 0.4803, reason: null });
     expect(formatShare(100)).toBe('100%');
     expect(formatShare(0.3)).toBe('0.3%');
   });

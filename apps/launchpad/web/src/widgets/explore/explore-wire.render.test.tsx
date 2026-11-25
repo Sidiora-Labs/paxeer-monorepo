@@ -99,10 +99,10 @@ describe('explore rows from the recorded 2.2.0 v2 reads', () => {
 
   it('renders the price and the top-10 and dev shares on the explore cards', async () => {
     const view = mount(<Harness view="grid" />);
-    await waitFor(() => view.container.querySelectorAll('li').length >= 2 && (view.container.textContent ?? '').includes('Top 10100%'));
+    await waitFor(() => view.container.querySelectorAll('li').length >= 2 && (view.container.textContent ?? '').includes('Top 100.48%'));
     const card = Array.from(view.container.querySelectorAll('li')).find(li => li.querySelector(`a[href$="${real}"]`));
     const stats = Object.fromEntries(Array.from(card?.querySelectorAll('dl div') ?? []).map(div => [div.querySelector('dt')?.textContent, div.querySelector('dd')?.textContent]));
-    expect(stats).toMatchObject({ Price: '$0.0₄1009', 'Top 10': '100%', Creator: '100%', 'Txns 24h': '2', 'Traders 24h': '1' });
+    expect(stats).toMatchObject({ Price: '$0.0₄1009', 'Top 10': '0.48%', Creator: '0.48%', 'Txns 24h': '2', 'Traders 24h': '1' });
     view.unmount();
   });
 });
