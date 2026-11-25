@@ -213159,7 +213159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1194]
 title = "Let a pass of the holders refresh that changes nothing write nothing and repeat a serialization failure before it is an error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213220,7 +213220,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.149]
 title = "Show the notice of late rankings in the Trending column only for the qualities stale and quarantined"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213280,7 +213280,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1192]
 title = "Let the chart history answer no_data for the page the api gives for a pool without a committed trade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
