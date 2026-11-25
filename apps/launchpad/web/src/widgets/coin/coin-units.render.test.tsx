@@ -121,8 +121,8 @@ describe('coin page units for production pool 0xce20…6263', () => {
     expect(text(view)).not.toMatch(/10\.1B|147\.28M/);
     const volume = Array.from(view.container.querySelectorAll('dd, div, span')).map(node => node.textContent ?? '');
     expect(volume.some(value => value.includes('147.28'))).toBe(true);
-    // creatorHoldingShareBps 10000.
-    expect(view.container.querySelector('[data-dev-share]')?.textContent).toBe('Creator 100%');
+    // The creator holds all circulating tokens, or 0.4803% of total supply.
+    expect(view.container.querySelector('[data-dev-share]')?.textContent).toBe('Creator 0.48%');
     // The 24h baseline is insufficient_history: no number, the reason instead.
     expect(view.container.querySelector('[data-change="24h"] [aria-label]')?.getAttribute('aria-label')).toBe('Change: Not enough trades yet for a 24h change');
     // The price headline reads spotPriceWad 10098226981692 with adaptive significant digits, never $0.00.
@@ -150,8 +150,8 @@ describe('coin page units for production pool 0xce20…6263', () => {
     expect(row).not.toContain('48.00%');
     // 4,803,406.95256 tokens x 0.000010098226981692 USDL (spotPriceWad) = 48.51 USDL.
     expect(row).toContain('48.51 USDL');
-    expect(view.container.querySelector('[data-share-chip="Top 10"]')?.textContent).toBe('Top 10Top 10 holders hold 100%');
-    expect(view.container.querySelector('[data-share-chip="Creator"]')?.textContent).toBe('CreatorCreator holds 100%');
+    expect(view.container.querySelector('[data-share-chip="Top 10"]')?.textContent).toBe('Top 10Top 10 holders hold 0.48%');
+    expect(view.container.querySelector('[data-share-chip="Creator"]')?.textContent).toBe('CreatorCreator holds 0.48%');
     // The holder is not the registry creator, so no dev badge on its row.
     expect(view.container.querySelector('tbody [data-dev-badge]')).toBeNull();
     unmount(view);
