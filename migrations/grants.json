@@ -2898,6 +2898,7 @@
             "token",
             "pool",
             "creator",
+            "factory",
             "height",
             "block_hash",
             "transaction_hash",
