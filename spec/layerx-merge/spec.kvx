@@ -213114,7 +213114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1198]
 title = "Bind the transcript of the reward history to the dependency plan of its role, take the checksum of the registry file out of it and renew it with its recorder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
