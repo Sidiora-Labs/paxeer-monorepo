@@ -17008,6 +17008,18 @@ value = "One. The two cases of gotcha 4909 part one that pin the weight of a car
 basis = "Gotcha 4909."
 affects = []
 
+[decision.3983]
+title = "Task 22.39.1185 renews the approval of the migration registry, and a task that changes the registry or the grants record proves the approval"
+value = "One. Task 22.39.1185 renews the approval of migrations/registry.json with the approve mode of the schema tool on an empty database of a PostgreSQL server of major version 18 and takes the registry as the tool writes it. It adds, removes and reorders no entry and changes no migration file and no line of migrations/grants.json. The member server_major_version stays 18. Two. After the task the case TestRepositoryRegistryRequiresApproval passes, the interface digest of every entry is the checksum of the grants record, every entry holds the approval digest of the registry, and the count and the inventory digest of tools/qualification/audit_repairs/test_migration_registry_and_readiness.py stay as they are. Where the approve mode changes another file under migrations, the task keeps that change only where the tool needs it to accept the registry and names it in the final message. Three. From this decision on a task that adds or changes an entry of migrations/registry.json or changes migrations/grants.json renews the approval with the approve mode as its last change under migrations, and its verification runs the cases of the package sdk/launchpad/shared/db/production/cmd/launchpad-schema. Decision 3978 point three holds: two such tasks do not run side by side, and the one that reaches the main line second runs the approve mode again on the joined tree. Four. Scope: the registry alone. No source file of the tool, no case and no gate changes through this task. "
+basis = "Gotcha 4910."
+affects = []
+
+[decision.3984]
+title = "Task 22.44.147 brings the design brief of the launchpad look in step with decision 3982"
+value = "One. Decision 3982 point three moved two dark values of section 2 of the brief, the faint text to 9f9faa and the control edge to 81818e, and point two lets the label of a text link wrap. The brief still holds the values 8e8e99 (spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md line 69) and 70707c (line 71) and says at line 128 that text never wraps inside a control. Two. Task 22.44.147 writes the two dark values of decision 3982 into the two rows of the table of section 2 and adds the text link to the sentence of section 3 as the one control whose label may wrap. It changes nothing else in the brief. The paths of the task gain the file of the brief. No new task."
+basis = "Decision 3982 and gotcha 4909."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46668,6 +46680,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1185]
+title = "Renew the approval of the migration registry after the registration of migration 150010 and the change of the grants record"
+reqs = ["22998.1"]
+touches = ["migrations"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 30m ./db/production/cmd/launchpad-schema/... && GOWORK=off go test -count=1 -list ^TestRepositoryRegistryRequiresApproval ./db/production/cmd/launchpad-schema/ | grep -q ^TestRepositoryRegistryRequiresApproval) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
+do_1 = "do_1 Gotcha 4910, decision 3983. Read the functions loadBundleMode, approvalManifestDigest, finalizeApproval and approve of sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go, the case TestRepositoryRegistryRequiresApproval of sdk/launchpad/shared/db/production/cmd/launchpad-schema/main_test.go and the head of migrations/registry.json. Run that case alone first and keep its message: it fails on the main line."
+symbols = []
 
 [capability.22.44.147]
 title = "Close the launchpad look at the joined state: every part of the render check without a finding, shared forms in the primitives and every view compared with the brief"
@@ -212791,6 +212812,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1185]
+title = "Renew the approval of the migration registry after the registration of migration 150010 and the change of the grants record"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1178"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1185"]
+interfaces = []
+do_1 = "do_1 Gotcha 4910, decision 3983. Read the functions loadBundleMode, approvalManifestDigest, finalizeApproval and approve of sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go, the case TestRepositoryRegistryRequiresApproval of sdk/launchpad/shared/db/production/cmd/launchpad-schema/main_test.go and the head of migrations/registry.json. Run that case alone first and keep its message: it fails on the main line."
+do_2 = "do_2 Create an empty database on the PostgreSQL server of the test environment and check that the server reports the major version 18. From the module sdk/launchpad/shared run the approve mode of the tool (go run ./db/production/cmd/launchpad-schema approve --migrations with the path of the directory migrations of the working tree) with the variable LAUNCHPAD_ADMIN_DATABASE_URL naming that database, then remove the database. Take the registry as the tool writes it. Check in the difference of the working tree that no entry was added, removed or reordered, that no migration file and no line of migrations/grants.json changed, that server_major_version is 18, that every entry holds the new approval digest and that the interface digest of every entry is the checksum of migrations/grants.json. Decision 3983 point two holds for any other file the tool writes."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Run by hand also the cases of the other packages under sdk/launchpad/shared/db/production and name in the final message each case that does not pass, with its file and its first message: they are not part of the verification, and nothing outside the paths changes for them. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. The final message names the former and the new approval digest, the major version of the server and every changed file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./db/production/...)"
+verify_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 30m ./db/production/cmd/launchpad-schema/... && GOWORK=off go test -count=1 -list ^TestRepositoryRegistryRequiresApproval ./db/production/cmd/launchpad-schema/ | grep -q ^TestRepositoryRegistryRequiresApproval) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.147]
 title = "Close the launchpad look at the joined state: every part of the render check without a finding, shared forms in the primitives and every view compared with the brief"
 status = "pending"
@@ -212803,10 +212854,10 @@ interfaces = []
 do_1 = "do_1 Gotchas 4898 to 4900, decisions 3971 to 3973. Read spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md whole and the records of the tasks 22.44.138 to 22.44.146 under spec/layerx-merge/programme/records/ui/. Run every part of the render check once at the start and keep its result as the list of work."
 do_2 = "do_2 Repair every finding in its view under decision 3973 point three. Move each form that a record names under decision 3971 point four to apps/launchpad/web/src/ui/primitives and let its views use the primitive. Remove a literal colour, size or radius from every view that still holds one."
 do_3 = "do_3 Compare every view with section 7 of the brief at the widths 390, 834, 1440 and 1920 in both sets from the renders of the run, and repair what differs: a border on a panel, a title in a weight of the earlier look, a row of controls that wraps, a first state in the form of a failure, a control without its state. Rewrite the places of decision 3971 point six: after this task no comment and no name of a case under apps/launchpad/web/src names another product or site. Decision 3971 points two, four, five, six and seven hold for every change of this task. "
-do_4 = "do_4 Record: write the record under decision 3973 points four and five with one line for each view of the surface: its part, its section of the brief and its state. The final message names each changed line, any point that cannot be held in this form and any remaining question. "
+do_4 = "do_4 Record: write the record under decision 3973 points four and five with one line for each view of the surface: its part, its section of the brief and its state. The final message names each changed line, any point that cannot be held in this form and any remaining question. Decision 3984: bring the two rows of the table of section 2 and the sentence on text in a control of section 3 of the brief in step with decision 3982 points two and three, and change nothing else in the brief. "
 do_5 = "do_5 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. It requires the record and runs the consistency of the parts, all eight parts one after another, the type check and the cases of the web. Files under apps/launchpad/web/src and tools/ui-check/surfaces change, no other. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces", "spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.147.kvx"]
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
