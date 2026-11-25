@@ -60,6 +60,11 @@ const server = createServer((request, response) => {
     response.statusCode = 204; response.end(); return;
   }
   const url = request.url ?? '';
+  if (emptyMarket && url.startsWith('/v2/snapshots?') && new URL(url, 'http://localhost').searchParams.get('topics')?.includes('market.stats.')) {
+    response.writeHead(200, { 'Content-Type': 'application/json', 'X-Schema-Version': '2' });
+    response.end(JSON.stringify({ ...recorded.snapshot.body, data: { snapshot: { ...recorded.snapshot.body.data.snapshot, topics: recorded.snapshot.body.data.snapshot.topics.filter((entry: { topic: string }) => entry.topic.startsWith('market.stats.')) } } }));
+    return;
+  }
   if ((emptyMarket || tradedMarket) && url.startsWith('/v2/snapshots?')) {
     snapshotReads++;
     response.writeHead(404, { 'Content-Type': 'application/json', 'X-Schema-Version': '2', 'Retry-After': '8', 'Cache-Control': 'no-store' });
@@ -97,7 +102,7 @@ const { createRoot } = await import('react-dom/client');
 const { SdkClient } = await import('@kindle/sdk');
 const { useQueryClient } = await import('@tanstack/react-query');
 const AppProviders = (await import('@/ui/providers/app-providers')).default;
-const { MarketClientProvider } = await import('@/page-modules/token/market-session-context');
+const { MarketClientProvider, useMarketLive } = await import('@/page-modules/token/market-session-context');
 const { default: TvChart, CHART_ANSWER_BUDGET_MS } = await import('./tv-chart');
 const { transientRetryBudgetMs } = await import('@/core/transient-retry');
 const { defaultChartSettings, updateChartSettings } = await import('@/widgets/coin/use-chart-settings');
@@ -119,7 +124,8 @@ let queryClient: QueryClient | undefined;
 
 function ChartScenario() {
   queryClient = useQueryClient();
-  return <TvChart poolAddress={pool} />;
+  const market = useMarketLive(pool, { enabled: emptyMarket });
+  return <TvChart poolAddress={pool} market={emptyMarket ? market.session : undefined} />;
 }
 
 function mount() {
@@ -154,7 +160,8 @@ describe('TvChart degraded canvas', () => {
     snapshotReads = 0;
     tradeReads = 0;
     const view = mount();
-    await waitFor(() => view.textContent?.includes('The chart starts with the first trade.') === true && snapshotReads === 1 && tradeReads > 0);
+    await waitFor(() => view.textContent?.includes('The chart starts with the first trade.') === true && candleReads.length > 0 && tradeReads > 0);
+    expect(snapshotReads).toBe(0);
     expect(view.textContent).toContain('No trades yet');
     const status = view.querySelector('section[aria-label="Price chart"] [role="status"]')!;
     expect(status.textContent).toBe('Waiting for trades');
@@ -165,7 +172,7 @@ describe('TvChart degraded canvas', () => {
     act(() => root!.unmount());
     root = undefined;
     await tick(20_000);
-    expect(snapshotReads).toBe(1);
+    expect(snapshotReads).toBe(0);
   }
   it(topicNotStartedShowsEmptyCandlesAndWaitingUpdates, topicNotStartedShowsEmptyCandlesAndWaitingUpdates);
 

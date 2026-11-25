@@ -144,7 +144,7 @@ export default function TokenMarketLayout({ poolAddress, initialStreams, initial
   const [settledFor, setSettledFor] = useState<string | null>(null);
   useEffect(() => { if (!snapshot.isPending) setSettledFor(poolAddress); }, [snapshot.isPending, poolAddress]);
   const settled = !snapshot.isPending || settledFor === poolAddress;
-  const live = useMarketLive(pool ?? poolAddress, { enabled: settled && !notFound });
+  const live = useMarketLive(pool ?? poolAddress, { enabled: settled && !notFound, poolDetail: data });
   const price = priceNumber(live.state.price);
   const liveStats = live.state.stats;
   if (notFound) return <CoinNotFound poolAddress={poolAddress} />;
@@ -165,7 +165,7 @@ export default function TokenMarketLayout({ poolAddress, initialStreams, initial
     </div>
     {marketPool ? <MobileTradeDrawer poolAddress={marketPool} /> : null}
   </>;
-  const notice = !settled ? null : <FreshnessNotice freshness={live.freshness} stream={live.state.stream} error={live.state.error} onReconnect={() => { void live.session.start(); }} />;
+  const notice = !settled ? null : <FreshnessNotice freshness={live.freshness} stream={live.state.stream} error={live.state.error} noTradesYet={live.state.noTradesYet} onReconnect={() => { void live.session.start(); }} />;
   return (
     <div
       data-market-pool={poolAddress.toLowerCase()}
@@ -184,7 +184,7 @@ export default function TokenMarketLayout({ poolAddress, initialStreams, initial
           <PremiumErrorBoundary area="Token header"><TokenHeader poolAddress={poolAddress} liveStats={liveStats} livePrice={price} now={live.now} notice={notice} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="TvChart">
             <Suspense fallback={<PriceChartSkeleton />}>
-              {marketPool ? <TvChart poolAddress={marketPool} symbol={data?.token?.symbol} /> : <PriceChartSkeleton />}
+              {marketPool ? <TvChart poolAddress={marketPool} symbol={data?.token?.symbol} market={live.session} /> : <PriceChartSkeleton />}
             </Suspense>
           </PremiumErrorBoundary>
         </div>
