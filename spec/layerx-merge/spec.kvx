@@ -16966,6 +16966,18 @@ value = "One. The default of the retention window of decision 3963 point two is 
 basis = "Gotcha 4902."
 affects = []
 
+[decision.3976]
+title = "The verification commands of the launchpad data tasks run the packages of a go test call one after the other"
+value = "One. Each call of the verification commands of the tasks 22.39.1176, 22.39.1177, 22.39.1178, 22.39.1179, 22.39.1180 and 22.39.1184 that runs cases gains the flag -p 1, so that the packages of the call run one after the other, as the runner of the modules runs them. The calls that only list cases stay as they are. Two. No other key of these tasks changes, and no source file changes through this decision. A run of one of these tasks that started before this decision keeps the command of its start, and its result counts. Three. A later task whose verification names several packages of a launchpad module in one call uses the flag in the same way. No new task."
+basis = "Gotcha 4903."
+affects = []
+
+[decision.3977]
+title = "Task 22.39.1178 may change the grants record for a read it needs, and point four of decision 3962 bounds the reads of the node"
+value = "One. Under migrations task 22.39.1178 may change, beside a new migration file with its registration, the record migrations/grants.json for a read grant of the role of the accounts service that a read under decision 3962 point one needs, and the interface digest of the entries of migrations/registry.json that follows from it. It adds read grants only and takes none away. Two. Point four of decision 3962 holds in this form: the count of reads of the node and of pages in one pass for an enrolled wallet grows with the count of new blocks and new movements only, and a pass over a head that has not moved reads no page. The stored progress of a wallet may hold the records of the wallet for the token. Three. Where task 22.39.1179 has registered a migration in migrations/registry.json meanwhile, the task takes the main line, keeps both changes and computes the interface digest from the record as it then stands. No other point of decision 3962 changes. No new task."
+basis = "Gotcha 4904."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -213118,7 +213130,7 @@ touches = ["services/launchpad/trading-charts", "services/launchpad/stats-worker
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && GOWORK=off go vet ./...) && (cd services/launchpad/stats-* && GOWORK=off go vet ./...) && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
-verify_cmd = "anvil --version > /dev/null && MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/trading-charts && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/consumer/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness) && (cd services/launchpad/stats-* && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/consumer/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness) && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/production/l16/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness)"
+verify_cmd = "anvil --version > /dev/null && MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/trading-charts && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/app/... ./internal/consumer/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness) && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/app/... ./internal/consumer/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness) && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/app/... ./internal/production/l16/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestConsumerReadiness ./internal/app/ | grep -q ^TestConsumerReadiness)"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -213273,7 +213285,7 @@ touches = ["services/launchpad/api/internal/store", "services/launchpad/api/inte
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && GOWORK=off go vet ./...)"
-verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off go test -count=1 -timeout 30m ./internal/store/... ./internal/cache/... ./internal/rest/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestAccountingLowerHead ./internal/store/ | grep -q ^TestAccountingLowerHead)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/store/... ./internal/cache/... ./internal/rest/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestAccountingLowerHead ./internal/store/ | grep -q ^TestAccountingLowerHead)"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -213304,7 +213316,7 @@ touches = ["sdk/launchpad/shared/delivery", "services/launchpad/api/internal/app
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./delivery/...) && (cd services/launchpad/api && GOWORK=off go vet ./internal/app/... ./internal/rolecheck/...) && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./internal/rolecheck/...)"
-verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./delivery/... && GOWORK=off go test -count=1 -list ^TestOutboxBounded ./delivery/ | grep -q ^TestOutboxBounded) && (cd services/launchpad/api && GOWORK=off go test -count=1 -timeout 30m ./internal/app/... ./internal/broker/... ./internal/rolecheck/...) && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 30m ./internal/rolecheck/...) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 30m ./delivery/... && GOWORK=off go test -count=1 -list ^TestOutboxBounded ./delivery/ | grep -q ^TestOutboxBounded) && (cd services/launchpad/api && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/app/... ./internal/broker/... ./internal/rolecheck/...) && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/rolecheck/...) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -213335,7 +213347,7 @@ touches = ["services/launchpad/pnl-tracker", "migrations"]
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
-verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 30m ./internal/production/l16/... ./internal/rolecheck/... ./internal/app/... && GOWORK=off go test -count=1 -list ^TestLiveWalletIncremental ./internal/production/l16/ | grep -q ^TestLiveWalletIncremental) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/production/l16/... ./internal/rolecheck/... ./internal/app/... && GOWORK=off go test -count=1 -list ^TestLiveWalletIncremental ./internal/production/l16/ | grep -q ^TestLiveWalletIncremental) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -213366,7 +213378,7 @@ touches = ["services/launchpad/stats-workers", "sdk/launchpad/shared/accounting/
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-* && GOWORK=off go vet ./...) && (cd sdk/launchpad/shared && GOWORK=off go vet ./accounting/...) && (cd services/launchpad/api && GOWORK=off go vet ./internal/store/... ./internal/rolecheck/...)"
-verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/stats-* && GOWORK=off go test -count=1 -timeout 30m ./internal/consumer/... ./internal/projectionstats/... && GOWORK=off go test -count=1 -list ^TestStatsBootstrapLongSpan ./internal/consumer/ | grep -q ^TestStatsBootstrapLongSpan) && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./accounting/...) && (cd services/launchpad/api && GOWORK=off go test -count=1 -timeout 30m ./internal/store/... ./internal/rolecheck/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/consumer/... ./internal/projectionstats/... && GOWORK=off go test -count=1 -list ^TestStatsBootstrapLongSpan ./internal/consumer/ | grep -q ^TestStatsBootstrapLongSpan) && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 30m ./accounting/...) && (cd services/launchpad/api && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/store/... ./internal/rolecheck/...)"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -213397,7 +213409,7 @@ touches = ["services/launchpad/trading-charts"]
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && GOWORK=off go vet ./...)"
-verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && (cd services/launchpad/trading-charts && GOWORK=off go test -count=1 -timeout 30m ./internal/consumer/... ./internal/app/... && GOWORK=off go test -count=1 -list ^TestBootstrapLongSpan ./internal/consumer/ | grep -q ^TestBootstrapLongSpan) && GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=trading-charts"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && (cd services/launchpad/trading-charts && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/consumer/... ./internal/app/... && GOWORK=off go test -count=1 -list ^TestBootstrapLongSpan ./internal/consumer/ | grep -q ^TestBootstrapLongSpan) && GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=trading-charts"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
