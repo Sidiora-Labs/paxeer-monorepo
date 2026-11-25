@@ -983,7 +983,7 @@
       "function": "newWithRuntimePool",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 415,
+      "line": 427,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1006,7 +1006,7 @@
       ],
       "sequences": [],
       "id": "app_app_newWithRuntimePool_1",
-      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
+      "source_sha256": "ea4b2d2ef293bb9c112d6fad4a93ae49ef43eae0f99ad968a6cfb022baa83e37"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/readiness.go",
@@ -1036,7 +1036,7 @@
       "function": "catchUpStatsHolders",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 928,
+      "line": 943,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1059,14 +1059,14 @@
       ],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_1",
-      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
+      "source_sha256": "ea4b2d2ef293bb9c112d6fad4a93ae49ef43eae0f99ad968a6cfb022baa83e37"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
       "function": "catchUpStatsHolders",
       "call": 2,
       "expression": "`SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`",
-      "line": 934,
+      "line": 949,
       "sql": "SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4",
       "kind": "SELECT",
       "tables": [
@@ -1088,7 +1088,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_2",
-      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
+      "source_sha256": "ea4b2d2ef293bb9c112d6fad4a93ae49ef43eae0f99ad968a6cfb022baa83e37"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1345,7 +1345,7 @@
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 205,
+      "line": 206,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1368,14 +1368,14 @@
       ],
       "sequences": [],
       "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_1",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
+      "source_sha256": "a0d08bced3a49f51b7cbb9a613f875a7a952f02cb5173b9b2793b5d9c155ccd7"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 2,
       "expression": "`SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11`",
-      "line": 241,
+      "line": 242,
       "sql": "SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11",
       "kind": "SELECT",
       "tables": [
@@ -1413,120 +1413,14 @@
       "functions": [],
       "sequences": [],
       "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_2",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
+      "source_sha256": "a0d08bced3a49f51b7cbb9a613f875a7a952f02cb5173b9b2793b5d9c155ccd7"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 3,
-      "expression": "`SELECT a.previous_height,a.last_complete_height,a.block_hash,a.record_count FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$1 AND a.previous_height>=$2 AND a.last_complete_height<=$3 ORDER BY a.previous_height LIMIT $4`",
-      "line": 323,
-      "sql": "SELECT a.previous_height,a.last_complete_height,a.block_hash,a.record_count FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$1 AND a.previous_height>=$2 AND a.last_complete_height<=$3 ORDER BY a.previous_height LIMIT $4",
-      "kind": "SELECT",
-      "tables": [
-        "indexer.indexer_ingest_commits_v1"
-      ],
-      "columns": [
-        "a.block_hash",
-        "a.chain_id",
-        "a.last_complete_height",
-        "a.previous_height",
-        "a.record_count",
-        "a.stream_id"
-      ],
-      "functions": [],
-      "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_3",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
-      "function": "NewSourceVerifiedAccountingConsumer",
-      "call": 4,
-      "expression": "`SELECT count(*),COALESCE(sum(raw_count),0),(SELECT block_hash FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height=$3) FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3 AND fetch_complete AND required_decode_complete`",
-      "line": 352,
-      "sql": "SELECT count(*),COALESCE(sum(raw_count),0),(SELECT block_hash FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height=$3) FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3 AND fetch_complete AND required_decode_complete",
-      "kind": "SELECT",
-      "tables": [
-        "indexer.indexer_block_completeness_v1"
-      ],
-      "columns": [
-        "block_hash",
-        "chain_id",
-        "fetch_complete",
-        "height",
-        "raw_count",
-        "required_decode_complete",
-        "stream_id"
-      ],
-      "functions": [
-        "count",
-        "sum"
-      ],
-      "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_4",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
-      "function": "NewSourceVerifiedAccountingConsumer",
-      "call": 5,
-      "expression": "`SELECT topics=$4::jsonb AND data=$5 AND block_hash=$6 AND emitter=$7 FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2 AND height=$3`",
-      "line": 410,
-      "sql": "SELECT topics=$4::jsonb AND data=$5 AND block_hash=$6 AND emitter=$7 FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2 AND height=$3",
-      "kind": "SELECT",
-      "tables": [
-        "indexer.indexer_raw_logs_v1"
-      ],
-      "columns": [
-        "block_hash",
-        "chain_id",
-        "data",
-        "emitter",
-        "height",
-        "log_index",
-        "topics",
-        "transaction_hash"
-      ],
-      "functions": [],
-      "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_5",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
-      "function": "NewSourceVerifiedAccountingConsumer",
-      "call": 6,
-      "expression": "`SELECT count(*) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) WHERE f.pool_address=$1 AND (r.height,r.transaction_index,r.log_index)<=($2::bigint,$3::bigint,$4::bigint)`",
-      "line": 418,
-      "sql": "SELECT count(*) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) WHERE f.pool_address=$1 AND (r.height,r.transaction_index,r.log_index)<=($2::bigint,$3::bigint,$4::bigint)",
-      "kind": "SELECT",
-      "tables": [
-        "indexer.indexer_accounting_fills_v1",
-        "indexer.indexer_raw_logs_v1"
-      ],
-      "columns": [
-        "chain_id",
-        "f.pool_address",
-        "log_index",
-        "r.height",
-        "r.log_index",
-        "r.transaction_index",
-        "transaction_hash"
-      ],
-      "functions": [
-        "count"
-      ],
-      "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_6",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
-      "function": "NewSourceVerifiedAccountingConsumer",
-      "call": 7,
       "expression": "`SELECT p.payload=$2::jsonb AND convert_from(s.position,'UTF8')::jsonb=$3::jsonb FROM indexer.indexer_accounting_publications_v1 p JOIN `+q+`.indexer_market_partition_positions_v1 s ON s.projection_version=$4 AND s.partition_kind='market' AND s.partition_key=$5 AND s.sequence=$6 WHERE p.publication_id=$1`",
-      "line": 489,
+      "line": 271,
       "sql": "SELECT p.payload=$2::jsonb AND convert_from(s.position,'UTF8')::jsonb=$3::jsonb FROM indexer.indexer_accounting_publications_v1 p JOIN \"indexer\".indexer_market_partition_positions_v1 s ON s.projection_version=$4 AND s.partition_kind='market' AND s.partition_key=$5 AND s.sequence=$6 WHERE p.publication_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1546,8 +1440,8 @@
         "convert_from"
       ],
       "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_7",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
+      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_3",
+      "source_sha256": "a0d08bced3a49f51b7cbb9a613f875a7a952f02cb5173b9b2793b5d9c155ccd7"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_legacy.go",
@@ -9278,6 +9172,118 @@
       ],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_5",
       "source_sha256": "2fed5820b99f23e92160a0c2dc39fa7fd9546551d1d2aaa43d3a4ebf4e36f57e"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/consumer/source_bootstrap.go",
+      "function": "statsBootstrapper.slice",
+      "call": 1,
+      "expression": "`WITH blocks AS MATERIALIZED (\n SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness_v1\n WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3\n), logs AS MATERIALIZED (\n SELECT * FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$3\n), raw AS (\n SELECT height,count(*) n FROM logs GROUP BY height\n), ranges AS (\n SELECT previous_height p,last_complete_height l,block_hash h,record_count n,\n lag(last_complete_height) OVER (ORDER BY previous_height,last_complete_height) prior\n FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$3 AND last_complete_height>$2\n), ranged AS (\n SELECT a.p,a.l,a.n,COALESCE(sum(b.raw_count),0) seen FROM ranges a\n LEFT JOIN blocks b ON b.height>a.p AND b.height<=a.l GROUP BY a.p,a.l,a.n\n), swaps AS (\n SELECT * FROM logs WHERE topics->>0=$4 AND topics->>1=$5 AND (height,transaction_index,log_index)<=($6::bigint,$7::bigint,$8::bigint)\n)\nSELECT (SELECT count(*) FROM blocks WHERE fetch_complete AND required_decode_complete),\n (SELECT COALESCE(sum(raw_count),0) FROM blocks),\n (SELECT COALESCE(sum(n) FILTER (WHERE l<=$3),0) FROM ranges),\n (SELECT count(*) FROM ranges WHERE l<=$3), (SELECT count(*) FROM swaps),\n (SELECT count(*) FROM blocks b LEFT JOIN raw r USING(height) WHERE b.raw_count<>COALESCE(r.n,0))+\n (SELECT count(*) FROM logs r LEFT JOIN blocks b USING(height) WHERE b.block_hash IS DISTINCT FROM r.block_hash)+\n (SELECT count(*) FROM ranges a LEFT JOIN blocks b ON b.height=a.l WHERE a.l<=a.p OR (prior IS NOT NULL AND prior<>a.p) OR a.p<$9 OR a.l>$10 OR (a.l<=$3 AND b.block_hash IS DISTINCT FROM a.h))+\n CASE WHEN (SELECT min(p) FROM ranges)<=$2 AND (SELECT max(l) FROM ranges)>=$3 THEN 0 ELSE 1 END+\n (SELECT count(*) FROM swaps WHERE (height,transaction_index,log_index)<($6::bigint,$7::bigint,$8::bigint)),\n (SELECT count(*) FROM ranged WHERE l<=$3 AND n<>seen+CASE WHEN p<$2 THEN $11::bigint ELSE 0 END),\n (SELECT COALESCE(sum(seen+CASE WHEN p<$2 THEN $11::bigint ELSE 0 END),0) FROM ranged WHERE l>$3)`",
+      "line": 263,
+      "sql": "WITH blocks AS MATERIALIZED (\n SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness_v1\n WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3\n), logs AS MATERIALIZED (\n SELECT * FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$3\n), raw AS (\n SELECT height,count(*) n FROM logs GROUP BY height\n), ranges AS (\n SELECT previous_height p,last_complete_height l,block_hash h,record_count n,\n lag(last_complete_height) OVER (ORDER BY previous_height,last_complete_height) prior\n FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$3 AND last_complete_height>$2\n), ranged AS (\n SELECT a.p,a.l,a.n,COALESCE(sum(b.raw_count),0) seen FROM ranges a\n LEFT JOIN blocks b ON b.height>a.p AND b.height<=a.l GROUP BY a.p,a.l,a.n\n), swaps AS (\n SELECT * FROM logs WHERE topics->>0=$4 AND topics->>1=$5 AND (height,transaction_index,log_index)<=($6::bigint,$7::bigint,$8::bigint)\n)\nSELECT (SELECT count(*) FROM blocks WHERE fetch_complete AND required_decode_complete),\n (SELECT COALESCE(sum(raw_count),0) FROM blocks),\n (SELECT COALESCE(sum(n) FILTER (WHERE l<=$3),0) FROM ranges),\n (SELECT count(*) FROM ranges WHERE l<=$3), (SELECT count(*) FROM swaps),\n (SELECT count(*) FROM blocks b LEFT JOIN raw r USING(height) WHERE b.raw_count<>COALESCE(r.n,0))+\n (SELECT count(*) FROM logs r LEFT JOIN blocks b USING(height) WHERE b.block_hash IS DISTINCT FROM r.block_hash)+\n (SELECT count(*) FROM ranges a LEFT JOIN blocks b ON b.height=a.l WHERE a.l<=a.p OR (prior IS NOT NULL AND prior<>a.p) OR a.p<$9 OR a.l>$10 OR (a.l<=$3 AND b.block_hash IS DISTINCT FROM a.h))+\n CASE WHEN (SELECT min(p) FROM ranges)<=$2 AND (SELECT max(l) FROM ranges)>=$3 THEN 0 ELSE 1 END+\n (SELECT count(*) FROM swaps WHERE (height,transaction_index,log_index)<($6::bigint,$7::bigint,$8::bigint)),\n (SELECT count(*) FROM ranged WHERE l<=$3 AND n<>seen+CASE WHEN p<$2 THEN $11::bigint ELSE 0 END),\n (SELECT COALESCE(sum(seen+CASE WHEN p<$2 THEN $11::bigint ELSE 0 END),0) FROM ranged WHERE l>$3)",
+      "kind": "SELECT",
+      "tables": [
+        "indexer.indexer_block_completeness_v1",
+        "indexer.indexer_ingest_commits_v1",
+        "indexer.indexer_raw_logs_v1"
+      ],
+      "columns": [
+        "a.h",
+        "a.l",
+        "a.n",
+        "a.p",
+        "b.block_hash",
+        "b.height",
+        "b.raw_count",
+        "block_hash",
+        "chain_id",
+        "fetch_complete",
+        "h",
+        "height",
+        "l",
+        "last_complete_height",
+        "log_index",
+        "n",
+        "p",
+        "previous_height",
+        "prior",
+        "r.block_hash",
+        "r.n",
+        "raw_count",
+        "record_count",
+        "required_decode_complete",
+        "seen",
+        "stream_id",
+        "topics",
+        "transaction_index"
+      ],
+      "functions": [
+        "count",
+        "lag",
+        "max",
+        "min",
+        "sum"
+      ],
+      "sequences": [],
+      "id": "consumer_source_bootstrap_statsBootstrapper.slice_1",
+      "source_sha256": "f09bcad1f6345520be3a662479a31cd5575d31e121627a6d3474d8e4f06bd1c2"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/consumer/source_bootstrap.go",
+      "function": "statsBootstrapper.counts",
+      "call": 1,
+      "expression": "`SELECT\n (SELECT count(*) FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height>=$2 AND last_complete_height<=$3),\n (SELECT count(*) FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$4 AND topics->>0=$7 AND topics->>1=$8 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint))`",
+      "line": 308,
+      "sql": "SELECT\n (SELECT count(*) FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height>=$2 AND last_complete_height<=$3),\n (SELECT count(*) FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$4 AND topics->>0=$7 AND topics->>1=$8 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint))",
+      "kind": "SELECT",
+      "tables": [
+        "indexer.indexer_ingest_commits_v1",
+        "indexer.indexer_raw_logs_v1"
+      ],
+      "columns": [
+        "chain_id",
+        "height",
+        "last_complete_height",
+        "log_index",
+        "previous_height",
+        "stream_id",
+        "topics",
+        "transaction_index"
+      ],
+      "functions": [
+        "count"
+      ],
+      "sequences": [],
+      "id": "consumer_source_bootstrap_statsBootstrapper.counts_1",
+      "source_sha256": "f09bcad1f6345520be3a662479a31cd5575d31e121627a6d3474d8e4f06bd1c2"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/consumer/source_bootstrap.go",
+      "function": "statsBootstrapper.firstFill",
+      "call": 1,
+      "expression": "`SELECT count(*) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) WHERE f.chain_id=125 AND f.pool_address=$1 AND (r.height,r.transaction_index,r.log_index)<=($2::bigint,$3::bigint,$4::bigint)`",
+      "line": 317,
+      "sql": "SELECT count(*) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) WHERE f.chain_id=125 AND f.pool_address=$1 AND (r.height,r.transaction_index,r.log_index)<=($2::bigint,$3::bigint,$4::bigint)",
+      "kind": "SELECT",
+      "tables": [
+        "indexer.indexer_accounting_fills_v1",
+        "indexer.indexer_raw_logs_v1"
+      ],
+      "columns": [
+        "chain_id",
+        "f.chain_id",
+        "f.pool_address",
+        "log_index",
+        "r.height",
+        "r.log_index",
+        "r.transaction_index",
+        "transaction_hash"
+      ],
+      "functions": [
+        "count"
+      ],
+      "sequences": [],
+      "id": "consumer_source_bootstrap_statsBootstrapper.firstFill_1",
+      "source_sha256": "f09bcad1f6345520be3a662479a31cd5575d31e121627a6d3474d8e4f06bd1c2"
     }
   ],
   "boundaries": [
@@ -9664,6 +9670,14 @@
       "expression": "recoverySnapshotSQL",
       "line": 948,
       "boundary": "Migration coordinator administration"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/consumer/source_bootstrap.go",
+      "function": "statsBoundedQuery.QueryRow",
+      "call": 1,
+      "expression": "sql",
+      "line": 72,
+      "boundary": "Per-statement deadline adapter"
     }
   ]
 }

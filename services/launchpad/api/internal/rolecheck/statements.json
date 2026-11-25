@@ -3,7 +3,7 @@
     "id": "sourcebootstrap/sourcebootstrap.FirstMarketPosition.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "FirstMarketPosition",
-    "line": 81,
+    "line": 83,
     "expression": "`SELECT position FROM `+pgx.Identifier{partitionSchema}.Sanitize()+`.indexer_market_partition_positions_v1 WHERE projection_version=$1 AND partition_kind='market' AND partition_key=$2 AND sequence=1`",
     "sql": "SELECT position FROM \"indexer\".indexer_market_partition_positions_v1 WHERE projection_version=$1 AND partition_kind='market' AND partition_key=$2 AND sequence=1",
     "bindings": {},
@@ -32,7 +32,7 @@
     "id": "sourcebootstrap/sourcebootstrap.MarketPublication.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "MarketPublication",
-    "line": 89,
+    "line": 91,
     "expression": "`SELECT payload FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'facet'='market' AND payload->>'sourceFillId'=$1 AND payload->'positions'->0->>'projectionVersion'=$2`",
     "sql": "SELECT payload FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'facet'='market' AND payload->>'sourceFillId'=$1 AND payload->'positions'->0->>'projectionVersion'=$2",
     "bindings": {},
@@ -54,37 +54,10 @@
     "ctes": []
   },
   {
-    "id": "sourcebootstrap/sourcebootstrap.InitialPreviousHeight.1",
-    "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
-    "function": "InitialPreviousHeight",
-    "line": 97,
-    "expression": "`SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 ORDER BY previous_height LIMIT 1`",
-    "sql": "SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 ORDER BY previous_height LIMIT 1",
-    "bindings": {},
-    "roles": [
-      "api_rest_runtime"
-    ],
-    "package": "sdk/launchpad/shared/accounting/sourcebootstrap",
-    "kinds": [
-      "SELECT"
-    ],
-    "tables": [
-      "indexer.indexer_ingest_commits_v1"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "chain_id",
-      "previous_height",
-      "stream_id"
-    ],
-    "ctes": []
-  },
-  {
     "id": "sourcebootstrap/sourcebootstrap.CommitContaining.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "CommitContaining",
-    "line": 112,
+    "line": 106,
     "expression": "`SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`",
     "sql": "SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
     "bindings": {},
@@ -114,7 +87,7 @@
     "id": "sourcebootstrap/sourcebootstrap.PreviousHeightContaining.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "PreviousHeightContaining",
-    "line": 120,
+    "line": 114,
     "expression": "`SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`",
     "sql": "SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
     "bindings": {},
@@ -142,7 +115,7 @@
     "id": "sourcebootstrap/sourcebootstrap.CanonicalCreation.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "CanonicalCreation",
-    "line": 137,
+    "line": 131,
     "expression": "`SELECT k.height,k.block_hash,k.transaction_hash,k.transaction_index,k.log_index,k.factory,r.topics,r.data FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.height=k.height AND r.transaction_index=k.transaction_index AND r.block_hash=k.block_hash AND r.emitter=lower(k.factory) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$2 AND c.height=k.height AND c.block_hash=k.block_hash AND c.fetch_complete AND c.required_decode_complete WHERE lower(k.pool)=$1`",
     "sql": "SELECT k.height,k.block_hash,k.transaction_hash,k.transaction_index,k.log_index,k.factory,r.topics,r.data FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.height=k.height AND r.transaction_index=k.transaction_index AND r.block_hash=k.block_hash AND r.emitter=lower(k.factory) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$2 AND c.height=k.height AND c.block_hash=k.block_hash AND c.fetch_complete AND c.required_decode_complete WHERE lower(k.pool)=$1",
     "bindings": {},
