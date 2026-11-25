@@ -16978,6 +16978,12 @@ value = "One. Under migrations task 22.39.1178 may change, beside a new migratio
 basis = "Gotcha 4904."
 affects = []
 
+[decision.3978]
+title = "Task 22.39.1179 keeps the registry test in step with its migration, and task 22.39.1178 runs after it"
+value = "One. The paths of task 22.39.1179 gain the file tools/qualification/audit_repairs/test_migration_registry_and_readiness.py. The task brings the count and the inventory digest of the registered migrations in that file in step with the registry and changes nothing else in the file. Two. Task 22.39.1178 requires task 22.39.1179. It starts from the main line that holds the migration of that task and computes the interface digest of every entry of migrations/registry.json, the entry of that migration included, from the grants record as it then stands. The count and the inventory digest of the test file do not change through task 22.39.1178, which registers no migration. Three. A later task that registers a migration has that test file in its paths. Two tasks do not run side by side when one of them changes the grants record and the other the registry. No new task."
+basis = "Gotcha 4905."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -213309,10 +213315,10 @@ capabilities = ["22.39.1179"]
 interfaces = []
 do_1 = "do_1 Gotcha 4890, decision 3963. Read the functions claim, markPublished, RunOnce, Stats and Ready of sdk/launchpad/shared/delivery/stream.go, services/launchpad/api/internal/app/stream_relay.go whole, the function prune of services/launchpad/api/internal/rest/dev_stream.go, the replay and the expired cursor path of services/launchpad/api/internal/broker/postgres_stream.go, migrations/150002.sql and the rows of services/launchpad/api/internal/rolecheck/statements.json and services/launchpad/pnl-tracker/internal/rolecheck/statements.json for sdk/launchpad/shared/delivery/stream.go."
 do_2 = "do_2 Change the statistics under decision 3963 point one and write the removal under points two and three. Point four holds."
-do_3 = "do_3 Write the cases under point five and bring the records under point six in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside the paths of point six changes."
+do_3 = "do_3 Write the cases under point five and bring the records under point six in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside the paths of point six changes. Decision 3978 point one: the paths of this task also hold the file tools/qualification/audit_repairs/test_migration_registry_and_readiness.py. Bring the count and the inventory digest of the registered migrations in that file in step with the registry and change nothing else in it."
 do_4 = "do_4 Run the verification. Point seven holds. The cases need the PostgreSQL of the test environment, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["sdk/launchpad/shared/delivery", "services/launchpad/api/internal/app", "services/launchpad/api/internal/rolecheck", "services/launchpad/pnl-tracker/internal/rolecheck", "migrations", "docs/release/variables/service-launchpad.md"]
+touches = ["sdk/launchpad/shared/delivery", "services/launchpad/api/internal/app", "services/launchpad/api/internal/rolecheck", "services/launchpad/pnl-tracker/internal/rolecheck", "migrations", "docs/release/variables/service-launchpad.md", "tools/qualification/audit_repairs/test_migration_registry_and_readiness.py"]
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./delivery/...) && (cd services/launchpad/api && GOWORK=off go vet ./internal/app/... ./internal/rolecheck/...) && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./internal/rolecheck/...)"
@@ -213334,13 +213340,13 @@ title = "Let the live wallet path of the accounts service continue from the last
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.1179"]
 reqs = ["22998.1"]
 capabilities = ["22.39.1178"]
 interfaces = []
 do_1 = "do_1 Gotcha 4889, decision 3962. Read services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go whole, the type RebuildSnapshot and the rebuild functions of services/launchpad/pnl-tracker/internal/production/l16/service.go, the coverage function of the file baseline.go beside it, the job list of services/launchpad/pnl-tracker/internal/app/app.go and the rows of services/launchpad/pnl-tracker/internal/rolecheck/statements.json for services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go. Read the function CanonicalCreation of sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go for the canonical creation record."
 do_2 = "do_2 Change the live wallet path under decision 3962 points one to four. Point five holds."
-do_3 = "do_3 Write the cases under point six and bring the records under point seven in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside the paths of point seven changes."
+do_3 = "do_3 Write the cases under point six and bring the records under point seven in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside the paths of point seven changes. Decision 3978 point two: this task starts from the main line that holds the migration of task 22.39.1179. Compute the interface digest of every entry of migrations/registry.json, the entry of that migration included, from the grants record as it then stands."
 do_4 = "do_4 Run the verification. Point eight holds. The cases need the PostgreSQL of the test environment, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
 symbols = []
 touches = ["services/launchpad/pnl-tracker", "migrations"]
