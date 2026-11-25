@@ -213264,7 +213264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1197]
 title = "Let the two settlement lookups of the pnl module find the transfer of the settlement asset at the address of the launchpad module for a fill of the native execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
