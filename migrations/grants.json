@@ -1302,6 +1302,24 @@
         },
         {
           "schema": "candles",
+          "object": "chart_exact_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "chain_id",
+            "pool",
+            "interval",
+            "start",
+            "snapshot"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "candles",
           "object": "chart_exact",
           "object_kind": "table",
           "privileges": [
