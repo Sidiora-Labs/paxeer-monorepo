@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire/testfixture"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
@@ -39,17 +41,8 @@ func TestCanonicalPagesReadCommittedFillAndCandle(t *testing.T) {
 	if err := json.Unmarshal(trades.Items[0], &trade); err != nil || trade.EventID != fill.SourceFillID || trade.Side != "buy" {
 		t.Fatalf("trade document: %+v, %v", trade, err)
 	}
-	source := map[string]any{"sourceFillId": fill.SourceFillID, "position": fill.Position, "actualEmitter": fill.ActualEmitter, "provenance": fill.Provenance}
-	price := map[string]string{"numerator": "1", "denominator": "1"}
-	const start = int64(1700000000)
-	candle, err := json.Marshal(map[string]any{
-		"poolAddress": productionAddress, "interval": "1m", "start": start,
-		"open": price, "high": price, "low": price, "close": price,
-		"openSource": source, "highSource": source, "lowSource": source, "closeSource": source,
-		"volumeUsdlRaw": "1000000", "volumeTokenRaw": fill.TokenAmountRaw,
-		"buyVolumeUsdlRaw": "1000000", "sellVolumeUsdlRaw": "0", "trades": 1, "revision": 1,
-		"token": fill.Token, "settlement": fill.Settlement,
-	})
+	const start = int64(1699999980)
+	candle, err := testfixture.CommittedBar(fill, "1m")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +78,7 @@ func TestCanonicalPagesReadCommittedFillAndCandle(t *testing.T) {
 		t.Fatal(err)
 	}
 	development, err := store.New(db, nil).DevelopmentCandlePage(ctx, request)
-	if err != nil || development == nil || len(development.Items) != 1 || development.Revision != "1" || development.SnapshotID == "" || development.SeriesModelVersion != productionProjection {
+	if err != nil || development == nil || len(development.Items) != 1 || development.Revision != "1" || development.SnapshotID == "" || development.SeriesModelVersion != candlewire.SeriesModelVersion {
 		t.Fatalf("development candle page: %+v, %v", development, err)
 	}
 	request.ExpectedSnapshot = "another-snapshot"
