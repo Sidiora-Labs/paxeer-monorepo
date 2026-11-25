@@ -12,6 +12,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // CanonicalRiskInputs produces the input row in the projection transaction.
@@ -270,19 +271,45 @@ func (p *Projector) RefreshTokenInputs(ctx context.Context, token string) error 
 		return err
 	}
 	for _, pool := range pools {
-		tx, e := p.Authority.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
-		if e != nil {
-			return e
-		}
-		e = p.RecomputeExpiryTx(ctx, tx, pool)
-		if e == nil {
-			e = tx.Commit(ctx)
-		} else {
-			rollbackTransaction(context.WithoutCancel(ctx), tx)
-		}
-		if e != nil {
-			return e
+		err = retryTokenInputs(ctx, func() error {
+			tx, e := p.Authority.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+			if e != nil {
+				return e
+			}
+			defer rollbackTransaction(context.WithoutCancel(ctx), tx)
+			if e = p.RecomputeExpiryTx(ctx, tx, pool); e != nil {
+				return e
+			}
+			if p.tokenInputsBeforeCommit != nil {
+				if e = p.tokenInputsBeforeCommit(ctx, tx); e != nil {
+					return e
+				}
+			}
+			return tx.Commit(ctx)
+		})
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func retryTokenInputs(ctx context.Context, run func() error) error {
+	for attempt := 0; ; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := run()
+		var pgerr *pgconn.PgError
+		if !errors.As(err, &pgerr) || (pgerr.Code != "40001" && pgerr.Code != "40P01") || attempt == 3 {
+			return err
+		}
+		timer := time.NewTimer(10 * time.Millisecond << attempt)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }

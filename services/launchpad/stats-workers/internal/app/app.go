@@ -316,7 +316,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			return retryStatsJob(ctx, expiry.Interval, runtimeHealth, "canonical windows", func(ctx context.Context) error { return expiry.Refresh(ctx, time.Now().Unix()) })
 		}})
 		runtimeHealth.set("transfer holders", errors.New("transfer holders awaiting canonical catchup"))
-		holderCursor := ""
+		holderCursor := statsHolderCursor{}
 		jobs = append(jobs, statsRuntimeJob{name: "canonical transfer holders", run: func(ctx context.Context) error {
 			return retryStatsJob(ctx, time.Duration(d.Phase2.HolderIntervalMS)*time.Millisecond, runtimeHealth, "transfer holders", func(ctx context.Context) error {
 				return catchUpStatsHolders(ctx, pool, holders, d.SourceStream, d.Phase2.HolderTokenBatch, d.Phase2.HolderTransferBatch, &holderCursor, projector.RefreshTokenInputs)
@@ -582,6 +582,9 @@ func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			if err := fn(ctx); err != nil {
 				a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
 			}
@@ -808,6 +811,9 @@ func periodicStatsJob(ctx context.Context, interval time.Duration, logger *slog.
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if err := fn(ctx); err != nil {
 				logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
 			}
@@ -942,8 +948,18 @@ func statsSearchProjectionConsumer(kind string, projection *canonicalsearch.Proj
 	}
 }
 
-func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *holdings.Repository, stream string, tokenLimit, transferLimit int, after *string, coverageChanged ...func(context.Context, string) error) error {
-	if ctx == nil || pool == nil || repository == nil || stream == "" || after == nil || tokenLimit < 1 || tokenLimit > 100 || transferLimit < 1 || transferLimit > 1000 {
+type holderRefreshState struct {
+	revision int64
+	coverage string
+}
+
+type statsHolderCursor struct {
+	after     string
+	refreshed map[string]holderRefreshState
+}
+
+func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *holdings.Repository, stream string, tokenLimit, transferLimit int, cursor *statsHolderCursor, coverageChanged ...func(context.Context, string) error) error {
+	if ctx == nil || pool == nil || repository == nil || stream == "" || cursor == nil || tokenLimit < 1 || tokenLimit > 100 || transferLimit < 1 || transferLimit > 1000 {
 		return holdings.ErrIntegrity
 	}
 	var raw, typed, fence int64
@@ -955,7 +971,7 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 	if raw < 0 || raw != typed || fence <= 0 || owner == "" || !alive {
 		return consumer.ErrAccountingSourceUnavailable
 	}
-	rows, err := pool.Query(ctx, `SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`, stream, *after, typed, tokenLimit)
+	rows, err := pool.Query(ctx, `SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`, stream, cursor.after, typed, tokenLimit)
 	if err != nil {
 		return err
 	}
@@ -973,11 +989,11 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 		return err
 	}
 	if len(tokens) == 0 {
-		*after = ""
+		cursor.after = ""
 	}
 	for _, token := range tokens {
 		if err = repository.DiscoverCanonical(ctx, token, stream); errors.Is(err, holdings.ErrUnknownToken) {
-			*after = token
+			cursor.after = token
 			continue
 		} else if err != nil {
 			return err
@@ -992,15 +1008,26 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 		if result.More || result.Coverage != "complete" {
 			return consumer.ErrAccountingSourceUnavailable
 		}
-		for _, refresh := range coverageChanged {
-			if refresh == nil {
-				return analytics.ErrInvalidInput
+		state := holderRefreshState{revision: result.Revision, coverage: result.Coverage}
+		previous, refreshed := cursor.refreshed[token]
+		if result.Applied > 0 || !refreshed || previous != state {
+			delete(cursor.refreshed, token)
+			for _, refresh := range coverageChanged {
+				if refresh == nil {
+					return analytics.ErrInvalidInput
+				}
+				if err = refresh(ctx, token); err != nil {
+					return err
+				}
 			}
-			if err = refresh(ctx, token); err != nil {
-				return err
+			if len(coverageChanged) > 0 {
+				if cursor.refreshed == nil {
+					cursor.refreshed = make(map[string]holderRefreshState)
+				}
+				cursor.refreshed[token] = state
 			}
 		}
-		*after = token
+		cursor.after = token
 	}
 	if _, err = repository.DeleteExpiredSnapshots(ctx, 100); err != nil {
 		return err
