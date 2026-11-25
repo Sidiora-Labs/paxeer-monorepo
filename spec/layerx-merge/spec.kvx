@@ -17128,6 +17128,18 @@ value = "One. The function catchUpStatsHolders of services/launchpad/stats-*/int
 basis = "Gotcha 4928."
 affects = []
 
+[decision.4003]
+title = "The two holder shares of the web are shares of the whole supply, computed by the display module from the members of the row, and the row and its producer stay as they are"
+value = "One. The function statsShare of apps/launchpad/web/src/core/market/pool-stats-display.ts (line 115) returns the share of the whole supply in percent. With the basis points b of the row, its circulating supply c and its supply t, all taken as whole numbers without a loss of digits (BigInt), it computes the whole number h = b times c times 100 divided by t, rounded down, and returns h divided by 10,000 as a number. The value has four decimals of a percent and is never rounded up. Two. It returns a value only when all of this holds: the member circulationModel of the row is supply_minus_pool_reserve_v1, the members circulatingSupplyRaw and totalSupplyRaw are texts of an unsigned whole number in the form the constant UINT of the module tests (line 82), the supply is above 0, the circulating supply is not above the supply, and the basis points are a whole number from 0 to 10,000. In every other case, also for a row that carries no model or another model, it returns no value with the reason of the constant sharesNotComputedReason (line 56). It never shows the basis points of the row as they are. A row without stats keeps its reason of today. Three. The function formatShare (line 129) keeps its forms of today for a whole number and for a value from 1 upward (line 130). A value above 0 and below 1 reads with two decimals, and zeros at the end of the decimals are dropped: 0.3 reads 0.3, 0.48 reads 0.48, 0.0398 reads 0.04, each followed by the percent sign. A value above 0 whose two decimals would read 0.00 reads as the less-than sign followed by 0.01 and the percent sign. The value 0 reads 0 followed by the percent sign as today. Four. The head comment of the module (line 21) and the comment of the function (line 114) say what holds after this task: the two members of the row are basis points of the circulating supply under the model of the row, and the function gives the share of the whole supply. Five. No view changes its code or its words. The places of gotcha 4929 part two read the function and say share of supply, which is true after this task. The audit panel compares the share of the whole supply with its limits of today. Six. New cases in the file apps/launchpad/web/src/core/market/pool-stats-share.test.ts. Case a: a row with the basis points 10000 for both shares, circulatingSupplyRaw 398481149474, totalSupplyRaw 1000000000000000 and the model of point two gives the value 0.0398 for both shares, and formatShare of it reads 0.04 followed by the percent sign. Case b: the recorded row of apps/launchpad/web/src/core/test-fixtures/market-production/core-api-wire.json in the form the present cases decode it gives the value 0.4803 for both shares, which reads 0.48 followed by the percent sign. Case c: basis points 2500 with a circulating supply equal to the supply give 25, and with a circulating supply of half the supply 12.5. Case d: each of these gives no value with the reason of point two: another model name, no model, no circulatingSupplyRaw, no totalSupplyRaw, a supply of 0, a text that is not a whole number in one of the two members, a circulating supply above the supply, basis points of null, of 10,001 and of 0.5. Case e: a supply and a circulating supply of 28 digits each with the basis points 3333 give 33.33 without a loss of digits. Case f: formatShare reads 100, 25, 12.3 for 12.34, 0.3, 0.48, 0.04 for 0.0398, the less-than form for 0.004, and 0 for 0, each with the percent sign. Seven. Every present case stays and passes. A present case that asserts the value 100 or the words Creator 100 for the recorded row follows point one (apps/launchpad/web/src/core/market/pool-stats-display.test.ts lines 24 and 25, apps/launchpad/web/src/widgets/coin/coin-units.render.test.tsx line 125), and a present case that builds a row with the two shares and without the three members of point two gains them (apps/launchpad/web/src/widgets/explore/use-explore-rows.test.ts lines 40 and 71). The case of line 27 of apps/launchpad/web/src/core/market/pool-stats-display.test.ts stays as it is. The final message names each such case with the file, the former and the new value and the reason. No case gains a skip mark and no case is removed. Eight. Not part of this task: the stats service and the row, the client library under sdk, the recorded rows of the cases, the words and the layout of the views, the limits of the audit panel. The numbers the audit panel takes from the risk route (apps/launchpad/web/src/widgets/coin/stats-audit-panel.tsx line 151) are not changed: the final message says over which supply the service computes them, read from the code of the stats module, so that a later task can decide them. Only files under apps/launchpad/web/src/core/market and case files under apps/launchpad/web/src/widgets change. Nine. The final message names the changed lines of the functions statsShare and formatShare, each present case that changed under point seven, and what the head of a coin, the card of its creator and the two holder rows of the audit read for the row of case a. Ten. Target: the verification of task 22.44.152 passes. It requires the file of point six and runs the case set of the web application. Task 22.44.152. "
+basis = "Gotcha 4929."
+affects = []
+
+[decision.4004]
+title = "Every fixed element in the band above the tab bar stands above the notice about cookies while the notice shows, by the height the notice already publishes"
+value = "One. While the notice shows, each element of gotcha 4930 part two keeps its place of today and adds the height of the notice to its offset from the bottom edge: the value var(--sl-cookie-banner-height, 0px). Without a notice the property is absent, the value is 0 and nothing moves. No element measures the notice itself and no second property is introduced. Two. The trade button (apps/launchpad/web/src/widgets/trading/mobile-trade-drawer.tsx line 39) adds the value at both of its offsets, above the tab bar at the phone widths and above the bottom edge at the middle widths. The action Post bounty (apps/launchpad/web/src/widgets/bounties/bounties-header.tsx line 160) adds it at its offset. The offset of the notifications (apps/launchpad/web/src/app/globals.css lines 225 and 218, and the rule for the wider widths beside them) adds it in each of its forms, so that a notification never lies under or over the notice. Three. The open trade drawer (line 74): with the drawer open and the notice showing, every control of the drawer is visible or can be reached by moving the content of the drawer, and the notice covers none of them at rest. The drawer adds the height of the notice, and at the phone widths the band the notice stands on, to the space below its content. Four. New cases in the file apps/launchpad/web/src/widgets/trading/mobile-trade-cta-notice.test.tsx. They render the trade button for a visitor without a wallet and for a visitor with one and assert that both of its offsets hold the property of point one, render the open drawer and assert the space of point three, and assert the same property in the offset of the action Post bounty. They assert the text of the class or of the style, as the present cases of apps/launchpad/web/src/ui/shared/cookie-banner.test.tsx do, because the case environment computes no layout. Five. Every present case stays and passes. A present case that asserts the former text of an offset follows points two and three (apps/launchpad/web/src/ui/shared/toast-provider.test.tsx line 252, apps/launchpad/web/src/widgets/bounties/bounties-header.test.tsx line 183 if its text changes). The final message names each such case with the file, the former and the new text and the reason. No case gains a skip mark and no case is removed. Six. Search the web application for every other fixed element that stands at the bottom edge or above the tab bar. The final message names each one with file and line and says whether it reads the property after this task, and why not where it does not. One inside the paths of this task follows point one. One outside them is named and not changed. Seven. Not part of this task: the notice itself with its text, its place and its layer, the tab bar, the shell and its content column, the trade panel inside the drawer, the look of any element. Only files under apps/launchpad/web/src/ui/shared, apps/launchpad/web/src/widgets/trading and apps/launchpad/web/src/widgets/bounties and the file apps/launchpad/web/src/app/globals.css change. Eight. Target: the verification of task 22.44.153 passes. It requires the file of point four and runs the case set of the web application. Task 22.44.153. "
+basis = "Gotcha 4930."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46788,6 +46800,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.153]
+title = "Let the trade button and the other fixed elements above the tab bar stand above the notice about cookies while it shows"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/widgets/bounties", "apps/launchpad/web/src/app/globals.css"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s apps/launchpad/web/src/widgets/trading/mobile-trade-cta-notice.test.tsx && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4930, decision 4004. Read apps/launchpad/web/src/ui/shared/cookie-banner.tsx whole with the property it writes (line 42) and its present cases in apps/launchpad/web/src/ui/shared/cookie-banner.test.tsx. Read apps/launchpad/web/src/widgets/trading/mobile-trade-drawer.tsx whole, the action of apps/launchpad/web/src/widgets/bounties/bounties-header.tsx at line 160, the rules of apps/launchpad/web/src/app/globals.css that set the property --sl-notice-bottom-offset (around the lines 218 and 225), and the line 193 of apps/launchpad/web/src/shell/app-shell.tsx for the form in which the shell already reads the height of the notice."
+symbols = []
+
+[capability.22.44.152]
+title = "Show the two holder shares of a coin as shares of the whole supply, so that a new coin does not read as held whole by its creator"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/core/market", "apps/launchpad/web/src/widgets"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s apps/launchpad/web/src/core/market/pool-stats-share.test.ts && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4929, decision 4003. Read apps/launchpad/web/src/core/market/pool-stats-display.ts whole with its head comment, the constant UINT (line 82) and the functions statsShare (line 115) and formatShare (line 129). Read the type PoolStats of sdk/launchpad/packages/sdk/src/types-v2.gen.ts (line 466) for the members totalSupplyRaw, circulatingSupplyRaw and circulationModel, the lines 916 to 1035 of the file internal/projectionstats/public_stats.go of the stats module for what the producer computes, the present cases of apps/launchpad/web/src/core/market/pool-stats-display.test.ts with the rows they decode, and the places of gotcha 4929 part two that read the function."
+symbols = []
 
 [capability.22.39.1199]
 title = "Let the holders job call the refresh of the analytics only for a coin that changed, and repeat a serialization failure of that refresh before it is an error"
@@ -213082,6 +213112,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.153]
+title = "Let the trade button and the other fixed elements above the tab bar stand above the notice about cookies while it shows"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.153"]
+interfaces = []
+do_1 = "do_1 Gotcha 4930, decision 4004. Read apps/launchpad/web/src/ui/shared/cookie-banner.tsx whole with the property it writes (line 42) and its present cases in apps/launchpad/web/src/ui/shared/cookie-banner.test.tsx. Read apps/launchpad/web/src/widgets/trading/mobile-trade-drawer.tsx whole, the action of apps/launchpad/web/src/widgets/bounties/bounties-header.tsx at line 160, the rules of apps/launchpad/web/src/app/globals.css that set the property --sl-notice-bottom-offset (around the lines 218 and 225), and the line 193 of apps/launchpad/web/src/shell/app-shell.tsx for the form in which the shell already reads the height of the notice."
+do_2 = "do_2 Write the cases of decision 4004 point four first and see them fail on the tree as it is. Then bring the trade button, the action Post bounty and the offset of the notifications into the form of points one and two, and the open drawer into the form of point three. Then do the search of point six and decide the present cases of point five. Point seven holds."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point eight holds. The final message names each changed element with file and line, the list of point six and each present case that changed under point five. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. The tasks of the look series change files of the web application at the same time, the views and their cases among them: where the main line has changed a file of this task, keep its changes and make the points of the decision hold in the new form. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/widgets/bounties", "apps/launchpad/web/src/app/globals.css"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/trading/mobile-trade-cta-notice.test.tsx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s apps/launchpad/web/src/widgets/trading/mobile-trade-cta-notice.test.tsx && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.152]
+title = "Show the two holder shares of a coin as shares of the whole supply, so that a new coin does not read as held whole by its creator"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.152"]
+interfaces = []
+do_1 = "do_1 Gotcha 4929, decision 4003. Read apps/launchpad/web/src/core/market/pool-stats-display.ts whole with its head comment, the constant UINT (line 82) and the functions statsShare (line 115) and formatShare (line 129). Read the type PoolStats of sdk/launchpad/packages/sdk/src/types-v2.gen.ts (line 466) for the members totalSupplyRaw, circulatingSupplyRaw and circulationModel, the lines 916 to 1035 of the file internal/projectionstats/public_stats.go of the stats module for what the producer computes, the present cases of apps/launchpad/web/src/core/market/pool-stats-display.test.ts with the rows they decode, and the places of gotcha 4929 part two that read the function."
+do_2 = "do_2 Write the cases a, b and c of decision 4003 point six first and see case a fail on the tree as it is. Then bring the function statsShare into the form of points one and two and write the cases d and e. Then write case f, see it fail for the values below 1, and bring formatShare into the form of point three. Then correct the two comments of point four and decide the present cases of point seven. Point eight holds: no view changes its code."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point ten holds and point nine names what the final message holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. The tasks of the look series change files of the web application at the same time, the views and their cases among them: where the main line has changed a file of this task, keep its changes and make the points of the decision hold in the new form. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/core/market", "apps/launchpad/web/src/widgets"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/core/market/pool-stats-share.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s apps/launchpad/web/src/core/market/pool-stats-share.test.ts && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1199]
 title = "Let the holders job call the refresh of the analytics only for a coin that changed, and repeat a serialization failure of that refresh before it is an error"
 status = "pending"
@@ -213114,7 +213204,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1198]
 title = "Bind the transcript of the reward history to the dependency plan of its role, take the checksum of the registry file out of it and renew it with its recorder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213687,6 +213777,7 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 One more named check before the runs of do_5, found on 2026-11-25 in a browser on a test deployment of the web application of commit 87d68b1a38: the table of holders of the coin view (apps/launchpad/web/src/widgets/coin/holders-table.tsx, region at line 178, table at line 179). At the widths 390 and 1440 in both sets, with a row of a holder that has a name and a row of a holder that has none: no head of a column breaks inside a word or is cut off (the heads of the lines 184 and 188 among them), the address of a holder stays on one line and is shortened in the middle where it does not fit, every number of a row stays on one line in its column, and at 390 the table moves sideways inside its region while the page does not. Repair what differs under decision 3973 point three and name the table with its state in the record of do_4. Tasks 22.44.152 and 22.44.153 change the display module of the holder shares and the fixed elements above the tab bar at the same time: where the main line holds their changes, keep them."
 
 [task.22.44.146]
 title = "Bring the terminal, swap and order views of the launchpad to the visual brief"

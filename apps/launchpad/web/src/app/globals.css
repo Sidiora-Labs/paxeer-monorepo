@@ -194,7 +194,7 @@
 }
 
 .sl-notifications {
-  --sl-notice-bottom-offset: var(--sl-space-6);
+  --sl-notice-bottom-offset: calc(var(--sl-space-6) + var(--sl-cookie-banner-height, 0px));
   position: fixed;
   inset: 0;
   margin: 0;
@@ -211,18 +211,20 @@
 }
 @media (width < 64rem) {
   .sl-notifications {
-    --sl-notice-bottom-offset: calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0rem));
+    --sl-notice-bottom-offset: calc(
+      var(--sl-space-6) + env(safe-area-inset-bottom, 0rem) + var(--sl-cookie-banner-height, 0px)
+    );
   }
   body:has(.foundation-shell[data-shell-route-id='coin']) .sl-notifications {
     --sl-notice-bottom-offset: calc(
-      var(--sl-trade-cta-clearance) + env(safe-area-inset-bottom, 0rem)
+      var(--sl-trade-cta-clearance) + env(safe-area-inset-bottom, 0rem) + var(--sl-cookie-banner-height, 0px)
     );
   }
 }
 @media (width < 48rem) {
   .sl-notifications {
     --sl-notice-bottom-offset: calc(
-      var(--sl-bottom-nav-height) + var(--sl-space-8) + env(safe-area-inset-bottom, 0rem)
+      var(--sl-bottom-nav-height) + var(--sl-space-8) + env(safe-area-inset-bottom, 0rem) + var(--sl-cookie-banner-height, 0px)
     );
   }
 }

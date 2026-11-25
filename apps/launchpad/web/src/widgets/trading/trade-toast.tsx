@@ -80,7 +80,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        'fixed bottom-24 left-3 right-3 z-[var(--sl-z-toast)] w-auto transition-all duration-slow ease-sl sm:bottom-5 sm:left-auto sm:right-5 sm:w-90',
+        'fixed bottom-[calc(var(--sl-space)*24+var(--sl-cookie-banner-height,0px))] left-3 right-3 z-[var(--sl-z-toast)] w-auto transition-all duration-slow ease-sl sm:bottom-[calc(var(--sl-space)*5+var(--sl-cookie-banner-height,0px))] sm:left-auto sm:right-5 sm:w-90',
         visible && !exiting ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
       )}
     >
