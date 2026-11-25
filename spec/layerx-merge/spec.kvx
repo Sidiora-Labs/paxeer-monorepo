@@ -213206,7 +213206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1190]
 title = "Let the attribution of a direct trade on the native execution find the settlement transfer at the address of the launchpad module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
