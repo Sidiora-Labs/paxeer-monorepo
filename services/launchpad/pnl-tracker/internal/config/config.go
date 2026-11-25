@@ -37,6 +37,8 @@ const maxReconcileIntervalMS = int64(1<<63-1) / int64(time.Millisecond)
 
 // Config is the parsed pnl environment.
 type Config struct {
+	RewardsTimeoutSeconds int `env:"PNL_REWARDS_TIMEOUT_SECONDS" envDefault:"5"`
+
 	JourneyConfigFile        string `env:"PNL_JOURNEY_CONFIG_FILE"`
 	JourneyConfigDocument    string `env:"PNL_JOURNEY_CONFIG_DOCUMENT"`
 	JourneyConfigSHA256      string `env:"PNL_JOURNEY_CONFIG_SHA256"`
@@ -124,6 +126,9 @@ func Load() (Config, error) {
 	cfg, err := env.ParseAsWithOptions[Config](env.Options{Environment: values})
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
+	}
+	if _, err := cfg.RewardsTimeout(); err != nil {
+		return Config{}, err
 	}
 	if rawInterval != "" {
 		cfg.ReconcileIntervalMS, err = strconv.Atoi(rawInterval)
@@ -526,4 +531,11 @@ func inlineNATSCredentials(creds string) (nats.Option, error) {
 		return nil, fmt.Errorf("broker_credentials_invalid: NATS_CREDENTIALS_CREDS")
 	}
 	return nats.UserJWTAndSeed(userJWT, string(seed)), nil
+}
+
+func (c Config) RewardsTimeout() (time.Duration, error) {
+	if c.RewardsTimeoutSeconds < 1 || c.RewardsTimeoutSeconds > 15 {
+		return 0, fmt.Errorf("config: PNL_REWARDS_TIMEOUT_SECONDS must be between 1 and 15")
+	}
+	return time.Duration(c.RewardsTimeoutSeconds) * time.Second, nil
 }
