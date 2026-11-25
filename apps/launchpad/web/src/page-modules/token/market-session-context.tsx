@@ -12,6 +12,7 @@ import { fetchCanonicalHolders } from '@/core/market/use-holders';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { MarketSession, marketAddress, marketLimits } from './market-session';
+import type { PoolSnapshot } from '@/core/market/pool-resolver';
 
 export { browserMarketClient, useMarketClient };
 export function MarketClientProvider({ client, children }: { client: SdkClient; children: ReactNode }) {
@@ -116,11 +117,14 @@ export function useMarketMetadata(tokenAddress: string | null) {
  * no stream, no retries. The coin page passes it while the pool is unresolved and permanently
  * once the coin is known not to exist, so an unknown address issues no market traffic at all.
  */
-export function useMarketLive(address: string, options: { enabled?: boolean } = {}) {
+export function useMarketLive(address: string, options: { enabled?: boolean; poolDetail?: Pick<PoolSnapshot, 'stats' | 'generatedAt'> | null } = {}) {
   const enabled = options.enabled ?? true;
   const client = useMarketClient(); const pool = marketAddress(address);
   const session = useMemo(() => new MarketSession(client, pool), [client, pool]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
+  const detailStats = options.poolDetail?.stats ?? null;
+  const detailGeneratedAt = options.poolDetail?.generatedAt ?? '';
+  useEffect(() => { session.setPoolDetail(detailStats, detailGeneratedAt); }, [session, detailStats, detailGeneratedAt]);
   useEffect(() => {
     if (!enabled) { session.close(); return; }
     const controller = new AbortController();

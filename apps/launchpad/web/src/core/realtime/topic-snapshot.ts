@@ -24,7 +24,7 @@ function waitForSnapshot(retryAt: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export function beforeFirstFrameTransport(transport: StreamTransportV2): StreamTransportV2 {
+export function beforeFirstFrameTransport(transport: StreamTransportV2, onWaiting?: () => void): StreamTransportV2 {
   let retryAt = 0;
   return {
     ...transport,
@@ -40,6 +40,7 @@ export function beforeFirstFrameTransport(transport: StreamTransportV2): StreamT
         } catch (error) {
           signal.throwIfAborted();
           if (!(error instanceof HttpError) || error.status !== 404 || error.code !== 'TOPIC_NOT_STARTED') throw error;
+          onWaiting?.();
           retryAt = Date.now() + Math.max(5000, error.envelope?.retryAfterMs ?? 0);
         }
       }
