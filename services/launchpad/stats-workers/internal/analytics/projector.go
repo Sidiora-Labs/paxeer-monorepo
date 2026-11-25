@@ -29,9 +29,10 @@ type RiskInputProvider interface {
 	LoadRiskInputs(context.Context, pgx.Tx, string, Watermark) (RiskInputs, error)
 }
 type Projector struct {
-	Authority ReactionAuthority
-	Model     RiskModel
-	Inputs    RiskInputProvider
+	Authority               ReactionAuthority
+	Model                   RiskModel
+	Inputs                  RiskInputProvider
+	tokenInputsBeforeCommit func(context.Context, pgx.Tx) error
 }
 
 func NewProjector(a ReactionAuthority, model RiskModel, inputs RiskInputProvider) (*Projector, error) {
