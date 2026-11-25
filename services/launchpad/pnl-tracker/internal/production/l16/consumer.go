@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -28,6 +29,7 @@ type FreshBaselineAuthority interface {
 }
 
 type AccountingConsumer struct {
+	Progress                                         *consumerhealth.State
 	pool                                             *pgxpool.Pool
 	schema                                           string
 	consumerID, generation, owner, projectionVersion string
@@ -331,7 +333,17 @@ func (c *AccountingConsumer) PreparePartition(ctx context.Context, partition str
 	return c.Bootstrap(ctx, in)
 }
 
-func (c *AccountingConsumer) PrepareAndConsume(ctx context.Context, subject string, wire []byte, message delivery.Delivery) error {
+func (c *AccountingConsumer) PrepareAndConsume(ctx context.Context, subject string, wire []byte, message delivery.Delivery) (result error) {
+	defer func() {
+		if ctx.Err() != nil && errors.Is(result, context.Canceled) {
+			return
+		}
+		class := consumerhealth.ErrorClass(result)
+		if errors.Is(result, ErrBaselineUnavailable) {
+			class = consumerhealth.SourceUnavailableClass
+		}
+		c.Progress.Record(result, class, consumerhealth.RetryKey(wire))
+	}()
 	if c.authority == nil {
 		return ErrBaselineUnavailable
 	}

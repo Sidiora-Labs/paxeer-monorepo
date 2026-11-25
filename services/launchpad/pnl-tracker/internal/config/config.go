@@ -37,7 +37,8 @@ const maxReconcileIntervalMS = int64(1<<63-1) / int64(time.Millisecond)
 
 // Config is the parsed pnl environment.
 type Config struct {
-	RewardsTimeoutSeconds int `env:"PNL_REWARDS_TIMEOUT_SECONDS" envDefault:"5"`
+	ConsumerReadinessTimeout string `env:"PNL_CONSUMER_READINESS_TIMEOUT" envDefault:"5m"`
+	RewardsTimeoutSeconds    int    `env:"PNL_REWARDS_TIMEOUT_SECONDS" envDefault:"5"`
 
 	JourneyConfigFile        string `env:"PNL_JOURNEY_CONFIG_FILE"`
 	JourneyConfigDocument    string `env:"PNL_JOURNEY_CONFIG_DOCUMENT"`
@@ -135,6 +136,9 @@ func Load() (Config, error) {
 		if err != nil {
 			return Config{}, fmt.Errorf("config: PNL_RECONCILE_INTERVAL_MS: %w", err)
 		}
+	}
+	if _, err := cfg.ConsumerReadinessBound(); err != nil {
+		return Config{}, err
 	}
 	if err = cfg.registerInlineDocuments(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
