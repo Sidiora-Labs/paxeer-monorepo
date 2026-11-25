@@ -213294,7 +213294,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1196]
 title = "Let the job loop of the pnl service warn for a first failed pass, report an error from the third failed pass in a row at most every 30 seconds, and write one line when the job passes again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213475,7 +213475,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.148]
 title = "Let the candle merge of the chart compare the drawn members at an equal revision, so that the live chart survives two answers for one bar"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
