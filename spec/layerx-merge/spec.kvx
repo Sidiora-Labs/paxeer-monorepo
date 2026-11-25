@@ -213206,7 +213206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.136]
 title = "Let the coin view of a pool without a trade show a complete first state from the stats topic and turn live with the first trade without a reload"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
