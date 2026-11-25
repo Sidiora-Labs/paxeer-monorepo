@@ -99,7 +99,8 @@
     450002,
     380003,
     60007,
-    60008
+    60008,
+    150010
   ],
   "registrations": [
     {
@@ -3191,6 +3192,27 @@
           }
         ]
       }
+    },
+    {
+      "migration_id": 150010,
+      "service": "core/api",
+      "schema": "api_stream",
+      "owner_lane": "L15",
+      "path": "migrations/150010.sql",
+      "sha256": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7",
+      "predecessor_ids": [
+        150003
+      ],
+      "legacy_predecessors": [],
+      "interface_digest": "f12a69040043a77ab5557d3e1ca643db796f7f3a22960a2f7f38298e9eb359a5",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Retain the additive retention lease, trigger and indexes when rolling back readers.",
+      "backfill_strategy": "Build publication metric indexes over retained rows; retention removes only eligible published frames.",
+      "destructive": false,
+      "approval_manifest_digest": "989b6bdffdf32df339856a89d71ff39cf2bf74e4f673884c94a5069fd1372ea1",
+      "source_inputs": []
     }
   ],
   "approval_digest": "989b6bdffdf32df339856a89d71ff39cf2bf74e4f673884c94a5069fd1372ea1",

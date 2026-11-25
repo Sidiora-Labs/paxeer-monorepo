@@ -1261,6 +1261,7 @@ The root `.env.example` contains shared worker settings and Makefile inputs; eac
 | `STREAM_RELAY_CONFIG_FILE (api): $.maxLag` | Rest stream relay: max lag in nanoseconds | None | No | [api/internal/app/stream_relay.go][source-52] |
 | `STREAM_RELAY_CONFIG_FILE (api): $.publishTimeout` | Rest stream relay: publish timeout in nanoseconds | None | No | [api/internal/app/stream_relay.go][source-52] |
 | `STREAM_RELAY_CONFIG_FILE (api): $.region` | Rest stream relay: region | None | No | [api/internal/app/stream_relay.go][source-52] |
+| `STREAM_RELAY_CONFIG_FILE (api): $.retentionWindow` | Rest stream relay: optional published-frame retention in nanoseconds, at least the 72-hour reader replay window; cleanup runs at most once a minute in up to four 5,000-frame batches and keeps each partition’s last published frame | 259200000000000 (72 hours) | No | [api/internal/app/stream_relay.go][source-52] |
 | `STREAM_RELAY_CONFIG_FILE (api): $.retryDelay` | Rest stream relay: retry delay in nanoseconds | None | No | [api/internal/app/stream_relay.go][source-52] |
 | `STREAM_RELAY_CONFIG_FILE (api): $.routes[].stream` | Rest stream relay: stream | None | No | [sdk/launchpad/shared/delivery/stream.go][source-51] |
 | `STREAM_RELAY_CONFIG_FILE (api): $.routes[].subjects[]` | Rest stream relay: subjects | None | No | [sdk/launchpad/shared/delivery/stream.go][source-51] |
