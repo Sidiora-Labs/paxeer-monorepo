@@ -15,7 +15,7 @@
   ],
   "epoch": 1,
   "generation": "g1",
-  "maxReplayBlocks": 128,
+  "maxReplayBlocks": 2000,
   "maxReplayFills": 256,
   "owner": "stats-1",
   "phase2": {

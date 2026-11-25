@@ -1,0 +1,4 @@
+{
+  "CommitContaining": "SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
+  "PreviousHeightContaining": "SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2"
+}

@@ -103,7 +103,7 @@ type Commit struct {
 // last_complete_height. pgx.ErrNoRows is returned unchanged.
 func CommitContaining(ctx context.Context, q Querier, sourceStream string, height int64) (Commit, error) {
 	var c Commit
-	err := q.QueryRow(ctx, `SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`, sourceStream, height).Scan(&c.ID, &c.LastCompleteHeight, &c.BlockHash)
+	err := q.QueryRow(ctx, `WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric`, sourceStream, height).Scan(&c.ID, &c.LastCompleteHeight, &c.BlockHash)
 	return c, err
 }
 
@@ -111,7 +111,7 @@ func CommitContaining(ctx context.Context, q Querier, sourceStream string, heigh
 // range holds height. pgx.ErrNoRows is returned unchanged.
 func PreviousHeightContaining(ctx context.Context, q Querier, sourceStream string, height int64) (int64, error) {
 	var previous int64
-	err := q.QueryRow(ctx, `SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`, sourceStream, height).Scan(&previous)
+	err := q.QueryRow(ctx, `WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric`, sourceStream, height).Scan(&previous)
 	return previous, err
 }
 

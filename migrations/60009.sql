@@ -1,0 +1,2 @@
+CREATE EXTENSION IF NOT EXISTS "btree_gist" WITH SCHEMA "public";
+CREATE INDEX CONCURRENTLY "indexer_ingest_commits_height" ON "indexer"."indexer_ingest_commits" USING gist ("chain_id", "stream_id", "previous_height", "last_complete_height", "block_hash", "record_count", "batch_id");
