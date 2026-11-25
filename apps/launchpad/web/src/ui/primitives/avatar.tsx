@@ -79,7 +79,7 @@ export function Avatar({
   useEffect(() => {
     setFailed(false);
   }, [src]);
-  const radius = shape === 'round' ? 'rounded-pill' : 'rounded-sm';
+  const radius = shape === 'round' ? 'rounded-pill' : 'rounded-coin';
   const showImage = Boolean(src) && !failed && !loading;
 
   return (
@@ -178,7 +178,7 @@ export function AvatarStack({
 }: AvatarStackProps) {
   const shown = items.slice(0, max);
   const rest = items.length - shown.length;
-  const radius = shape === 'round' ? 'rounded-pill' : 'rounded-sm';
+  const radius = shape === 'round' ? 'rounded-pill' : 'rounded-coin';
   return (
     <span role="img" aria-label={label} className={cn('inline-flex items-center', className)}>
       {shown.map((item, index) => (

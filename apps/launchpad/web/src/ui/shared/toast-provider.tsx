@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { toast, Toaster, useSonner, type ToastT } from 'sonner';
+import { useColorMode } from '@/core/app-foundation/use-color-mode';
 
 export const PLAIN_NOTICE_DURATION_MS = 6000;
 
@@ -55,6 +56,7 @@ function useNoticeExpiry(paused: boolean) {
 }
 
 export default function ToastProvider() {
+  const { scheme } = useColorMode();
   const layerRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const [suppressed, setSuppressed] = useState(false);
@@ -170,14 +172,15 @@ export default function ToastProvider() {
     >
       <Toaster
         position="bottom-center"
-        theme="system"
+        theme={scheme}
         duration={Infinity}
         offset={{ bottom: 'var(--sl-notice-bottom-offset)' }}
         toastOptions={{
           style: {
-            background: 'var(--sl-surface-3)',
+            background: 'var(--sl-floating-layer-background)',
             color: 'var(--sl-text)',
-            borderWidth: 0,
+            border: 'var(--sl-edge-width) solid var(--sl-surface-3)',
+            backdropFilter: 'blur(var(--sl-floating-blur))',
             fontSize: 'var(--sl-text-sm)',
             fontFamily: 'var(--sl-font-sans)',
             borderRadius: 'var(--sl-radius-lg)',
@@ -195,7 +198,7 @@ export default function ToastProvider() {
           {
             '--gap': 'var(--sl-space-2)',
             '--width': 'min(var(--sl-toast-width), calc(100dvw - var(--sl-space-8)))',
-            '--normal-bg': 'var(--sl-surface-3)',
+            '--normal-bg': 'var(--sl-surface-2)',
             '--normal-text': 'var(--sl-text)',
             '--normal-border': 'var(--sl-control-edge)',
             '--normal-bg-hover': 'var(--sl-surface-hover)',

@@ -9,6 +9,7 @@ import { formatUsdl } from '@/utils/format';
 import { Avatar } from './avatar';
 import { AgeChip, PercentPill, RankBadge, StageBadge, stageLabel, type Stage } from './badges';
 import { Sparkline } from './data';
+import { ProgressLine } from './forms';
 
 export interface CoinCardStat {
   label: string;
@@ -34,6 +35,9 @@ export interface CoinCardProps {
   footerStats?: CoinCardStat[];
   sparkline?: number[] | null;
   rank?: number;
+  creator?: string;
+  description?: string;
+  progress?: number | null;
   variant?: 'grid' | 'screener';
   /** Surface the card sits on; the card takes the next step. */
   surface?: 'canvas' | 'surface-1';
@@ -57,6 +61,9 @@ export function CoinCard({
   footerStats,
   sparkline = null,
   rank,
+  creator,
+  description,
+  progress,
   variant = 'grid',
   surface = 'canvas',
   loading = false,
@@ -65,7 +72,6 @@ export function CoinCard({
   const name = displayCoinText(rawName, tokenAddress);
   const symbol = displayCoinText(rawSymbol, tokenAddress);
   const cardBg = surface === 'canvas' ? 'bg-surface-1' : 'bg-surface-2';
-  const top3 = rank !== undefined && rank >= 1 && rank <= 3;
   const mcap =
     mcapRaw === null
       ? null
@@ -93,7 +99,7 @@ export function CoinCard({
         <div aria-hidden="true" className="flex items-center gap-3">
           <span
             className={cn(
-              'sl-skeleton rounded-sm',
+              'sl-skeleton rounded-coin',
               variant === 'screener' ? 'size-avatar-lg' : 'size-avatar-xl'
             )}
           />
@@ -145,7 +151,6 @@ export function CoinCard({
         className={cn(
           'group relative flex min-h-screener-card flex-wrap items-center py-3 gap-3 rounded-md px-3 transition-colors duration-fast hover:bg-surface-hover',
           cardBg,
-          top3 && 'bg-rank-1-soft',
           className
         )}
       >
@@ -154,7 +159,7 @@ export function CoinCard({
         <div className="min-w-0 flex-1">
           <Link prefetch={false}
             href={href}
-            className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
+            className="block text-md font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
           >
             <span className="block truncate" title={name}>
               {name}
@@ -162,7 +167,7 @@ export function CoinCard({
             {hiddenSummary}
           </Link>
           <div className="flex items-center gap-2 text-xs text-text-faint">
-            <span className="truncate font-bold" title={symbol}>
+            <span className="truncate font-medium" title={symbol}>
               ${symbol}
             </span>
             <AgeChip iso={createdAt} className="shrink-0 whitespace-nowrap" />
@@ -210,7 +215,6 @@ export function CoinCard({
       className={cn(
         'group relative flex min-w-0 max-w-full flex-col gap-3 rounded-md p-4 transition-colors duration-fast hover:bg-surface-hover',
         cardBg,
-        top3 && 'bg-rank-1-soft',
         className
       )}
     >
@@ -219,14 +223,14 @@ export function CoinCard({
         <div className="min-w-0 flex-1">
           <Link prefetch={false}
             href={href}
-            className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
+            className="block text-md font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
             title={name}
           >
             <span className="block truncate">{name}</span>
             {hiddenSummary}
           </Link>
           <div className="flex items-center gap-2 text-xs text-text-faint">
-            <span className="truncate font-bold" title={symbol}>
+            <span className="truncate font-medium" title={symbol}>
               ${symbol}
             </span>
             <AgeChip iso={createdAt} className="shrink-0 whitespace-nowrap" />
@@ -235,9 +239,11 @@ export function CoinCard({
         {rank !== undefined ? <RankBadge rank={rank} /> : null}
         {star}
       </div>
+      {creator ? <p className="truncate text-xs text-text-muted" title={creator}>{creator}</p> : null}
+      {description ? <p className="line-clamp-2 text-sm text-text-muted">{description}</p> : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col">
-          <span className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
+          <span className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
             Market cap
           </span>
           <span
@@ -261,6 +267,7 @@ export function CoinCard({
           <PercentPill value={percentChange} arrow />
         </div>
       </div>
+      {progress !== undefined ? <ProgressLine label="Curve progress" value={progress} /> : null}
       {footerStats && footerStats.length > 0 ? (
         <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-card-stat-min-width)),1fr))] gap-2">
           {footerStats.map((stat) => (

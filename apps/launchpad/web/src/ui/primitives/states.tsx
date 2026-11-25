@@ -160,13 +160,12 @@ export function EmptyState({
       role={announce ? 'status' : undefined}
       className={cn(
         '@container/state flex w-full min-w-0 flex-col items-center justify-center gap-3 p-8 text-center',
-        variant === 'table' && 'min-h-40',
         className
       )}
     >
-      <Icon aria-hidden="true" className="size-8 text-text-faint" />
+      <Icon aria-hidden="true" className="size-6 text-text-faint" />
       <div className="flex flex-col gap-1">
-        <Heading className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text">{title}</Heading>
+        <Heading className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-semibold text-text">{title}</Heading>
         {body ? <p className="max-w-96 text-sm text-text-muted">{body}</p> : null}
       </div>
       {action || secondaryAction ? (
@@ -342,9 +341,9 @@ export function UnavailableState({
       role="status"
       className={cn('@container/state flex w-full min-w-0 flex-col items-center justify-center gap-3 px-4 py-8 text-center', className)}
     >
-      <Unplug aria-hidden="true" className="size-8 text-text-faint" />
+      <Unplug aria-hidden="true" className="size-6 text-text-faint" />
       <div className="flex flex-col gap-1">
-        <Heading className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text">{heading}</Heading>
+        <Heading className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-semibold text-text">{heading}</Heading>
         <p className="max-w-sm text-sm text-text-muted">{body}</p>
       </div>
       {onRetry ? (
@@ -556,12 +555,12 @@ export function ErrorState({
       role="alert"
       className={cn('@container/state flex w-full min-w-0 flex-col items-center justify-center gap-3 px-4 py-8 text-center', className)}
     >
-      <TriangleAlert aria-hidden="true" className="size-8 text-danger" />
+      <TriangleAlert aria-hidden="true" className="size-6 text-warning" />
       <div className="flex flex-col gap-1">
         <Heading
           ref={headingRef}
           tabIndex={autoFocus ? -1 : undefined}
-          className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text outline-none"
+          className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-semibold text-text outline-none"
         >
           {title}
         </Heading>
@@ -671,7 +670,7 @@ export function DisclosureRow({
   className,
 }: DisclosureRowProps) {
   const rowClass = cn(
-    'flex min-h-12 w-full flex-wrap items-center py-2 gap-2 rounded-sm px-2 text-left text-sm font-bold text-text transition-colors duration-fast',
+    'flex min-h-12 w-full flex-wrap items-center py-2 gap-2 rounded-sm px-2 text-left text-sm font-semibold text-text transition-colors duration-fast',
     disabled ? 'cursor-not-allowed text-text-disabled' : 'hover:bg-surface-hover'
   );
   const content = (
