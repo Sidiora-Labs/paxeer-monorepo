@@ -82,6 +82,11 @@ describe('explore rows from the recorded 2.2.0 v2 reads', () => {
     const row = cells(view.container, real);
     // totalSupplyValuationUsdlRaw 10098226981 (price x total supply), circulating 48.51 USDL on hover.
     expect(row.mcap.textContent).toBe('$10.1K');
+    expect(row.mcap.querySelector('[data-numeric]')?.className).toContain('font-bold');
+    const coinRow = row.coin.closest('tr')!;
+    expect(coinRow.className).toContain('border-b border-surface-3');
+    expect(coinRow.className).not.toMatch(/(?:^|\s)bg-surface-[12](?:\s|$)|sl-row-wash/);
+    expect(row.coin.querySelector('[data-address-mark]')?.className).toContain('rounded-coin');
     expect(row.mcap.querySelector('[title]')?.getAttribute('title')).toBe('Circulating market cap 48.51 USDL');
     expect(row.txns.textContent).toBe('2');
     expect(row.traders.textContent).toBe('1');

@@ -9,6 +9,15 @@
         "tokenAddress": "0x3333333333333333333333333333333333333333",
         "wallet": null,
         "score": "100"
+      },
+      {
+        "id": "0x2222222222222222222222222222222222222222",
+        "kind": "token",
+        "label": "Science Orbit",
+        "poolAddress": null,
+        "tokenAddress": "0x2222222222222222222222222222222222222222",
+        "wallet": null,
+        "score": "90"
       }
     ]
   },

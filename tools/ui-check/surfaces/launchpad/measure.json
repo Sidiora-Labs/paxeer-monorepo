@@ -2071,7 +2071,7 @@
       "max": 28
     }
   ],
-  "buildMs": 600000,
+  "buildMs": 1800000,
   "geometry": {
     "file": "earlier-geometry.json",
     "widths": [

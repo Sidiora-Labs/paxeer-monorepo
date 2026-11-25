@@ -1,9 +1,9 @@
 'use client';
 import { useMemo } from 'react';
-import { Star } from 'lucide-react';
+import { Star, TriangleAlert } from 'lucide-react';
 import { SourceNotice } from '@/ui/common/source-notice';
 import { useWatchlistRows } from '@/core/market/use-watchlist-rows';
-import { Button, EmptyState, NoticeBar } from '@/ui/primitives';
+import { Button, EmptyState, humanErrorText, NoticeBar } from '@/ui/primitives';
 import { ExploreView } from '@/widgets/explore/explore-view';
 import { buildExploreRow, type ExploreRow } from '@/widgets/explore/use-explore-rows';
 
@@ -19,7 +19,7 @@ export default function WatchlistModule() {
   return (
     <div aria-busy={watchlist.loading || undefined} className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-xl font-extrabold text-text">Watchlist</h1>
+        <h1 className="text-lg font-bold text-text">Watchlist</h1>
         <p className="text-sm text-text-muted" role="status">{watchlist.pools.length === 1 ? '1 starred coin' : `${watchlist.pools.length} starred coins`}</p>
       </div>
       {watchlist.isLocal ? (
@@ -38,14 +38,19 @@ export default function WatchlistModule() {
         sortResetKey="watchlist"
         sourceLabel="coins"
         caption="Starred coins"
-        empty={watchlist.account.error ? null : (
+        empty={watchlist.account.error ? (
+          <EmptyState icon={TriangleAlert} title="Couldn't load your watchlist"
+            body={humanErrorText(watchlist.account.error)}
+            action={<Button variant="secondary" size="sm" onClick={() => { void watchlist.account.refresh(); }}>Refresh watchlist</Button>}
+            announce />
+        ) : (
           <EmptyState
             variant="panel"
             icon={Star}
             announce
             title="Your watchlist is empty"
             body="Star coins to keep them here."
-            action={<Button variant="primary" size="md" href="/explore">Browse coins</Button>}
+            action={<Button variant="secondary" size="md" href="/explore">Browse coins</Button>}
           />
         )}
       />
