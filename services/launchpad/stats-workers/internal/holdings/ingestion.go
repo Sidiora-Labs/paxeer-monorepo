@@ -8,11 +8,13 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TransferFromLog(log types.Log) (Transfer, error) {
@@ -256,17 +258,34 @@ func (r *Repository) DiscoverCanonical(ctx context.Context, token, stream string
 	if _, err = UInt(*fact.Metadata.TotalSupply); err != nil {
 		return err
 	}
-	if err = r.Discover(ctx, token, *fact.Metadata.Decimals, creation, false); err != nil {
-		return err
-	}
-	tag, err := r.pool.Exec(ctx, "UPDATE "+r.schema+".tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR (expected_initial_supply=$2::numeric AND creation_transaction_hash=$3))", token, *fact.Metadata.TotalSupply, creationTransaction)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() != 1 {
-		return ErrConflict
-	}
-	return nil
+	return retryCanonical(ctx, func() error {
+		if err := r.Discover(ctx, token, *fact.Metadata.Decimals, creation, false); err != nil {
+			return err
+		}
+		var same, missing bool
+		if err := r.pool.QueryRow(ctx, "SELECT COALESCE(expected_initial_supply=$2::numeric AND creation_transaction_hash=$3,false),expected_initial_supply IS NULL OR creation_transaction_hash IS NULL FROM "+r.schema+".tokens WHERE token=$1", token, *fact.Metadata.TotalSupply, creationTransaction).Scan(&same, &missing); err != nil {
+			return err
+		}
+		if same {
+			return nil
+		}
+		if !missing {
+			return ErrConflict
+		}
+		tag, err := r.pool.Exec(ctx, "UPDATE "+r.schema+".tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR creation_transaction_hash IS NULL) AND (expected_initial_supply IS NULL OR expected_initial_supply=$2::numeric) AND (creation_transaction_hash IS NULL OR creation_transaction_hash=$3)", token, *fact.Metadata.TotalSupply, creationTransaction)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			if err = r.pool.QueryRow(ctx, "SELECT expected_initial_supply=$2::numeric AND creation_transaction_hash=$3 FROM "+r.schema+".tokens WHERE token=$1", token, *fact.Metadata.TotalSupply, creationTransaction).Scan(&same); err != nil {
+				return err
+			}
+			if !same {
+				return ErrConflict
+			}
+		}
+		return nil
+	})
 }
 
 type CanonicalBatch struct {
@@ -288,6 +307,39 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 	if err != nil {
 		return out, err
 	}
+	err = retryCanonical(ctx, func() error {
+		var attemptErr error
+		out, attemptErr = r.catchUpCanonicalAtOnce(ctx, token, stream, through, limit)
+		return attemptErr
+	})
+	return out, err
+}
+
+func retryableCanonical(err error) bool {
+	var pgerr *pgconn.PgError
+	return errors.As(err, &pgerr) && (pgerr.Code == "40001" || pgerr.Code == "40P01")
+}
+
+func retryCanonical(ctx context.Context, run func() error) error {
+	for attempt := 0; ; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := run()
+		if !retryableCanonical(err) || attempt == 3 {
+			return err
+		}
+		timer := time.NewTimer(10 * time.Millisecond << attempt)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func (r *Repository) catchUpCanonicalAtOnce(ctx context.Context, token, stream, through string, limit int) (out CanonicalBatch, err error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		return out, err
@@ -317,9 +369,7 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 		watermark = bound
 	}
 	priorCoverage := out.Coverage
-	if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage='incomplete' WHERE token=$1", token); err != nil {
-		return out, err
-	}
+	storedCoverage := priorCoverage
 	out.Coverage = valueIncomplete
 	height, ti, li := "-1", "-1", "-1"
 	if len(previous) > 0 {
@@ -353,6 +403,12 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 		out.More = true
 		events = events[:limit]
 	}
+	if len(events) > 0 && storedCoverage != valueIncomplete {
+		if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage='incomplete' WHERE token=$1", token); err != nil {
+			return out, err
+		}
+		storedCoverage = valueIncomplete
+	}
 	results := make([]ApplyResult, 0, len(events))
 	for _, e := range events {
 		result, applyErr := r.ApplyCanonicalTransferTx(ctx, tx, e, stream)
@@ -361,6 +417,7 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 		}
 		results = append(results, result)
 		out.Revision, out.Coverage = result.Revision, result.Coverage
+		storedCoverage = result.Coverage
 		if result.Incident {
 			out.Incident = true
 			break
@@ -383,15 +440,22 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 				return out, err
 			}
 			if genesis {
-				if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage='complete' WHERE token=$1", token); err != nil {
-					return out, err
-				}
 				out.Coverage = valueComplete
 			}
 		}
 	}
+	if storedCoverage != out.Coverage {
+		if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage=$2 WHERE token=$1", token, out.Coverage); err != nil {
+			return out, err
+		}
+	}
 	if priorCoverage != out.Coverage {
 		if err = tx.QueryRow(ctx, "UPDATE "+r.schema+".tokens SET revision=revision+1 WHERE token=$1 RETURNING revision", token).Scan(&out.Revision); err != nil {
+			return out, err
+		}
+	}
+	if r.canonicalBeforeCommit != nil {
+		if err = r.canonicalBeforeCommit(ctx, tx); err != nil {
 			return out, err
 		}
 	}

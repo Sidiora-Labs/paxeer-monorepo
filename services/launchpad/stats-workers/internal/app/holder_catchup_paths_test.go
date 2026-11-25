@@ -15,6 +15,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestCanonicalHolderJobAdvancesCommittedTransfers(t *testing.T) {
@@ -25,7 +26,7 @@ func TestCoinTextHolderJobContinuesWithoutMetadata(t *testing.T) {
 	canonicalHolderJob(t, true)
 }
 
-func canonicalHolderJob(t *testing.T, withoutMetadata bool) {
+func canonicalHolderJobFixture(t *testing.T) (context.Context, *pgxpool.Pool, *holdings.Repository, string, string, string) {
 	t.Helper()
 	ctx := context.Background()
 	db := internaltest.NewPostgres(t)
@@ -107,6 +108,13 @@ func canonicalHolderJob(t *testing.T, withoutMetadata bool) {
 	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_token_transfers(chain_id,transaction_hash,log_index,token,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,payload) VALUES(125,$1,1,$2,$3,$4,100,10,0,$5,'{}',$6)`, transactionHash, token, holdings.Zero, wallet, blockHash, payload); err != nil {
 		t.Fatal(err)
 	}
+	return ctx, db, repository, token, wallet, transactionHash
+}
+
+func canonicalHolderJob(t *testing.T, withoutMetadata bool) {
+	t.Helper()
+	ctx, db, repository, token, wallet, transactionHash := canonicalHolderJobFixture(t)
+	address := func(n int) string { return fmt.Sprintf("0x%040x", n) }
 	tokenLimit := 2
 	if withoutMetadata {
 		tokenLimit = 4
@@ -146,5 +154,53 @@ func canonicalHolderJob(t *testing.T, withoutMetadata bool) {
 	}
 	if err := catchUpStatsHolders(ctx, nil, repository, "canonical", tokenLimit, 10, &after); err == nil {
 		t.Fatal("missing source pool accepted")
+	}
+}
+
+func TestHolderIdlePassJobPreservesTwoTokens(t *testing.T) {
+	ctx, db, repository, token, _, transactionHash := canonicalHolderJobFixture(t)
+	second := fmt.Sprintf("0x%040x", 88)
+	secondHash := "0x" + strings.Repeat("c", 64)
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) SELECT $1,$2,creator,factory,optical,2,height,block_hash,$3,transaction_index,log_index,block_timestamp,provenance,payload FROM indexer.indexer_canonical_creations WHERE token=$4`, second, fmt.Sprintf("0x%040x", 89), secondHash, token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) SELECT chain_id,$1,log_index,height,transaction_index,block_hash,CASE WHEN emitter=$2 THEN $3 ELSE emitter END,topics,data FROM indexer.indexer_raw_logs WHERE transaction_hash=$4`, secondHash, token, second, transactionHash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_token_transfers(chain_id,transaction_hash,log_index,token,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,payload) SELECT chain_id,$1,log_index,$2,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,jsonb_set(jsonb_set(payload,'{token}',to_jsonb($2::text)),'{transactionHash}',to_jsonb($1::text)) FROM indexer.indexer_token_transfers WHERE token=$3`, secondHash, second, token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `UPDATE indexer.indexer_block_completeness SET raw_count=4; UPDATE indexer.indexer_ingest_commits SET record_count=4`); err != nil {
+		t.Fatal(err)
+	}
+	after := ""
+	if err := catchUpStatsHolders(ctx, db, repository, "canonical", 3, 10, &after); err != nil || after != second {
+		t.Fatalf("initial scan cursor=%s: %v", after, err)
+	}
+	type tokenRow struct{ version, body string }
+	before := map[string]tokenRow{}
+	for _, coin := range []string{token, second} {
+		var row tokenRow
+		if err := db.QueryRow(ctx, `SELECT xmin::text,row_to_json(t)::text FROM job_holders.tokens t WHERE token=$1`, coin).Scan(&row.version, &row.body); err != nil {
+			t.Fatal(err)
+		}
+		before[coin] = row
+	}
+	after = ""
+	if err := catchUpStatsHolders(ctx, db, repository, "canonical", 3, 10, &after); err != nil || after != second {
+		t.Fatalf("idle scan cursor=%s: %v", after, err)
+	}
+	for _, coin := range []string{token, second} {
+		var row tokenRow
+		if err := db.QueryRow(ctx, `SELECT xmin::text,row_to_json(t)::text FROM job_holders.tokens t WHERE token=$1`, coin).Scan(&row.version, &row.body); err != nil {
+			t.Fatal(err)
+		}
+		if row != before[coin] {
+			t.Fatalf("idle scan changed %s: %+v -> %+v", coin, before[coin], row)
+		}
+		snapshot, err := repository.Snapshot(ctx, coin, 10)
+		if err != nil || snapshot.Revision != 2 || snapshot.Coverage != "complete" || snapshot.Supply != "100" || len(snapshot.Balances) != 1 || snapshot.Balances[0].Raw != "100" {
+			t.Fatalf("idle holders %s: %+v %v", coin, snapshot, err)
+		}
 	}
 }
