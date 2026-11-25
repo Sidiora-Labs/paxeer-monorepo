@@ -359,6 +359,7 @@ func (s *Service) liveRebuildTx(ctx context.Context, tx pgx.Tx, wallet, token st
 }
 
 func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token string, target int64, seed *RebuildSnapshot, history ...*liveReplayHistory) (RebuildSnapshot, error) {
+	started := time.Now()
 	end := target
 	paged := true
 	var snapshot RebuildSnapshot
@@ -459,9 +460,27 @@ func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token s
 			end = limit
 		}
 	}
-	moves, movementDigest, endHash, err := a.liveMovementPages(bounded, tx, token, from, end, &progress)
-	if err != nil {
-		return snapshot, err
+	moves := []movement{}
+	var movementDigest, endHash string
+	for pageFrom := from; pageFrom <= end; {
+		pageEnd := start + ((pageFrom-start)/10000+1)*10000 - 1
+		if pageEnd > end {
+			pageEnd = end
+		}
+		page, digest, pageHash, e := a.liveMovementPages(bounded, tx, token, pageFrom, pageEnd, &progress)
+		if e != nil {
+			return snapshot, e
+		}
+		if len(moves)+len(page) > 1000000 {
+			return snapshot, ErrBaselineUnavailable
+		}
+		moves = append(moves, page...)
+		movementDigest, endHash = digest, pageHash
+		if pageEnd == end || time.Since(started) > liveEnrollmentPageTime {
+			end = pageEnd
+			break
+		}
+		pageFrom = pageEnd + 1
 	}
 	if from == start {
 		if err = rebuildCreationPath(moves, start, creationHash, creationTx, a.factory, pool); err != nil {
@@ -881,11 +900,36 @@ func (a *BaselineAuthority) liveMovementPages(ctx context.Context, tx pgx.Tx, to
 }
 
 func (a *BaselineAuthority) liveTransferLogs(ctx context.Context, token string, from, to int64) ([]types.Log, error) {
+	if to-from >= liveLogRangeBlocks {
+		logs := []types.Log{}
+		for start := from; start <= to; {
+			end := to
+			if to-start >= liveLogRangeBlocks {
+				end = start + liveLogRangeBlocks - 1
+			}
+			page, err := a.liveTransferLogs(ctx, token, start, end)
+			if err != nil {
+				return nil, err
+			}
+			if len(logs)+len(page) > 1000000 {
+				return nil, ErrBaselineUnavailable
+			}
+			logs = append(logs, page...)
+			if end == to {
+				break
+			}
+			start = end + 1
+		}
+		return logs, nil
+	}
 	logs, e := liveRead(ctx, a, func(client *ethclient.Client) ([]types.Log, error) {
 		return client.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: big.NewInt(from), ToBlock: big.NewInt(to), Addresses: []common.Address{common.HexToAddress(token)}, Topics: [][]common.Hash{{transferTopic}}})
 	})
 	if e == nil && len(logs) <= 10000 {
 		return logs, nil
+	}
+	if errors.Is(e, delivery.ErrIntegrity) {
+		return nil, e
 	}
 	if from < to {
 		middle := from + (to-from)/2
