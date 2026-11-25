@@ -212814,7 +212814,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1185]
 title = "Renew the approval of the migration registry after the registration of migration 150010 and the change of the grants record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1178"]
