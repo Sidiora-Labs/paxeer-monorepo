@@ -88,6 +88,9 @@ func verifyRuntime(ctx context.Context, r RPC, b Checkpoint, runtimeHashes map[s
 	var e error
 	targets := []string{NFT, Accumulator, FeesRouter, USDL}
 	batcher, batching := r.(batchRPC)
+	if !batching && ctx.Value(rewardProgressKey{}) != nil {
+		batcher, batching = rewardRuntimeRPC{r}, true
+	}
 	codes := make([]hexutil.Bytes, len(targets))
 	slots := make([]hexutil.Bytes, len(targets))
 	primary := make([]rpc.BatchElem, 0, len(targets)*2)
@@ -111,13 +114,13 @@ func verifyRuntime(ctx context.Context, r RPC, b Checkpoint, runtimeHashes map[s
 		var code hexutil.Bytes
 		if batching {
 			if i == 0 {
-				if e = batcher.BatchCallContext(ctx, primary); e != nil {
+				if e = nodeBatch(ctx, batcher, primary); e != nil {
 					return e
 				}
 			}
 			code, e = codes[i], primary[2*i].Error
 		} else {
-			e = r.CallContext(ctx, &code, "eth_getCode", target, bound)
+			e = nodeCall(ctx, r, &code, "eth_getCode", target, bound)
 		}
 		if e != nil {
 			return e
@@ -129,7 +132,7 @@ func verifyRuntime(ctx context.Context, r RPC, b Checkpoint, runtimeHashes map[s
 		if batching {
 			slot, e = slots[i], primary[2*i+1].Error
 		} else {
-			e = r.CallContext(ctx, &slot, "eth_getStorageAt", target, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", bound)
+			e = nodeCall(ctx, r, &slot, "eth_getStorageAt", target, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", bound)
 		}
 		if e != nil {
 			return e
@@ -156,14 +159,14 @@ func verifyRuntime(ctx context.Context, r RPC, b Checkpoint, runtimeHashes map[s
 							implementations = append(implementations, rpc.BatchElem{Method: "eth_getCode", Args: []any{address.Hex(), bound}, Result: &implementationCodes[j]})
 						}
 					}
-					if e = batcher.BatchCallContext(ctx, implementations); e != nil {
+					if e = nodeBatch(ctx, batcher, implementations); e != nil {
 						return e
 					}
 					implementationsRead = true
 				}
 				implementationCode, e = implementationCodes[i], implementations[implementationResults[i]].Error
 			} else {
-				e = r.CallContext(ctx, &implementationCode, "eth_getCode", implementation.Hex(), bound)
+				e = nodeCall(ctx, r, &implementationCode, "eth_getCode", implementation.Hex(), bound)
 			}
 			if e != nil {
 				return e
@@ -414,6 +417,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 	if limit < 1 || limit > 100 || program != "" && program != "creator_fees" {
 		return out, ErrInvalid
 	}
+	rewardStage(ctx, 0, "checkpoint")
 	b, e := s.sourceCheckpoint(ctx)
 	if e != nil {
 		return out, e
@@ -443,6 +447,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 		claimed string
 		owner   string
 	}
+	rewardStage(ctx, 0, "store")
 	sources := []relevantMarket{}
 	scanAfter := after
 	for len(sources) <= limit {
@@ -462,6 +467,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 			}
 			if owner == who || claimed != "0" {
 				sources = append(sources, relevantMarket{m, claimed, owner})
+				rewardStage(ctx, min(len(sources), limit), "store")
 			}
 			if len(sources) > limit {
 				break
@@ -475,12 +481,17 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 	if more {
 		sources = sources[:limit]
 	}
-	for _, relevant := range sources {
+	markets := make([]marketSource, len(sources))
+	for i, relevant := range sources {
+		markets[i] = relevant.source
+	}
+	previews, e := pinned.previewPage(ctx, b, markets)
+	if e != nil {
+		return out, e
+	}
+	for i, relevant := range sources {
 		m := relevant.source
-		p, e := pinned.Preview(ctx, m.NFTID, m.Creator)
-		if e != nil {
-			return out, e
-		}
+		p := previews[i]
 		if p.Pool != m.Pool || p.Owner != relevant.owner {
 			return out, ErrConflict
 		}
@@ -590,15 +601,16 @@ func (s *JourneyService) Prepare(ctx context.Context, actor Actor, key string, r
 	if call.Preview.Pool != m.Pool {
 		return nil, ErrConflict
 	}
+	rewardStage(ctx, 1, "gas")
 	var units hexutil.Uint64
-	if e = s.creator.rpc.CallContext(ctx, &units, "eth_estimateGas", map[string]any{"from": who, "to": call.To, fieldData: call.Data, "value": "0x0"}, map[string]any{fieldBlockHash: call.Preview.Block.Hash, fieldRequireCanonical: true}); e != nil {
+	if e = nodeCall(ctx, s.creator.rpc, &units, "eth_estimateGas", map[string]any{"from": who, "to": call.To, fieldData: call.Data, "value": "0x0"}, map[string]any{fieldBlockHash: call.Preview.Block.Hash, fieldRequireCanonical: true}); e != nil {
 		return nil, e
 	}
 	if units == 0 {
 		return nil, ErrUnavailable
 	}
 	var price hexutil.Big
-	if e = s.creator.rpc.CallContext(ctx, &price, "eth_gasPrice"); e != nil {
+	if e = nodeCall(ctx, s.creator.rpc, &price, "eth_gasPrice"); e != nil {
 		return nil, e
 	}
 	if (*big.Int)(&price).Sign() <= 0 {
