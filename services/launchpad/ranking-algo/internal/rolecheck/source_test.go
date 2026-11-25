@@ -107,6 +107,8 @@ func (r *sourceReader) text(t *testing.T, path string, expr ast.Expr, bindings m
 					}
 					return pgx.Identifier(parts).Sanitize()
 				}
+			case "coherenceQuery":
+				return r.returnText(t, storePath+"frozen_inputs.go", "coherenceQuery", bindings)
 			case "universeQuery":
 				return r.returnText(t, storePath+"frozen_inputs.go", "universeQuery", bindings)
 			}
