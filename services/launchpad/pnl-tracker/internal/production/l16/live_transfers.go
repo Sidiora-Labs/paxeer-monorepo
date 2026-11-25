@@ -1157,9 +1157,6 @@ func (w *LiveTransferWorker) EnqueueOwned(ctx context.Context, p auth.IdentityPr
 	if e := p.Validate(now); e != nil {
 		return e
 	}
-	if p.ProofAt.Before(now.Add(-15 * time.Minute)) {
-		return auth.ErrScopeDenied
-	}
 	if e := w.identity.CheckStreamSession(ctx, p.StreamPrincipal()); e != nil {
 		return e
 	}
@@ -1190,6 +1187,10 @@ func (w *LiveTransferWorker) EnrollmentMiddleware(next http.Handler) http.Handle
 		principal, e := w.identity.AuthenticateRequest(request.Context(), request)
 		if e != nil {
 			http.Error(response, "owner identity required", http.StatusUnauthorized)
+			return
+		}
+		if request.Method != http.MethodGet && request.Method != http.MethodHead && principal.ProofAt.Before(time.Now().Add(-15*time.Minute)) {
+			http.Error(response, "portfolio enrollment unavailable", http.StatusForbidden)
 			return
 		}
 		if e = w.EnqueueOwned(request.Context(), principal); e != nil {
@@ -1294,7 +1295,7 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 	var priorHeight int64
 	var priorHash *string
 	var priorSnapshot, priorSource *string
-	e = tx.QueryRow(bounded, `SELECT wallet,account_id,session_id,auth_epoch,proof_at,expires_at,accepted_height,accepted_hash,accepted_snapshot::text,source_digest FROM inventory_l16_live_owners_v1 WHERE cancelled_at IS NULL AND expires_at>clock_timestamp() AND proof_at>clock_timestamp()-interval '15 minutes' AND ($1='' AND last_attempt_at<clock_timestamp()-interval '1 second' OR $1=wallet) ORDER BY last_attempt_at,wallet LIMIT 1 FOR UPDATE SKIP LOCKED`, selectedWallet).Scan(&p.Wallet, &p.AccountID, &p.SessionID, &p.AuthEpoch, &p.ProofAt, &p.AccessExpiresAt, &priorHeight, &priorHash, &priorSnapshot, &priorSource)
+	e = tx.QueryRow(bounded, `SELECT wallet,account_id,session_id,auth_epoch,proof_at,expires_at,accepted_height,accepted_hash,accepted_snapshot::text,source_digest FROM inventory_l16_live_owners_v1 WHERE cancelled_at IS NULL AND expires_at>clock_timestamp() AND ($1='' AND last_attempt_at<clock_timestamp()-interval '1 second' OR $1=wallet) ORDER BY last_attempt_at,wallet LIMIT 1 FOR UPDATE SKIP LOCKED`, selectedWallet).Scan(&p.Wallet, &p.AccountID, &p.SessionID, &p.AuthEpoch, &p.ProofAt, &p.AccessExpiresAt, &priorHeight, &priorHash, &priorSnapshot, &priorSource)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -1446,9 +1447,6 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 	}
 	if e = p.Validate(time.Now()); e != nil {
 		return false, e
-	}
-	if p.ProofAt.Before(time.Now().Add(-15 * time.Minute)) {
-		return false, auth.ErrScopeDenied
 	}
 	var accepted bool
 	if e = tx.QueryRow(bounded, `SELECT EXISTS(SELECT 1 FROM indexer.indexer_committed_heads_v1 WHERE chain_id=125 AND stream_id=$1 AND height=$2 AND block_hash=$3 AND integrity='healthy')`, a.sourceStream, head, headHash).Scan(&accepted); e != nil {

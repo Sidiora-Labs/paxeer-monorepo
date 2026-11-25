@@ -2162,7 +2162,7 @@
       "source_digest",
       "wallet"
     ],
-    "sha256": "24bcbfb0cadeee903cd7e482e64966fd512ffd26cdaed43633a399a286c9c461",
+    "sha256": "ffa500acfee81b91c9d6710f42fb9a577f060430a88ca171fd76535c6f6e3075",
     "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:2",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "LiveTransferWorker.processWallet",
