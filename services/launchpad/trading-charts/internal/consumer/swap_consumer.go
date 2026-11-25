@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"math"
 	"regexp"
-	"sync"
 	"time"
 
 	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
@@ -156,9 +155,10 @@ type AccountingConfig struct {
 	SeriesCheckpoint                          func(context.Context, pgx.Tx, accounting.PublicationV1) (engine.SeriesCheckpoint, error)
 }
 type AccountingConsumer struct {
-	config       AccountingConfig
-	reprocess    *ReprocessRequest
-	completeness *completenessRuntime
+	config         AccountingConfig
+	preflightLease bool
+	reprocess      *ReprocessRequest
+	completeness   *completenessRuntime
 }
 
 func NewAccountingConsumer(config AccountingConfig) (*AccountingConsumer, error) {
@@ -229,15 +229,37 @@ func (c *AccountingConsumer) Consume(ctx context.Context, message *natsdriver.Me
 		}
 		return publication, nil
 	}
+	var prepared *delivery.PartitionLease
+	if c.preflightLease {
+		envelope, err := delivery.Decode(message.Wire, delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}, message.Subject)
+		if err == nil {
+			publication, decodeErr := decode(envelope)
+			if decodeErr == nil && publication.Positions[0].SourceOrder.ChainID == "125" && publication.Positions[0].SourceOrder.Height == envelope.SourceOrder.Height && publication.Positions[0].SourceOrder.TransactionIndex == envelope.SourceOrder.TransactionIndex && publication.Positions[0].SourceOrder.LogIndex == envelope.SourceOrder.LogIndex {
+				lease, err := cfg.Lease(ctx, *publication.Fill)
+				if err != nil {
+					return err
+				}
+				prepared = &lease
+			}
+		}
+	}
 	hooks := delivery.ConsumeHooks{
 		Guard: func(ctx context.Context, tx pgx.Tx, envelope delivery.Envelope) (delivery.GuardedPosition, error) {
 			publication, err := decode(envelope)
 			if err != nil {
 				return delivery.GuardedPosition{}, err
 			}
-			lease, err := cfg.Lease(ctx, *publication.Fill)
-			if err != nil {
-				return delivery.GuardedPosition{}, err
+			var lease delivery.PartitionLease
+			if prepared != nil {
+				lease = *prepared
+			} else {
+				if c.preflightLease {
+					return delivery.GuardedPosition{}, &delivery.IntegrityFailure{Class: delivery.PartitionBinding, AffectedPools: []string{publication.Fill.PoolAddress}, Cause: delivery.ErrIntegrity}
+				}
+				lease, err = cfg.Lease(ctx, *publication.Fill)
+				if err != nil {
+					return delivery.GuardedPosition{}, err
+				}
 			}
 			if lease.Key.ConsumerID != cfg.ConsumerID || lease.Key.ProjectionGeneration != cfg.Generation {
 				return delivery.GuardedPosition{}, delivery.ErrLease
@@ -318,7 +340,7 @@ func (c *AccountingConsumer) Run(ctx context.Context, driver *natsdriver.Consume
 	return driver.Run(ctx, c.Consume)
 }
 
-var ErrAccountingSourceUnavailable = errors.New("charts: canonical source unavailable or bootstrap replay exceeds bound")
+var ErrAccountingSourceUnavailable = errors.New("charts: canonical source unavailable or bootstrap proof incomplete")
 
 type SourceVerifiedAccountingConfig struct {
 	Pool                                                                                  *pgxpool.Pool
@@ -327,6 +349,9 @@ type SourceVerifiedAccountingConfig struct {
 	Exact                                                                                 *store.ExactStore
 	ConsumerID, Generation, ProjectionVersion, Owner, SourceStream, SourcePartitionSchema string
 	RPC                                                                                   *ethclient.Client
+	RPCFallback                                                                           *ethclient.Client
+	Logger                                                                                *slog.Logger
+	ProofTimeout, LeaseDuration                                                           time.Duration
 	MaxReplayBlocks, MaxReplayFills                                                       int
 	SeriesV2                                                                              bool
 	StreamWriter                                                                          *delivery.StreamWriter
@@ -339,29 +364,80 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 	if config.SeriesV2 && (config.StreamWriter == nil || config.StreamWriter.Schema != "api_stream") {
 		return nil, errors.New("charts: canonical candle stream writer required")
 	}
-	var mu sync.Mutex
+	if config.LeaseDuration == 0 {
+		config.LeaseDuration = 30 * time.Second
+	}
+	if config.ProofTimeout == 0 {
+		config.ProofTimeout = 5 * time.Second
+	}
+	if config.LeaseDuration < time.Second || config.LeaseDuration > 5*time.Minute || config.ProofTimeout < time.Millisecond || config.ProofTimeout > 15*time.Second {
+		return nil, errors.New("charts: bounded bootstrap time and lease duration required")
+	}
+	serial := make(chan struct{}, 1)
 	initialized := map[string]bool{}
+	progress := map[string]*bootstrapProgress{}
 	authority := func(tx pgx.Tx) sourceAuthority {
 		return sourceAuthority{reader: postgresSourceAuthority{tx: tx, config: config}, rpc: config.RPC, projection: config.ProjectionVersion}
 	}
 	authorize := func(ctx context.Context, tx pgx.Tx, fill accounting.FillV1) error {
 		return authority(tx).authorizeFill(ctx, fill)
 	}
-	bootstrapper := sourceBootstrapper{config: config, authorize: authorize}
-	loadBootstrap := bootstrapper.load
-	verifyBootstrap := bootstrapper.verify
+	bootstrapper := sourceBootstrapper{config: config}
 	lease := func(ctx context.Context, fill accounting.FillV1) (delivery.PartitionLease, error) {
-		mu.Lock()
-		defer mu.Unlock()
+		var l delivery.PartitionLease
+		proofCtx, stop := context.WithTimeout(ctx, config.ProofTimeout)
+		defer stop()
+		select {
+		case serial <- struct{}{}:
+			defer func() { <-serial }()
+		case <-proofCtx.Done():
+			return l, errors.Join(ErrAccountingSourceUnavailable, proofCtx.Err())
+		}
 		key := delivery.ConsumerKey{ConsumerID: config.ConsumerID, ProjectionGeneration: config.Generation, PartitionKind: marketPartitionKind, PartitionKey: "125:" + fill.PoolAddress}
-		l, err := config.Partitions.Acquire(ctx, key, config.Owner, 30*time.Second)
+		if initialized[fill.PoolAddress] {
+			return config.Partitions.Acquire(ctx, key, config.Owner, config.LeaseDuration)
+		}
+		b, err := bootstrapper.load(proofCtx, bootstrapQueries{config.Pool}, fill.PoolAddress)
+		if err != nil {
+			if proofCtx.Err() == nil {
+				delete(progress, fill.PoolAddress)
+				return l, err
+			}
+			return l, errors.Join(ErrAccountingSourceUnavailable, err)
+		}
+		p := progress[fill.PoolAddress]
+		if p == nil || p.Checkpoint != b.Checkpoint {
+			if len(progress) >= maxBootstrapProofs {
+				oldest := fill.PoolAddress
+				var used time.Time
+				for pool, candidate := range progress {
+					if used.IsZero() || candidate.Used.Before(used) {
+						oldest, used = pool, candidate.Used
+					}
+				}
+				delete(progress, oldest)
+			}
+			p = &bootstrapProgress{Checkpoint: b.Checkpoint, LastHeight: b.ReplayFromHeight}
+			progress[fill.PoolAddress] = p
+		}
+		p.Used = time.Now()
+		if err = bootstrapper.advance(proofCtx, config.Pool, b, p); err != nil {
+			if proofCtx.Err() == nil && !errors.Is(err, context.DeadlineExceeded) {
+				delete(progress, fill.PoolAddress)
+				return l, err
+			}
+			return l, errors.Join(ErrAccountingSourceUnavailable, err)
+		}
+		if err = proofCtx.Err(); err != nil {
+			return l, errors.Join(ErrAccountingSourceUnavailable, err)
+		}
+		l, err = config.Partitions.Acquire(ctx, key, config.Owner, config.LeaseDuration)
 		if err != nil {
 			return l, err
 		}
-		if initialized[fill.PoolAddress] {
-			return l, nil
-		}
-		tx, err := config.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+		bounded, cancel := context.WithTimeout(ctx, min(config.LeaseDuration, bootstrapStatementTimeout))
+		defer cancel()
+		tx, err := config.Pool.BeginTx(bounded, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 		if err != nil {
 			return l, err
 		}
@@ -370,24 +446,31 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 			defer stop()
 			chartcleanup.Rollback(cleanup, tx)
 		}()
-		b, err := loadBootstrap(ctx, tx, fill.PoolAddress)
-		if err != nil {
-			return l, err
-		}
 		input := delivery.BootstrapInput{Lease: l, CheckpointDigest: b.Checkpoint, NextSequence: "1", PreviousEffectIdentity: ""}
-		err = config.Partitions.BootstrapTx(ctx, tx, input, func(ctx context.Context, tx pgx.Tx, in delivery.BootstrapInput) error {
-			if in.CheckpointDigest != b.Checkpoint || in.NextSequence != "1" || in.PreviousEffectIdentity != "" {
-				return ErrAccountingAuthority
+		err = config.Partitions.BootstrapTx(bounded, tx, input, func(ctx context.Context, tx pgx.Tx, in delivery.BootstrapInput) error {
+			current, err := bootstrapper.load(ctx, bootstrapQueries{tx}, fill.PoolAddress)
+			if err != nil {
+				delete(progress, fill.PoolAddress)
+				return errors.Join(ErrAccountingSourceUnavailable, err)
 			}
-			return verifyBootstrap(ctx, tx, b)
+			if current.Checkpoint != p.Checkpoint || in.CheckpointDigest != p.Checkpoint {
+				delete(progress, fill.PoolAddress)
+				return ErrAccountingSourceUnavailable
+			}
+			if err = bootstrapper.recheck(ctx, bootstrapQueries{tx}, current, *p); err != nil {
+				delete(progress, fill.PoolAddress)
+				return err
+			}
+			return nil
 		})
 		if err != nil {
 			return l, err
 		}
-		if err = tx.Commit(ctx); err != nil {
+		if err = tx.Commit(bounded); err != nil {
 			return l, err
 		}
 		initialized[fill.PoolAddress] = true
+		delete(progress, fill.PoolAddress)
 		return l, nil
 	}
 	authorizePublication := func(ctx context.Context, tx pgx.Tx, publication accounting.PublicationV1) error {
@@ -403,6 +486,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 	if err != nil {
 		return nil, err
 	}
+	c.preflightLease = true
 	if config.SeriesV2 {
 		c.completeness = &completenessRuntime{store: postgresCompletenessStore{config: config}, rpc: config.RPC, projection: config.ProjectionVersion}
 	}

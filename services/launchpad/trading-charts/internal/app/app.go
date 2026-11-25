@@ -64,6 +64,7 @@ type App struct {
 	completenessDone chan struct{}
 	nats             *nats.Conn
 	rpc              *ethclient.Client
+	rpcFallback      *ethclient.Client
 	devRPC           *gethrpc.Client
 	verifiedRPC      *sharedchain.Client
 	exact            *store.ExactStore
@@ -157,6 +158,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var transport *natsdriver.Consumer
 	var nc *nats.Conn
 	var rpc *ethclient.Client
+	var rpcFallback *ethclient.Client
 	var devRPC *gethrpc.Client
 	if cfg.NodeEnv == nodeEnvironmentProduction {
 		var d chartRuntimeDocument
@@ -192,6 +194,17 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				rpc.Close()
 			}
 		}()
+		if cfg.RPCURLFallback != "" {
+			rpcFallback, err = ethclient.DialContext(ctx, cfg.RPCURLFallback)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if !secretOwned {
+					rpcFallback.Close()
+				}
+			}()
+		}
 		guard, e := queue.NewEpochGuard("recovery", d.Epoch, d.Region)
 		if e != nil {
 			return nil, e
@@ -221,7 +234,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return archiveBlockTime(c, rpc, height, expected)
 			}}
 		}
-		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{Pool: pool, Deliveries: durable, Partitions: partitions, Exact: exact, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: "indexer", RPC: rpc, MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills, SeriesV2: true, StreamWriter: &delivery.StreamWriter{Schema: "api_stream"}})
+		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{Pool: pool, Deliveries: durable, Partitions: partitions, Exact: exact, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: "indexer", RPC: rpc, RPCFallback: rpcFallback, Logger: logger, ProofTimeout: min(5*time.Second, d.Consumer.AckWait/2), MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills, SeriesV2: true, StreamWriter: &delivery.StreamWriter{Schema: "api_stream"}})
 		if e != nil {
 			return nil, e
 		}
@@ -325,7 +338,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	secretOwned = true
 	return &App{secretStop: secretStop, tracker: tracker,
 		chartPublisher: chartPublisher, chartOutbox: chartOutbox,
-		accounting: accountingConsumer, transport: transport, nats: nc, rpc: rpc, devRPC: devRPC, verifiedRPC: verifiedRPC, exact: exactStore, features: features,
+		accounting: accountingConsumer, transport: transport, nats: nc, rpc: rpc, rpcFallback: rpcFallback, devRPC: devRPC, verifiedRPC: verifiedRPC, exact: exactStore, features: features,
 		Router:   runtimeHandler(tracker, router, metrics),
 		Builder:  builder,
 		Consumer: swapConsumer,
@@ -381,6 +394,9 @@ func (a *App) Close() {
 	}
 	if a.rpc != nil {
 		a.rpc.Close()
+	}
+	if a.rpcFallback != nil {
+		a.rpcFallback.Close()
 	}
 	if a.devRPC != nil {
 		a.devRPC.Close()
