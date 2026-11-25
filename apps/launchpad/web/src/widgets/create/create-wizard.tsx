@@ -1270,7 +1270,7 @@ export default function CreateWizard() {
   const showProgress = Boolean(attempt || reviewed || lastRead || state.busy);
 
   return (
-    <div className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
+    <div data-create-text className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 pb-[calc(var(--sl-bottom-nav-height)+calc(var(--sl-space-12)*4))] md:pb-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1285,17 +1285,6 @@ export default function CreateWizard() {
             </Button>
           </div>
 
-          {draft ? (
-            <CreateFormFields
-              draft={draft}
-              errors={visibleErrors}
-              locked={locked}
-              onEdit={edit}
-              registeredOpticals={registeredOpticals}
-              registry={registry}
-              opticalReason={opticalReason}
-            />
-          ) : null}
 
           <section
             aria-labelledby="create-media-title"
@@ -1327,6 +1316,18 @@ export default function CreateWizard() {
               </p>
             ) : null}
           </section>
+
+          {draft ? (
+            <CreateFormFields
+              draft={draft}
+              errors={visibleErrors}
+              locked={locked}
+              onEdit={edit}
+              registeredOpticals={registeredOpticals}
+              registry={registry}
+              opticalReason={opticalReason}
+            />
+          ) : null}
 
           <section
             aria-labelledby="create-costs-title"
@@ -1418,9 +1419,10 @@ export default function CreateWizard() {
               </NoticeBar>
             ) : null}
             {action ? (
-              <div className="flex flex-col gap-2">
+              <div data-create-action className="sl-floating fixed inset-x-4 bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom)+var(--sl-space-2))] z-[var(--sl-z-sticky)] flex flex-col gap-2 rounded-lg p-3 md:static md:bg-transparent md:p-0">
+                <p className="flex flex-wrap justify-between gap-2 text-xs text-text-muted md:hidden"><span>Creation fee: {formatUsdl(read?.cost.protocolFeeRaw ?? '1000000')}</span><span>{read ? `${formatTokenAmount(read.cost.gasEstimatePaxRaw, 18, { maxFraction: 6, compact: false })} PAX gas` : 'Plus network fee in PAX'}</span>{draft?.firstBuyRaw !== '0' ? <span>First buy: {formatUsdl(draft?.firstBuyRaw ?? '0')}</span> : null}</p>
                 <Button
-                  variant="primary"
+                  variant={!address ? 'inverse' : 'primary'}
                   size="lg"
                   icon={<Rocket />}
                   disabled={action.disabled}
@@ -1441,7 +1443,7 @@ export default function CreateWizard() {
                   </p>
                 ) : null}
                 {draft ? (
-                  <p className="text-xs text-text-faint">
+                  <p className="hidden text-xs text-text-faint md:block">
                     {rewardsLine[draft.feeStrategy] ??
                       `Creator rewards go to ${feeStrategyLabel(draft.feeStrategy).toLowerCase()}`}
                     . Creating costs 1 USDL, and your wallet may ask you to
@@ -1636,6 +1638,7 @@ export default function CreateWizard() {
             symbol={draft?.symbol ?? ''}
             description={draft?.description ?? ''}
             image={staged?.previewUrl ?? null}
+            creator={address ? shortAddress(address) : 'Your wallet'}
             strategy={draft?.feeStrategy ?? 0}
             socialLinks={draft?.socialLinks ?? []}
           />

@@ -125,7 +125,7 @@ describe('create components render with token control edges', () => {
     }
   });
 
-  it('renders the legend with our rules, not the original 15 MB / 30 MB limits', () => {
+  it('renders the image rules on one helper line', () => {
     const legend = html(<MediaRuleLegend />);
     expect(legend).toContain('PNG, JPEG or WebP');
     expect(legend).toContain('6 MB');
@@ -200,7 +200,8 @@ describe('create page loading frame', () => {
     expect(markup).toContain('Coin name');
     expect(markup).toContain('Ticker');
     expect(markup).toContain('Preview');
-    expect(markup).toContain('lg:min-h-72');
+    expect(markup).toContain('aspect-square w-40');
+    expect(doc.querySelectorAll('.sl-skeleton').length).toBeGreaterThanOrEqual(8);
     expect(doc.querySelector('[data-create-fallback]')?.getAttribute('aria-busy')).toBe('true');
     expect(assertControlEdges(markup)).not.toMatch(BORDER);
   });
