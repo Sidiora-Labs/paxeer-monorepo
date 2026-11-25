@@ -213391,7 +213391,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.137]
 title = "Bound the pace at which a view of the launchpad asks a failing resource again and take the control Try again from states that a repeat cannot change"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
