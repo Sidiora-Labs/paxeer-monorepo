@@ -219,7 +219,7 @@ function FeedContent({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig 
           variant="inline"
           title={mode.label}
           operation={feed.operation}
-          status={feed.status}
+          status={feed.status} notServed={feed.notServed} error={feed.error}
           className="truncate text-xs"
         />
       );

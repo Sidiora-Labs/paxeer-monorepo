@@ -80,7 +80,7 @@ export function LeaderboardWidget({ filter }: WidgetProps) {
         {board.state === 'loading' ? (
           <RankRowSkeleton count={8} />
         ) : board.state === 'unsupported' ? (
-          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Leaderboard" operation={board.operation} status={board.status} message={board.status === 404 ? 'The leaderboard is coming soon' : board.message} onRetry={retry} />
+          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Leaderboard" operation={board.operation} status={board.status} notServed={board.notServed} error={board.error} message={board.status === 404 ? 'The leaderboard is coming soon' : board.message} onRetry={board.retry ?? retry} />
         ) : board.state === 'error' ? (
           <ErrorState variant="chip" className={columnNoticeClass} message="Couldn't load the leaderboard" error={board.error} onRetry={board.retry} />
         ) : visible.length === 0 ? (

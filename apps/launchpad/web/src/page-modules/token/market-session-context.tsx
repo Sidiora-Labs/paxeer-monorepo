@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import type { SdkClient } from '@kindle/sdk';
 import type { RankingsRequest, PoolDetailResponse, HoldersResponse } from '../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 import { MarketClientContext, browserMarketClient, browserStatsClient, useMarketClient } from '@/core/market/client';
@@ -10,6 +10,7 @@ import { useStatsBatch } from '@/core/market/use-stats-batch';
 import { resolvePoolIdentity } from '@/core/market/pool-resolver';
 import { fetchCanonicalHolders } from '@/core/market/use-holders';
 import { queryKeys } from '@/core/query-keys';
+import { useMarketQuery } from '@/core/market/use-market-query';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { MarketSession, marketAddress, marketLimits } from './market-session';
 import type { PoolSnapshot } from '@/core/market/pool-resolver';
@@ -67,7 +68,7 @@ export function useMarketDetail(address: string) {
     prune();
     return cache.getQueryCache().subscribe(prune);
   }, [cache]);
-  return useQuery<PoolDetailResponse>({ queryKey: queryKeys.poolDetail(client.config.apiOrigin, pool),
+  return useMarketQuery<PoolDetailResponse>({ queryKey: queryKeys.poolDetail(client.config.apiOrigin, pool),
     queryFn: async ({ signal }) => {
       const resolved = await resolvePoolIdentity(pool, { operations }, signal);
       const canonical = resolved.identity.poolAddress;
@@ -88,7 +89,7 @@ export function useMarketDetail(address: string) {
 export function useMarketHolders(address: string, cursor: string | null = null) {
   const client = useMarketClient(); const operations = useOperations(); const pool = marketAddress(address);
   const statsClient = browserStatsClient();
-  return useQuery<HoldersResponse>({ queryKey: queryKeys.holders(statsClient?.config.apiOrigin ?? client.config.apiOrigin, pool, cursor),
+  return useMarketQuery<HoldersResponse>({ queryKey: queryKeys.holders(statsClient?.config.apiOrigin ?? client.config.apiOrigin, pool, cursor),
     queryFn: async ({ signal }) => {
       if (statsClient) return fetchCanonicalHolders(statsClient, pool, cursor, signal);
       const response = await operations.call('IF_HOLDERS', { path: { poolAddress: pool }, query: { limit: marketLimits.holderPage, ...(cursor ? { cursor } : {}) } }, { signal });
@@ -102,7 +103,7 @@ export function useMarketHolders(address: string, cursor: string | null = null) 
 /** IF_METADATA_GET `GET /v2/tokens/{t}/metadata` on media/metadata (media/metadata/internal/metadata/connected.go:138). */
 export function useMarketMetadata(tokenAddress: string | null) {
   const client = useMarketClient();
-  return useQuery({ queryKey: queryKeys.metadataV2(client.config.mediaOrigin, tokenAddress),
+  return useMarketQuery({ queryKey: queryKeys.metadataV2(client.config.mediaOrigin, tokenAddress),
     queryFn: async ({ signal }) => {
       const token = marketAddress(tokenAddress ?? '');
       const response = await client.requestV2(`/v2/tokens/${token}/metadata`, 'MetadataGetResponse', { signal, idempotentRead: true, service: 'media' });
@@ -140,7 +141,7 @@ export function useMarketLive(address: string, options: { enabled?: boolean; poo
 /** IF_TRADES `GET /v2/pools/{p}/trades` (served; core/api/internal/rest/accounting_v2.go:32,46). */
 export function useMarketTrades(address: string, cursor: string | null = null) {
   const client = useMarketClient(); const pool = marketAddress(address);
-  return useQuery({ queryKey: queryKeys.trades(client.config.apiOrigin, pool, cursor),
+  return useMarketQuery({ queryKey: queryKeys.trades(client.config.apiOrigin, pool, cursor),
     queryFn: async ({ signal }) => {
       const response = await client.requestV2(`/v2/pools/${pool}/trades?limit=100${cursor ? '&cursor=' + encodeURIComponent(cursor) : ''}`, 'TradesResponse', { signal, idempotentRead: true });
       if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined' || response.data.items.some(row => marketAddress(row.poolAddress) !== pool)) throw new Error('Trade history identity disagreement or integrity quarantine');

@@ -120,7 +120,7 @@ export function CalloutsFeedBody({ feed, filter, state, className }: { feed: Cal
           <CalloutCardSkeleton /><CalloutCardSkeleton /><CalloutCardSkeleton />
         </>
       ) : page.state === 'unsupported' ? (
-        <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Callouts" operation={page.operation} status={page.status} message={page.status === 503 ? calloutsUnavailableMessage : page.message} onRetry={state.retry} />
+        <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Callouts" operation={page.operation} status={page.status} notServed={page.notServed} message={page.status === 503 ? calloutsUnavailableMessage : page.message} onRetry={state.retry} />
       ) : page.state === 'error' ? (
         <ErrorState variant="chip" className="self-start" message="Couldn't load callouts" error={page.error} onRetry={page.retry} />
       ) : visible.length === 0 ? (

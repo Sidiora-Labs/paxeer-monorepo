@@ -82,7 +82,7 @@ function PoolPicker({ value, onChange }: PoolPickerProps) {
         inputProps={{ value: text, onChange: event => setText(event.target.value), placeholder: 'Search coins', autoComplete: 'off', type: 'search', 'aria-controls': `${id}-results` }}
       />
       <div id={`${id}-results`} aria-live="polite">
-        {unsupported ? <UnavailableState variant="inline" title="Coin search" operation={unsupported.operation} status={unsupported.status} /> : null}
+        {unsupported ? <UnavailableState variant="inline" title="Coin search" operation={unsupported.operation} status={unsupported.status} notServed={unsupported.notServed} /> : null}
         {search.status === 'error' && !unsupported ? <p role="alert" className="text-xs text-danger">Search can't load right now, try again</p> : null}
         {enabled && search.status === 'success' && results.length === 0 ? <p className="text-xs text-text-faint">No coins match “{q}”</p> : null}
         {enabled && results.length > 0 ? (
@@ -218,12 +218,12 @@ export function CreateBountyForm({ className }: { className?: string }) {
       />
 
       {blocked && probe.state === 'unsupported' ? (
-        <UnavailableState title="Creating bounties" operation={probe.operation} status={probe.status} message="Your draft is saved here. Try again in a moment" onRetry={availability.retry} />
+        <UnavailableState title="Creating bounties" operation={probe.operation} status={probe.status} notServed={probe.notServed} message="Your draft is saved here. Try again in a moment" onRetry={availability.retry} />
       ) : null}
       {blocked && probe.state === 'error' ? <NoticeBar tone="danger" announce title="Can't create bounties right now">Your draft is saved here. Try again in a moment<Button type="button" variant="secondary" size="sm" onClick={availability.retry}>Try again</Button></NoticeBar> : null}
       {blocked && probe.state === 'loading' ? <p role="status" className="text-sm text-text-muted">Still checking, try again in a moment</p> : null}
       {failure && failure.state === 'unsupported' ? (
-        <UnavailableState title="Creating bounties" operation={failure.operation} status={failure.status} message="Try again in a moment" />
+        <UnavailableState title="Creating bounties" operation={failure.operation} status={failure.status} notServed={failure.notServed} message="Try again in a moment" />
       ) : null}
       {failure && failure.state === 'error' ? <NoticeBar tone="danger" announce title="Couldn't create bounty">{failureText(failure)}</NoticeBar> : null}
 

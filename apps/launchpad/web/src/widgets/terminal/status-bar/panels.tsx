@@ -31,7 +31,7 @@ function Loading({ label }: { label: string }) {
 
 function LoadableState<T>({ value, title, signedOut }: { value: Exclude<Loadable<T>, { state: 'ready' }>; title: string; signedOut?: string }) {
   if (value.state === 'loading') return <Loading label={title} />;
-  if (value.state === 'unsupported') return <UnavailableState variant="panel" title={title} operation={value.operation} status={value.status} message={value.message} className="p-4" />;
+  if (value.state === 'unsupported') return <UnavailableState variant="panel" title={title} operation={value.operation} status={value.status} notServed={value.notServed} message={value.message} className="p-4" />;
   if (signedOut && isSignedOutError(value.error)) return <SignedOutState title={signedOut} />;
   return <ErrorState variant="panel" title={`${title} can't load right now`} message={userFacingMessage(value.error)} onRetry={value.retry} className="p-4" />;
 }

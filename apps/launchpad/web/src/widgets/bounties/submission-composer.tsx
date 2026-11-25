@@ -130,7 +130,7 @@ export function SubmissionComposer({ bounty, className }: SubmissionComposerProp
       </div>
 
       {failure && failure.state === 'unsupported' ? (
-        <UnavailableState title="Submitting" operation={failure.operation} status={failure.status} message="Try again in a moment" />
+        <UnavailableState title="Submitting" operation={failure.operation} status={failure.status} notServed={failure.notServed} message="Try again in a moment" />
       ) : null}
       {failure && failure.state === 'error' ? <NoticeBar tone="danger" announce title="Couldn't submit">{userFacingMessage(failure.error)}</NoticeBar> : null}
       {mutation.isSuccess ? <NoticeBar tone="success" announce>Submitted! The creator will review it</NoticeBar> : null}

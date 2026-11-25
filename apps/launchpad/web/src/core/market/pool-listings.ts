@@ -1,5 +1,6 @@
 'use client';
-import { useQuery, useQueryClient, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
+import { useQueryClient, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { CapabilityUnavailableError, HttpError, type Operations, type V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
@@ -163,7 +164,7 @@ export function usePoolListings(pools: readonly string[], sort?: PoolListSort): 
   const qc = useQueryClient();
   const wanted = [...new Set(pools.filter(isPool).map(value => value.toLowerCase()))].sort();
   const queryKey = queryKeys.poolListings(client.config.apiOrigin, wanted);
-  const query = useQuery({
+  const query = useMarketQuery({
     queryKey,
     queryFn: ({ signal }) => fetchPoolListingsWithStatus(qc, operations, client.config.apiOrigin, wanted, signal, sort),
     select: result => result.listings,
@@ -190,7 +191,7 @@ export function usePoolDetailListings(pools: readonly string[]): PoolListingsQue
   const origin = client.config.apiOrigin;
   const wanted = [...new Set(pools.filter(isPool).map(value => value.toLowerCase()))].sort();
   const queryKey = queryKeys.poolDetailListings(origin, wanted);
-  const query = useQuery({
+  const query = useMarketQuery({
     queryKey,
     queryFn: ({ signal }) => fetchPoolDetailListings(qc, operations, origin, wanted, signal),
     select: result => result.listings,

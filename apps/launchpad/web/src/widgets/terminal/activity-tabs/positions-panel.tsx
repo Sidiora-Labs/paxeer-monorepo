@@ -80,7 +80,7 @@ function SignedInPositions({ wallet, tokenAddress, token, symbol }: { wallet: st
   const first = read.loadable.state === 'ready' ? read.loadable.data : null;
   const pages = usePositionPages(first, wallet, read.owner);
   if (read.loadable.state === 'loading') return <Skeleton variant="rows" rows={3} label="positions" />;
-  if (read.loadable.state === 'unsupported') return <UnavailableState title="Positions" operation={read.loadable.operation} status={read.loadable.status} message={read.loadable.message} onRetry={read.refetch} />;
+  if (read.loadable.state === 'unsupported') return <UnavailableState title="Positions" operation={read.loadable.operation} status={read.loadable.status} notServed={read.loadable.notServed} message={read.loadable.message} onRetry={read.refetch} />;
   if (read.loadable.state === 'error' && isSignedOutError(read.loadable.error)) return <SignedOutState icon={LogIn} title="Sign in to see your position" body="Your session ended. Sign in again to read your positions." />;
   if (read.loadable.state === 'error') return <ErrorState variant="inline" title="Positions can't load right now" message={userFacingMessage(read.loadable.error)} onRetry={read.loadable.retry} />;
   const matching = positionsForToken(pages.positions, tokenAddress);

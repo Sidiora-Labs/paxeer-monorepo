@@ -4,6 +4,7 @@ import { useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MarketReadNotice } from '@/core/market/read-notice';
 import { useSparkline } from '@/core/market/use-sparkline';
 import { AgeChip, Avatar, ProgressBar, Sparkline, StageBadge } from '@/ui/primitives';
 import { StatChange, StatDash } from '@/ui/shared/stat-value';
@@ -94,7 +95,7 @@ export function ExploreRow({ row, columns, density, starred, onToggleStar, tone 
     coin: <CoinCell row={row} />,
     graph: sparkline.status === 'pending'
       ? <Sparkline data={[]} loading label="24h price" />
-      : <Sparkline data={sparkline.data?.closes ?? []} label="24h price" />,
+      : <><Sparkline data={sparkline.data?.closes ?? []} label="24h price" /><MarketReadNotice title="Price chart" failed={sparkline.isError} retained={sparkline.data !== undefined} error={sparkline.error} onRetry={() => { void sparkline.refetch(); }} /></>,
     mcap: row.mcap === null
       ? <StatDash reason={row.mcapReason ?? 'No market cap yet'} subject="Market cap" />
       : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-num-sm tabular-nums text-text">{formatCompactUsd(row.mcap)}</span>,

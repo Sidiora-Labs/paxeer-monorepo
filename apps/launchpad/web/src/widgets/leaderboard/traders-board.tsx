@@ -54,7 +54,7 @@ export function TradersBoard({ period, className }: TradersBoardProps) {
         <div className="col-start-1 row-start-1 min-w-0">
           {board.state === 'loading' ? <RankRowSkeleton count={1} /> : null}
           {board.state === 'unsupported' ? (
-            <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} message="Trader rankings are coming soon" onRetry={retry} />
+            <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} notServed={board.notServed} error={board.error} message="Trader rankings are coming soon" onRetry={board.retry ?? retry} />
           ) : null}
           {board.state === 'error' ? <ErrorState title="Couldn't load the leaderboard" message="Something went wrong, try again" onRetry={board.retry} /> : null}
           {board.state === 'ready' && board.data.data.snapshot.entries.length > 0 ? (

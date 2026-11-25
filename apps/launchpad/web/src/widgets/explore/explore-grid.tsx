@@ -1,5 +1,6 @@
 'use client';
 import { useRef, type ReactNode } from 'react';
+import { MarketReadNotice } from '@/core/market/read-notice';
 import { useSparkline } from '@/core/market/use-sparkline';
 import { CoinCard, LoadMore } from '@/ui/primitives';
 import { formatCompactUsd, formatCount } from '@/utils/format';
@@ -18,7 +19,7 @@ function GridCard({ row, starred, onToggleStar }: GridCardProps) {
   const visible = useVisible(ref);
   const sparkline = useSparkline(visible ? row.poolAddress : null);
   return (
-    <li ref={ref} className="flex">
+    <li ref={ref} className="flex flex-col">
       <CoinCard
         variant="grid"
         surface="canvas"
@@ -45,6 +46,7 @@ function GridCard({ row, starred, onToggleStar }: GridCardProps) {
         ]}
         className="w-full"
       />
+      <MarketReadNotice title="Price chart" failed={sparkline.isError} retained={sparkline.data !== undefined} error={sparkline.error} onRetry={() => { void sparkline.refetch(); }} />
     </li>
   );
 }

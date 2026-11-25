@@ -77,7 +77,7 @@ export function HighestValueRail({ enabled = true, serviceDown = false, limit = 
       ) : list.loadable.state === 'loading' ? (
         <div className="flex flex-col gap-2" aria-busy="true"><span className="sr-only">Loading open bounties</span><Skeleton variant="block" height={surfaceSpacing(24)} /><Skeleton height={surfaceSpacing(10)} /><Skeleton height={surfaceSpacing(10)} /></div>
       ) : list.loadable.state === 'unsupported' ? (
-        <UnavailableState variant="inline" title="Open bounties" plural="auto" operation={list.loadable.operation} status={list.loadable.status} />
+        <UnavailableState variant="inline" title="Open bounties" plural="auto" operation={list.loadable.operation} status={list.loadable.status} notServed={list.loadable.notServed} error={list.loadable.error} />
       ) : list.loadable.state === 'error' ? (
         <ErrorState variant="inline" title="Open bounties can't load right now" message="Open bounties can't load right now, try again" onRetry={list.loadable.retry} />
       ) : !featured ? (
@@ -134,7 +134,7 @@ export function RecentlyPaidCard({ enabled = true, serviceDown = false, limit = 
       ) : list.loadable.state === 'loading' ? (
         <div className="flex flex-col gap-2" aria-busy="true"><span className="sr-only">Loading paid bounties</span><Skeleton height={surfaceSpacing(8)} /><Skeleton height={surfaceSpacing(8)} /><Skeleton height={surfaceSpacing(8)} /></div>
       ) : list.loadable.state === 'unsupported' ? (
-        <UnavailableState variant="inline" title="Paid bounties" plural="auto" operation={list.loadable.operation} status={list.loadable.status} />
+        <UnavailableState variant="inline" title="Paid bounties" plural="auto" operation={list.loadable.operation} status={list.loadable.status} notServed={list.loadable.notServed} error={list.loadable.error} />
       ) : list.loadable.state === 'error' ? (
         <ErrorState variant="inline" title="Paid bounties can't load right now" message="Paid bounties can't load right now, try again" onRetry={list.loadable.retry} />
       ) : rows.length === 0 ? (

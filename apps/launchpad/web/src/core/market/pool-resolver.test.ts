@@ -55,7 +55,7 @@ describe('pool resolver over served v2 routes', () => {
     const { deps, calls } = harness();
     expect((await fetchPoolDetail(pool, deps)).value?.data.pool.tokenAddress).toBe(token);
     expect(await fetchPoolDetail(unknown, deps)).toEqual({ value: null, unavailable: { state: 'unsupported', operation: 'IF_POOL_DETAIL', status: 404, message: 'NOT_FOUND' } });
-    expect(await fetchPoolDetail(stateless, deps)).toEqual({ value: null, unavailable: { state: 'unsupported', operation: 'IF_POOL_DETAIL', status: 503, message: 'DEPENDENCY_UNAVAILABLE' } });
+    expect(await fetchPoolDetail(stateless, deps)).toEqual({ value: null, unavailable: { state: 'unsupported', operation: 'IF_POOL_DETAIL', status: 503, message: 'DEPENDENCY_UNAVAILABLE', error: expect.objectContaining({ status: 503 }) } });
     expect(calls().filter(call => call === `GET /v2/pools/${pool}` || call === `GET /v2/pools/${unknown}`)).toEqual([`GET /v2/pools/${pool}`, `GET /v2/pools/${unknown}`]);
   });
 
@@ -153,8 +153,8 @@ describe('pool resolver over served v2 routes', () => {
     expect(snapshot.resolvedBy).toBe('search');
     expect(snapshot.pool).toEqual({ chainId: '125', poolAddress: stateless, tokenAddress: statelessToken });
     expect(snapshot.stats).toBeNull();
-    expect(snapshot.unavailable.stats).toEqual({ state: 'unsupported', operation: 'IF_STATS', status: 503, message: 'DEPENDENCY_UNAVAILABLE' });
-    expect(snapshot.unavailable.registry).toEqual({ state: 'unsupported', operation: 'IF_POOL_DETAIL', status: 503, message: 'DEPENDENCY_UNAVAILABLE' });
+    expect(snapshot.unavailable.stats).toEqual({ state: 'unsupported', operation: 'IF_STATS', status: 503, message: 'DEPENDENCY_UNAVAILABLE', error: expect.objectContaining({ status: 503 }) });
+    expect(snapshot.unavailable.registry).toEqual({ state: 'unsupported', operation: 'IF_POOL_DETAIL', status: 503, message: 'DEPENDENCY_UNAVAILABLE', error: expect.objectContaining({ status: 503 }) });
     expect(snapshot.creator).toBeNull();
     expect(snapshot.createdAt).toBeNull();
     expect(calls().slice(0, 5)).toEqual([`GET /v2/pools/${stateless}`, `GET /v2/pools/${stateless}`, `GET /v2/pools/${stateless}`, `GET /v2/search?q=${stateless}&type=token&limit=10`, `GET /v2/search?q=${stateless}&type=pool&limit=10`]);

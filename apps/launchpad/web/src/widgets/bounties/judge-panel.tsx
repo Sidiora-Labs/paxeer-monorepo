@@ -112,7 +112,7 @@ export function JudgePanel({ bounty, revision, submissions, asset, className }: 
             inputProps={{ value: award, onChange: event => setAward(event.target.value.replace(',', '.')), inputMode: 'decimal', placeholder: '0.00', autoComplete: 'off', disabled: asset.decimals === null }}
           />
           {mutation.error && mutation.error.state === 'unsupported' ? (
-            <UnavailableState title="Picking winners" operation={mutation.error.operation} status={mutation.error.status} message="Try again in a moment" />
+            <UnavailableState title="Picking winners" operation={mutation.error.operation} status={mutation.error.status} notServed={mutation.error.notServed} message="Try again in a moment" />
           ) : null}
           {mutation.error && mutation.error.state === 'error' ? <NoticeBar tone="danger" announce title="Couldn't pick winner">{userFacingMessage(mutation.error.error)}</NoticeBar> : null}
           <div className="flex justify-end">

@@ -319,7 +319,7 @@ export function UsersGroupBody({ users, onRetry }: { users: UserSearch; onRetry:
           variant="inline"
           title="User search"
           operation={users.operation}
-          status={users.status}
+          status={users.status} notServed={users.notServed} error={users.error}
           message={users.message}
           onRetry={onRetry}
         />

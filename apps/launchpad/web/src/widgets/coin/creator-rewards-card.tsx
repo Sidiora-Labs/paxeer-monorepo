@@ -57,7 +57,7 @@ export default function CreatorRewardsCard({ poolAddress }: { poolAddress: strin
       </div>
       {signedOut ? <SignedOutState variant="inline" title="Sign in to see your creator rewards" /> : null}
       {rewards.isPending && !signedOut ? <Skeleton variant="rows" rows={2} label="creator rewards" /> : null}
-      {marker ? <UnavailableState variant="inline" title="Creator rewards" operation={marker.operation} status={marker.status} /> : null}
+      {marker ? <UnavailableState variant="inline" title="Creator rewards" operation={marker.operation} status={marker.status} notServed={marker.notServed} error={marker.error} /> : null}
       {rewards.isError && !marker && !signedOut ? <p role="alert" className="text-sm text-danger">Creator rewards can&apos;t load right now. {userFacingMessage(rewards.error)}</p> : null}
       {rewards.data ? (
         totals.length ? (

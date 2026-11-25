@@ -133,7 +133,7 @@ function LeaderboardBody({ board, identities, metric, viewer, onRetry }: Leaderb
   const collected = useProfileIssue('leaderboard', board.state === 'error' ? { label: 'Leaderboard', error: board.error, retry: board.retry } : null);
   if (board.state === 'loading') return <Skeleton variant="rows" rows={8} label="leaderboard" />;
   if (board.state === 'unsupported') {
-    return <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} message="Check back in a bit" onRetry={onRetry} />;
+    return <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} notServed={board.notServed} error={board.error} message="Check back in a bit" onRetry={board.retry ?? onRetry} />;
   }
   if (board.state === 'error' && collected) return <PlaceholderRows rows={12} />;
   if (board.state === 'error') return <ErrorState title="Can't load leaderboard right now" message="Check your connection and try again" onRetry={board.retry} />;

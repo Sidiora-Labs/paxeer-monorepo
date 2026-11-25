@@ -2,6 +2,7 @@
 import { createContext, useContext } from 'react';
 import { SdkClient } from '@kindle/sdk';
 import { accountSession } from '@/widgets/profile/account-transport';
+import { pacedMarketClient } from './paced-client';
 import { backendOrigins } from '@/core/backend-origins';
 
 const production = process.env.NODE_ENV === 'production';
@@ -18,11 +19,11 @@ let sessionClient: SdkClient | undefined;
 
 /** Public (unauthenticated) client: api = core/api, identity = media/gateway, media = media/metadata. */
 export function browserMarketClient(): SdkClient {
-  if (publicClient) return publicClient;
+  if (publicClient) return pacedMarketClient(publicClient);
   const apiOrigin = backendOrigins().data;
   const stream = streamOrigin(apiOrigin);
   publicClient = new SdkClient({ apiOrigin, identityOrigin: backendOrigins().gateway, mediaOrigin: backendOrigins().metadata, streamOrigin: stream, approvedStreamOrigins: [stream], production });
-  return publicClient;
+  return pacedMarketClient(publicClient);
 }
 
 /**
@@ -31,30 +32,30 @@ export function browserMarketClient(): SdkClient {
  * media/user over mTLS (media/user has no browser-reachable host in production).
  */
 export function browserUserClient(): SdkClient {
-  if (userClient) return userClient;
+  if (userClient) return pacedMarketClient(userClient);
   const apiOrigin = backendOrigins().data;
   const stream = streamOrigin(apiOrigin);
   userClient = new SdkClient({ apiOrigin, identityOrigin: backendOrigins().gateway, mediaOrigin: backendOrigins().gateway, streamOrigin: stream, approvedStreamOrigins: [stream], production });
-  return userClient;
+  return pacedMarketClient(userClient);
 }
 
 /** Client addressing core/stats-workers directly (`/v1/pools/{p}/holders`); null when no stats host is configured. */
 export function browserStatsClient(): SdkClient | null {
-  if (statsClient !== undefined) return statsClient;
+  if (statsClient !== undefined) return statsClient ? pacedMarketClient(statsClient) : null;
   const origin = backendOrigins().stats;
-  if (!origin) { statsClient = null; return statsClient; }
+  if (!origin) { statsClient = null; return statsClient ? pacedMarketClient(statsClient) : null; }
   const stream = streamOrigin(origin);
   statsClient = new SdkClient({ apiOrigin: origin, identityOrigin: backendOrigins().gateway, mediaOrigin: backendOrigins().metadata, streamOrigin: stream, approvedStreamOrigins: [stream], production });
-  return statsClient;
+  return statsClient ? pacedMarketClient(statsClient) : null;
 }
 
 /** Bearer-bound client reading the live account session; requests fail with "Access token required" when signed out. */
 export function browserSessionClient(): SdkClient {
-  if (sessionClient) return sessionClient;
+  if (sessionClient) return pacedMarketClient(sessionClient);
   const apiOrigin = backendOrigins().data;
   const stream = streamOrigin(apiOrigin);
   sessionClient = new SdkClient({ apiOrigin, identityOrigin: backendOrigins().gateway, mediaOrigin: backendOrigins().gateway, streamOrigin: stream, approvedStreamOrigins: [stream], production, session: { mode: 'bearer', token: () => accountSession()?.accessToken } });
-  return sessionClient;
+  return pacedMarketClient(sessionClient);
 }
 
 let gatewayClient: SdkClient | undefined;
@@ -66,20 +67,20 @@ let gatewaySessionClient: SdkClient | undefined;
  * so they need a client that addresses the gateway as its api origin.
  */
 export function browserGatewayClient(): SdkClient {
-  if (gatewayClient) return gatewayClient;
+  if (gatewayClient) return pacedMarketClient(gatewayClient);
   const gateway = backendOrigins().gateway;
   const stream = streamOrigin(backendOrigins().data);
   gatewayClient = new SdkClient({ apiOrigin: gateway, identityOrigin: gateway, mediaOrigin: gateway, streamOrigin: stream, approvedStreamOrigins: [stream], production });
-  return gatewayClient;
+  return pacedMarketClient(gatewayClient);
 }
 
 /** Bearer-bound gateway client (bounty create/submit/accept) reading the live account session. */
 export function browserGatewaySessionClient(): SdkClient {
-  if (gatewaySessionClient) return gatewaySessionClient;
+  if (gatewaySessionClient) return pacedMarketClient(gatewaySessionClient);
   const gateway = backendOrigins().gateway;
   const stream = streamOrigin(backendOrigins().data);
   gatewaySessionClient = new SdkClient({ apiOrigin: gateway, identityOrigin: gateway, mediaOrigin: gateway, streamOrigin: stream, approvedStreamOrigins: [stream], production, session: { mode: 'bearer', token: () => accountSession()?.accessToken } });
-  return gatewaySessionClient;
+  return pacedMarketClient(gatewaySessionClient);
 }
 
 export const MarketClientContext = createContext<SdkClient | null>(null);
@@ -87,5 +88,5 @@ export const MarketClientContext = createContext<SdkClient | null>(null);
 export const GatewayClientContext = createContext<SdkClient | null>(null);
 
 export function useMarketClient(): SdkClient {
-  return useContext(MarketClientContext) ?? browserMarketClient();
+  return pacedMarketClient(useContext(MarketClientContext) ?? browserMarketClient());
 }

@@ -84,7 +84,7 @@ export async function loadSwapTokens(operations: Operations, signal: AbortSignal
   } while (cursor);
   if (pools.length === 0) return [];
   const stats = new Map<string, { price: number | null; marketCap: number | null }>();
-  const addresses = pools.map(pool => pool.poolAddress.toLowerCase());
+  const addresses = pools.map(pool => pool.poolAddress.toLowerCase()).sort();
   for (let start = 0; start < addresses.length; start += STATS_BATCH_LIMIT) {
     const batch = await fetchStatsBatch(operations, addresses.slice(start, start + STATS_BATCH_LIMIT), signal);
     for (const row of batch.data.items) {

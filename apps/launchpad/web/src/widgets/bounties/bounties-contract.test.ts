@@ -62,7 +62,7 @@ describe('bountiesContract list requests', () => {
 
 describe('bountiesContract error mapping', () => {
   it('maps the real capability and gateway failures to Unsupported', () => {
-    expect(bountiesContract.mapError('IF_BOUNTY_LIST', new CapabilityUnavailableError('Unavailable endpoint /v2/bounties', 404))).toEqual({ state: 'unsupported', operation: 'IF_BOUNTY_LIST', status: 404, message: 'Unavailable endpoint /v2/bounties' });
+    expect(bountiesContract.mapError('IF_BOUNTY_LIST', new CapabilityUnavailableError('Unavailable endpoint /v2/bounties', 404))).toEqual({ state: 'unsupported', operation: 'IF_BOUNTY_LIST', status: 404, notServed: true, message: 'Unavailable endpoint /v2/bounties' });
     expect(bountiesContract.mapError('IF_BOUNTIES_STATS', new HttpError(503))).toMatchObject({ state: 'unsupported', status: 503 });
   });
   it('keeps every other failure as an error', () => {

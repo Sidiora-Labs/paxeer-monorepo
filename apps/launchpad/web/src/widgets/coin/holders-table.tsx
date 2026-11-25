@@ -163,7 +163,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   }
 
   if (holders.state === 'loading' && loaded.length === 0) return <Skeleton variant="rows" rows={6} label="holders" />;
-  if (holders.state === 'unsupported' && loaded.length === 0) return <UnavailableState title="Holders" plural operation={holders.operation} status={holders.status} message="Holders can't load right now. Check back soon." />;
+  if (holders.state === 'unsupported' && loaded.length === 0) return <UnavailableState title="Holders" plural operation={holders.operation} status={holders.status} notServed={holders.notServed} message="Holders can't load right now. Check back soon." />;
   if (holders.state === 'error' && loaded.length === 0) return <ErrorState title="Holders can't load right now" message={userFacingMessage(holders.error)} onRetry={holders.retry} />;
 
   return <div className="flex flex-col gap-3">
@@ -171,7 +171,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
       <h3 className="flex items-center gap-2 text-sm font-bold text-text">Holders {count !== null ? <CountPill count={count} label="holders" /> : null}</h3>
       {top10 ? <ShareChip label="Top 10" spoken="Top 10 holders hold" share={top10} /> : null}
       {devShare ? <ShareChip label="Creator" spoken="Creator holds" share={devShare} /> : null}
-      {last?.canonical ? <UnavailableState variant="inline" title="The full holder list" operation={last.canonical.operation} status={last.canonical.status} className="basis-full" /> : null}
+      {last?.canonical ? <UnavailableState variant="inline" title="The full holder list" operation={last.canonical.operation} status={last.canonical.status} notServed={last.canonical.notServed} className="basis-full" /> : null}
     </div>
     <HoldersFilters value={search} onChange={setSearch} pnlReason={pnlReason} />
     {coverage && coverage !== 'complete' ? <NoticeBar tone="warning" announce>Some holders may be missing from this list.</NoticeBar> : null}
