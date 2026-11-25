@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { Flame } from 'lucide-react';
 import { Button, EmptyState, ErrorState, LoadMore, NoticeBar, SegmentedControl, SelectPill, UnavailableState, type SegmentOption, type SelectOption } from '@/ui/primitives';
-import { useExploreRows, type ExploreRow } from '@/widgets/explore/use-explore-rows';
+import { useExploreRows, type ExploreRow, type ExploreRowsState } from '@/widgets/explore/use-explore-rows';
 import type { RankingCategory } from '@/core/market/use-rankings';
 import type { StatValue } from '@/core/market/pool-stats-display';
 import type { TokenMetadata } from '@/widgets/home/types';
@@ -108,10 +108,18 @@ function readyRecord<T>(source: Loadable<Record<string, T>>): Record<string, T> 
  * 1h/4h/12h/24h selector where only the served timeframes carry data, rows
  * with image, name, price to 7 decimals, socials, market cap and change tint.
  */
-export function TrendingWidget({ filter, density }: WidgetProps) {
+export function TrendingWidget(props: WidgetProps) {
   const [category, setCategory] = useState<TrendingCategory>('trending');
-  const [timeframe, setTimeframe] = useState<Timeframe>('24h');
   const explore = useExploreRows(category);
+  return <TrendingColumn {...props} category={category} setCategory={setCategory} explore={explore} />;
+}
+
+export function TrendingColumn({ filter, density, category, setCategory, explore }: WidgetProps & {
+  category: TrendingCategory;
+  setCategory(category: TrendingCategory): void;
+  explore: ExploreRowsState;
+}) {
+  const [timeframe, setTimeframe] = useState<Timeframe>('24h');
   const panel = usePanelState(explore.loading, explore.ranking, category);
   const watchlist = useWatchlist();
   const metadata = readyRecord(explore.metadata);
@@ -136,7 +144,7 @@ export function TrendingWidget({ filter, density }: WidgetProps) {
         {!timeframeServed ? (
           <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title={`${timeframe} change`} operation={`IF_STATS_BATCH (priceChangeBps${timeframe})`} status={null} />
         ) : null}
-        {rows.length > 0 && (quality === 'stale' || quality === 'partial' || quality === 'quarantined') ? (
+        {rows.length > 0 && (quality === 'stale' || quality === 'quarantined') ? (
           <NoticeBar tone="warning" className="mx-2 mb-2" surface={1}>Rankings may be a little behind right now</NoticeBar>
         ) : null}
         <WatchlistNotice state={watchlist} />
