@@ -1559,6 +1559,51 @@
     "ctes": []
   },
   {
+    "id": "store/accounting_readmodel.AccountingReadModel.head.1.candles",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.head",
+    "line": 192,
+    "expression": "`SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM `+q+`.delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN `+q+`.delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN `+q+`.delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity`",
+    "sql": "SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM \"candles\".delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN \"candles\".delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN \"candles\".delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity",
+    "bindings": {
+      "deliverySchema": "candles"
+    },
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "candles.delivery_ordered_quarantine_v1",
+      "candles.delivery_partition_commits_v1",
+      "candles.delivery_partition_offsets_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "affected_pools",
+      "c.consumer_id",
+      "c.effect_identity",
+      "c.partition_key",
+      "c.partition_kind",
+      "c.position",
+      "c.projection_generation",
+      "c.sequence",
+      "consumer_id",
+      "o.checkpoint_digest",
+      "o.consumer_id",
+      "o.next_sequence",
+      "o.partition_key",
+      "o.partition_kind",
+      "o.previous_effect_identity",
+      "o.projection_generation",
+      "projection_generation"
+    ],
+    "ctes": []
+  },
+  {
     "id": "store/accounting_readmodel.AccountingReadModel.vector.1.stats",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.vector",
@@ -1595,6 +1640,51 @@
       "o.projection_generation",
       "partition_key",
       "partition_kind",
+      "projection_generation"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.head.1.stats",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.head",
+    "line": 192,
+    "expression": "`SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM `+q+`.delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN `+q+`.delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN `+q+`.delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity`",
+    "sql": "SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM \"stats\".delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN \"stats\".delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN \"stats\".delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity",
+    "bindings": {
+      "deliverySchema": "stats"
+    },
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.delivery_ordered_quarantine_v1",
+      "stats.delivery_partition_commits_v1",
+      "stats.delivery_partition_offsets_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "affected_pools",
+      "c.consumer_id",
+      "c.effect_identity",
+      "c.partition_key",
+      "c.partition_kind",
+      "c.position",
+      "c.projection_generation",
+      "c.sequence",
+      "consumer_id",
+      "o.checkpoint_digest",
+      "o.consumer_id",
+      "o.next_sequence",
+      "o.partition_key",
+      "o.partition_kind",
+      "o.previous_effect_identity",
+      "o.projection_generation",
       "projection_generation"
     ],
     "ctes": []
@@ -1658,70 +1748,10 @@
     "ctes": []
   },
   {
-    "id": "store/accounting_readmodel.AccountingReadModel.untradedPage.1.candles",
-    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
-    "function": "AccountingReadModel.untradedPage",
-    "line": 206,
-    "expression": "`SELECT EXISTS(SELECT 1 FROM `+pgx.Identifier{deliverySchema}.Sanitize()+`.delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)`",
-    "sql": "SELECT EXISTS(SELECT 1 FROM \"candles\".delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)",
-    "bindings": {
-      "deliverySchema": "candles"
-    },
-    "roles": [
-      "api_rest_runtime"
-    ],
-    "package": "services/launchpad/api/internal/store",
-    "kinds": [
-      "SELECT"
-    ],
-    "tables": [
-      "candles.delivery_partition_offsets_v1"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "consumer_id",
-      "partition_key",
-      "partition_kind",
-      "projection_generation"
-    ],
-    "ctes": []
-  },
-  {
-    "id": "store/accounting_readmodel.AccountingReadModel.untradedPage.1.stats",
-    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
-    "function": "AccountingReadModel.untradedPage",
-    "line": 206,
-    "expression": "`SELECT EXISTS(SELECT 1 FROM `+pgx.Identifier{deliverySchema}.Sanitize()+`.delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)`",
-    "sql": "SELECT EXISTS(SELECT 1 FROM \"stats\".delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)",
-    "bindings": {
-      "deliverySchema": "stats"
-    },
-    "roles": [
-      "api_rest_runtime"
-    ],
-    "package": "services/launchpad/api/internal/store",
-    "kinds": [
-      "SELECT"
-    ],
-    "tables": [
-      "stats.delivery_partition_offsets_v1"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "consumer_id",
-      "partition_key",
-      "partition_kind",
-      "projection_generation"
-    ],
-    "ctes": []
-  },
-  {
     "id": "store/accounting_readmodel.AccountingReadModel.untradedPage.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.untradedPage",
-    "line": 215,
+    "line": 226,
     "expression": "`SELECT transaction_timestamp()`",
     "sql": "SELECT transaction_timestamp()",
     "bindings": {},
@@ -1744,7 +1774,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.snapshot.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.snapshot",
-    "line": 243,
+    "line": 274,
     "expression": "`SELECT frozen FROM `+pgx.Identifier{s.config.ChartsSchema}.Sanitize()+`.chart_pool_fences_v1 WHERE chain_id='125' AND pool=$1`",
     "sql": "SELECT frozen FROM \"candles\".chart_pool_fences_v1 WHERE chain_id='125' AND pool=$1",
     "bindings": {},
@@ -1771,7 +1801,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.snapshot.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.snapshot",
-    "line": 250,
+    "line": 281,
     "expression": "`SELECT frozen FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_pool_fences_v1 WHERE pool=$1`",
     "sql": "SELECT frozen FROM \"stats\".accounting_pool_fences_v1 WHERE pool=$1",
     "bindings": {},
@@ -1797,7 +1827,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.snapshot.3",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.snapshot",
-    "line": 270,
+    "line": 305,
     "expression": "`SELECT transaction_timestamp()`",
     "sql": "SELECT transaction_timestamp()",
     "bindings": {},
@@ -1820,7 +1850,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.sourceFills.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.sourceFills",
-    "line": 326,
+    "line": 361,
     "expression": "`SELECT source_fill_id,source_fact_digest,fill FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND source_fill_id=ANY($3) AND sequence<=$4 LIMIT $5`",
     "sql": "SELECT source_fill_id,source_fact_digest,fill FROM \"stats\".accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND source_fill_id=ANY($3) AND sequence<=$4 LIMIT $5",
     "bindings": {},
@@ -1850,7 +1880,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.Candles.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.Candles",
-    "line": 437,
+    "line": 472,
     "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
     "sql": "SET LOCAL statement_timeout = '150ms'",
     "bindings": {},
@@ -1871,7 +1901,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.Candles.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.Candles",
-    "line": 451,
+    "line": 486,
     "expression": "`SELECT start,snapshot FROM `+pgx.Identifier{s.config.ChartsSchema}.Sanitize()+`.chart_exact_v1 WHERE chain_id='125' AND pool=$1 AND interval=$2 AND start>=$3 AND start<$4 ORDER BY start ASC LIMIT $5`",
     "sql": "SELECT start,snapshot FROM \"candles\".chart_exact_v1 WHERE chain_id='125' AND pool=$1 AND interval=$2 AND start>=$3 AND start<$4 ORDER BY start ASC LIMIT $5",
     "bindings": {},
@@ -1900,7 +1930,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.Trades.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.Trades",
-    "line": 534,
+    "line": 569,
     "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
     "sql": "SET LOCAL statement_timeout = '150ms'",
     "bindings": {},
@@ -1921,7 +1951,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.Trades.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.Trades",
-    "line": 555,
+    "line": 590,
     "expression": "`SELECT fill,source_fact_digest,sequence FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND sequence<=$3 AND ($4::bigint IS NULL OR sequence<$4) AND ($5='' OR fill->>'side'=$5) ORDER BY sequence DESC LIMIT $6`",
     "sql": "SELECT fill,source_fact_digest,sequence FROM \"stats\".accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND sequence<=$3 AND ($4::bigint IS NULL OR sequence<$4) AND ($5='' OR fill->>'side'=$5) ORDER BY sequence DESC LIMIT $6",
     "bindings": {},
@@ -1950,7 +1980,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.PublicProjections.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.PublicProjections",
-    "line": 662,
+    "line": 697,
     "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
     "sql": "SET LOCAL statement_timeout = '150ms'",
     "bindings": {},
@@ -1971,7 +2001,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.PublicProjections.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.PublicProjections",
-    "line": 665,
+    "line": 700,
     "expression": "\"SELECT topic,sequence::text,frame FROM \"+pgx.Identifier{s.config.StreamSchema, literalStreamProjection}.Sanitize()+\" WHERE topic=ANY($1) ORDER BY topic\"",
     "sql": "SELECT topic,sequence::text,frame FROM \"api_stream\".\"stream_projection\" WHERE topic=ANY($1) ORDER BY topic",
     "bindings": {},
@@ -1998,7 +2028,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.TopicSnapshotAt",
-    "line": 730,
+    "line": 765,
     "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
     "sql": "SET LOCAL statement_timeout = '150ms'",
     "bindings": {},
@@ -2019,7 +2049,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.TopicSnapshotAt",
-    "line": 756,
+    "line": 791,
     "expression": "\"SELECT frame FROM \"+pgx.Identifier{s.config.StreamSchema, \"stream_delivery_outbox\"}.Sanitize()+\" WHERE partition_id=$1 AND sequence=$2\"",
     "sql": "SELECT frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence=$2",
     "bindings": {},
@@ -2046,7 +2076,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.3",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.TopicSnapshotAt",
-    "line": 766,
+    "line": 801,
     "expression": "\"SELECT transaction_timestamp()\"",
     "sql": "SELECT transaction_timestamp()",
     "bindings": {},

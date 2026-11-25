@@ -89,8 +89,23 @@ func TestUntradedPoolPageRoutes(t *testing.T) {
 	for _, path := range []string{"/trades", "/candles?interval=1m&from=2023-11-14T22:13:00.000Z&to=2023-11-14T22:14:00.000Z"} {
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v2/pools/"+accountingtest.Pool+path, nil))
-		if response.Code != 503 || !strings.Contains(response.Body.String(), "DEPENDENCY_UNAVAILABLE") {
-			t.Fatalf("uncommitted position: %d %s", response.Code, response.Body.String())
+		name := "TradesResponse"
+		if strings.HasPrefix(path, "/candles") {
+			name = "CandlesResponse"
+		}
+		if response.Code != 200 || interfaces.ValidateJSON(name, response.Body.Bytes()) != nil {
+			t.Fatalf("position awaiting consumer commits: %d %s", response.Code, response.Body.String())
+		}
+		var page struct {
+			Revision   *string         `json:"revision"`
+			Watermark  json.RawMessage `json:"watermark"`
+			NextCursor *string         `json:"nextCursor"`
+			Data       struct {
+				Items []json.RawMessage `json:"items"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil || page.Revision != nil || string(page.Watermark) != "null" || page.NextCursor != nil || page.Data.Items == nil || len(page.Data.Items) != 0 {
+			t.Fatalf("pending position metadata: %s %v", response.Body.String(), err)
 		}
 	}
 	f.Commit(t, fill, position)
