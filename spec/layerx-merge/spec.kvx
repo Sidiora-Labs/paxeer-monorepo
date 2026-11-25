@@ -213325,7 +213325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.152]
 title = "Show the two holder shares of a coin as shares of the whole supply, so that a new coin does not read as held whole by its creator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
