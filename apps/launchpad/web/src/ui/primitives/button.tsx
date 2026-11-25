@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-text' | 'link';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-text' | 'inverse' | 'link';
 export type ControlSize = 'sm' | 'md' | 'lg';
 
 const sizeClass: Record<ControlSize, string> = {
@@ -21,6 +21,8 @@ const edgePaddingClass: Record<ControlSize, string> = {
 };
 
 const variantClass: Record<ButtonVariant, string> = {
+  inverse:
+    'bg-surface-inverse text-canvas hover:bg-text-muted active:bg-text-faint disabled:text-text-disabled aria-disabled:text-text-disabled',
   primary:
     'bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-active disabled:bg-accent-soft-strong disabled:text-text-disabled aria-disabled:bg-accent-soft-strong aria-disabled:text-text-disabled',
   secondary:
@@ -28,7 +30,7 @@ const variantClass: Record<ButtonVariant, string> = {
   ghost:
     'border border-transparent bg-transparent text-text-muted hover:border-control-edge hover:bg-surface-hover hover:text-text active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
   danger:
-    'bg-danger-strong text-on-danger hover:bg-danger active:bg-danger-strong disabled:text-text-disabled aria-disabled:text-text-disabled',
+    'bg-danger text-on-danger hover:bg-danger-strong active:bg-danger disabled:text-text-disabled aria-disabled:text-text-disabled',
   'danger-text':
     'bg-surface-2 text-danger hover:bg-surface-hover active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
   link: 'bg-transparent px-0 text-accent hover:underline disabled:text-text-disabled aria-disabled:text-text-disabled h-auto',
@@ -54,8 +56,9 @@ export function buttonClass(opts: {
 }) {
   const { variant = 'secondary', size = 'md', fullWidth, pill, className } = opts;
   return cn(
-    'relative inline-flex max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-[background-color] duration-fast',
-    'focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+    'relative inline-flex max-w-full select-none items-center justify-center text-center font-bold transition-[background-color] duration-fast',
+    variant === 'link' ? 'flex-wrap' : 'min-w-0 whitespace-nowrap',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
     'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed aria-busy:cursor-progress',
     pill ? 'rounded-pill' : 'rounded-sm',
     sizeClass[size],
@@ -98,7 +101,7 @@ export function Button({
     return (
       <Link prefetch={false} href={href} className={classes} aria-disabled={disabled || undefined}>
         {leading}
-        <span className="min-w-0 max-w-full">{children}</span>
+        <span className={variant === 'link' ? undefined : 'min-w-0 max-w-full truncate'}>{children}</span>
       </Link>
     );
   }
@@ -115,7 +118,7 @@ export function Button({
       {loading && !icon ? (
         <LoaderCircle aria-hidden="true" className="absolute size-icon-md animate-spin" />
       ) : null}
-      <span className={cn('min-w-0 max-w-full', loading && !icon && 'opacity-0')}>{children}</span>
+      <span className={cn(variant !== 'link' && 'min-w-0 max-w-full truncate', loading && !icon && 'opacity-0')}>{children}</span>
     </button>
   );
 }

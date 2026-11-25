@@ -4,6 +4,7 @@ export function applicationEnvironment() {
   return {
     ...process.env,
     NEXT_TELEMETRY_DISABLED: '1',
+    NEXT_PUBLIC_COLOR_MODE_DEFAULT: 'device',
     NEXT_PUBLIC_CANONICAL_ORIGIN: origin,
     NEXT_PUBLIC_DATA_API_URL: origin,
     NEXT_PUBLIC_GATEWAY_URL: origin,

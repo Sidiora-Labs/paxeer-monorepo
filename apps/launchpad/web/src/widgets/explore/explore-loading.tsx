@@ -1,7 +1,7 @@
 'use client';
 
 import { ExploreView } from './explore-view';
-import { PresetTabs } from './preset-tabs';
+import { defaultPreset, PresetTabs } from './preset-tabs';
 
 export function ExploreLoading() {
   return (
@@ -15,11 +15,11 @@ export function ExploreLoading() {
         moreError={null}
         onLoadMore={() => undefined}
         onRetryMore={() => undefined}
-        defaultSort={null}
-        sortResetKey="movers"
+        defaultSort={defaultPreset.defaultSort}
+        sortResetKey={defaultPreset.id}
         sourceLabel="coins"
-        leading={<PresetTabs active="movers" />}
-        caption="Movers coins"
+        leading={<PresetTabs active={defaultPreset.id} />}
+        caption={`${defaultPreset.label} coins`}
         empty={null}
       />
     </div>
