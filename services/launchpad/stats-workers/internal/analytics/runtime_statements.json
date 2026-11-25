@@ -2051,7 +2051,7 @@
       "function": "Repository.ApplyCanonicalTransferTx",
       "call": 1,
       "expression": "`SELECT r.emitter,r.block_hash,r.height::text,r.transaction_index::text,r.log_index::text,r.topics,r.data FROM indexer.indexer_raw_logs_v1 r JOIN indexer.indexer_token_transfers_v1 t ON t.chain_id=r.chain_id AND t.transaction_hash=r.transaction_hash AND t.log_index=r.log_index JOIN indexer.indexer_canonical_creations_v1 k ON k.token=t.token JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$3 WHERE r.chain_id=125 AND r.transaction_hash=$1 AND r.log_index=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND t.token=$4 AND t.from_address=$5 AND t.to_address=$6 AND t.amount_raw=$7::numeric AND t.height=r.height AND t.transaction_index=r.transaction_index AND t.block_hash=r.block_hash AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_watermarks_v1 w WHERE w.chain_id=125 AND w.stream_id=$3 AND w.typed_complete_height>=r.height) AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$3 AND a.previous_height<r.height AND a.last_complete_height>=r.height)`",
-      "line": 69,
+      "line": 71,
       "sql": "SELECT r.emitter,r.block_hash,r.height::text,r.transaction_index::text,r.log_index::text,r.topics,r.data FROM indexer.indexer_raw_logs_v1 r JOIN indexer.indexer_token_transfers_v1 t ON t.chain_id=r.chain_id AND t.transaction_hash=r.transaction_hash AND t.log_index=r.log_index JOIN indexer.indexer_canonical_creations_v1 k ON k.token=t.token JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$3 WHERE r.chain_id=125 AND r.transaction_hash=$1 AND r.log_index=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND t.token=$4 AND t.from_address=$5 AND t.to_address=$6 AND t.amount_raw=$7::numeric AND t.height=r.height AND t.transaction_index=r.transaction_index AND t.block_hash=r.block_hash AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_watermarks_v1 w WHERE w.chain_id=125 AND w.stream_id=$3 AND w.typed_complete_height>=r.height) AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$3 AND a.previous_height<r.height AND a.last_complete_height>=r.height)",
       "kind": "SELECT",
       "tables": [
@@ -2100,14 +2100,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ApplyCanonicalTransferTx_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.enrichActorTx",
       "call": 1,
       "expression": "\"SELECT digest FROM \"+r.schema+\".transfers WHERE identity=$1 FOR UPDATE\"",
-      "line": 105,
+      "line": 107,
       "sql": "SELECT digest FROM stats_transfer_holdings.transfers WHERE identity=$1 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -2120,14 +2120,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.enrichActorTx",
       "call": 2,
       "expression": "\"SELECT payload FROM \"+r.schema+\".provenance WHERE identity=$1 FOR UPDATE\"",
-      "line": 113,
+      "line": 115,
       "sql": "SELECT payload FROM stats_transfer_holdings.provenance WHERE identity=$1 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -2140,14 +2140,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_2",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.enrichActorTx",
       "call": 3,
       "expression": "\"UPDATE \"+r.schema+\".provenance SET payload=$2 WHERE identity=$1\"",
-      "line": 132,
+      "line": 134,
       "sql": "UPDATE stats_transfer_holdings.provenance SET payload=$2 WHERE identity=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2159,14 +2159,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_3",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.enrichActorTx",
       "call": 4,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET revision=revision+1 WHERE token=$1\"",
-      "line": 135,
+      "line": 137,
       "sql": "UPDATE stats_transfer_holdings.tokens SET revision=revision+1 WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2179,14 +2179,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_4",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.ImportLegacyRowsTx",
       "call": 1,
       "expression": "\"SELECT holder_address,balance FROM stats.pool_holders WHERE pool_address=$1 AND holder_address>$2 ORDER BY holder_address LIMIT 1000\"",
-      "line": 149,
+      "line": 151,
       "sql": "SELECT holder_address,balance FROM stats.pool_holders WHERE pool_address=$1 AND holder_address>$2 ORDER BY holder_address LIMIT 1000",
       "kind": "SELECT",
       "tables": [
@@ -2200,14 +2200,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ImportLegacyRowsTx_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.ImportLegacyRowsTx",
       "call": 2,
       "expression": "\"INSERT INTO \"+r.schema+\".legacy_rows(pool,address,raw,normalized_address,numeric_balance,reason) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(pool,address) DO UPDATE SET raw=excluded.raw,normalized_address=excluded.normalized_address,numeric_balance=excluded.numeric_balance,reason=excluded.reason\"",
-      "line": 185,
+      "line": 187,
       "sql": "INSERT INTO stats_transfer_holdings.legacy_rows(pool,address,raw,normalized_address,numeric_balance,reason) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(pool,address) DO UPDATE SET raw=excluded.raw,normalized_address=excluded.normalized_address,numeric_balance=excluded.numeric_balance,reason=excluded.reason",
       "kind": "INSERT",
       "tables": [
@@ -2222,14 +2222,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ImportLegacyRowsTx_2",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.EnrichCanonicalActorTx",
       "call": 1,
       "expression": "`SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND r.block_hash=$4 AND r.height=$5::bigint AND r.emitter=$6 AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$7 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$7 WHERE f.source_fill_id=$1`",
-      "line": 216,
+      "line": 218,
       "sql": "SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND r.block_hash=$4 AND r.height=$5::bigint AND r.emitter=$6 AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$7 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$7 WHERE f.source_fill_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -2263,14 +2263,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.EnrichCanonicalActorTx_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.DiscoverCanonical",
       "call": 1,
       "expression": "`SELECT k.payload,k.height::text,k.transaction_hash FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.block_hash=k.block_hash AND r.height=k.height JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$2 WHERE k.token=$1 AND c.fetch_complete AND c.required_decode_complete`",
-      "line": 240,
+      "line": 242,
       "sql": "SELECT k.payload,k.height::text,k.transaction_hash FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.block_hash=k.block_hash AND r.height=k.height JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$2 WHERE k.token=$1 AND c.fetch_complete AND c.required_decode_complete",
       "kind": "SELECT",
       "tables": [
@@ -2300,15 +2300,38 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.DiscoverCanonical",
       "call": 2,
-      "expression": "\"UPDATE \"+r.schema+\".tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR (expected_initial_supply=$2::numeric AND creation_transaction_hash=$3))\"",
-      "line": 262,
-      "sql": "UPDATE stats_transfer_holdings.tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR (expected_initial_supply=$2::numeric AND creation_transaction_hash=$3))",
+      "expression": "\"SELECT COALESCE(expected_initial_supply=$2::numeric AND creation_transaction_hash=$3,false),expected_initial_supply IS NULL OR creation_transaction_hash IS NULL FROM \"+r.schema+\".tokens WHERE token=$1\"",
+      "line": 266,
+      "sql": "SELECT COALESCE(expected_initial_supply=$2::numeric AND creation_transaction_hash=$3,false),expected_initial_supply IS NULL OR creation_transaction_hash IS NULL FROM stats_transfer_holdings.tokens WHERE token=$1",
+      "kind": "SELECT",
+      "tables": [
+        "stats_transfer_holdings.tokens"
+      ],
+      "columns": [
+        "creation_transaction_hash",
+        "expected_initial_supply",
+        "token"
+      ],
+      "functions": [
+        "coalesce"
+      ],
+      "sequences": [],
+      "id": "holdings_ingestion_Repository.DiscoverCanonical_2",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
+      "function": "Repository.DiscoverCanonical",
+      "call": 3,
+      "expression": "\"UPDATE \"+r.schema+\".tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR creation_transaction_hash IS NULL) AND (expected_initial_supply IS NULL OR expected_initial_supply=$2::numeric) AND (creation_transaction_hash IS NULL OR creation_transaction_hash=$3)\"",
+      "line": 275,
+      "sql": "UPDATE stats_transfer_holdings.tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR creation_transaction_hash IS NULL) AND (expected_initial_supply IS NULL OR expected_initial_supply=$2::numeric) AND (creation_transaction_hash IS NULL OR creation_transaction_hash=$3)",
       "kind": "UPDATE",
       "tables": [
         "stats_transfer_holdings.tokens"
@@ -2320,15 +2343,36 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.DiscoverCanonical_2",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.DiscoverCanonical_3",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.DiscoverCanonical",
+      "call": 4,
+      "expression": "\"SELECT expected_initial_supply=$2::numeric AND creation_transaction_hash=$3 FROM \"+r.schema+\".tokens WHERE token=$1\"",
+      "line": 280,
+      "sql": "SELECT expected_initial_supply=$2::numeric AND creation_transaction_hash=$3 FROM stats_transfer_holdings.tokens WHERE token=$1",
+      "kind": "SELECT",
+      "tables": [
+        "stats_transfer_holdings.tokens"
+      ],
+      "columns": [
+        "creation_transaction_hash",
+        "expected_initial_supply",
+        "token"
+      ],
+      "functions": [],
+      "sequences": [],
+      "id": "holdings_ingestion_Repository.DiscoverCanonical_4",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 1,
       "expression": "\"SELECT creation_height::text,last_event,revision,coverage FROM \"+r.schema+\".tokens WHERE token=$1 FOR UPDATE\"",
-      "line": 298,
+      "line": 350,
       "sql": "SELECT creation_height::text,last_event,revision,coverage FROM stats_transfer_holdings.tokens WHERE token=$1 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -2343,15 +2387,15 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_1",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 2,
       "expression": "\"SELECT typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1\"",
-      "line": 306,
+      "line": 358,
       "sql": "SELECT typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -2364,34 +2408,15 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_2",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_2",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 3,
-      "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='incomplete' WHERE token=$1\"",
-      "line": 320,
-      "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='incomplete' WHERE token=$1",
-      "kind": "UPDATE",
-      "tables": [
-        "stats_transfer_holdings.tokens"
-      ],
-      "columns": [
-        "token"
-      ],
-      "functions": [],
-      "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_3",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
-      "call": 4,
       "expression": "`SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY height,transaction_index,log_index LIMIT $7`",
-      "line": 335,
+      "line": 385,
       "sql": "SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY height,transaction_index,log_index LIMIT $7",
       "kind": "SELECT",
       "tables": [
@@ -2411,15 +2436,34 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_4",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_3",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
+      "call": 4,
+      "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='incomplete' WHERE token=$1\"",
+      "line": 407,
+      "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='incomplete' WHERE token=$1",
+      "kind": "UPDATE",
+      "tables": [
+        "stats_transfer_holdings.tokens"
+      ],
+      "columns": [
+        "token"
+      ],
+      "functions": [],
+      "sequences": [],
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_4",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 5,
       "expression": "\"SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2::numeric AND $3 AND fetch_complete AND required_decode_complete\"",
-      "line": 374,
+      "line": 431,
       "sql": "SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2::numeric AND $3 AND fetch_complete AND required_decode_complete",
       "kind": "SELECT",
       "tables": [
@@ -2436,15 +2480,15 @@
         "count"
       ],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_5",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_5",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 6,
       "expression": "\"SELECT t.expected_initial_supply IS NOT NULL AND t.expected_initial_supply=COALESCE((SELECT sum(CASE WHEN x.from_address=$2 THEN x.amount_raw WHEN x.to_address=$2 THEN -x.amount_raw ELSE 0 END) FROM indexer.indexer_token_transfers_v1 x WHERE x.chain_id=125 AND x.token=t.token AND x.transaction_hash=t.creation_transaction_hash),0) FROM \"+r.schema+\".tokens t WHERE t.token=$1\"",
-      "line": 382,
+      "line": 439,
       "sql": "SELECT t.expected_initial_supply IS NOT NULL AND t.expected_initial_supply=COALESCE((SELECT sum(CASE WHEN x.from_address=$2 THEN x.amount_raw WHEN x.to_address=$2 THEN -x.amount_raw ELSE 0 END) FROM indexer.indexer_token_transfers_v1 x WHERE x.chain_id=125 AND x.token=t.token AND x.transaction_hash=t.creation_transaction_hash),0) FROM stats_transfer_holdings.tokens t WHERE t.token=$1",
       "kind": "SELECT",
       "tables": [
@@ -2466,16 +2510,16 @@
         "sum"
       ],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_6",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_6",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 7,
-      "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='complete' WHERE token=$1\"",
-      "line": 386,
-      "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='complete' WHERE token=$1",
+      "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage=$2 WHERE token=$1\"",
+      "line": 448,
+      "sql": "UPDATE stats_transfer_holdings.tokens SET coverage=$2 WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
         "stats_transfer_holdings.tokens"
@@ -2485,15 +2529,15 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_7",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_7",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 8,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET revision=revision+1 WHERE token=$1 RETURNING revision\"",
-      "line": 394,
+      "line": 453,
       "sql": "UPDATE stats_transfer_holdings.tokens SET revision=revision+1 WHERE token=$1 RETURNING revision",
       "kind": "UPDATE",
       "tables": [
@@ -2505,15 +2549,15 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_8",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_8",
+      "source_sha256": "f0d2896b0ccc6c0b130b5000cc449d581d069fa43fd49638f503a8fa8d98efbd"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.Discover",
       "call": 1,
       "expression": "\"INSERT INTO \"+r.schema+\".tokens(token,decimals,creation_height,coverage) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING\"",
-      "line": 75,
+      "line": 76,
       "sql": "INSERT INTO stats_transfer_holdings.tokens(token,decimals,creation_height,coverage) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -2523,14 +2567,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.Discover_1",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.Discover",
       "call": 2,
       "expression": "\"SELECT decimals,creation_height::text FROM \"+r.schema+\".tokens WHERE token=$1\"",
-      "line": 82,
+      "line": 83,
       "sql": "SELECT decimals,creation_height::text FROM stats_transfer_holdings.tokens WHERE token=$1",
       "kind": "SELECT",
       "tables": [
@@ -2544,14 +2588,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.Discover_2",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 1,
       "expression": "\"SELECT supply::text,creation_height::text,revision,coverage,last_event FROM \"+r.schema+\".tokens WHERE token=$1 FOR UPDATE\"",
-      "line": 147,
+      "line": 148,
       "sql": "SELECT supply::text,creation_height::text,revision,coverage,last_event FROM stats_transfer_holdings.tokens WHERE token=$1 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -2568,14 +2612,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_1",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 2,
       "expression": "\"SELECT digest,revision FROM \"+r.schema+\".transfers WHERE identity=$1\"",
-      "line": 156,
+      "line": 157,
       "sql": "SELECT digest,revision FROM stats_transfer_holdings.transfers WHERE identity=$1",
       "kind": "SELECT",
       "tables": [
@@ -2589,14 +2633,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_2",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 3,
       "expression": "\"SELECT balance::text FROM \"+r.schema+\".balances WHERE token=$1 AND address=$2\"",
-      "line": 194,
+      "line": 195,
       "sql": "SELECT balance::text FROM stats_transfer_holdings.balances WHERE token=$1 AND address=$2",
       "kind": "SELECT",
       "tables": [
@@ -2610,14 +2654,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_3",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 4,
       "expression": "\"INSERT INTO \"+r.schema+\".incidents(identity,token,event,reason) VALUES($1,$2,$3,'underflow_or_overflow') ON CONFLICT DO NOTHING\"",
-      "line": 211,
+      "line": 212,
       "sql": "INSERT INTO stats_transfer_holdings.incidents(identity,token,event,reason) VALUES($1,$2,$3,'underflow_or_overflow') ON CONFLICT DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -2627,14 +2671,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_4",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 5,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='quarantined' WHERE token=$1\"",
-      "line": 215,
+      "line": 216,
       "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='quarantined' WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2646,14 +2690,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_5",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 6,
       "expression": "\"DELETE FROM \"+r.schema+\".balances WHERE token=$1 AND address=$2\"",
-      "line": 234,
+      "line": 235,
       "sql": "DELETE FROM stats_transfer_holdings.balances WHERE token=$1 AND address=$2",
       "kind": "DELETE",
       "tables": [
@@ -2666,14 +2710,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_6",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 7,
       "expression": "\"INSERT INTO \"+r.schema+\".balances(token,address,balance,category,classification_version) VALUES($1,$2,$3,COALESCE((SELECT category FROM \"+r.schema+\".classifications WHERE token=$1 AND address=$2),'unknown'),COALESCE((SELECT version FROM \"+r.schema+\".classifications WHERE token=$1 AND address=$2),0)) ON CONFLICT(token,address) DO UPDATE SET balance=excluded.balance\"",
-      "line": 237,
+      "line": 238,
       "sql": "INSERT INTO stats_transfer_holdings.balances(token,address,balance,category,classification_version) VALUES($1,$2,$3,COALESCE((SELECT category FROM stats_transfer_holdings.classifications WHERE token=$1 AND address=$2),'unknown'),COALESCE((SELECT version FROM stats_transfer_holdings.classifications WHERE token=$1 AND address=$2),0)) ON CONFLICT(token,address) DO UPDATE SET balance=excluded.balance",
       "kind": "INSERT",
       "tables": [
@@ -2690,14 +2734,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_7",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 8,
       "expression": "\"INSERT INTO \"+r.schema+\".transfers(identity,token,digest,event,revision) VALUES($1,$2,$3,$4,$5)\"",
-      "line": 249,
+      "line": 250,
       "sql": "INSERT INTO stats_transfer_holdings.transfers(identity,token,digest,event,revision) VALUES($1,$2,$3,$4,$5)",
       "kind": "INSERT",
       "tables": [
@@ -2707,14 +2751,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_8",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 9,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET supply=$2,revision=$3,first_event=COALESCE(first_event,$4),last_event=$4 WHERE token=$1\"",
-      "line": 252,
+      "line": 253,
       "sql": "UPDATE stats_transfer_holdings.tokens SET supply=$2,revision=$3,first_event=COALESCE(first_event,$4),last_event=$4 WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2727,14 +2771,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_9",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 10,
       "expression": "\"INSERT INTO \"+r.schema+\".provenance(identity,payload) VALUES($1,$2)\"",
-      "line": 260,
+      "line": 261,
       "sql": "INSERT INTO stats_transfer_holdings.provenance(identity,payload) VALUES($1,$2)",
       "kind": "INSERT",
       "tables": [
@@ -2744,14 +2788,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_10",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.Snapshot",
       "call": 1,
       "expression": "\"SELECT decimals,supply::text,coverage,revision,last_event FROM \"+r.schema+\".tokens WHERE token=$1\"",
-      "line": 294,
+      "line": 295,
       "sql": "SELECT decimals,supply::text,coverage,revision,last_event FROM stats_transfer_holdings.tokens WHERE token=$1",
       "kind": "SELECT",
       "tables": [
@@ -2768,14 +2812,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.Snapshot_1",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.Snapshot",
       "call": 2,
       "expression": "\"SELECT address,balance::text,category FROM \"+r.schema+\".balances b WHERE token=$1 ORDER BY b.balance DESC,address ASC LIMIT $2\"",
-      "line": 307,
+      "line": 308,
       "sql": "SELECT address,balance::text,category FROM stats_transfer_holdings.balances b WHERE token=$1 ORDER BY b.balance DESC,address ASC LIMIT $2",
       "kind": "SELECT",
       "tables": [
@@ -2791,7 +2835,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.Snapshot_2",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/replay.go",

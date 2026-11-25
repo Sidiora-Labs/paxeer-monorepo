@@ -51,6 +51,12 @@ func (c CanonicalCandleClient) Read(ctx context.Context, r HistoryRequest) (Cano
 		if err = boundedChartJSON(ctx, c.Client, base.String(), &response, "CandlesResponse"); err != nil {
 			return out, err
 		}
+		if page == 0 && len(response.Data.Items) == 0 && response.Watermark == nil && response.Revision == nil && response.NextCursor == nil && response.Quality != "stale" && response.Quality != "quarantined" {
+			out.SnapshotID = response.Data.SnapshotId
+			out.Algorithm = response.Data.SeriesModelVersion
+			out.Complete = false
+			return out, nil
+		}
 		if response.Watermark == nil || response.Watermark.ChainId != "125" || response.Watermark.Integrity != "healthy" || response.Revision == nil || response.Quality == "quarantined" || response.Quality == "stale" {
 			return out, errors.New("canonical history not healthy")
 		}

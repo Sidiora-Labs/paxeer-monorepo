@@ -303,7 +303,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if e != nil {
 			return nil, e
 		}
-		httpapi.RegisterProductionUDF(router, httpapi.SymbolsHandler{Canonical: &httpapi.CanonicalPoolMetadataSource{Pool: pool, Chain: &chainread.Reader{RPC: rpc}}, DisplayPrecision: features.DisplayPrecision}, httpapi.ProductionHistoryHandler{Source: httpapi.CanonicalCandleClient{Endpoint: features.CanonicalAPIOrigin}, Supply: &httpapi.RPCSupplySource{Chain: &chainread.Reader{RPC: rpc}}, Cache: historyCache, Algorithm: features.CanonicalSeriesModel})
+		httpapi.RegisterProductionUDF(router, httpapi.SymbolsHandler{Canonical: &httpapi.CanonicalPoolMetadataSource{Pool: pool, Chain: &chainread.Reader{RPC: rpc}}, DisplayPrecision: features.DisplayPrecision}, httpapi.ProductionHistoryHandler{Logger: logger, Source: httpapi.CanonicalCandleClient{Endpoint: features.CanonicalAPIOrigin}, Supply: &httpapi.RPCSupplySource{Chain: &chainread.Reader{RPC: rpc}}, Cache: historyCache, Algorithm: features.CanonicalSeriesModel})
 		if e = httpapi.RegisterReplayGateway(router, features.ReplayGatewayOrigin); e != nil {
 			return nil, e
 		}
