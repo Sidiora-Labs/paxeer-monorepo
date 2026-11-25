@@ -212920,7 +212920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1189]
 title = "Give the runtime role of the stats service the read right on the column factory of the view of the canonical creations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
