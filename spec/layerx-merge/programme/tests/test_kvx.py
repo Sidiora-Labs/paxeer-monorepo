@@ -13,7 +13,7 @@ def test_loads_workflow_sections(tmp_path: Path) -> None:
     assert sections["limits"]["max_task_minutes"] == 30
     assert sections["limits"]["max_gate_runs_per_task"] == 1
     assert sections["meta"]["active_feature"] == "layerx-merge"
-    assert sections["status_values"]["task"] == ["pending", "in_progress", "done"]
+    assert sections["status_values"]["task"] == ["pending", "in_progress", "done", "superseded", "blocked"]
     assert sections["render"]["markdown_mirror"] is False
     assert sections["hierarchy"]["enabled"] is True
     assert 'cg commit -m "Specgen re-render"' in sections["meta"]["source_of_truth"]

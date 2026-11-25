@@ -167,6 +167,59 @@ fn run(root: &Path, args: &[&str]) {
     assert!(output.status.success(), "certificate generation failed");
 }
 
+pub fn readiness_listener(root: &Path, chain_id: &str, network_id: u64) -> Listener {
+    use layerx_platform_internal::http;
+
+    let certificate = fs::read(root.join("cert.der"))
+        .unwrap_or_else(|error| panic!("read readiness certificate: {error}"));
+    let tls = Tls::server_config(root, certificate);
+    let token = Zeroizing::new(
+        fs::read_to_string(root.join("NODE_TOKEN"))
+            .unwrap_or_else(|error| panic!("read readiness bearer: {error}")),
+    );
+    let chain_id = chain_id.to_owned();
+    Listener::start(tls, 0, move |stream| {
+        let Ok(request) = http::parse_client_request(stream) else {
+            return;
+        };
+        let response = if !request.bearer_matches(&token) {
+            http::refusal(401, "unauthorized", None)
+        } else if request.method != "POST" || request.path != "/" {
+            http::refusal(404, "not_found", None)
+        } else {
+            let reply = match serde_json::from_slice::<serde_json::Value>(&request.body) {
+                Ok(rpc) => {
+                    let id = rpc.get("id").cloned().unwrap_or(serde_json::Value::Null);
+                    if rpc["jsonrpc"] != "2.0" || !rpc["method"].is_string() {
+                        serde_json::json!({"jsonrpc": "2.0", "id": id,
+                            "error": {"code": -32600, "message": "Invalid Request"}})
+                    } else {
+                        match rpc["method"].as_str() {
+                            Some("eth_chainId") => serde_json::json!({
+                                "jsonrpc": "2.0", "id": id,
+                                "result": format!("{network_id:#x}"),
+                            }),
+                            Some("status") => serde_json::json!({
+                                "jsonrpc": "2.0", "id": id,
+                                "result": {
+                                    "node_info": {"network": chain_id},
+                                    "sync_info": {"catching_up": false},
+                                },
+                            }),
+                            _ => serde_json::json!({"jsonrpc": "2.0", "id": id,
+                                "error": {"code": -32601, "message": "Method not found"}}),
+                        }
+                    }
+                }
+                Err(_) => serde_json::json!({"jsonrpc": "2.0", "id": null,
+                    "error": {"code": -32700, "message": "Parse error"}}),
+            };
+            http::json(200, &reply)
+        };
+        let _ = http::write_response(stream, &response);
+    })
+}
+
 pub struct Listener {
     pub port: u16,
     stop: Arc<AtomicBool>,

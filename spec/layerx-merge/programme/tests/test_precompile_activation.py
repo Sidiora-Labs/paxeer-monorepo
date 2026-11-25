@@ -70,7 +70,7 @@ def test_merge_gate_lists_twelve_addresses() -> None:
     expected_rows = {}
     for gate, expected_plan, count in (
         ("activationPrecompileGate", "v6.9", 8),
-        ("mergePrecompileGate", "v7.0", 12),
+        ("mergePrecompileGate", "v7.0", 13),
     ):
         plan, addresses = _gate(gate)
         assert plan == expected_plan
@@ -89,10 +89,10 @@ def test_merge_gate_lists_twelve_addresses() -> None:
         for section, row in rows.items()
         if row["plan"] == "v7.0"
     }
-    expected = {f"0x{value:04X}" for value in range(0x101A, 0x101E)} | {
+    expected = {f"0x{value:04X}" for value in range(0x101A, 0x101F)} | {
         f"0x{value:04X}" for value in range(0x0901, 0x0909)
     }
-    assert len(merge_rows) == 12
+    assert len(merge_rows) == 13
     assert set(merge_rows) == expected
     setup = (ROOT / "precompiles/setup.go").read_text(encoding="utf-8")
     table = re.search(
@@ -100,7 +100,7 @@ def test_merge_gate_lists_twelve_addresses() -> None:
     )
     assert table is not None
     table_addresses = re.findall(r'HexToAddress\("(0x[0-9A-Fa-f]+)"\)', table.group(1))
-    assert len(table_addresses) == 12
+    assert len(table_addresses) == 13
     assert {_address(address) for address in table_addresses} == expected
     for row in merge_rows.values():
         assert row["served_at_head"] is False

@@ -58,7 +58,8 @@ def decode_ramp_response(status, raw, path):
                 or not isinstance(document.get('presentation'), dict)):
             raise ValueError('Malformed ramp work result')
     elif path.startswith('/internal/v1/rebalances'):
-        if (document.get('settlement_domain') != 'paxeer'
+        if (type(document.get('chain_id')) is not int
+                or document['chain_id'] <= 0
                 or document.get('status') not in ('submission_planned', 'submitted', 'receipted', 'committed')
                 or not isinstance(document.get('idempotency_key'), list)
                 or len(document['idempotency_key']) != 32

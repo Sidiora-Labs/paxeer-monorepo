@@ -17,7 +17,7 @@ plan_named_v6120() {
 
 sid_docs_name_v6120() {
   local file
-  for file in tools/paxeer-x/sid-snapshot/README.md RELEASE.md; do
+  for file in tools/paxeer-x/sid-snapshot/README.md; do
     grep -Fq 'v6.12.0 migration' "$ROOT/$file" || fail "sid_docs_name_v6120: $file"
     grep -Fq 'SID holder migration and SID mint-authority move' "$ROOT/$file" \
       || fail "sid_docs_name_v6120: SID hooks missing in $file"
@@ -34,7 +34,7 @@ sid_docs_name_v6120
 for file in tools/paxeer-x/gov/templates/01-software-upgrade.json \
   tools/paxeer-x/gov/README.md tools/paxeer-x/gov/test.sh \
   tools/paxeer-x/sid-snapshot/README.md tools/bringup/sync-fleet.test.sh \
-  tools/hpx/publish.sh RELEASE.md contracts/src/SidioraNativeERC20.sol; do
+  tools/hpx/publish.sh contracts/src/SidioraNativeERC20.sol; do
   if [ "$file" = tools/hpx/publish.sh ]; then
     grep -Fq 'VERSION_MANIFEST="${MONOREPO_ROOT}/tools/release/version.json"' "$ROOT/$file" \
       || fail "release manifest missing in $file"

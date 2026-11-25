@@ -375,6 +375,7 @@ for attempt in range(2):
     code, pending = request(lookup, token=token)
     assert code == 200 and pending['idempotency_key'] == key
     assert pending['asset'] == [1] * 32 and pending['amount'] == 100
+    assert pending['chain_id'] == 125
     assert pending['status'] == 'submission_planned' and pending['operation_id'] is None
     assert pending['transaction_hash'] is None and pending['rung'] is None
     assert request()[1]['journal']['record_count'] == 1
@@ -394,7 +395,7 @@ for attempt in range(2):
         'operation_id': 'unknown-operation', 'transaction_hash': '0x' + '08' * 32}, token) == (
         409, {'error': 'operation_conflict'})
 
-for field, invalid in [('idempotency_key', [7]), ('status', None), ('settlement_domain', 'layerx')]:
+for field, invalid in [('idempotency_key', [7]), ('status', None), ('chain_id', True)]:
     try:
         decode(200, json.dumps(dict(pending, **{field: invalid})).encode(), lookup)
     except ValueError:
@@ -482,12 +483,10 @@ for _ in range(2):
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 const { default: config } = await import(pathToFileURL(process.argv[1]));
-delete process.env.LAYERX_HUMAN_SERVICE_URL;
-assert.deepEqual(await config.rewrites(), []);
-process.env.LAYERX_HUMAN_SERVICE_URL = 'https://human.example.test';
 const rules = await config.rewrites();
+assert.equal(rules.length, 3);
 assert.deepEqual(rules.find(rule => rule.source === '/readyz'), {
-    source: '/readyz', destination: 'https://human.example.test/readyz'
+    source: '/readyz', destination: '/api/human/readyz'
 });
 assert(!rules.some(rule => rule.source.startsWith('/internal/')));
 assert.deepEqual((await config.headers()).find(rule => rule.source === '/readyz').headers,

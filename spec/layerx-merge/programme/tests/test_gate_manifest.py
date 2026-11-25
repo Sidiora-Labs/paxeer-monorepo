@@ -11,6 +11,7 @@ WAVES = [*map(str, range(7)), "programme"]
 
 def test_manifest_names_every_wave() -> None:
     manifest = load(MANIFEST)
+    assert manifest.pop("meta") == {"format_version": 1}
     assert set(manifest) == {f"wave.{n}" for n in WAVES}
     closing_anchors = {"0": 1, "2": 2, "4": 3, "5": 4}
     for n in WAVES:

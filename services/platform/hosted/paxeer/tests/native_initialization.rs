@@ -487,7 +487,7 @@ fn committed_chain_evidence_and_validators() {
         .checked();
     assert_eq!(
         validators["params"],
-        json!({"height":"23_869_863", "page":"1", "per_page":"100"})
+        json!({"height":"23869863", "page":"1", "per_page":"100"})
     );
     assert!(!String::from_utf8(output).checked().contains("guarantor"));
 }

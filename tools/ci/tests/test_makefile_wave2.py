@@ -96,14 +96,8 @@ class MakefileWaveTwoTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         declared, included = (set(line.split()) for line in result.stdout.splitlines())
         # Projection stays out of the native library; the node owns projection.
-        # Oracle adapter/root are retired: native pricefeed/oracle reads replace them.
-        # DA challenges belong to the retired guarantor/checkpoint execution domain.
         expected = {
             "src/storage/lxp_projection.c",
-            "src/network/lx_oracle_adapter.c",
-            "src/sequencer/lx_oracle_root.c",
-            "src/paxeer/lxp_da_challenge_record.c",
-            "src/guarantor/lxp_da_challenge.c",
         }
         self.assertEqual(declared, expected)
         sources = {str(path.relative_to(ROOT)) for path in (ROOT / "src").rglob("*.c")}
