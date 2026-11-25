@@ -148,6 +148,8 @@ func (h AccountingV2Handler) cursor(r store.AccountingPageRequest, candles bool,
 	r.CursorExpires = int64(expiry)
 	r.SnapshotObservedAt = time.UnixMilli(int64(observed)).UTC().Format("2006-01-02T15:04:05.000Z")
 	value := int64(boundary)
+	pinned := int64(upper)
+	r.SnapshotSequence = &pinned
 	if candles {
 		if value > 253402300799 || value*1000 < r.From || value*1000 >= r.To {
 			return invalid()
@@ -158,8 +160,6 @@ func (h AccountingV2Handler) cursor(r store.AccountingPageRequest, candles bool,
 			return invalid()
 		}
 		r.AfterSequence = &value
-		pinned := int64(upper)
-		r.SnapshotSequence = &pinned
 		height := binary.BigEndian.Uint64(raw[67:75])
 		if height > 9223372036854775807 {
 			return invalid()
