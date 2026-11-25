@@ -333,7 +333,7 @@ func TestLiveWalletIncrementalEnrollmentRestart(t *testing.T) {
 		if changed, e := worker.processWallet(ctx, p.Wallet); e != nil || !changed {
 			t.Fatal(pass, changed, e)
 		}
-		if pages := len(primary.pages) - before; pages > int(liveEnrollmentPages) {
+		if pages := len(primary.pages) - before; pages > int(liveEnrollmentPages*10000/liveLogRangeBlocks) {
 			t.Fatalf("pass %d read %d pages", pass, pages)
 		}
 		if err = admin.QueryRow(ctx, `SELECT accepted_height FROM pnl.inventory_l16_live_owners_v1 WHERE wallet=$1`, p.Wallet).Scan(&accepted); err != nil {
