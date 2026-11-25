@@ -16984,6 +16984,12 @@ value = "One. The paths of task 22.39.1179 gain the file tools/qualification/aud
 basis = "Gotcha 4905."
 affects = []
 
+[decision.3979]
+title = "Task 22.39.1180 brings the case of the package internal/rest in step with decision 3966"
+value = "One. The answer of decision 3966 point one stands. No file under the packages internal/broker, internal/ws and internal/sse of the api changes for this decision. Two. Task 22.39.1180 changes the case TestTopicNotStartedProductionSnapshots of services/launchpad/api/internal/rest/topic_not_started_test.go: its request with one started and one waiting topic expects the status 200 and one entry, the started topic, compared by name in the form of services/launchpad/api/internal/ws/topic_not_started_test.go. The requests of the case without a started topic keep the status 404 with the code TOPIC_NOT_STARTED, and its other assertions stay. Three. A later task that changes the answer of a route or of an exported function names in its steps every case of the tree that asserts the earlier answer and holds the files of those cases in its paths. No new task."
+basis = "Gotcha 4906."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -213284,7 +213290,7 @@ capabilities = ["22.39.1180"]
 interfaces = []
 do_1 = "do_1 Gotcha 4891, decision 3964. Read the functions verifyCheckpoint, vector, untradedPage, snapshot, Candles and Trades of services/launchpad/api/internal/store/accounting_readmodel.go, the function accountingRuntimeError of services/launchpad/api/internal/cache/accounting_runtime.go, the fixture under services/launchpad/api/internal/store/accountingtest and the rows of services/launchpad/api/internal/rolecheck/statements.json for services/launchpad/api/internal/store/accounting_readmodel.go."
 do_2 = "do_2 Change the function snapshot under decision 3964 points one and two. Points three to five hold."
-do_3 = "do_3 Write the cases under point six and bring the records under point seven in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside the paths of point seven changes."
+do_3 = "do_3 Write the cases under point six and bring the records under point seven in step. The final message names each changed line, any point that cannot be held in this form and any remaining question. No file outside the paths of point seven changes. Decision 3979: bring the case TestTopicNotStartedProductionSnapshots of services/launchpad/api/internal/rest/topic_not_started_test.go in step with decision 3966 point one. Its request with one started and one waiting topic expects the status 200 and one entry, the started topic. The other assertions of the case stay."
 do_4 = "do_4 Run the verification. Point eight holds. The cases need the PostgreSQL of the test environment, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
 symbols = []
 touches = ["services/launchpad/api/internal/store", "services/launchpad/api/internal/cache", "services/launchpad/api/internal/rest", "services/launchpad/api/internal/rolecheck"]
@@ -213368,7 +213374,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1177]
 title = "Let the stats consumer bootstrap a pool from the canonical creation record of the pool and prove it from the indexed records before the lease"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
