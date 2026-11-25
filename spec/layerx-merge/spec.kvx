@@ -17032,6 +17032,12 @@ value = "One. A new migration of the schema indexer adds the index or the indexe
 basis = "Gotcha 4912."
 affects = []
 
+[decision.3987]
+title = "The ranking judges an open fill pool by pool, a contradiction still refuses the run"
+value = "One. A fill of the source at or below the cutoff height for which stats holds no commit under the same source fill id and the projection version of the run is an open fill of its pool. An open fill refuses no run. Two. A pool without an open fill is read as today. A pool with open fills is read from the commits stats holds, as the universe statement reads them today, and its candidate carries as its source observation time the time of the block of its oldest open fill less one second, and never a time after the completion time of the cutoff block. The policy of each list then decides as it does today (services/launchpad/ranking-algo/internal/ranker/snapshot.go line 318): within the freshness bound of the list the pool is ranked from the figures stats holds, and beyond the bound it is left out of the list with the reason source-stale, while every other pool is ranked. The source revision of the candidate and the type Candidate stay as they are. Three. A contradiction refuses the run at the step coherence with the class validation as today: a fill of the source at or below the cutoff height that stats has committed under the same source fill id with another digest or another payload, and a commit of stats at or below the cutoff height whose fill the source does not hold or holds with another digest or another payload. A frozen accounting fence refuses the run as today (gotcha 4913 part six). Four. The watermark, the lease, the block of the cutoff, the visibility and the evidence are read and judged as today, and the input still names itself complete. The readiness function, the freshness bounds, the policies and the published form of the lists do not change. Five. Where the service holds a metrics registry, the count of pools with open fills of the last run of each kind is a gauge of it. The log line of a refused run stays as it is. Six. Cases with the name prefix TestProductionUniverseOpenFills in the package internal/store, on a real PostgreSQL with the helpers of services/launchpad/ranking-algo/internal/store/production_universe_test.go. Case a: two pools with commits, one of them with one more fill that stats has not committed and whose block time lies ten seconds before the cutoff. The freeze succeeds, both pools are candidates, the candidate of the pool with the open fill carries the figures of its commits and the observation time of point two, and the candidate of the other pool carries the completion time of the cutoff block. Case b: the same with a block time of the open fill 120 seconds before the cutoff. The freeze succeeds, and in the lists built from it the pool with the open fill is left out with the reason source-stale while the other pool is ranked. Case c: after stats commits the open fill of case b, the next freeze gives the pool the completion time of the cutoff block and the lists rank it. Case d: three sub cases of point three, each refused at the step coherence with the class validation: a commit of stats with another digest than its fill, a commit of stats with another payload than its fill, and a commit of stats whose fill the source does not hold. Case e: one frozen fence refuses the run as today. Case f: a pool with three open fills carries the time of the oldest. Case g: 1,000 pools of which 400 have an open fill younger than the bound: the freeze succeeds with 1,000 candidates in less than five seconds. The case TestProductionUniverseRejectsIncoherentProjection takes the form of the new rule in the same file: its fill without a commit no longer refuses the run and its candidate carries the observation time of point two, and the comment above the case says so. The cases of services/launchpad/ranking-algo/internal/app/refresh_refusal_step_test.go and every other present case stay word for word and pass. No case gains a skip mark. Seven. The entry input.coherence of services/launchpad/ranking-algo/internal/rolecheck/inventory.go (line 55) follows the statement or the statements of the new read, with the rights the ranking role holds today: the columns of the views indexer.indexer_accounting_fills_v1 (migrations/60000.sql line 34), stats.accounting_market_commits_v2 and stats.accounting_pool_fences_v2. No migration, no right and no file outside services/launchpad/ranking-algo changes. Where the block time of a fill cannot be read with those rights, the final message says so and the task takes the nearest time those rights give, never one later than the true block time. Eight. The final message names the statement or the statements of the new read, from where the time of an open fill is taken, the plan of the read on the data of case g, each changed case with its reason, and any point that cannot be held in this form. Nine. Target: the verification of task 22.39.1188 passes. It runs the lint stage of the ranking module, the cases of its packages internal/store, internal/ranker, internal/app and internal/rolecheck, and requires a case with the name prefix TestProductionUniverseOpenFills in the package internal/store. Task 22.39.1188. "
+basis = "Gotcha 4913."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46692,6 +46698,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1188]
+title = "Let the ranking judge an open fill pool by pool instead of refusing its whole refresh"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=ranking-algo && (cd services/launchpad/ranking-algo && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/store/... ./internal/ranker/... ./internal/app/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestProductionUniverseOpenFills ./internal/store/ | grep -q ^TestProductionUniverseOpenFills)"
+do_1 = "do_1 Gotcha 4913, decision 3987. Read the function ReadRankingUniverseTxDetailed of services/launchpad/ranking-algo/internal/store/frozen_inputs.go from line 140 with the statement at line 190 and the line 230 that sets the observation time of a candidate, the function universeQuery of the same file, the switch of the reasons around line 318 of services/launchpad/ranking-algo/internal/ranker/snapshot.go, the helpers and the case at line 564 of services/launchpad/ranking-algo/internal/store/production_universe_test.go, the entry at line 55 of services/launchpad/ranking-algo/internal/rolecheck/inventory.go, and the views of migrations/60000.sql line 34 and migrations/130001.sql line 5."
+symbols = []
 
 [capability.22.39.1187]
 title = "Let the reads of the source commits by height use an index and let the step statement of the stats proof cost in proportion to its step"
@@ -212838,6 +212853,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1188]
+title = "Let the ranking judge an open fill pool by pool instead of refusing its whole refresh"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1188"]
+interfaces = []
+do_1 = "do_1 Gotcha 4913, decision 3987. Read the function ReadRankingUniverseTxDetailed of services/launchpad/ranking-algo/internal/store/frozen_inputs.go from line 140 with the statement at line 190 and the line 230 that sets the observation time of a candidate, the function universeQuery of the same file, the switch of the reasons around line 318 of services/launchpad/ranking-algo/internal/ranker/snapshot.go, the helpers and the case at line 564 of services/launchpad/ranking-algo/internal/store/production_universe_test.go, the entry at line 55 of services/launchpad/ranking-algo/internal/rolecheck/inventory.go, and the views of migrations/60000.sql line 34 and migrations/130001.sql line 5."
+do_2 = "do_2 Write the cases d and e of decision 3987 point six first: they hold today and stay passing while the read changes. Then bring the read into the form of points one to four, write the cases a, b, c, f and g, bring the present case into its new form, and hold points five and seven."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point nine holds. The cases need the PostgreSQL of the test environment, which the variables of the packages name. Do not run the formatter over a whole existing file: format only the lines you changed. Point eight holds for the final message. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=ranking-algo && (cd services/launchpad/ranking-algo && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/store/... ./internal/ranker/... ./internal/app/... ./internal/rolecheck/... && GOWORK=off go test -count=1 -list ^TestProductionUniverseOpenFills ./internal/store/ | grep -q ^TestProductionUniverseOpenFills)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

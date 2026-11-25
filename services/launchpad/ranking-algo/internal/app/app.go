@@ -583,7 +583,9 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		sharedhttp.WriteJSON(w, 200, raw)
 	})
 	if metrics != nil {
-		router.Handle(metricsPath, metrics)
+		rankingMetrics := &openFillMetrics{reads: metrics}
+		native.coordinator.ObserveOpenFillPools = rankingMetrics.observe
+		router.Handle(metricsPath, rankingMetrics)
 	}
 	if err = tracker.SetReady(); err != nil {
 		return nil, err

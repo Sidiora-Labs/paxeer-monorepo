@@ -187,13 +187,15 @@ func (r *CanonicalInputReader) ReadRankingUniverseTxDetailed(ctx context.Context
 		return in, ranker.NewRefreshRefusal("block", "cutoff", ranker.ErrUnavailable)
 	}
 	var coherent bool
-	err = tx.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM `+r.stats("accounting_pool_fences_v2")+` WHERE frozen) AND NOT EXISTS(SELECT 1 FROM `+r.source("indexer_accounting_fills_v1")+` f WHERE (f.payload->'position'->>'height')::numeric<=$2 AND NOT EXISTS(SELECT 1 FROM `+r.stats("accounting_market_commits_v2")+` c WHERE c.projection_version=$1 AND c.source_fill_id=f.source_fill_id AND c.source_fact_digest=f.source_fact_digest AND c.fill=f.payload)) AND NOT EXISTS(SELECT 1 FROM `+r.stats("accounting_market_commits_v2")+` c WHERE c.projection_version=$1 AND (c.fill->'position'->>'height')::numeric<=$2 AND NOT EXISTS(SELECT 1 FROM `+r.source("indexer_accounting_fills_v1")+` f WHERE f.source_fill_id=c.source_fill_id AND f.source_fact_digest=c.source_fact_digest AND f.payload=c.fill))`, r.ProjectionVersion, typed).Scan(&coherent)
+	var openFills map[string]int64
+	err = tx.QueryRow(ctx, r.coherenceQuery(), r.ProjectionVersion, typed).Scan(&coherent, &openFills)
 	if err != nil {
 		return in, err
 	}
 	if !coherent {
 		return in, ranker.NewRefreshRefusal("coherence", "validation", ranker.ErrUnavailable)
 	}
+	in.OpenFillPools = len(openFills)
 	in.CutoffHeight = uint64(typed)
 	revision := strconv.FormatInt(typed, 10)
 	in.Provenance = &ranker.Provenance{Watermark: v1.Watermark{ChainId: "125", Height: v1.UInt256(revision), BlockHash: blockHash, ProjectionRevision: v1.PositiveUInt256(revision), ObservedAt: completed.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}, StatsRevision: r.ProjectionVersion + ":" + revision, ModerationRevision: visibility.Revision, ActivityRevision: ranker.ActivityModelVersion + ":" + revision, WindowStart: cutoff.Unix() - 86400, WindowEnd: cutoff.Unix()}
@@ -228,6 +230,9 @@ func (r *CanonicalInputReader) ReadRankingUniverseTxDetailed(ctx context.Context
 		}
 		c.SourceRevision = in.Provenance.StatsRevision
 		c.SourceObservedAt = completed.Unix()
+		if observed, open := openFills[row.pool]; open {
+			c.SourceObservedAt = min(c.SourceObservedAt, observed)
+		}
 		c.ModerationObservedAt = visibility.ObservedAt.Unix()
 		c.Suppressed = !visible
 		in.Candidates = append(in.Candidates, c)
@@ -243,10 +248,10 @@ func (r *CanonicalInputReader) ReadRankingUniverseTxDetailed(ctx context.Context
 	in.Provenance.UniverseDigest = ranker.CanonicalUniverse(in.Candidates)
 	// Every gate above passed inside one repeatable-read transaction: the
 	// indexer lease is live, raw and typed heights agree, the cutoff block is
-	// fetched and decoded, no accounting fence is frozen, every indexer fill at
-	// or below the cutoff height is committed by stats (and vice versa), and
-	// every canonical pool has a moderation verdict. The universe is therefore
-	// complete at CutoffHeight; per-metric gaps stay in NullableMetrics.
+	// fetched and decoded, no accounting fence is frozen, source fills and stats
+	// commits do not contradict each other, and every canonical pool has a
+	// moderation verdict. Open fills age only their pool's source observation;
+	// per-metric gaps stay in NullableMetrics.
 	in.Complete = true
 	return in, nil
 }
@@ -333,6 +338,23 @@ func (c *HTTPRankingVisibility) ReadRankingVisibility(ctx context.Context) (Rank
 func (c *HTTPRankingVisibility) CurrentRankingRevision(ctx context.Context) (string, time.Time, error) {
 	visibility, err := c.ReadRankingVisibility(ctx)
 	return visibility.Revision, visibility.ObservedAt, err
+}
+
+func (r *CanonicalInputReader) coherenceQuery() string {
+	return `WITH open_fills AS (
+SELECT f.payload->>'poolAddress' pool,MIN((f.payload->>'blockTimestampSeconds')::bigint)-1 observed_at
+FROM ` + r.source("indexer_accounting_fills_v1") + ` f
+WHERE (f.payload->'position'->>'height')::numeric<=$2
+AND NOT EXISTS(SELECT 1 FROM ` + r.stats("accounting_market_commits_v2") + ` c WHERE c.projection_version=$1 AND c.source_fill_id=f.source_fill_id)
+GROUP BY f.payload->>'poolAddress')
+SELECT NOT EXISTS(SELECT 1 FROM ` + r.stats("accounting_pool_fences_v2") + ` WHERE frozen)
+AND NOT EXISTS(SELECT 1 FROM ` + r.source("indexer_accounting_fills_v1") + ` f
+JOIN ` + r.stats("accounting_market_commits_v2") + ` c ON c.projection_version=$1 AND c.source_fill_id=f.source_fill_id
+WHERE (f.payload->'position'->>'height')::numeric<=$2 AND (c.source_fact_digest<>f.source_fact_digest OR c.fill<>f.payload))
+AND NOT EXISTS(SELECT 1 FROM ` + r.stats("accounting_market_commits_v2") + ` c
+WHERE c.projection_version=$1 AND (c.fill->'position'->>'height')::numeric<=$2
+AND NOT EXISTS(SELECT 1 FROM ` + r.source("indexer_accounting_fills_v1") + ` f WHERE f.source_fill_id=c.source_fill_id AND f.source_fact_digest=c.source_fact_digest AND f.payload=c.fill)),
+COALESCE((SELECT jsonb_object_agg(pool,observed_at) FROM open_fills),'{}'::jsonb)`
 }
 
 func (r *CanonicalInputReader) universeQuery() string {
