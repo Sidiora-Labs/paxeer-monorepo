@@ -46,7 +46,7 @@ function ExplorePage() {
           wrap
           title="Coins"
           operation={data.ranking.operation}
-          status={data.ranking.status}
+          status={data.ranking.status} notServed={data.ranking.notServed}
           message={data.ranking.message}
           onRetry={data.reload}
         />

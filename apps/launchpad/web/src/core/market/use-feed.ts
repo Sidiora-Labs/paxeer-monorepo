@@ -1,5 +1,5 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
 import type { OperationInput, V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
@@ -23,7 +23,7 @@ export const feedLimit = 50;
 export function useFeed(order: FeedOrder = 'relevance', cursor: string | null = null, limit: number = feedLimit): Loadable<FeedPage> {
   const operations = useOperations();
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > feedLimit) throw new RangeError('Invalid feed page bound');
-  const query = useQuery({
+  const query = useMarketQuery({
     queryKey: queryKeys.feed(order, cursor, limit),
     queryFn: ({ signal }) => operations.call('IF_CONNECTED_FEED', { query: { order, limit, ...(cursor ? { cursor } : {}) } }, { signal }),
     ...marketCachePolicy.feed,
@@ -35,7 +35,7 @@ export function useFeed(order: FeedOrder = 'relevance', cursor: string | null = 
 export function usePoolCallouts(poolAddress: string | null | undefined, cursor: string | null = null): Loadable<CalloutListResponse> {
   const operations = useGatewayOperations();
   const pool = poolAddress && /^0x[0-9a-fA-F]{40}$/.test(poolAddress) ? poolAddress.toLowerCase() : null;
-  const query = useQuery({
+  const query = useMarketQuery({
     queryKey: queryKeys.poolCallouts(pool ?? '', cursor),
     queryFn: async ({ signal }) => {
       const response = await operations.call('IF_CALLOUT_LIST', { path: { poolAddress: pool as string }, query: { limit: feedLimit, ...(cursor ? { cursor } : {}) } }, { signal });

@@ -70,7 +70,7 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
         </div>
       ) : null}
       {loadable.state === 'unsupported' ? (
-        <UnavailableState title="Submissions" operation={loadable.operation} status={loadable.status} message="Check back soon" className="rounded-lg bg-surface-1" />
+        <UnavailableState title="Submissions" operation={loadable.operation} status={loadable.status} notServed={loadable.notServed} error={loadable.error} message="Check back soon" className="rounded-lg bg-surface-1" />
       ) : null}
       {loadable.state === 'error' ? <ErrorState title="Submissions can't load right now" message="Something went wrong, try again" onRetry={loadable.retry} className="rounded-lg bg-surface-1" /> : null}
       {loadable.state === 'ready' && visible.length === 0 && !result.hasMore ? (
@@ -130,7 +130,7 @@ export function BountyDetail({ bountyId, className }: { bountyId: string; classN
         <div className="@container/bounty-content flex min-w-0 flex-col gap-6">
           {detail.state === 'loading' ? <DetailSkeleton /> : null}
           {detail.state === 'unsupported' ? (
-            <UnavailableState title="This bounty" operation={detail.operation} status={detail.status} message="Check back soon" className="rounded-lg bg-surface-1" />
+            <UnavailableState title="This bounty" operation={detail.operation} status={detail.status} notServed={detail.notServed} error={detail.error} message="Check back soon" className="rounded-lg bg-surface-1" />
           ) : null}
           {detail.state === 'error' ? <ErrorState title="This bounty can't load right now" message="Something went wrong, try again" onRetry={detail.retry} className="rounded-lg bg-surface-1" /> : null}
           {bounty ? <BountyHeader bounty={bounty} /> : null}

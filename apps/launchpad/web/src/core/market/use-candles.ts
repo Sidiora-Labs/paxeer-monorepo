@@ -1,5 +1,6 @@
 'use client';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
+import { type UseQueryResult } from '@tanstack/react-query';
 import type { OperationInput, V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
@@ -40,7 +41,7 @@ export function useCandles(poolAddress: string | null | undefined, interval: Can
   const limit = range.limit ?? 500;
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > maxCanonicalCandles) throw new RangeError('Invalid candle limit');
   if (Date.parse(to) <= Date.parse(from)) throw new RangeError('Candle range must be half-open and non-empty');
-  return useQuery({
+  return useMarketQuery({
     queryKey: queryKeys.candles(pool ?? '', interval, from, to, limit),
     queryFn: async ({ signal }) => validateCandles(await operations.call('IF_CANDLES', { path: { poolAddress: pool as string }, query: { interval, from, to, limit } }, { signal }), pool as string, interval),
     enabled: pool !== null,

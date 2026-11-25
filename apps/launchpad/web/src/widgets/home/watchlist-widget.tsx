@@ -58,8 +58,8 @@ export function WatchlistWidget({ filter = '', density = 'comfortable', standalo
     <EmptyState icon={Star} title="No coins match this filter" body={`Nothing matches "${filter.trim()}"`} />
   ) : (
     <>
-      {watchlist.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Live stats" operation={watchlist.stats.operation} status={watchlist.stats.status} onRetry={watchlist.retrySources} /> : null}
-      {watchlist.metadata.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Coin details" operation={watchlist.metadata.operation} status={watchlist.metadata.status} onRetry={watchlist.retrySources} /> : null}
+      {watchlist.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Live stats" operation={watchlist.stats.operation} status={watchlist.stats.status} notServed={watchlist.stats.notServed} onRetry={watchlist.retrySources} /> : null}
+      {watchlist.metadata.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Coin details" operation={watchlist.metadata.operation} status={watchlist.metadata.status} notServed={watchlist.metadata.notServed} onRetry={watchlist.retrySources} /> : null}
       <ol className="flex flex-col">
         {rows.map(row => (
           <TrendingRow key={row.poolAddress} row={row} density={density} starred={watchlist.check(row.poolAddress)} onToggleStar={() => watchlist.toggle(row.poolAddress)} />

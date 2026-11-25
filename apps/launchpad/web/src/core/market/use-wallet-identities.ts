@@ -1,7 +1,9 @@
 'use client';
-import { useQueries } from '@tanstack/react-query';
+import { QueryClient, useQueries } from '@tanstack/react-query';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
+import { retryTransientOnly } from '@/core/transient-retry';
+import { marketRetryPace } from '@/core/retry-pace';
 import { shortWallet } from '@/page-modules/token/market-presentation';
 import { CapabilityUnavailableError, type V2ContractTypes } from '@kindle/sdk';
 import { browserUserClient } from './client';
@@ -21,6 +23,7 @@ export interface WalletIdentity {
 }
 
 const inflight = new Map<string, Promise<ProfileView | null>>();
+const profileReads = new QueryClient();
 let active = 0;
 const waiting: Array<() => void> = [];
 const concurrency = 4;
@@ -98,9 +101,16 @@ export function loadWalletProfile(wallet: string): Promise<ProfileView | null> {
   if (isProfileAbsent(key)) return Promise.resolve(null);
   const pending = inflight.get(key);
   if (pending) return pending;
-  const promise = new Promise<ProfileView | null>((resolve, reject) => {
-    queued.set(key, { resolve, reject });
-    if (!scheduled) { scheduled = true; setTimeout(flush, 0); }
+  const promise = profileReads.fetchQuery({
+    queryKey: ['wallet-profile', key],
+    queryFn: () => new Promise<ProfileView | null>((resolve, reject) => {
+      queued.set(key, { resolve, reject });
+      if (!scheduled) { scheduled = true; setTimeout(flush, 0); }
+    }),
+    ...retryTransientOnly,
+    retryDelay: (failureCount, error) => Math.max(retryTransientOnly.retryDelay(failureCount, error), marketRetryPace.delay(error) || 0),
+    staleTime: 0,
+    gcTime: 0,
   }).finally(() => { inflight.delete(key); });
   inflight.set(key, promise);
   return promise;

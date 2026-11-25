@@ -150,7 +150,7 @@ describe('cup hero and rules', () => {
     expect(html).not.toContain('IF_CUP_CURRENT');
     expect(html).not.toContain('404');
     expect(html).toContain('Prizes and results show up here once cups start');
-    expect(html).toContain('Try again');
+    expect(html).not.toContain('Try again');
     // The notice is the shared unavailable chip inside the frame, not a replacement for it.
     expect(html).toContain('data-state="unavailable"');
     expect(html).toContain('Competitions are not available yet');

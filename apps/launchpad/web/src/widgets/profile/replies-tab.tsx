@@ -80,7 +80,7 @@ function RepliesContent({ wallet, isOwner = false }: RepliesTabProps) {
 
   if (state.state === 'loading') return <Skeleton variant="rows" rows={4} label="replies" />;
   if (state.state === 'unsupported') {
-    return <UnavailableState title="Replies" plural operation={state.operation} status={state.status} message="Check back in a bit" onRetry={() => { void query.refetch(); }} />;
+    return <UnavailableState title="Replies" plural operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} message="Check back in a bit" onRetry={() => { void query.refetch(); }} />;
   }
   if (state.state === 'error' && collected) return <CollectedPlaceholder label="Replies" />;
   if (state.state === 'error') return <ErrorState title="Can't load replies right now" message="Check your connection and try again" onRetry={state.retry} />;

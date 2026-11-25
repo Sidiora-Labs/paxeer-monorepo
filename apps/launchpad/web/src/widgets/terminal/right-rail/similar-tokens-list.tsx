@@ -64,7 +64,7 @@ export function SimilarTokensList({ poolAddress, symbol, sort, symbolPending = f
     return <><p className="text-xs text-text-faint">Similar coins are not available yet. This coin has no symbol to search for.</p>{onRetrySymbol ? <Button size="sm" variant="secondary" onClick={onRetrySymbol}>Refresh coin</Button> : null}</>;
   }
   if (state.search.state === 'loading') return <p role="status" className="text-xs text-text-faint">Loading...</p>;
-  if (state.search.state === 'unsupported') return <UnavailableState variant="inline" title="Similar coins" operation={state.search.operation} status={state.search.status} />;
+  if (state.search.state === 'unsupported') return <UnavailableState variant="inline" title="Similar coins" operation={state.search.operation} status={state.search.status} notServed={state.search.notServed} />;
   if (state.search.state === 'error') return <ErrorState variant="inline" message={`Similar coins can't load right now. ${userFacingMessage(state.search.error)}`} onRetry={state.search.retry} />;
   if (state.rows.length === 0) return <EmptyState variant="inline" title="No similar coins yet" body={`No other coin uses the symbol ${displayCoinText(symbol, poolAddress)}.`} />;
   const liqReason = state.stats.state === 'unsupported'

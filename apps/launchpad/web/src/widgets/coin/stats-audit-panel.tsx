@@ -196,7 +196,7 @@ function AuditTab({ poolAddress, now }: { poolAddress: string; now: number }) {
   return (
     <div className="flex flex-col gap-2">
       {stats ? <ServedAuditRows audit={auditFromStats(stats, snapshot.data.createdAt, now)} now={now} /> : null}
-      {marker ? <UnavailableState variant="inline" title={stats ? 'Risk checks' : 'Audit'} operation={marker.operation} status={marker.status} /> : null}
+      {marker ? <UnavailableState variant="inline" title={stats ? 'Risk checks' : 'Audit'} operation={marker.operation} status={marker.status} notServed={marker.notServed} error={marker.error} /> : null}
       {risk.error && !marker ? <p role="alert" className="text-sm text-danger">Risk checks can&apos;t load right now. {userFacingMessage(risk.error)}</p> : null}
       {!stats && !marker && !risk.error ? <UnavailableState variant="inline" title="Audit" operation={snapshot.data.unavailable.stats?.operation ?? 'IF_STATS'} status={snapshot.data.unavailable.stats?.status ?? null} /> : null}
     </div>
@@ -245,6 +245,7 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
 
   return (
     <div className="flex flex-col gap-3">
+      {series?.state === 'ready' && series.stale ? <p role="status" className="text-xs text-text-faint">Prices may be out of date</p> : null}
       <dl className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex min-w-0 items-center gap-1.5">
           <dt className="text-text-faint">Price change</dt>
@@ -268,7 +269,8 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
         )}
         {agg ? <PairedBar left={usdlUnits(agg.buyVolume)} right={usdlUnits(agg.sellVolume)} leftLabel="Buy vol" rightLabel="Sell vol" format={formatUnits} /> : null}
         {!agg && series?.state !== 'error' ? <SplitBarFrame leftLabel="buy vol" rightLabel="sell vol" title="Buy and sell volume" operation={series?.state === 'unsupported' ? series.operation : 'IF_CANDLES'} loading={loading} /> : null}
-        {series?.state === 'error' ? <p role="alert" className="text-xs text-danger">Buy and sell volume can&apos;t load right now. {userFacingMessage(series.error)}</p> : null}
+        {series?.state === 'unsupported' && series.retry ? <UnavailableState variant="inline" title="Buy and sell volume" operation={series.operation} status={series.status} notServed={series.notServed} error={series.error} onRetry={series.retry} /> : null}
+        {series?.state === 'error' ? <p role="alert" className="text-xs text-danger">Buy and sell volume can&apos;t load right now. {userFacingMessage(series.error)} <button type="button" onClick={series.retry} className="font-semibold underline">Try again</button></p> : null}
         {traders !== null || txns !== null ? (
           <dl className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-baseline gap-1.5"><dt className="text-text-faint">Traders</dt><dd data-numeric className="text-sm font-bold tabular-nums text-text">{traders === null ? '—' : formatCount(traders)}</dd></div>

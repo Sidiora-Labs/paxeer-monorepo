@@ -146,7 +146,7 @@ export function TrendingWidget({ filter, density }: WidgetProps) {
         {panel.state === 'loading' ? (
           <TrendingRowSkeleton density={density} />
         ) : panel.state === 'unsupported' ? (
-          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Trending" operation={panel.operation} status={panel.status} message={panel.message} onRetry={explore.reload} />
+          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Trending" operation={panel.operation} status={panel.status} notServed={panel.notServed} message={panel.message} onRetry={explore.reload} />
         ) : panel.state === 'error' ? (
           <ErrorState variant="chip" className={columnNoticeClass} message="Couldn't load trending coins" error={panel.error} onRetry={panel.retry} />
         ) : rows.length === 0 ? (
@@ -157,7 +157,7 @@ export function TrendingWidget({ filter, density }: WidgetProps) {
           )
         ) : (
           <>
-            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Live stats" operation={explore.stats.operation} status={explore.stats.status} onRetry={explore.retrySources} /> : null}
+            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Live stats" operation={explore.stats.operation} status={explore.stats.status} notServed={explore.stats.notServed} onRetry={explore.retrySources} /> : null}
             <ol className="flex flex-col">
               {rows.map(row => (
                 <TrendingRow key={row.poolAddress} row={row} density={density} starred={watchlist.check(row.poolAddress)} onToggleStar={() => watchlist.toggle(row.poolAddress)} />

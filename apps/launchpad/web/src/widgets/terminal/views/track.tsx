@@ -145,7 +145,7 @@ function FollowedActivity() {
     <section aria-labelledby="terminal-track-activity" className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
       <h2 id="terminal-track-activity" className="text-sm font-bold text-text">Activity from wallets you follow</h2>
       {feed.state === 'loading' ? <Skeleton variant="rows" rows={3} label="followed activity" /> : null}
-      {feed.state === 'unsupported' ? <UnavailableState variant="inline" title="Followed-wallet activity" operation={feed.operation} status={feed.status} /> : null}
+      {feed.state === 'unsupported' ? <UnavailableState variant="inline" title="Followed-wallet activity" operation={feed.operation} status={feed.status} notServed={feed.notServed} error={feed.error} /> : null}
       {feed.state === 'error' ? <ErrorState variant="inline" title="Activity can't load right now" message={userFacingMessage(feed.error)} onRetry={feed.retry} /> : null}
       {feed.state === 'signed-out' ? <p className="text-sm text-text-faint">{feed.prompt}</p> : null}
       {feed.state === 'ready' && feed.chips.length === 0 ? <EmptyState variant="inline" title={feed.emptyText ?? 'No activity from wallets you follow yet.'} /> : null}
@@ -213,7 +213,7 @@ export function FollowingList() {
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {state.state === 'loading' ? <><span className="sr-only" role="status">Loading followed wallets</span><TableRowsSkeleton rows={6} columns={3} /></> : null}
-        {state.state === 'unsupported' ? <UnavailableState title="Followed wallets" operation={state.operation} status={state.status} onRetry={() => { void query.refetch(); }} /> : null}
+        {state.state === 'unsupported' ? <UnavailableState title="Followed wallets" operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} onRetry={() => { void query.refetch(); }} /> : null}
         {state.state === 'error' ? <ErrorState title="Followed wallets can't load right now" message={userFacingMessage(state.error)} onRetry={state.retry} variant="inline" /> : null}
         {state.state === 'ready' && rows.length === 0 ? <EmptyState icon={UserPlus} title={query.hasNextPage ? 'No followed wallets found yet' : 'You are not following anyone yet'} body={query.hasNextPage ? 'Load more to keep looking.' : 'Follow traders from their profile or a callout and they show up here.'} action={<Button variant="secondary" size="sm" href="/leaderboard">Find traders</Button>} /> : null}
         {state.state === 'ready' && rows.length > 0 ? (

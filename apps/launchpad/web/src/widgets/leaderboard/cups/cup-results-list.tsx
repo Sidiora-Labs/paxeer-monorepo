@@ -95,7 +95,7 @@ function StandingsPanel({ cup, title, state, onRetry, highlights, pagination }: 
         <SectionHeader title={<span id="cup-standings-title" className="text-2xs uppercase tracking-[var(--sl-tracking-label)] text-text-faint">{title}</span>} level={3} loading={state.state === 'loading'} />
         <div className="mt-3">
           {state.state === 'loading' ? <RankRowSkeleton count={6} size="lg" /> : null}
-          {state.state === 'unsupported' ? <UnavailableState title="Cup standings" operation={state.operation} status={state.status} message="Check back soon" onRetry={onRetry} /> : null}
+          {state.state === 'unsupported' ? <UnavailableState title="Cup standings" operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} message="Check back soon" onRetry={state.retry ?? onRetry} /> : null}
           {state.state === 'error' ? <ErrorState title="Couldn't load standings" message="Something went wrong, try again" onRetry={state.retry} /> : null}
           {state.state === 'ready' && items.length === 0 ? <EmptyState icon={Medal} title={highlights ? 'No winners' : 'No one has qualified yet'} body={highlights ? 'Nobody qualified for this cup' : 'Standings fill in as people trade during the cup'} /> : null}
           {state.state === 'ready' && items.length > 0 ? (
@@ -124,7 +124,7 @@ function StandingsPanel({ cup, title, state, onRetry, highlights, pagination }: 
           {state.state === 'ready' && pagination && pagination.nextCursor !== null ? (
             <div className="mt-3 flex flex-col gap-3" aria-busy={pagination.loading}>
               {pagination.failure?.state === 'unsupported' ? (
-                <UnavailableState title="More cup standings" operation={pagination.failure.operation} status={pagination.failure.status} message="Check back soon" onRetry={pagination.onLoadMore} />
+                <UnavailableState title="More cup standings" operation={pagination.failure.operation} status={pagination.failure.status} notServed={pagination.failure.notServed} error={pagination.failure.error} message="Check back soon" onRetry={pagination.onLoadMore} />
               ) : pagination.failure?.state === 'error' ? (
                 <ErrorState title="Couldn't load more standings" message="Your loaded standings are still shown" onRetry={pagination.onLoadMore} />
               ) : (

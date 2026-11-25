@@ -22,11 +22,11 @@ export function HolderRewardsUnavailable({ availability, onRetry }: { availabili
       title="Holder rewards"
       plural="auto"
       operation={marker.operation}
-      status={marker.status}
+      status={marker.status} notServed={marker.notServed} error={marker.error}
       message={availability.kind === 'unindexed'
         ? "Totals and rankings show up here once they're ready. Check back soon"
         : 'Try again in a moment'}
-      onRetry={onRetry}
+      onRetry={marker.retry ?? onRetry}
       className="rounded-lg bg-surface-1"
     />
   );

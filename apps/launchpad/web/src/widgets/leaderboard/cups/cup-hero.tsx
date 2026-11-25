@@ -105,7 +105,7 @@ export function CupHero({ cup, onRetry, control, className }: CupHeroProps) {
             <h2 className={nameClass}>{title}</h2>
             <p className={placeholderPrizeClass}>{emptyPrize}</p>
             {cup.state === 'unsupported' ? (
-              <UnavailableState variant="chip" wrap title="Competitions" plural operation={cup.operation} status={cup.status} onRetry={onRetry} className="self-start" />
+              <UnavailableState variant="chip" wrap title="Competitions" plural operation={cup.operation} status={cup.status} notServed={cup.notServed} error={cup.error} onRetry={cup.retry ?? onRetry} className="self-start" />
             ) : null}
             {cup.state === 'error' ? <ErrorState variant="chip" wrap error={cup.error} onRetry={cup.retry} className="self-start" /> : null}
             {body ? <p className="max-w-lg text-sm text-text-muted">{body}</p> : null}

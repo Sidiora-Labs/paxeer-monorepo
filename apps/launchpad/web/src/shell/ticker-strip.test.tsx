@@ -6,6 +6,7 @@ import type { QueryClient as QueryClientType } from '@tanstack/react-query';
 import { createRequire } from 'node:module';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { SdkClient, type V2ContractTypes } from '@kindle/sdk';
+import { marketRetryPace } from '@/core/retry-pace';
 import { v2Reads } from '@/core/test-fixtures/market-production/v2-reads';
 
 // jsdom swaps AbortController while fetch stays undici, so run in node and install only the missing browser globals (see widgets/terminal/left-rail/left-rail.render.test.tsx).
@@ -132,7 +133,7 @@ async function tickerUnavailableFeedStaysEmpty() {
 }
 
 describe('shell reads against a real HTTP origin that answers a transient failure first', () => {
-  afterEach(() => { cleanup?.(); cleanup = null; served.paths.length = 0; served.script.clear(); window.localStorage.clear(); });
+  afterEach(() => { cleanup?.(); cleanup = null; marketRetryPace.clear(); served.paths.length = 0; served.script.clear(); window.localStorage.clear(); });
   afterAll(async () => {
     await new Promise<void>(resolve => served.server.close(() => resolve()));
     dom.window.close();
@@ -208,14 +209,14 @@ describe('shell reads against a real HTTP origin that answers a transient failur
     const quick: Answer = { status: 429, body: envelope('RATE_LIMITED', true, 5) };
     served.script.set(LEADERBOARD, [quick]);
     const { container, seen } = mount(<TickerStrip />);
-    await waitFor(() => container.textContent?.includes("Couldn't load top earners.") === true);
+    await waitFor(() => container.textContent?.includes("Couldn't load top earners.") === true, 16_000);
     // 1 attempt + 4 transient retries; 429 is never retried inside the SDK transport.
     expect(hits(LEADERBOARD)).toBe(5);
     const firstError = seen.findIndex(text => ERROR_COPY.test(text));
     expect(seen.slice(0, firstError).every(text => text.includes('Loading top earners'))).toBe(true);
     await settle(200);
     expect(hits(LEADERBOARD)).toBe(5);
-  });
+  }, 20_000);
 
   it('renders a single ranked trader as exactly one pill, never repeated to fill the strip', async () => {
     // Production 200 after the 2026-10-13 live test: one ranked wallet, net -52.72 USDL.

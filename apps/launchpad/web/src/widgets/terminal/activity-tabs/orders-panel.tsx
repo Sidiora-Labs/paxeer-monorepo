@@ -84,7 +84,7 @@ export function OrdersList({ operations, scope, poolAddress, cancellationProvide
   if (query.status === 'error') {
     if (isSignedOutError(query.error)) return <SignedOutState icon={LogIn} title="Sign in to see your orders" body="Your session ended. Sign in again to read your orders." />;
     const marker = toUnsupported(orderListOperation, query.error);
-    if (marker) return <UnavailableState title="Orders" operation={marker.operation} status={marker.status} message={marker.message} onRetry={() => { void query.refetch(); }} />;
+    if (marker) return <UnavailableState title="Orders" operation={marker.operation} status={marker.status} notServed={marker.notServed} error={marker.error} message={marker.message} onRetry={() => { void query.refetch(); }} />;
     return <ErrorState variant="inline" title="Orders can't load right now" message={userFacingMessage(query.error)} onRetry={() => { void query.refetch(); }} />;
   }
   const orders = ordersForPool(query.data.pages.flatMap(page => page.data.items), poolAddress);
@@ -138,7 +138,7 @@ export function OrdersList({ operations, scope, poolAddress, cancellationProvide
         )}
       >
         {pending && prepared?.data.transactionRequest ? <OrderCancellationReview request={prepared.data.transactionRequest} order={pending.order} scope={scope} provider={cancellationProvider} onDismiss={() => { setPrepared(null); setPending(null); }} onConfirmed={outcome => { setPrepared(null); setPending(null); setSignNotice(outcome === 'filled_race' ? 'Your order traded before the cancellation went through.' : null); void client.invalidateQueries({ queryKey: key }); }} /> : pending ? <p className="text-sm text-text-muted">The {pending.order.kind} order <span className="font-mono text-text">{pending.order.orderId.slice(0, 8)}</span> will be withdrawn.</p> : null}
-        {cancelMarker ? <UnavailableState variant="inline" title="Order cancellation" operation={cancelMarker.operation} status={cancelMarker.status} /> : null}
+        {cancelMarker ? <UnavailableState variant="inline" title="Order cancellation" operation={cancelMarker.operation} status={cancelMarker.status} notServed={cancelMarker.notServed} /> : null}
         {cancel.isError && !cancelMarker ? <p role="alert" className="mt-2 text-sm text-danger">The order could not be cancelled right now. {userFacingMessage(cancel.error)}</p> : null}
       </ModalFrame>
     </div>

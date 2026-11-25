@@ -90,7 +90,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
           ) : issue ? (
             <PortfolioIssueState issue={issue} variant="inline" className="max-w-md" />
           ) : portfolio.loadable.state === 'unsupported' ? (
-            <UnavailableState variant="inline" title="Portfolio value" operation={portfolio.loadable.operation} status={portfolio.loadable.status} onRetry={portfolio.refetch} />
+            <UnavailableState variant="inline" title="Portfolio value" operation={portfolio.loadable.operation} status={portfolio.loadable.status} notServed={portfolio.loadable.notServed} error={portfolio.loadable.error} onRetry={portfolio.refetch} />
           ) : valueFailed && valueCollected ? (
             <p data-numeric className="text-2xl font-bold"><Dash label="Portfolio value" /></p>
           ) : portfolio.loadable.state === 'error' ? (
@@ -155,7 +155,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
           <PortfolioIssueState issue={historyIssue} variant="inline" />
         ) : history.state === 'unsupported' ? (
           <div className="flex items-center justify-center rounded-md bg-surface-1 px-4 text-center">
-            <UnavailableState variant="inline" title="Portfolio chart" operation={history.operation} status={history.status} message={history.message} />
+            <UnavailableState variant="inline" title="Portfolio chart" operation={history.operation} status={history.status} notServed={history.notServed} message={history.message} />
           </div>
         ) : owner && isSignedOutError(history.error) ? (
           <SignedOutState variant="inline" title="Sign in to see your value history" />

@@ -91,7 +91,7 @@ export function TopTrades({ wallet, isOwner, limit = 5, className }: TopTradesPr
           ) : issue ? (
             <PortfolioIssueState issue={issue} variant="inline" className="py-2" />
           ) : state.state === 'unsupported' ? (
-            <UnavailableState variant="inline" title="Top trades" plural operation={state.operation} status={state.status} message="Check back in a bit" />
+            <UnavailableState variant="inline" title="Top trades" plural operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} message="Check back in a bit" />
           ) : state.state === 'error' && collected ? (
             <PlaceholderRows rows={limit} />
           ) : state.state === 'error' ? (
