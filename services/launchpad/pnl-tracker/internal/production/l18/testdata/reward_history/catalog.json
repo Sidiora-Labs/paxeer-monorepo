@@ -1,6 +1,5 @@
 {
   "description": "Reward runtime catalog from the registered migration dependency plan and legacy sources.",
-  "registry_sha256": "c3af3b3dec84541c9d30b8549cb2d033d9965e1be4995b494c8b3a2cc5963f74",
   "applied": {
     "60000": "5cccc2f2e1468342481d5c03513a25f291dd2591cb0158755fa786b2edbc8545",
     "80001": "c6269641c857da5ffb00f7aad2cfeeb39f3ed7c2f879ce2b1d32b1b06941bf77",
@@ -67,7 +66,8 @@
     "60005": "8733ff0db35154c7955d14089d9ea415c8832d34e4cf4a8283e2b0a001dc597c",
     "60006": "a054038d166fa9415af094d69b1bca1b21e5985d6ab8140874a003fe29d894e1",
     "60007": "c8c6a29551071c8a46ceddcfc77c00dbcf8a9ebf02a198fa50353076c60f5a55",
-    "60008": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a"
+    "60008": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a",
+    "150010": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7"
   },
   "sources": {
     "sdk/launchpad/shared/db/production/migrations.go": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5",
@@ -145,7 +145,8 @@
     "migrations/60005.sql": "8733ff0db35154c7955d14089d9ea415c8832d34e4cf4a8283e2b0a001dc597c",
     "migrations/60006.sql": "a054038d166fa9415af094d69b1bca1b21e5985d6ab8140874a003fe29d894e1",
     "migrations/60007.sql": "c8c6a29551071c8a46ceddcfc77c00dbcf8a9ebf02a198fa50353076c60f5a55",
-    "migrations/60008.sql": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a"
+    "migrations/60008.sql": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a",
+    "migrations/150010.sql": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7"
   },
   "objects": {
     "api_stream.append_candle": {
@@ -183,6 +184,11 @@
       "columns": [],
       "source": "migrations/150004.sql"
     },
+    "api_stream.prune_published_frames": {
+      "kind": "function",
+      "columns": [],
+      "source": "migrations/150010.sql"
+    },
     "api_stream.stream_delivery_offsets": {
       "kind": "table",
       "columns": [
@@ -190,9 +196,15 @@
         "next_sequence",
         "broker_stream",
         "broker_sequence",
-        "updated_at"
+        "updated_at",
+        "retention_owner",
+        "retention_epoch",
+        "retention_expires_at",
+        "retention_next_at",
+        "retention_cutoff",
+        "retention_removed"
       ],
-      "source": "migrations/150003.sql"
+      "source": "migrations/150010.sql"
     },
     "api_stream.stream_delivery_outbox": {
       "kind": "table",

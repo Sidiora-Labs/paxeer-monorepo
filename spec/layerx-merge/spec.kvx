@@ -17104,6 +17104,30 @@ value = "One. The function loop of services/launchpad/pnl-tracker/internal/app/a
 basis = "Gotcha 4924."
 affects = []
 
+[decision.3999]
+title = "The two settlement lookups of the pnl module look for the transfer of the settlement asset at the address of the launchpad module where the native execution emitted the fill"
+value = "One. The functions liveReceiptSettlement (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go line 940) and receiptSettlement (services/launchpad/pnl-tracker/internal/production/l16/normalization.go line 40) take the holder of the settlement asset from the emitter of the fill. Where the member actualEmitter of the fill is the native execution address 0x0000000000000000000000000000000000001017, the holder is the address of the launchpad module. Where it is another address, the holder is the pool as today. The holder of the token is the pool in both forms. The function liveReceiptSettlement takes the holder for each fill of the transaction from the emitter of that fill. Two. For a buy each lookup asks for exactly one transfer of the token from the pool with the exact token amount and exactly one transfer of the settlement asset to the holder with the exact settlement amount. For a sell it asks for exactly one transfer of the token to the pool and exactly one transfer of the settlement asset from the holder. Every other condition of the two functions stays as it is: the binding of the receipt and of the header to the fill, the count of the fills of the transaction, the rule that one log serves one fill, the payer and the recipient that are not the zero address, the sum of the settlement transfers of the payer in the function receiptSettlement and the net amounts of a wallet in the function liveReceiptSettlement. The result keeps its form. Three. The address of the launchpad module has one definition in the pnl module, in the package l16. It is computed from the module name launchpad as the first twenty bytes of its SHA-256 digest, as the chain computes it and as the indexer defines it (services/launchpad/indexer/internal/decode/registry.go line 28). The native execution address has one definition beside it. No other place of the pnl module writes either address out, and no configuration value and no member of a document is added. Four. New cases with the name prefix TestNativeSettlementHolder in the package l16, on the recorded fixture of the present case TestReceiptSettlementValidatesSourceBoundTransferEvidence (services/launchpad/pnl-tracker/internal/production/l16/receipt_binding_test.go line 17), which changes the recorded receipt, gives the changed receipt to the lookup and binds the fill of the table to it. Each of the cases b to e runs both functions. Case a: the definition of point three equals 0x7b3937a5f4397ec652546ef2e72a9e9a35d5ac52 and equals the recipient of the transfer of the settlement asset of the recorded swap NativeSwap of services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json, which the case reads from its path in the repository and does not change. Case b: a buy in the native form, which is the recorded fill with the emitter set to the native execution address and the recorded receipt with the transfer of the settlement asset directed to the address of the launchpad module, the digests of the fill and of the receipt following. Both functions give a settlement whose payer and recipient are the sender of the trade and whose token movement is the transfer of the token of the receipt. Case c: each of these changes of the buy of case b gives ErrCostAllocationUnavailable: the transfer of the settlement asset goes to the pool, it goes to a third address, its amount differs by one, and a second transfer of the same asset, addresses and amount is present. Case d: a sell in the native form, built from the recorded fill and receipt with the forms the chain writes (the transfer of the token from the seller to the pool and the transfer of the settlement asset from the address of the launchpad module to the seller), gives a settlement whose payer and recipient are the seller. The same sell with the transfer of the settlement asset from the pool gives ErrCostAllocationUnavailable. Case e: a fill whose emitter is another address keeps the rule of today. The transfer of the settlement asset at the pool is taken, and the same transfer at the address of the launchpad module gives ErrCostAllocationUnavailable. Case f: the rebuild of the wallet through the function liveRebuildTx (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go line 43), called as the present cases of the package call it, over the buy of case b whose fill holds the attribution the indexer writes under decision 3989 (the quality qualified_calldata, payer, recipient and trader equal to the sender, and the evidence entries of the two transfers). The rebuild ends without an error and gives the wallet the position of the bought amount. One exception: where the recorded fixture cannot carry the whole rebuild in the native form, case f stays out, and the final message names the condition that stops it with file and line. Five. Every present case stays word for word and passes. No case gains a skip mark and no case is removed. Six. Not part of this task: the indexer and its recorded files; the function reservesSettledAfter of services/launchpad/pnl-tracker/internal/production/l16/mark_price.go (line 174), which looks at the transfers at the pool and stays as it is; fills that are stored; the other packages of the pnl module. Only files of the package l16 of the pnl module change. Seven. The final message names the changed lines. It also names, with file and line and without a change to it, every further condition of the rebuild of a wallet that a direct buy or a direct sell on the native execution with the attribution of decision 3989 does not meet. They are found by reading the functions liveRebuildTx and liveContinueTx, the matching of fills and transfers of services/launchpad/pnl-tracker/internal/production/l16/baseline.go (line 776) and the function reservesSettledAfter. Where there is none, the final message says so. Eight. Target: the verification of task 22.39.1197 passes. It runs the lint stage of the pnl module and the cases of the module with its reviewed list, and requires a case with the name prefix TestNativeSettlementHolder in the package l16. Task 22.39.1197. "
+basis = "Gotcha 4925."
+affects = []
+
+[decision.4000]
+title = "The state of the chart follows the heartbeat and the contiguity of its stream, and the source observation is the age of its data"
+value = "One. A subscription of the feed is live from the checkpoint that ends its replay (function finishReplay of apps/launchpad/web/src/widgets/trading/udf-datafeed.ts, line 709) for as long as its stream is contiguous and alive. Contiguous is what the feed checks today on every frame: the sequence, the revision and the watermark rule of the receive path, whose failure ends in the function fail (line 760). Alive means that a frame of the connection arrived inside the liveness window: a candle event of the topic, a control frame of the subscription, or a heartbeat of the connection, which the feed no longer drops unread at line 825. The liveness window is the constant HEARTBEAT_LIVENESS_MS of apps/launchpad/web/src/page-modules/token/market-presentation.ts (line 19). The feed takes it from that module and defines no second value. Two. The source observation decides no state. The function observe (line 604) keeps the watermark, its order rule (a lower height, or another block hash at the same height, is the error of today) and the members sourceObservedAt, lastReceivedAt and lastSourceHeight of the freshness. It sets no state and arms no timer: the rule of the lines 612 and 615 and the reason of line 715 go. A watermark that is missing or not healthy stays the error of today. Three. When no frame of point one arrives inside the liveness window while the subscription is live, the feed treats the connection as lost. It takes the path of today for a disconnected stream (line 818) with the reason Live updates are reconnecting, with its repeats and their limit (line 765). One timer per subscription holds the window. It is armed at the checkpoint, moved by every frame of point one and cleared wherever the subscription leaves the live state or is cancelled, closed or disposed, so that the count of timers of the function resourceCounts (line 905) returns to its value. While the document is hidden the window is not judged: the timer is cleared when the document becomes hidden, no connection is opened for a late heartbeat, and the path of today for a document that becomes visible again (line 864) starts the subscriptions again. Four. The path without a stream keeps its states. Without a transport the state stays degraded with the reason Live updates are paused, and a polled history page (function poll, line 736) moves the source observation and no state, with one exception: a poll that succeeds while the state is offline sets the state degraded with the reason Live updates are paused, which the timer of line 615 did until now one second later with other words. Five. The status line follows from point one without a change of the toolbar: the chart of a coin without a recent trade reads Live on a healthy stream, and the block it names is the source height of the last frame of the topic. The words of the function freshnessLabel and the control Try again stay as they are. Six. New cases in the file apps/launchpad/web/src/widgets/trading/chart-liveness.test.ts. They register a transport of their own in the form the present cases of the file chart-datafeed-recovery.test.ts of the same directory register one, and they move the clock themselves. Case a: a topic snapshot whose watermark was observed ten hours before the clock of the case, a history page with the same candle, the acknowledgement and the checkpoint. The state is live with no reason, and the freshness holds the observation time and the height of the watermark. Over the next 60 seconds of the clock, with a heartbeat of the connection every 4 seconds and no candle event, the state stays live and the feed reports no other state. Case b: after the checkpoint no frame arrives. The state is still live one second before the liveness window ends. Not later than one second after its end the state has left live with the reason Live updates are reconnecting, and the feed opens a new connection as for a lost stream. When that connection reaches its checkpoint the state is live again. Case c: a candle event with a newer healthy watermark that arrives 9 seconds after the checkpoint, without any heartbeat, keeps the state live, moves the height of the freshness and moves the window: the state is still live 9 seconds after the event. Case d: heartbeats that arrive before the checkpoint do not make the subscription live. The state is live only after the checkpoint. Case e: a candle event whose watermark is lower than the held one, and a candle event whose watermark is not healthy, end in the error path of today. Case f: with the document hidden for 60 seconds without a frame the state does not change and no new connection is opened. When the document becomes visible the subscription starts again as today. After the subscription is removed and after the feed is disposed the function resourceCounts reports 0 timers. Case g: without a transport, a poll that fails sets the state offline, and the next poll that succeeds sets the state degraded with the reason Live updates are paused. Seven. Every present case stays and passes. A present case that asserts the state degraded for an old observation, one of the reasons of the lines 612 and 715, or a count of timers that held the timer of line 615 follows points one to four. The final message names each such case with the file, the former and the new value and the reason. No case gains a skip mark and no case is removed. Eight. Not part of this task: the socket server and the api, the client library under sdk, the session of the coin page and the module apps/launchpad/web/src/page-modules/token/market-presentation.ts (the feed reads its constant), the toolbar of apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx, the candle merge and its revision rule, the history requests and their pace, the marks of the chart. Only files under apps/launchpad/web/src/widgets/trading change. Nine. The final message names the changed lines of the functions observe and finishReplay and of the receive path, the place that holds the liveness timer and each place that clears it, each present case that changed under point seven, and what the status line reads for a coin without a trade in the last hour on a healthy stream and on a stream that lost its connection. Ten. Target: the verification of task 22.44.151 passes. It requires the file of point six and runs the case set of the web application. Task 22.44.151. "
+basis = "Gotcha 4926."
+affects = []
+
+[decision.4001]
+title = "The transcript of the reward history is bound to the dependency plan of its role and not to the checksum of the registry file, and a change that registers a migration of the plan renews it"
+value = "One. The transcript services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json is renewed with its recorder services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py for the registry of the main line as the task finds it (variable PNL_TEST_POSTGRES_DSN, option --dsn-env). No member of the transcript is written by hand. Where the recorder no longer runs against the tree, it is repaired inside the paths and the final message says what was wrong. Two. The bootstrap no longer compares the checksum of the whole registry file (line 156). The member registry_sha256 leaves the struct of the transcript (line 45), the transcript and the output of the recorder (line 145). The three other bindings stay as strict as they are: each source equals its recorded checksum, each applied migration equals the registered checksum, and the applied set equals the dependency plan of the role. A stale transcript must not pass for a changed schema of the role. Three. The comparison of the plan becomes a function over the registry, the role and the transcript as values, and the bootstrap calls it. Its failure names the migration ids that the plan holds and the transcript lacks, the ids that the transcript holds and the plan lacks, and the ids whose checksums differ, and it names the recorder by its path. Four. New cases with the name prefix TestRewardHistoryPlanBinding in the package. Case a: the registry, the grants record and the transcript of the tree pass. Case b: a registration added to a copy of the registry in a schema the role does not read passes, and so does a changed approval digest. Case c: a registration added in a schema the role reads fails, and the message holds its id and the path of the recorder. The same for a registration in another schema that a migration of the plan names as its predecessor. Case d: a changed checksum of an applied migration fails, and the message holds its id. A transcript with an applied migration that the plan lacks fails, and the message holds its id. The cases b to d work on values in memory and need no database. Five. From now on a change that registers a migration in a schema the role reads, or a predecessor of such a migration, renews the transcript with the recorder in the same change, and its verification runs the cases of this package. The head comment of the recorder says so in one sentence and names the schemas by the rule of the plan, not as a fixed list. Six. Every present case of the package stays and passes, and no case gains a skip mark. Not part of this task: the migrations, the registry, the grants record, the schema tool, the other packages of the pnl module and every file of the package that is no case file and not under services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history. Seven. The tasks 22.39.1196 and 22.39.1197 change the packages internal/app and internal/production/l16 of the pnl module. Their verification ran the cases of the whole module and failed in this package alone. It now runs the cases of every package of the module except this one. The package imports neither of the two packages, so no case of it reads their change, and the task of this decision brings the package back by itself. Eight. The final message names the ids of the plan and of the transcript before and after the renewal, the count of the objects before and after, the objects that came with migration 150010, the command of the recorder as it ran without the value of the variable, and what changed in the recorder. Nine. Target: the verification of task 22.39.1198 passes. It runs the lint stage of the pnl module and the cases of the package internal/production/l18, and requires a case with the name prefix TestRewardHistoryPlanBinding in that package. Task 22.39.1198. "
+basis = "Gotcha 4927."
+affects = []
+
+[decision.4002]
+title = "The holders job calls the refresh of the analytics only for a coin that changed, and a serialization failure of that refresh is repeated before it is an error"
+value = "One. The function catchUpStatsHolders of services/launchpad/stats-*/internal/app/app.go (line 945) calls the refreshes of a coin only when the pass changed what they read: the catch-up of this pass applied at least one transfer of the coin, or the answer of the catch-up holds a revision or a coverage other than at the last refresh of the coin by this process, or this process has not refreshed the coin yet. A pass over a coin without such a change calls no refresh and writes no row of the analytics tables. The first pass of a process over a coin calls the refresh once, so that a refresh lost with an earlier process is made up. A refresh that fails does not count as made, and the next pass over the coin calls it again. The task decides where the job keeps what it needs for that, one small entry for each coin, and the final message says it. Two. The function RefreshTokenInputs of services/launchpad/stats-*/internal/analytics/risk_inputs.go (line 246) repeats the transaction of a pool that fails with SQLSTATE 40001 or 40P01 with a new transaction, at most three times for one pool in one call, with a short pause that grows, in the form of the repeat of decision 3995. Only a failure that remains after the repeats is returned, and it is the error of today. A repeat writes no line at the level error or warn. Every other error is returned at once as today. The isolation level of the transaction stays, so that one recompute reads its inputs at one snapshot. The expiry job stays as it is. Three. New cases with the name prefix TestAnalyticsIdleRefresh on a real PostgreSQL. Case a, package internal/app: after a coin is caught up to a complete history and one pass has called its refresh, ten further calls of catchUpStatsHolders without a new transfer call no refresh. The case counts the calls through the parameter of the function. Case b, package internal/app: a pass that applies a new transfer of the coin calls the refresh once for the coin. The first pass of a new process over a coin that is caught up calls it once. A refresh that returns an error is called again by the next pass. Case c, package internal/analytics: a first transaction takes the advisory lock of a pool in the form the function RecomputeExpiryTx takes it, a call of RefreshTokenInputs for the coin of the pool starts and waits for that lock, the first transaction raises the revision of the pool and commits. The call ends without an error, and the revision of the pool is one above the value the first transaction wrote. The case reads from the database that the call waits before it lets the first transaction go on, and does not rely on a pause. It fails on the tree as it is. Case d, package internal/analytics: when the failure meets every try, the call returns an error with the code 40001 after the third repeat. The case reaches the tries through a seam of the package that only cases set. Four. Every present case stays and passes. A present case that asserts a call of the refresh in a pass without a change follows point one, and the final message names it with the file and the reason. No case gains a skip mark. Five. The record services/launchpad/stats-*/internal/analytics/runtime_statements.json holds the text of statements of the package internal/analytics, and its cases compare it with the code: it follows each changed statement in the same commit. Six. Not part of this task: the expiry job, its interval and what it writes for a pool whose figures did not change, the growth of the table analytics_outbox, which a further task takes up, the rule by which a snapshot counts as stale, the interval and the batch sizes of the holders job, the line and the level of the function retryStatsJob, the migrations and the documents. No file outside the stats module changes. Seven. The final message names every transaction of the service that calls a recompute with file, line and isolation level, the calls of the refresh in one pass without a change for one coin before and after, where the job keeps the entry of point one, and what one run of the expiry job writes for a pool whose figures did not change, with tables and rows, as read from the code. Eight. Target: the verification of task 22.39.1199 passes. It runs the lint stage of the stats module and the cases of the packages internal/holdings, internal/app and internal/analytics, and requires a case with the name prefix TestAnalyticsIdleRefresh in the package internal/analytics. Task 22.39.1199. "
+basis = "Gotcha 4928."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46764,6 +46788,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1199]
+title = "Let the holders job call the refresh of the analytics only for a coin that changed, and repeat a serialization failure of that refresh before it is an error"
+reqs = ["22998.1"]
+touches = ["services/launchpad/stats-workers"]
+tests = []
+verification_contract = "anvil --version > /dev/null && MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 40m ./internal/holdings/... ./internal/app/... ./internal/analytics/... && GOWORK=off go test -count=1 -list ^TestAnalyticsIdleRefresh ./internal/analytics/ | grep -q ^TestAnalyticsIdleRefresh)"
+do_1 = "do_1 Gotcha 4928, decision 4002. Read the function catchUpStatsHolders of services/launchpad/stats-*/internal/app/app.go (line 945) to its end with the call at line 999 and the place that gives it the refresh (line 322), the function RefreshTokenInputs of services/launchpad/stats-*/internal/analytics/risk_inputs.go (line 246) to its end, the functions RecomputeExpiryTx (line 153), recompute (line 174) and RunExpiry (line 232) of services/launchpad/stats-*/internal/analytics/projector.go, the type CanonicalBatch of services/launchpad/stats-*/internal/holdings/ingestion.go (line 291) with the function CatchUpCanonicalAt that fills it and the functions retryableCanonical and retryCanonical (lines 318 and 323) as the present form of a repeat, the present cases of the file holder_catchup_paths_test.go of the package internal/app, the cases of the package internal/analytics that prepare a pool with its snapshots, and the entries of the files risk_inputs.go and projector.go in services/launchpad/stats-*/internal/analytics/runtime_statements.json."
+symbols = []
+
+[capability.22.39.1198]
+title = "Bind the transcript of the reward history to the dependency plan of its role, take the checksum of the registry file out of it and renew it with its recorder"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l18"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/production/l18/... && GOWORK=off go test -count=1 -list ^TestRewardHistoryPlanBinding ./internal/production/l18/ | grep -q ^TestRewardHistoryPlanBinding)"
+do_1 = "do_1 Gotcha 4927, decision 4001. Read services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go from the struct of the transcript (line 45) to the comparison of the plan (line 238) with the function rewardHistoryBootstrap (line 144), the recorder services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py whole, the head of services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json, the entries of the role pnl_runtime in migrations/grants.json and the entry of migration 150010 in migrations/registry.json."
+symbols = []
+
+[capability.22.44.151]
+title = "Judge the state of the chart by the heartbeat and the contiguity of its stream, so that a coin without a recent trade does not read as out of date"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s apps/launchpad/web/src/widgets/trading/chart-liveness.test.ts && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4926, decision 4000. Read apps/launchpad/web/src/widgets/trading/udf-datafeed.ts from the function observe (line 604) to the end of the function recover (line 769) with the receive path around line 825, the functions finishReplay, schedulePoll, poll and fail, the types ChartStreamState (line 20) and ChartFreshness (line 259), the handler of line 864 and the function resourceCounts (line 905). Read the function freshness and the constants of apps/launchpad/web/src/page-modules/token/market-presentation.ts (lines 19 and 32), the place of apps/launchpad/web/src/page-modules/token/market-session.ts that records a heartbeat (line 120), sdk/launchpad/packages/sdk/src/browser-stream.ts around line 19, the status line of apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx (lines 28 to 102), and the present cases of the files chart-datafeed-recovery.test.ts, chart-datafeed-revision.test.ts and udf-datafeed.test.ts of the directory apps/launchpad/web/src/widgets/trading with the transport they register."
+symbols = []
+
+[capability.22.39.1197]
+title = "Let the two settlement lookups of the pnl module find the transfer of the settlement asset at the address of the launchpad module for a fill of the native execution"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestNativeSettlementHolder ./internal/production/l16/ | grep -q ^TestNativeSettlementHolder)"
+do_1 = "do_1 Gotcha 4925, decision 3999. Read the function liveReceiptSettlement of services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go (line 940) and the function receiptSettlement of services/launchpad/pnl-tracker/internal/production/l16/normalization.go (line 40) to their ends, their three callers (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go lines 167 and 529, services/launchpad/pnl-tracker/internal/production/l16/service.go line 190), the definitions of the indexer (services/launchpad/indexer/internal/decode/registry.go lines 26 and 28) with the function attribute of the indexer that decision 3989 changed, the recorded swap NativeSwap of services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json, and the present case TestReceiptSettlementValidatesSourceBoundTransferEvidence of services/launchpad/pnl-tracker/internal/production/l16/receipt_binding_test.go (line 17) with the helpers of its fixture."
+symbols = []
 
 [capability.22.39.1196]
 title = "Let the job loop of the pnl service warn for a first failed pass, report an error from the third failed pass in a row at most every 30 seconds, and write one line when the job passes again"
@@ -213022,6 +213082,126 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1199]
+title = "Let the holders job call the refresh of the analytics only for a coin that changed, and repeat a serialization failure of that refresh before it is an error"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1199"]
+interfaces = []
+do_1 = "do_1 Gotcha 4928, decision 4002. Read the function catchUpStatsHolders of services/launchpad/stats-*/internal/app/app.go (line 945) to its end with the call at line 999 and the place that gives it the refresh (line 322), the function RefreshTokenInputs of services/launchpad/stats-*/internal/analytics/risk_inputs.go (line 246) to its end, the functions RecomputeExpiryTx (line 153), recompute (line 174) and RunExpiry (line 232) of services/launchpad/stats-*/internal/analytics/projector.go, the type CanonicalBatch of services/launchpad/stats-*/internal/holdings/ingestion.go (line 291) with the function CatchUpCanonicalAt that fills it and the functions retryableCanonical and retryCanonical (lines 318 and 323) as the present form of a repeat, the present cases of the file holder_catchup_paths_test.go of the package internal/app, the cases of the package internal/analytics that prepare a pool with its snapshots, and the entries of the files risk_inputs.go and projector.go in services/launchpad/stats-*/internal/analytics/runtime_statements.json."
+do_2 = "do_2 Write the cases a and b of decision 4002 point three first and see case a fail on the tree as it is. Then bring the pass into the form of point one. Then write case c, see it fail, add the repeat of point two and write case d. Points four to six hold: no file outside the stats module changes."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point eight holds and point seven names what the final message holds. The cases need the PostgreSQL of the test environment and the anvil program, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. Other tasks change the packages internal/consumer and internal/projectionstats and entries of the record services/launchpad/stats-*/internal/analytics/runtime_statements.json at the same time: where the main line has changed that record, keep its entries and add yours. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/stats-workers"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-* && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 40m ./internal/holdings/... ./internal/app/... ./internal/analytics/... && GOWORK=off go test -count=1 -list ^TestAnalyticsIdleRefresh ./internal/analytics/ | grep -q ^TestAnalyticsIdleRefresh)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1198]
+title = "Bind the transcript of the reward history to the dependency plan of its role, take the checksum of the registry file out of it and renew it with its recorder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1198"]
+interfaces = []
+do_1 = "do_1 Gotcha 4927, decision 4001. Read services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go from the struct of the transcript (line 45) to the comparison of the plan (line 238) with the function rewardHistoryBootstrap (line 144), the recorder services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py whole, the head of services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json, the entries of the role pnl_runtime in migrations/grants.json and the entry of migration 150010 in migrations/registry.json."
+do_2 = "do_2 Write the cases b, c and d of decision 4001 point four first, against the function of point three as it has to be, and see them fail. Then write the function and let the bootstrap call it, remove the comparison of line 156 with the member of the struct, and take the member out of the output of the recorder. Then renew the transcript with the recorder under point one and write case a. Change no member of the transcript by hand. Then write the sentence of point five. Points six and seven hold: no file outside the package changes."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point nine holds and point eight names what the final message holds. The cases need the PostgreSQL of the test environment and the anvil program, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. Where the main line brings a further registration of the plan while this task runs, take the main line and run the recorder again. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l18"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/production/l18/... && GOWORK=off go test -count=1 -list ^TestRewardHistoryPlanBinding ./internal/production/l18/ | grep -q ^TestRewardHistoryPlanBinding)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.151]
+title = "Judge the state of the chart by the heartbeat and the contiguity of its stream, so that a coin without a recent trade does not read as out of date"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.151"]
+interfaces = []
+do_1 = "do_1 Gotcha 4926, decision 4000. Read apps/launchpad/web/src/widgets/trading/udf-datafeed.ts from the function observe (line 604) to the end of the function recover (line 769) with the receive path around line 825, the functions finishReplay, schedulePoll, poll and fail, the types ChartStreamState (line 20) and ChartFreshness (line 259), the handler of line 864 and the function resourceCounts (line 905). Read the function freshness and the constants of apps/launchpad/web/src/page-modules/token/market-presentation.ts (lines 19 and 32), the place of apps/launchpad/web/src/page-modules/token/market-session.ts that records a heartbeat (line 120), sdk/launchpad/packages/sdk/src/browser-stream.ts around line 19, the status line of apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx (lines 28 to 102), and the present cases of the files chart-datafeed-recovery.test.ts, chart-datafeed-revision.test.ts and udf-datafeed.test.ts of the directory apps/launchpad/web/src/widgets/trading with the transport they register."
+do_2 = "do_2 Write the cases a, c and d of decision 4000 point six first and see case a fail on the tree as it is. Then bring the functions observe and finishReplay and the receive path into the form of points one and two. Then write case b, see it fail, add the timer of point three and write the cases e and f. Then write case g and bring the path without a stream into the form of point four. Then decide the present cases of point seven. Point eight holds: only files under apps/launchpad/web/src/widgets/trading change."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point ten holds and point nine names what the final message holds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. Another task changes the candle merge of the directory apps/launchpad/web/src/widgets/trading at the same time, and a task of the look series changes files of the web application: where the main line has changed a file of the feed, keep its changes and make points one to four hold in the new form. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/trading/chart-liveness.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s apps/launchpad/web/src/widgets/trading/chart-liveness.test.ts && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1197]
+title = "Let the two settlement lookups of the pnl module find the transfer of the settlement asset at the address of the launchpad module for a fill of the native execution"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1197"]
+interfaces = []
+do_1 = "do_1 Gotcha 4925, decision 3999. Read the function liveReceiptSettlement of services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go (line 940) and the function receiptSettlement of services/launchpad/pnl-tracker/internal/production/l16/normalization.go (line 40) to their ends, their three callers (services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go lines 167 and 529, services/launchpad/pnl-tracker/internal/production/l16/service.go line 190), the definitions of the indexer (services/launchpad/indexer/internal/decode/registry.go lines 26 and 28) with the function attribute of the indexer that decision 3989 changed, the recorded swap NativeSwap of services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json, and the present case TestReceiptSettlementValidatesSourceBoundTransferEvidence of services/launchpad/pnl-tracker/internal/production/l16/receipt_binding_test.go (line 17) with the helpers of its fixture."
+do_2 = "do_2 Write the cases a to e of decision 3999 point four first and see the cases b and d fail on the tree as it is. Then give the two functions the rule of points one and two and the package the definitions of point three. Then write case f, for which the exception of point four holds. Points five and six hold: only files of the package l16 of the pnl module change."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point eight holds and point seven names what the final message holds; the reading of point seven is part of the task and is done before the final message is written. The cases need the PostgreSQL of the test environment and the anvil program, which the variables of the packages name. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. Do not run the formatter over a whole existing file: format only the lines you changed. Another task changes files of the package internal/app of the pnl module at the same time; it does not change the package l16. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 40m $(GOWORK=off go list ./... | grep -v /internal/production/l18) && GOWORK=off go test -count=1 -list ^TestNativeSettlementHolder ./internal/production/l16/ | grep -q ^TestNativeSettlementHolder)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1196]
 title = "Let the job loop of the pnl service warn for a first failed pass, report an error from the third failed pass in a row at most every 30 seconds, and write one line when the job passes again"
 status = "pending"
@@ -213039,7 +213219,7 @@ touches = ["services/launchpad/pnl-tracker/internal/app"]
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
-verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=20 -race -run ^TestBackgroundLoop ./internal/app/ && GOWORK=off go test -count=1 -list ^TestBackgroundLoopStreak ./internal/app/ | grep -q ^TestBackgroundLoopStreak)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 40m $(GOWORK=off go list ./... | grep -v /internal/production/l18) && GOWORK=off go test -count=20 -race -run ^TestBackgroundLoop ./internal/app/ && GOWORK=off go test -count=1 -list ^TestBackgroundLoopStreak ./internal/app/ | grep -q ^TestBackgroundLoopStreak)"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -213054,7 +213234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1195]
 title = "Let the stream relay of the api write its retention line only for a pass that removed frames"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213084,7 +213264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.150]
 title = "Open the Explore view on Trending and let an empty preset say what it lists and lead to a list with coins"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213114,7 +213294,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1194]
 title = "Let a pass of the holders refresh that changes nothing write nothing and repeat a serialization failure before it is an error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213175,7 +213355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.149]
 title = "Show the notice of late rankings in the Trending column only for the qualities stale and quarantined"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213235,7 +213415,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1192]
 title = "Let the chart history answer no_data for the page the api gives for a pool without a committed trade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213265,7 +213445,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1191]
 title = "Let the api give each candle of the history in the form the charts service publishes it and label the candle page with the series model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213766,7 +213946,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.138]
 title = "Lay the foundation of the launchpad look: the token values of the brief, the colour mode with its control, type weights and shape, the primitives and the create part of the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
