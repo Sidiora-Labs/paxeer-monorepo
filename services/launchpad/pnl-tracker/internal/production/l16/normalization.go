@@ -77,6 +77,7 @@ func (a *BaselineAuthority) receiptSettlement(ctx context.Context, tx pgx.Tx, fi
 	if headerDigest != fill.Provenance.HeaderSHA256 {
 		return result, delivery.ErrIntegrity
 	}
+	holder := settlementAssetHolder(fill)
 	var tokenMoves, settlements, quoteMoves []movement
 	for _, log := range receipt.Logs {
 		if log == nil {
@@ -102,7 +103,7 @@ func (a *BaselineAuthority) receiptSettlement(ctx context.Context, tx pgx.Tx, fi
 		if emitter == fill.Token.Address && m.Amount == fill.TokenAmountRaw && ((fill.Side == sideBuy && m.From == fill.PoolAddress) || (fill.Side == sideSell && m.To == fill.PoolAddress)) {
 			tokenMoves = append(tokenMoves, m)
 		}
-		if emitter == fill.Settlement.Address && m.Amount == fill.USDLAmountRaw && ((fill.Side == sideBuy && m.To == fill.PoolAddress) || (fill.Side == sideSell && m.From == fill.PoolAddress)) {
+		if emitter == fill.Settlement.Address && m.Amount == fill.USDLAmountRaw && ((fill.Side == sideBuy && m.To == holder) || (fill.Side == sideSell && m.From == holder)) {
 			settlements = append(settlements, m)
 		}
 	}
