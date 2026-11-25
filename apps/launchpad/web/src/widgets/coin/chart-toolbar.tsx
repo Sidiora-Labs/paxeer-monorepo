@@ -46,6 +46,7 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
   const mcapDisabled = mcapDisabledReason !== null;
   const live = !waitingForFirstTrade && freshness.connectionStatus === 'live';
   const waitingForTrades = waitingForFirstTrade || (noTrades && (freshness.connectionStatus === 'connecting' || freshness.connectionStatus === 'snapshotting' || freshness.connectionStatus === 'replaying'));
+  const canRetry = !waitingForTrades && !live && freshness.connectionStatus !== 'closed';
 
   return (
     <div className={cn('flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 bg-surface-1 px-3 py-2', className)}>
@@ -99,7 +100,7 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
         </span>
         {!waitingForTrades || freshness.lastSourceHeight !== null ? <span data-numeric className="hidden tabular-nums sm:inline">Block {freshness.lastSourceHeight ?? '—'}</span> : null}
         {!waitingForTrades && freshness.lagReason ? <span className="sr-only">{humanErrorText(freshness.lagReason, 'Live updates are paused')}</span> : null}
-        {!waitingForTrades && !live && freshness.connectionStatus !== 'closed' ? <Button variant="ghost" size="sm" onClick={onRetry}>Try again</Button> : null}
+        <Button variant="ghost" size="sm" onClick={onRetry} inert={!canRetry} aria-hidden={!canRetry} className={cn(!canRetry && 'invisible')}>Try again</Button>
       </div>
     </div>
   );

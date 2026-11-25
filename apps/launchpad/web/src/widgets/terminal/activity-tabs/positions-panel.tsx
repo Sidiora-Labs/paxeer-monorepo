@@ -1,7 +1,7 @@
 'use client';
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import { LogIn, Wallet } from 'lucide-react';
-import { Button, EmptyState, ErrorState, LoadMore, SortHeader, Skeleton, UnavailableState } from '@/ui/primitives';
+import { Avatar, Button, EmptyState, ErrorState, LoadMore, SortHeader, Skeleton, UnavailableState } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
 import { formatTokenAmount, formatUsdl } from '@/utils/format';
 import { openAuthModal } from '@/shell/auth-modal-store';
@@ -31,15 +31,15 @@ function QualityTag({ label, value, good }: { label: string; value: string; good
   return <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 text-2xs font-bold text-warning">{label}</span>;
 }
 
-export interface PositionsTableProps { positions: readonly PortfolioPosition[]; token: FillsToken; symbol: string }
+export interface PositionsTableProps { positions: readonly PortfolioPosition[]; token: FillsToken; symbol: string; empty?: ReactNode }
 
 /** Columns Token | Balance | Remaining cost | Realized | Unrealized | Mark value, with basis / pricing quality tags. */
-export function PositionsTable({ positions, token, symbol }: PositionsTableProps) {
+export function PositionsTable({ positions, token, symbol, empty }: PositionsTableProps) {
   const decimals = token.decimalsQuality === 'verified' ? token.decimals : null;
   return (
     <div role="region" aria-label="Positions table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
       <table aria-label="Your positions in this pair" className="w-full min-w-144 text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
-        <thead className="bg-surface-1">
+        <thead className="bg-canvas">
           <tr>
             <SortHeader className="h-6" label="Token" />
             <SortHeader className="h-6" label="Balance" align="right" />
@@ -50,13 +50,15 @@ export function PositionsTable({ positions, token, symbol }: PositionsTableProps
           </tr>
         </thead>
         <tbody>
+          {positions.length === 0 ? <tr><td colSpan={6} className="p-0">{empty ?? <EmptyState icon={Wallet} title="No position yet" body="Buy from the trade panel to open one." />}</td></tr> : null}
           {positions.map(position => {
             const value = positionValueRaw(position);
             return (
-              <tr key={position.positionId} data-position-id={position.positionId} className="min-h-table-row-dense bg-surface-1 transition-colors hover:bg-surface-hover">
+              <tr key={position.positionId} data-position-id={position.positionId} className="sl-hairline min-h-table-row-dense bg-surface-1 transition-colors hover:bg-surface-hover">
                 <td>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="block min-w-0 truncate font-bold text-text" title={symbol}>{symbol}</span>
+                    <Avatar src={null} name={symbol} size="xs" shape="square" decorative />
+                    <span className="block min-w-0 truncate font-semibold text-text" title={symbol}>{symbol}</span>
                     <QualityTag label="Cost incomplete" value={position.basisQuality} good="complete" />
                     <QualityTag label="No price yet" value={position.pricingQuality} good="priced" />
                   </span>
@@ -86,9 +88,7 @@ function SignedInPositions({ wallet, tokenAddress, token, symbol }: { wallet: st
   const matching = positionsForToken(pages.positions, tokenAddress);
   return (
     <div className="flex flex-col gap-1">
-      {matching.length
-        ? <PositionsTable positions={matching} token={token} symbol={symbol} />
-        : <EmptyState icon={Wallet} title={pages.hasMore ? 'No position in this pair on the loaded pages' : 'No position yet'} body={pages.hasMore ? 'Your portfolio has more pages; load them to finish the search.' : 'Buy from the trade panel to open one.'} />}
+      <PositionsTable positions={matching} token={token} symbol={symbol} empty={<EmptyState icon={Wallet} title={pages.hasMore ? 'No position in this pair on the loaded pages' : 'No position yet'} body={pages.hasMore ? 'Your portfolio has more pages; load them to finish the search.' : 'Buy from the trade panel to open one.'} />} />
       {pages.hasMore || pages.moreError
         ? <LoadMore auto={false} hasMore={pages.hasMore} loading={pages.loadingMore} error={pages.moreError !== null} label="Load more portfolio positions" onLoadMore={pages.loadMore} />
         : null}
@@ -96,11 +96,16 @@ function SignedInPositions({ wallet, tokenAddress, token, symbol }: { wallet: st
   );
 }
 
+/** Signed-out positions need no coin read before the account can sign in. */
+export function SignedOutPositions() {
+  return <EmptyState icon={LogIn} title="Sign in to see your position" body="Positions come from your signed-in portfolio." action={<Button variant="inverse" size="sm" onClick={() => openAuthModal('Sign in to see your positions')}>Sign in</Button>} />;
+}
+
 /** Positions tab: session-gated; the signed-in portfolio filtered to this pool's token. */
 export function PositionsPanel({ tokenAddress, token, symbol }: { tokenAddress: string; token: FillsToken; symbol: string }) {
   const scope = useSyncExternalStore(subscribeAccount, accountSession, noSession);
   if (!scope) {
-    return <EmptyState icon={LogIn} title="Sign in to see your position" body="Positions come from your signed-in portfolio." action={<Button size="sm" onClick={() => openAuthModal('Sign in to see your positions')}>Sign in</Button>} />;
+    return <SignedOutPositions />;
   }
   return <SignedInPositions wallet={scope.session.wallet} tokenAddress={tokenAddress} token={token} symbol={symbol} />;
 }

@@ -19,6 +19,7 @@ import { useDismiss } from '@/ui/primitives/use-popover';
 import { openSearchPalette } from '@/shell/global-search';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/widgets/explore/use-visible';
+import styles from './surface.module.css';
 import TerminalSubNav, { terminalPoolPath, terminalViewForPath } from './sub-nav';
 import {
   columnLimits,
@@ -136,8 +137,9 @@ function PasteCaButton() {
 
   return (
     <div ref={anchorRef} className="relative shrink-0">
-      <Button
-        variant="secondary"
+      <IconButton
+        label="Paste CA"
+        variant="ghost"
         size="sm"
         icon={<ClipboardPaste />}
         loading={reading}
@@ -145,17 +147,15 @@ function PasteCaButton() {
         onClick={() => {
           void paste();
         }}
-      >
-        Paste CA
-      </Button>
+      />
       {open ? (
         <form
           onSubmit={submit}
           role="dialog"
           aria-label="Open a coin by address"
-          className="absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-1 flex w-full max-w-menu-min flex-col gap-2 rounded-md bg-surface-2 p-3 shadow-pop"
+          className="sl-floating absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-1 flex w-menu-min max-w-[calc(100vw-var(--sl-space-8))] flex-col gap-2 rounded-md p-3"
         >
-          <label htmlFor={inputId} className="text-xs font-bold text-text-muted">
+          <label htmlFor={inputId} className="text-xs font-semibold text-text-muted">
             Paste the coin address.
           </label>
           <input
@@ -252,7 +252,7 @@ function CollapsedStrip({
   return (
     <div
       hidden={hidden}
-      className="hidden w-6 shrink-0 flex-col items-center rounded-md bg-surface-1 py-1 lg:flex"
+      className="hidden w-6 shrink-0 flex-col items-center bg-surface-1 py-1 lg:flex"
     >
       <IconButton
         label={label}
@@ -380,24 +380,25 @@ export default function TerminalFrame({
     <div
       style={style}
       data-terminal-frame
-      className="flex min-w-0 flex-col bg-canvas lg:h-[calc(100dvh-var(--terminal-top))] lg:overflow-hidden"
+      className={cn(styles.frame, 'flex min-w-0 flex-col bg-canvas lg:h-[calc(100dvh-var(--terminal-top))] lg:overflow-hidden')}
     >
-      <header className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 px-2">
-        <h1 className="shrink-0 px-1 text-sm font-extrabold text-text">Terminal</h1>
+      <header className="sl-hairline flex min-h-10 shrink-0 flex-wrap items-center gap-2 px-2">
+        <h1 className="shrink-0 px-1 text-sm font-bold text-text">Terminal</h1>
         <div className="order-last min-w-0 basis-full min-[835px]:order-none min-[835px]:flex-1 min-[835px]:basis-0">
           <TerminalSubNav active={active} />
         </div>
-        <div className="flex max-w-full flex-wrap items-center gap-1">
+        <div className="ml-auto flex max-w-full items-center gap-1">
           <PasteCaButton />
           <IconButton
             label="Search pairs (press /)"
             icon={<Search />}
-            variant="raised"
+            variant="ghost"
             size="sm"
             onClick={openSearchPalette}
           />
           <DropdownMenu
             label="Terminal layout"
+            triggerClassName="border border-transparent bg-transparent text-text-muted hover:border-control-edge"
             align="end"
             size="sm"
             trigger={<Settings aria-hidden="true" className="size-icon-sm" />}
@@ -424,7 +425,7 @@ export default function TerminalFrame({
             <aside
               aria-label="Pair discovery"
               className={cn(
-                'min-w-0 overflow-y-auto rounded-md bg-surface-1 lg:w-[var(--terminal-left)] lg:shrink-0',
+                'min-w-0 overflow-y-auto bg-surface-1 lg:w-[var(--terminal-left)] lg:shrink-0',
                 layout.left.mode !== 'open' && 'lg:hidden',
               )}
             >
@@ -455,7 +456,7 @@ export default function TerminalFrame({
             <aside
               aria-label="Position and trading"
               className={cn(
-                'min-w-0 overflow-y-auto rounded-md bg-surface-1 lg:w-[var(--terminal-right)] lg:shrink-0',
+                'min-w-0 overflow-y-auto bg-surface-1 lg:w-[var(--terminal-right)] lg:shrink-0',
                 layout.right.mode !== 'open' && 'lg:hidden',
               )}
             >

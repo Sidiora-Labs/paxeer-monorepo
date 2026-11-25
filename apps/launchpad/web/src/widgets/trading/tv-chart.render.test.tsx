@@ -164,8 +164,12 @@ describe('TvChart degraded canvas', () => {
     expect(snapshotReads).toBe(0);
     expect(view.textContent).toContain('No trades yet');
     const status = view.querySelector('section[aria-label="Price chart"] [role="status"]')!;
-    expect(status.textContent).toBe('Waiting for trades');
-    expect(status.querySelector('button')).toBeNull();
+    expect(status.firstElementChild?.textContent).toBe('Waiting for trades');
+    const retry = status.querySelector('button');
+    expect(retry?.textContent).toBe('Try again');
+    expect(retry?.classList.contains('invisible')).toBe(true);
+    expect(retry?.hasAttribute('inert')).toBe(true);
+    expect(retry?.getAttribute('aria-hidden')).toBe('true');
     expect(status.querySelector('[data-numeric]')).toBeNull();
     expect(view.textContent).not.toMatch(/TOPIC_NOT_STARTED|Loading chart|Updates paused|May be out of date/);
     expect(view.querySelector('[role="alert"], [data-state="unavailable"]')).toBeNull();

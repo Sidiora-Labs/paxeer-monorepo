@@ -100,7 +100,7 @@ export function WindowStatsCard({ poolAddress, fills, stats }: { poolAddress: st
   });
 
   return (
-    <section aria-label="Window stats" className="flex flex-col gap-2 rounded-md bg-surface-1 p-2">
+    <section aria-label="Window stats" className="sl-hairline flex flex-col gap-2 bg-surface-1 p-2">
       <SegmentedControl<StatsWindow> options={options} value={selected} onChange={setSelected} label="Stats window" size="md" shape="sm" fullWidth />
       {active.candles.state === 'ready' && active.candles.stale ? <p role="status" className="text-xs text-text-faint">Prices may be out of date</p> : null}
       {current ? (
