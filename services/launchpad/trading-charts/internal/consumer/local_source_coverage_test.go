@@ -409,7 +409,7 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 	if err != nil || next != "" {
 		t.Fatalf("committed pool sweep cursor: %q, %v", next, err)
 	}
-	bootstrap := sourceBootstrapper{config: reprocessConfig, authorize: consumer.config.Authorize}
+	bootstrap := sourceBootstrapper{config: reprocessConfig}
 	for _, tc := range []struct {
 		name, sql string
 		args      []any
@@ -454,7 +454,7 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 		_ = baselineTx.Rollback(ctx)
 		t.Fatal(err)
 	}
-	if err = bootstrap.verify(ctx, baselineTx, baseline); err != nil {
+	if err = bootstrap.advance(ctx, baselineTx, baseline, &bootstrapProgress{LastHeight: baseline.ReplayFromHeight}); err != nil {
 		_ = baselineTx.Rollback(ctx)
 		t.Fatalf("canonical bootstrap evidence: %v", err)
 	}
@@ -513,7 +513,7 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 			if tc.maxReplayFills > 0 {
 				verifier.config.MaxReplayFills = tc.maxReplayFills
 			}
-			err = verifier.verify(ctx, tx, changed)
+			err = verifier.advance(ctx, tx, changed, &bootstrapProgress{LastHeight: changed.ReplayFromHeight})
 			if err == nil || tc.want != nil && !errors.Is(err, tc.want) {
 				t.Fatalf("changed canonical bootstrap evidence admitted: %v", err)
 			}
