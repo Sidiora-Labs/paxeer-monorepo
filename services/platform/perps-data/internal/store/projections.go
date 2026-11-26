@@ -320,6 +320,7 @@ func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (result0 bool, 
 				cycle.liquidations++
 			}
 		case decode.TradeSettledRow:
+			margin.add(f.Account)
 			board = true
 			stats.add(f.Account)
 			daily.add(accountDay{f.Account, f.BlockTime.UTC().Truncate(24 * time.Hour)})
@@ -492,7 +493,21 @@ ON CONFLICT (position_id) DO UPDATE SET account = EXCLUDED.account, market_id = 
 	positionResizeSQL  = `UPDATE perps.positions_current SET size_usd = $2 WHERE position_id = $1`
 	// A full close is a liquidation when a Liquidation of the position is in
 	// the same receipt; a partial liquidation slice leaves the position open.
-	positionCloseSQL = `UPDATE perps.positions_current SET realized_pnl = realized_pnl + $2::numeric,
+	positionCloseSQL = `WITH historical AS (
+    SELECT usd, amount FROM (
+        SELECT block, tx_index, log_index, sub,
+            CASE kind WHEN 'opened' THEN collateral_amount * 1000000000000::numeric ELSE new_collateral_usd END AS usd,
+            CASE kind WHEN 'opened' THEN collateral_amount ELSE new_collateral_amount END AS amount
+        FROM perps.position_events WHERE position_id = $1 AND kind IN ('opened', 'modified')
+        UNION ALL
+        SELECT block, tx_index, log_index, sub, new_collateral_usd, new_collateral_amount
+        FROM perps.funding_payments WHERE position_id = $1
+    ) e WHERE (block, tx_index, log_index, sub) <= ($4, $6, $7, $8)
+    ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1
+)
+UPDATE perps.positions_current SET realized_pnl = realized_pnl + $2::numeric,
+    collateral_usd = CASE WHEN $3 THEN coalesce((SELECT usd FROM historical), collateral_usd) ELSE collateral_usd END,
+    collateral_amount = CASE WHEN $3 THEN coalesce((SELECT amount FROM historical), collateral_amount) ELSE collateral_amount END,
     status = CASE WHEN NOT $3 THEN status
         WHEN EXISTS (SELECT 1 FROM perps.liquidations l WHERE l.position_id = $1 AND l.tx_hash = $5) THEN 'liquidated'
         ELSE 'closed' END,
@@ -543,7 +558,7 @@ func projectPosition(ctx context.Context, tx *sql.Tx, row decode.Row) error {
 		if err != nil {
 			return err
 		}
-		return exec1(ctx, tx, positionPrefix+r.PositionID, positionCloseSQL, r.PositionID, r.RealizedPnl, r.IsFullClose, block, r.TxHash.Bytes())
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionCloseSQL, r.PositionID, r.RealizedPnl, r.IsFullClose, block, r.TxHash.Bytes(), r.TxIndex, r.LogIndex, r.Sub)
 	case decode.LiquidationRow:
 		return exec1(ctx, tx, positionPrefix+r.PositionID, positionLiquidateSQL, r.PositionID, r.TxHash.Bytes())
 	}
@@ -734,29 +749,78 @@ func projectSpotTokens(ctx context.Context, tx *sql.Tx, table string, f decode.F
 	return nil
 }
 
-const marginSQL = `INSERT INTO perps.account_margin (account, token, balance, locked, margin_mode, updated_block)
-SELECT $1, $2,
-    COALESCE(base.new_balance, 0) + COALESCE((SELECT sum(CASE c.kind WHEN 'transferred_in' THEN c.amount ELSE -c.amount END)
-        FROM perps.collateral_events c
-        WHERE c.account = $1 AND c.kind IN ('transferred_in', 'transferred_out')
-            AND (base.block IS NULL OR (c.block, c.tx_index, c.log_index, c.sub) > (base.block, base.tx_index, base.log_index, base.sub))), 0),
-    COALESCE((SELECT sum(p.collateral_amount) FROM perps.positions_current p WHERE p.account = $1 AND p.status = 'open'), 0),
-    0, $3
-FROM (SELECT 1) one
-LEFT JOIN LATERAL (SELECT e.new_balance, e.block, e.tx_index, e.log_index, e.sub FROM perps.collateral_events e
-    WHERE e.account = $1 AND e.kind IN ('deposited', 'withdrawn')
-    ORDER BY e.block DESC, e.tx_index DESC, e.log_index DESC, e.sub DESC LIMIT 1) base ON true
+const marginSQL = `WITH RECURSIVE anchors AS (
+    SELECT block, tx_index, log_index, sub, new_balance::numeric AS balance
+    FROM perps.collateral_events WHERE account = $1 AND block <= $3 AND kind IN ('deposited', 'withdrawn')
+    UNION ALL
+    SELECT block, tx_index, log_index, sub, collateral_amount::numeric
+    FROM perps.position_events WHERE account = $1 AND block <= $3 AND kind = 'opened'
+    UNION ALL
+    SELECT block, tx_index, log_index, sub, new_collateral_amount::numeric
+    FROM perps.funding_payments WHERE account = $1 AND block <= $3
+), base AS (
+    SELECT * FROM anchors ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1
+), changes AS (
+    SELECT block, tx_index, log_index, sub,
+        CASE kind WHEN 'transferred_in' THEN amount::numeric ELSE -amount END AS delta
+    FROM perps.collateral_events WHERE account = $1 AND block <= $3 AND kind IN ('transferred_in', 'transferred_out')
+    UNION ALL
+    SELECT block, tx_index, log_index, sub, CASE fee_type WHEN 4 THEN fee_tokens::numeric ELSE -fee_tokens END
+    FROM perps.fees WHERE account = $1 AND block <= $3
+    UNION ALL
+    SELECT t.block, t.tx_index, coalesce(p.log_index, t.log_index), coalesce(p.sub, t.sub),
+        CASE WHEN t.gross_pnl < 0 THEN -div(-t.gross_pnl + 999999999999::numeric, 1000000000000::numeric)
+             ELSE div(t.gross_pnl, 1000000000000::numeric) END
+    FROM perps.trade_settlements t LEFT JOIN LATERAL (
+        SELECT log_index, sub FROM perps.position_events e
+        WHERE e.position_id = t.position_id AND e.tx_hash = t.tx_hash
+          AND e.kind IN ('closed', 'modified', 'opened')
+          AND (e.log_index, e.sub) < (t.log_index, t.sub)
+        ORDER BY e.log_index DESC, e.sub DESC LIMIT 1
+    ) p ON true
+    WHERE t.account = $1 AND t.block <= $3 AND t.gross_pnl <> 0
+), later AS (
+    SELECT delta, row_number() OVER (ORDER BY block, tx_index, log_index, sub) AS n FROM changes c
+    WHERE NOT EXISTS (SELECT 1 FROM base)
+       OR (c.block, c.tx_index, c.log_index, c.sub) > (SELECT block, tx_index, log_index, sub FROM base)
+), folded(n, balance) AS (
+    SELECT 0::bigint, coalesce((SELECT balance FROM base), 0::numeric)
+    UNION ALL
+    SELECT l.n, greatest(f.balance + l.delta, 0::numeric) FROM folded f JOIN later l ON l.n = f.n + 1
+)
+INSERT INTO perps.account_margin (account, token, balance, locked, margin_mode, updated_block)
+SELECT $1, $2, (SELECT balance FROM folded ORDER BY n DESC LIMIT 1),
+    coalesce((SELECT sum(div(p.size_usd * 1000000000000000000::numeric + p.leverage * 1000000000000::numeric - 1,
+        p.leverage * 1000000000000::numeric))
+        FROM perps.positions_current p WHERE p.account = $1 AND p.status = 'open'), 0), 0, $3
 ON CONFLICT (account, token) DO UPDATE SET balance = EXCLUDED.balance, locked = EXCLUDED.locked, updated_block = EXCLUDED.updated_block`
 
-// projectMargin recomputes the perps.account_margin row of account: balance is
-// the new_balance of the latest deposit or withdrawal plus or minus every later
-// transfer, locked the collateral of the open positions, margin_mode 0.
+const positionAccountMarginSQL = `WITH shares AS (
+    SELECT p.position_id, div(m.balance * 1000000000000::numeric * p.size_usd,
+        nullif(sum(p.size_usd) OVER (), 0)) AS usd
+    FROM perps.positions_current p JOIN perps.account_margin m ON m.account = p.account AND m.token = p.collateral_token
+    WHERE p.account = $1 AND p.status = 'open'
+)
+UPDATE perps.positions_current p SET collateral_usd = s.usd, collateral_amount = div(s.usd, 1000000000000::numeric)
+FROM shares s WHERE p.position_id = s.position_id`
+
+// projectMargin folds account collateral snapshots and later transfers, fees
+// and settled PnL. Funding snapshots already include the applied funding.
+// Settlement PnL belongs at its position event, before fees and a flip's open.
+// Open positions share the account collateral by their indexed notional;
+// closed positions retain their last position event's margin.
 func projectMargin(ctx context.Context, tx *sql.Tx, account common.Address, block uint64) error {
 	b, err := blockArg(block)
 	if err != nil {
 		return err
 	}
-	return exec1(ctx, tx, "margin "+account.Hex(), marginSQL, account.Bytes(), USDL.Bytes(), b)
+	if err := exec1(ctx, tx, "margin "+account.Hex(), marginSQL, account.Bytes(), USDL.Bytes(), b); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, positionAccountMarginSQL, account.Bytes()); err != nil {
+		return fmt.Errorf("store: position account margin: %w", err)
+	}
+	return nil
 }
 
 const statsSQL = `WITH s AS (SELECT count(*) AS n, COALESCE(sum(size_usd), 0) AS vol FROM perps.trade_settlements WHERE account = $1),
