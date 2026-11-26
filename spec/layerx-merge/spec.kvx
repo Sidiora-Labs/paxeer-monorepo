@@ -214065,7 +214065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1244]
 title = "Do not render the tab Squads of the leaderboard and the tab Top rewards in the rail of a profile until a service ranks them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
