@@ -336,6 +336,12 @@ export function isSearchHint(error: Error | null): boolean {
   return error instanceof TypeError && /^(Enter a complete|Search is limited)/.test(error.message);
 }
 
+export function emptySearchHeadline(query: string, walletAvailable: boolean): string {
+  return walletAvailable
+    ? 'No coins or named users match; open this wallet'
+    : `No coins or users match "${query.trim()}"`;
+}
+
 export function PaletteStatus({
   loading,
   error,
@@ -343,6 +349,7 @@ export function PaletteStatus({
   userCount,
   onRetry,
   query,
+  walletAvailable = false,
 }: {
   loading: boolean;
   error: Error | null;
@@ -350,6 +357,7 @@ export function PaletteStatus({
   userCount: number;
   onRetry: () => void;
   query?: string;
+  walletAvailable?: boolean;
 }) {
   const hint = isSearchHint(error);
   const trimmed = query?.trim() ?? '';
@@ -360,7 +368,7 @@ export function PaletteStatus({
         ? error.message
         : "Search isn't working right now"
       : coinCount + userCount === 0 && trimmed
-        ? `No coins or users match "${trimmed}"`
+        ? emptySearchHeadline(trimmed, walletAvailable)
         : `${coinCount} ${coinCount === 1 ? 'coin' : 'coins'}, ${userCount} ${userCount === 1 ? 'user' : 'users'}`;
   return (
     <div
