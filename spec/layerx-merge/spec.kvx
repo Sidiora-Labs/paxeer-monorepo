@@ -17242,6 +17242,12 @@ value = "One. The change of task 22.44.154 stays as it is. Its verification call
 basis = "Gotcha 4946."
 affects = []
 
+[decision.4022]
+title = "No case leaves the clock of the shared test chain ahead for a file that runs after it: the case over the end of a day runs last, and the trade case says why no wallet request arrived"
+value = "One. Reproduce first. On the unchanged tree run both files in one run of the test script of the web: pnpm --dir apps/launchpad/web run test src/widgets/trading/candle-merge-content.test.ts src/widgets/trading/transaction-controls/trade-submit-recovery.test.tsx. Read in its output which file ran first; without results of an earlier run it is the chart file. The trade case is expected to fail as in the record. If it passes although the chart file ran first, the cause is another one: find it with the report of point five, repair it by the rule of point two and say so in the final message. Two. The rule. A case may move the clock of the shared chain forward only if no other file runs after it in the same run. Three. The means. The case historyAndTopicKeepFeedDrawingNewerRevisionsAcrossDay moves to a file of its own in the directory src/widgets/trading; what it shares with the case that stays moves to a support file beside them. The test configuration receives a sequencer that keeps the order it is given and places the files that move the clock after all others. The list of these files stands in one place, with a comment that gives the reason. The order holds for a whole run, for a run over a directory and for a run over named files, with and without results of an earlier run. A case in the directory src/widgets/trading proves the sequencer: for lists in several orders the file that moves the clock comes out last and the order of the others is kept. Another means is allowed if it meets the rule of point two in each of these runs; the final message gives the reason. Four. What is not a means. The chain is not put back to a snapshot after the case, because the joined services have read its blocks. The case over the end of a day keeps every assertion and gains no skip mark. The wait of five seconds of the trade case is not raised. No file of the product changes: only test files, their support files and the test configuration. Whether the deadline of a swap should follow the clock of the chain instead of the wall clock is not decided here. Five. The report of the trade case. When no request reaches the wallet within the wait of line 165, the message of the case names the text of the refused attempt, the errors of the relay, the state of the journey and the seconds by which the clock of the chain stands ahead of the wall clock. Six. Order of the work. The report of point five comes first, so that the run of point one shows the cause in its message before the means of point three is applied. Target: the verification of task 22.39.1215 passes. It runs the directory src/widgets/trading through the test script of the web, with the chart file, the case over the end of a day, the trade file and the case of the sequencer in one run, and it finds both cases by their names. Task 22.39.1215. "
+basis = "Gotcha 4947."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46902,6 +46908,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1215]
+title = "Let the case over the end of a day run after every other file of the web suite, and let the trade case say why no wallet request arrived"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/vitest.config.ts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/trading && grep -rq historyAndTopicKeepFeedDrawingNewerRevisionsAcrossDay apps/launchpad/web/src/widgets/trading && grep -q walletRefusalPreservesTradeAndExpiredQuoteRequestsOnePrice apps/launchpad/web/src/widgets/trading/transaction-controls/trade-submit-recovery.test.tsx"
+do_1 = "do_1 Gotcha 4947, decision 4022. Read apps/launchpad/web/src/widgets/trading/candle-merge-content.test.ts whole, of apps/launchpad/web/src/widgets/trading/transaction-controls/trade-submit-recovery.test.tsx the helper at line 29 and the case from line 58, of apps/launchpad/web/src/widgets/trading/transaction-controls/runtime.ts the simulation at line 525, and apps/launchpad/web/vitest.config.ts."
+symbols = []
 
 [capability.22.39.1214]
 title = "Bring the cases of the package internal/production/l16 of the pnl module well inside the limit of fifteen minutes, with every case and every assertion kept"
@@ -213358,6 +213373,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1215]
+title = "Let the case over the end of a day run after every other file of the web suite, and let the trade case say why no wallet request arrived"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1215"]
+interfaces = []
+do_1 = "do_1 Gotcha 4947, decision 4022. Read apps/launchpad/web/src/widgets/trading/candle-merge-content.test.ts whole, of apps/launchpad/web/src/widgets/trading/transaction-controls/trade-submit-recovery.test.tsx the helper at line 29 and the case from line 58, of apps/launchpad/web/src/widgets/trading/transaction-controls/runtime.ts the simulation at line 525, and apps/launchpad/web/vitest.config.ts."
+do_2 = "do_2 Reproduce first, by point one: pnpm --dir apps/launchpad/web run test src/widgets/trading/candle-merge-content.test.ts src/widgets/trading/transaction-controls/trade-submit-recovery.test.tsx. Then give the trade case its report by point five and read the cause in its message. Then apply the means of point three and run the two files together with the new file of the case again."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point four says what is not a means. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. The environment brings the browser of the render cases: do not install one. The final message names the outcome of the run of point one before the change with the message of the trade case, the means that was chosen, the name of the new file, the order of the files in the run of the verification, and every changed file with its cause. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/vitest.config.ts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/trading && grep -rq historyAndTopicKeepFeedDrawingNewerRevisionsAcrossDay apps/launchpad/web/src/widgets/trading && grep -q walletRefusalPreservesTradeAndExpiredQuoteRequestsOnePrice apps/launchpad/web/src/widgets/trading/transaction-controls/trade-submit-recovery.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1214]
 title = "Bring the cases of the package internal/production/l16 of the pnl module well inside the limit of fifteen minutes, with every case and every assertion kept"
 status = "pending"
@@ -213720,7 +213765,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1203]
 title = "Read the sell and the buy of a routed swap as the own trades of the wallet in both receipt functions of the pnl module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1200", "22.39.1201"]
@@ -214508,7 +214553,7 @@ do_6 = "do_6 One more named check before the runs of do_5, found on 2026-11-25 i
 
 [task.22.44.146]
 title = "Bring the terminal, swap and order views of the launchpad to the visual brief"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138"]
