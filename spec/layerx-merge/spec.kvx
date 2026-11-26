@@ -213504,7 +213504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1210]
 title = "Run the launchpad jobs of the public test workflow on the PostgreSQL major the approved registry names, and let the assertion on the image read the major from the registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
