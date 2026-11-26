@@ -11,7 +11,7 @@ import { HttpError, SdkClient } from '@kindle/sdk';
 import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import { marketRetryPace } from '@/core/retry-pace';
 import { queryKeys } from '@/core/query-keys';
-import { transientRetryFallbackMs } from '@/core/transient-retry';
+import { transientRetryBudgetMs, transientRetryDelay, transientRetryElapsed, transientRetryLimit } from '@/core/transient-retry';
 import { MarketClientContext } from './client';
 import { useFeed, type FeedPage } from './use-feed';
 import type { Loadable } from './unsupported';
@@ -78,8 +78,8 @@ afterAll(async () => {
   }
 });
 
-async function waitFor(predicate: () => boolean) {
-  const deadline = Date.now() + 5_000;
+async function waitFor(predicate: () => boolean, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
   while (!predicate()) {
     if (Date.now() >= deadline) throw new Error('Feed did not settle');
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
@@ -109,14 +109,15 @@ async function reads(): Promise<{ status: number; at: number }[]> {
   return response.json();
 }
 
-async function feedReadIsTriedOnceMoreAfterARetryable503WithoutDelay() {
+async function feedReadWaitsForTheServerDelayThenShowsTheEntry() {
   expect((await fetch(origin + '/reset/1', { method: 'POST' })).status).toBe(204);
   const states = mountFeed();
   const key = queryKeys.feed('relevance', null, 50);
   await waitFor(() => queries!.getQueryState(key)?.fetchFailureCount === 1);
   const error = queries!.getQueryState(key)?.fetchFailureReason;
   expect(error).toBeInstanceOf(HttpError);
-  expect(error).toMatchObject({ status: 503, envelope: { retryable: true, retryAfterMs: null } });
+  expect(error).toMatchObject({ status: 503, envelope: { retryable: true, retryAfterMs: 1000 } });
+  if (!(error instanceof HttpError) || error.envelope?.retryAfterMs == null) throw new Error('Feed failure must name its retry delay');
   expect(await reads()).toHaveLength(1);
   expect(states.every(state => state.state === 'loading')).toBe(true);
   expect(container!.textContent).toBe('loading');
@@ -127,21 +128,36 @@ async function feedReadIsTriedOnceMoreAfterARetryable503WithoutDelay() {
   expect(states.slice(0, -1).every(state => state.state === 'loading')).toBe(true);
   const requests = await reads();
   expect(requests.map(read => read.status)).toEqual([503, 200]);
-  expect(requests[1].at - requests[0].at).toBeGreaterThanOrEqual(transientRetryFallbackMs);
+  expect(requests[1].at - requests[0].at).toBeGreaterThanOrEqual(error.envelope.retryAfterMs);
 }
-test(feedReadIsTriedOnceMoreAfterARetryable503WithoutDelay.name, feedReadIsTriedOnceMoreAfterARetryable503WithoutDelay);
+test(feedReadWaitsForTheServerDelayThenShowsTheEntry.name, feedReadWaitsForTheServerDelayThenShowsTheEntry);
 
-async function feedReadShowsItsFailureWhenTheSecondAttemptFails() {
-  expect((await fetch(origin + '/reset/2', { method: 'POST' })).status).toBe(204);
+async function feedReadShowsItsFailureWhenTheServerRetryBudgetIsSpent() {
+  const attempts = transientRetryLimit + 1;
+  const marginMs = 5_000;
+  expect((await fetch(origin + `/reset/${attempts}`, { method: 'POST' })).status).toBe(204);
   const states = mountFeed();
   const key = queryKeys.feed('relevance', null, 50);
   await waitFor(() => queries!.getQueryState(key)?.fetchFailureCount === 1);
+  const error = queries!.getQueryState(key)?.fetchFailureReason;
+  expect(error).toBeInstanceOf(HttpError);
+  expect(error).toMatchObject({ status: 503, envelope: { retryable: true, retryAfterMs: 1000 } });
   expect(states.every(state => state.state === 'loading')).toBe(true);
-  await waitFor(() => queries!.getQueryState(key)?.status === 'error');
-  expect(queries!.getQueryState(key)).toMatchObject({ fetchFailureCount: 2, fetchStatus: 'idle' });
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+  expect(container!.textContent).toBe('loading');
+  await waitFor(() => queries!.getQueryState(key)?.status === 'error', transientRetryBudgetMs + marginMs);
+  expect(queries!.getQueryState(key)).toMatchObject({ fetchFailureCount: attempts, fetchStatus: 'idle' });
+  await waitFor(() => states.at(-1)?.state === 'unsupported');
   expect(states.at(-1)).toMatchObject({ state: 'unsupported', status: 503 });
+  expect(states.slice(0, -1).every(state => state.state === 'loading')).toBe(true);
   expect(container!.textContent).toBe('unsupported');
-  expect((await reads()).map(read => read.status)).toEqual([503, 503]);
+  const requests = await reads();
+  expect(requests.map(read => read.status)).toEqual(Array.from({ length: attempts }, () => 503));
+  for (let index = 1; index < requests.length; index++) {
+    expect(requests[index].at - requests[index - 1].at).toBeGreaterThanOrEqual(transientRetryDelay(index - 1, error));
+  }
+  const elapsedMs = requests.at(-1)!.at - requests[0].at;
+  expect(elapsedMs).toBeGreaterThanOrEqual(transientRetryElapsed(transientRetryLimit - 1, error));
+  expect(elapsedMs).toBeLessThanOrEqual(transientRetryBudgetMs + marginMs);
 }
-test(feedReadShowsItsFailureWhenTheSecondAttemptFails.name, feedReadShowsItsFailureWhenTheSecondAttemptFails);
+// Server-advised retries may consume the full wait budget before the failure state renders.
+test(feedReadShowsItsFailureWhenTheServerRetryBudgetIsSpent.name, feedReadShowsItsFailureWhenTheServerRetryBudgetIsSpent, transientRetryBudgetMs + 5_000);

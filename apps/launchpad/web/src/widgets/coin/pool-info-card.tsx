@@ -31,10 +31,10 @@ export default function PoolInfoCard({ poolAddress }: { poolAddress: string }) {
   return (
     <section aria-labelledby="pool-info-title" className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="pool-info-title" className="text-sm font-bold text-text">Pool information</h2>
+        <h2 id="pool-info-title" className="text-sm font-semibold text-text">Pool information</h2>
         <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-xs text-text-muted">Paired with <span className="font-bold text-text">USDL</span></span>
       </div>
-      <dl className="flex flex-col rounded-md bg-surface-2 px-3 py-1">
+      <dl className="flex flex-col rounded-sm bg-surface-2 px-3 py-1">
         <KeyValueRow className={rowClass} label="Total liquidity" loading={loading} value={stats ? formatUsdl(stats.realUsdlBalanceRaw, { compact: true }) : null} />
         {stats ? <KeyValueRow className={rowClass} label="Circulating market cap" value={circulatingRow(stats)} /> : null}
         {stats?.indicativeTvlUsdlRaw ? <KeyValueRow className={rowClass} label="Total value locked" value={formatUsdl(stats.indicativeTvlUsdlRaw, { compact: true })} /> : null}

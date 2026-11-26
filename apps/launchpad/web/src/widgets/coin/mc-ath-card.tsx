@@ -7,14 +7,14 @@ import { statsCirculatingMarketCap, statsMarketCap } from '@/core/market/pool-st
 import { StatDash } from '@/ui/shared/stat-value';
 
 /**
- * Market cap versus all-time-high as one compact row (pump.fun: "MC $102K [bar] ATH $133K"). No
+ * Market cap versus all-time-high as one compact row. No
  * served contract carries an ATH valuation (IF_POOL_STATS and the legacy /stats row have none), so
  * the bar stays an empty track and the ATH reads as a dash; only the live market cap is a value.
  */
 export default function McAthCard({ poolAddress, liveStats }: { poolAddress: string; liveStats: PoolStats | null }) {
   const snapshot = usePoolSnapshot(poolAddress);
   const stats = liveStats ?? snapshot.data?.stats ?? null;
-  // Market cap is price x total supply (PoolStats.totalSupplyValuationUsdlRaw), the pump.fun figure.
+  // Market cap is price x total supply (PoolStats.totalSupplyValuationUsdlRaw).
   const mcapStat = statsMarketCap(stats);
   const circulating = statsCirculatingMarketCap(stats).value;
   const mcap = mcapStat.value === null ? null : formatUsdl(mcapStat.value, { compact: true });

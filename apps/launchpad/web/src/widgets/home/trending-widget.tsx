@@ -5,7 +5,7 @@ import { Flame } from 'lucide-react';
 import { Button, EmptyState, ErrorState, LoadMore, NoticeBar, SegmentedControl, SelectPill, UnavailableState, type SegmentOption, type SelectOption } from '@/ui/primitives';
 import { useExploreRows, type ExploreRow, type ExploreRowsState } from '@/widgets/explore/use-explore-rows';
 import type { RankingCategory } from '@/core/market/use-rankings';
-import type { StatValue } from '@/core/market/pool-stats-display';
+import { changeWindows, type ChangeWindow, type StatValue } from '@/core/market/pool-stats-display';
 import type { TokenMetadata } from '@/widgets/home/types';
 import type { Loadable } from '@/core/market/unsupported';
 import { SourceNotice } from '@/ui/common/source-notice';
@@ -16,7 +16,7 @@ import type { WidgetProps } from './widget-registry';
 import { columnNoticeClass, columnToolbarClass, usePanelState } from './panel-state';
 
 export type TrendingCategory = Extract<RankingCategory, 'trending' | 'unusual' | 'movers' | 'volume'>;
-export type Timeframe = '1h' | '4h' | '12h' | '24h';
+export type Timeframe = ChangeWindow;
 
 /**
  * Ranking tabs. Labels are short so the four tabs and the change-window pill share one line at the
@@ -29,34 +29,30 @@ export const trendingCategories: (SegmentOption<TrendingCategory> & { label: str
   { value: 'volume', label: 'Vol', ariaLabel: 'Volume' },
 ];
 
-export const timeframes: Timeframe[] = ['1h', '4h', '12h', '24h'];
-/** Windows with a v2 PoolStats change field: 24h (priceChangeBps24h) and 1h (priceChangeBps1h). */
-export const servedTimeframes: ReadonlySet<Timeframe> = new Set<Timeframe>(['1h', '24h']);
-/** Change-window options for the compact selector; windows with no projection say so in the menu. */
+export const timeframes = changeWindows;
+/** Change-window options for the compact selector. */
 export const timeframeOptions: SelectOption<Timeframe>[] = timeframes.map(value => ({
   value,
   text: value,
-  label: servedTimeframes.has(value) ? value : <span className="inline-flex items-baseline gap-1.5">{value}<span className="text-xs font-semibold text-text-faint">soon</span></span>,
+  label: value,
 }));
 
-/** Change-window segments for a column wide enough to show all four of change windows. */
+/** Change-window segments for a column wide enough to show all four change windows. */
 export const timeframeSegments: SegmentOption<Timeframe>[] = timeframes.map(value => ({
   value,
   label: value,
-  ...(servedTimeframes.has(value) ? {} : { ariaLabel: `${value}, coming soon`, title: `${value} change coming soon` }),
 }));
 
 /**
- * Column width (px) from which the change window shows as the segmented 1h / 4h / 12h / 24h group
- * beside the ranking tabs; narrower columns keep the compact value pill (a narrower column shows a dropdown). Ranking tabs (~213 px) + gap (8) +
- * window segments (~130 px) + row padding (16) = 367 px, rounded up.
+ * Column width (px) from which the 5m / 1h / 6h / 24h segments share a line with the ranking tabs.
+ * Measured 13 px Manrope labels with compact padding: ranking tabs (208 px) + gap (8) +
+ * window segments (126 px) + row padding (16) = 358 px, rounded up to the column breakpoint.
  */
 export const timeframeSegmentsMinWidth = 376;
 
-/** The row's change for the selected window: 1h and 24h from the v2 statistics (value or baseline reason); 4h and 12h have no v2 source. */
+/** The row's change or baseline reason for the selected statistics window. */
 export function changeFor(row: Pick<ExploreRow, 'changes'>, timeframe: Timeframe): StatValue<number> {
-  if (timeframe === '1h' || timeframe === '24h') return row.changes[timeframe];
-  return { value: null, reason: `${timeframe} change coming soon, pick 1h or 24h` };
+  return row.changes[timeframe];
 }
 
 /** Empty-snapshot copy per ranking tab; a successful empty ranking is a normal state before coins trade. */
@@ -106,7 +102,7 @@ function readyRecord<T>(source: Loadable<Record<string, T>>): Record<string, T> 
 
 /**
  * Trending column (WP-09, features.csv 135-148): ranking categories as tabs,
- * 1h/4h/12h/24h selector where only the served timeframes carry data, rows
+ * 5m/1h/6h/24h selector for the statistics windows, rows
  * with image, name, price to 7 decimals, socials, market cap and change tint.
  */
 export function TrendingWidget(props: WidgetProps & { standalone?: boolean }) {
@@ -130,7 +126,6 @@ export function TrendingColumn({ filter, density, category, setCategory, explore
     [explore.rows, filter, timeframe, metadata],
   );
   const quality = explore.snapshot?.quality ?? null;
-  const timeframeServed = servedTimeframes.has(timeframe);
 
   return (
     <div className={cn('@container flex flex-col [&_button]:focus-visible:bg-text [&_button]:focus-visible:text-canvas [&_button]:focus-visible:transition-none', !standalone && 'min-h-0 flex-1')}>
@@ -143,9 +138,6 @@ export function TrendingColumn({ filter, density, category, setCategory, explore
         <SelectPill label="Change window" className="ml-auto @min-column-timeframes:hidden" options={timeframeOptions} value={timeframe} onChange={setTimeframe} size="sm" compact />
       </div>
       <div className={cn('flex flex-col', !standalone && 'min-h-0 flex-1 overflow-y-auto')}>
-        {!timeframeServed ? (
-          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title={`${timeframe} change`} operation={`IF_STATS_BATCH (priceChangeBps${timeframe})`} status={null} />
-        ) : null}
         {rows.length > 0 && (quality === 'stale' || quality === 'quarantined') ? (
           <NoticeBar tone="warning" className="mx-2 mb-2" surface={1}>Rankings may be a little behind right now</NoticeBar>
         ) : null}

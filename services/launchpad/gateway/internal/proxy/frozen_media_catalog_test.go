@@ -139,6 +139,7 @@ func TestConnectedTablesForwardOnlyCatalogTemplates(t *testing.T) {
 		"/v2/social/users/{wallet}/followers":                       true,
 		"/v2/social/users/{wallet}/following":                       true,
 		"/v2/social/users/{wallet}/follow-stats":                    true,
+		"/v2/social/users/{wallet}/comments":                        true,
 		"/v2/social/follow/{followee}":                              true,
 		"/v2/social/pool/{poolAddress}/comments":                    true,
 		"/v2/social/comments/{id}":                                  true,

@@ -12,6 +12,8 @@ import { Button, EmptyState, ErrorState, StateNotice, UnavailableState } from '@
 import { transientRetryBudgetMs } from '@/core/transient-retry';
 import { initialsOf } from '@/ui/primitives/avatar';
 import { reportUserFacingError } from '@/core/user-facing-error';
+import { usePoolDetailListings } from '@/core/market/pool-listings';
+import { formatSpotPrice } from '@/core/market/pool-stats-display';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { useMarketTrades } from '@/page-modules/token/market-session-context';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
@@ -483,11 +485,13 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
   const firstTrades = useMarketTrades(poolAddress);
   const noTrades = (noTradesYet || emptyCandles || (firstTrades.data !== undefined && firstTrades.data.data.items.length === 0 && firstTrades.data.nextCursor === null)) && view.rows.length === 0;
   const valuationBlocked = mode === 'mcap' && valuation !== null && valuation.state !== 'ready';
+  const openingQuote = usePoolDetailListings(noTrades && snapshot.data ? [poolAddress] : []);
+  const openingPrice = openingQuote.data?.[poolAddress.toLowerCase()]?.spotPrice ?? null;
   const stalled = answer === 'stalled' && !error && !noTrades && !valuationBlocked;
   const retryChart = useCallback(() => { setError(null); setLoaded(false); setRetryGeneration(value => value + 1); }, []);
 
   return (
-    <section aria-label="Price chart" className="flex w-full max-w-full flex-col overflow-hidden rounded-lg bg-surface-1">
+    <section aria-label="Price chart" className="flex w-full max-w-full flex-col overflow-hidden bg-canvas">
       <ChartToolbar
         interval={interval}
         onIntervalChange={setIntervalValue}
@@ -505,14 +509,17 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
       <ChartSplit height={height} onHeightChange={setHeight} min={CHART_MIN_HEIGHT} max={CHART_MAX_HEIGHT} defaultHeight={CHART_DEFAULT_HEIGHT}>
         <div ref={containerRef} role="group" tabIndex={0} aria-label="Interactive price chart. Press Enter to explore the chart and Escape to return to the page."
           onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) { event.preventDefault(); event.currentTarget.querySelector('iframe')?.focus(); } }}
-          inert={!loaded || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || !!error || stalled || noTrades || valuationBlocked}
+          inert={!loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked}
+          data-chart-canvas style={{ visibility: !loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked ? 'hidden' : 'visible' }}
           className="absolute inset-0 h-full w-full outline-none after:pointer-events-none after:absolute after:inset-0 after:z-20 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-focus data-[chart-focus]:after:outline-2 data-[chart-focus]:after:-outline-offset-2 data-[chart-focus]:after:outline-focus" />
-        {!loaded && !error && !stalled && !noTrades && !valuationBlocked ? (
+        {(!loaded || answer === 'waiting') && !error && !stalled && !noTrades && !valuationBlocked ? (
           <div role="status" className="absolute inset-0 flex items-center justify-center bg-canvas text-sm text-text-faint">Loading chart...</div>
         ) : null}
         {noTrades ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-canvas">
+          <div data-chart-empty className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-canvas">
             <EmptyState icon={CandlestickChart} title="No trades yet" body="The chart starts with the first trade." />
+            <p data-opening-price className="px-4 text-center text-xs text-text-muted tabular-nums">Opening price {openingPrice === null ? <span aria-label="Opening price not available yet">—</span> : formatSpotPrice(openingPrice)}</p>
+            {openingQuote.isError ? <ErrorState variant="inline" message="Opening price can't load right now" onRetry={() => { void openingQuote.refetch(); }} /> : null}
           </div>
         ) : null}
         {stalled ? (
@@ -538,7 +545,7 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
           </div>
         ) : null}
       </ChartSplit>
-      <div className="flex flex-col gap-2 bg-surface-1 px-3 py-2">
+      <div className="flex flex-col gap-2 bg-canvas px-3 py-2">
         <Button variant="ghost" size="sm" aria-expanded={tableOpen || !!error} aria-controls="canonical-chart-table" onClick={() => setTableOpen(value => !value)} className="self-start">
           {tableOpen || !!error ? 'Hide price list' : 'Show price list'}
         </Button>

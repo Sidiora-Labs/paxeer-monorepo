@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -29,14 +30,12 @@ func TestFeedRetryWebService(t *testing.T) {
 	mux.HandleFunc("POST /reset/{failures}", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		if r.PathValue("failures") == "1" {
-			failures = 1
-		} else if r.PathValue("failures") == "2" {
-			failures = 2
-		} else {
+		count, err := strconv.Atoi(r.PathValue("failures"))
+		if err != nil || count < 1 {
 			http.Error(w, "Invalid failure count", http.StatusBadRequest)
 			return
 		}
+		failures = count
 		reads = nil
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -56,8 +55,18 @@ func TestFeedRetryWebService(t *testing.T) {
 		recorded := httptest.NewRecorder()
 		if len(reads) < failures {
 			unavailable.ServeHTTP(recorded, r)
-			if recorded.Code != http.StatusServiceUnavailable || recorded.Header().Get("Retry-After") != "" {
+			if recorded.Code != http.StatusServiceUnavailable || recorded.Header().Get("Retry-After") != "1" {
 				t.Errorf("Discovery failure = %d, Retry-After = %q", recorded.Code, recorded.Header().Get("Retry-After"))
+			}
+			var envelope struct {
+				Retryable    bool `json:"retryable"`
+				RetryAfterMs int  `json:"retryAfterMs"`
+			}
+			if err := json.Unmarshal(recorded.Body.Bytes(), &envelope); err != nil {
+				t.Errorf("Discovery failure envelope: %v", err)
+			}
+			if !envelope.Retryable || envelope.RetryAfterMs != 1000 {
+				t.Errorf("Discovery failure retryable = %t, retryAfterMs = %d", envelope.Retryable, envelope.RetryAfterMs)
 			}
 		} else {
 			healthy.Config.Handler.ServeHTTP(recorded, r)

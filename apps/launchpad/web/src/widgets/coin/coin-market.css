@@ -1,0 +1,50 @@
+.coin-header > * {
+  min-width: 0;
+}
+
+.coin-header-values > * {
+  flex-shrink: 0;
+}
+
+.coin-chart-toolbar > * {
+  flex-shrink: 0;
+}
+
+.coin-chart-toolbar [role='radiogroup'] {
+  max-width: none;
+  overflow: visible;
+}
+
+.coin-holder-share {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sl-space-1);
+}
+
+.coin-holder-share-track {
+  height: var(--sl-space-1);
+  width: calc(var(--sl-space) * 16);
+  overflow: hidden;
+  border-radius: var(--sl-radius-pill);
+  background: var(--sl-surface-3);
+}
+
+.coin-holder-share-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sl-accent);
+}
+
+.coin-trade-arrival {
+  animation: coin-trade-arrival var(--sl-duration-base) var(--sl-ease) both;
+}
+
+@keyframes coin-trade-arrival {
+  from { transform: translateY(calc(-1 * var(--sl-space-1))); }
+  to { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coin-trade-arrival { animation: none; }
+}
