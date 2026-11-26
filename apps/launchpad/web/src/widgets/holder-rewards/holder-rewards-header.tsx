@@ -6,16 +6,16 @@ import { Button } from '@/ui/primitives';
 export const launchHolderRewardsHref = '/create?strategy=airdrop';
 
 /**
- * Page hero: one surface-1 panel spanning the content width that carries the
+ * Page header spanning the content width that carries the
  * title, two lines of copy, the launch CTA and (as children) the stat bar.
- * The panel separates from the canvas by tone alone.
+ * Totals sit above the ranked coins on the canvas.
  */
 export default function HolderRewardsHeader({ children }: { children?: ReactNode }) {
   return (
-    <header className="flex flex-col gap-5 rounded-lg bg-surface-1 p-4 sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <header className="flex min-w-0 flex-col gap-5 p-4 sm:p-6">
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="text-[28px] leading-[calc(34/28)] font-medium text-text sm:text-[40px] sm:leading-[calc(46/40)]">
+          <h1 className="text-lg font-bold text-text">
             Holder rewards coins
           </h1>
           <p className="max-w-[var(--sl-prose-measure)] text-base leading-[calc(var(--sl-leading-base)/var(--sl-text-base))] text-text-muted sm:text-md sm:leading-[calc(var(--sl-leading-md)/var(--sl-text-md))]">

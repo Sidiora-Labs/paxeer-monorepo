@@ -1,15 +1,18 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MarketReadNotice } from '@/core/market/read-notice';
 import { useSparkline } from '@/core/market/use-sparkline';
-import { AgeChip, Avatar, ProgressBar, Sparkline, StageBadge } from '@/ui/primitives';
+import { AgeChip, PercentPill, ProgressBar, Sparkline } from '@/ui/primitives';
 import { StatChange, StatDash } from '@/ui/shared/stat-value';
 import { formatCompactUsd, formatCount, formatUsdl } from '@/utils/format';
 import { columnSpecs, densityRowClass, type ColumnId, type ColumnVisibility, type Density, type OptionalColumn } from './column-settings';
 import type { ExploreRow as ExploreRowData } from './use-explore-rows';
 import { useVisible } from './use-visible';
+import { CoinIdentity } from './coin-identity';
 
 export const athUnavailableReason = "All-time high isn't tracked yet";
 
@@ -50,15 +53,15 @@ interface CoinCellProps {
   row: ExploreRowData;
 }
 
-/** Rank, avatar, name and ticker. Fixed width below xl so long names truncate and the table scrolls instead. */
+/** Rank, avatar, name, ticker and age. Fixed width below xl so long names truncate and the table scrolls instead. */
 function CoinCell({ row }: CoinCellProps) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   return (
-    <div className="relative flex w-36 min-w-0 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
+    <div className="flex w-36 min-w-0 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
       <span data-numeric className="w-5 shrink-0 text-right text-num-sm tabular-nums text-text-faint">
         <span className="sr-only">Rank </span>{row.rank}
       </span>
-      <Avatar src={row.image} name={row.name} size="md" shape="round" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} decorative surface={1} /> : undefined} />
-      <div className="min-w-0">
+      <CoinIdentity image={row.image} name={row.name} symbol={row.symbol} createdAt={row.createdAtMs} stage={row.stage}>
         <Link prefetch={false}
           href={row.href}
           title={row.name}
@@ -67,8 +70,7 @@ function CoinCell({ row }: CoinCellProps) {
           {row.name}
           <span className="sr-only">{row.mcap === null ? ', no market cap yet' : `, market cap ${formatCompactUsd(row.mcap)}`}</span>
         </Link>
-        <span className="block truncate text-xs text-text-faint" title={row.symbol}>${row.symbol}</span>
-      </div>
+      </CoinIdentity>
     </div>
   );
 }
@@ -79,11 +81,9 @@ export interface ExploreRowProps {
   density: Density;
   starred: boolean;
   onToggleStar: (poolAddress: string) => void;
-  /** Alternate between rows; the only separation between rows. */
-  tone: 'a' | 'b';
 }
 
-export function ExploreRow({ row, columns, density, starred, onToggleStar, tone }: ExploreRowProps) {
+export function ExploreRow({ row, columns, density, starred, onToggleStar }: ExploreRowProps) {
   const ref = useRef<HTMLTableRowElement | null>(null);
   const visible = useVisible(ref);
   const sparkline = useSparkline(visible && columns.graph ? row.poolAddress : null);
@@ -92,10 +92,13 @@ export function ExploreRow({ row, columns, density, starred, onToggleStar, tone 
     coin: <CoinCell row={row} />,
     graph: sparkline.status === 'pending'
       ? <Sparkline data={[]} loading label="24h price" />
-      : <Sparkline data={sparkline.data?.closes ?? []} label="24h price" />,
+      : <><Sparkline data={sparkline.data?.closes ?? []} label="24h price" /><MarketReadNotice title="Price chart" failed={sparkline.isError} retained={sparkline.data !== undefined} error={sparkline.error} onRetry={() => { void sparkline.refetch(); }} /></>,
     mcap: row.mcap === null
       ? <StatDash reason={row.mcapReason ?? 'No market cap yet'} subject="Market cap" />
-      : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-num-sm tabular-nums text-text">{formatCompactUsd(row.mcap)}</span>,
+      : <span className="inline-flex flex-col items-end gap-0.5">
+          <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-num-sm font-bold tabular-nums text-text">{formatCompactUsd(row.mcap)}</span>
+          {row.change24h !== null ? <PercentPill value={row.change24h} arrow /> : null}
+        </span>,
     ath: (
       <span title={athUnavailableReason} className="inline-flex items-center gap-2 text-xs text-text-faint">
         <ProgressBar value={null} label="share of all-time-high market cap" width={40} />
@@ -109,18 +112,18 @@ export function ExploreRow({ row, columns, density, starred, onToggleStar, tone 
     change1h: <StatChange change={row.changes['1h']} arrow />,
     change6h: <StatChange change={row.changes['6h']} arrow />,
     change24h: <StatChange change={row.changes['24h']} arrow />,
-    star: <StarButton name={row.name} starred={starred} onToggle={() => onToggleStar(row.poolAddress)} />,
+    star: <StarButton name={displayCoinText(row.name, row.tokenAddress ?? row.poolAddress)} starred={starred} onToggle={() => onToggleStar(row.poolAddress)} />,
   };
 
   return (
-    <tr ref={ref} className={cn('transition-colors duration-fast hover:bg-surface-hover', densityRowClass[density], tone === 'a' ? 'bg-surface-1' : 'bg-surface-2')}>
+    <tr ref={ref} className={cn('relative border-b border-surface-3 transition-colors duration-fast hover:bg-surface-1', densityRowClass[density], row.change24h !== null && row.change24h > 0 && 'sl-row-wash-up', row.change24h !== null && row.change24h < 0 && 'sl-row-wash-down')}>
       {columnSpecs.map(spec => {
         if (spec.id in columns && !columns[spec.id as OptionalColumn]) return null;
         return (
           <td
             key={spec.id}
             data-numeric={spec.align === 'right' || undefined}
-            className={cn('px-3 align-middle whitespace-nowrap', spec.id === 'coin' && 'relative', alignClass(spec.align), spec.responsive)}
+            className={cn('px-3 align-middle whitespace-nowrap', alignClass(spec.align), spec.responsive)}
           >
             {cells[spec.id]}
           </td>

@@ -462,6 +462,7 @@ async function chain_wizard_summary_follows_the_names_size_and_rewards() {
   expect(summary.textContent).toContain('1 USDL');
   const namesRead = availability.mock.calls.length;
   const feesRead = vi.mocked(client.readContract).mock.calls.length;
+  await act(async () => container.querySelector<HTMLElement>('#chain-rewards')!.click());
   await click('Holders');
   expect(summary.textContent).toContain('Holders');
   await click('Next');

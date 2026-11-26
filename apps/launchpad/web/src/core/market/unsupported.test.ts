@@ -6,13 +6,14 @@ import { AccountApiError } from '@/widgets/profile/account-transport';
 describe('unsupported markers', () => {
   it('maps CapabilityUnavailableError to the operation and its status', () => {
     const marker = toUnsupported('IF_POOL_DETAIL', new CapabilityUnavailableError('Unavailable endpoint /v2/pools/0x1', 404));
-    expect(marker).toEqual({ state: 'unsupported', operation: 'IF_POOL_DETAIL', status: 404, message: 'Unavailable endpoint /v2/pools/0x1' });
+    expect(marker).toEqual({ state: 'unsupported', operation: 'IF_POOL_DETAIL', status: 404, notServed: true, message: 'Unavailable endpoint /v2/pools/0x1' });
     expect(toUnsupported('IF_X', new CapabilityUnavailableError())?.status).toBe(501);
   });
   it('maps HttpError 404, 501, 503 and 412 and keeps the envelope code', () => {
     for (const status of [404, 501, 503, 412]) {
-      const marker = toUnsupported('IF_LEADERBOARDS', new HttpError(status, { code: 'DEPENDENCY_UNAVAILABLE', message: 'x', requestId: 'r', retryable: status === 503, retryAfterMs: null, fieldErrors: [], details: null }));
-      expect(marker).toEqual({ state: 'unsupported', operation: 'IF_LEADERBOARDS', status, message: 'DEPENDENCY_UNAVAILABLE' });
+      const error = new HttpError(status, { code: 'DEPENDENCY_UNAVAILABLE', message: 'x', requestId: 'r', retryable: status === 503, retryAfterMs: null, fieldErrors: [], details: null });
+      const marker = toUnsupported('IF_LEADERBOARDS', error);
+      expect(marker).toEqual({ state: 'unsupported', operation: 'IF_LEADERBOARDS', status, ...(status === 412 || status === 501 ? { notServed: true } : {}), message: 'DEPENDENCY_UNAVAILABLE', ...(status === 503 ? { error } : {}) });
     }
     expect(toUnsupported('IF_LEADERBOARDS', new HttpError(422))?.message).toBeUndefined();
   });

@@ -181,6 +181,7 @@ type Candidate struct {
 	LogIndex             uint32           `json:"logIndex"`
 }
 type InputSnapshot struct {
+	OpenFillPools        int         `json:"-"`
 	RunID                string      `json:"runId"`
 	AlgorithmVersion     string      `json:"algorithmVersion"`
 	FeatureSchemaVersion string      `json:"featureSchemaVersion"`

@@ -666,9 +666,10 @@
       "o.lease_until",
       "o.subject",
       "picked.event_id",
-      "state"
+      "state",
+      "subject"
     ],
-    "sha256": "cc1b7d66ba65ff6f871d218bfeaedb3d940940c82674f577f043e262a5f24b07"
+    "sha256": "d95c085c28479afd5a1baf70ba08fd32cacb9c80ff9bf213abecfc4e040b9b2e"
   },
   {
     "id": "delivery/store.go:Store.MarkPublished:1",
@@ -2138,10 +2139,6 @@
     "sha256": "f51d6acdf3d7b8bed5983b40e245694c80924dcc0b15964f175d333626c8aa1e"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:2",
-    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "LiveTransferWorker.processWallet",
-    "call": 2,
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
@@ -2154,6 +2151,7 @@
     "columns": [
       "accepted_hash",
       "accepted_height",
+      "accepted_snapshot",
       "account_id",
       "auth_epoch",
       "cancelled_at",
@@ -2161,9 +2159,14 @@
       "last_attempt_at",
       "proof_at",
       "session_id",
+      "source_digest",
       "wallet"
     ],
-    "sha256": "9db01db4a08f1a19c408a734dea0eb32e8cf2e47317651e0dba3991d78a5b194"
+    "sha256": "ffa500acfee81b91c9d6710f42fb9a577f060430a88ca171fd76535c6f6e3075",
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 2
   },
   {
     "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:3",
@@ -2187,26 +2190,6 @@
     "function": "LiveTransferWorker.processWallet",
     "call": 4,
     "role": "pnl_runtime",
-    "kind": "UPDATE",
-    "tables": [
-      "pnl.inventory_l16_live_owners_v1"
-    ],
-    "sequences": [],
-    "functions": [
-      "pg_catalog.clock_timestamp"
-    ],
-    "columns": [
-      "last_attempt_at",
-      "wallet"
-    ],
-    "sha256": "03b028e2fb94c196ab73e67cc923fcb8db3fb3c6674098bebf5b2d5353a2d3a0"
-  },
-  {
-    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:5",
-    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "LiveTransferWorker.processWallet",
-    "call": 5,
-    "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
       "pnl.inventory_l16_quarantine_v2"
@@ -2224,6 +2207,26 @@
     "sha256": "c771321eb525732fbe04c5cee9f1e25a27c891e2c92beadd99ce36f0a65d20ff"
   },
   {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "last_attempt_at",
+      "wallet"
+    ],
+    "sha256": "03b028e2fb94c196ab73e67cc923fcb8db3fb3c6674098bebf5b2d5353a2d3a0"
+  },
+  {
     "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:6",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "LiveTransferWorker.processWallet",
@@ -2237,10 +2240,6 @@
     "sha256": "94ef0a5604d79526addcea2e53ffb639cd451b314f81dc725e1db853ba960132"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:7",
-    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "LiveTransferWorker.processWallet",
-    "call": 7,
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
@@ -2248,22 +2247,49 @@
       "indexer.indexer_token_transfers_v1"
     ],
     "sequences": [],
-    "functions": [],
+    "functions": [
+      "pg_catalog.unnest"
+    ],
     "columns": [
       "c.token",
       "t.chain_id",
       "t.from_address",
       "t.height",
       "t.to_address",
-      "t.token"
+      "t.token",
+      "token"
     ],
-    "sha256": "78dd03f9cd5829f6cb010cc259f71cb6e2c07083698f98c22ccf5b95d26022c1"
+    "sha256": "0439fd7125c853f7bc94d775f2a39f5e6b4d3f31653847bb14be5169d7e797ff",
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:7",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 7
   },
   {
     "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:8",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "LiveTransferWorker.processWallet",
     "call": 8,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "last_attempt_at",
+      "wallet"
+    ],
+    "sha256": "03b028e2fb94c196ab73e67cc923fcb8db3fb3c6674098bebf5b2d5353a2d3a0"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:9",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 9,
     "role": "pnl_runtime",
     "kind": "ROLLBACK",
     "tables": [],
@@ -2273,10 +2299,10 @@
     "sha256": "276f445019692bcb6d01ca54516dd7e1802531a7fe2aa1ce2318e9324e77b630"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:9",
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:10",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "LiveTransferWorker.processWallet",
-    "call": 9,
+    "call": 10,
     "role": "pnl_runtime",
     "kind": "INSERT",
     "tables": [
@@ -2295,10 +2321,10 @@
     "sha256": "6b351d886df50ade5fbf1409631b6356fff48a1e2872d948d33e5b1b7270a5be"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:10",
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:11",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "LiveTransferWorker.processWallet",
-    "call": 10,
+    "call": 11,
     "role": "pnl_runtime",
     "kind": "UPDATE",
     "tables": [
@@ -2315,10 +2341,10 @@
     "sha256": "03b028e2fb94c196ab73e67cc923fcb8db3fb3c6674098bebf5b2d5353a2d3a0"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:11",
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:12",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "LiveTransferWorker.processWallet",
-    "call": 11,
+    "call": 12,
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
@@ -2336,10 +2362,10 @@
     "sha256": "f5f22d49cc28985a6fb6cbccbe866b587f807ea828ea328d763300ebde5bcdcf"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:12",
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:13",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "LiveTransferWorker.processWallet",
-    "call": 12,
+    "call": 13,
     "role": "pnl_runtime",
     "kind": "INSERT",
     "tables": [
@@ -2360,34 +2386,6 @@
       "wallet"
     ],
     "sha256": "64c2d865da2281677ff54fa8ea0d5827450da54c89f735b463f60840ffaf05ac"
-  },
-  {
-    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:13",
-    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "LiveTransferWorker.processWallet",
-    "call": 13,
-    "role": "pnl_runtime",
-    "kind": "UPDATE",
-    "tables": [
-      "pnl.inventory_l16_live_owners_v1"
-    ],
-    "sequences": [],
-    "functions": [
-      "pg_catalog.clock_timestamp"
-    ],
-    "columns": [
-      "accepted_hash",
-      "accepted_height",
-      "accepted_snapshot",
-      "account_id",
-      "cancelled_at",
-      "expires_at",
-      "last_attempt_at",
-      "session_id",
-      "source_digest",
-      "wallet"
-    ],
-    "sha256": "63d2214f332f992a3465da3877d160e16b54d336657cf3534dd0cb02160e9674"
   },
   {
     "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.acceptedHeadTx:1",
@@ -2429,71 +2427,33 @@
     "sha256": "e977b9b628edc1d222035298634c7a00eae66486446284a1d03814bde9b633ac"
   },
   {
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_snapshots_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "partition",
+      "payload",
+      "release_digest",
+      "snapshot_digest"
+    ],
+    "sha256": "a3d557fc06d36a64868158c4874c86803d45b0b0285850870d8967a7b56b4c46",
     "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.commitWalletTx:1",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "LiveTransferWorker.commitWalletTx",
-    "call": 1,
-    "role": "pnl_runtime",
-    "kind": "SELECT",
-    "tables": [
-      "pnl.portfolio_snapshots"
-    ],
-    "sequences": [],
-    "functions": [
-      "pg_catalog.max"
-    ],
-    "columns": [
-      "revision",
-      "wallet"
-    ],
-    "sha256": "ca569417223618e1036564421a6a1dcfb33ab7bd50fd1c13a23c648388936e93"
+    "call": 1
   },
   {
     "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:1",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "Service.livePersistReplayTx",
     "call": 1,
-    "role": "pnl_runtime",
-    "kind": "INSERT",
-    "tables": [
-      "pnl.inventory_l16_archive_v2"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "generation",
-      "identity",
-      "partition",
-      "payload",
-      "payload_hash"
-    ],
-    "sha256": "80cf71702bac49c122dedd739e6130de52d912511c8029fc498dd873ac0aae0e"
-  },
-  {
-    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:2",
-    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "Service.livePersistReplayTx",
-    "call": 2,
-    "role": "pnl_runtime",
-    "kind": "SELECT",
-    "tables": [
-      "pnl.inventory_l16_archive_v2"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "generation",
-      "identity",
-      "partition",
-      "payload_hash"
-    ],
-    "sha256": "b9ab41290536cbd0dac096e25ba671173b77b4086c0a626ed35bd91ca25f5958"
-  },
-  {
-    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:3",
-    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "Service.livePersistReplayTx",
-    "call": 3,
     "role": "pnl_runtime",
     "kind": "INSERT",
     "tables": [
@@ -2513,10 +2473,10 @@
     "sha256": "a1bf0786b3d4dd8a5404473ba3c48d8b527b4485a8b927b5b8078fc2edbe9589"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:4",
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:2",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "Service.livePersistReplayTx",
-    "call": 4,
+    "call": 2,
     "role": "pnl_runtime",
     "kind": "INSERT",
     "tables": [
@@ -2535,10 +2495,10 @@
     "sha256": "e91eacb5462de51394679245462ad20192b885fbe78ee62b1ce5172888fb2998"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:5",
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:3",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "Service.livePersistReplayTx",
-    "call": 5,
+    "call": 3,
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
@@ -2555,10 +2515,10 @@
     "sha256": "8a7167138608c284c422522ade3e9c800c065180337021e35d98f2888368ea5b"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:6",
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:4",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "Service.livePersistReplayTx",
-    "call": 6,
+    "call": 4,
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
@@ -2575,10 +2535,10 @@
     "sha256": "c012adc5d94b6dd8900de16f21ff8c8e0d1329de5c7fe5d1817799095dc12244"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:7",
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:5",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
     "function": "Service.livePersistReplayTx",
-    "call": 7,
+    "call": 5,
     "role": "pnl_runtime",
     "kind": "INSERT",
     "tables": [
@@ -2624,9 +2584,9 @@
     "sha256": "e8a86aeb659454855a1100e3dd30f3e627d618f9d161e84df7b93175b8a00948"
   },
   {
-    "id": "internal/production/l16/mark_price.go:BaselineAuthority.markPriceTx:1",
-    "file": "services/launchpad/pnl-tracker/internal/production/l16/mark_price.go",
-    "function": "BaselineAuthority.markPriceTx",
+    "id": "internal/production/l16/normalization.go:BaselineAuthority.receiptSettlement:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/normalization.go",
+    "function": "BaselineAuthority.receiptSettlement",
     "call": 1,
     "role": "pnl_runtime",
     "kind": "SELECT",
@@ -2639,26 +2599,7 @@
       "payload",
       "source_fact_digest"
     ],
-    "sha256": "06f433f4f04cda0feb23999dc3a29e3eb3dbf6cc57d4db9af0f28bb6e66328eb"
-  },
-  {
-    "id": "internal/production/l16/normalization.go:BaselineAuthority.receiptSettlement:1",
-    "file": "services/launchpad/pnl-tracker/internal/production/l16/normalization.go",
-    "function": "BaselineAuthority.receiptSettlement",
-    "call": 1,
-    "role": "pnl_runtime",
-    "kind": "SELECT",
-    "tables": [
-      "indexer.indexer_accounting_fills_v1"
-    ],
-    "sequences": [],
-    "functions": [
-      "pg_catalog.count"
-    ],
-    "columns": [
-      "payload"
-    ],
-    "sha256": "80c93000d4eabc2323fc294fa3dfc80eed1cc476657be6649dc7114f108d6062"
+    "sha256": "6db0c1805268d38990c3d66e6dba14e316448eb295cd145ac2a1b61d4540d44a"
   },
   {
     "id": "internal/production/l16/service.go:Service.commitRebuiltHistoryTx:1",
@@ -5191,28 +5132,45 @@
     "sha256": "18f68f96951ceca85e2dda561a3256ae5d042a9a95d405cb6066e6bf52597adc"
   },
   {
-    "id": "internal/production/l18/journeys.go:JourneyService.Rewards:1",
+    "id": "internal/production/l18/journeys.go:JourneyService.rewardCandidates:1",
     "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
-    "function": "JourneyService.Rewards",
+    "function": "JourneyService.rewardCandidates",
     "call": 1,
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
-      "indexer.indexer_canonical_creations_v1"
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_canonical_creations_v1",
+      "indexer.indexer_raw_logs_v1"
     ],
     "sequences": [],
-    "functions": [],
-    "columns": [
-      "block_hash",
-      "creator",
-      "height",
-      "log_index",
-      "nft_id",
-      "pool",
-      "transaction_hash",
-      "transaction_index"
+    "functions": [
+      "pg_catalog.jsonb_array_length",
+      "pg_catalog.lower",
+      "pg_catalog.substr"
     ],
-    "sha256": "eb6a6edef08f69fb3feb2520b2378b01de47c491dd34bca5c52341c424020d97"
+    "columns": [
+      "b.block_hash",
+      "b.chain_id",
+      "b.fetch_complete",
+      "b.height",
+      "b.required_decode_complete",
+      "b.stream_id",
+      "c.block_hash",
+      "c.creator",
+      "c.height",
+      "c.log_index",
+      "c.nft_id",
+      "c.pool",
+      "c.transaction_hash",
+      "c.transaction_index",
+      "l.block_hash",
+      "l.chain_id",
+      "l.emitter",
+      "l.height",
+      "l.topics"
+    ],
+    "sha256": "f1788ce9a826d42582751676c5c332ce19f0385595ae10f7f9fcae2a7374783b"
   },
   {
     "id": "internal/production/l18/journeys.go:JourneyService.Prepare:1",
@@ -6562,5 +6520,433 @@
       "block_number"
     ],
     "sha256": "9b1e9b2a2533328e84e88dc6b997e6d8107a31613a4d13a0a31887587c257592"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveContinueTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveContinueTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveContinueTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "height",
+      "pool",
+      "token",
+      "transaction_hash"
+    ],
+    "sha256": "0a328dcf80777719ea1ef83272e32efda30353d7617325f6e5785c45ae97b36a"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveContinueTx",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "source_fact_digest"
+    ],
+    "sha256": "03fd607402db79fa52afd48b224d05003a5f887bb15059c145e14395972bc001"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveContinueTx",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_quarantine_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "partition",
+      "payload",
+      "reason"
+    ],
+    "sha256": "884fc81e418fef3f649dffd74496455edbb3cc60c78a5e4a357479b582c72f8e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:14",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 14,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "accepted_hash",
+      "accepted_height",
+      "accepted_snapshot",
+      "account_id",
+      "cancelled_at",
+      "expires_at",
+      "last_attempt_at",
+      "session_id",
+      "source_digest",
+      "wallet"
+    ],
+    "sha256": "63d2214f332f992a3465da3877d160e16b54d336657cf3534dd0cb02160e9674"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.commitWalletTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.commitWalletTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.max"
+    ],
+    "columns": [
+      "revision",
+      "wallet"
+    ],
+    "sha256": "ca569417223618e1036564421a6a1dcfb33ab7bd50fd1c13a23c648388936e93"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveArchiveRecordsTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveArchiveRecordsTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_archive_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "generation",
+      "identity",
+      "partition",
+      "payload",
+      "payload_hash"
+    ],
+    "sha256": "80cf71702bac49c122dedd739e6130de52d912511c8029fc498dd873ac0aae0e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveArchiveRecordsTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveArchiveRecordsTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_archive_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "generation",
+      "identity",
+      "partition",
+      "payload_hash"
+    ],
+    "sha256": "b9ab41290536cbd0dac096e25ba671173b77b4086c0a626ed35bd91ca25f5958"
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_active_v2",
+      "pnl.inventory_l16_snapshots_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.generation",
+      "a.partition",
+      "s.payload",
+      "s.snapshot_digest"
+    ],
+    "sha256": "91c662526ea19e73c16ea31805fb3579f481fa2f41ef4af5fc219e07ee1c546e",
+    "id": "internal/production/l16/live_incremental.go:Service.readLiveProgressTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go",
+    "function": "Service.readLiveProgressTx",
+    "call": 1
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_snapshots_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "partition",
+      "payload",
+      "release_digest",
+      "snapshot_digest"
+    ],
+    "sha256": "a3d557fc06d36a64868158c4874c86803d45b0b0285850870d8967a7b56b4c46",
+    "id": "internal/production/l16/live_incremental.go:Service.writeLiveProgressTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go",
+    "function": "Service.writeLiveProgressTx",
+    "call": 1
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_active_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "excluded.generation",
+      "excluded.height",
+      "excluded.snapshot_digest",
+      "generation",
+      "height",
+      "partition",
+      "snapshot_digest"
+    ],
+    "sha256": "8a852b314588506667b810c8e2e053a2e58f812c101a0dd06b8a18f914e8b7c6",
+    "id": "internal/production/l16/live_incremental.go:Service.writeLiveProgressTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go",
+    "function": "Service.writeLiveProgressTx",
+    "call": 2
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_live_commits_v1",
+      "pnl.inventory_l16_snapshots_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.block_hash",
+      "c.generation",
+      "c.height",
+      "c.input_digest",
+      "c.snapshot_id",
+      "c.source_stream",
+      "c.wallet",
+      "s.block_hash",
+      "s.generation",
+      "s.height",
+      "s.partition",
+      "s.payload",
+      "s.snapshot_digest"
+    ],
+    "sha256": "43cdcc4e7a699efa4367234d8d813dce904c10406ae099670fcd3983b090d16a",
+    "id": "internal/production/l16/live_incremental.go:LiveTransferWorker.acceptedSnapshotsTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go",
+    "function": "LiveTransferWorker.acceptedSnapshotsTx",
+    "call": 1
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_quarantine_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "partition",
+      "payload",
+      "reason"
+    ],
+    "sha256": "051316eb6a80d176755c215c29966c9bdde013a3615970a188d2ae2685fc6e56",
+    "id": "internal/production/l16/live_incremental.go:LiveTransferWorker.quarantineLiveWalletTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go",
+    "function": "LiveTransferWorker.quarantineLiveWalletTx",
+    "call": 1
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_live_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "input_digest",
+      "release_digest",
+      "snapshot_id",
+      "source_stream",
+      "wallet"
+    ],
+    "sha256": "fe40451f0783deb827e3ee6675bcd4172d44f919e3b284f837c2e322a6cf9762",
+    "id": "internal/production/l16/live_incremental.go:LiveTransferWorker.readAcceptedSnapshotInputTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go",
+    "function": "LiveTransferWorker.readAcceptedSnapshotInputTx",
+    "call": 1
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_live_commits_v1",
+      "pnl.inventory_l16_snapshots_v2",
+      "pnl.portfolio_snapshot_rows"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.convert_from"
+    ],
+    "columns": [
+      "c.block_hash",
+      "c.generation",
+      "c.height",
+      "c.release_digest",
+      "c.snapshot_id",
+      "c.source_epoch",
+      "c.source_owner",
+      "c.wallet",
+      "r.payload",
+      "r.snapshot_id",
+      "s.block_hash",
+      "s.generation",
+      "s.height",
+      "s.partition",
+      "s.payload",
+      "s.release_digest",
+      "s.snapshot_digest"
+    ],
+    "sha256": "363b3a82a2bf74eabb7bd4492eeb80cc4e7b1a2fd91ee3ebac36e9098dd1d2ff",
+    "id": "internal/production/l16/live_incremental.go:LiveTransferWorker.readAcceptedSnapshotInputTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go",
+    "function": "LiveTransferWorker.readAcceptedSnapshotInputTx",
+    "call": 2
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_token_transfers_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "amount_raw",
+      "block_hash",
+      "chain_id",
+      "from_address",
+      "height",
+      "log_index",
+      "to_address",
+      "token",
+      "transaction_hash",
+      "transaction_index"
+    ],
+    "sha256": "dc29cf9c0ff879d605f0779995b8aeee473e432bc3ddd712bce812cfaf06143e",
+    "id": "internal/production/l16/live_incremental.go:Service.resumeLiveSnapshotTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_incremental.go",
+    "function": "Service.resumeLiveSnapshotTx",
+    "call": 1
+  },
+  {
+    "id": "internal/production/l16/mark_price.go:BaselineAuthority.priceTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/mark_price.go",
+    "function": "BaselineAuthority.priceTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "source_fact_digest"
+    ],
+    "sha256": "06f433f4f04cda0feb23999dc3a29e3eb3dbf6cc57d4db9af0f28bb6e66328eb"
+  },
+  {
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.pool_state_snapshots_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "log_index",
+      "pool_id",
+      "real_reserve",
+      "token_reserve",
+      "virtual_reserve"
+    ],
+    "sha256": "17714b0fceb696a0b70158a426adfb36108301553e1749be32fd3cbc62fc8b0e",
+    "id": "internal/production/l16/mark_price.go:BaselineAuthority.priceTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/mark_price.go",
+    "function": "BaselineAuthority.priceTx",
+    "call": 2
   }
 ]

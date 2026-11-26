@@ -298,7 +298,7 @@ func (h *Handlers) listConversations(w http.ResponseWriter, r *http.Request) {
 		}
 		var summary types.DmConversationSummary
 		summary.ID = id
-		err = h.chat.Pool.QueryRow(r.Context(), `SELECT peer.wallet,extract(epoch from max(msg.created_at))::bigint FROM chat_members own JOIN chat_members peer ON peer.conversation_id=own.conversation_id AND peer.wallet<>own.wallet LEFT JOIN chat_messages msg ON msg.conversation_id=own.conversation_id WHERE own.conversation_id=$1 AND own.wallet=$2 GROUP BY peer.wallet`, id, act).Scan(&summary.Peer, &summary.LastMessageAt)
+		err = h.chat.Pool.QueryRow(r.Context(), `SELECT peer.wallet,floor(extract(epoch from max(msg.created_at)))::bigint FROM chat_members own JOIN chat_members peer ON peer.conversation_id=own.conversation_id AND peer.wallet<>own.wallet LEFT JOIN chat_messages msg ON msg.conversation_id=own.conversation_id WHERE own.conversation_id=$1 AND own.wallet=$2 GROUP BY peer.wallet`, id, act).Scan(&summary.Peer, &summary.LastMessageAt)
 		if err != nil {
 			h.chatError(w, err, fanout.HistoryPage{})
 			return

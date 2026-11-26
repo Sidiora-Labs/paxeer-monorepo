@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { ClipboardPaste, Search, User, Wallet, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,7 +35,7 @@ export function ShortcutChip({ label, className }: { label: string; className?: 
   return (
     <kbd
       className={cn(
-        'inline-flex h-5 shrink-0 items-center rounded-xs bg-surface-3 px-1.5 font-sans text-2xs font-bold text-text-faint',
+        'inline-flex h-5 shrink-0 items-center rounded-xs bg-surface-3 px-1.5 font-sans text-2xs font-semibold text-text-faint',
         className
       )}
     >
@@ -63,7 +64,7 @@ export function SearchTrigger({
       aria-haspopup="dialog"
       aria-label={`Search coins and users (${shortcut})`}
       className={cn(
-        'flex min-h-control-height-md py-2 w-full min-w-0 items-center gap-2 rounded-md bg-surface-2 px-3 text-left text-sm text-text-faint transition-colors duration-fast hover:bg-surface-hover',
+        'flex min-h-control-height-md py-2 w-full min-w-0 items-center gap-2 rounded-pill bg-surface-2 px-3 text-left text-sm text-text-faint transition-colors duration-fast hover:bg-surface-hover',
         compact && 'w-control-height-md justify-center px-0'
       )}
     >
@@ -98,7 +99,7 @@ export function PaletteInput({
   pasteState: 'idle' | 'denied' | 'empty';
 }) {
   return (
-    <div className="sl-field flex min-w-0 flex-wrap items-center gap-2 rounded-md bg-surface-3 px-[calc(var(--sl-space-3)-var(--sl-edge-width))] focus-within:outline-2 focus-within:outline-focus [&>button]:-my-[var(--sl-edge-width)]">
+    <div className="sl-field flex min-w-0 flex-wrap items-center gap-2 rounded-sm bg-surface-2 px-[calc(var(--sl-space-3)-var(--sl-edge-width))] focus-within:outline-2 focus-within:outline-focus [&>button]:-my-[var(--sl-edge-width)]">
       <Search
         aria-hidden="true"
         className="size-icon-md shrink-0 text-text-faint"
@@ -154,7 +155,7 @@ export function ResultGroup({
   return (
     <section aria-label={label} className={cn('shrink-0 py-1', className)}>
       <div className="flex items-center justify-between px-3 py-1.5">
-        <span className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
+        <span className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
           {label}
         </span>
         {trailing}
@@ -166,7 +167,7 @@ export function ResultGroup({
 
 function rowClass(active: boolean, disabled = false) {
   return cn(
-    'flex min-h-12 py-2 w-full flex-wrap items-center gap-3 rounded-sm px-3 text-left transition-colors duration-fast',
+    'sl-hairline flex min-h-12 py-2 w-full flex-wrap items-center gap-3 px-3 text-left transition-colors duration-fast',
     active ? 'bg-surface-3' : 'hover:bg-surface-hover',
     disabled && 'cursor-not-allowed'
   );
@@ -180,6 +181,7 @@ export function CoinRow({
   logo,
   mcapRaw,
   address,
+  tokenAddress,
   kind,
   disabled,
   onSelect,
@@ -191,11 +193,14 @@ export function CoinRow({
   logo: string | null;
   mcapRaw: string | null | undefined;
   address: string | undefined;
+  tokenAddress?: string | null;
   kind: 'pool' | 'token';
   disabled?: boolean;
   onSelect: () => void;
 }) {
-  const title = symbol || name || (address ? shortAddress(address) : 'Unnamed');
+  name = displayCoinText(name, tokenAddress ?? address);
+  symbol = displayCoinText(symbol, tokenAddress ?? address);
+  const title = symbol || name;
   return (
     <button
       id={id}
@@ -210,9 +215,9 @@ export function CoinRow({
       <Avatar src={logo} name={title} size="sm" shape="square" decorative />
       <span className="min-w-0 flex-1 basis-24">
         <span className="flex flex-wrap items-baseline gap-1.5">
-          <span className="truncate text-sm font-bold text-text">{name || title}</span>
+          <span className="min-w-0 truncate text-sm font-semibold text-text" title={name}>{name || title}</span>
           {symbol ? (
-            <span className="min-w-0 truncate text-xs text-text-muted">${symbol}</span>
+            <span className="min-w-0 truncate text-xs text-text-muted" title={symbol}>${symbol}</span>
           ) : null}
         </span>
         <span className="block truncate text-2xs text-text-faint">
@@ -260,7 +265,7 @@ export function UserRow({
     >
       <Avatar src={null} name={label || wallet} size="sm" decorative />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-text">{label || shortAddress(wallet)}</span>
+        <span className="block text-sm font-semibold text-text">{label || shortAddress(wallet)}</span>
         <span className="block truncate text-2xs text-text-faint">
           {shortAddress(wallet, 6, 4)}
         </span>
@@ -299,7 +304,7 @@ export function ActionRow({
         <Icon aria-hidden="true" className="size-icon-sm" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-text">{title}</span>
+        <span className="block text-sm font-semibold text-text">{title}</span>
         <span className="block truncate text-2xs text-text-faint">{detail}</span>
       </span>
     </button>
@@ -314,7 +319,7 @@ export function UsersGroupBody({ users, onRetry }: { users: UserSearch; onRetry:
           variant="inline"
           title="User search"
           operation={users.operation}
-          status={users.status}
+          status={users.status} notServed={users.notServed} error={users.error}
           message={users.message}
           onRetry={onRetry}
         />
@@ -368,7 +373,7 @@ export function PaletteStatus({
         <button
           type="button"
           onClick={onRetry}
-          className="max-w-full shrink-0 text-xs font-bold text-accent hover:underline"
+          className="max-w-full shrink-0 text-xs font-medium text-accent hover:underline"
         >
           Try again
         </button>
@@ -380,7 +385,7 @@ export function PaletteStatus({
 export function recentToSelect(item: RecentItem): SelectArgs {
   return {
     poolAddress: item.address,
-    tokenAddress: undefined,
+    tokenAddress: item.tokenAddress,
     name: item.name,
     symbol: item.symbol,
     logo: item.logo,

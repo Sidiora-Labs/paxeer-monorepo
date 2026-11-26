@@ -1,0 +1,75 @@
+[shell]
+sections = ["1", "2", "4", "5", "6", "9"]
+bars = "Canvas top bar and activity strip, a hairline rail, labelled phone destinations and a quiet legal and activity footer retain their positions."
+actions = "Create uses the accent; sign in and deposit use the inverse surface. Current destinations use neutral surfaces and text."
+colour_mode = "Dark, Light and Device are available in the account menu and lower rail, signed in or signed out. The chosen mode applies immediately and persists on the device."
+layers = "Search, sign in and account content use sheets on phones and centred dialogs above phone widths. Menus use translucent surfaces and blur."
+cookies = "A compact card sits at the lower left above phone destinations and floating actions, with two lines of text and side-by-side choices."
+
+[coverage]
+part = "community"
+views = 14
+named_states = 1
+render_cases = 510
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[view.bounties]
+sections = ["1", "2", "4", "5", "6", "9"]
+form = "Neutral panels, unframed totals, medium labels, semibold names and an accent create action keep the grid and highlights in their existing positions."
+
+[view.bounties-empty]
+sections = ["1", "2", "5", "6"]
+form = "The first list state uses muted copy and a secondary action; the activity strip has one quiet empty line."
+
+[view.bounties-error]
+sections = ["1", "2", "5", "6"]
+form = "Failed reads retain their reason and recovery control; highlights share the neutral panel treatment."
+
+[view.bounties-loading]
+sections = ["1", "2", "5", "6"]
+form = "Waiting cards reserve their content shapes and the activity strip reserves chip shapes on the canvas."
+
+[view.bounties-bountyId]
+sections = ["1", "2", "4", "5", "6"]
+form = "The title, reward, submissions and participation panels keep their columns; inner panels and proof use surface 2, and signed-out submission uses an inverse action."
+
+[view.bounties-new]
+sections = ["1", "2", "4", "5", "6"]
+form = "The existing form uses a view title, semibold labels, surface 2 fields and an inverse sign-in action."
+
+[view.chat]
+sections = ["1", "2", "4", "5", "6"]
+form = "Messages keep the existing column, with flat conversation rows, tabular times and a neutral signed-out form."
+
+[view.chat-conversationId]
+sections = ["1", "2", "4", "5", "6"]
+form = "The thread retains its header, message log and composer, with neutral message surfaces, rounded inputs and waiting rows."
+
+[view.docs]
+sections = ["1", "2", "4", "5", "6", "9"]
+form = "Document links use flat rows, the title uses the view title step, and the account menu exposes the open colour mode choices."
+
+[view.docs-dmca]
+sections = ["1", "2", "4", "5", "6"]
+form = "The existing text and document layout use the shared view title and semibold section headings."
+
+[view.docs-do-not-sell]
+sections = ["1", "2", "4", "5", "6"]
+form = "The existing text and document layout use the shared view title and semibold section headings."
+
+[view.docs-privacy]
+sections = ["1", "2", "4", "5", "6"]
+form = "The existing text and document layout use the shared view title and semibold section headings."
+
+[view.docs-terms]
+sections = ["1", "2", "4", "5", "6"]
+form = "The existing text and document layout use the shared view title and semibold section headings."
+
+[view.docs-trademark-guidelines]
+sections = ["1", "2", "4", "5", "6"]
+form = "The existing text and document layout use the shared view title and semibold section headings."
+
+[community_components]
+sections = ["1", "2", "4", "5"]
+form = "Funding, transfer, recovery, privacy, moderation and voice controls use rounded neutral fields, semibold labels and token surfaces."

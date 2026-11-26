@@ -1,7 +1,8 @@
 {
   "sources": [
     {
-      "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go"
+      "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
+      "functions": []
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -20,6 +21,9 @@
         "markPublished",
         "Stats"
       ]
+    },
+    {
+      "file": "sdk/launchpad/shared/delivery/stream_retention.go"
     },
     {
       "file": "sdk/launchpad/shared/queue/queue.go",
@@ -92,6 +96,9 @@
     },
     {
       "file": "services/launchpad/discovery/squads.go"
+    },
+    {
+      "file": "services/launchpad/discovery/source_refresh.go"
     },
     {
       "file": "services/launchpad/discovery/store.go"

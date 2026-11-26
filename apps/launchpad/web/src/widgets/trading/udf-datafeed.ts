@@ -1,9 +1,14 @@
+import { displayCoinText } from '@/utils/coin-text';
 import { launchpadGeometry, launchpadMarkColors } from '@/app/presentation-tokens';
 import { dataApiUrl } from '@/core/sdk-config';
 import { CHART_UDF_ROUTES, chartsOrigin } from '@/core/charts-udf';
 import { unsupportedStatuses } from '@/core/market/unsupported';
+import { marketResourceKey, marketResourcePaceKey, marketRetryPace } from '@/core/retry-pace';
+import { isTransientError, readRetryFields } from '@/core/transient-retry';
 import { reportUserFacingError } from '@/core/user-facing-error';
+import { beforeFirstFrameTransport } from '@/core/realtime/topic-snapshot';
 import { getPublicClient } from '@/core/wallet-sdk/client';
+import { HEARTBEAT_LIVENESS_MS } from '@/page-modules/token/market-presentation';
 import { decodeV2Contract, type V2ContractTypes } from '@kindle/sdk';
 import { parseAbi, type Address } from 'viem';
 import type { LibrarySymbolInfo, ResolutionString } from '../../../public/charting_library/charting_library';
@@ -67,18 +72,20 @@ export async function fetchCanonicalCandlePage(poolAddress: string, resolution: 
   const request = decodeV2Contract('CandlesRequest', { poolAddress, interval: chartResolution(resolution).timeframe, from, to, limit, ...(cursor ? { cursor } : {}) });
   const url = new URL(`/v2/pools/${encodeURIComponent(request.poolAddress)}/candles`, apiOrigin ?? dataApiUrl('/'));
   for (const [key, value] of Object.entries({ interval: request.interval, from, to, limit: String(limit), ...(cursor ? { cursor } : {}) })) url.searchParams.set(key, value);
-  const response = await fetch(url.toString(), { signal, headers: { 'Accept': 'application/json', 'X-Schema-Version': '2' } });
-  if (!response.ok) throw new Error(`Canonical candles: HTTP ${response.status}`);
-  if (response.headers.get('X-Schema-Version') !== '2') throw new Error('Canonical candle schema negotiation failed');
-  const page = decodeV2Contract('CandlesResponse', await response.json());
-  if (page.quality === 'quarantined' || page.watermark?.integrity === 'quarantined') throw new Error('Canonical candle integrity quarantined');
-  let previous = -1;
-  for (const candle of page.data.items) {
-    const start = Date.parse(candle.start);
-    if (candle.poolAddress.toLowerCase() !== poolAddress.toLowerCase() || candle.interval !== request.interval || candle.snapshotId !== page.data.snapshotId || candle.seriesModelVersion !== page.data.seriesModelVersion || start <= previous || start < Date.parse(from) || start >= Date.parse(to)) throw new Error('Canonical candle snapshot scope mismatch');
-    previous = start;
-  }
-  return page;
+  return marketRetryPace.read(marketResourceKey(url), async signal => {
+    const response = await fetch(url.toString(), { signal, headers: { 'Accept': 'application/json', 'X-Schema-Version': '2' } });
+    if (!response.ok) throw Object.assign(new Error(`Canonical candles: HTTP ${response.status}`), { status: response.status, ...await readRetryFields(response) });
+    if (response.headers.get('X-Schema-Version') !== '2') throw new Error('Canonical candle schema negotiation failed');
+    const page = decodeV2Contract('CandlesResponse', await response.json());
+    if (page.quality === 'quarantined' || page.watermark?.integrity === 'quarantined') throw new Error('Canonical candle integrity quarantined');
+    let previous = -1;
+    for (const candle of page.data.items) {
+      const start = Date.parse(candle.start);
+      if (candle.poolAddress.toLowerCase() !== poolAddress.toLowerCase() || candle.interval !== request.interval || candle.snapshotId !== page.data.snapshotId || candle.seriesModelVersion !== page.data.seriesModelVersion || start <= previous || start < Date.parse(from) || start >= Date.parse(to)) throw new Error('Canonical candle snapshot scope mismatch');
+      previous = start;
+    }
+    return page;
+  }, signal, marketResourcePaceKey(url));
 }
 
 function canonicalChartContent(value: unknown): string {
@@ -100,7 +107,14 @@ export class CanonicalCandleRevisionMerge {
     if (candle.poolAddress.toLowerCase() !== pool.toLowerCase() || candle.interval !== interval) return 'resync';
     const key = `${candle.poolAddress.toLowerCase()}:${candle.interval}:${candle.start}`;
     const revision = BigInt(candle.revision);
-    const content = canonicalChartContent(Object.fromEntries(Object.entries(candle).filter(([key]) => key !== 'snapshotId')));
+    const content = canonicalChartContent({
+      prices: [candle.open, candle.high, candle.low, candle.close].map(price => ({ numerator: price.numerator, denominator: price.denominator })),
+      volumeUsdlRaw: candle.volumeUsdlRaw,
+      volumeTokenRaw: candle.volumeTokenRaw,
+      buyVolumeUsdlRaw: candle.buyVolumeUsdlRaw,
+      sellVolumeUsdlRaw: candle.sellVolumeUsdlRaw,
+      trades: candle.trades,
+    });
     const old = this.candles.get(key);
     if (old && revision < old.revision) return 'ignore';
     if (old && revision === old.revision) return content === old.content ? 'ignore' : 'resync';
@@ -166,7 +180,7 @@ export function chartSymbolInfo(value: unknown, poolAddress: string, mode: Chart
   const pricescale = info.pricescale;
   if (typeof pricescale !== 'number' || !Number.isSafeInteger(pricescale) || pricescale < 10 || !/^10*$/.test(String(pricescale))) throw new Error('Invalid chart symbol pricescale');
   if (info.minmov !== 1 || info.currency_code !== 'USDL' || info.timezone !== 'Etc/UTC') throw new Error('Invalid chart symbol quote or timezone');
-  const description = text('description', 160);
+  const description = displayCoinText(text('description', 160), typeof info.tokenAddress === 'string' ? info.tokenAddress : pool);
   text('full_name', 64);
   return {
     name: pool,
@@ -246,7 +260,8 @@ export function chartMeasurementUtcNs(): string {
 }
 function publishChartMeasurement(value: Record<string, unknown>) {
   if (typeof window === 'undefined') return;
-  window.dispatchEvent(new CustomEvent('sidiora:chart-measurement-v1', { detail: value }));
+  const view = typeof document === 'undefined' ? window : document.defaultView;
+  view?.dispatchEvent(new view.CustomEvent('sidiora:chart-measurement-v1', { detail: value }));
 }
 
 export type ChartFreshness = {
@@ -257,11 +272,16 @@ export type ChartFreshness = {
   lagReason: string | null;
 };
 export type ChartReplayBinding = { transport: import('@kindle/sdk').StreamTransportV2; signal: AbortSignal };
+export interface ChartMarketSource {
+  getSnapshot(): { firstStateReady: boolean; noTradesYet: boolean };
+  subscribe(listener: () => void): () => void;
+}
 let chartReplayBinding: ChartReplayBinding | undefined;
 const replayBindingListeners = new Set<() => void>();
 export function chartReplayListenerCount(): number { return replayBindingListeners.size; }
 export function registerChartReplayTransport(binding: ChartReplayBinding): () => void {
   binding.signal.throwIfAborted();
+  binding = { ...binding, transport: beforeFirstFrameTransport(binding.transport) };
   chartReplayBinding = binding;
   replayBindingListeners.forEach(listener => listener());
   const release = () => {
@@ -285,7 +305,7 @@ type ReplayChartSubscription = {
   operation?: AbortController;
   timer?: ReturnType<typeof setTimeout>;
   retryTimer?: ReturnType<typeof setTimeout>;
-  lagTimer?: ReturnType<typeof setTimeout>;
+  livenessTimer?: ReturnType<typeof setTimeout>;
   merge: CanonicalCandleRevisionMerge;
   cursor: string | null;
   sequence: bigint;
@@ -297,6 +317,7 @@ type ReplayChartSubscription = {
   loading: number;
   checkpoint: string | null;
   snapshotReady: boolean;
+  waitingForCandle: boolean;
   failures: number;
   retries: number;
   lastTime: number;
@@ -459,7 +480,7 @@ export function tradingViewChartMark(marker: ConfirmedChartMarker, presentation:
  * is core/trading-charts, which serves every CHART_UDF_ROUTES document. Without it both
  * resolve through the page origin's rewrites.
  */
-export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = 'price', onFreshness: (value: ChartFreshness) => void = () => {}, _supply?: CanonicalSupply, authority?: { apiOrigin: string; valuationOrigin: string }, onView: (view: ChartAccessibleView) => void = () => {}, onValuation: (state: ValuationState) => void = () => {}, onMetadataError: (reason: string | null) => void = () => {}) {
+export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = 'price', onFreshness: (value: ChartFreshness) => void = () => {}, _supply?: CanonicalSupply, authority?: { apiOrigin: string; valuationOrigin: string }, onView: (view: ChartAccessibleView) => void = () => {}, onValuation: (state: ValuationState) => void = () => {}, onMetadataError: (reason: string | null) => void = () => {}, market?: ChartMarketSource) {
   let metadataError: string | null = null;
   let lastFreshness: ChartFreshness = { sourceObservedAt: null, lastReceivedAt: null, lastSourceHeight: null, connectionStatus: 'connecting', lagReason: null };
   const emitFreshness = (value: ChartFreshness) => {
@@ -484,20 +505,23 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   });
   let historyWatermark: V2ContractTypes['Watermark'] | null = null;
   let historyRevision: bigint | null = null;
+  const liveWindows = new Map<string, { from: number; to: number }>();
+  let historyError: unknown;
   let annotationGeneration = 0;
   let annotationRequest: AbortController | undefined;
   let annotationRetryTimer: ReturnType<typeof setTimeout> | undefined;
   let annotationRetryCount = 0;
+  let annotationError: unknown;
   let markers: ConfirmedChartMarker[] = [];
   let annotationState: ChartAccessibleView['annotationState'] = 'unavailable';
   let annotationReason: string | null = 'Confirmed fill annotations have not loaded';
-  const retryAnnotations = () => {
-    if (annotationRetryCount >= 20) return;
+  const retryAnnotations = (error?: unknown) => {
+    if (annotationRetryCount >= 20 && !isTransientError(error)) return;
     annotationRetryCount++;
     annotationRetryTimer = setTimeout(() => {
       annotationRetryTimer = undefined;
       void reconcileMarkers();
-    }, 1000);
+    }, Math.max(1000, marketRetryPace.delay(error) || 0));
   };
   const candleIdentity = (candle: CanonicalCandle) => `${candle.poolAddress.toLowerCase()}:${candle.interval}:${candle.start}`;
   const publishView = () => {
@@ -532,9 +556,13 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
       for (let pageNumber = 0; pageNumber < 40; pageNumber++) {
         const url = new URL(`/v2/pools/${encodeURIComponent(poolAddress)}/trades`, authority?.apiOrigin ?? dataApiUrl('/'));
         url.searchParams.set('limit', '50'); if (cursor) url.searchParams.set('cursor', cursor);
-        const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json', 'X-Schema-Version': '2' } });
-        if (!response.ok || response.headers.get('X-Schema-Version') !== '2') throw new Error('Confirmed trade annotations unavailable');
-        const page = decodeV2Contract('TradesResponse', await response.json());
+        const page = await marketRetryPace.read(marketResourceKey(url), async signal => {
+          const response = await fetch(url, { signal, headers: { Accept: 'application/json', 'X-Schema-Version': '2' } });
+          if (!response.ok) throw Object.assign(new Error('Confirmed trade annotations unavailable'), { status: response.status, ...await readRetryFields(response) });
+          if (response.headers.get('X-Schema-Version') !== '2') throw new Error('Confirmed trade schema negotiation failed');
+          return decodeV2Contract('TradesResponse', await response.json());
+        }, controller.signal);
+        annotationError = undefined;
         controller.signal.throwIfAborted();
         if (page.quality === 'quarantined' || page.quality === 'stale' || !page.watermark || page.watermark.integrity !== 'healthy' || (revision !== undefined && revision !== page.revision)) throw new Error('Confirmed trade snapshot is unavailable or changed');
         revision = page.revision;
@@ -564,9 +592,10 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     } catch (error) {
       if (!disposed && !controller.signal.aborted && generation === annotationGeneration) {
         annotationState = 'partial';
+        annotationError = error;
         annotationReason = error instanceof Error ? error.message : 'Confirmed annotations unavailable';
         publishView();
-        retryAnnotations();
+        retryAnnotations(error);
       }
     } finally { historyRequests.delete(controller); if (annotationRequest === controller) annotationRequest = undefined; }
   }
@@ -576,6 +605,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   const current = (sub: ReplayChartSubscription) => !disposed && sub.alive && subscriptions.get(sub.guid) === sub;
   const notify = (sub: ReplayChartSubscription, state: ChartStreamState, reason: string | null = null) => {
     if (!current(sub)) return;
+    if (state !== 'live') clearLiveness(sub);
     sub.freshness = { ...sub.freshness, connectionStatus: state, lagReason: reason };
     emitFreshness({ ...sub.freshness });
     publishChartMeasurement({ kind: 'replay_state', received_utc_ns: chartMeasurementUtcNs(), topic: `market.candles.${poolAddress.toLowerCase()}.${resolutionToWsTimeframe(sub.resolution)}`, generation: sub.generation, sequence: sub.sequence.toString(), replay_complete: sub.snapshotReady && !sub.replaying && sub.acknowledged, pending_bytes: sub.pendingBytes, state, reason });
@@ -584,15 +614,25 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     if (watermark === null || watermark.integrity !== 'healthy') throw new Error('Candle source watermark unavailable');
     if (sub.watermark && (BigInt(watermark.height) < BigInt(sub.watermark.height) || (watermark.height === sub.watermark.height && watermark.blockHash.toLowerCase() !== sub.watermark.blockHash.toLowerCase()))) throw new Error('Candle watermark regression');
     sub.watermark = watermark;
-    const received = Date.now();
-    sub.freshness = { ...sub.freshness, sourceObservedAt: watermark.observedAt, lastReceivedAt: received, lastSourceHeight: watermark.height };
-    if (sub.lagTimer !== undefined) clearTimeout(sub.lagTimer);
-    const lag = received - Date.parse(watermark.observedAt);
-    if (lag > 1000) notify(sub, 'degraded', 'Prices may be a little behind');
-    else {
-      emitFreshness({ ...sub.freshness });
-      sub.lagTimer = setTimeout(() => { sub.lagTimer = undefined; notify(sub, 'degraded', 'Prices may be a little behind'); }, Math.max(1, 1001 - lag));
-    }
+    sub.freshness = { ...sub.freshness, sourceObservedAt: watermark.observedAt, lastReceivedAt: Date.now(), lastSourceHeight: watermark.height };
+    emitFreshness({ ...sub.freshness });
+  }
+  function clearLiveness(sub: ReplayChartSubscription) {
+    if (sub.livenessTimer !== undefined) clearTimeout(sub.livenessTimer);
+    sub.livenessTimer = undefined;
+  }
+  function armLiveness(sub: ReplayChartSubscription) {
+    clearLiveness(sub);
+    if (!current(sub) || sub.freshness.connectionStatus !== 'live' || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
+    sub.livenessTimer = setTimeout(() => {
+      sub.livenessTimer = undefined;
+      if (current(sub) && sub.freshness.connectionStatus === 'live' && (typeof document === 'undefined' || document.visibilityState !== 'hidden')) fail(sub, 'Live updates are reconnecting');
+    }, HEARTBEAT_LIVENESS_MS);
+  }
+  function receiveStreamFrame(sub: ReplayChartSubscription) {
+    sub.freshness = { ...sub.freshness, lastReceivedAt: Date.now() };
+    armLiveness(sub);
+    emitFreshness({ ...sub.freshness });
   }
   function applyCandle(sub: ReplayChartSubscription, candle: CanonicalCandle, emit = true) {
     const result = sub.merge.accept(candle, poolAddress, resolutionToWsTimeframe(sub.resolution));
@@ -665,6 +705,24 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     }
     throw new Error('History pagination capacity exceeded');
   }
+  async function readLiveHistory(sub: ReplayChartSubscription, controller: AbortController) {
+    let now = Math.floor(Date.now() / 1000);
+    for (const candle of visibleCandles.values()) {
+      if (candle.interval === resolutionToWsTimeframe(sub.resolution)) now = Math.max(now, Date.parse(candle.start) / 1000);
+    }
+    const window = liveWindows.get(sub.resolution) ?? { from: Math.max(0, now - resolutionToSeconds(sub.resolution) * 3), to: now + 60 };
+    liveWindows.set(sub.resolution, window);
+    try {
+      const page = await readHistory(sub.resolution, window.from, window.to, controller);
+      liveWindows.delete(sub.resolution);
+      historyError = undefined;
+      return page;
+    } catch (error) {
+      historyError = error;
+      if (!isTransientError(error)) liveWindows.delete(sub.resolution);
+      throw error;
+    }
+  }
   function drain(sub: ReplayChartSubscription) {
     if (sub.loading) return;
     const pending = sub.pending; sub.pending = []; sub.pendingBytes = 0;
@@ -675,10 +733,11 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     drain(sub); sub.cursor = sub.checkpoint; sub.checkpoint = null;
     sub.replaying = false; sub.retries = 0;
     if (sub.timer !== undefined) clearTimeout(sub.timer); sub.timer = undefined;
-    const lag = sub.freshness.sourceObservedAt === null ? Infinity : Date.now() - Date.parse(sub.freshness.sourceObservedAt);
-    notify(sub, lag > 1000 ? 'degraded' : 'live', lag > 1000 ? 'Source observation is more than 1000 ms behind' : null);
+    notify(sub, 'live');
+    armLiveness(sub);
   }
   function cancelReplay(sub: ReplayChartSubscription) {
+    clearLiveness(sub);
     sub.operation?.abort(); sub.operation = undefined;
     sub.connection?.close(); sub.connection = undefined;
     if (sub.retryTimer !== undefined) clearTimeout(sub.retryTimer);
@@ -689,12 +748,12 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     sub.alive = false; ++sub.generation;
     cancelReplay(sub);
     sub.requests.forEach(request => request.abort()); sub.requests.clear();
-    for (const timer of [sub.timer, sub.lagTimer]) if (timer !== undefined) clearTimeout(timer);
-    sub.timer = undefined; sub.lagTimer = undefined; sub.pending = []; sub.pendingBytes = 0;
+    if (sub.timer !== undefined) clearTimeout(sub.timer);
+    sub.timer = undefined; sub.pending = []; sub.pendingBytes = 0;
   }
   function schedulePoll(sub: ReplayChartSubscription, immediate = false) {
     if (!current(sub) || sub.timer !== undefined) return;
-    const delay = immediate ? 0 : Math.min(60000, POLL_INTERVAL * 2 ** Math.min(sub.failures, 3)) * (0.9 + Math.random() * 0.2);
+    const delay = Math.max(marketRetryPace.delay(historyError) || 0, immediate ? 0 : Math.max(5000, Math.min(60000, POLL_INTERVAL * 2 ** Math.min(sub.failures, 3)) * (0.9 + Math.random() * 0.2)));
     sub.timer = setTimeout(() => { sub.timer = undefined; void poll(sub); }, delay);
   }
   async function poll(sub: ReplayChartSubscription) {
@@ -702,17 +761,25 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     if (sub.requests.size) { schedulePoll(sub); return; }
     const controller = new AbortController(); sub.requests.add(controller);
     const generation = sub.generation;
+    let startReplay = false;
     try {
-      const now = Math.floor(Date.now() / 1000);
-      const page = await readHistory(sub.resolution, Math.max(0, now - resolutionToSeconds(sub.resolution) * 3), now + 60, controller);
+      const page = await readLiveHistory(sub, controller);
       if (!current(sub) || generation !== sub.generation) return;
+      if (sub.waitingForCandle && page.items.length > 0) { sub.waitingForCandle = false; startReplay = true; }
       for (const candle of page.items) applyCandle(sub, candle);
       sub.failures = 0;
       // An empty page for a pool with no fills carries no watermark; that is an empty series, not an outage.
       if (page.watermark !== null || page.items.length > 0) observe(sub, page.watermark);
+      if (!sub.connection && sub.freshness.connectionStatus === 'offline') notify(sub, 'degraded', 'Live updates are paused');
     } catch (error) {
       if (current(sub) && !controller.signal.aborted && generation === sub.generation) { sub.failures++; notify(sub, 'offline', reportUserFacingError(error, 'Live updates are paused', 'chart history updates')); }
-    } finally { sub.requests.delete(controller); if (current(sub) && sub.freshness.connectionStatus !== 'live') schedulePoll(sub); }
+    } finally {
+      sub.requests.delete(controller);
+      if (current(sub) && generation === sub.generation) {
+        if (startReplay) void recover(sub, true);
+        else if (sub.freshness.connectionStatus !== 'live') schedulePoll(sub);
+      }
+    }
   }
   function fail(sub: ReplayChartSubscription, reason: string) {
     if (!current(sub)) return;
@@ -726,11 +793,16 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   async function recover(sub: ReplayChartSubscription, fresh: boolean) {
     if (!current(sub)) return;
     cancelReplay(sub);
+    if (sub.timer !== undefined) clearTimeout(sub.timer); sub.timer = undefined;
+    sub.requests.forEach(request => request.abort());
+    ++sub.generation;
+    const marketState = market?.getSnapshot();
+    if (marketState?.noTradesYet) { sub.waitingForCandle = true; sub.cursor = null; sub.snapshotReady = false; }
+    if (marketState && !marketState.firstStateReady) { notify(sub, 'connecting'); return; }
     const binding = chartReplayBinding;
     if (!binding || binding.signal.aborted) { notify(sub, 'degraded', 'Live updates are paused'); schedulePoll(sub, true); return; }
     const operation = new AbortController(); sub.operation = operation;
-    sub.requests.forEach(request => request.abort());
-    const generation = ++sub.generation;
+    const generation = sub.generation;
     const valid = () => current(sub) && sub.generation === generation && !operation.signal.aborted;
     const abort = () => { if (valid()) { cancelReplay(sub); notify(sub, 'degraded', 'Live updates are paused'); schedulePoll(sub, true); } };
     binding.signal.addEventListener('abort', abort, { once: true });
@@ -739,6 +811,13 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     const subscriptionId = `chart-${generation}`;
     sub.acknowledged = false; sub.replaying = true; sub.checkpoint = null; sub.pending = []; sub.pendingBytes = 0;
     try {
+      let firstHistory: Awaited<ReturnType<typeof readHistory>> | undefined;
+      if (sub.waitingForCandle) {
+        firstHistory = await readLiveHistory(sub, operation);
+        if (!valid()) return;
+        if (firstHistory.items.length === 0) { notify(sub, 'connecting'); schedulePoll(sub); return; }
+        sub.waitingForCandle = false;
+      }
       if (fresh || sub.cursor === null) {
         sub.snapshotReady = false; notify(sub, 'snapshotting');
         const snapshot = decodeV2Contract('TopicSnapshot', await binding.transport.snapshot([topic], operation.signal));
@@ -749,8 +828,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
         if (entry.revision !== candle.revision) throw new Error('Chart snapshot revision mismatch');
         sub.sequence = BigInt(entry.sequence); sub.cursor = snapshot.resumeCursor;
         sub.merge = new CanonicalCandleRevisionMerge(); sub.lastTime = -1;
-        const now = Math.floor(Date.now() / 1000);
-        const history = await readHistory(sub.resolution, Math.max(0, now - resolutionToSeconds(sub.resolution) * 3), now + 60, operation);
+        const history = firstHistory ?? await readLiveHistory(sub, operation);
         if (!valid()) return;
         for (const item of history.items) applyCandle(sub, item, false);
         if (history.items.length) { const last = display(history.items[history.items.length - 1]); if (current(sub)) { sub.lastBarKey = barKey(last); sub.tick(last); } }
@@ -767,8 +845,9 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
           try {
             if (value !== null && typeof value === 'object' && 'op' in value) {
               const control = decodeV2Contract('StreamControl', value);
-              if (control.op === 'heartbeat' && control.subscriptionId === null) return;
+              if (control.op === 'heartbeat' && control.subscriptionId === null) { receiveStreamFrame(sub); return; }
               if (control.subscriptionId !== subscriptionId) throw new Error('Unbound chart replay control');
+              receiveStreamFrame(sub);
               if (control.op === 'subscribed') { sub.acknowledged = true; return; }
               if (control.op === 'checkpoint') {
                 if (!sub.acknowledged || !control.cursor) throw new Error('Replay checkpoint before acknowledgement');
@@ -783,11 +862,12 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
             const event = decodeV2Contract('CandleEvent', value);
             if (event.topic !== topic || event.revision !== event.payload.revision || event.watermark === null || event.watermark.integrity !== 'healthy' || BigInt(event.watermark.height) < BigInt(event.payload.lastPosition.height) || (event.watermark.height === event.payload.lastPosition.height && event.watermark.blockHash.toLowerCase() !== event.payload.lastPosition.blockHash.toLowerCase())) throw new Error('Candle event scope mismatch');
             const next = BigInt(event.sequence);
-            if (next <= sub.sequence) { const buffered = sub.pending.find(item => item.sequence === event.sequence); if (buffered && canonicalChartContent(buffered) !== canonicalChartContent(event)) throw new Error('Conflicting buffered replay sequence'); const retained = visibleCandles.get(candleIdentity(event.payload)); if (!buffered && (!retained || BigInt(event.payload.revision) > BigInt(retained.revision))) throw new Error('Unexpected candle revision on old sequence'); if (!buffered && sub.merge.accept(event.payload, poolAddress, resolutionToWsTimeframe(sub.resolution)) === 'resync') throw new Error('Conflicting replayed candle'); return; }
+            if (next <= sub.sequence) { const buffered = sub.pending.find(item => item.sequence === event.sequence); if (buffered && canonicalChartContent(buffered) !== canonicalChartContent(event)) throw new Error('Conflicting buffered replay sequence'); const retained = visibleCandles.get(candleIdentity(event.payload)); if (!buffered && (!retained || BigInt(event.payload.revision) > BigInt(retained.revision))) throw new Error('Unexpected candle revision on old sequence'); if (!buffered && sub.merge.accept(event.payload, poolAddress, resolutionToWsTimeframe(sub.resolution)) === 'resync') throw new Error('Conflicting replayed candle'); receiveStreamFrame(sub); return; }
             if (next !== sub.sequence + 1n && (!event.coalesced || event.sourceSequenceFirst === null || event.sourceSequenceLast === null || BigInt(event.sourceSequenceFirst) !== sub.sequence + 1n || BigInt(event.sourceSequenceLast) !== next)) throw new Error('Unresolved candle delivery gap');
             if (sub.pending.length >= 2048 || sub.pendingBytes + frameBytes > 256 * 1024) throw new Error('Chart replay buffer exceeded');
             if (sub.replaying || sub.loading) { sub.pending.push(event); sub.pendingBytes += frameBytes; } else applyCandle(sub, event.payload);
             sub.sequence = next; observe(sub, event.watermark);
+            receiveStreamFrame(sub);
             if (receivedUtcNs !== null) publishChartMeasurement({ kind: 'candle_delivery', received_utc_ns: receivedUtcNs, event, topic, sequence: event.sequence, revision: event.revision, source_event_id: event.payload.close.source.sourceEventId, generation });
           } catch (error) { sub.cursor = null; fail(sub, reportUserFacingError(error, 'Live updates are reconnecting', 'chart live update')); }
         },
@@ -798,8 +878,15 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     } catch (error) { if (valid()) fail(sub, reportUserFacingError(error, 'Live updates are reconnecting', 'chart live updates')); }
   }
   const bindingChanged = () => { historyRequests.forEach(controller => controller.abort()); for (const sub of subscriptions.values()) { sub.cursor = null; sub.retries = 0; void recover(sub, true); } };
+  let marketState = market?.getSnapshot();
+  const releaseMarket = market?.subscribe(() => {
+    const next = market.getSnapshot();
+    const changed = next.firstStateReady !== marketState?.firstStateReady || next.noTradesYet !== marketState?.noTradesYet;
+    marketState = next;
+    if (changed) for (const sub of subscriptions.values()) void recover(sub, true);
+  });
   replayBindingListeners.add(bindingChanged);
-  const visible = () => { if (document.visibilityState === 'visible') bindingChanged(); };
+  const visible = () => { if (document.visibilityState === 'hidden') { for (const sub of subscriptions.values()) clearLiveness(sub); } else if (document.visibilityState === 'visible') { marketRetryPace.retryNow(historyError); marketRetryPace.retryNow(annotationError); bindingChanged(); if (visibleCandles.size) void reconcileMarkers(); } };
   const online = () => bindingChanged();
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visible);
   if (typeof window !== 'undefined') window.addEventListener('online', online);
@@ -814,10 +901,11 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
       owners.forEach(sub => { sub.loading++; sub.requests.add(controller); });
       void readHistory(resolution, period.from, period.to, controller).then(page => {
         if (disposed || controller.signal.aborted) return;
+        historyError = undefined;
         const bars = page.items.map(candle => display(candle));
         for (const sub of owners) if (current(sub)) { for (const candle of page.items) applyCandle(sub, candle, false); }
         result(bars, { noData: bars.length === 0 });
-      }).catch(reason => { if (!disposed && !controller.signal.aborted) error(reportUserFacingError(reason, "Chart can't load right now", 'chart history')); }).finally(() => {
+      }).catch(reason => { if (!disposed && !controller.signal.aborted) { historyError = reason; error(reportUserFacingError(reason, "Chart can't load right now", 'chart history')); } }).finally(() => {
         historyRequests.delete(controller);
         for (const sub of owners) { sub.requests.delete(controller); sub.loading--; if (current(sub)) { try { if (sub.checkpoint) finishReplay(sub); else if (!sub.replaying) drain(sub); } catch (reason) { sub.cursor = null; fail(sub, reportUserFacingError(reason, 'Live updates are reconnecting', 'chart history merge')); } } }
       });
@@ -825,7 +913,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     subscribeBars: (_symbol: unknown, resolution: string, tick: (bar: Bar) => void, guid: string, reset: () => void = () => {}) => {
       if (disposed) return; chartResolution(resolution);
       const old = subscriptions.get(guid); if (old) close(old);
-      const sub: ReplayChartSubscription = { guid, resolution, tick, reset, alive: true, generation: ++serial, requests: new Set(), merge: new CanonicalCandleRevisionMerge(), cursor: null, sequence: 0n, watermark: null, pending: [], pendingBytes: 0, acknowledged: false, replaying: true, loading: 0, checkpoint: null, snapshotReady: false, failures: 0, retries: 0, lastTime: -1, lastBarKey: '', freshness: { sourceObservedAt: null, lastReceivedAt: null, lastSourceHeight: null, connectionStatus: 'connecting', lagReason: null } };
+      const sub: ReplayChartSubscription = { guid, resolution, tick, reset, alive: true, generation: ++serial, requests: new Set(), merge: new CanonicalCandleRevisionMerge(), cursor: null, sequence: 0n, watermark: null, pending: [], pendingBytes: 0, acknowledged: false, replaying: true, loading: 0, checkpoint: null, snapshotReady: false, waitingForCandle: market?.getSnapshot().noTradesYet ?? false, failures: 0, retries: 0, lastTime: -1, lastBarKey: '', freshness: { sourceObservedAt: null, lastReceivedAt: null, lastSourceHeight: null, connectionStatus: 'connecting', lagReason: null } };
       subscriptions.set(guid, sub); void recover(sub, true);
     },
     unsubscribeBars: (guid: string) => { const sub = subscriptions.get(guid); if (sub) { close(sub); subscriptions.delete(guid); } },
@@ -836,20 +924,21 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     },
     setMarkPresentation: (presentation: ChartMarkPresentation) => { markPresentation = presentation; },
     markPresentation: () => markPresentation,
-    retry: () => { metadata.retry(); bindingChanged(); },
+    retry: () => { marketRetryPace.retryNow(historyError); marketRetryPace.retryNow(annotationError); metadata.retry(); bindingChanged(); if (visibleCandles.size) void reconcileMarkers(); },
     resumeFromCursor: (guid: string, cursor: string) => { const sub = subscriptions.get(guid); if (!sub || !current(sub) || !sub.snapshotReady) throw new Error('Existing authoritative chart snapshot required'); sub.cursor = decodeV2Contract('OpaqueResumeCursor', cursor); sub.retries = 0; void recover(sub, false); },
     replayStatus: () => [...subscriptions.values()].map(sub => ({ guid: sub.guid, generation: sub.generation, replayComplete: sub.snapshotReady && !sub.replaying && sub.acknowledged, pending: sub.pending.length, pendingBytes: sub.pendingBytes, sequence: sub.sequence.toString(), freshness: { ...sub.freshness } })),
     resourceCounts: () => ({
       subscriptions: subscriptions.size,
       requests: metadata.requestCount() + historyRequests.size + [...subscriptions.values()].reduce((count, sub) => count + sub.requests.size, 0),
       sockets: [...subscriptions.values()].filter(sub => sub.connection !== undefined).length,
-      timers: [...subscriptions.values()].reduce((count, sub) => count + [sub.timer, sub.retryTimer, sub.lagTimer].filter(timer => timer !== undefined).length, 0),
+      timers: [...subscriptions.values()].reduce((count, sub) => count + [sub.timer, sub.retryTimer, sub.livenessTimer].filter(timer => timer !== undefined).length, 0),
     }),
     dispose: () => {
       if (disposed) return; disposed = true;
       historyRequests.forEach(controller => controller.abort()); historyRequests.clear();
       for (const sub of subscriptions.values()) close(sub); subscriptions.clear();
       replayBindingListeners.delete(bindingChanged);
+      releaseMarket?.();
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visible);
       if (typeof window !== 'undefined') window.removeEventListener('online', online);
       annotationRequest?.abort(); ++annotationGeneration;

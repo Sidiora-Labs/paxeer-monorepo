@@ -166,6 +166,48 @@ impl ChainFixture {
         })
     }
 
+    pub fn resign(&mut self, validator_seeds: &[[u8; 32]]) -> Result<(), ChainProofError> {
+        self.commit.height = self.header.height;
+        self.commit.block_id.hash = self.header.hash()?.to_vec();
+        let timestamp = Timestamp {
+            seconds: self.header.time.seconds,
+            nanos: self.header.time.nanos,
+        };
+        let bytes = vote_sign_bytes(
+            &self.header.chain_id,
+            self.commit.height,
+            self.commit.round,
+            Some(&self.commit.block_id),
+            timestamp,
+        )?;
+        let keys = validator_seeds
+            .iter()
+            .map(SigningKey::from_bytes)
+            .collect::<Vec<_>>();
+        self.commit.signatures = self
+            .verifier
+            .validators
+            .validators()
+            .iter()
+            .map(|validator| {
+                let key = keys
+                    .iter()
+                    .find(|key| {
+                        TrustedValidator::new(key.verifying_key().to_bytes(), 1).address
+                            == validator.address
+                    })
+                    .ok_or(ChainProofError::Mismatch)?;
+                Ok(CommitSig {
+                    flag: BlockIdFlag::Commit,
+                    validator_address: validator.address.to_vec(),
+                    timestamp,
+                    signature: key.sign(&bytes).to_bytes().to_vec(),
+                })
+            })
+            .collect::<Result<Vec<_>, ChainProofError>>()?;
+        Ok(())
+    }
+
     /// # Errors
     /// Returns an error when the key is absent from the fixture.
     pub fn prove(&self, key: &[u8]) -> Result<Vec<ProofOp>, ChainProofError> {

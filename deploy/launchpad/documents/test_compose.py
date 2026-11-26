@@ -932,6 +932,42 @@ def test_chart_policy_admits_indexer_market_event(tmp_path: Path) -> None:
     assert docs["charts"]["policy"]["EventTypes"] == {"accounting.market.v1": True}
 
 
+@pytest.mark.parametrize(("field", "state"), [
+    (None, "enabled"),
+    ("Subjects", "missing"), ("EventTypes", "missing"),
+    ("Subjects", "disabled"), ("EventTypes", "disabled"),
+])
+def test_charts_policy_names_market_type(tmp_path: Path, field: str | None, state: str) -> None:
+    import charts
+
+    values, out = _values(tmp_path), tmp_path / "out"
+    path = values / "charts.example.json"
+    document = json.loads(path.read_bytes())
+    policy = document["delivery"]["policy"]
+    if field is not None:
+        del policy[field]["accounting.market.v1"]
+        if state == "disabled":
+            policy[field]["accounting.market.v1"] = False
+    path.write_text(json.dumps(document))
+    if field is None:
+        composed = charts.documents("charts", values)["DELIVERY_CONFIG_DOCUMENT"]
+        assert composed["policy"]["Subjects"]["accounting.market.v1"] is True
+        assert composed["policy"]["EventTypes"]["accounting.market.v1"] is True
+        result = _run(values, out, "charts")
+        assert result.returncode == 0, result.stderr
+        record = json.loads((out / "charts.json").read_bytes())
+        delivery = json.loads(base64.b64decode(record["DELIVERY_CONFIG_DOCUMENT"]))
+        assert delivery == composed
+    else:
+        message = f"policy.{field} must enable accounting.market.v1"
+        with pytest.raises(ValueError, match=re.escape(message)):
+            charts.documents("charts", values)
+        result = _run(values, out, "charts")
+        assert result.returncode == 2
+        assert message in result.stderr
+        assert not (out / "charts.json").exists()
+
+
 def test_broker_example_captures_all_api_relay_routes(tmp_path: Path) -> None:
     values, out = _values(tmp_path), tmp_path / "out"
     result = _run(values, out, "api", "api-sockets")
@@ -948,6 +984,78 @@ def test_broker_example_captures_all_api_relay_routes(tmp_path: Path) -> None:
     sockets = json.loads((out / "api-sockets.json").read_bytes())
     consumers = json.loads(base64.b64decode(sockets["STREAM_CONSUMER_CONFIG_DOCUMENT"]))
     assert consumers == [consumer for consumer in broker["durables"] if consumer["Durable"] == "api_sockets_125_stats"]
+
+
+def _broker_subject_covered(pattern: str, subject: str) -> bool:
+    outer, inner = pattern.split("."), subject.split(".")
+    for index, token in enumerate(outer):
+        if token == ">":
+            return index == len(outer) - 1 and len(inner) > index
+        if index >= len(inner) or inner[index] == ">":
+            return False
+        if token != "*" and token != inner[index]:
+            return False
+    return len(outer) == len(inner)
+
+
+@pytest.mark.parametrize("pattern,subject,covered", [
+    ("a.*", "a.b", True), ("a.*", "a.b.c", False),
+    ("a.>", "a", False), ("a.>", "a.b.c", True),
+    ("a.>", "a.*", True), ("a.*", "a.>", False),
+    ("a.*.>", "a.>", False), ("a.b", "a.*", False),
+    ("market.candles.*.*", "market.candles.*.*", True),
+])
+def test_broker_subject_coverage(pattern: str, subject: str, covered: bool) -> None:
+    assert _broker_subject_covered(pattern, subject) is covered
+
+
+def _broker_example_bindings(value):
+    if isinstance(value, list):
+        for item in value:
+            yield from _broker_example_bindings(item)
+    elif isinstance(value, dict):
+        fields = {key.replace("_", "").lower(): item for key, item in value.items()}
+        for key, stream in fields.items():
+            if not key.endswith("stream") or key == "sourcestream":
+                continue
+            assert isinstance(stream, str) and stream, (key, stream)
+            prefix = key[:-len("stream")]
+            subjects = []
+            for subject_key in (prefix + "subject", prefix + "subjects"):
+                if subject_key in fields:
+                    named = fields[subject_key]
+                    if isinstance(named, dict):
+                        subjects.extend(named.values())
+                    elif isinstance(named, list):
+                        subjects.extend(named)
+                    else:
+                        subjects.append(named)
+            if key == "outputstream":
+                subjects.extend(fields[name] for name in ("statssubject", "searchinvalidationsubject") if name in fields)
+            if key == "eventstream":
+                subjects.extend(fields.get("interactionsubjects", {}).values())
+                if "mentionsubject" in fields:
+                    subjects.append(fields["mentionsubject"])
+            yield stream, subjects
+        for item in value.values():
+            yield from _broker_example_bindings(item)
+
+
+def test_broker_example_covers_publishers_and_consumers() -> None:
+    examples = {path.name: json.loads(path.read_bytes()) for path in sorted((ROOT / "values").glob("*.example.json"))}
+    broker = examples["broker.example.json"]
+    streams = {stream["name"]: stream for stream in broker["streams"]}
+    assert len(streams) == len(broker["streams"])
+    bindings = []
+    for name, example in examples.items():
+        for stream, subjects in _broker_example_bindings(example):
+            bindings.append((name, stream, subjects))
+    bindings.append(("user.example.json", "USERS", list(examples["user.example.json"]["subjects"].values())))
+    assert examples["pnl.journeys.example.json"]["journeys"]["brokerStream"] == "PNL_JOURNEYS"
+    for name, stream, subjects in bindings:
+        assert stream in streams, (name, stream)
+        for subject in subjects:
+            assert any(_broker_subject_covered(pattern, subject) for pattern in streams[stream]["subjects"]), (name, stream, subject)
 
 
 def test_compose_mounts_and_private_listeners_match_contract() -> None:
@@ -1548,3 +1656,31 @@ def test_compose_optional_document_requires_contract_pair(tmp_path: Path, member
     del entry["optional"][member]
     with pytest.raises(compose.ComposeError, match="PNL_JOURNEY_CONFIG_DOCUMENT is not required by the contract"):
         compose._compose_service("pnl", values, entry)
+
+
+def test_stats_social_policy_subscription(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    result = _run(values, out, "stats")
+    assert result.returncode == 0, result.stderr
+    environment = json.loads((out / "stats.json").read_bytes())
+    document = json.loads(base64.b64decode(environment["DELIVERY_CONFIG_DOCUMENT"]))
+    social = json.loads((values / "social.example.json").read_bytes())
+    subscriptions = document["phase2"]["searchConsumers"]
+    policy = next(sub for sub in subscriptions if sub["kind"] == "social_policy")
+    assert policy["eventType"] == "social.policy.changed.v2"
+    assert policy["consumer"]["Stream"] == social["policyStream"]
+    assert policy["consumer"]["Subject"] == social["policySubject"]
+    assert document["policy"]["Subjects"][social["policySubject"]] is True
+    assert document["policy"]["EventTypes"][policy["eventType"]] is True
+    assert len({sub["consumer"]["Durable"] for sub in subscriptions}) == len(subscriptions)
+    path = values / "stats.example.json"
+    document["policy"]["EventTypes"]["profile.updated"] = True
+    policy["eventType"] = "profile.updated"
+    path.write_text(json.dumps(document))
+    refused = _run(values, tmp_path / "wrong-event", "stats")
+    assert refused.returncode == 2
+    assert "eventType" in refused.stderr
+    document["phase2"]["searchConsumers"].remove(policy)
+    path.write_text(json.dumps(document))
+    optional = _run(values, tmp_path / "optional", "stats")
+    assert optional.returncode == 0, optional.stderr

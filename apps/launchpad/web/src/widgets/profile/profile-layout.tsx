@@ -29,12 +29,12 @@ export default function ProfileLayout({ left, center, right, rightLabel = 'Top t
     <div className="@container/profile w-full min-w-0">
       <div data-profile-layout className={cn('grid w-full grid-cols-1 items-stretch lg:min-h-[calc(100dvh-var(--sl-shell-top-total))] @market-three/profile:justify-center', columns, className)}>
         {hasLeft ? (
-          <aside aria-label="Leaderboard" className="hidden min-w-0 bg-surface-1 @market-three/profile:block">
+          <aside aria-label="Leaderboard" className="relative hidden min-w-0 bg-surface-1 before:pointer-events-none before:absolute before:inset-y-0 before:right-0 before:w-[var(--sl-edge-width)] before:bg-surface-3 @market-three/profile:block">
             <div className="sticky top-[var(--shell-top)]">{left}</div>
           </aside>
         ) : null}
         <div data-profile-col="center" className="flex w-full min-w-0 flex-col">{center}</div>
-        {hasRight ? <aside aria-label={rightLabel} className="flex min-w-0 flex-col gap-2 bg-surface-1 mt-2 @market-two/profile:mt-0">{right}</aside> : null}
+        {hasRight ? <aside aria-label={rightLabel} className="relative flex min-w-0 flex-col gap-2 bg-surface-1 mt-2 @market-two/profile:mt-0 @market-two/profile:before:pointer-events-none @market-two/profile:before:absolute @market-two/profile:before:inset-y-0 @market-two/profile:before:left-0 @market-two/profile:before:w-[var(--sl-edge-width)] @market-two/profile:before:bg-surface-3">{right}</aside> : null}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import type { QueryClient as QueryClientType } from '@tanstack/react-query';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SdkClient, type V2ContractTypes } from '@kindle/sdk';
 
@@ -61,6 +62,7 @@ const { TrendingWidget, trendingEmptyTitles, trendingEmptyBody } = await import(
 const { ScreenerWidget, screenerEmpty } = await import('./screener-widget');
 const { LeaderboardWidget, leaderboardEmptyTitles, leaderboardEmptyBody } = await import('./leaderboard-widget');
 const { CalloutsWidget, calloutsEmpty } = await import('./callouts-widget');
+const { HomeFeed } = await import('./home-feed');
 
 type Watermark = V2ContractTypes['Watermark'];
 type RankingsResponse = V2ContractTypes['RankingsResponse'];
@@ -176,6 +178,51 @@ describe('home widgets on a successful empty answer', () => {
   });
 
   it(homeEmptyStatesProfilesUseGatewayOrigin.name, homeEmptyStatesProfilesUseGatewayOrigin);
+
+  async function compactHomeShowsRankingCoinBeforeCallouts() {
+    const ranking: RankingsResponse = JSON.parse(readFileSync(new URL('../../../../../../tools/ui-check/surfaces/launchpad/answers/rankings-trending.json', import.meta.url), 'utf8'));
+    const market = await serve(url => url === '/v2/rankings/trending' ? { status: 200, body: ranking } : emptyOrigin(url));
+    const view = mount(market.origin, <HomeFeed />);
+    try {
+      const tabs = Array.from(view.container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+      expect(tabs.map(tab => tab.textContent)).toEqual(['Coins', 'Callouts', 'Top']);
+      expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+      const pool = ranking.data.snapshot.items[0].poolAddress;
+      await waitFor(() => view.container.querySelector(`li[data-pool="${pool}"] a[href="/coin/${pool}"]`) !== null);
+      const row = view.container.querySelector(`li[data-pool="${pool}"]`)!;
+      expect(row.textContent).toContain('0x1111...1111');
+      expect(row.classList.contains('sl-hairline')).toBe(true);
+      expect(row.querySelector('a')?.getAttribute('href')).toBe(`/coin/${pool}`);
+      expect(market.paths).toContain('/v2/rankings/trending');
+      expect(market.paths.some(path => path.startsWith('/v2/discovery/feed'))).toBe(false);
+    } finally {
+      unmount(view.root, view.container, view.queryClient);
+      await new Promise<void>(resolve => market.server.close(() => resolve()));
+    }
+  }
+
+  async function compactHomeEmptyTabsHaveNoRetry() {
+    const view = mount(empty.origin, <HomeFeed />);
+    try {
+      const tabs = Array.from(view.container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+      for (const [index, title] of [trendingEmptyTitles.trending, calloutsEmpty.latest.title, calloutsEmpty.hot.title].entries()) {
+        act(() => tabs[index].click());
+        await waitFor(() => view.container.textContent?.includes(title) === true);
+        const panel = view.container.querySelector('[role="tabpanel"]')!;
+        expect(panel.textContent).not.toMatch(/try again|retry/i);
+        expect(panel.querySelector('[data-state="error"], [data-state="unavailable"]')).toBeNull();
+        expectEmptyNotError(view.container);
+        expect(tabs[index].getAttribute('aria-selected')).toBe('true');
+        expect(panel.getAttribute('aria-labelledby')).toBe(tabs[index].id);
+        if (index === 0) expect(panel.querySelector('a[href="/create"]')?.textContent).toBe('Create coin');
+      }
+    } finally {
+      unmount(view.root, view.container, view.queryClient);
+    }
+  }
+
+  it(compactHomeShowsRankingCoinBeforeCallouts.name, compactHomeShowsRankingCoinBeforeCallouts);
+  it(compactHomeEmptyTabsHaveNoRetry.name, compactHomeEmptyTabsHaveNoRetry);
 
   it('Trending renders the empty state with a Create coin action and no quality warning', async () => {
     const { root, container, queryClient } = mount(empty.origin, <TrendingWidget {...props} />);

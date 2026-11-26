@@ -96,15 +96,16 @@ type CompletedSink interface {
 	Complete(context.Context, []Snapshot) error
 }
 type Coordinator struct {
-	source any
-	sink   CompletedSink
+	ObserveOpenFillPools func(newOnly bool, pools int)
+	source               any
+	sink                 CompletedSink
 }
 
 func NewCoordinator(source any, sink CompletedSink) (*Coordinator, error) {
 	if source == nil || sink == nil {
 		return nil, ErrUnavailable
 	}
-	return &Coordinator{source, sink}, nil
+	return &Coordinator{source: source, sink: sink}, nil
 }
 
 type frozenSourceAtDatabaseClock interface {
@@ -160,6 +161,9 @@ func (c *Coordinator) Refresh(ctx context.Context, runID string, args ...any) ([
 	}
 	if in.CutoffTimeUTC <= 0 || in.Provenance == nil || in.Provenance.Validate(in) != nil {
 		return nil, NewRefreshRefusal("provenance", "validation", ErrUnavailable)
+	}
+	if c.ObserveOpenFillPools != nil {
+		c.ObserveOpenFillPools(newOnly, in.OpenFillPools)
 	}
 	snapshots, err := ComputeRun(in, newOnly)
 	if err != nil {

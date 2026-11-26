@@ -15,6 +15,7 @@ import (
 )
 
 func TestReceiptSettlementValidatesSourceBoundTransferEvidence(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	origin := coordinatorReplayRecordedRPC(t)

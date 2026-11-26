@@ -11,8 +11,10 @@ import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-
 import { createServer, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
+import type { QueryClient } from '@tanstack/react-query';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 interface BrowserDom { window: Window & typeof globalThis; reconfigure(options: { url: string }): void }
@@ -38,6 +40,11 @@ const outage = { code: 'DEPENDENCY_UNAVAILABLE', message: 'no backing service', 
 let holdCandles = true;
 const held: ServerResponse[] = [];
 const candleReads: string[] = [];
+const recorded = JSON.parse(readFileSync(new URL('../../core/test-fixtures/market-production/core-api-wire.json', import.meta.url), 'utf8'));
+let emptyMarket = false;
+let tradedMarket = false;
+let snapshotReads = 0;
+let tradeReads = 0;
 
 function answerOutage(response: ServerResponse) {
   response.statusCode = 503;
@@ -53,8 +60,35 @@ const server = createServer((request, response) => {
     response.statusCode = 204; response.end(); return;
   }
   const url = request.url ?? '';
+  if (emptyMarket && url.startsWith('/v2/snapshots?') && new URL(url, 'http://localhost').searchParams.get('topics')?.includes('market.stats.')) {
+    response.writeHead(200, { 'Content-Type': 'application/json', 'X-Schema-Version': '2' });
+    response.end(JSON.stringify({ ...recorded.snapshot.body, data: { snapshot: { ...recorded.snapshot.body.data.snapshot, topics: recorded.snapshot.body.data.snapshot.topics.filter((entry: { topic: string }) => entry.topic.startsWith('market.stats.')) } } }));
+    return;
+  }
+  if ((emptyMarket || tradedMarket) && url.startsWith('/v2/snapshots?')) {
+    snapshotReads++;
+    response.writeHead(404, { 'Content-Type': 'application/json', 'X-Schema-Version': '2', 'Retry-After': '8', 'Cache-Control': 'no-store' });
+    response.end(JSON.stringify({ ...outage, code: 'TOPIC_NOT_STARTED', message: 'Topic has no first frame', retryable: true, retryAfterMs: 8000 }));
+    return;
+  }
+  if ((emptyMarket || tradedMarket) && url.startsWith(`/v2/pools/${pool}/trades`)) {
+    tradeReads++;
+    response.writeHead(200, { 'Content-Type': 'application/json', 'X-Schema-Version': '2' });
+    response.end(JSON.stringify(emptyMarket ? { ...recorded.tradesFirstPage.body, revision: null, watermark: null, nextCursor: null, data: { items: [] } } : recorded.trades.body));
+    return;
+  }
   if (url.startsWith(`/v2/pools/${pool}/candles`)) {
     candleReads.push(url);
+    if (emptyMarket) {
+      response.writeHead(200, { 'Content-Type': 'application/json', 'X-Schema-Version': '2' });
+      response.end(JSON.stringify({ ...recorded.candles.body, revision: null, watermark: null, data: { ...recorded.candles.body.data, items: [] } }));
+      return;
+    }
+    if (tradedMarket) {
+      response.writeHead(200, { 'Content-Type': 'application/json', 'X-Schema-Version': '2' });
+      response.end(JSON.stringify(recorded.candles.body));
+      return;
+    }
     if (holdCandles) { held.push(response); return; }
   }
   answerOutage(response);
@@ -66,10 +100,12 @@ process.env.NEXT_PUBLIC_STREAM_ORIGIN = 'ws://127.0.0.1:1';
 
 const { createRoot } = await import('react-dom/client');
 const { SdkClient } = await import('@kindle/sdk');
+const { useQueryClient } = await import('@tanstack/react-query');
 const AppProviders = (await import('@/ui/providers/app-providers')).default;
-const { MarketClientProvider } = await import('@/page-modules/token/market-session-context');
+const { MarketClientProvider, useMarketLive } = await import('@/page-modules/token/market-session-context');
 const { default: TvChart, CHART_ANSWER_BUDGET_MS } = await import('./tv-chart');
 const { transientRetryBudgetMs } = await import('@/core/transient-retry');
+const { defaultChartSettings, updateChartSettings } = await import('@/widgets/coin/use-chart-settings');
 
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b|shadow/;
 const stream = 'ws://127.0.0.1:1';
@@ -84,27 +120,89 @@ async function waitFor(check: () => boolean, budgetMs = 5_000) {
 
 let root: Root | undefined;
 let container: HTMLDivElement | undefined;
+let queryClient: QueryClient | undefined;
+
+function ChartScenario() {
+  queryClient = useQueryClient();
+  const market = useMarketLive(pool, { enabled: emptyMarket });
+  return <TvChart poolAddress={pool} market={emptyMarket ? market.session : undefined} />;
+}
 
 function mount() {
   const client = new SdkClient({ apiOrigin: origin, identityOrigin: origin, mediaOrigin: origin, streamOrigin: stream, approvedStreamOrigins: [stream], production: false });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
-  act(() => { root!.render(<AppProviders><MarketClientProvider client={client}><TvChart poolAddress={pool} /></MarketClientProvider></AppProviders>); });
+  act(() => { root!.render(<AppProviders><MarketClientProvider client={client}><ChartScenario /></MarketClientProvider></AppProviders>); });
   return container;
 }
 
 afterEach(() => {
   if (root) act(() => root!.unmount());
   root = undefined;
+  queryClient?.clear();
+  queryClient = undefined;
   container?.remove();
   container = undefined;
+  emptyMarket = false;
+  tradedMarket = false;
+  candleReads.length = 0;
+  updateChartSettings(defaultChartSettings);
   delete (window as { TradingView?: unknown }).TradingView;
   vi.useRealTimers();
 });
 afterAll(() => { for (const response of held.splice(0)) answerOutage(response); server.close(); });
 
 describe('TvChart degraded canvas', () => {
+  async function topicNotStartedShowsEmptyCandlesAndWaitingUpdates() {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+    emptyMarket = true;
+    snapshotReads = 0;
+    tradeReads = 0;
+    const view = mount();
+    await waitFor(() => view.textContent?.includes('The chart starts with the first trade.') === true && candleReads.length > 0 && tradeReads > 0);
+    expect(snapshotReads).toBe(0);
+    expect(view.textContent).toContain('No trades yet');
+    const status = view.querySelector('section[aria-label="Price chart"] [role="status"]')!;
+    expect(status.firstElementChild?.textContent).toBe('Waiting for trades');
+    const retry = status.querySelector('button');
+    expect(retry?.textContent).toBe('Try again');
+    expect(retry?.classList.contains('invisible')).toBe(true);
+    expect(retry?.hasAttribute('inert')).toBe(true);
+    expect(retry?.getAttribute('aria-hidden')).toBe('true');
+    expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
+    expect(view.textContent).not.toMatch(/TOPIC_NOT_STARTED|Loading chart|Updates paused|May be out of date/);
+    expect(view.querySelector('[role="alert"], [data-state="unavailable"]')).toBeNull();
+    act(() => root!.unmount());
+    root = undefined;
+    await tick(20_000);
+    expect(snapshotReads).toBe(0);
+  }
+  it(topicNotStartedShowsEmptyCandlesAndWaitingUpdates, topicNotStartedShowsEmptyCandlesAndWaitingUpdates);
+
+  async function tradedCoinKeepsFeedStatusWhileWaitingForFirstFrame() {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+    vi.setSystemTime(Date.parse(recorded.candles.body.data.items[0].start) + 60_000);
+    updateChartSettings({ interval: '1' });
+    tradedMarket = true;
+    snapshotReads = 0;
+    tradeReads = 0;
+    const view = mount();
+    await waitFor(() => snapshotReads === 1 && tradeReads > 0 && view.textContent?.includes('Loading chart') === true);
+    const status = view.querySelector('section[aria-label="Price chart"] [role="status"]')!;
+    expect(status.textContent).toContain('Syncing...');
+    expect(status.querySelector('button')?.textContent).toBe('Try again');
+    expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
+    expect(view.textContent).not.toContain('Waiting for trades');
+    expect(view.textContent).not.toContain('No trades yet');
+    const prices = view.querySelector<HTMLButtonElement>('button[aria-controls="canonical-chart-table"]')!;
+    act(() => { prices.click(); });
+    expect(view.querySelectorAll('[aria-label="Prices and volume"] tbody tr').length).toBeGreaterThan(0);
+  }
+  it(tradedCoinKeepsFeedStatusWhileWaitingForFirstFrame, tradedCoinKeepsFeedStatusWhileWaitingForFirstFrame);
+
   it('bounds the wait on the candle datafeed by the transient-retry wall-time budget', () => {
     expect(CHART_ANSWER_BUDGET_MS).toBe(transientRetryBudgetMs);
     expect(CHART_ANSWER_BUDGET_MS).toBe(15_000);

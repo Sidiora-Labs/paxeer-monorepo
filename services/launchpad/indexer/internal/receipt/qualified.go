@@ -27,7 +27,8 @@ import (
 var ErrQualification = errors.New("receipt qualification rejected")
 var ErrBinding = errors.New("qualified receipt binding mismatch")
 
-const maxBundleBytes = 32 << 20
+const maxBundleBytes = decode.MaxBlockLogBytes
+const maxDocumentBytes = 32 << 20
 
 type Bundle struct {
 	Receipt        *types.Receipt
@@ -74,7 +75,7 @@ type QualifiedReceipt struct {
 
 func digest(v any) ([32]byte, error) {
 	raw, err := json.Marshal(v)
-	if err != nil || len(raw) > maxBundleBytes {
+	if err != nil || len(raw) > maxDocumentBytes {
 		return [32]byte{}, ErrQualification
 	}
 	return sha256.Sum256(raw), nil
@@ -129,7 +130,7 @@ func provenanceHeaderDigestForCodec(header *types.Header, codec provenanceHeader
 		(*hexutil.Big)(header.BaseFee), header.WithdrawalsHash, (*hexutil.Uint64)(header.BlobGasUsed),
 		(*hexutil.Uint64)(header.ExcessBlobGas), header.ParentBeaconRoot, header.RequestsHash,
 		header.BlockAccessListHash, (*hexutil.Uint64)(header.SlotNumber), header.Hash()})
-	if err != nil || len(raw) > maxBundleBytes {
+	if err != nil || len(raw) > maxDocumentBytes {
 		return [32]byte{}, ErrQualification
 	}
 	if codec == provenanceHeaderGeth1174 {
@@ -166,7 +167,7 @@ func verifyHistoricalProvenance(header *types.Header, actual, recorded accountin
 func clone[T any](v T) (T, error) {
 	var out T
 	raw, err := json.Marshal(v)
-	if err != nil || len(raw) > maxBundleBytes {
+	if err != nil || len(raw) > maxDocumentBytes {
 		return out, ErrQualification
 	}
 	if err = json.Unmarshal(raw, &out); err != nil {
@@ -200,23 +201,21 @@ func (q *QualifiedReceipt) validate(ctx context.Context) error {
 	return nil
 }
 func boundedBundle(b Bundle) error {
-	if b.Receipt == nil || b.Transaction == nil || b.Header == nil || len(b.PrepayReceipts) > 4096 || len(b.Header.Extra) > decode.MaxFieldBytes || len(b.Transaction.Data()) > maxBundleBytes {
+	if b.Receipt == nil || b.Transaction == nil || b.Header == nil || len(b.Header.Extra) > decode.MaxFieldBytes || len(b.Transaction.Data()) > maxDocumentBytes {
 		return ErrQualification
 	}
-	used := len(b.Header.Extra) + len(b.Transaction.Data())
-	count := 0
+	used := 0
 	receipts := append([]*types.Receipt{b.Receipt}, b.PrepayReceipts...)
 	for _, r := range receipts {
-		if r == nil || len(r.Logs) > 4096 {
+		if r == nil {
 			return ErrQualification
 		}
 		for _, l := range r.Logs {
-			if l == nil || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
+			if l == nil || len(l.Topics) > 4 {
 				return ErrQualification
 			}
-			count++
 			used += 256 + len(l.Data) + 32*len(l.Topics)
-			if count > 65536 || used > maxBundleBytes {
+			if used > maxBundleBytes {
 				return ErrQualification
 			}
 		}
@@ -224,8 +223,11 @@ func boundedBundle(b Bundle) error {
 	return nil
 }
 func coordinates(b Bundle) (string, error) {
+	if err := boundedBundle(b); err != nil {
+		return "", err
+	}
 	r, t, h := b.Receipt, b.Transaction, b.Header
-	if r == nil || t == nil || h == nil || h.Number == nil || !h.Number.IsInt64() || h.Number.Sign() < 0 || h.Time == 0 || h.Time > math.MaxInt64/1000 || r.BlockNumber == nil || !r.BlockNumber.IsInt64() || r.Status != types.ReceiptStatusSuccessful || r.Type != t.Type() || r.TransactionIndex > math.MaxUint32 || len(r.Logs) > 4096 || len(b.PrepayReceipts) > 4096 {
+	if r == nil || t == nil || h == nil || h.Number == nil || !h.Number.IsInt64() || h.Number.Sign() < 0 || h.Time == 0 || h.Time > math.MaxInt64/1000 || r.BlockNumber == nil || !r.BlockNumber.IsInt64() || r.Status != types.ReceiptStatusSuccessful || r.Type != t.Type() || r.TransactionIndex > math.MaxUint32 {
 		return "", ErrQualification
 	}
 	if !validSignedChainID(t.ChainId()) || r.TxHash != t.Hash() || r.BlockHash != bundleBlockHash(b) || r.BlockNumber.Cmp(h.Number) != 0 {
@@ -237,14 +239,14 @@ func coordinates(b Bundle) (string, error) {
 	}
 	var prior uint
 	for i, l := range r.Logs {
-		if l == nil || l.Address == (common.Address{}) || l.Removed || l.BlockHash != r.BlockHash || l.TxHash != r.TxHash || l.BlockNumber != h.Number.Uint64() || l.TxIndex != r.TransactionIndex || l.Index > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes || (i > 0 && l.Index <= prior) {
+		if l == nil || l.Address == (common.Address{}) || l.Removed || l.BlockHash != r.BlockHash || l.TxHash != r.TxHash || l.BlockNumber != h.Number.Uint64() || l.TxIndex != r.TransactionIndex || l.Index > math.MaxUint32 || len(l.Topics) > 4 || (i > 0 && l.Index <= prior) {
 			return "", ErrQualification
 		}
 		prior = l.Index
 	}
 	seen := map[common.Hash]bool{r.TxHash: true}
 	for _, pre := range b.PrepayReceipts {
-		if pre == nil || pre.Status != types.ReceiptStatusSuccessful || pre.TxHash == (common.Hash{}) || seen[pre.TxHash] || pre.BlockNumber == nil || !pre.BlockNumber.IsInt64() || pre.BlockNumber.Sign() < 0 || pre.BlockNumber.Cmp(h.Number) > 0 || pre.TransactionIndex > math.MaxUint32 || len(pre.Logs) > 4096 {
+		if pre == nil || pre.Status != types.ReceiptStatusSuccessful || pre.TxHash == (common.Hash{}) || seen[pre.TxHash] || pre.BlockNumber == nil || !pre.BlockNumber.IsInt64() || pre.BlockNumber.Sign() < 0 || pre.BlockNumber.Cmp(h.Number) > 0 || pre.TransactionIndex > math.MaxUint32 {
 			return "", ErrQualification
 		}
 		seen[pre.TxHash] = true
@@ -252,7 +254,7 @@ func coordinates(b Bundle) (string, error) {
 			return "", ErrQualification
 		}
 		for _, l := range pre.Logs {
-			if l == nil || l.Removed || l.BlockHash != pre.BlockHash || l.BlockNumber != pre.BlockNumber.Uint64() || l.TxHash != pre.TxHash || l.TxIndex != pre.TransactionIndex || l.Index > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
+			if l == nil || l.Removed || l.BlockHash != pre.BlockHash || l.BlockNumber != pre.BlockNumber.Uint64() || l.TxHash != pre.TxHash || l.TxIndex != pre.TransactionIndex || l.Index > math.MaxUint32 || len(l.Topics) > 4 {
 				return "", ErrQualification
 			}
 		}
@@ -341,7 +343,7 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 		return nil, err
 	}
 	for i, env := range decoded {
-		if env.Family == nil || !env.Family.EconomicFill {
+		if env.Status != valueDecoded || env.Event == nil || env.Family == nil || !env.Family.EconomicFill {
 			continue
 		}
 		if !qualifiedSwapFamily(env, owned.Receipt.Logs[i]) {
@@ -359,11 +361,16 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 			}
 			f.Provenance.EmitterCodeEpoch = proof.EmitterCodeEpoch
 		}
-		f.Attribution = attribute(owned, decoded, f, sender, receiptDigest)
 		if err = accounting.ValidateFillV1(f); err != nil {
 			return nil, fmt.Errorf("%w: fill: %v", ErrQualification, err)
 		}
 		q.fills = append(q.fills, f)
+	}
+	for i := range q.fills {
+		q.fills[i].Attribution = attribute(owned, decoded, q.fills[i], sender, receiptDigest, q.fills...)
+		if err = accounting.ValidateFillV1(q.fills[i]); err != nil {
+			return nil, fmt.Errorf("%w: attributed fill: %v", ErrQualification, err)
+		}
 	}
 	markets := make([]decode.ActorMarketBinding, 0, len(q.fills))
 	byPool := map[common.Address]decode.ActorMarketBinding{}
@@ -408,6 +415,9 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 }
 func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.DecodedEnvelope, l *types.Log, sender string, receiptHash, headerHash [32]byte) (accounting.FillV1, error) {
 	var f accounting.FillV1
+	if !qualifiedSwapFamily(env, l) {
+		return f, ErrQualification
+	}
 	if env.Event.Args["timestamp"] != strconv.FormatUint(b.Header.Time, 10) || env.Event.Args["blockNumber"] != b.Header.Number.String() {
 		return f, fmt.Errorf("%w: Swap time/block differs from receipt header", ErrQualification)
 	}
@@ -472,12 +482,12 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 	}
 	f = accounting.FillV1{Version: accounting.FillVersion, Position: accounting.SourcePosition{ChainID: "125", Height: b.Header.Number.String(), TransactionIndex: strconv.FormatUint(lTxIndexUint64, 10), LogIndex: strconv.FormatUint(lIndexUint64, 10), TransactionHash: strings.ToLower(l.TxHash.Hex()), BlockHash: strings.ToLower(l.BlockHash.Hex())}, ActualEmitter: strings.ToLower(l.Address.Hex()), PoolAddress: strings.ToLower(pool.Hex()), Token: accounting.Asset{Address: strings.ToLower(meta.Token.Hex()), Decimals: meta.TokenDecimals}, Settlement: accounting.Asset{Address: strings.ToLower(meta.Settlement.Hex()), Decimals: meta.SettlementDecimals}, PaidInputRaw: input, FeeRaw: fee, InputDerivationQuality: "receipt_incomplete", Attribution: accounting.Attribution{TransactionSender: sender, Quality: valueUnavailable, Evidence: []accounting.EvidenceRef{}}, Execution: execution, Provenance: accounting.Provenance{DeploymentID: meta.DeploymentID, ABIRevision: meta.ABIRevision, EmitterCodeEpoch: meta.EmitterCodeEpoch, PoolCodeEpoch: meta.PoolCodeEpoch, ReceiptSHA256: hex.EncodeToString(receiptHash[:]), HeaderSHA256: hex.EncodeToString(headerHash[:])}, BlockTimestampSeconds: strconv.FormatUint(b.Header.Time, 10)}
 	if isBuy {
-		f.Side = "buy"
+		f.Side = valueBuy
 		f.TokenAmountRaw = output
 		f.USDLAmountRaw = input
 		f.FeeDisposition = "distributed_usdl"
 	} else {
-		f.Side = "sell"
+		f.Side = valueSell
 		f.TokenAmountRaw = input
 		f.USDLAmountRaw = output
 		f.FeeDisposition = "retained_token_reserve"
@@ -497,7 +507,10 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 	f.SourceFillID = accounting.SourceFillIdentity(f.Position, meta.DeploymentID)
 	return f, nil
 }
-func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1, sender string, receiptHash [32]byte) accounting.Attribution {
+func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1, sender string, receiptHash [32]byte, fills ...accounting.FillV1) accounting.Attribution {
+	if len(b.Transaction.Data()) == 164 {
+		return attributeRoutedSwap(b, decoded, f, sender, receiptHash, fills)
+	}
 	unavailable := f.Attribution
 	data := b.Transaction.Data()
 	to := b.Transaction.To()
@@ -508,11 +521,18 @@ func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1,
 	sig := "buy(address,uint256,uint256,uint256)"
 	inputAsset, outputAsset := common.HexToAddress(f.Settlement.Address), common.HexToAddress(f.Token.Address)
 	input, output := f.USDLAmountRaw, f.TokenAmountRaw
-	if f.Side == "sell" {
+	pool := common.HexToAddress(f.PoolAddress)
+	settlementHolder := pool
+	if common.HexToAddress(f.ActualEmitter) == decode.LaunchpadPrecompileAddress {
+		settlementHolder = decode.LaunchpadModuleAddress
+	}
+	inputHolder, outputHolder := settlementHolder, pool
+	if f.Side == valueSell {
 		name, actor, inKey, outKey = "Sell", "seller", "tokensIn", "usdlOut"
 		sig = "sell(address,uint256,uint256,uint256)"
 		inputAsset, outputAsset = outputAsset, inputAsset
 		input, output = f.TokenAmountRaw, f.USDLAmountRaw
+		inputHolder, outputHolder = pool, settlementHolder
 	}
 	if !bytes.Equal(data[:4], crypto.Keccak256([]byte(sig))[:4]) || !bytes.Equal(data[4:16], make([]byte, 12)) || common.BytesToAddress(data[16:36]) != common.HexToAddress(f.PoolAddress) || new(big.Int).SetBytes(data[36:68]).String() != input {
 		return unavailable
@@ -525,6 +545,9 @@ func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1,
 	primaryFills := 0
 	matchingTrader := false
 	for i, e := range decoded {
+		if e.Status != valueDecoded || e.Event == nil {
+			continue
+		}
 		if e.Family != nil && e.Family.EconomicFill {
 			primaryFills++
 			if strconv.FormatUint(uint64(b.Receipt.Logs[i].Index), 10) == f.Position.LogIndex && e.Event != nil && e.Event.Args["sender"] == sender {
@@ -551,9 +574,8 @@ func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1,
 		return index, count == 1
 	}
 	payer := common.HexToAddress(sender)
-	pool := common.HexToAddress(f.PoolAddress)
-	inIndex, inOK := match(inputAsset, payer, pool, input)
-	outIndex, outOK := match(outputAsset, pool, payer, output)
+	inIndex, inOK := match(inputAsset, payer, inputHolder, input)
+	outIndex, outOK := match(outputAsset, outputHolder, payer, output)
 	if !inOK || !outOK {
 		return unavailable
 	}
@@ -677,7 +699,7 @@ func ValidateBindings(ctx context.Context, b store.CanonicalBatch, receipts []*Q
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if b.ChainID != 125 || len(receipts) > 4096 || len(b.Records) > 65536 {
+	if b.ChainID != 125 || len(b.Blocks) > 1 && (len(receipts) > 4096 || len(b.Records) > 65536) {
 		return ErrBinding
 	}
 	byTx := map[string]*QualifiedReceipt{}

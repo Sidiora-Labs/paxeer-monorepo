@@ -28,7 +28,33 @@ function mount(node: React.ReactElement): { root: Root; container: HTMLDivElemen
 }
 function unmount(root: Root, container: HTMLDivElement) { act(() => root.unmount()); container.remove(); }
 
+function expectRetryVisibility(status: Element, visible: boolean) {
+  const retry = status.querySelector('button');
+  expect(retry?.textContent).toBe('Try again');
+  expect(retry?.classList.contains('invisible')).toBe(!visible);
+  expect(retry?.hasAttribute('inert')).toBe(!visible);
+  expect(retry?.getAttribute('aria-hidden')).toBe(String(!visible));
+}
+
+function chart_retry_keeps_its_element_when_updates_resume() {
+  const { root, container } = mount(<ChartToolbar {...props({ freshness: { ...live, connectionStatus: 'degraded' } })} />);
+  try {
+    const status = container.querySelector('[role="status"]')!;
+    const retry = status.querySelector('button');
+    expectRetryVisibility(status, true);
+    act(() => root.render(<ChartToolbar {...props()} />));
+    expect(status.querySelector('button')).toBe(retry);
+    expectRetryVisibility(status, false);
+    act(() => root.render(<ChartToolbar {...props({ freshness: { ...live, connectionStatus: 'offline' } })} />));
+    expect(status.querySelector('button')).toBe(retry);
+    expectRetryVisibility(status, true);
+  } finally {
+    unmount(root, container);
+  }
+}
+
 describe('ChartToolbar', () => {
+  it(chart_retry_keeps_its_element_when_updates_resume);
   it('shows the five inline intervals, a caret for the rest, Price/MCap, markers and a USDL unit without a SOL toggle', () => {
     const html = renderToStaticMarkup(<ChartToolbar {...props()} />);
     const group = html.match(/aria-label="Candle interval".*?<\/div>/s)?.[0] ?? '';
@@ -41,7 +67,7 @@ describe('ChartToolbar', () => {
     expect(html).toContain('>USDL<');
     expect(html).not.toMatch(/\bSOL\b/);
     expect(html).toContain('Live');
-    expect(html).toContain('Block 4242');
+    expect(html).toContain('Last update at block 4242');
     expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
 
@@ -83,6 +109,82 @@ describe('ChartToolbar', () => {
     expect(freshnessLabel('offline')).toBe('Updates paused');
     expect(freshnessLabel('replaying')).toBe('Syncing...');
     expect(freshnessLabel('resync_required')).toBe('May be out of date');
+  });
+
+  it.each([
+    ['connecting', 'Syncing...'],
+    ['snapshotting', 'Syncing...'],
+    ['replaying', 'Syncing...'],
+    ['live', 'Live'],
+    ['degraded', 'May be out of date'],
+    ['offline', 'Updates paused'],
+    ['resync_required', 'May be out of date'],
+    ['closed', 'Chart closed'],
+  ] as const)('shows the last update block only when known while %s', function lastUpdateBlockRequiresHeight(connectionStatus, label) {
+    for (const lastSourceHeight of ['4242', '0', null]) {
+      const view = document.createElement('div');
+      view.innerHTML = renderToStaticMarkup(<ChartToolbar {...props({ freshness: { ...live, connectionStatus, lastSourceHeight } })} />);
+      const status = view.querySelector('[role="status"]')!;
+      expect(status.textContent).toContain(label);
+      const numeric = status.querySelector('[data-numeric]');
+      if (lastSourceHeight === null) {
+        expect(numeric).toBeNull();
+        expect(status.textContent).not.toContain('Last update at block');
+        expect(status.textContent).not.toContain('—');
+      } else {
+        expect(numeric?.textContent).toBe(`Last update at block ${lastSourceHeight}`);
+        expect(numeric?.className).toBe('hidden tabular-nums sm:inline');
+      }
+    }
+  });
+
+  it.each(['connecting', 'snapshotting', 'replaying'] as const)('waits for trades with a neutral mark while %s', function waitsForTrades(connectionStatus) {
+    const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus, lastSourceHeight: null } })} />);
+    const view = document.createElement('div');
+    view.innerHTML = html;
+    const status = view.querySelector('[role="status"]')!;
+    expect(status.firstElementChild?.textContent).toBe('Waiting for trades');
+    expect(status.querySelector('[aria-hidden="true"]')?.className).toContain('bg-text-faint');
+    expect(status.querySelector('[data-numeric]')).toBeNull();
+    expectRetryVisibility(status, false);
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
+    expect(freshnessLabel(connectionStatus)).toBe('Syncing...');
+  });
+
+  it('keeps a known source block while waiting for trades', function waitingForTradesKeepsSourceHeight() {
+    const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus: 'snapshotting' } })} />);
+    expect(html).toContain('Waiting for trades');
+    expect(html).toContain('Last update at block 4242');
+    const view = document.createElement('div');
+    view.innerHTML = html;
+    expectRetryVisibility(view.querySelector('[role="status"]')!, false);
+  });
+
+  it.each([
+    ['offline', 'Updates paused', 'bg-danger', true],
+    ['live', 'Live', 'bg-success', false],
+    ['degraded', 'May be out of date', 'bg-text-faint', true],
+    ['resync_required', 'May be out of date', 'bg-text-faint', true],
+    ['closed', 'Chart closed', 'bg-text-faint', false],
+  ] as const)('keeps the %s status for a coin without trades', function noTradesKeepsOtherFeedStatuses(connectionStatus, label, mark, retry) {
+    const view = document.createElement('div');
+    view.innerHTML = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus, lastSourceHeight: null } })} />);
+    const status = view.querySelector('[role="status"]')!;
+    expect(status.textContent).toContain(label);
+    expect(status.textContent).not.toContain('Waiting for trades');
+    expect(status.querySelector('[aria-hidden="true"]')?.className).toContain(mark);
+    expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
+    expectRetryVisibility(status, retry);
+  });
+
+  it.each([false, undefined])('keeps connecting status when noTrades is %s', function connectingKeepsFeedStatus(noTrades) {
+    const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades, freshness: { ...live, connectionStatus: 'connecting', lastSourceHeight: null } })} />);
+    expect(html).toContain('Syncing...');
+    expect(html).toContain('bg-text-faint');
+    expect(html).not.toMatch(/data-numeric|Last update at block|—/);
+    expect(html).toContain('Try again');
+    expect(html).not.toContain('Waiting for trades');
   });
 });
 

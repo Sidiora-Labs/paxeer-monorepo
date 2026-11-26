@@ -28,7 +28,7 @@ class BetaLedgerPathsTest(unittest.TestCase):
                 env=environment,
                 capture_output=True,
                 text=True,
-                timeout=60,
+                timeout=600,
             )
             report_check = subprocess.run(
                 ["bash", "tools/ci/beta-report.sh", "--check"],

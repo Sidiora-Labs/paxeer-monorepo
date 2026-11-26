@@ -45,11 +45,35 @@ func TestPendingCanonicalCommitResolvesBeforeSelectingAnotherRange(t *testing.T)
 	if committed, err := h.Store.ReconcileCanonicalCommit(ctx, b); err != nil || !committed {
 		t.Fatalf("restored canonical commit visibility %v: %v", committed, err)
 	}
+	fence, err := h.Store.AcquireLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, canonicalLeaseTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.canonicalFence = fence
+	p.readyFence.Store(fence)
+	p.canonicalRenewed = time.Now()
 	h.head.height.Store(33963716)
+	entered, resume := delayedRecordedSource(t, ctx, h)
+	defer resume()
+	p.deps.Head = h.Replay.Source.(*source.HistoricalQualifiedSource).History.RPC
+	live, stopLive := context.WithCancel(ctx)
+	defer stopLive()
+	finished := make(chan error, 1)
+	go func() { finished <- p.Run(live) }()
+	select {
+	case <-entered:
+	case err := <-finished:
+		t.Fatalf("pending reconciliation stopped before reading the head: %v", err)
+	}
 	bounded, cancel = context.WithTimeout(ctx, 30*time.Millisecond)
-	err = p.Run(bounded)
-	cancel()
-	if !errors.Is(err, context.DeadlineExceeded) || p.pendingCanonical != nil {
+	defer cancel()
+	stopLive()
+	select {
+	case err = <-finished:
+	case <-bounded.Done():
+		t.Fatal("pending reconciliation did not stop after cancellation")
+	}
+	if !errors.Is(err, context.Canceled) || p.pendingCanonical != nil {
 		t.Fatalf("pending live reconciliation %v", err)
 	}
 }

@@ -17,7 +17,7 @@ use layerx_ucp::{
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 
-const VECTORS: &str = include_str!("fixtures/sequenced-order.json");
+const VECTORS: &str = include_str!("../../../specs/conformance/ucp/sequenced-order.json");
 const RECORDED: &str =
     include_str!("../../../../../sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json");
 const NEGATIVE_RECORDED: &str =

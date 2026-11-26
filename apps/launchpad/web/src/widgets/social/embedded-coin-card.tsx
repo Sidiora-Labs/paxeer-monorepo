@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { surfaceSpacing } from '@/app/presentation-tokens';
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
@@ -34,8 +35,8 @@ export function EmbeddedCoinCard({ poolAddress, stats, positionDisclosure, posit
   const snapshot = usePoolSnapshot(poolAddress);
   const token = snapshot.data?.token ?? null;
   const metadata = snapshot.data?.metadata ?? null;
-  const symbol = metadata?.displaySymbol ?? token?.symbol ?? null;
-  const name = metadata?.displayName ?? token?.name ?? null;
+  const symbol = displayCoinText(metadata?.displaySymbol ?? token?.symbol, snapshot.data?.pool.tokenAddress ?? poolAddress);
+  const name = displayCoinText(metadata?.displayName ?? token?.name, snapshot.data?.pool.tokenAddress ?? poolAddress);
   const pending = snapshot.isPending;
   const mcap = stats.state === 'ready' ? marketCapRaw(stats.stats) : null;
 
@@ -54,8 +55,8 @@ export function EmbeddedCoinCard({ poolAddress, stats, positionDisclosure, posit
           </>
         ) : (
           <>
-            <span className="block truncate text-sm font-bold text-text">{symbol ?? shortAddress(poolAddress)}</span>
-            <span className="block truncate text-xs text-text-muted">{name ?? 'Unknown coin'}</span>
+            <span className="block truncate text-sm font-semibold text-text" title={symbol}>{symbol ?? shortAddress(poolAddress)}</span>
+            <span className="block truncate text-xs text-text-muted" title={name}>{name ?? 'Unknown coin'}</span>
           </>
         )}
       </span>

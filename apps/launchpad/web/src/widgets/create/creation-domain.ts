@@ -39,6 +39,7 @@ export function validateDraft(d: Draft, now: number): Record<string,string> {
   for (const [key,max] of [['name',50],['symbol',10],['description',5000]] as const) {
     const s = d[key];
     if (typeof s !== 'string' || (key !== 'description' && !s.length) || new TextEncoder().encode(s).length > max || /[\p{Cc}\p{Cf}]/u.test(s)) errors[key]='invalid_text';
+    if (key !== 'description' && typeof s === 'string' && /[\p{Cc}\p{Cf}]/u.test(s)) errors[key]='unsafe_text';
   }
   try { address(d.creator); } catch { errors.creator='invalid_creator'; }
   if (d.chainId !== CHAIN_ID) errors.chainId='wrong_chain';

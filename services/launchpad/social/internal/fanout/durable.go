@@ -86,7 +86,7 @@ func conversation(in SendInput) string {
 	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(a+":"+b)).String()
 }
 
-const messageColumns = `id,conversation_id,sender,content,reply_to,sequence,revision,extract(epoch from created_at)::bigint,deleted_at IS NOT NULL,client_id`
+const messageColumns = `id,conversation_id,sender,content,reply_to,sequence,revision,floor(extract(epoch from created_at))::bigint,deleted_at IS NOT NULL,client_id`
 
 func scanMessage(row pgx.Row, kind string) (m DurableMessage, err error) {
 	err = row.Scan(&m.ID, &m.ConversationID, &m.Sender, &m.Content, &m.ReplyTo, &m.Sequence, &m.Revision, &m.CreatedAt, &m.Deleted, &m.ClientID)

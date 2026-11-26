@@ -10,6 +10,7 @@ export interface FreshnessNoticeProps {
   freshness: MarketFreshness;
   stream: StreamState;
   error: string | null;
+  noTradesYet?: boolean;
   onReconnect: () => void;
   className?: string;
 }
@@ -29,8 +30,18 @@ const problem = { label: 'Updates off', title: 'Live updates hit a problem', bod
  * hover title. The transport state and its error code are developer detail: outside production they
  * sit in a data attribute, never in the visible text.
  */
-export function FreshnessNotice({ freshness, stream, error, onReconnect, className }: FreshnessNoticeProps) {
+export function FreshnessNotice({ freshness, stream, error, noTradesYet, onReconnect, className }: FreshnessNoticeProps) {
+  if (noTradesYet) return (
+    <div role="status" data-freshness-chip="waiting" className={cn('inline-flex min-h-7 items-center gap-1 rounded-pill bg-surface-2 px-2 text-xs text-text-faint', className)}>
+      Waiting for trades
+    </div>
+  );
   if (freshness === 'current' && !error) return null;
+  if (freshness === 'unavailable' && !error && (stream === 'idle' || stream === 'loading')) return (
+    <div role="status" data-freshness-chip="waiting" className={cn('inline-flex min-h-7 items-center gap-1 rounded-pill bg-surface-2 px-2 text-xs text-text-faint', className)}>
+      Waiting for trades
+    </div>
+  );
   const danger = freshness === 'unavailable' || stream === 'resync-required';
   const text = freshness === 'current' ? problem : copy[freshness];
   return (

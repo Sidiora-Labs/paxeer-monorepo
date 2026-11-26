@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,7 +22,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func topicNotStartedRead(t *testing.T, server *httptest.Server, topics []string, status int, code string) {
+func topicNotStartedRead(t *testing.T, server *httptest.Server, topics []string, status int, code string, expected ...string) {
 	t.Helper()
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/v2/snapshots?"+url.Values{"topics": {strings.Join(topics, ",")}}.Encode(), nil)
 	if err != nil {
@@ -51,8 +52,16 @@ func topicNotStartedRead(t *testing.T, server *httptest.Server, topics []string,
 				} `json:"snapshot"`
 			} `json:"data"`
 		}
-		if err := json.Unmarshal(raw, &result); err != nil || len(result.Data.Snapshot.Topics) != len(topics) {
+		if len(expected) == 0 {
+			expected = topics
+		}
+		if err := json.Unmarshal(raw, &result); err != nil || len(result.Data.Snapshot.Topics) != len(expected) {
 			t.Fatalf("snapshot topics: %s %v", raw, err)
+		}
+		for i, entry := range result.Data.Snapshot.Topics {
+			if entry.Topic != expected[i] {
+				t.Fatalf("snapshot topic: %s, want %s", entry.Topic, expected[i])
+			}
 		}
 		return
 	}
@@ -88,7 +97,7 @@ func TestTopicNotStartedHubSnapshots(t *testing.T) {
 	server, _ := newServer(t, ws.Options{PrivateStream: stream, AllowedOrigins: []string{"https://web.example"}, Logger: logger})
 	missing := "market.price.0x3333333333333333333333333333333333333333"
 	topicNotStartedRead(t, server, []string{missing}, 404, "TOPIC_NOT_STARTED")
-	topicNotStartedRead(t, server, []string{topic, missing}, 404, "TOPIC_NOT_STARTED")
+	topicNotStartedRead(t, server, []string{topic, missing}, 200, "", topic)
 	if _, err := pool.Exec(context.Background(), `INSERT INTO api_stream.stream_projection(topic,sequence) VALUES($1,0)`, missing); err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +135,7 @@ func TestTopicNotStartedHubSnapshots(t *testing.T) {
 }
 
 func TestTopicNotStartedUnknownTopicPrecedence(t *testing.T) {
-	stream, pool, _ := wsStreamFixture(t)
+	stream, pool, topic := wsStreamFixture(t)
 	registry, err := rest.NewDevelopmentStream(context.Background(), rest.DevelopmentStreamOptions{
 		Pool: pool, Store: store.New(pool, nil), SigningKey: []byte(strings.Repeat("k", 32)), Authority: sharedauth.HTTPStreamAuthority{},
 	})
@@ -136,5 +145,35 @@ func TestTopicNotStartedUnknownTopicPrecedence(t *testing.T) {
 	server, _ := newServer(t, ws.Options{PrivateStream: stream, TopicRegistry: registry, AllowedOrigins: []string{"https://web.example"}})
 	missing := "market.price.0x3333333333333333333333333333333333333333"
 	topicNotStartedRead(t, server, []string{missing}, 404, "NOT_FOUND")
+	topicNotStartedRead(t, server, []string{topic, missing}, 404, "NOT_FOUND")
 	topicNotStartedRead(t, server, []string{"market.rankings.trending"}, 404, "TOPIC_NOT_STARTED")
+}
+
+func TestTopicNotStartedRegistryFailure(t *testing.T) {
+	stream, pool, _ := wsStreamFixture(t)
+	ctx := context.Background()
+	registry, err := rest.NewDevelopmentStream(ctx, rest.DevelopmentStreamOptions{
+		Pool: pool, Store: store.New(pool, nil), SigningKey: []byte(strings.Repeat("k", 32)), Authority: sharedauth.HTTPStreamAuthority{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := "0x" + strings.Repeat("3", 40)
+	topics := []string{"market.price." + address}
+	if _, err := pool.Exec(ctx, `INSERT INTO indexer.pools(pool_address,token_address,creator,optical,pool_id,created_at,created_block,tx_hash) VALUES($1,$1,$1,$1,$2,1,1,$2)`, address, "0x"+strings.Repeat("3", 64)); err != nil {
+		t.Fatal(err)
+	}
+	binding := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: "https://web.example", Endpoint: "/v2/stream"}
+	if _, err := stream.Snapshot(ctx, sharedauth.StreamPrincipal{}, binding); !errors.Is(err, broker.ErrTopicNotStarted) {
+		t.Fatalf("snapshot without first frame: %v", err)
+	}
+	server, _ := newServer(t, ws.Options{PrivateStream: stream, TopicRegistry: registry, AllowedOrigins: []string{"https://web.example"}})
+	if _, err := pool.Exec(ctx, `ALTER TABLE indexer.pools RENAME TO pools_unavailable`); err != nil {
+		t.Fatal(err)
+	}
+	topicNotStartedRead(t, server, topics, 503, "DEPENDENCY_UNAVAILABLE")
+	if _, err := pool.Exec(ctx, `ALTER TABLE indexer.pools_unavailable RENAME TO pools`); err != nil {
+		t.Fatal(err)
+	}
+	topicNotStartedRead(t, server, topics, 404, "TOPIC_NOT_STARTED")
 }

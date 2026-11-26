@@ -19,6 +19,8 @@ export interface ChartToolbarProps {
   onMarkersChange: (enabled: boolean) => void;
   markerActors: readonly ChartMarkerActor[];
   freshness: ChartFreshness;
+  noTrades?: boolean;
+  waitingForFirstTrade?: boolean;
   onRetry: () => void;
   className?: string;
 }
@@ -35,14 +37,16 @@ export function freshnessLabel(status: ChartFreshness['connectionStatus']): stri
   }
 }
 
-export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, mcapDisabledReason, markers, onMarkersChange, markerActors, freshness, onRetry, className }: ChartToolbarProps) {
+export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, mcapDisabledReason, markers, onMarkersChange, markerActors, freshness, noTrades, waitingForFirstTrade, onRetry, className }: ChartToolbarProps) {
   const markersId = useId();
   const primary = CHART_INTERVALS.filter(option => option.primary);
   const secondary = CHART_INTERVALS.filter(option => !option.primary);
   const activeSecondary = secondary.find(option => option.value === interval);
   const segments = [...primary, ...(activeSecondary ? [activeSecondary] : [])].map(option => ({ value: option.value, label: option.label, ariaLabel: option.description }));
   const mcapDisabled = mcapDisabledReason !== null;
-  const live = freshness.connectionStatus === 'live';
+  const live = !waitingForFirstTrade && freshness.connectionStatus === 'live';
+  const waitingForTrades = waitingForFirstTrade || (noTrades && (freshness.connectionStatus === 'connecting' || freshness.connectionStatus === 'snapshotting' || freshness.connectionStatus === 'replaying'));
+  const canRetry = !waitingForTrades && !live && freshness.connectionStatus !== 'closed';
 
   return (
     <div className={cn('flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 bg-surface-1 px-3 py-2', className)}>
@@ -91,12 +95,12 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
 
       <div role="status" aria-live="polite" className="ml-auto flex items-center gap-2 text-xs text-text-faint">
         <span className={cn('inline-flex items-center gap-1.5', live && 'text-success')}>
-          <span aria-hidden="true" className={cn('size-1.5 rounded-pill', live ? 'bg-success' : freshness.connectionStatus === 'offline' ? 'bg-danger' : 'bg-text-faint')} />
-          {freshnessLabel(freshness.connectionStatus)}
+          <span aria-hidden="true" className={cn('size-1.5 rounded-pill', live ? 'bg-success' : !waitingForTrades && freshness.connectionStatus === 'offline' ? 'bg-danger' : 'bg-text-faint')} />
+          {waitingForTrades ? 'Waiting for trades' : freshnessLabel(freshness.connectionStatus)}
         </span>
-        <span data-numeric className="hidden tabular-nums sm:inline">Block {freshness.lastSourceHeight ?? '—'}</span>
-        {freshness.lagReason ? <span className="sr-only">{humanErrorText(freshness.lagReason, 'Live updates are paused')}</span> : null}
-        {!live && freshness.connectionStatus !== 'closed' ? <Button variant="ghost" size="sm" onClick={onRetry}>Try again</Button> : null}
+        {freshness.lastSourceHeight !== null ? <span data-numeric className="hidden tabular-nums sm:inline">Last update at block {freshness.lastSourceHeight}</span> : null}
+        {!waitingForTrades && freshness.lagReason ? <span className="sr-only">{humanErrorText(freshness.lagReason, 'Live updates are paused')}</span> : null}
+        <Button variant="ghost" size="sm" onClick={onRetry} inert={!canRetry} aria-hidden={!canRetry} className={cn(!canRetry && 'invisible')}>Try again</Button>
       </div>
     </div>
   );

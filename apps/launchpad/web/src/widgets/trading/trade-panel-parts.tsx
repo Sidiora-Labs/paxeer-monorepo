@@ -3,7 +3,7 @@
 import { useId, type ReactNode } from 'react';
 import { formatUnits } from 'viem';
 import { ArrowDownUp, Check, Share2 } from 'lucide-react';
-import { Button, SegmentedControl, Toggle } from '@/ui/primitives';
+import { Button, NoticeBar, SegmentedControl, Toggle } from '@/ui/primitives';
 import { formatTokenAmount, formatUsdl, safeFixed } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { plainTradeError } from './trade-copy';
@@ -132,11 +132,11 @@ export function AmountInput({ amount, onChange, inputDecimals, inputSymbol = 'US
             title={unitToggleDisabledReason ?? `Switch unit, currently ${unit}`}
             className="inline-flex h-7 shrink-0 items-center gap-1 rounded-pill bg-surface-3 px-2 text-xs font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text disabled:cursor-not-allowed disabled:text-text-disabled disabled:hover:bg-surface-3"
           >
-            <span>{unit}</span>
+            <span className="min-w-0 max-w-24 truncate" title={unit}>{unit}</span>
             <ArrowDownUp aria-hidden="true" className="size-icon-sm" />
           </button>
         ) : (
-          <span className="shrink-0 text-xs font-bold text-text-muted">{unit}</span>
+          <span className="min-w-0 max-w-24 truncate text-xs font-bold text-text-muted" title={unit}>{unit}</span>
         )}
       </div>
       {hint ? <p id={hintId} className="px-1 text-xs text-text-faint tabular-nums">{hint}</p> : null}
@@ -272,12 +272,15 @@ export function BalanceRow({ side, usdlBalance, tokenBalance, tokenDecimals, tok
     ? (error ? '—' : 'Loading...')
     : side === 'buy'
       ? formatUsdl(held, { fractionDigits: 2 })
-      : `${formatTokenAmount(held, tokenDecimals, { compact: false, maxFraction: 6 })} ${tokenSymbol}`;
+      : formatTokenAmount(held, tokenDecimals, { compact: false, maxFraction: 6 });
   return (
     <div className="flex items-center justify-between gap-2 text-xs">
       <div className="flex min-w-0 flex-wrap items-center gap-x-1.5">
         <span className="text-text-muted">Balance</span>
-        <span data-balance-value="" className="font-bold text-text tabular-nums">{value}</span>
+        <span data-balance-value="" className="font-bold text-text tabular-nums">
+          {value}
+          {side === 'sell' && held !== null ? <>{' '}<span className="inline-block max-w-48 truncate align-bottom" title={tokenSymbol}>{tokenSymbol}</span></> : null}
+        </span>
         {error && held !== null ? <span data-balance-stale="" className="text-warning">may be out of date</span> : null}
       </div>
       <Button variant="link" size="sm" onClick={onMax} disabled={held === null}>Max</Button>
@@ -310,7 +313,7 @@ export function TradeSteps({ side, assetSymbol, needsApproval }: TradeStepsProps
             <span className={cn('inline-flex size-4 shrink-0 items-center justify-center rounded-pill text-2xs font-bold', active ? 'bg-accent text-on-accent' : done ? 'bg-success-soft text-success' : 'bg-surface-3 text-text-muted')}>
               {done ? <Check aria-hidden="true" className="size-3" /> : index + 1}
             </span>
-            <span className="truncate font-bold">{step}</span>
+            <span className="min-w-0 truncate font-bold" title={step}>{step}</span>
           </li>
         );
       })}
@@ -350,7 +353,7 @@ export function TradePreview({ side, tokenSymbol, tokenDecimals, outputRaw, minO
       {rows.map(row => (
         <div key={row.label} className="flex items-center justify-between gap-3">
           <dt className="text-text-muted">{row.label}</dt>
-          <dd className={cn('text-right font-bold text-text tabular-nums', row.className)}>{row.value}</dd>
+          <dd className={cn('min-w-0 truncate text-right font-bold text-text tabular-nums', row.className)} title={typeof row.value === 'string' ? row.value : undefined}>{row.value}</dd>
         </div>
       ))}
       {quoteAge !== null ? (
@@ -398,12 +401,40 @@ export type TradeActionState =
   | { kind: 'confirming' }
   | { kind: 'approve'; assetSymbol: string }
   | { kind: 'quote-pending' }
+  | { kind: 'quote-refresh' }
   | { kind: 'ready'; side: TradeSide; tokenSymbol: string };
 
 interface ActionButtonProps {
   state: TradeActionState;
   side: TradeSide;
   onClick: () => void;
+}
+
+export function quoteActionState({ quoteUnavailable, quoteRequesting, balancesFresh, side, tokenSymbol }: {
+  quoteUnavailable: boolean; quoteRequesting: boolean; balancesFresh: boolean; side: TradeSide; tokenSymbol: string;
+}): TradeActionState {
+  if (quoteRequesting || !balancesFresh) return { kind: 'quote-pending' };
+  if (quoteUnavailable) return { kind: 'quote-refresh' };
+  return { kind: 'ready', side, tokenSymbol };
+}
+
+export function TradeQuoteNotices({ priceMoved, error, onRefresh }: {
+  priceMoved: boolean; error: string | null | undefined; onRefresh: () => void;
+}) {
+  return (
+    <>
+      {priceMoved ? (
+        <NoticeBar tone="warning" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={onRefresh}>Refresh</Button>}>
+          The price moved. Refresh to see the new price.
+        </NoticeBar>
+      ) : null}
+      {error ? (
+        <NoticeBar tone="danger" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={onRefresh} aria-label="Refresh">Refresh</Button>}>
+          {plainTradeError(error)}
+        </NoticeBar>
+      ) : null}
+    </>
+  );
 }
 
 export function actionLabel(state: TradeActionState): string {
@@ -418,6 +449,7 @@ export function actionLabel(state: TradeActionState): string {
     case 'confirming': return 'Confirming...';
     case 'approve': return `Approve ${state.assetSymbol}`;
     case 'quote-pending': return 'Getting price...';
+    case 'quote-refresh': return 'Refresh price';
     case 'ready': return 'Place trade';
   }
 }

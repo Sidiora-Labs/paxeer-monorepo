@@ -29,6 +29,20 @@ function useNow(intervalMs = 60_000): number {
   return now;
 }
 
+function ActivityTableHead() {
+  return (
+    <thead>
+      <tr className="h-table-header-height text-xs font-semibold text-text-faint">
+        <th scope="col" className="pl-3 pr-2 font-semibold">Coin</th>
+        <th scope="col" className="w-28 px-2 font-semibold">Action</th>
+        <th scope="col" className="px-2 text-right font-semibold">Amount</th>
+        <th scope="col" className="hidden px-2 text-right font-semibold sm:table-cell">Time</th>
+        <th scope="col" className="w-10 pl-1 pr-2"><span className="sr-only">Explorer link</span></th>
+      </tr>
+    </thead>
+  );
+}
+
 /**
  * Activity ledger: Paxscan ERC-20 transfers (Send, Receive), newest first,
  * with action filter, search over the loaded rows and explicit load more.
@@ -66,8 +80,8 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
     const explorer = explorerIdentity.get(event.tokenAddress);
     const pool = meta?.pool_address && /^0x[0-9a-fA-F]{40}$/.test(meta.pool_address) ? meta.pool_address : null;
     return {
-      name: meta?.name?.trim() || explorer?.name || null,
-      symbol: meta?.symbol?.trim() || explorer?.symbol || null,
+      name: meta?.name ?? explorer?.name ?? null,
+      symbol: meta?.symbol ?? explorer?.symbol ?? null,
       logo: meta?.images?.logo ?? explorer?.logo ?? null,
       decimals: typeof meta?.decimals === 'number' ? meta.decimals : explorer?.decimals ?? event.decimals,
       poolAddress: event.poolAddress ?? pool,
@@ -99,9 +113,27 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
 
   let body: ReactNode;
   if (activity.state === 'loading') {
-    body = <Skeleton variant="rows" rows={5} label="activity" />;
+    body = (
+      <div aria-busy="true" className="overflow-x-auto">
+        <span className="sr-only">Loading activity</span>
+        <table className="w-full table-fixed text-left sm:table-auto">
+          <ActivityTableHead />
+          <tbody aria-hidden="true">
+            {Array.from({ length: 3 }, (_, index) => (
+              <tr key={index} className="h-table-row-comfortable">
+                <td className="py-2 pl-3 pr-2"><div className="flex items-center gap-3"><Skeleton variant="block" className="size-avatar-lg shrink-0 rounded-coin" /><Skeleton className="min-w-0" /></div></td>
+                <td className="px-2 py-2"><Skeleton /></td>
+                <td className="px-2 py-2"><Skeleton /></td>
+                <td className="hidden px-2 py-2 sm:table-cell"><Skeleton /></td>
+                <td className="pl-1 pr-2"><Skeleton variant="block" className="size-control-height-sm" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   } else if (activity.state === 'unsupported' && activity.unavailable) {
-    body = <UnavailableState title="Activity" operation={activity.unavailable.operation} status={activity.unavailable.status} message="Check back in a bit" onRetry={activity.retry} />;
+    body = <UnavailableState title="Activity" operation={activity.unavailable.operation} status={activity.unavailable.status} notServed={activity.unavailable.notServed} message="Check back in a bit" onRetry={activity.retry} />;
   } else if (activity.state === 'error' && collected) {
     body = <CollectedPlaceholder label="Transfers" />;
   } else if (activity.state === 'error') {
@@ -113,6 +145,7 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
         title="No activity yet"
         body={isOwner ? 'Your transfers show up here' : "This wallet hasn't moved any coins yet"}
         action={isOwner ? <Button href="/explore" variant="secondary" size="sm">Browse coins</Button> : undefined}
+        className="p-4"
       />
     );
   } else {
@@ -121,15 +154,7 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed text-left sm:table-auto">
             <caption className="sr-only">Wallet activity, newest first</caption>
-            <thead>
-              <tr className="h-table-header-height text-xs font-semibold text-text-faint">
-                <th scope="col" className="pl-3 pr-2 font-semibold">Coin</th>
-                <th scope="col" className="w-28 px-2 font-semibold">Action</th>
-                <th scope="col" className="px-2 text-right font-semibold">Amount</th>
-                <th scope="col" className="hidden px-2 text-right font-semibold sm:table-cell">Time</th>
-                <th scope="col" className="w-10 pl-1 pr-2"><span className="sr-only">Explorer link</span></th>
-              </tr>
-            </thead>
+            <ActivityTableHead />
             <tbody>
               {visible.map(event => <ActivityRow key={event.id} event={event} identity={identityOf(event)} now={now} />)}
               {visible.length === 0 ? (
@@ -154,12 +179,7 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
     <section aria-label="Activity" className="flex flex-col gap-3">
       {toolbar}
       <NoticeBar tone="neutral" wrap>{tradesUnavailableNotice}</NoticeBar>
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] rounded-lg bg-surface-1 p-1">
-        <div aria-hidden="true" className="invisible col-start-1 row-start-1 pointer-events-none">
-          <Skeleton variant="rows" rows={5} />
-        </div>
-        <div className="col-start-1 row-start-1 min-w-0">{body}</div>
-      </div>
+      <div className="min-w-0 rounded-lg bg-surface-1 p-1">{body}</div>
     </section>
   );
 }

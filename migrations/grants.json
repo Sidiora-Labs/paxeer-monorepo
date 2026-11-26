@@ -1302,6 +1302,24 @@
         },
         {
           "schema": "candles",
+          "object": "chart_exact_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "chain_id",
+            "pool",
+            "interval",
+            "start",
+            "snapshot"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "candles",
           "object": "chart_exact",
           "object_kind": "table",
           "privileges": [
@@ -2433,6 +2451,40 @@
         },
         {
           "schema": "indexer",
+          "object": "pool_state_snapshots_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_id",
+            "virtual_reserve",
+            "real_reserve",
+            "token_reserve",
+            "block_number",
+            "log_index"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "indexer",
+          "object": "pools_read_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_address",
+            "pool_id"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "indexer",
           "object": "indexer_accounting_fills_v1",
           "object_kind": "view",
           "privileges": [
@@ -2846,6 +2898,7 @@
             "token",
             "pool",
             "creator",
+            "factory",
             "height",
             "block_hash",
             "transaction_hash",
@@ -3854,6 +3907,23 @@
             "source_revision",
             "updated_at",
             "wallet"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "chat",
+          "object": "pool_search_visibility_v2",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool",
+            "token",
+            "public",
+            "revision"
           ],
           "argument_types": [],
           "grant_option": false,
@@ -5147,7 +5217,8 @@
             "transaction_hash",
             "transaction_index",
             "log_index",
-            "payload"
+            "payload",
+            "factory"
           ],
           "argument_types": [],
           "grant_option": false,
@@ -5375,6 +5446,25 @@
           ],
           "columns": [
             "block_number"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "indexer",
+          "object": "pool_state_snapshots_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_id",
+            "virtual_reserve",
+            "real_reserve",
+            "token_reserve",
+            "block_number",
+            "log_index"
           ],
           "argument_types": [],
           "grant_option": false,
@@ -9916,6 +10006,23 @@
             "updated_at",
             "public",
             "deleted"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "chat",
+          "object": "pool_search_visibility_v2",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool",
+            "token",
+            "public",
+            "revision"
           ],
           "argument_types": [],
           "grant_option": false,

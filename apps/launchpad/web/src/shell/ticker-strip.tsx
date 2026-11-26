@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { Pause, Play } from 'lucide-react';
 import { accountSession, subscribeAccount } from '@/widgets/profile/account-transport';
 import { openAuthModal } from './auth-modal-store';
-import { Avatar, Tooltip, UnavailableState } from '@/ui/primitives';
+import { Avatar, Skeleton, Tooltip, UnavailableState } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
 import {
   isTickerMode,
@@ -85,10 +85,10 @@ function ChipLink({ chip, hidden }: { chip: TickerChip; hidden: boolean }) {
       prefetch={false}
       href={chip.href}
       tabIndex={hidden ? -1 : undefined}
-      className="flex min-h-6 shrink-0 items-center gap-1.5 rounded-pill bg-surface-1 pl-0.5 pr-2 text-xs transition-colors duration-fast hover:bg-surface-hover"
+      className="flex min-h-6 shrink-0 items-center gap-1.5 rounded-pill bg-surface-2 pl-0.5 pr-2 text-xs transition-colors duration-fast hover:bg-surface-hover"
     >
       <Avatar src={chip.image} name={chip.label} size="xs" shape={chip.avatarShape} decorative />
-      <span className="max-w-48 truncate font-bold text-text">{chip.label}</span>
+      <span className="max-w-48 truncate font-semibold text-text" title={chip.label}>{chip.label}</span>
       {chip.value ? (
         <span data-numeric className={cn('font-bold tabular-nums', toneClass[chip.tone])}>
           {chip.value}
@@ -141,7 +141,7 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
           aria-label={paused ? 'Resume ticker' : 'Pause ticker'}
           aria-pressed={paused}
           onClick={() => setPaused((value) => !value)}
-          className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text hover:bg-surface-hover"
+          className="flex size-6 shrink-0 items-center justify-center rounded-sm text-text-muted hover:bg-surface-hover hover:text-text"
         >
           {paused ? (
             <Play aria-hidden="true" className="size-icon-sm" />
@@ -193,10 +193,12 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
   );
 }
 
+const feedClass =
+  'relative min-h-ticker-height min-w-0 flex-1 min-[835px]:flex min-[835px]:h-full min-[835px]:items-center';
+
 function FeedView({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) {
-  if (feed.state === 'ready' && feed.chips.length === 0 && feed.emptyText === null) return null;
   return (
-    <div className="contents" data-ticker-state={feed.state}>
+    <div className={feedClass} data-ticker-state={feed.state}>
       <FeedContent feed={feed} mode={mode} />
     </div>
   );
@@ -206,11 +208,10 @@ function FeedContent({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig 
   switch (feed.state) {
     case 'loading':
       return (
-        // No placeholder pills: a feed that never answers must not read as a
-        // permanent skeleton. The strip stays an empty canvas row (the mode
-        // switcher still shows which feed is selected) until chips arrive.
-        <div aria-busy="true" data-ticker-loading="" className="h-full">
+        <div aria-busy="true" data-ticker-loading="" className="flex h-full items-center gap-2">
           <span className="sr-only">Loading {mode.label.toLowerCase()}</span>
+          <Skeleton variant="pill" width="var(--sl-space-12)" height="var(--sl-space-4)" />
+          <Skeleton variant="pill" width="var(--sl-space-8)" height="var(--sl-space-4)" />
         </div>
       );
     case 'unsupported':
@@ -219,7 +220,7 @@ function FeedContent({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig 
           variant="inline"
           title={mode.label}
           operation={feed.operation}
-          status={feed.status}
+          status={feed.status} notServed={feed.notServed} error={feed.error}
           className="truncate text-xs"
         />
       );
@@ -243,7 +244,7 @@ function FeedContent({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig 
         <button
           type="button"
           onClick={() => openAuthModal('ticker-holdings')}
-          className="flex min-h-6 items-center rounded-pill bg-surface-1 px-3 text-xs font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text"
+          className="flex min-h-6 items-center rounded-pill px-3 text-xs font-medium text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text"
         >
           {feed.prompt}
         </button>
@@ -252,7 +253,6 @@ function FeedContent({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig 
       if (feed.chips.length === 0) {
         if (feed.emptyText === null) return null;
         return (
-          // Only the message may truncate; the open link never shrinks. Narrow screens get the short message.
           <p
             data-ticker-empty=""
             className="flex h-full min-w-0 items-center gap-1 text-xs text-text-faint"
@@ -261,13 +261,6 @@ function FeedContent({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig 
               <span className="sm:hidden">{feed.emptyShort ?? feed.emptyText}</span>
               <span className="hidden sm:inline">{feed.emptyText}</span>
             </span>
-            <Link
-              prefetch={false}
-              href={mode.href}
-              className="inline-flex min-h-6 min-[835px]:min-h-0 shrink-0 items-center whitespace-nowrap font-bold text-text-muted hover:text-text"
-            >
-              Open {mode.label.toLowerCase()}
-            </Link>
           </p>
         );
       }
@@ -325,7 +318,7 @@ export default function TickerStrip() {
   };
 
   return (
-    // Hidden below md, as on the reference: phones start content right under the top bar.
+    // Phones start content directly under the top bar.
     <section
       aria-label="Market ticker"
       className="hidden min-h-ticker-height flex-wrap items-center gap-2 bg-canvas px-3 sm:px-4 md:flex min-[835px]:h-ticker-height min-[835px]:flex-nowrap"
@@ -333,7 +326,7 @@ export default function TickerStrip() {
       <div
         role="radiogroup"
         aria-label="Ticker mode"
-        className="flex shrink-0 items-center gap-0.5 rounded-sm bg-surface-1 min-[835px]:p-0.5"
+        className="flex shrink-0 items-center gap-0.5 rounded-sm min-[835px]:p-0.5"
       >
         {tickerModes.map((entry, index) => {
           const Icon = entry.icon;
@@ -353,7 +346,7 @@ export default function TickerStrip() {
                 onKeyDown={(event) => onKeyDown(event, index)}
                 className={cn(
                   'relative flex size-6 items-center justify-center rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text',
-                  selected && 'bg-surface-3 text-text'
+                  selected && 'text-text'
                 )}
               >
                 <Icon aria-hidden="true" className="size-icon-sm" />
@@ -368,9 +361,7 @@ export default function TickerStrip() {
           );
         })}
       </div>
-      <div className="relative min-h-ticker-height min-w-0 flex-1 min-[835px]:flex min-[835px]:h-full min-[835px]:items-center">
-        {wide ? <Feed mode={mode} /> : null}
-      </div>
+      {wide ? <Feed mode={mode} /> : <div className={feedClass} />}
     </section>
   );
 }

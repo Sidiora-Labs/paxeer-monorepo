@@ -511,7 +511,10 @@ pub(crate) fn human_tls_retired_anchor() {
                 );
             } else {
                 assert_eq!(answer["checkpoint_digest"], hex::encode(&[9; 32]));
-                assert_eq!(answer["verification"], 4);
+                assert_eq!(
+                    answer["verification"],
+                    layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+                );
                 if capability {
                     assert_eq!(answer["activity_types"], document!([3]));
                     assert_eq!(

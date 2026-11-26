@@ -234,7 +234,7 @@ func TestMirrorRenderingKeyPolicy(t *testing.T) {
 			t.Fatal("mirror changed the canonical key file")
 		}
 	}
-	if !reflect.DeepEqual(record.GatewayKeys, []mirrorRenderingKey{canonical[1], canonical[0]}) {
+	if !reflect.DeepEqual(record.GatewayKeys, canonical) {
 		t.Fatal("gateway changed canonical identities or height windows")
 	}
 	wantSigners := map[string][]string{"layerx:beta": {"did:layerx:" + strings.TrimPrefix(canonical[0].Public, "0x"), "did:layerx:" + strings.TrimPrefix(canonical[1].Public, "0x")}}
@@ -244,11 +244,26 @@ func TestMirrorRenderingKeyPolicy(t *testing.T) {
 
 	expected := map[string]bool{
 		"canonical": true, "zero_only": true, "full_uint64": true, "max_only": true,
-		"duplicate_disjoint": false, "duplicate_normalized": false, "overlap": false,
+		"duplicate_disjoint": false, "duplicate_normalized": false, "overlap": true,
 		"negative_first": false, "negative_last": false, "overflow_first": false, "overflow_last": false,
 		"reversed": false, "boolean_first": false, "boolean_last": false, "string_first": false, "float_last": false,
 		"zero_key": false, "zero_id": false, "short_key": false, "malformed_id": false, "empty": false, "unknown_field": false,
 	}
+	for _, shape := range []string{"partial", "boundary", "contained", "same_start", "identical", "unsorted", "uint64"} {
+		for _, publicKey := range []string{"shared", "distinct"} {
+			for _, order := range []string{"forward", "reverse"} {
+				expected["overlap_"+shape+"_"+publicKey+"_"+order] = true
+			}
+		}
+	}
+	for _, shape := range []string{"disjoint", "overlapping", "identical"} {
+		for _, publicKey := range []string{"shared", "distinct"} {
+			for _, order := range []string{"forward", "reverse"} {
+				expected["duplicate_"+shape+"_"+publicKey+"_"+order] = false
+			}
+		}
+	}
+
 	if len(record.Policies) != len(expected) {
 		t.Fatal("missing production key policy cases")
 	}
@@ -267,9 +282,6 @@ func TestMirrorRenderingKeyPolicy(t *testing.T) {
 					t.Fatalf("valid inclusive uint64 policy refused/changed: %+v", policy)
 				}
 				gateway := policy.Gateway.Keys
-				if policy.Name == "canonical" {
-					input = []mirrorRenderingKey{canonical[1], canonical[0]}
-				}
 				if !reflect.DeepEqual(gateway, input) {
 					t.Fatal("gateway changed inclusive key policy")
 				}
@@ -284,8 +296,8 @@ func TestMirrorRenderingKeyPolicy(t *testing.T) {
 				if strings.HasPrefix(policy.Name, "duplicate_") && !strings.Contains(policy.Mirror.Error, "unique") {
 					t.Fatalf("duplicate ID was refused for the wrong reason: %s", policy.Mirror.Error)
 				}
-				if policy.Name == "overlap" && !strings.Contains(policy.Mirror.Error, "overlapping") {
-					t.Fatalf("overlap was refused for the wrong reason: %s", policy.Mirror.Error)
+				if strings.HasPrefix(policy.Name, "duplicate_") && policy.Name != "duplicate_normalized" && !strings.Contains(policy.Gateway.Error, "unique") {
+					t.Fatalf("duplicate ID was refused for the wrong reason: %s", policy.Gateway.Error)
 				}
 			}
 		})
@@ -405,7 +417,16 @@ func TestMirrorRenderingReceiptVerification(t *testing.T) {
 				if _, err := verify.ReceiptSignature(altered, [32]byte(public)); !errors.Is(err, verify.ErrSequencerSignature) {
 					t.Fatalf("tampered signature not refused: %v", err)
 				}
-				wrongPublic := mirrorRenderingHex(t, record.GatewayKeys[1].Public)
+				var wrongPublic []byte
+				for _, candidate := range record.GatewayKeys {
+					if candidate.ID != "0x"+pin.ID {
+						wrongPublic = mirrorRenderingHex(t, candidate.Public)
+						break
+					}
+				}
+				if len(wrongPublic) != 32 || bytes.Equal(wrongPublic, public) {
+					t.Fatal("substituted key must have a distinct id and public key")
+				}
 				if _, err := verify.ReceiptSignature(raw, [32]byte(wrongPublic)); !errors.Is(err, verify.ErrSequencerSignature) {
 					t.Fatalf("substituted key not refused: %v", err)
 				}

@@ -163,7 +163,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   }
 
   if (holders.state === 'loading' && loaded.length === 0) return <Skeleton variant="rows" rows={6} label="holders" />;
-  if (holders.state === 'unsupported' && loaded.length === 0) return <UnavailableState title="Holders" plural operation={holders.operation} status={holders.status} message="Holders can't load right now. Check back soon." />;
+  if (holders.state === 'unsupported' && loaded.length === 0) return <UnavailableState title="Holders" plural operation={holders.operation} status={holders.status} notServed={holders.notServed} message="Holders can't load right now. Check back soon." />;
   if (holders.state === 'error' && loaded.length === 0) return <ErrorState title="Holders can't load right now" message={userFacingMessage(holders.error)} onRetry={holders.retry} />;
 
   return <div className="flex flex-col gap-3">
@@ -171,7 +171,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
       <h3 className="flex items-center gap-2 text-sm font-bold text-text">Holders {count !== null ? <CountPill count={count} label="holders" /> : null}</h3>
       {top10 ? <ShareChip label="Top 10" spoken="Top 10 holders hold" share={top10} /> : null}
       {devShare ? <ShareChip label="Creator" spoken="Creator holds" share={devShare} /> : null}
-      {last?.canonical ? <UnavailableState variant="inline" title="The full holder list" operation={last.canonical.operation} status={last.canonical.status} className="basis-full" /> : null}
+      {last?.canonical ? <UnavailableState variant="inline" title="The full holder list" operation={last.canonical.operation} status={last.canonical.status} notServed={last.canonical.notServed} className="basis-full" /> : null}
     </div>
     <HoldersFilters value={search} onChange={setSearch} pnlReason={pnlReason} />
     {coverage && coverage !== 'complete' ? <NoticeBar tone="warning" announce>Some holders may be missing from this list.</NoticeBar> : null}
@@ -198,18 +198,23 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
           {visible.map(row => {
             const identity = identities.identities[row.wallet];
             const name = identity?.displayName ?? shortAddress(row.wallet);
+            const isPool = row.wallet.toLowerCase() === pool.toLowerCase();
+            const walletContent = <>
+              <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className={identity?.displayName ? 'truncate font-bold text-text' : 'font-mono text-xs text-text-muted'}>{name}</span>
+                  {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Creator</span> : null}
+                  {isPool ? <span data-pool-badge title="Coins held by the bonding curve" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Bonding curve</span> : null}
+                </span>
+                {identity?.displayName ? <span className="font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
+              </span>
+            </>;
             return <tr key={row.wallet} className="h-table-row bg-surface-1 transition-colors hover:bg-surface-hover [&>td]:px-3">
               <td className="min-w-0">
-                <Link prefetch={false} href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">
-                  <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
-                  <span className="flex min-w-0 flex-col leading-tight">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className={identity?.displayName ? 'truncate font-bold text-text' : 'font-mono text-xs text-text-muted'}>{name}</span>
-                      {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Creator</span> : null}
-                    </span>
-                    {identity?.displayName ? <span className="font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
-                  </span>
-                </Link>
+                {isPool
+                  ? <span className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</span>
+                  : <Link prefetch={false} href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</Link>}
               </td>
               <td data-numeric className="text-right font-bold tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.balanceRaw, decimals)}</td>
               <td data-numeric className="text-right tabular-nums text-text-muted">{row.supplyPercent === null ? <span className="text-text-faint">—</span> : formatPercent(row.supplyPercent, { sign: 'negative' })}</td>

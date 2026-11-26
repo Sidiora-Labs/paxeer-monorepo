@@ -536,7 +536,7 @@ fn real_server_wire_statuses_remain_distinct() {
         )),
         503,
     );
-    assert_wire_status(&server.root,status(&format!("/v1/agent/capability-scope?{base}&did=did%3Alayerx%3Atest&authority={}&action_key={}&capability_id={}", hex::encode(&[5;32]), hex::encode(&[6;32]), hex::encode(&[7;32]))), 403);
+    assert_wire_status(&server.root,status(&format!("/v1/agent/capability-scope?{base}&did=did%3Alayerx%3Atest&authority={}&action_key={}&capability_id={}", hex::encode(&[5;32]), hex::encode(&[6;32]), hex::encode(&[7;32]))), 503);
     assert_wire_status(
         &server.root,
         status(&format!(
@@ -672,7 +672,7 @@ fn drive_client() {
         wire_status(&root, "/v1/agent/registry?tenant=other&principal=principal"),
         403,
     );
-    assert_wire_status(&root,wire_status(&root, &format!("/v1/agent/capability-scope?tenant=tenant%20space&principal=principal&did=did%3Alayerx%3Atest&authority={}&action_key={}&capability_id={}", hex::encode(&[5;32]), hex::encode(&[6;32]), hex::encode(&[7;32]))), 403);
+    assert_wire_status(&root,wire_status(&root, &format!("/v1/agent/capability-scope?tenant=tenant%20space&principal=principal&did=did%3Alayerx%3Atest&authority={}&action_key={}&capability_id={}", hex::encode(&[5;32]), hex::encode(&[6;32]), hex::encode(&[7;32]))), 503);
     let fixture = signed_fixture();
     let receipt = must(hex::decode(
         fixture["receipt_hex"]

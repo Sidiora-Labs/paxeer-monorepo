@@ -87,8 +87,8 @@ def test_publication_and_manifest_describe_the_production_method_inventory():
     library = (GATEWAY / "src/lib.rs").read_text()
     inventory = library.split("pub const ROUTER_METHODS:", 1)[1].split("];", 1)[0]
     names = re.findall(r'"([a-zA-Z_]+)"', inventory)
-    assert len(names) == len(set(names)) == 17
-    assert len(document["methods"]) == 22
+    assert len(names) == len(set(names)) == 18
+    assert len(document["methods"]) == 23
     inference = {
         "px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
         "px_getInferencePeer", "px_getInferenceReceipts",
@@ -126,9 +126,11 @@ def test_registration_documents_tenant_binding_and_the_current_pin():
     for domain in ("layerx-register-binding-v1", "layerx-register-subject-v1"):
         assert domain in description and f'b"{domain}"' in registration
     tagged = rust_function("src/rpc_register.rs", "tagged")
-    assert "for part in [domain, tenant.as_bytes(), signer_public_key.as_slice()]" in tagged
-    assert "hash.update((part.len() as u64).to_be_bytes());" in tagged
-    assert "hash.update(part);" in tagged
+    assert "tagged_parts(domain, &[tenant.as_bytes(), signer_public_key.as_slice()])" in tagged
+    tagged_parts = rust_function("src/rpc_register.rs", "tagged_parts")
+    assert "for part in std::iter::once(domain).chain(parts.iter().copied())" in tagged_parts
+    assert "hash.update((part.len() as u64).to_be_bytes());" in tagged_parts
+    assert "hash.update(part);" in tagged_parts
     subject = rust_function("src/rpc_register.rs", "subject")
     assert '"{tenant}.{}"' in subject and "[..32]" in subject
     assert "&binding(tenant, signer_public_key)" in rust_function("src/rpc_register.rs", "proven")

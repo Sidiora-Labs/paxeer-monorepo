@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	sharedchain "github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -45,6 +46,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/migrate"
@@ -63,6 +65,7 @@ type App struct {
 	completenessDone chan struct{}
 	nats             *nats.Conn
 	rpc              *ethclient.Client
+	rpcFallback      *ethclient.Client
 	devRPC           *gethrpc.Client
 	verifiedRPC      *sharedchain.Client
 	exact            *store.ExactStore
@@ -79,6 +82,10 @@ type App struct {
 
 // New runs migrations and builds every component.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
+	accountingHealth, err := newConsumerReadiness(cfg, "accounting_consumer", logger, time.Now)
+	if err != nil {
+		return nil, err
+	}
 	secretCheck, secretStop, secretErr := cfg.ResolveProductionSecrets(ctx)
 	if secretErr != nil {
 		return nil, secretErr
@@ -156,6 +163,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var transport *natsdriver.Consumer
 	var nc *nats.Conn
 	var rpc *ethclient.Client
+	var rpcFallback *ethclient.Client
 	var devRPC *gethrpc.Client
 	if cfg.NodeEnv == nodeEnvironmentProduction {
 		var d chartRuntimeDocument
@@ -191,6 +199,17 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				rpc.Close()
 			}
 		}()
+		if cfg.RPCURLFallback != "" {
+			rpcFallback, err = ethclient.DialContext(ctx, cfg.RPCURLFallback)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if !secretOwned {
+					rpcFallback.Close()
+				}
+			}()
+		}
 		guard, e := queue.NewEpochGuard("recovery", d.Epoch, d.Region)
 		if e != nil {
 			return nil, e
@@ -220,7 +239,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return archiveBlockTime(c, rpc, height, expected)
 			}}
 		}
-		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{Pool: pool, Deliveries: durable, Partitions: partitions, Exact: exact, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: "indexer", RPC: rpc, MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills, SeriesV2: true, StreamWriter: &delivery.StreamWriter{Schema: "api_stream"}})
+		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{Pool: pool, Deliveries: durable, Partitions: partitions, Exact: exact, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: "indexer", RPC: rpc, RPCFallback: rpcFallback, Logger: logger, ProofTimeout: min(5*time.Second, d.Consumer.AckWait/2), MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills, SeriesV2: true, StreamWriter: &delivery.StreamWriter{Schema: "api_stream"}})
 		if e != nil {
 			return nil, e
 		}
@@ -253,6 +272,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		return nil, err
 	}
+	if accountingConsumer != nil {
+		accountingConsumer.Progress = accountingHealth
+		secretChecks["accounting_consumer"] = accountingHealth.Check
+	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins:    cfg.CORSAllowedOrigins,
 		TrustedProxies: trustedProxies,
@@ -280,7 +303,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if e != nil {
 			return nil, e
 		}
-		httpapi.RegisterProductionUDF(router, httpapi.SymbolsHandler{Canonical: &httpapi.CanonicalPoolMetadataSource{Pool: pool, Chain: &chainread.Reader{RPC: rpc}}, DisplayPrecision: features.DisplayPrecision}, httpapi.ProductionHistoryHandler{Source: httpapi.CanonicalCandleClient{Endpoint: features.CanonicalAPIOrigin}, Supply: &httpapi.RPCSupplySource{Chain: &chainread.Reader{RPC: rpc}}, Cache: historyCache, Algorithm: features.CanonicalSeriesModel})
+		httpapi.RegisterProductionUDF(router, httpapi.SymbolsHandler{Canonical: &httpapi.CanonicalPoolMetadataSource{Pool: pool, Chain: &chainread.Reader{RPC: rpc}}, DisplayPrecision: features.DisplayPrecision}, httpapi.ProductionHistoryHandler{Logger: logger, Source: httpapi.CanonicalCandleClient{Endpoint: features.CanonicalAPIOrigin}, Supply: &httpapi.RPCSupplySource{Chain: &chainread.Reader{RPC: rpc}}, Cache: historyCache, Algorithm: features.CanonicalSeriesModel})
 		if e = httpapi.RegisterReplayGateway(router, features.ReplayGatewayOrigin); e != nil {
 			return nil, e
 		}
@@ -316,7 +339,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	httpapi.RegisterWS(ctx, router, httpapi.WSDeps{})
 
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", consumerhealth.Metrics(metrics, "chartsd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone, accountingHealth))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err
@@ -324,7 +347,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	secretOwned = true
 	return &App{secretStop: secretStop, tracker: tracker,
 		chartPublisher: chartPublisher, chartOutbox: chartOutbox,
-		accounting: accountingConsumer, transport: transport, nats: nc, rpc: rpc, devRPC: devRPC, verifiedRPC: verifiedRPC, exact: exactStore, features: features,
+		accounting: accountingConsumer, transport: transport, nats: nc, rpc: rpc, rpcFallback: rpcFallback, devRPC: devRPC, verifiedRPC: verifiedRPC, exact: exactStore, features: features,
 		Router:   runtimeHandler(tracker, router, metrics),
 		Builder:  builder,
 		Consumer: swapConsumer,
@@ -380,6 +403,9 @@ func (a *App) Close() {
 	}
 	if a.rpc != nil {
 		a.rpc.Close()
+	}
+	if a.rpcFallback != nil {
+		a.rpcFallback.Close()
 	}
 	if a.devRPC != nil {
 		a.devRPC.Close()
@@ -454,10 +480,9 @@ func Run(parent context.Context) error {
 				return
 			}
 			defer release()
-			if e := app.accounting.Run(ctx, app.transport); !errors.Is(e, context.Canceled) {
-				logger.Error("accounting consumer failed", slog.Any("err", e))
-				failRuntime()
-			}
+			runAccountingConsumer(ctx, func(ctx context.Context) error {
+				return app.accounting.Run(ctx, app.transport)
+			}, failRuntime, logger, waitAccountingConsumer, accountingSystemClock())
 		}()
 	} else if err := app.Consumer.Start(ctx); err != nil {
 		return fmt.Errorf("app: start consumer: %w", err)
@@ -523,14 +548,23 @@ func Run(parent context.Context) error {
 		// An internal provider failure drains current work without a signal
 		// propagation delay, so the service can release its listener promptly.
 		shutdownCtx, stop := context.WithTimeout(context.Background(), sharedprocess.DefaultTimeout)
-		shutErr = errors.Join(srv.Shutdown(shutdownCtx), app.tracker.Drain(shutdownCtx))
+		shutErr = errors.Join(ErrInternalFailure, srv.Shutdown(shutdownCtx), app.tracker.Drain(shutdownCtx))
 		stop()
 	}
 
 	cancel()
 
 	select {
+	case <-internalFailure:
+		shutErr = errors.Join(ErrInternalFailure, shutErr)
+	default:
+	}
+
+	select {
 	case err := <-serveErr:
+		if errors.Is(shutErr, ErrInternalFailure) {
+			return errors.Join(err, shutErr)
+		}
 		return err
 	default:
 		return shutErr
@@ -595,6 +629,12 @@ type chartOutboxConfig struct {
 func (c chartOutboxConfig) validate(policy delivery.Policy) error {
 	if !policy.Subjects[c.Subject] {
 		return errors.New("charts: chart outbox subject is not admitted")
+	}
+	if !policy.Subjects[accounting.MarketSubject] {
+		return errors.New("charts: invalid store configuration: policy.Subjects must enable " + accounting.MarketSubject)
+	}
+	if !policy.EventTypes[accounting.MarketSubject] {
+		return errors.New("charts: invalid store configuration: policy.EventTypes must enable " + accounting.MarketSubject)
 	}
 	return c.validateBounds()
 }

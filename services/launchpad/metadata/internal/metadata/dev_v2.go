@@ -177,11 +177,10 @@ func boundedText(t pgtype.Text, max int) *string {
 	if !t.Valid {
 		return nil
 	}
-	n := utf8.RuneCountInString(t.String)
-	if n == 0 || n > max {
+	v := carriedCoinText(t.String, max)
+	if v == "" {
 		return nil
 	}
-	v := t.String
 	return &v
 }
 
@@ -257,7 +256,7 @@ func (d *DevelopmentV2Reads) chainToken(ctx context.Context, row developmentPool
 		return iface.Token{}, ErrUnrepresentable
 	}
 	position := map[string]string{"chainId": "125", "height": strconv.FormatUint(match.BlockNumber, 10), "transactionIndex": strconv.FormatUint(uint64(match.TxIndex), 10), "logIndex": strconv.FormatUint(uint64(match.Index), 10), "transactionHash": strings.ToLower(match.TxHash.Hex()), "blockHash": strings.ToLower(match.BlockHash.Hex())}
-	raw, err := json.Marshal(map[string]any{"address": row.Token, metadataNameKey: name, metadataSymbolKey: symbol, "decimals": decimals, "decimalsQuality": metadataVerifiedQuality, "totalSupplyRaw": supply.String(), "supplyQuality": metadataVerifiedQuality, "metadataRevision": "0", metadataLogoAssetIDKey: nil, "sourcePosition": position})
+	raw, err := json.Marshal(map[string]any{"address": row.Token, metadataNameKey: carriedCoinText(name, 100), metadataSymbolKey: carriedCoinText(symbol, 16), "decimals": decimals, "decimalsQuality": metadataVerifiedQuality, "totalSupplyRaw": supply.String(), "supplyQuality": metadataVerifiedQuality, "metadataRevision": "0", metadataLogoAssetIDKey: nil, "sourcePosition": position})
 	if err != nil {
 		return iface.Token{}, err
 	}

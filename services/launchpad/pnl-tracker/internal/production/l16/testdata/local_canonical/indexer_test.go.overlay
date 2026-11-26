@@ -1,0 +1,235 @@
+package processor
+
+import (
+	"context"
+	"encoding/json"
+	"math/big"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/publisher"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// TestPnlCanonicalFixture commits actual factory, swap and transfer receipts
+// through the indexer for the portfolio consumer in the parent process.
+func TestPnlCanonicalFixture(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
+	defer cancel()
+	n, options := prepareCreationSnapshotFactory(t, t.Cleanup)
+	n.ctx = ctx
+	n.auth.Context = ctx
+	mode := os.Getenv("L16_FIXTURE_MODE")
+	supply := int64(100)
+	if mode == "dense" {
+		supply = 100000
+	}
+	n.transact(t, "ProtocolConfig", "setVirtualDefaults", big.NewInt(900), big.NewInt(supply))
+	n.transact(t, "ProtocolConfig", "setBaseFeeBps", big.NewInt(10))
+	authority, created, poolAddress := n.create(t, options, false)
+	poolABI, _ := creationSnapshotArtifact(t, "SidioraPool")
+	poolContract := bind.NewBoundContract(poolAddress, poolABI, n.client, n.client, n.client)
+	var output []any
+	if err := poolContract.Call(&bind.CallOpts{Context: ctx}, &output, "tokenAddress"); err != nil || len(output) != 1 {
+		t.Fatal(output, err)
+	}
+	tokenAddress := output[0].(common.Address)
+	tokenABI, _ := creationSnapshotArtifact(t, "SidioraERC20")
+	token := bind.NewBoundContract(tokenAddress, tokenABI, n.client, n.client, n.client)
+	key, err := crypto.HexToECDSA(os.Getenv("L16_FIXTURE_WALLET_KEY"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(125))
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner.Context, owner.GasPrice, owner.GasLimit = ctx, big.NewInt(2000000000), 1000000
+	if err = n.client.Client().CallContext(ctx, nil, "anvil_setBalance", owner.From, "0x3635c9adc5dea00000"); err != nil {
+		t.Fatal(err)
+	}
+	transact := func(auth *bind.TransactOpts, contract *bind.BoundContract, method string, args ...any) *types.Receipt {
+		tx, err := contract.Transact(auth, method, args...)
+		if err != nil {
+			t.Fatalf("%s: %v", method, err)
+		}
+		return n.mined(t, tx)
+	}
+	deadline := big.NewInt(time.Now().Add(time.Hour).Unix())
+	switch mode {
+	case "fresh":
+	case "gift":
+		n.transact(t, "Router", "buy", poolAddress, big.NewInt(100), big.NewInt(10), deadline)
+		transact(n.auth, token, "transfer", owner.From, big.NewInt(5))
+	case "incremental":
+		n.transact(t, "USDL", "transfer", owner.From, big.NewInt(10000))
+		transact(owner, n.contracts["USDL"], "approve", common.HexToAddress(n.roles["Router"].Address), big.NewInt(10000))
+		for i := 0; i < 3; i++ {
+			transact(owner, n.contracts["Router"], "buy", poolAddress, big.NewInt(100), big.NewInt(1), deadline)
+		}
+	case "mixed":
+		n.transact(t, "USDL", "transfer", owner.From, big.NewInt(100))
+		transact(owner, n.contracts["USDL"], "approve", common.HexToAddress(n.roles["Router"].Address), big.NewInt(100))
+		transact(owner, n.contracts["Router"], "buy", poolAddress, big.NewInt(100), big.NewInt(10), deadline)
+		n.transact(t, "Router", "buy", poolAddress, big.NewInt(245), big.NewInt(17), deadline)
+		transact(n.auth, token, "transfer", owner.From, big.NewInt(10))
+		transact(owner, token, "approve", common.HexToAddress(n.roles["Router"].Address), big.NewInt(10))
+		transact(owner, n.contracts["Router"], "sell", poolAddress, big.NewInt(10), big.NewInt(150), deadline)
+	case "dense":
+		n.transact(t, "Router", "buy", poolAddress, big.NewInt(1000), big.NewInt(10001), deadline)
+		transferData, err := tokenABI.Pack("transfer", owner.From, big.NewInt(1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		transferGas, err := n.client.EstimateGas(ctx, ethereum.CallMsg{From: n.owner, To: &tokenAddress, Data: transferData})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = n.client.Client().CallContext(ctx, nil, "evm_setAutomine", false); err != nil {
+			t.Fatal(err)
+		}
+		nonce, err := n.client.PendingNonceAt(ctx, n.owner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sender := *n.auth
+		sender.GasPrice, sender.GasLimit = big.NewInt(2000000000), transferGas
+		for sent := 0; sent < 10001; {
+			transactions := make([]*types.Transaction, 0, 100)
+			for len(transactions) < 100 && sent < 10001 {
+				sender.Nonce = new(big.Int).SetUint64(nonce)
+				tx, err := token.Transact(&sender, "transfer", owner.From, big.NewInt(1))
+				if err != nil {
+					t.Fatal(err)
+				}
+				transactions = append(transactions, tx)
+				nonce++
+				sent++
+			}
+			if err = n.client.Client().CallContext(ctx, nil, "evm_mine"); err != nil {
+				t.Fatal(err)
+			}
+			for _, tx := range transactions {
+				n.mined(t, tx)
+			}
+		}
+		if err = n.client.Client().CallContext(ctx, nil, "evm_setAutomine", true); err != nil {
+			t.Fatal(err)
+		}
+	default:
+		t.Fatal("unknown canonical fixture scenario")
+	}
+	last, err := n.client.BlockNumber(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	database, err := pgxpool.New(ctx, os.Getenv("L16_FIXTURE_ADMIN_DSN"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	guard, err := queue.NewEpochGuard("recovery", coordinatortest.Epoch, coordinatortest.Region)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.NewLifecycleStore(database, guard.Assert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := delivery.Policy{Subjects: map[string]bool{publisher.CanonicalCreationSubject: true, accounting.MarketSubject: true}, EventTypes: map[string]bool{publisher.CanonicalCreationEventType: true, accounting.MarketSubject: true}}
+	outbox, err := delivery.NewStoreWithEpochGuard(database, "indexer", policy, guard.Assert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	partitions, err := delivery.NewPartitionStore(database, "indexer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	durable, err := publisher.NewDurableStager(outbox, options.DeploymentVersion, map[string]string{publisher.CanonicalCreationEventType: publisher.CanonicalCreationSubject, accounting.MarketSubject: accounting.MarketSubject})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := "pnl-local-" + database.Config().ConnConfig.Database
+	first := created.BlockNumber.Int64()
+	if _, err = database.Exec(ctx, `INSERT INTO indexer.indexer_ingest_watermarks VALUES(125,$1,$2,$2)`, stream, first-1); err != nil {
+		t.Fatal(err)
+	}
+	p := New(Deps{Store: st, Decoder: decode.NewDecoder(), EventEmitterAddress: options.Roles["EventEmitter"].Address, ChainID: 125, QualifiedBatchSource: authority, CanonicalStreamID: stream, CanonicalOwner: "pnl-fixture-indexer", AccountingPartitions: partitions, Durable: durable, AccountingProjectionVersion: "accounting-market-v1", LegacyProjection: true, Reserves: authority})
+	for from := first; from <= int64(last); {
+		to := from + 9
+		if to > int64(last) {
+			to = int64(last)
+		}
+		if err = p.ProcessBatch(ctx, from, to); err != nil {
+			t.Fatalf("canonical batch %d..%d: %v", from, to, err)
+		}
+		from = to + 1
+	}
+	if err = st.RenewLease(ctx, 125, stream, "pnl-fixture-indexer", p.canonicalFence, 30*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	header, err := n.client.HeaderByNumber(ctx, new(big.Int).SetUint64(last))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = st.RetainCommittedHead(ctx, stream, int64(last), strings.ToLower(header.Hash().Hex()), "local-anvil"); err != nil {
+		t.Fatal(err)
+	}
+	var creations, transfers int
+	if err = database.QueryRow(ctx, `SELECT (SELECT count(*) FROM indexer.indexer_canonical_creations_v1 WHERE token=$1),(SELECT count(*) FROM indexer.indexer_token_transfers_v1 WHERE token=$1 AND to_address=$2)`, strings.ToLower(tokenAddress.Hex()), strings.ToLower(owner.From.Hex())).Scan(&creations, &transfers); err != nil || creations != 1 {
+		t.Fatal(creations, transfers, err)
+	}
+	if mode == "dense" && transfers != 10001 {
+		t.Fatal("canonical transfer count", transfers)
+	}
+	result := struct {
+		RPC, Factory, Wallet, Token, Stream string
+		Height                              uint64
+	}{n.endpoint, strings.ToLower(n.roles["SidioraFactory"].Address), strings.ToLower(owner.From.Hex()), strings.ToLower(tokenAddress.Hex()), stream, last}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := os.Getenv("L16_FIXTURE_CONTROL")
+	temporary := filepath.Join(directory, "chain.pending")
+	if err = os.WriteFile(temporary, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(temporary, filepath.Join(directory, "chain.json")); err != nil {
+		t.Fatal(err)
+	}
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if _, err = os.Stat(filepath.Join(directory, "release")); err == nil {
+			return
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-ticker.C:
+			if time.Since(p.canonicalRenewed) >= 5*time.Second {
+				if err = st.RenewLease(ctx, 125, stream, "pnl-fixture-indexer", p.canonicalFence, 30*time.Second); err != nil {
+					t.Fatal(err)
+				}
+				p.canonicalRenewed = time.Now()
+			}
+		}
+	}
+}

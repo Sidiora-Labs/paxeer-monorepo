@@ -42,17 +42,12 @@ export function FillsTable({ rows, token, filter, wallets, loading = false }: Fi
   const identities = useWalletIdentities(shown.map(fillMaker));
   const decimals = token.decimalsQuality === 'verified' ? token.decimals : null;
 
-  if (!loading && matching.length === 0) {
-    return filter === 'all'
-      ? <EmptyState icon={ArrowLeftRight} title="No trades yet" body="Trades appear here as soon as someone buys or sells this coin." className="py-6" />
-      : <EmptyState icon={Filter} announce title="No trades match this filter" body="Switch back to All to see every trade on this pair." className="py-6" />;
-  }
   return (
     <div className="flex flex-col">
       <p className="sr-only">{noTimeNote} {noValuationNote}</p>
       <div role="region" aria-label="Trades table" tabIndex={0} className="relative overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
         <table className="w-full min-w-144 text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_td]:px-3" aria-label="Trades" aria-busy={loading || undefined}>
-          <thead className="sticky top-0 z-[var(--sl-z-raised)] bg-surface-1">
+          <thead className="sticky top-0 z-[var(--sl-z-raised)] bg-canvas">
             <tr>
               <SortHeader className="h-6" align="right" label={<Tooltip content={noTimeNote}><span tabIndex={0}>Block</span></Tooltip>} sort={sort} onSort={() => setSort(sort === 'desc' ? 'asc' : 'desc')} />
               <SortHeader className="h-6" label="Type" />
@@ -63,6 +58,9 @@ export function FillsTable({ rows, token, filter, wallets, loading = false }: Fi
             </tr>
           </thead>
           <tbody>
+            {!loading && matching.length === 0 ? (
+              <EmptyState variant="table" colSpan={6} icon={filter === 'all' ? ArrowLeftRight : Filter} announce={filter !== 'all'} title={filter === 'all' ? 'No trades yet' : 'No trades match this filter'} body={filter === 'all' ? 'Trades appear here as soon as someone buys or sells this coin.' : 'Switch back to All to see every trade on this pair.'} className="py-6" />
+            ) : null}
             {loading ? <tr className="h-9 [@media(max-width:834px)]:h-touch-target-min"><td colSpan={6}><Skeleton label="trades" /></td></tr> : null}
             {shown.map(row => {
               const key = fillKey(row);
@@ -70,14 +68,14 @@ export function FillsTable({ rows, token, filter, wallets, loading = false }: Fi
               const name = identities.identities[maker]?.displayName ?? null;
               const href = explorerOrigin && /^0x[0-9a-fA-F]{64}$/.test(row.position.transactionHash) ? `${explorerOrigin}/tx/${row.position.transactionHash}` : null;
               return (
-                <tr key={key} data-fill-key={key} className={cn('h-9 bg-surface-1 transition-colors hover:bg-surface-hover', flash.has(key) && (row.side === 'buy' ? 'sl-flash-up' : 'sl-flash-down'))}>
+                <tr key={key} data-fill-key={key} className={cn('sl-hairline h-9 bg-surface-1 transition-colors hover:bg-surface-hover', row.side === 'buy' ? 'sl-row-wash-up' : 'sl-row-wash-down', flash.has(key) && (row.side === 'buy' ? 'sl-flash-up' : 'sl-flash-down'))}>
                   <td data-numeric className="text-right font-mono tabular-nums text-text-muted">{row.position.height}</td>
                   <td className={cn('font-bold capitalize', row.side === 'buy' ? 'text-success' : 'text-danger')}>{row.side}</td>
                   <td data-numeric className="text-right tabular-nums text-text">{decimals === null ? <span className="text-text-faint" title="Token decimals are not verified">-</span> : formatTokenAmount(row.tokenAmountRaw, decimals)}</td>
                   <td data-numeric className={cn('text-right tabular-nums', row.side === 'buy' ? 'text-success' : 'text-danger')}>{formatUsdl(row.usdlAmountRaw)}</td>
                   <td>
                     <span className="inline-flex items-center gap-1.5">
-                      {name ? <span className="max-w-32 truncate font-bold text-text" title={maker}>{name}</span> : null}
+                      {name ? <span className="max-w-32 truncate font-semibold text-text" title={maker}>{name}</span> : null}
                       <ShortAddress address={maker} className={name ? 'text-text-faint' : 'text-text-muted'} />
                     </span>
                   </td>

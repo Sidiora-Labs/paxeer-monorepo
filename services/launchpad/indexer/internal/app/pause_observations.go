@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
 	"github.com/ethereum/go-ethereum"
@@ -81,6 +82,7 @@ type pauseObservations struct {
 	stream           string
 	epochs           []source.AddressEpoch
 	discoveredEpochs func() []receipt.RPCCodeEpoch
+	inventoryCovered bool
 	mu               sync.Mutex
 	snapshot         atomic.Pointer[pauseSnapshot]
 }
@@ -190,19 +192,23 @@ func pauseAddressPointer(value string) *common.Address {
 	return &a
 }
 
-// rawCoverage requires the complete pool and beacon emitter ranges. A stored
-// event alone cannot establish coverage of an address with no events.
+// rawCoverage requires the complete pool and beacon emitter ranges. Pool
+// coverage comes from inventory admission or explicit emitter epochs.
 func (p *pauseObservations) rawCoverage(pools []pausePool, discovered []receipt.RPCCodeEpoch, from, to int64) bool {
+	if from < 0 || to < 0 {
+		return false
+	}
+	fromHeight, toHeight := uint64(from), uint64(to)
 	covered := make(map[string]bool)
 	beacon := false
 	for _, epoch := range p.epochs {
-		if epoch.ActivationHeight > uint64(from) || epoch.RetirementHeight != nil && *epoch.RetirementHeight <= uint64(to) {
+		if epoch.ActivationHeight > fromHeight || epoch.RetirementHeight != nil && *epoch.RetirementHeight <= toHeight {
 			continue
 		}
 		if epoch.Role == "PoolBeacon" {
 			beacon = true
 		}
-		if epoch.Role == "SidioraPool" {
+		if epoch.Role == valueSidioraPool {
 			covered[strings.ToLower(epoch.Address)] = true
 		}
 	}
@@ -210,15 +216,20 @@ func (p *pauseObservations) rawCoverage(pools []pausePool, discovered []receipt.
 		return false
 	}
 	for _, pool := range pools {
-		if covered[pool.address] {
+		if p.inventoryCovered || covered[pool.address] {
 			continue
 		}
+		height, transaction, logIndex := pool.height, pool.transaction, pool.log
+		if height < 0 || transaction < 0 || logIndex < 0 {
+			return false
+		}
+		poolHeight, poolTransaction, poolLog := uint64(height), uint64(transaction), uint64(logIndex)
 		for _, epoch := range discovered {
 			d := epoch.Deployment
-			if d.Role != "SidioraPool" || strings.ToLower(d.Address.Hex()) != pool.address || d.Until != nil && d.Until.Block <= uint64(to) {
+			if d.Role != valueSidioraPool || strings.ToLower(d.Address.Hex()) != pool.address || d.Until != nil && d.Until.Block <= toHeight {
 				continue
 			}
-			if d.From.Block < uint64(pool.height) || d.From.Block == uint64(pool.height) && (uint64(d.From.Transaction) < uint64(pool.transaction) || uint64(d.From.Transaction) == uint64(pool.transaction) && uint64(d.From.Log) <= uint64(pool.log)) {
+			if d.From.Block < poolHeight || d.From.Block == poolHeight && (uint64(d.From.Transaction) < poolTransaction || uint64(d.From.Transaction) == poolTransaction && uint64(d.From.Log) <= poolLog) {
 				covered[pool.address] = true
 				break
 			}
@@ -267,6 +278,37 @@ func (p *pauseObservations) readEvents(ctx context.Context, tx pgx.Tx, from, to 
 func (p *pauseObservations) refresh(parent context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.refreshLocked(parent, true)
+}
+
+func (p *pauseObservations) extend(ctx context.Context, height int64) error {
+	wait := time.NewTicker(5 * time.Millisecond)
+	defer wait.Stop()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if p.mu.TryLock() {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-wait.C:
+		}
+	}
+	defer p.mu.Unlock()
+	previous := p.snapshot.Load()
+	if previous == nil || previous.base == nil {
+		return errPauseUnavailable
+	}
+	if previous.head.height >= height {
+		return nil
+	}
+	return p.refreshLocked(ctx, false)
+}
+
+func (p *pauseObservations) refreshLocked(parent context.Context, rebuildBase bool) error {
 	if p.rpc == nil || p.pool == nil || p.stream == "" {
 		return errPauseUnavailable
 	}
@@ -294,7 +336,10 @@ func (p *pauseObservations) refresh(parent context.Context) error {
 	if p.discoveredEpochs != nil {
 		discovered = p.discoveredEpochs()
 	}
-	if base == nil || time.Since(base.built) >= pauseBaseCycle || !p.rawCoverage(pools, discovered, base.block.height+1, head.height) {
+	if base == nil || rebuildBase && time.Since(base.built) >= pauseBaseCycle || !p.rawCoverage(pools, discovered, base.block.height+1, head.height) {
+		if !rebuildBase {
+			return errPauseUnavailable
+		}
 		bounded, stop := context.WithTimeout(ctx, pauseBaseTimeout)
 		base = p.buildBase(bounded, head, pools)
 		stop()
@@ -302,7 +347,8 @@ func (p *pauseObservations) refresh(parent context.Context) error {
 			return parent.Err()
 		}
 	}
-	if head.height < base.block.height {
+	baseHeight, headHeight := base.block.height, head.height
+	if baseHeight < 0 || headHeight < 0 || headHeight < baseHeight {
 		return errPauseUnavailable
 	}
 	bounded, stop := context.WithTimeout(ctx, pauseRefreshTimeout)
@@ -339,7 +385,7 @@ func (p *pauseObservations) refresh(parent context.Context) error {
 		return err
 	}
 	for _, event := range events {
-		if event.BlockNumber > math.MaxInt64 || event.BlockNumber <= uint64(base.block.height) || event.BlockNumber > uint64(head.height) || event.Removed || blocks[int64(event.BlockNumber)] != strings.ToLower(event.BlockHash.Hex()) || len(event.Topics) == 0 {
+		if event.BlockNumber > math.MaxInt64 || event.BlockNumber <= uint64(baseHeight) || event.BlockNumber > uint64(headHeight) || event.Removed || blocks[int64(event.BlockNumber)] != strings.ToLower(event.BlockHash.Hex()) || len(event.Topics) == 0 {
 			return errPauseUnavailable
 		}
 		switch event.Topics[0] {
@@ -376,6 +422,9 @@ func (p *pauseObservations) refresh(parent context.Context) error {
 }
 
 func (s *pauseSnapshot) evidence(height, cutoff int64, hash string) (pauseRankingEvidence, error) {
+	if height < 0 {
+		return pauseRankingEvidence{}, errPauseUnavailable
+	}
 	out := pauseRankingEvidence{CutoffHeight: uint64(height), CutoffTime: cutoff, BlockHash: hash, Pools: make(map[string]pausePoolEvidence)}
 	if s == nil || s.base == nil || height < s.base.block.height || height > s.head.height || s.blocks[height] != hash {
 		return out, errPauseUnavailable
@@ -405,8 +454,12 @@ func (s *pauseSnapshot) evidence(height, cutoff int64, hash string) (pauseRankin
 			continue
 		}
 		creation := creations[pool]
+		creationHeight, creationTransaction := creation.height, creation.transaction
+		if creationHeight < 0 || creationTransaction < 0 {
+			return out, errPauseUnavailable
+		}
 		// NFT receiver callbacks can pause before the factory announces creation.
-		if event.BlockNumber < uint64(creation.height) || event.BlockNumber == uint64(creation.height) && event.TxIndex < uint(creation.transaction) {
+		if event.BlockNumber < uint64(creationHeight) || event.BlockNumber == uint64(creationHeight) && event.TxIndex < uint(creationTransaction) {
 			continue
 		}
 		value, err := pauseBool(event.Data)
@@ -416,7 +469,7 @@ func (s *pauseSnapshot) evidence(height, cutoff int64, hash string) (pauseRankin
 		states[pool] = value
 	}
 	revision := sha256.New()
-	fmt.Fprintf(revision, "launchpad.pause.revision.v1\n125\n%d\n%d\n%s\n", height, cutoff, hash)
+	checked.Write(fmt.Fprintf(revision, "launchpad.pause.revision.v1\n125\n%d\n%d\n%s\n", height, cutoff, hash))
 	// The inventory query supplies the canonical lexicographic order.
 	for _, pool := range s.pools {
 		state, ok := states[pool.address]
@@ -425,7 +478,7 @@ func (s *pauseSnapshot) evidence(height, cutoff int64, hash string) (pauseRankin
 		}
 		digest := sha256.Sum256([]byte(fmt.Sprintf("launchpad.pause.v1\n125\n%s\n%s\n%t\n", pool.address, hash, state)))
 		out.Pools[pool.address] = pausePoolEvidence{Paused: state, PauseEvidence: hex.EncodeToString(digest[:])}
-		fmt.Fprintf(revision, "%s\n%t\n", pool.address, state)
+		checked.Write(fmt.Fprintf(revision, "%s\n%t\n", pool.address, state))
 	}
 	out.Revision = hex.EncodeToString(revision.Sum(nil))
 	return out, nil
@@ -487,6 +540,12 @@ func (p *pauseObservations) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !coherent {
 		http.Error(w, "pause observation unavailable", http.StatusServiceUnavailable)
 		return
+	}
+	if snapshot := p.snapshot.Load(); snapshot != nil && snapshot.head.height < height {
+		if err = p.extend(ctx, height); err != nil {
+			http.Error(w, "pause observation unavailable", http.StatusServiceUnavailable)
+			return
+		}
 	}
 	evidence, err := p.snapshot.Load().evidence(height, cutoff, hash)
 	if err != nil {

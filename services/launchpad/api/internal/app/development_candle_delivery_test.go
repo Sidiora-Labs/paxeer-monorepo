@@ -109,7 +109,7 @@ func TestDevelopmentCandleReachesRouteAndTopic(t *testing.T) {
 	if status, raw := get(query); status != 200 || interfaces.ValidateJSON("CandlesResponse", raw) != nil || !bytes.Contains(raw, []byte(`"items":[]`)) {
 		t.Fatalf("uncommitted history = %d %s", status, raw)
 	}
-	if status, raw := f.snapshot(t, dstOrigin); status != 503 || !bytes.Contains(raw, []byte("DEPENDENCY_UNAVAILABLE")) {
+	if status, raw := f.snapshot(t, dstOrigin); status != 404 || !bytes.Contains(raw, []byte("TOPIC_NOT_STARTED")) {
 		t.Fatalf("uncommitted topic = %d %s", status, raw)
 	}
 	client, err := rpc.DialContext(ctx, chain.url)

@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { surfaceSpacing } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -131,7 +132,7 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
 
   if (snapshot.isPending) {
     return (
-      <header aria-busy="true" className="flex min-h-13 items-center gap-3 rounded-md bg-surface-1 px-3 py-1">
+      <header aria-busy="true" className="flex min-h-13 items-center gap-3 rounded-none bg-surface-1 px-3 py-1">
         <Skeleton variant="block" width={surfaceSpacing(11)} height={surfaceSpacing(11)} label="coin image" />
         <div className="flex flex-1 flex-col gap-1"><Skeleton variant="text" width={surfaceSpacing(35)} /><Skeleton variant="text" width={surfaceSpacing(50)} /></div>
       </header>
@@ -140,14 +141,14 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
   if (snapshot.isError || !data) {
     const status = (snapshot.error as { status?: unknown } | null)?.status;
     return (
-      <header className="rounded-md bg-surface-1 p-2">
+      <header className="rounded-none bg-surface-1 p-2">
         <UnavailableState variant="inline" title="This coin" operation="IF_POOL_DETAIL · IF_SEARCH" status={typeof status === 'number' ? status : null} onRetry={() => { void snapshot.refetch(); }} />
       </header>
     );
   }
 
-  const symbol = data.metadata?.displaySymbol ?? data.token?.symbol ?? 'Coin';
-  const name = data.metadata?.displayName ?? data.token?.name ?? '';
+  const symbol = displayCoinText(data.metadata?.displaySymbol ?? data.token?.symbol, data.pool.tokenAddress);
+  const name = displayCoinText(data.metadata?.displayName ?? data.token?.name, data.pool.tokenAddress);
   const pool = data.pool.poolAddress;
   const starred = watchlist.check(pool);
   const createdMs = data.createdAt ? Date.parse(data.createdAt) : NaN;
@@ -156,20 +157,20 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
   const stats = tokenStripStats({ stats: live.state.stats ?? data.stats, token: data.token, livePrice: priceNumber(live.state.price ?? initialPrice ?? null) });
 
   return (
-    <header aria-label={`${symbol} summary`} className="flex min-h-13 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-surface-1 px-3 py-1">
+    <header aria-label={`${symbol} summary`} className="flex min-h-13 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-none bg-surface-1 px-3 py-1">
       <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5">
         <Avatar src={image.data?.images?.logo ?? null} name={symbol} size="lg" shape="square" decorative className="size-11" badge={stage ? <StageBadge stage={stage} size={14} surface={1} /> : undefined} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <h1 className="truncate text-sm font-extrabold text-text">{symbol}</h1>
-            {name ? <span className="truncate text-xs text-text-muted">{name}</span> : null}
+            <h2 title={symbol} className="min-w-0 truncate text-sm font-semibold text-text">{symbol}</h2>
+            {name ? <span className="min-w-0 truncate text-xs text-text-muted" title={name}>{name}</span> : null}
             <CopyAddress address={data.pool.tokenAddress} variant="icon" />
             <IconButton label={starred ? 'Remove from watchlist' : 'Add to watchlist'} pressed={starred} icon={<Star className={starred ? 'fill-current text-accent' : undefined} />} size="sm" className="size-6" onClick={() => watchlist.toggle(pool)} />
             <IconButton label="Share coin link" icon={<Share2 />} size="sm" className="size-6" onClick={() => { void shareCurrentPage(`${symbol} on Sidiora`); }} />
             <IconButton label="Price alerts" icon={<Bell />} size="sm" className="size-6" onClick={() => window.dispatchEvent(new CustomEvent(terminalOpenPanelEvent, { detail: 'alerts' }))} />
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <AgeChip iso={data.createdAt} now={live.now} className="font-bold text-accent" />
+            <AgeChip iso={data.createdAt} now={live.now} className="text-text-muted" />
             {socials.length ? (
               <ul aria-label="Links" className="flex items-center gap-0.5">
                 {socials.map(link => {
@@ -192,6 +193,7 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
       </dl>
       <DropdownMenu
         label="Terminal settings"
+        triggerClassName="border border-transparent bg-transparent text-text-muted hover:border-control-edge"
         size="sm"
         align="end"
         trigger={<Settings aria-hidden="true" className="size-icon-sm" />}

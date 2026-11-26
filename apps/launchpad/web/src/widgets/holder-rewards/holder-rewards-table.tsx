@@ -1,5 +1,7 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
+import { shortAddress } from '@/utils/format';
 import Link from 'next/link';
 import { ArrowDown, ArrowUp, ArrowUpDown, HandCoins, ListFilter } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -41,12 +43,12 @@ const columns: ReadonlyArray<{ key: HolderRewardsSortKey; label: string; width: 
   { key: 'holders', label: 'Holders paid', width: 'hidden w-33 md:table-cell' },
 ];
 
-/** Sentence-case sortable column head (the shared SortHeader is uppercase by design). */
+/** Sortable column head with the active direction beside its label. */
 function ColumnHead({ label, sr, sort, onSort, className }: { label: string; sr?: string; sort: 'asc' | 'desc' | null; onSort(): void; className?: string }) {
   const Icon = sort === 'asc' ? ArrowUp : sort === 'desc' ? ArrowDown : ArrowUpDown;
   return (
-    <th scope="col" aria-sort={sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : undefined} className={cn('h-10 px-2 text-xs font-medium md:px-3', sort ? 'text-text' : 'text-text-faint', className)}>
-      <button type="button" onClick={onSort} className="relative ml-auto flex h-full items-center justify-end gap-1 rounded-xs transition-colors hover:text-text focus-visible:bg-surface-3 focus-visible:underline">
+    <th scope="col" aria-sort={sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : undefined} className={cn('h-10 px-2 text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] md:px-3', sort ? 'text-text' : 'text-text-faint', className)}>
+      <button type="button" onClick={onSort} className="relative ml-auto flex h-full items-center justify-end gap-1 rounded-xs transition-colors hover:text-text focus-visible:bg-surface-3 focus-visible:underline uppercase tracking-[var(--sl-tracking-label)]">
         <span>{label}{sr ? <span className="sr-only"> {sr}</span> : null}</span>
         <Icon aria-hidden="true" className={cn('size-3', sort ? 'text-text' : 'opacity-0 group-hover/head:opacity-60')} />
         <span className="sr-only">{sort === 'asc' ? ', sorted ascending' : sort === 'desc' ? ', sorted descending' : ', sortable'}</span>
@@ -65,7 +67,7 @@ function RowsSkeleton() {
   return (
     <>
       {Array.from({ length: 1 }).map((_, index) => (
-        <tr key={index} aria-hidden="true" className="h-table-row-comfortable odd:bg-surface-2">
+        <tr key={index} aria-hidden="true" className="h-table-row-comfortable sl-hairline">
           <td className="px-3"><span className="sl-skeleton block h-3 w-4" /></td>
           <td className="px-3">
             <span className="flex items-center gap-3">
@@ -83,8 +85,7 @@ function RowsSkeleton() {
 }
 
 /**
- * Ranked holder-rewards table. Rows alternate surface-1 / surface-2 so they
- * separate by tone alone; the coin name carries the row link overlay while
+ * Ranked holder-rewards table. Hairlines separate rows; the coin name carries the row link overlay while
  * the copy and external-link buttons stay above it. Below md the market cap,
  * holders paid and age fold into the coin cell as a second line.
  */
@@ -107,14 +108,14 @@ export default function HolderRewardsTable({
 }: HolderRewardsTableProps) {
   const empty = !loading && rows.length === 0 && !filtered;
   return (
-    <div aria-busy={loading || loadingMore || undefined} className={cn('flex flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
-      <div className="overflow-x-auto">
+    <div aria-busy={loading || loadingMore || undefined} className={cn('flex min-w-0 flex-col gap-2 p-2', className)}>
+      <div className="relative min-w-0 max-w-full overflow-x-auto">
       <table className="w-full min-w-[var(--sl-rewards-table-min-width)] table-fixed">
         <caption className="sr-only">Holder rewards coins ranked by {order.key === 'age' ? 'creation time' : order.key === 'mcap' ? 'market cap' : order.key === 'holders' ? 'holders paid' : 'rewards distributed'}, {order.direction === 'desc' ? 'highest first' : 'lowest first'}</caption>
         <thead>
           <tr className="group/head">
-            <th scope="col" className="h-10 w-8 px-1 text-center text-xs font-medium text-text-faint md:w-12 md:px-3">#</th>
-            <th scope="col" className="h-10 px-2 text-left md:px-3 text-xs font-medium text-text-faint">Coin</th>
+            <th scope="col" className="h-10 w-8 px-1 text-center text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint md:w-12 md:px-3">#</th>
+            <th scope="col" className="h-10 px-2 text-left md:px-3 text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Coin</th>
             {columns.map(column => (
               <ColumnHead
                 key={column.key}
@@ -148,18 +149,19 @@ export default function HolderRewardsTable({
               body="Clear a filter or load more coins"
             />
           ) : null}
-          {rows.map((row, index) => {
+          {rows.map((rawRow, index) => {
+            const row = { ...rawRow, name: displayCoinText(rawRow.name, rawRow.tokenAddress), symbol: displayCoinText(rawRow.symbol, rawRow.tokenAddress) };
             const hovered = hoveredPool === row.poolAddress;
             const href = coinHref(row.poolAddress);
             const mcap = row.mcapRaw === null ? null : mcapText(row.mcapRaw);
             return (
               <tr
                 key={row.poolAddress}
-                className={cn('group relative h-table-row-comfortable transition-colors duration-fast odd:bg-surface-2 hover:bg-surface-hover focus-within:bg-surface-hover', hovered && 'bg-surface-hover')}
+                className={cn('group relative h-table-row-comfortable transition-colors duration-fast sl-hairline hover:bg-surface-hover focus-within:bg-surface-hover', hovered && 'bg-surface-hover')}
                 onMouseEnter={onHoverPool ? () => onHoverPool(row.poolAddress) : undefined}
                 onFocus={onHoverPool ? () => onHoverPool(row.poolAddress) : undefined}
               >
-                <td data-numeric className="px-1 text-center align-middle text-base font-bold md:px-3 md:text-md tabular-nums text-text"><span className="sr-only">Rank </span>{index + 1}</td>
+                <td data-numeric className={cn("px-1 text-center align-middle text-base font-bold md:px-3 md:text-md tabular-nums", index === 0 ? "text-rank-1" : index === 1 ? "text-rank-2" : index === 2 ? "text-rank-3" : "text-text-muted")}><span className="sr-only">Rank </span>{index + 1}</td>
                 <td className="min-w-0 px-2 py-2 align-middle md:px-3">
                   <div className="flex min-w-0 items-center gap-2 md:gap-3">
                     <Avatar src={row.image} name={row.name} size="lg" shape="square" decorative className="md:size-avatar-xl" />
@@ -176,8 +178,8 @@ export default function HolderRewardsTable({
                         <CopyAddress address={row.tokenAddress} variant="icon" className="relative z-10 shrink-0" />
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-faint">
-                        {row.symbol ? <span className="truncate font-bold uppercase" title={row.symbol}>${row.symbol}</span> : null}
-                        <AgeChip iso={row.pool.createdAt} className="font-bold text-warning" />
+                        {row.symbol ? <span className="truncate font-bold" title={row.symbol}>{row.symbol === shortAddress(row.tokenAddress) ? row.symbol : `$${row.symbol}`}</span> : null}
+                        <AgeChip iso={row.pool.createdAt} className="font-medium text-text-faint" />
                         <UsdlBadge />
                         <TokenLinkIcons links={row.links} tokenAddress={row.tokenAddress} />
                         {!row.pool.strategyActive ? <StatusBadge status="neutral">Strategy changed</StatusBadge> : null}
@@ -191,7 +193,7 @@ export default function HolderRewardsTable({
                 </td>
                 <td className="px-2 text-right align-middle md:px-3">
                   <div className="flex flex-col items-end gap-0.5">
-                    <span data-numeric className="text-md font-bold text-success md:text-lg tabular-nums">{usdlAmountText(row.pool.distributedRaw)}<span className="ml-1 inline-block whitespace-nowrap text-2xs font-semibold text-text-faint">USDL</span></span>
+                    <span data-numeric className="whitespace-nowrap text-md font-bold text-text md:text-lg tabular-nums">{usdlAmountText(row.pool.distributedRaw)}<span className="ml-1 inline-block whitespace-nowrap text-2xs font-semibold text-text-faint">USDL</span></span>
                     {hovered && airdrop && airdrop.pool === row.poolAddress ? <AirdropLine airdrop={airdrop} /> : null}
                   </div>
                 </td>

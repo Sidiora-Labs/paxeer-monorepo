@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
+import { colorModeScript, deploymentColorMode } from '@/core/app-foundation/color-mode';
+import { ColorModeSync } from '@/core/app-foundation/use-color-mode';
 import { BackendConfigurationError } from '@/ui/shared/backend-configuration-error';
 import { backendConfigurationProblems } from '@/core/backend-origins';
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  const defaultMode = deploymentColorMode();
   const NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE = process.env.NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE;
   const privateFixtureProfileInput = NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE;
   // A production build without its backend origins renders one explicit error
@@ -12,8 +15,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   if (configurationProblems.length > 0) {
     console.error(`[sidiora] backend origins are not configured: ${configurationProblems.map(problem => problem.message).join('; ')}`);
     return (
-      <html lang="en">
+      <html lang="en" data-color-mode={defaultMode} data-color-mode-default={defaultMode} suppressHydrationWarning>
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: colorModeScript(defaultMode) }} />
+        </head>
         <body className="bg-canvas text-text">
+          <ColorModeSync />
           <BackendConfigurationError problems={configurationProblems} />
         </body>
       </html>
@@ -43,8 +50,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const wagmiInitialState = cookieToInitialState({ ...config, storage }, cookie);
 
   return (
-    <html lang="en">
+    <html lang="en" data-color-mode={defaultMode} data-color-mode-default={defaultMode} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: colorModeScript(defaultMode) }} />
+      </head>
       <body className="bg-canvas text-text">
+        <ColorModeSync />
         <PlatformRulesModal />
         <CookieBanner />
         <AppProviders wagmiInitialState={wagmiInitialState} privateFixtureProfileInput={privateFixtureProfileInput}>

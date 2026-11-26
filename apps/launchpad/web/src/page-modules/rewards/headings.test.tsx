@@ -10,7 +10,7 @@ afterAll(close);
 function rewards_without_a_wallet_has_one_visible_heading() {
   const view = mount(<RewardsModule />, '/rewards');
   expectHeading(view.container, 'Connect wallet to see your rewards');
-  expect(view.container.querySelector('h1')?.className).toBe('text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text');
+  expect(view.container.querySelector('h1')?.className).toBe('text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-semibold text-text');
 }
 
 async function rewards_without_a_session_and_after_sign_in_error_has_one_heading() {

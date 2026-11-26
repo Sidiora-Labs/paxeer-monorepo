@@ -1,10 +1,10 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, Chip } from '@/ui/primitives';
 import { poolPath } from '@/core/app-foundation/navigation';
-import { shortAddress } from '@/utils/format';
 import type { LiveDirectoryEntry } from './use-live-directory';
 import { LiveBadge } from './live-badge';
 import { ViewerCountChip } from './viewer-count-chip';
@@ -21,9 +21,9 @@ export function streamTile(entry: Pick<LiveDirectoryEntry, 'thumbnailUrl' | 'ima
   return { kind: 'none' };
 }
 
-/** Coin name for display: metadata name, then symbol, then the short pool address. */
-export function coinLabel(entry: Pick<LiveDirectoryEntry, 'name' | 'symbol' | 'poolAddress'>): string {
-  return entry.name?.trim() || entry.symbol?.trim() || shortAddress(entry.poolAddress);
+/** Coin name for display, with a short token address for blank names. */
+export function coinLabel(entry: Pick<LiveDirectoryEntry, 'name' | 'symbol' | 'poolAddress'> & Partial<Pick<LiveDirectoryEntry, 'tokenAddress'>>): string {
+  return displayCoinText(entry.name, entry.tokenAddress ?? entry.poolAddress);
 }
 
 /** Accessible link name: "<title>, <coin>, live, 35 viewers". */
@@ -43,7 +43,7 @@ export function StreamTileMedia({ entry, className }: { entry: Pick<LiveDirector
         <img src={tile.src} alt="" loading="lazy" width={640} height={360} className="aspect-video size-full object-cover" />
       ) : tile.kind === 'coin' ? (
         <div className="flex size-full items-center justify-center">
-          <img src={tile.src} alt="" loading="lazy" width={320} height={320} className="aspect-square h-3/5 rounded-lg object-cover" />
+          <img src={tile.src} alt="" loading="lazy" width={320} height={320} className="aspect-square h-3/5 rounded-[var(--sl-radius-coin)] object-cover" />
         </div>
       ) : (
         <div className="flex size-full items-center justify-center text-text-faint">
@@ -62,6 +62,7 @@ export interface StreamCardProps {
 
 export function StreamCard({ entry, creatorLabel, className }: StreamCardProps) {
   const name = coinLabel(entry);
+  const symbol = displayCoinText(entry.symbol, entry.tokenAddress ?? entry.poolAddress);
   return (
     <Link prefetch={false}
       href={streamHref(entry)}
@@ -79,11 +80,11 @@ export function StreamCard({ entry, creatorLabel, className }: StreamCardProps) 
         </span>
       </div>
       <div className="flex min-h-14 items-start gap-2 p-2 md:gap-3 md:p-3">
-        <Avatar src={entry.imageUrl} name={entry.symbol ?? name} size="lg" decorative className="hidden sm:inline-flex" />
+        <Avatar src={entry.imageUrl} name={symbol} size="lg" shape="square" decorative className="hidden sm:inline-flex" />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-bold text-text md:text-md">{name}</span>
-            {entry.symbol ? <Chip variant="token" className="shrink-0">{entry.symbol}</Chip> : null}
+            <span className="min-w-0 truncate text-sm font-semibold text-text md:text-md" title={name}>{name}</span>
+            <Chip variant="token" className="min-w-0 max-w-32"><span className="truncate" title={symbol}>{symbol}</span></Chip>
           </div>
           <p className="truncate text-xs text-text-faint">{creatorLabel}</p>
           <p className="truncate text-sm text-text-muted">{entry.stream.title}</p>
@@ -105,12 +106,12 @@ export function StreamCardSkeleton({ className }: { className?: string }) {
 export function StreamCardPlaceholder({ className, loading = false }: { className?: string; loading?: boolean }) {
   return (
     <div aria-hidden="true" data-placeholder={loading ? undefined : ''} className={cn('flex flex-col overflow-hidden rounded-lg bg-surface-1', className)}>
-      <span className={cn('block aspect-video w-full bg-surface-2', loading && 'sl-skeleton')} />
+      <span className={cn('block aspect-video w-full bg-surface-3', loading && 'sl-skeleton')} />
       <span className="flex items-start gap-2 p-2 md:gap-3 md:p-3">
-        <span className={cn('hidden size-10 shrink-0 rounded-pill bg-surface-2 sm:block', loading && 'sl-skeleton')} />
+        <span className={cn('hidden size-10 shrink-0 rounded-[var(--sl-radius-coin)] bg-surface-3 sm:block', loading && 'sl-skeleton')} />
         <span className="flex flex-1 flex-col gap-2 pt-1">
-          <span className={cn('h-3 w-3/5 rounded-xs bg-surface-2', loading && 'sl-skeleton')} />
-          <span className={cn('h-3 w-2/5 rounded-xs bg-surface-2', loading && 'sl-skeleton')} />
+          <span className={cn('h-3 w-3/5 rounded-xs bg-surface-3', loading && 'sl-skeleton')} />
+          <span className={cn('h-3 w-2/5 rounded-xs bg-surface-3', loading && 'sl-skeleton')} />
         </span>
       </span>
     </div>

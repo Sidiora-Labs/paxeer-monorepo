@@ -484,7 +484,32 @@ func TestProductionExportExpiredLeaseRestartAndDigestIntegrity(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	file.Close()
+	defer file.Close()
+	if manifest.SnapshotID != summary.SnapshotID || manifest.Format != "jsonl" || manifest.Object != job.ID+"-2.jsonl" {
+		t.Fatal("restarted export lost snapshot or lease binding", manifest)
+	}
+	decoder := json.NewDecoder(file)
+	for i, expected := range records {
+		var record HistoryRecord
+		if e = decoder.Decode(&record); e != nil {
+			t.Fatalf("export row %d: %v", i, e)
+		}
+		got, e := json.Marshal(record)
+		if e != nil {
+			t.Fatal(e)
+		}
+		want, e := json.Marshal(expected)
+		if e != nil || string(got) != string(want) {
+			t.Fatalf("export row %d differs from committed history: %s, %v", i, got, e)
+		}
+	}
+	var extra HistoryRecord
+	if e = decoder.Decode(&extra); !errors.Is(e, io.EOF) {
+		t.Fatal("export contains data beyond committed history", e)
+	}
+	if e = file.Close(); e != nil {
+		t.Fatal(e)
+	}
 	object := filepath.Join(dir, manifest.Object)
 	if e = os.WriteFile(object, actual, 0600); e != nil {
 		t.Fatal(e)

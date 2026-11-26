@@ -2,12 +2,8 @@
 import { useEffect, useRef } from 'react';
 import type { Loadable } from '@/core/market/unsupported';
 
-/**
- * Tab row under a dashboard column header. Widgets size their controls (short labels, compact
- * segments, value-only pills) to fit one line at the 288 px minimum column width; the row still
- * wraps instead of scrolling as a safety net, so a trailing control is never clipped.
- */
-export const columnToolbarClass = 'flex min-h-10 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1.5';
+/** A single scrolling toolbar keeps column controls together at narrow widths. */
+export const columnToolbarClass = 'flex min-h-10 shrink-0 flex-nowrap items-center gap-2 overflow-x-auto px-2 py-1.5';
 
 /**
  * Placement of a degraded-state chip (UnavailableState / ErrorState `variant="chip"`) inside a

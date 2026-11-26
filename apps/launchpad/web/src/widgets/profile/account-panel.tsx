@@ -19,7 +19,7 @@ export interface AccountPanelProps {
 }
 
 function rowClass(interactive: boolean) {
-  return cn('flex h-12 w-full items-center gap-3 rounded-sm px-3 text-left text-sm font-bold text-text transition-colors duration-fast', interactive && 'hover:bg-surface-hover');
+  return cn('flex h-12 w-full items-center gap-3 rounded-sm px-3 text-left text-sm font-semibold text-text transition-colors duration-fast', interactive && 'hover:bg-surface-hover');
 }
 
 function RowIcon({ children }: { children: ReactNode }) {
@@ -42,7 +42,7 @@ export default function AccountPanel({ onLinkSocials, onSignOut, signingOut = fa
   return (
     <section aria-labelledby="account-panel-title" className={cn('rounded-lg bg-surface-1 p-2', className)}>
       <div className="flex items-center justify-between gap-2 px-2 py-1">
-        <h2 id="account-panel-title" className="text-md font-bold text-text">Account</h2>
+        <h2 id="account-panel-title" className="text-md font-semibold text-text">Account</h2>
         <IconButton
           label={open ? 'Collapse account panel' : 'Expand account panel'}
           icon={<ChevronDown className={cn('transition-transform duration-fast', open && 'rotate-180')} />}
@@ -56,8 +56,8 @@ export default function AccountPanel({ onLinkSocials, onSignOut, signingOut = fa
         <div className="flex items-center gap-3 rounded-sm bg-surface-2 px-3 py-2">
           <RowIcon><Wallet /></RowIcon>
           <div className="min-w-0 flex-1">
-            <p className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Connected with</p>
-            <p className="truncate text-sm font-bold text-text">{provider} <span className="font-semibold text-text-muted">· external wallet</span></p>
+            <p className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Connected with</p>
+            <p className="truncate text-sm font-semibold text-text">{provider} <span className="font-semibold text-text-muted">· external wallet</span></p>
           </div>
           <BalanceVisibilityToggle />
         </div>

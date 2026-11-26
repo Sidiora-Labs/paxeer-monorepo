@@ -25,6 +25,11 @@ const LaunchpadPrecompileRole = "LaunchpadPrecompile"
 
 var LaunchpadPrecompileAddress = common.HexToAddress("0x0000000000000000000000000000000000001017")
 
+var LaunchpadModuleAddress = func() common.Address {
+	digest := sha256.Sum256([]byte("launchpad"))
+	return common.BytesToAddress(digest[:20])
+}()
+
 // launchpadOrigin names the role whose contract flow emits each launchpad
 // family event at the precompile.
 var launchpadOrigin = map[string]string{
@@ -488,10 +493,19 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 		e.FailureReason = reason
 		return e, err
 	}
-	if !rawSizeAllowed(l) {
+	bounds := func() (*DecodedEnvelope, error) {
 		e.Raw = rawMetadata(l)
 		e.RawSummary = summarizeRaw(l)
-		return fail("bounds", fmt.Errorf("raw envelope exceeds bounded admission"))
+		return fail("bounds", nil)
+	}
+	if !rawSizeAllowed(l) {
+		if len(r.epochs[l.Address]) == 0 {
+			e.Raw = rawMetadata(l)
+			e.RawSummary = summarizeRaw(l)
+			e.FailureReason = "untrusted_emitter"
+			return e, nil
+		}
+		return bounds()
 	}
 	e.Raw = rawLog(l)
 	if !validIdentity(l) {
@@ -510,7 +524,7 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 		}
 	}
 	if len(active) == 0 {
-		if len(l.Topics) > 0 && r.known[l.Topics[0]] {
+		if len(r.epochs[l.Address]) > 0 && len(l.Topics) > 0 && r.known[l.Topics[0]] {
 			return fail("untrusted_emitter", fmt.Errorf("known signature from unauthorized emitter %s", l.Address))
 		}
 		e.FailureReason = "untrusted_emitter"
@@ -560,12 +574,12 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 		return e, nil
 	}
 	e.EventSignature = ev.Sig
-	args, reason, err := exactArgs(ev, l.Topics, l.Data, d.PaxeerNonzeroBools[ev.Sig])
+	args, reason, err := exactArgs(ev, l.Topics, l.Data, d.PaxeerNonzeroBools[ev.Sig], &e.Alerts)
 	if err != nil {
 		return fail(reason, err)
 	}
 	if err := validateDecodedPayload(args); err != nil {
-		return fail("bounds", err)
+		return bounds()
 	}
 	e.Status = valueDecoded
 	e.Opaque = strings.HasPrefix(ev.Name, "EventLog")

@@ -198,8 +198,11 @@ func (s *PostgresStream) projections(ctx context.Context, tx pgx.Tx, topics []st
 		if err = rows.Scan(&p.topic, &p.partition, &p.sequence, &raw); err != nil {
 			return nil, err
 		}
-		if snapshotRead && p.sequence == "0" && raw == nil {
-			return nil, ErrTopicNotStarted
+		if p.sequence == "0" && raw == nil {
+			if !snapshotRead {
+				out = append(out, p)
+			}
+			continue
 		}
 		p.frame, err = parseStreamV2(raw)
 		if err != nil || p.sequence != p.frame.Sequence || p.topic != p.frame.Topic {
@@ -210,11 +213,8 @@ func (s *PostgresStream) projections(ctx context.Context, tx pgx.Tx, topics []st
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	if len(out) != len(topics) {
-		if snapshotRead {
-			return nil, ErrTopicNotStarted
-		}
-		return nil, ErrStreamUnavailable
+	if snapshotRead && len(out) == 0 {
+		return nil, ErrTopicNotStarted
 	}
 	return out, nil
 }
@@ -307,6 +307,7 @@ type PostgresReplay struct {
 	Cursor        CursorV2
 	Machine       *PartitionReplay
 	partitions    map[string]string
+	waiting       []string
 	nextPartition int
 	checkedAt     time.Time
 }
@@ -380,9 +381,20 @@ func (s *PostgresStream) Resume(ctx context.Context, p sharedauth.StreamPrincipa
 	barrier := map[string]string{}
 	replayFrames, replayBytes := int64(0), int64(0)
 	partitions := map[string]string{}
+	waiting := make(map[string]bool, len(b.Topics))
+	for _, topic := range b.Topics {
+		waiting[topic] = true
+	}
 	for _, v := range projections {
 		offset, ok := cursor.Offsets[v.partition]
 		floor, initialOK := initial[v.partition]
+		if v.sequence == "0" {
+			if ok || initialOK {
+				return nil, ErrFrame
+			}
+			continue
+		}
+		delete(waiting, v.topic)
 		if !ok || !initialOK || compare(offset, floor) < 0 || compare(offset, v.sequence) > 0 {
 			return nil, ErrCursor
 		}
@@ -418,6 +430,9 @@ func (s *PostgresStream) Resume(ctx context.Context, p sharedauth.StreamPrincipa
 		partitions[v.partition] = v.topic
 	}
 	if len(partitions) != len(cursor.Offsets) || len(initial) != len(partitions) {
+		if len(projections) < len(b.Topics) {
+			return nil, ErrStreamUnavailable
+		}
 		return nil, ErrCursor
 	}
 	machine, err := NewPartitionReplay(cursor.Offsets, barrier)
@@ -430,7 +445,13 @@ func (s *PostgresStream) Resume(ctx context.Context, p sharedauth.StreamPrincipa
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return &PostgresReplay{source: s, Principal: p, Binding: b, Cursor: cursor, Machine: machine, partitions: partitions}, nil
+	waitingTopics := make([]string, 0, len(waiting))
+	for _, topic := range b.Topics {
+		if waiting[topic] {
+			waitingTopics = append(waitingTopics, topic)
+		}
+	}
+	return &PostgresReplay{source: s, Principal: p, Binding: b, Cursor: cursor, Machine: machine, partitions: partitions, waiting: waitingTopics}, nil
 }
 
 func (r *PostgresReplay) CheckDelivery(ctx context.Context) error {
@@ -441,7 +462,11 @@ func (r *PostgresReplay) CheckDelivery(ctx context.Context) error {
 	if now.Unix() >= r.Cursor.ExpiresAt {
 		return ErrExpired
 	}
-	if !r.checkedAt.IsZero() && now.Sub(r.checkedAt) < 2*time.Second {
+	interval := 2 * time.Second
+	if len(r.waiting) > 0 {
+		interval = time.Second
+	}
+	if !r.checkedAt.IsZero() && now.Sub(r.checkedAt) < interval {
 		return nil
 	}
 	return r.Check(ctx)
@@ -460,6 +485,15 @@ func (r *PostgresReplay) Check(ctx context.Context) error {
 	}
 	if generation != r.Cursor.Scope.ProjectionEpoch {
 		return ErrCursor
+	}
+	if len(r.waiting) > 0 {
+		var started bool
+		if err := r.source.pool.QueryRow(bounded, "SELECT EXISTS(SELECT 1 FROM "+r.source.table("stream_projection")+" WHERE topic=ANY($1) AND sequence>0 AND frame IS NOT NULL)", r.waiting).Scan(&started); err != nil {
+			return err
+		}
+		if started {
+			return ErrCursor
+		}
 	}
 	if time.Now().Unix() >= r.Cursor.ExpiresAt {
 		return ErrExpired
@@ -498,7 +532,7 @@ func (r *PostgresReplay) Batch(ctx context.Context) ([][]byte, error) {
 		if r.Machine.State == Replaying {
 			upper = r.Machine.barrier[partition]
 		}
-		rows, err := r.source.pool.Query(ctx, "SELECT sequence::text,frame FROM "+r.source.table("stream_delivery_outbox")+" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4", partition, offset, upper, 128-len(out))
+		rows, err := r.source.pool.Query(ctx, "SELECT sequence::text,frame FROM "+r.source.table("stream_delivery_outbox")+" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4", partition, offset, upper, 128-len(out))
 		if err != nil {
 			return nil, err
 		}

@@ -8,11 +8,13 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TransferFromLog(log types.Log) (Transfer, error) {
@@ -66,7 +68,7 @@ func (r *Repository) ApplyCanonicalTransferTx(ctx context.Context, tx pgx.Tx, ev
 	var emitter, block string
 	var height, index, logIndex string
 	var topicBytes, data []byte
-	err = tx.QueryRow(ctx, `SELECT r.emitter,r.block_hash,r.height::text,r.transaction_index::text,r.log_index::text,r.topics,r.data FROM indexer.indexer_raw_logs_v1 r JOIN indexer.indexer_token_transfers_v1 t ON t.chain_id=r.chain_id AND t.transaction_hash=r.transaction_hash AND t.log_index=r.log_index JOIN indexer.indexer_canonical_creations_v1 k ON k.token=t.token JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$3 WHERE r.chain_id=125 AND r.transaction_hash=$1 AND r.log_index=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND t.token=$4 AND t.from_address=$5 AND t.to_address=$6 AND t.amount_raw=$7::numeric AND t.height=r.height AND t.transaction_index=r.transaction_index AND t.block_hash=r.block_hash AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_watermarks_v1 w WHERE w.chain_id=125 AND w.stream_id=$3 AND w.typed_complete_height>=r.height) AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$3 AND a.previous_height<r.height AND a.last_complete_height>=r.height)`, e.TransactionHash, e.LogIndex, stream, e.Token, e.From, e.To, e.Amount).Scan(&emitter, &block, &height, &index, &logIndex, &topicBytes, &data)
+	err = tx.QueryRow(ctx, `SELECT r.emitter,r.block_hash,r.height::text,r.transaction_index::text,r.log_index::text,r.topics,r.data FROM indexer.indexer_raw_logs_v1 r JOIN indexer.indexer_token_transfers_v1 t ON t.chain_id=r.chain_id AND t.transaction_hash=r.transaction_hash AND t.log_index=r.log_index JOIN indexer.indexer_canonical_creations_v1 k ON k.token=t.token JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$3 WHERE r.chain_id=125 AND r.transaction_hash=$1 AND r.log_index=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND t.token=$4 AND t.from_address=$5 AND t.to_address=$6 AND t.amount_raw=$7::numeric AND t.height=r.height AND t.transaction_index=r.transaction_index AND t.block_hash=r.block_hash AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_watermarks_v1 w WHERE w.chain_id=125 AND w.stream_id=$3 AND w.typed_complete_height>=r.height) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT r.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$3 AND a.previous_height<(SELECT height FROM bounds) AND a.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(a.previous_height,a.last_complete_height)::numeric,greatest(a.previous_height,a.last_complete_height)::numeric,'[]') @> r.height::numeric)`, e.TransactionHash, e.LogIndex, stream, e.Token, e.From, e.To, e.Amount).Scan(&emitter, &block, &height, &index, &logIndex, &topicBytes, &data)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ApplyResult{}, ErrIntegrity
 	}
@@ -213,7 +215,7 @@ func (r *Repository) EnrichCanonicalActorTx(ctx context.Context, tx pgx.Tx, even
 		return err
 	}
 	var same bool
-	err = tx.QueryRow(ctx, `SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND r.block_hash=$4 AND r.height=$5::bigint AND r.emitter=$6 AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$7 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$7 WHERE f.source_fill_id=$1`, fill.SourceFillID, string(digest), raw, fill.Position.BlockHash, fill.Position.Height, fill.ActualEmitter, stream).Scan(&same)
+	err = tx.QueryRow(ctx, `SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND r.block_hash=$4 AND r.height=$5::bigint AND r.emitter=$6 AND c.fetch_complete AND c.required_decode_complete AND EXISTS(WITH bounds AS MATERIALIZED (SELECT r.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$7 AND a.previous_height<(SELECT height FROM bounds) AND a.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(a.previous_height,a.last_complete_height)::numeric,greatest(a.previous_height,a.last_complete_height)::numeric,'[]') @> r.height::numeric) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$7 WHERE f.source_fill_id=$1`, fill.SourceFillID, string(digest), raw, fill.Position.BlockHash, fill.Position.Height, fill.ActualEmitter, stream).Scan(&same)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && !same {
 		return ErrIntegrity
 	}
@@ -256,17 +258,34 @@ func (r *Repository) DiscoverCanonical(ctx context.Context, token, stream string
 	if _, err = UInt(*fact.Metadata.TotalSupply); err != nil {
 		return err
 	}
-	if err = r.Discover(ctx, token, *fact.Metadata.Decimals, creation, false); err != nil {
-		return err
-	}
-	tag, err := r.pool.Exec(ctx, "UPDATE "+r.schema+".tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR (expected_initial_supply=$2::numeric AND creation_transaction_hash=$3))", token, *fact.Metadata.TotalSupply, creationTransaction)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() != 1 {
-		return ErrConflict
-	}
-	return nil
+	return retryCanonical(ctx, func() error {
+		if err := r.Discover(ctx, token, *fact.Metadata.Decimals, creation, false); err != nil {
+			return err
+		}
+		var same, missing bool
+		if err := r.pool.QueryRow(ctx, "SELECT COALESCE(expected_initial_supply=$2::numeric AND creation_transaction_hash=$3,false),expected_initial_supply IS NULL OR creation_transaction_hash IS NULL FROM "+r.schema+".tokens WHERE token=$1", token, *fact.Metadata.TotalSupply, creationTransaction).Scan(&same, &missing); err != nil {
+			return err
+		}
+		if same {
+			return nil
+		}
+		if !missing {
+			return ErrConflict
+		}
+		tag, err := r.pool.Exec(ctx, "UPDATE "+r.schema+".tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR creation_transaction_hash IS NULL) AND (expected_initial_supply IS NULL OR expected_initial_supply=$2::numeric) AND (creation_transaction_hash IS NULL OR creation_transaction_hash=$3)", token, *fact.Metadata.TotalSupply, creationTransaction)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			if err = r.pool.QueryRow(ctx, "SELECT expected_initial_supply=$2::numeric AND creation_transaction_hash=$3 FROM "+r.schema+".tokens WHERE token=$1", token, *fact.Metadata.TotalSupply, creationTransaction).Scan(&same); err != nil {
+				return err
+			}
+			if !same {
+				return ErrConflict
+			}
+		}
+		return nil
+	})
 }
 
 type CanonicalBatch struct {
@@ -288,6 +307,39 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 	if err != nil {
 		return out, err
 	}
+	err = retryCanonical(ctx, func() error {
+		var attemptErr error
+		out, attemptErr = r.catchUpCanonicalAtOnce(ctx, token, stream, through, limit)
+		return attemptErr
+	})
+	return out, err
+}
+
+func retryableCanonical(err error) bool {
+	var pgerr *pgconn.PgError
+	return errors.As(err, &pgerr) && (pgerr.Code == "40001" || pgerr.Code == "40P01")
+}
+
+func retryCanonical(ctx context.Context, run func() error) error {
+	for attempt := 0; ; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := run()
+		if !retryableCanonical(err) || attempt == 3 {
+			return err
+		}
+		timer := time.NewTimer(10 * time.Millisecond << attempt)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func (r *Repository) catchUpCanonicalAtOnce(ctx context.Context, token, stream, through string, limit int) (out CanonicalBatch, err error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		return out, err
@@ -317,9 +369,7 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 		watermark = bound
 	}
 	priorCoverage := out.Coverage
-	if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage='incomplete' WHERE token=$1", token); err != nil {
-		return out, err
-	}
+	storedCoverage := priorCoverage
 	out.Coverage = valueIncomplete
 	height, ti, li := "-1", "-1", "-1"
 	if len(previous) > 0 {
@@ -353,6 +403,12 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 		out.More = true
 		events = events[:limit]
 	}
+	if len(events) > 0 && storedCoverage != valueIncomplete {
+		if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage='incomplete' WHERE token=$1", token); err != nil {
+			return out, err
+		}
+		storedCoverage = valueIncomplete
+	}
 	results := make([]ApplyResult, 0, len(events))
 	for _, e := range events {
 		result, applyErr := r.ApplyCanonicalTransferTx(ctx, tx, e, stream)
@@ -361,6 +417,7 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 		}
 		results = append(results, result)
 		out.Revision, out.Coverage = result.Revision, result.Coverage
+		storedCoverage = result.Coverage
 		if result.Incident {
 			out.Incident = true
 			break
@@ -383,15 +440,22 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 				return out, err
 			}
 			if genesis {
-				if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage='complete' WHERE token=$1", token); err != nil {
-					return out, err
-				}
 				out.Coverage = valueComplete
 			}
 		}
 	}
+	if storedCoverage != out.Coverage {
+		if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage=$2 WHERE token=$1", token, out.Coverage); err != nil {
+			return out, err
+		}
+	}
 	if priorCoverage != out.Coverage {
 		if err = tx.QueryRow(ctx, "UPDATE "+r.schema+".tokens SET revision=revision+1 WHERE token=$1 RETURNING revision", token).Scan(&out.Revision); err != nil {
+			return out, err
+		}
+	}
+	if r.canonicalBeforeCommit != nil {
+		if err = r.canonicalBeforeCommit(ctx, tx); err != nil {
 			return out, err
 		}
 	}

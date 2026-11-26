@@ -3,100 +3,38 @@ package l16
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"os"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func liveRequired(t *testing.T, name string) string {
+type liveFixtureValues map[string]string
+
+func (values liveFixtureValues) required(t *testing.T, name string) string {
 	t.Helper()
-	value := os.Getenv(name)
+	value := values[name]
 	if value == "" {
 		t.Fatalf("%s required for real PostgreSQL/committed Anvil/identity provider qualification", name)
 	}
 	return value
 }
 
-func liveProductionFixture(t *testing.T, prefix string) (context.Context, *LiveTransferWorker, auth.IdentityPrincipal) {
+func liveProductionFixture(t *testing.T, prefix string) (context.Context, *LiveTransferWorker, auth.IdentityPrincipal, liveFixtureValues) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	t.Cleanup(cancel)
-	pool, e := pgxpool.New(ctx, liveRequired(t, "L16_TEST_DSN"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	t.Cleanup(pool.Close)
-	rpc, e := ethclient.DialContext(ctx, liveRequired(t, "L16_BASELINE_RPC"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	t.Cleanup(rpc.Close)
-	secondURL := liveRequired(t, "L16_SECOND_RPC")
-	if secondURL == os.Getenv("L16_BASELINE_RPC") {
-		t.Fatal("independent second node endpoint required")
-	}
-	second, e := ethclient.DialContext(ctx, secondURL)
-	if e != nil {
-		t.Fatal(e)
-	}
-	t.Cleanup(second.Close)
-	epoch, e := strconv.ParseInt(liveRequired(t, "L16_RECOVERY_EPOCH"), 10, 64)
-	if e != nil {
-		t.Fatal(e)
-	}
-	guard, e := queue.NewEpochGuard("recovery", epoch, liveRequired(t, "L16_RECOVERY_REGION"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	schema := liveRequired(t, "L16_BASELINE_SCHEMA")
-	authority, e := NewBaselineAuthorityWithEpochGuard(pool, rpc, schema, liveRequired(t, "L16_BASELINE_STREAM"), "live_pnl", liveRequired(t, "L16_BASELINE_GENERATION"), liveRequired(t, "L16_BASELINE_OWNER"), "inventory-v1", guard.Assert)
-	if e != nil {
-		t.Fatal(e)
-	}
-	outbox, e := delivery.NewStoreWithEpochGuard(pool, schema, delivery.Policy{Subjects: map[string]bool{RebuildSubject: true, "portfolio.snapshot.v2": true}, EventTypes: map[string]bool{RebuildSubject: true, "portfolio.snapshot.v2": true}}, guard.Assert)
-	if e != nil {
-		t.Fatal(e)
-	}
-	service, e := NewService(authority, second, [2]string{liveRequired(t, "L16_NODE_ONE_ID"), liveRequired(t, "L16_NODE_TWO_ID")}, liveRequired(t, "L16_RELEASE_DIGEST"), outbox)
-	if e != nil {
-		t.Fatal(e)
-	}
-	identity := auth.HTTPIdentityAuthority{Endpoint: liveRequired(t, "L16_IDENTITY_URL"), ServiceToken: liveRequired(t, "L16_IDENTITY_SERVICE_TOKEN"), Client: &http.Client{Timeout: 2 * time.Second}}
-	worker, e := NewLiveTransferWorker(service, l17.Repository{Pool: pool}, identity, 1)
-	if e != nil {
-		t.Fatal(e)
-	}
-	request, e := http.NewRequestWithContext(ctx, "GET", "http://localhost/v3/me/portfolio", nil)
-	if e != nil {
-		t.Fatal(e)
-	}
-	request.Header.Set("Authorization", "Bearer "+liveRequired(t, prefix+"OWNER_ACCESS_TOKEN"))
-	principal, e := identity.AuthenticateRequest(ctx, request)
-	if e != nil {
-		t.Fatal(e)
-	}
-	if principal.Wallet != liveRequired(t, prefix+"WALLET") {
-		t.Fatal("real identity wallet does not own chain fixture")
-	}
-	return ctx, worker, principal
+	return localCanonicalWorker(t, prefix)
 }
 
 func TestLiveCanonicalExternalGiftPublishesAtomicUnknownBasis(t *testing.T) {
-	ctx, worker, p := liveProductionFixture(t, "L16_GIFT_")
+	parallelDatabaseTest(t)
+	ctx, worker, p, values := liveProductionFixture(t, "L16_GIFT_")
 	summary, e := worker.RebuildOwned(ctx, p)
 	if e != nil {
 		t.Fatal(e)
 	}
-	token := liveRequired(t, "L16_GIFT_TOKEN")
+	token := values.required(t, "L16_GIFT_TOKEN")
 	a := worker.service.authority
 	var positionRaw []byte
 	if e = a.pool.QueryRow(ctx, `SELECT payload FROM `+a.table("portfolio_snapshot_rows")+` WHERE snapshot_id=$1 AND payload->>'tokenAddress'=$2`, summary.SnapshotID, token).Scan(&positionRaw); e != nil {
@@ -145,12 +83,13 @@ func TestLiveCanonicalExternalGiftPublishesAtomicUnknownBasis(t *testing.T) {
 }
 
 func TestLiveDenseCanonicalTransfersUseCommittedReceiptPages(t *testing.T) {
-	ctx, worker, p := liveProductionFixture(t, "L16_DENSE_")
+	parallelDatabaseTest(t)
+	ctx, worker, p, values := liveProductionFixture(t, "L16_DENSE_")
 	summary, e := worker.RebuildOwned(ctx, p)
 	if e != nil {
 		t.Fatal(e)
 	}
-	expected, e := strconv.Atoi(liveRequired(t, "L16_DENSE_EXPECTED_HISTORY_COUNT"))
+	expected, e := strconv.Atoi(values.required(t, "L16_DENSE_EXPECTED_HISTORY_COUNT"))
 	if e != nil || expected <= 10000 {
 		t.Fatal("dense fixture must contain more than10000 genuine canonical token movements", e)
 	}
@@ -160,7 +99,7 @@ func TestLiveDenseCanonicalTransfersUseCommittedReceiptPages(t *testing.T) {
 		t.Fatal(count, expected, e)
 	}
 	var checkpointRaw []byte
-	if e = a.pool.QueryRow(ctx, `SELECT c.payload FROM `+a.table("inventory_l16_checkpoints_v2")+` c JOIN `+a.table("inventory_l16_active_v2")+` active USING(generation,partition,snapshot_digest) WHERE active.partition=$1 ORDER BY c.day DESC LIMIT 1`, "125:"+p.Wallet+":"+liveRequired(t, "L16_DENSE_TOKEN")).Scan(&checkpointRaw); e != nil {
+	if e = a.pool.QueryRow(ctx, `SELECT c.payload FROM `+a.table("inventory_l16_checkpoints_v2")+` c JOIN `+a.table("inventory_l16_active_v2")+` active USING(generation,partition,snapshot_digest) WHERE active.partition=$1 ORDER BY c.day DESC LIMIT 1`, "125:"+p.Wallet+":"+values.required(t, "L16_DENSE_TOKEN")).Scan(&checkpointRaw); e != nil {
 		t.Fatal(e)
 	}
 	var payload struct {
@@ -172,12 +111,13 @@ func TestLiveDenseCanonicalTransfersUseCommittedReceiptPages(t *testing.T) {
 }
 
 func TestLiveCanonicalMixedBasisSaleDoesNotDoubleCountTransfer(t *testing.T) {
-	ctx, worker, p := liveProductionFixture(t, "L16_MIXED_")
+	parallelDatabaseTest(t)
+	ctx, worker, p, values := liveProductionFixture(t, "L16_MIXED_")
 	summary, e := worker.RebuildOwned(ctx, p)
 	if e != nil {
 		t.Fatal(e)
 	}
-	active, e := worker.service.Active(ctx, p.Wallet, liveRequired(t, "L16_MIXED_TOKEN"))
+	active, e := worker.service.Active(ctx, p.Wallet, values.required(t, "L16_MIXED_TOKEN"))
 	if e != nil {
 		t.Fatal(e)
 	}

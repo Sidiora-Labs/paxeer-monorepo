@@ -177,7 +177,7 @@ def test_materializer_test_authority(tmp_path):
     catalog_input, supplementary = module.derive_authority(tmp_path)
     selected = json.loads(catalog_input.read_bytes())
     sections = selected["sections"]
-    assert tuple(len(sections[key]) for key in ("schema", "endpoint", "stream", "error")) == (59, 108, 12, 16)
+    assert tuple(len(sections[key]) for key in ("schema", "endpoint", "stream", "error")) == (59, 108, 12, 17)
     record = json.loads(module.RECORD.read_bytes())
     assert set(sections["endpoint"]) == set(record["catalog"]["endpoint"])
     for name, endpoint in sections["endpoint"].items():

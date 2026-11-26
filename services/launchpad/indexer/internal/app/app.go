@@ -104,6 +104,11 @@ func (a *App) SourceCapacityProviders() source.CapacityProviders {
 	return source.CapacityProviders{Live: a.history.RPC, Historical: a.history, Head: a.sources.Head, Processor: a.Processor, Pool: a.pool}
 }
 
+func (p *pauseObservations) configureInventoryCoverage(realm string, batchSource processor.QualifiedBatchSource) {
+	recovery, ok := batchSource.(*recoveringQualifiedSource)
+	p.inventoryCovered = realm == valueProduction && ok && recovery != nil
+}
+
 // New runs migrations and builds every component for the configured run mode.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
 	cfgChainIDInt32, conversionErr := checked.Convert[int32](cfg.ChainID)
@@ -365,6 +370,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		lifecycleSecrets := map[string]string{}
+		lifecycle.logEndpointReferences(logger)
 		for endpoint, reference := range lifecycle.EndpointSecretReferences {
 			value, e := provider.GetRequired(ctx, reference)
 			if e != nil {
@@ -627,6 +633,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			deps.HistoricalRequests = lifecycle.BackfillRequests
 		}
 		pauses = &pauseObservations{pool: pool, rpc: runtimeRPC, stream: d.CanonicalStreamID, epochs: lifecycle.Committed.Epochs, discoveredEpochs: discoveredEpochs}
+		pauses.configureInventoryCoverage(doc.Realm, liveQualified)
 		pauseWorkers = newRuntimeWorkers(logger)
 		pauseWorkers.AddPeriodic("pause_observations", time.Second, false, pauses.refresh)
 		secretChecks["workers"] = workers.Ready

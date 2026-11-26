@@ -20,17 +20,14 @@ import { fundingRateFromJsonNumber } from "@paxeer-network/paxeer-backend/core/p
 import { useEffect, useState } from "react";
 
 /* ══════════════════════════════════════════════════════════════════════
-   Dedicated market stream for symbols whose order book + trade tape +
-   candles are served by per-symbol Railway WS boxes (one host per
-   symbol — same hosts that also serve UDF REST `/history` etc.).
+   Dedicated market stream for order books, trades and stats on
+   per-symbol gateway sockets.
 
    These servers speak a simple topic-based protocol:
 
      client → server :
         { event: "subscribe",   topic: "SID@orderbook" }
         { event: "subscribe",   topic: "SID@trade" }
-        { event: "subscribe",   topic: "SID@kline_5m", limit: 1000 }
-        { event: "unsubscribe", topic: "SID@kline_5m" }
         { event: "ping" }
 
      server → client :
@@ -44,14 +41,10 @@ import { useEffect, useState } from "react";
           data:  { trade: { side, price, size, trade_time } } }   // new shape
         { topic: "SID@trade",
           data:  { side: "BUY"|"SELL", price, size, trade_time } } // legacy shape
-        { topic: "SID@kline_5m",  snapshot: true,
-          data:  { symbol, interval, candles: [[t,o,h,l,c,v,closed], ...] } }
-        { topic: "SID@kline_5m",
-          data:  { symbol, interval, candle: [t,o,h,l,c,v,closed] } }
         { event: "welcome" | "subscribed" | "unsubscribed" | "pong" | "error" }
 
-   A single WS per symbol is multiplexed across every subscriber (orderbook,
-   trades, AND any number of kline intervals) via a module-level registry,
+   A single WS per symbol is multiplexed across orderbook, trade and stats
+   subscribers via a module-level registry,
    mirroring the pattern used in `useRealtimePrices`.
    ══════════════════════════════════════════════════════════════════════ */
 
@@ -59,7 +52,7 @@ const MARKET_WS_ORIGIN = getStreamSocketOrigin("");
 
 /**
  * Symbols that have a dedicated upstream behind the market proxy. Each
- * one carries orderbook, trade tape, AND kline streams on the same WS.
+ * one carries orderbook, trade tape and stats on the same WS.
  * Adding a new symbol here must be matched with a `$upstream_host` row
  * in `proxy/nginx.conf.template`.
  */
@@ -160,49 +153,8 @@ export interface SidPaxStats {
   open_interest: number;
 }
 
-/**
- * Single kline candle in the compact tuple shape exposed by the
- * Railway candle servers, decoded into a structured object:
- *   `[time, open, high, low, close, volume, closed]`
- * `time` is unix seconds (bucket open time). `closed` is `1` once the
- * bucket is finalized, `0` while it is still in-progress.
- */
-export interface SidPaxCandle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  closed: 0 | 1;
-}
-
-/**
- * Callback bundle passed to `subscribeKline`. `onSnapshot` fires once
- * after the WS server delivers the historical bars for the topic, and
- * `onUpdate` fires for every subsequent live candle update.
- */
-export interface SidPaxKlineSubscriber {
-  onGap?: () => void;
-  onSnapshot?: (candles: SidPaxCandle[]) => void;
-  onUpdate?: (candle: SidPaxCandle) => void;
-}
-
 // ── Internal registry ─────────────────────────────────────────────────
-interface KlineTopicState {
-  topic: string; // e.g. "BTC@kline_5m"
-  interval: string; // e.g. "5m"
-  limit: number; // requested snapshot size
-  subscribers: Set<SidPaxKlineSubscriber>;
-  /** Most recent snapshot delivered by the server, kept so late
-   *  subscribers don't have to wait for the next live frame. */
-  cachedSnapshot: SidPaxCandle[] | null;
-  /** Whether a `subscribe` frame has been sent on the current socket. */
-  sentOnSocket: boolean;
-}
-
 interface SymbolStream {
-  hasConnected?: boolean;
   /** A sequence gap closed the socket; the book is fetched from REST once the socket is down. */
   bookGap?: boolean;
   url: string;
@@ -212,8 +164,6 @@ interface SymbolStream {
   subsTrades: Set<(tr: SidPaxTrade[]) => void>;
   statsData: SidPaxStats | null;
   subsStats: Set<(s: SidPaxStats | null) => void>;
-  /** Active kline topics keyed by interval string (e.g. "5m"). */
-  klines: Map<string, KlineTopicState>;
   ws: WebSocket | null;
   reconnectTimer: CancelTask | null;
   lingerTimer: ReturnType<typeof setTimeout> | null;
@@ -252,7 +202,6 @@ function ensureStream(symbol: string): SymbolStream | null {
     subsTrades: new Set(),
     statsData: null,
     subsStats: new Set(),
-    klines: new Map(),
     ws: null,
     reconnectTimer: null,
     lingerTimer: null,
@@ -297,37 +246,10 @@ function connect(symbol: string, s: SymbolStream) {
   );
 
   ws.addEventListener("open", () => {
-    if (s.hasConnected)
-      s.klines.forEach((k) =>
-        k.subscribers.forEach((sub) => {
-          try {
-            sub.onGap?.();
-          } catch {
-            /* independent subscribers */
-          }
-        }),
-      );
-    s.hasConnected = true;
     try {
       ws.send(JSON.stringify({ event: "subscribe", topic: orderbookTopic }));
       ws.send(JSON.stringify({ event: "subscribe", topic: tradeTopic }));
       ws.send(JSON.stringify({ event: "subscribe", topic: statsTopic }));
-      // Re-subscribe to every active kline topic on (re)connect. Each
-      // topic carries its own snapshot + live stream.
-      for (const k of s.klines.values()) {
-        try {
-          ws.send(
-            JSON.stringify({
-              event: "subscribe",
-              topic: k.topic,
-              limit: k.limit,
-            }),
-          );
-          k.sentOnSocket = true;
-        } catch {
-          k.sentOnSocket = false;
-        }
-      }
     } catch {
       /* socket may have closed between open and first send */
     }
@@ -405,42 +327,6 @@ function connect(symbol: string, s: SymbolStream) {
       return;
     }
 
-    // Kline frame — snapshot or live. Topic format: `<SYMBOL>@kline_<int>`.
-    if (
-      typeof msg.topic === "string" &&
-      msg.topic.startsWith(`${symbol}@kline_`) &&
-      msg.data
-    ) {
-      const interval = msg.topic.slice(`${symbol}@kline_`.length);
-      const k = s.klines.get(interval);
-      if (!k) return;
-      if (msg.snapshot && Array.isArray(msg.data.candles)) {
-        const candles = msg.data.candles
-          .map(parseCandleTuple)
-          .filter((c: SidPaxCandle | null): c is SidPaxCandle => c !== null);
-        k.cachedSnapshot = candles;
-        k.subscribers.forEach((sub) => {
-          try {
-            sub.onSnapshot?.(candles);
-          } catch {
-            /* ignore */
-          }
-        });
-      } else if (msg.data.candle) {
-        const candle = parseCandleTuple(msg.data.candle);
-        if (candle) {
-          k.subscribers.forEach((sub) => {
-            try {
-              sub.onUpdate?.(candle);
-            } catch {
-              /* ignore */
-            }
-          });
-        }
-      }
-      return;
-    }
-
     // Control frames — welcome / subscribed / unsubscribed / pong / error
     // are informational only.
   });
@@ -453,10 +339,6 @@ function connect(symbol: string, s: SymbolStream) {
     s.subsOrderbook.forEach((cb) => cb(null));
     s.subsTrades.forEach((cb) => cb([]));
     s.subsStats.forEach((cb) => cb(null));
-    s.klines.forEach((k) => {
-      k.sentOnSocket = false;
-      k.cachedSnapshot = null;
-    });
     if (s.pingTimer) {
       clearInterval(s.pingTimer);
       s.pingTimer = null;
@@ -507,10 +389,7 @@ function scheduleReconnect(symbol: string, s: SymbolStream) {
 
 function releaseIfIdle(symbol: string, s: SymbolStream) {
   const listeners = () =>
-    s.subsOrderbook.size +
-    s.subsTrades.size +
-    s.subsStats.size +
-    [...s.klines.values()].reduce((n, k) => n + k.subscribers.size, 0);
+    s.subsOrderbook.size + s.subsTrades.size + s.subsStats.size;
   if (listeners() || s.lingerTimer) return;
   s.lingerTimer = setTimeout(() => {
     s.lingerTimer = null;
@@ -575,35 +454,6 @@ export function parseSidPaxStats(
     // backward-compat aliases
     volume_24h: volumeUsd,
     open_interest: oiUsd,
-  };
-}
-
-function parseCandleTuple(raw: unknown): SidPaxCandle | null {
-  if (!Array.isArray(raw) || raw.length < 6) return null;
-  const time = Number(raw[0]);
-  const open = Number(raw[1]);
-  const high = Number(raw[2]);
-  const low = Number(raw[3]);
-  const close = Number(raw[4]);
-  const volume = Number(raw[5]);
-  const closed = Number(raw[6] ?? 1) === 1 ? 1 : 0;
-  if (
-    !Number.isFinite(time) ||
-    !Number.isFinite(open) ||
-    !Number.isFinite(high) ||
-    !Number.isFinite(low) ||
-    !Number.isFinite(close)
-  ) {
-    return null;
-  }
-  return {
-    time,
-    open,
-    high,
-    low,
-    close,
-    volume: Number.isFinite(volume) ? volume : 0,
-    closed,
   };
 }
 
@@ -731,30 +581,7 @@ export function useSidPaxStats(symbol: string | undefined): SidPaxStats | null {
   return stats;
 }
 
-// ── Kline streaming API ───────────────────────────────────────────────
-
-const DEFAULT_KLINE_LIMIT = 1000;
-
-/**
- * True if the given symbol has a dedicated Railway WS that carries kline
- * data (in addition to orderbook + trade tape).
- */
-export function hasDedicatedKlineStream(
-  symbol: string | undefined | null,
-): boolean {
-  return hasDedicatedMarketStream(symbol);
-}
-
-/**
- * Map a TradingView resolution string (e.g. `"1"`, `"5"`, `"60"`, `"1D"`)
- * to the corresponding Railway kline topic interval (e.g. `"1m"`, `"5m"`,
- * `"1h"`, `"1D"`). Returns `null` if the resolution is not supported by the
- * candle servers (e.g. `"1M"` monthly), in which case callers should fall
- * back to REST.
- *
- * Supported per `/config`:
- *   `1, 2, 3, 5, 15, 30, 60, 240, 480, D, W`
- */
+/** Map TradingView resolutions to canonical candle intervals for series keys. */
 export function tvResolutionToKlineInterval(
   resolution: string | undefined | null,
 ): string | null {
@@ -788,100 +615,4 @@ export function tvResolutionToKlineInterval(
     default:
       return null;
   }
-}
-
-/**
- * Subscribe to a per-symbol kline topic on the dedicated Railway WS.
- *
- * Multiplexes onto the existing `SymbolStream` socket — multiple callers
- * for the same `(symbol, interval)` share a single server-side
- * subscription. The first caller triggers a `subscribe` frame; the last
- * caller's unsubscribe sends the matching `unsubscribe` frame and frees
- * the topic state.
- *
- * Snapshot delivery: if the server has already delivered a snapshot for
- * the topic before this caller arrived, the cached snapshot is dispatched
- * synchronously on the next microtask so chart code doesn't need to wait
- * for the server to re-send it.
- *
- * Returns an unsubscribe function. Returns a no-op if the symbol has no
- * dedicated WS or if the call happens during SSR.
- */
-export function subscribeKline(
-  symbol: string | undefined | null,
-  interval: string | undefined | null,
-  subscriber: SidPaxKlineSubscriber,
-  limit?: number,
-): () => void {
-  if (!symbol || !interval) return () => {};
-  const s = ensureStream(symbol);
-  if (!s) return () => {};
-
-  const symKey = symbol.toUpperCase();
-  const topic = `${symKey}@kline_${interval}`;
-  const desiredLimit = Math.min(
-    5000,
-    Math.max(1, Math.floor(limit ?? DEFAULT_KLINE_LIMIT)),
-  );
-
-  let k = s.klines.get(interval);
-  if (!k) {
-    k = {
-      topic,
-      interval,
-      limit: desiredLimit,
-      subscribers: new Set(),
-      cachedSnapshot: null,
-      sentOnSocket: false,
-    };
-    s.klines.set(interval, k);
-  } else if (desiredLimit > k.limit) {
-    // Bump the requested snapshot size if a later caller wants more bars.
-    k.limit = desiredLimit;
-  }
-
-  k.subscribers.add(subscriber);
-
-  // Send the subscribe frame if the socket is open and we haven't yet.
-  if (!k.sentOnSocket && s.ws && s.ws.readyState === WebSocket.OPEN) {
-    try {
-      s.ws.send(
-        JSON.stringify({ event: "subscribe", topic: k.topic, limit: k.limit }),
-      );
-      k.sentOnSocket = true;
-    } catch {
-      // Will be retried by the open handler on next reconnect.
-    }
-  }
-
-  // Replay cached snapshot to the new subscriber.
-  if (k.cachedSnapshot && subscriber.onSnapshot) {
-    const snap = k.cachedSnapshot;
-    queueMicrotask(() => {
-      try {
-        subscriber.onSnapshot?.(snap);
-      } catch {
-        /* ignore */
-      }
-    });
-  }
-
-  return () => {
-    if (!k) return;
-    k.subscribers.delete(subscriber);
-    if (k.subscribers.size === 0) {
-      // Last subscriber left — tell the server to stop sending this topic
-      // and drop our local state so the next subscriber gets a fresh
-      // snapshot.
-      if (s.ws && s.ws.readyState === WebSocket.OPEN && k.sentOnSocket) {
-        try {
-          s.ws.send(JSON.stringify({ event: "unsubscribe", topic: k.topic }));
-        } catch {
-          /* ignore */
-        }
-      }
-      s.klines.delete(interval);
-      releaseIfIdle(symKey, s);
-    }
-  };
 }

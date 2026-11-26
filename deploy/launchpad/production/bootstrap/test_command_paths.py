@@ -70,14 +70,14 @@ def test_bootstrap_command_paths_preserve_safety_conditions():
     normalized = " ".join(text.split())
     for condition in (
         "Never fund these accounts outside this fixture.",
-        "All host ports bind to `127.0.0.1`.",
+        "All host ports bind to IPv4 loopback.",
         "No existing service, production volume, `.env`, or chain data is mounted.",
-        "The coordinator starts this stack once, after reviewing this configuration:",
+        "Start the stack with:",
         "An initialization failure fails startup.",
-        "contract deployment and application address configuration remain explicit coordinator prerequisites.",
-        "Verify the pinned images can be obtained on a fresh host before claiming cold-host reproduction.",
+        "contract deployment and application address configuration require explicit deployment configuration.",
+        "is digest-pinned.",
         "Deleting fixture volumes is a separate destructive local cleanup decision; the provided scripts never remove volumes.",
-        "Concurrent independent fixture stacks require explicitly reviewed project names and host-port overrides; the default stack is coordinator-owned to prevent duplicate starts.",
+        "The checked-in Compose project is",
     ):
         assert condition in normalized
     for link in re.findall(r"\]\(([^)]+)\)", text):

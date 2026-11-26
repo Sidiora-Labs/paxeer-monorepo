@@ -616,13 +616,15 @@ mod native_chain_boundary {
             "../../../../../sdk/wallet/test/fixtures/endpoint/available.json"
         ))
         .unwrap_or_else(|error| panic!("required value: {error:?}"));
-        gateway
+        let mut record = gateway
             .as_array()
             .unwrap_or_else(|| panic!("required value"))
             .iter()
             .find(|record| record["request"]["method"] == "px_getAccount")
             .unwrap_or_else(|| panic!("required value"))
-            .clone()
+            .clone();
+        record["response"]["result"]["paxeer"]["height"] = json!(2);
+        record
     }
 
     #[test]
@@ -1076,16 +1078,7 @@ mod native_chain_boundary {
     #[test]
     fn account_balance_shape_consumes_recorded_gateway_through_public_route() {
         let chain = NativeChain::scenario("balance");
-        let records: Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/wallet/test/fixtures/endpoint/available.json"
-        ))
-        .unwrap_or_else(|error| panic!("required value: {error:?}"));
-        let record = records
-            .as_array()
-            .unwrap_or_else(|| panic!("required value"))
-            .iter()
-            .find(|record| record["request"]["method"] == "px_getAccount")
-            .unwrap_or_else(|| panic!("required value"));
+        let record = gateway_account_record();
         let selector = record["request"]["params"][0]
             .as_str()
             .unwrap_or_else(|| panic!("required value"));

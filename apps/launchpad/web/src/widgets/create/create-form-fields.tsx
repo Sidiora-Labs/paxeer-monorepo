@@ -8,7 +8,8 @@ import type { CreationDraftV2 } from './creation-storage';
 import { OpticalPresetPicker, type OpticalRegistryState } from './optical-preset-picker';
 import { QuotePairIndicator } from './quote-pair-indicator';
 import { SocialLinksDisclosure } from './social-links-disclosure';
-import { StrategyPicker } from './strategy-picker';
+import { StrategyPicker, feeStrategyLabel } from './strategy-picker';
+import { OptionRow } from './option-row';
 
 export const NAME_MAX_BYTES = 50;
 export const SYMBOL_MAX_BYTES = 10;
@@ -26,6 +27,7 @@ const fieldCopy: Record<string, string> = {
 
 export function fieldMessage(field: string, code: string | undefined): string | null {
   if (!code) return null;
+  if (code === 'unsafe_text' && (field === 'name' || field === 'symbol')) return `${field === 'name' ? 'Name' : 'Ticker'} must not contain control or text direction characters`;
   return code.includes(' ') ? code : fieldCopy[field] ?? code;
 }
 
@@ -39,7 +41,7 @@ export interface CreateFormFieldsProps {
   opticalReason: (presetId: string) => string | null;
 }
 
-/** Shown inside the field once the user has typed, so the empty form keeps the reference's density. */
+/** Counts appear after typing to keep the empty fields quiet. */
 export function InlineCounter({ id, count, max }: { id: string; count: number; max: number }) {
   if (count === 0) return null;
   const tone = count >= max ? 'text-danger' : count >= max * 0.9 ? 'text-warning' : 'text-text-faint';
@@ -90,19 +92,20 @@ export function CreateFormFields({ draft, errors, locked, onEdit, registeredOpti
           disabled={locked}
           error={fieldMessage('socialLinks', errors.socialLinks)}
         />
-        <QuotePairIndicator />
-        <FeeRightsNote />
-        <StrategyPicker value={draft.feeStrategy} onChange={value => onEdit('feeStrategy', value)} disabled={locked} />
-        {errors.feeStrategy ? <p role="alert" className="text-xs text-danger">{errors.feeStrategy}</p> : null}
-        <OpticalPresetPicker
-          value={draft.opticalSelection}
-          onChange={value => onEdit('opticalSelection', value)}
-          registered={registeredOpticals}
-          registry={registry}
-          reasonFor={opticalReason}
-          disabled={locked}
-        />
-        {errors.opticalSelection ? <p role="alert" className="text-xs text-danger">{errors.opticalSelection}</p> : null}
+        <OptionRow id="create-pair" label="Pair" choice="USDL">
+          <QuotePairIndicator />
+        </OptionRow>
+        <CreatorRewardsOptions id="create-rewards" value={draft.feeStrategy} onChange={value => onEdit('feeStrategy', value)} disabled={locked} error={errors.feeStrategy} />
+        <OptionRow id="create-rules" label="Trading rules" choice={draft.opticalSelection === 'standard' ? 'Standard' : draft.opticalSelection} error={errors.opticalSelection} failed={registry.state === 'error'}>
+          <OpticalPresetPicker
+            value={draft.opticalSelection}
+            onChange={value => onEdit('opticalSelection', value)}
+            registered={registeredOpticals}
+            registry={registry}
+            reasonFor={opticalReason}
+            disabled={locked}
+          />
+        </OptionRow>
       </div>
     </section>
   );
@@ -110,20 +113,35 @@ export function CreateFormFields({ draft, errors, locked, onEdit, registeredOpti
 
 export const FEE_RIGHTS_DETAIL = 'When you create a coin, you get a creator rewards pass (an NFT) in your wallet. Whoever holds it can claim the coin\'s trading fees, change where they go, or pass it on to someone else.';
 
-/** One line plus an info tooltip, at the reference's "Share creator rewards" density. */
+/** Explains the rewards pass without adding another panel. */
 export function FeeRightsNote() {
   return (
-    <div className="flex flex-wrap items-start gap-3 rounded-md bg-surface-2 px-3 py-2.5">
+    <div className="flex flex-wrap items-start gap-3">
       <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-surface-3 text-text-muted">
         <KeyRound className="size-icon-md" />
       </span>
       <div className="min-w-0 flex-1 basis-40">
-        <p className="flex flex-wrap items-center gap-1 text-sm font-bold text-text">
+        <p className="flex flex-wrap items-center gap-1 text-sm font-semibold text-text">
           Creator rewards
           <InfoTip label="About creator rewards" content={FEE_RIGHTS_DETAIL} />
         </p>
         <p className="text-xs text-text-muted">Earn trading fees from your coin. You can change where they go from the coin page later.</p>
       </div>
     </div>
+  );
+}
+
+export function CreatorRewardsOptions({ id, value, onChange, disabled, error }: {
+  id: string;
+  value: CreationDraftV2['feeStrategy'];
+  onChange: (value: CreationDraftV2['feeStrategy']) => void;
+  disabled?: boolean;
+  error?: string;
+}) {
+  return (
+    <OptionRow id={id} label="Creator rewards" choice={feeStrategyLabel(value)} error={error}>
+      <FeeRightsNote />
+      <StrategyPicker value={value} onChange={onChange} disabled={disabled} />
+    </OptionRow>
   );
 }

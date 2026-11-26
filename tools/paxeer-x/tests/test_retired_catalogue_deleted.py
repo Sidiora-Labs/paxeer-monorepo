@@ -12,28 +12,27 @@ DELETED_TREES = {
         "cmd/layerxd",
         "cmd/layerx-handover",
         "cmd/layerx-verify",
-        "tests/daemon",
     ),
     "guarantor-runtime": ("cmd/layerx-guarantor",),
-    "lni": ("cmd/layerxd",),
+    "lni": ("services/agent/crates/layerx-client/src/lni", "cmd/layerxd"),
     "replica": ("docker/relay-archive",),
     "intent-ingester": ("docker/intent-ingester",),
 }
 
 
 class RetiredCatalogueDeletedTest(unittest.TestCase):
-    def test_remaining_lni_tree_records_its_retiring_task(self):
+    def test_lni_tree_is_recorded_as_deleted(self):
         catalogue = json.loads((ROOT / CATALOGUE).read_text(encoding="utf-8"))
         entry = catalogue["components"]["lni"]
         tree = "services/agent/crates/layerx-client/src/lni"
-        self.assertEqual(entry["retiring_trees"], {tree: "9.24.7"})
-        self.assertNotIn(tree, entry["deleted_trees"])
+        self.assertNotIn("retiring_trees", entry)
+        self.assertIn(tree, entry["deleted_trees"])
+        self.assertFalse((ROOT / tree).exists() or (ROOT / tree).is_symlink())
         result = subprocess.run(
-            ["python3", CHECKER, "--deleted", "--component", "lni", "--path", tree],
+            ["python3", CHECKER, "--deleted", "--component", "lni", "--path", "services/agent"],
             cwd=ROOT, capture_output=True, text=True, timeout=60,
         )
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn(tree + ":1: lni: tree retirement pending task 9.24.7", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_catalogue_valid_and_self_test_passes(self):
         result = subprocess.run(

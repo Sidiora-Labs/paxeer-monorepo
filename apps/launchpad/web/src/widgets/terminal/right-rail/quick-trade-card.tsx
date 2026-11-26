@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useRef, useState } from 'react';
 import { Zap } from 'lucide-react';
 import { formatUnits } from 'viem';
@@ -54,7 +55,7 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
   const snapshot = usePoolSnapshot(poolAddress);
   const instant = useInstantTrade();
   const side: TradeSide = t.isBuy ? 'buy' : 'sell';
-  const tokenSymbol = snapshot.data?.token?.symbol?.trim() || t.tokenName;
+  const tokenSymbol = displayCoinText(snapshot.data?.token?.symbol, snapshot.data?.pool.tokenAddress ?? t.tokenAddress);
   const spendSymbol = t.isBuy ? 'USDL' : tokenSymbol;
   const [armed, setArmed] = useState<Armed | null>(null);
   const [instantNote, setInstantNote] = useState<string | null>(null);
@@ -133,7 +134,7 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
 
   return (
     <>
-      <form aria-label="Quick trade" aria-busy={t.isPending || undefined} onSubmit={event => event.preventDefault()} className="flex flex-col gap-2 rounded-md bg-surface-1 p-2">
+      <form aria-label="Quick trade" aria-busy={t.isPending || undefined} onSubmit={event => event.preventDefault()} className="flex flex-col gap-2 rounded-none bg-surface-1 p-2">
         <TradeTabs
           side={side}
           onSwitch={next => { setArmed(null); t.switchMode(next === 'buy'); }}
@@ -185,7 +186,9 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
           ) : null}
         </div>
 
-        <ActionButton state={action} side={side} onClick={onAction} />
+        {action.kind === 'connect' || action.kind === 'sign-in'
+          ? <Button variant="inverse" size="lg" fullWidth onClick={onAction}>{actionLabel(action)}</Button>
+          : <ActionButton state={action} side={side} onClick={onAction} />}
         <FeeFooter feePercent={t.feePercent} slippageBps={t.slippageBps} feeComponentsRaw={t.feeAmt} />
         <TransactionStatus journey={t.journey} state={t.journeyState} />
       </form>

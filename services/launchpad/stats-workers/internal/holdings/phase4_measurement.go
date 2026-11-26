@@ -410,7 +410,7 @@ func phase4Observe(ctx context.Context, pg *pgxpool.Pool, js nats.JetStreamConte
 	if err = pg.QueryRow(ctx, `SELECT w.raw_complete_height::text,l.expires_at>clock_timestamp() AND l.fence_token>0 AND l.owner_instance<>'',EXISTS(SELECT 1 FROM indexer.indexer_committed_heads h WHERE h.chain_id=125 AND h.stream_id=$1 AND h.height=w.typed_complete_height AND h.integrity='healthy') FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`, p.SourceStream).Scan(&observation.RawSourceHeight, &observation.SourceLeaseAlive, &observation.CanonicalHeadHealthy); err != nil {
 		return 0, err
 	}
-	query := `SELECT count(*),(percentile_disc(0.99) WITHIN GROUP (ORDER BY extract(epoch FROM (pg_xact_commit_timestamp(t.xmin)-pg_xact_commit_timestamp(c.xmin)))*1000))::text,count(*) FILTER (WHERE pg_xact_commit_timestamp(t.xmin) IS NULL OR pg_xact_commit_timestamp(c.xmin) IS NULL) FROM ` + pgx.Identifier{p.HolderSchema}.Sanitize() + `.transfers t JOIN indexer.indexer_ingest_commits c ON c.chain_id=125 AND c.stream_id=$1 AND (t.event->>'height')::bigint>c.previous_height AND (t.event->>'height')::bigint<=c.last_complete_height WHERE pg_xact_commit_timestamp(c.xmin)>=$2`
+	query := `SELECT count(*),(percentile_disc(0.99) WITHIN GROUP (ORDER BY extract(epoch FROM (pg_xact_commit_timestamp(t.xmin)-pg_xact_commit_timestamp(c.xmin)))*1000))::text,count(*) FILTER (WHERE pg_xact_commit_timestamp(t.xmin) IS NULL OR pg_xact_commit_timestamp(c.xmin) IS NULL) FROM ` + pgx.Identifier{p.HolderSchema}.Sanitize() + `.transfers t JOIN LATERAL (WITH bounds AS MATERIALIZED (SELECT (t.event->>'height')::bigint height) SELECT c.xmin FROM indexer.indexer_ingest_commits c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.previous_height<(SELECT height FROM bounds) AND c.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(c.previous_height,c.last_complete_height)::numeric,greatest(c.previous_height,c.last_complete_height)::numeric,'[]') @> (t.event->>'height')::numeric) c ON true WHERE pg_xact_commit_timestamp(c.xmin)>=$2`
 	if err = pg.QueryRow(ctx, query, p.SourceStream, started).Scan(&observation.HolderLagRows, &observation.LagP99MS, &observation.MissingCommitTimestamps); err != nil {
 		return 0, err
 	}
@@ -418,7 +418,7 @@ func phase4Observe(ctx context.Context, pg *pgxpool.Pool, js nats.JetStreamConte
 	for _, pool := range p.Pools {
 		tokens = append(tokens, pool.Token)
 	}
-	pendingQuery := `SELECT count(*),max(extract(epoch FROM (clock_timestamp()-pg_xact_commit_timestamp(c.xmin)))*1000)::text,count(*) FILTER(WHERE pg_xact_commit_timestamp(c.xmin) IS NULL) FROM indexer.indexer_token_transfers_v1 x JOIN indexer.indexer_ingest_commits c ON c.chain_id=x.chain_id AND c.stream_id=$1 AND x.height>c.previous_height AND x.height<=c.last_complete_height LEFT JOIN ` + pgx.Identifier{p.HolderSchema}.Sanitize() + `.transfers t ON t.identity='125:'||x.token||':'||x.transaction_hash||':'||x.log_index::text WHERE x.chain_id=125 AND x.token=ANY($2::text[]) AND t.identity IS NULL`
+	pendingQuery := `SELECT count(*),max(extract(epoch FROM (clock_timestamp()-pg_xact_commit_timestamp(c.xmin)))*1000)::text,count(*) FILTER(WHERE pg_xact_commit_timestamp(c.xmin) IS NULL) FROM indexer.indexer_token_transfers_v1 x JOIN LATERAL (WITH bounds AS MATERIALIZED (SELECT x.height height) SELECT c.xmin FROM indexer.indexer_ingest_commits c WHERE c.chain_id=x.chain_id AND c.stream_id=$1 AND c.previous_height<(SELECT height FROM bounds) AND c.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(c.previous_height,c.last_complete_height)::numeric,greatest(c.previous_height,c.last_complete_height)::numeric,'[]') @> x.height::numeric) c ON true LEFT JOIN ` + pgx.Identifier{p.HolderSchema}.Sanitize() + `.transfers t ON t.identity='125:'||x.token||':'||x.transaction_hash||':'||x.log_index::text WHERE x.chain_id=125 AND x.token=ANY($2::text[]) AND t.identity IS NULL`
 	if err = pg.QueryRow(ctx, pendingQuery, p.SourceStream, tokens).Scan(&observation.PendingProjectionEvents, &observation.OldestPendingMS, &observation.MissingPendingCommitTimestamps); err != nil {
 		return 0, err
 	}
@@ -898,6 +898,10 @@ func phase4Reconcile(ctx context.Context, pg *pgxpool.Pool, client *http.Client,
 }
 
 func phase4Decode(raw []byte, value any) error {
+	var document json.RawMessage
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return err
+	}
 	decoder := json.NewDecoder(strings.NewReader(string(raw)))
 	var visit func() error
 	visit = func() error {

@@ -2,6 +2,7 @@
 
 import Image, { type ImageProps } from 'next/image';
 import React, { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 const PLACEHOLDER = '/shadcn.png';
 
@@ -114,7 +115,7 @@ export default function TokenImage(props: TokenImageProps) {
 
   const sharedProps = {
     alt,
-    className,
+    className: cn('rounded-coin', className),
     priority,
     quality,
     onError: handleError,

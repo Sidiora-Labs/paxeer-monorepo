@@ -4,16 +4,18 @@ import { resolve, relative, extname } from 'node:path';
 import { createServer } from 'node:https';
 import { request } from 'node:http';
 import { createRequire } from 'node:module';
-import { gzipSync } from 'node:zlib';
+import { promisify } from 'node:util';
+import { gzip } from 'node:zlib';
 import { origin, applicationEnvironment } from './environment.mjs';
 import { certificate, privateKey } from './prepare.mjs';
 
 const require = createRequire(new URL('../../../../apps/launchpad/web/package.json', import.meta.url));
+const compress = promisify(gzip);
 const { WebSocketServer } = require('ws');
 const directory = new URL('./answers/', import.meta.url);
 const answerNames = [
   'pool', 'coin-pool', 'pools', 'terminal-pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
-  'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
+  'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-search', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
   'profile-empty', 'follow-stats', 'follow-stats-empty', 'portfolio', 'portfolio-empty', 'bounties', 'bounty', 'bounties-stats', 'unavailable',
   'rpc-unavailable', 'chart-config', 'chart-symbol', 'chart-time', 'chart-history-empty', 'not-found', 'explorer-empty', 'snapshot', 'stream-control', 'search', 'search-token', 'authority', 'public-share', 'cup-current-empty', 'comments-empty',
   ...['trending', 'new', 'volume', 'marketcap', 'gainers', 'losers', 'graduating', 'graduated', 'movers', 'breakout', 'unusual']
@@ -27,7 +29,7 @@ const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
 const loading = await readFile(new URL('loading.js', directory));
-const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community'].map(async part => {
+const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community', 'terminal'].map(async part => {
   return JSON.parse(await readFile(new URL(`./parts/${part}.json`, import.meta.url), 'utf8'));
 }));
 const loadingPaths = new Set(loadingSurfaces.flatMap(surface => surface.views).filter(view => {
@@ -94,7 +96,7 @@ function answerFor(url, state, pagePath) {
   if (path === '/v2/bounties') return { name: empty || url.searchParams.has('state') && url.searchParams.get('state') !== 'open' ? 'items-empty' : 'bounties' };
   if (path === '/v2/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0') return { name: 'bounty' };
   if (path === '/v2/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0/submissions') return { name: 'items-empty' };
-  if (path === '/metadata/batch') return { name: empty ? 'metadata-batch-empty' : 'metadata-batch' };
+  if (path === '/metadata/batch') return { name: empty ? 'metadata-batch-empty' : url.searchParams.get('addresses')?.split(',').includes('0x2222222222222222222222222222222222222222') ? 'metadata-batch-search' : 'metadata-batch' };
   if (path === '/metadata/0x3333333333333333333333333333333333333333') return { name: 'metadata' };
   if (/^\/v2\/profiles\/0x[0-9a-f]{40}\/follow-stats$/.test(path)) return { name: empty ? 'follow-stats-empty' : 'follow-stats' };
   if (/^\/v3\/wallets\/0x[0-9a-f]{40}\/portfolio$/.test(path)) return { name: empty ? 'portfolio-empty' : 'portfolio' };
@@ -116,10 +118,10 @@ const assetTypes = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'imag
 
 function cacheAsset(file) {
   if (!compressedAssets.has(file)) {
-    compressedAssets.set(file, readFile(file).then(original => {
+    compressedAssets.set(file, readFile(file).then(async original => {
       let body = original;
       if (file.startsWith(`${nextAssets}/`) && extname(file) === '.js' && original.length > 1024 * 1024) {
-        const packed = gzipSync(original, { level: 9 }).toString('base64');
+        const packed = (await compress(original, { level: 9 })).toString('base64');
         body = Buffer.from(`(() => {
           const nonce = document.currentScript.nonce;
           var module = { exports: {} }, exports = module.exports;
@@ -133,7 +135,7 @@ function cacheAsset(file) {
           script.remove();
         })();`);
       }
-      return { body, gzip: gzipSync(body, { level: 1 }) };
+      return { body, gzip: await compress(body, { level: 1 }) };
     }));
   }
   return compressedAssets.get(file);

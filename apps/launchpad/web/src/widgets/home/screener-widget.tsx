@@ -88,7 +88,7 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
             {Array.from({ length: 6 }, (_, index) => <CoinCard key={index} loading variant={cards ? 'grid' : 'screener'} surface="surface-1" image={null} name="" symbol="" mcapRaw={null} percentChange={null} createdAt={null} href="#" />)}
           </div>
         ) : panel.state === 'unsupported' ? (
-          <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Screener" operation={panel.operation} status={panel.status} message={panel.message} onRetry={explore.reload} />
+          <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Screener" operation={panel.operation} status={panel.status} notServed={panel.notServed} message={panel.message} onRetry={explore.reload} />
         ) : panel.state === 'error' ? (
           <ErrorState variant="chip" className="self-start" message="Couldn't load coins" error={panel.error} onRetry={panel.retry} />
         ) : rows.length === 0 ? (
@@ -99,7 +99,7 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
           )
         ) : (
           <>
-            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Live stats" operation={explore.stats.operation} status={explore.stats.status} onRetry={explore.retrySources} /> : null}
+            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Live stats" operation={explore.stats.operation} status={explore.stats.status} notServed={explore.stats.notServed} onRetry={explore.retrySources} /> : null}
             <ul className={cn('gap-2', cards ? 'grid grid-cols-2' : 'flex flex-col')}>
               {rows.map(row => {
                 const risk = screenerRisk(row);
@@ -109,6 +109,7 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
                       variant={cards ? 'grid' : 'screener'}
                       surface="surface-1"
                       image={row.image}
+                      tokenAddress={row.tokenAddress}
                       name={row.name}
                       symbol={row.symbol}
                       mcapRaw={row.mcapRaw}

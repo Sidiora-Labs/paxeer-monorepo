@@ -104,7 +104,8 @@ describe('live chips and badge', () => {
     expect(html(<ViewerCountChip count={null} quality="unavailable" />)).toContain('No viewer count yet');
     const media = html(<MarketCapChip raw="9230000000" variant="media" />);
     expect(media).toContain('$9.23K');
-    expect(media).toContain('text-on-media-success');
+    expect(media).toContain('text-on-media');
+    expect(media).not.toContain('text-on-media-success');
     expect(html(<MarketCapChip raw={null} />)).toContain('not available yet');
   });
 });

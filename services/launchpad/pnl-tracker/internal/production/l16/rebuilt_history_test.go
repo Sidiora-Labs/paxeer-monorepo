@@ -12,6 +12,7 @@ import (
 )
 
 func TestRebuiltHistoryPreservesTransferQualityAndTransactionGas(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	base, err := s.Rebuild(ctx, realMarketCreator, realMarketToken, 33963733)

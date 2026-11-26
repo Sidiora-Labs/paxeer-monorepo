@@ -1,12 +1,68 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Toaster } from 'sonner';
+import { toast, Toaster, useSonner, type ToastT } from 'sonner';
+import { useColorMode } from '@/core/app-foundation/use-color-mode';
+
+export const PLAIN_NOTICE_DURATION_MS = 6000;
+
+function noticeDuration(notice: ToastT) {
+  if (
+    notice.type === 'error' ||
+    notice.type === 'warning' ||
+    notice.type === 'loading' ||
+    notice.action ||
+    notice.cancel
+  )
+    return Infinity;
+  return notice.duration ?? PLAIN_NOTICE_DURATION_MS;
+}
+
+function useNoticeExpiry(paused: boolean) {
+  const { toasts } = useSonner();
+  const lifetimes = useRef(new Map<ToastT['id'], { notice: ToastT; remaining: number }>());
+
+  useEffect(() => {
+    const active = new Set(toasts.map((notice) => notice.id));
+    for (const id of lifetimes.current.keys()) {
+      if (!active.has(id)) lifetimes.current.delete(id);
+    }
+    const running: Array<{
+      lifetime: { remaining: number };
+      timer: ReturnType<typeof setTimeout>;
+    }> = [];
+    const started = Date.now();
+    for (const notice of toasts) {
+      let lifetime = lifetimes.current.get(notice.id);
+      if (!lifetime || lifetime.notice !== notice) {
+        lifetime = { notice, remaining: noticeDuration(notice) };
+        lifetimes.current.set(notice.id, lifetime);
+      }
+      if (paused || !Number.isFinite(lifetime.remaining)) continue;
+      const timer = setTimeout(() => {
+        lifetime.remaining = Infinity;
+        notice.onAutoClose?.(notice);
+        toast.dismiss(notice.id);
+      }, lifetime.remaining);
+      running.push({ lifetime, timer });
+    }
+    return () => {
+      for (const { lifetime, timer } of running) {
+        clearTimeout(timer);
+        lifetime.remaining = Math.max(0, lifetime.remaining - (Date.now() - started));
+      }
+    };
+  }, [toasts, paused]);
+}
 
 export default function ToastProvider() {
+  const { scheme } = useColorMode();
   const layerRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const [suppressed, setSuppressed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  useNoticeExpiry(hovered || focused);
   useEffect(() => {
     const layer = layerRef.current;
     if (!layer) return;
@@ -16,6 +72,10 @@ export default function ToastProvider() {
     }
     const announced = new WeakMap<HTMLElement, string>();
     const sync = () => {
+      if (!layer.querySelector('[data-sonner-toast]')) {
+        setHovered(false);
+        setFocused(false);
+      }
       const modal = Boolean(
         document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')
       );
@@ -71,13 +131,28 @@ export default function ToastProvider() {
       data-suppressed={suppressed}
       aria-hidden={suppressed || undefined}
       inert={suppressed}
+      onPointerOverCapture={(event) => {
+        if (event.target instanceof Element && event.target.closest('[data-sonner-toast]'))
+          setHovered(true);
+      }}
+      onPointerOutCapture={(event) => {
+        if (
+          !(event.relatedTarget instanceof Element) ||
+          !event.relatedTarget.closest('[data-sonner-toast]')
+        )
+          setHovered(false);
+      }}
       onFocusCapture={(event) => {
+        setFocused(true);
         if (
           event.relatedTarget instanceof HTMLElement &&
           event.relatedTarget !== document.body &&
           !event.currentTarget.contains(event.relatedTarget)
         )
           previousFocus.current = event.relatedTarget;
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
       onClickCapture={(event) => {
         const close =
@@ -97,14 +172,15 @@ export default function ToastProvider() {
     >
       <Toaster
         position="bottom-center"
-        theme="system"
+        theme={scheme}
         duration={Infinity}
-        offset="var(--sl-space-6)"
+        offset={{ bottom: 'var(--sl-notice-bottom-offset)' }}
         toastOptions={{
           style: {
-            background: 'var(--sl-surface-3)',
+            background: 'var(--sl-floating-layer-background)',
             color: 'var(--sl-text)',
-            borderWidth: 0,
+            border: 'var(--sl-edge-width) solid var(--sl-surface-3)',
+            backdropFilter: 'blur(var(--sl-floating-blur))',
             fontSize: 'var(--sl-text-sm)',
             fontFamily: 'var(--sl-font-sans)',
             borderRadius: 'var(--sl-radius-lg)',
@@ -122,7 +198,7 @@ export default function ToastProvider() {
           {
             '--gap': 'var(--sl-space-2)',
             '--width': 'min(var(--sl-toast-width), calc(100dvw - var(--sl-space-8)))',
-            '--normal-bg': 'var(--sl-surface-3)',
+            '--normal-bg': 'var(--sl-surface-2)',
             '--normal-text': 'var(--sl-text)',
             '--normal-border': 'var(--sl-control-edge)',
             '--normal-bg-hover': 'var(--sl-surface-hover)',
@@ -133,8 +209,7 @@ export default function ToastProvider() {
         richColors={false}
         closeButton
         mobileOffset={{
-          bottom:
-            'calc(var(--sl-bottom-nav-height) + var(--sl-space-8) + env(safe-area-inset-bottom, 0rem))',
+          bottom: 'var(--sl-notice-bottom-offset)',
           left: 'var(--sl-space-4)',
           right: 'var(--sl-space-4)',
           top: 'var(--sl-space-4)',

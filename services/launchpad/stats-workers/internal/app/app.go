@@ -43,6 +43,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumer"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/migrate"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/store"
@@ -66,14 +67,15 @@ const (
 
 // App is a fully-wired, ready-to-run stats service.
 type App struct {
-	jobs       []statsRuntimeJob
-	accounting *consumer.SourceVerifiedAccountingConsumer
-	transports []*natsdriver.Consumer
-	nats       *nats.Conn
-	rpc        *ethclient.Client
-	secretStop context.CancelFunc
-	tracker    *sharedprocess.Tracker
-	Router     http.Handler
+	jobs        []statsRuntimeJob
+	accounting  *consumer.SourceVerifiedAccountingConsumer
+	transports  []*natsdriver.Consumer
+	nats        *nats.Conn
+	rpc         *ethclient.Client
+	rpcFallback *ethclient.Client
+	secretStop  context.CancelFunc
+	tracker     *sharedprocess.Tracker
+	Router      http.Handler
 
 	logger *slog.Logger
 	store  *store.Store
@@ -90,6 +92,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 }
 
 func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Logger, openPool func(context.Context, *config.Config, shareddb.PoolOptions) (*pgxpool.Pool, error)) (*App, error) {
+	accountingHealth, err := newConsumerReadiness(cfg, "accounting_consumer", logger, time.Now)
+	if err != nil {
+		return nil, err
+	}
 	secretCheck, secretStop, secretErr := cfg.ResolveProductionSecrets(ctx)
 	if secretErr != nil {
 		return nil, secretErr
@@ -186,7 +192,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 		}
 	}()
 	var nc *nats.Conn
-	var rpc *ethclient.Client
+	var rpc, rpcFallback *ethclient.Client
 	if cfg.NodeEnv == valueProduction {
 		var d statsRuntimeDocument
 		if err = config.ReadBoundDocument(cfg.DeliveryConfigFile, cfg.DeliveryConfigSHA256, &d); err != nil {
@@ -210,6 +216,17 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 				rpc.Close()
 			}
 		}()
+		if cfg.RPCURLFallback != "" {
+			rpcFallback, err = ethclient.DialContext(ctx, cfg.RPCURLFallback)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if !secretOwned {
+					rpcFallback.Close()
+				}
+			}()
+		}
 		guard, e := queue.NewEpochGuard("recovery", d.Epoch, d.Region)
 		if e != nil {
 			return nil, e
@@ -261,7 +278,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 		if e != nil {
 			return nil, e
 		}
-		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{MarketEffect: projector.Effect, Pool: pool, Deliveries: durable, Partitions: partitions, Repository: repository, Authority: authority, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: valueIndexer, RPC: rpc, MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills})
+		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{MarketEffect: projector.Effect, Pool: pool, Deliveries: durable, Partitions: partitions, Repository: repository, Authority: authority, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: valueIndexer, RPC: rpc, RPCFallback: rpcFallback, Logger: logger, LeaseDuration: 30 * time.Second, ProofTimeout: min(5*time.Second, d.Consumers[0].AckWait/2), MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills})
 		if e != nil {
 			return nil, e
 		}
@@ -285,7 +302,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			}
 			transports = append(transports, transport)
 			current := transport
-			jobs = append(jobs, statsRuntimeJob{name: "market accounting", run: func(ctx context.Context) error { return accountingConsumer.Run(ctx, current) }})
+			jobs = append(jobs, statsRuntimeJob{name: "market accounting", run: consumerJobRunAgain("market accounting", &statsRuntimeHealth{failures: map[string]error{}}, func(ctx context.Context) error { return accountingConsumer.Run(ctx, current) }, waitConsumerJob, systemConsumerJobClock{})})
 		}
 		publisher, e := natsdriver.NewPublisher(nc, d.Phase2.OutputStream)
 		if e != nil {
@@ -299,7 +316,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			return retryStatsJob(ctx, expiry.Interval, runtimeHealth, "canonical windows", func(ctx context.Context) error { return expiry.Refresh(ctx, time.Now().Unix()) })
 		}})
 		runtimeHealth.set("transfer holders", errors.New("transfer holders awaiting canonical catchup"))
-		holderCursor := ""
+		holderCursor := statsHolderCursor{}
 		jobs = append(jobs, statsRuntimeJob{name: "canonical transfer holders", run: func(ctx context.Context) error {
 			return retryStatsJob(ctx, time.Duration(d.Phase2.HolderIntervalMS)*time.Millisecond, runtimeHealth, "transfer holders", func(ctx context.Context) error {
 				return catchUpStatsHolders(ctx, pool, holders, d.SourceStream, d.Phase2.HolderTokenBatch, d.Phase2.HolderTransferBatch, &holderCursor, projector.RefreshTokenInputs)
@@ -322,7 +339,8 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			}
 			transports = append(transports, transport)
 			current := transport
-			jobs = append(jobs, statsRuntimeJob{name: "search " + sub.Kind + " " + sub.Consumer.Durable, run: func(ctx context.Context) error {
+			name := "search " + sub.Kind + " " + sub.Consumer.Durable
+			jobs = append(jobs, statsRuntimeJob{name: name, run: consumerJobRunAgain(name, runtimeHealth, func(ctx context.Context) error {
 				return current.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
 					broker, err := message.BrokerPosition()
 					if err != nil {
@@ -335,18 +353,12 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 					if envelope.EventType != sub.EventType || broker.EventID != envelope.EventID || broker.WireSHA256 != delivery.Hash(message.Wire) {
 						return delivery.ErrIntegrity
 					}
-					switch sub.Kind {
-					case "creation":
-						return searchProjection.ConsumeCanonicalCreation(ctx, message.Subject, message.Wire, message)
-					case "invalidation":
+					if sub.Kind == "invalidation" {
 						return searchService.ConsumeInvalidation(ctx, message.Subject, message.Wire, message, d.Policy)
-					case "account_profile":
-						return searchProjection.ConsumeAccountProfile(ctx, message.Subject, message.Wire, message)
-					default:
-						return searchProjection.Consume(ctx, message.Subject, message.Wire, message)
 					}
+					return statsSearchProjectionConsumer(sub.Kind, searchProjection)(ctx, message.Subject, message.Wire, message)
 				})
-			}})
+			}, waitConsumerJob, systemConsumerJobClock{})})
 		}
 		if err = cfg.ValidateProductionWorkers(); err != nil {
 			return nil, err
@@ -432,6 +444,10 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 	for name, check := range secretChecks {
 		secretChecks[name] = loggedStatsCheck(logger, name, check)
 	}
+	if accountingConsumer != nil {
+		accountingConsumer.Progress = accountingHealth
+		secretChecks["accounting_consumer"] = accountingHealth.Check
+	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins: cfg.CORSAllowedOrigins,
 		Health: sharedhttp.HealthDeps{
@@ -489,14 +505,14 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 	})(router)
 
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", consumerhealth.Metrics(metrics, "statsd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone, accountingHealth))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err
 	}
 	secretOwned = true
 	return &App{jobs: jobs, secretStop: secretStop, tracker: tracker,
-		accounting: accountingConsumer, transports: transports, nats: nc, rpc: rpc,
+		accounting: accountingConsumer, transports: transports, nats: nc, rpc: rpc, rpcFallback: rpcFallback,
 		Router: runtimeHandler(tracker, handler, metrics),
 		logger: logger,
 		store:  st,
@@ -513,6 +529,9 @@ func (a *App) Close() {
 	}
 	if a.nats != nil {
 		a.nats.Close()
+	}
+	if a.rpcFallback != nil {
+		a.rpcFallback.Close()
 	}
 	if a.rpc != nil {
 		a.rpc.Close()
@@ -563,6 +582,9 @@ func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			if err := fn(ctx); err != nil {
 				a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
 			}
@@ -789,6 +811,9 @@ func periodicStatsJob(ctx context.Context, interval time.Duration, logger *slog.
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if err := fn(ctx); err != nil {
 				logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
 			}
@@ -893,6 +918,10 @@ func (d statsPhase2Document) validate(policy delivery.Policy) error {
 			if !ok || !schema.MatchString(source.Schema) || !schema.MatchString(source.View) || !strings.HasSuffix(source.View, "_v2") {
 				return errors.New("stats: authorized search source relation required")
 			}
+		case "social_policy":
+			if sub.EventType != "social.policy.changed.v2" {
+				return errors.New("stats: authorized social policy event required")
+			}
 		case "account_profile":
 			if sub.EventType != "profile.updated" && sub.EventType != "account.deletion.requested" && sub.EventType != "account.backfill.completed" {
 				return errors.New("stats: authorized account search event required")
@@ -906,8 +935,31 @@ func (d statsPhase2Document) validate(policy delivery.Policy) error {
 	}
 	return nil
 }
-func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *holdings.Repository, stream string, tokenLimit, transferLimit int, after *string, coverageChanged ...func(context.Context, string) error) error {
-	if ctx == nil || pool == nil || repository == nil || stream == "" || after == nil || tokenLimit < 1 || tokenLimit > 100 || transferLimit < 1 || transferLimit > 1000 {
+func statsSearchProjectionConsumer(kind string, projection *canonicalsearch.Projection) func(context.Context, string, []byte, delivery.Delivery) error {
+	switch kind {
+	case "creation":
+		return projection.ConsumeCanonicalCreation
+	case "account_profile":
+		return projection.ConsumeAccountProfile
+	case "social_policy":
+		return projection.ConsumeSocialPolicy
+	default:
+		return projection.Consume
+	}
+}
+
+type holderRefreshState struct {
+	revision int64
+	coverage string
+}
+
+type statsHolderCursor struct {
+	after     string
+	refreshed map[string]holderRefreshState
+}
+
+func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *holdings.Repository, stream string, tokenLimit, transferLimit int, cursor *statsHolderCursor, coverageChanged ...func(context.Context, string) error) error {
+	if ctx == nil || pool == nil || repository == nil || stream == "" || cursor == nil || tokenLimit < 1 || tokenLimit > 100 || transferLimit < 1 || transferLimit > 1000 {
 		return holdings.ErrIntegrity
 	}
 	var raw, typed, fence int64
@@ -919,7 +971,7 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 	if raw < 0 || raw != typed || fence <= 0 || owner == "" || !alive {
 		return consumer.ErrAccountingSourceUnavailable
 	}
-	rows, err := pool.Query(ctx, `SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`, stream, *after, typed, tokenLimit)
+	rows, err := pool.Query(ctx, `SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`, stream, cursor.after, typed, tokenLimit)
 	if err != nil {
 		return err
 	}
@@ -937,10 +989,13 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 		return err
 	}
 	if len(tokens) == 0 {
-		*after = ""
+		cursor.after = ""
 	}
 	for _, token := range tokens {
-		if err = repository.DiscoverCanonical(ctx, token, stream); err != nil {
+		if err = repository.DiscoverCanonical(ctx, token, stream); errors.Is(err, holdings.ErrUnknownToken) {
+			cursor.after = token
+			continue
+		} else if err != nil {
 			return err
 		}
 		result, catchErr := repository.CatchUpCanonicalAt(ctx, token, stream, strconv.FormatInt(typed, 10), transferLimit)
@@ -953,15 +1008,26 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 		if result.More || result.Coverage != "complete" {
 			return consumer.ErrAccountingSourceUnavailable
 		}
-		for _, refresh := range coverageChanged {
-			if refresh == nil {
-				return analytics.ErrInvalidInput
+		state := holderRefreshState{revision: result.Revision, coverage: result.Coverage}
+		previous, refreshed := cursor.refreshed[token]
+		if result.Applied > 0 || !refreshed || previous != state {
+			delete(cursor.refreshed, token)
+			for _, refresh := range coverageChanged {
+				if refresh == nil {
+					return analytics.ErrInvalidInput
+				}
+				if err = refresh(ctx, token); err != nil {
+					return err
+				}
 			}
-			if err = refresh(ctx, token); err != nil {
-				return err
+			if len(coverageChanged) > 0 {
+				if cursor.refreshed == nil {
+					cursor.refreshed = make(map[string]holderRefreshState)
+				}
+				cursor.refreshed[token] = state
 			}
 		}
-		*after = token
+		cursor.after = token
 	}
 	if _, err = repository.DeleteExpiredSnapshots(ctx, 100); err != nil {
 		return err

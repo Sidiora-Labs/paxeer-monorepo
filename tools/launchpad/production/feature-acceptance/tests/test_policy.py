@@ -215,6 +215,7 @@ class PolicyTests(unittest.TestCase):
   original={'transactionHash':'0x'+'1'*64,'blockHash':'0x'+'2'*64,'chainId':'0x7d','request':{'url':'https://evidence.invalid/path?access_token=ephemeral-test-credential&transactionHash=0x'+ '1'*64,'headers':[{'name':'Authorization','value':'Bearer ephemeral-test-credential'}],'cookies':[{'name':'session','value':'ephemeral-test-credential'}],'postData':{'mimeType':'application/json','text':json.dumps({'password':'ephemeral-test-credential','transactionHash':'0x'+'1'*64})}}}
   raw=p.canonical(original);redacted,identity=p.redact_json_artifact(raw)
   self.assertNotIn(b'ephemeral-test-credential',redacted)
+  self.assertIn(b'access_token=%5BREDACTED%5D',redacted)
   self.assertEqual(p.evidence_identities(original),p.evidence_identities(p.strict_json(redacted)))
   authority=self.audit_authority();private=self.root/'private';private.mkdir();(private/'original.har').write_bytes(raw)
   self.artifact('redacted.har','trace',redacted)

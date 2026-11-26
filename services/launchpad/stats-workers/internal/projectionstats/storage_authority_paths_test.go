@@ -29,11 +29,11 @@ func TestPublicProjectionPropagatesUnavailableStorage(t *testing.T) {
 		{"reserve source", "stats.accounting_market_commits", func(tx pgx.Tx) error { _, e := p.realUsdlTx(f.ctx, tx, anchor, f.real.Pool, nil); return e }},
 		{"latest fill", "stats.accounting_market_commits", func(tx pgx.Tx) error { _, e := p.latestFillTx(f.ctx, tx, anchor, f.real.Pool, -1); return e }},
 		{"reserve checkpoint", "stats.public_stats_sync_baselines", func(tx pgx.Tx) error {
-			_, e := p.syncEventsTx(f.ctx, tx, anchor, []string{f.real.EventEmitter}, f.real.Pool)
+			_, e := p.syncEventsTx(f.ctx, tx, anchor, []string{f.real.EventEmitter}, f.real.Pool, stamp+1)
 			return e
 		}},
 		{"reserve raw logs", "indexer.indexer_raw_logs_v1", func(tx pgx.Tx) error {
-			_, e := p.syncEventsTx(f.ctx, tx, anchor, []string{f.real.EventEmitter}, f.real.Pool)
+			_, e := p.syncEventsTx(f.ctx, tx, anchor, []string{f.real.EventEmitter}, f.real.Pool, stamp+1)
 			return e
 		}},
 		{"holder metadata", publicTestHolders + ".tokens", func(tx pgx.Tx) error {
@@ -49,11 +49,11 @@ func TestPublicProjectionPropagatesUnavailableStorage(t *testing.T) {
 			return e
 		}},
 		{"pool totals", "stats.trade_facts", func(tx pgx.Tx) error {
-			_, _, e := p.poolStatsTx(f.ctx, tx, anchor, nil, f.real.Pool, f.real.Token, f.real.Transactions[0].From, stamp)
+			_, _, e := p.poolStatsTx(f.ctx, tx, anchor, nil, f.real.Pool, f.real.Token, f.real.Transactions[0].From, stamp, stamp+1)
 			return e
 		}},
 		{"window baseline", "stats.accounting_market_commits", func(tx pgx.Tx) error {
-			_, _, e := p.windowChange(f.ctx, tx, anchor, f.real.Pool, nil, nil, stamp, stamp-60)
+			_, _, e := p.windowChange(f.ctx, tx, anchor, f.real.Pool, nil, nil, nil, stamp, stamp-60)
 			return e
 		}},
 	} {
@@ -132,7 +132,7 @@ func TestPublicProjectionChecksRawSwapAuthority(t *testing.T) {
 		{"zero baseline", &priceEvent{price: big.NewInt(1)}, []syncEvent{{priceEvent: priceEvent{height: big.NewInt(1), transactionIndex: big.NewInt(0), logIndex: big.NewInt(0), timestamp: 1, price: big.NewInt(0)}}}, 0, 2, "", "unavailable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			value, quality, err := p.windowChange(f.ctx, tx, anchor, "0x"+strings.Repeat("f", 40), tc.syncs, tc.current, tc.created, tc.start)
+			value, quality, err := p.windowChange(f.ctx, tx, anchor, "0x"+strings.Repeat("f", 40), tc.syncs, tc.current, nil, tc.created, tc.start)
 			if err != nil || quality != tc.quality || (tc.want == "" && value != nil) || (tc.want != "" && (value == nil || *value != tc.want)) {
 				t.Fatalf("price baseline: %v %s %v", value, quality, err)
 			}

@@ -1,9 +1,10 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { Globe, MessageCircle, Star, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Avatar, StageBadge, type Stage } from '@/ui/primitives';
-import { StatChange, StatDash } from '@/ui/shared/stat-value';
+import { AgeChip, Avatar, StageBadge, type Stage } from '@/ui/primitives';
+import { StatChange } from '@/ui/shared/stat-value';
 import { formatSpotPrice } from '@/core/market/pool-stats-display';
 import { formatUsdl } from '@/utils/format';
 import { safeExternalDestination } from '@/core/app-foundation/navigation';
@@ -15,12 +16,14 @@ export interface SocialLink {
 }
 
 export interface TrendingRowData {
+  tokenAddress?: string | null;
   poolAddress: string;
   href: string;
   rank: number;
   name: string;
   symbol: string;
   image: string | null;
+  createdAt?: number | null;
   /** Exact decimal USDL price per whole token (PoolStats.spotPriceWad); null before the first trade. */
   price: string | null;
   priceReason: string | null;
@@ -65,41 +68,42 @@ export function safeSocials(socials: { website?: string | null; twitter?: string
 
 export function changeWash(change: number | null): string {
   if (change === null || !Number.isFinite(change) || change === 0) return '';
-  return change > 0 ? 'bg-[var(--sl-tint-accent-row-wash)]' : 'bg-[var(--sl-tint-danger-row-wash)]';
+  return change > 0 ? 'sl-row-wash-up' : 'sl-row-wash-down';
 }
 
 /**
  * Trending coin row (components.md coin row): image with stage badge, name and
- * symbol, adaptive-precision price, socials, market cap and the selected
- * timeframe change. The whole row links to the coin page; the direction wash
- * is a flat alpha tint.
+ * symbol and age, market cap and direction. Price remains available to assistive
+ * technology, with social destinations beside the metadata on wider screens.
  */
 export function TrendingRow({ row, density = 'comfortable', starred = false, onToggleStar, flash = null, className }: TrendingRowProps) {
+  row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   const compact = density === 'compact';
   return (
     <li
       className={cn(
-        'relative flex items-center gap-3 px-3 hover:bg-surface-hover',
-        compact ? 'h-list-row' : 'h-list-row-lg',
+        'sl-hairline relative flex flex-wrap items-center gap-x-3 gap-y-2 px-3 hover:bg-surface-1',
+        compact ? 'min-h-list-row' : 'min-h-list-row-lg',
         changeWash(row.change),
         className,
       )}
       data-pool={row.poolAddress}
     >
       <Avatar src={row.image} name={row.name} size={compact ? 'sm' : 'lg'} shape="square" decorative badge={row.stage && !compact ? <StageBadge stage={row.stage} size={14} surface={1} /> : undefined} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-touch-target-min flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <Link prefetch={false} href={row.href} className="truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-['']">
+          <Link prefetch={false} href={row.href} title={row.name} className="truncate text-sm font-semibold text-text after:absolute after:inset-0 after:content-['']">
             {row.name}
           </Link>
-          <span className="truncate text-xs text-text-muted">{row.symbol}</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-text-muted">
-          {row.price === null
-            ? <StatDash reason={row.priceReason ?? 'No price yet'} subject="Price" align="start" />
-            : <span data-numeric className="tabular-nums"><span className="sr-only">Price </span>{formatSpotPrice(row.price)}</span>}
+        <div className="flex min-w-0 items-center gap-2 text-xs text-text-muted">
+          <span className="truncate" title={row.symbol}>{row.symbol}</span>
+          <AgeChip iso={row.createdAt ?? null} className="shrink-0 text-text-muted" />
+          <span className="sr-only">
+            {row.price === null ? `Price: ${row.priceReason ?? 'No price yet'}` : `Price ${formatSpotPrice(row.price)}`}
+          </span>
           {row.socials.length > 0 ? (
-            <span className="relative z-10 inline-flex items-center gap-1">
+            <span className="relative z-10 hidden items-center gap-1 md:inline-flex">
               {row.socials.map(({ kind, url }) => {
                 const { Icon, label } = socialIcon[kind];
                 return (
@@ -112,11 +116,15 @@ export function TrendingRow({ row, density = 'comfortable', starred = false, onT
           ) : null}
         </div>
       </div>
-      <div className="flex shrink-0 flex-col items-end">
+      <div className="ml-auto flex shrink-0 flex-col items-end gap-0.5 whitespace-nowrap">
         {row.mcapRaw
           ? <span data-numeric className="text-sm font-bold tabular-nums text-text">{`${formatUsdl(row.mcapRaw, { compact: true, unit: false })} MC`}</span>
-          : <StatDash reason={row.mcapReason ?? 'No market cap yet'} subject="Market cap" className="text-sm" />}
-        <StatChange change={{ value: row.change, reason: row.changeReason }} variant="text" arrow flash={flash} />
+          : <span data-numeric title={row.mcapReason ?? 'No market cap yet'} aria-label={`Market cap: ${row.mcapReason ?? 'No market cap yet'}`} className="text-sm tabular-nums text-text-faint">—</span>}
+        {row.change === null ? (
+          <span data-numeric title={row.changeReason ?? 'No change yet'} aria-label={`Change: ${row.changeReason ?? 'No change yet'}`} className="text-xs tabular-nums text-text-faint">—</span>
+        ) : (
+          <StatChange change={{ value: row.change, reason: row.changeReason }} variant="pill" arrow flash={flash} />
+        )}
       </div>
       {onToggleStar ? (
         <button
@@ -124,7 +132,7 @@ export function TrendingRow({ row, density = 'comfortable', starred = false, onT
           aria-label={starred ? `Remove ${row.name} from watchlist` : `Add ${row.name} to watchlist`}
           aria-pressed={starred}
           onClick={() => onToggleStar(!starred)}
-          className={cn('relative z-10 inline-flex size-7 shrink-0 items-center justify-center rounded-sm hover:bg-surface-hover', starred ? 'text-warning' : 'text-text-faint hover:text-text')}
+          className={cn('relative z-10 inline-flex size-7 shrink-0 items-center justify-center rounded-sm hover:bg-surface-hover', starred ? 'text-text' : 'text-text-faint hover:text-text')}
         >
           <Star aria-hidden="true" className="size-icon-sm" fill={starred ? 'currentColor' : 'none'} />
         </button>

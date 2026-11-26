@@ -299,18 +299,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	})
 	limiter := ratelimit.NewLimiter(cfg.MaxInFlightRequests)
 
-	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
-		CORSOrigins: cfg.CORSAllowedOrigins,
-		Health: sharedhttp.HealthDeps{
-			Custom: secretChecks,
-			State:  tracker.Ready,
-			DB:     func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) },
-			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
-		},
-	})
-
 	app := &App{secretStop: secretStop, tracker: tracker,
-		Router: runtimeHandler(tracker, router, metrics),
 		Broker: br,
 		cfg:    *cfg,
 		logger: logger,
@@ -323,6 +312,13 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 		cache:   responseCache,
 		limiter: limiter,
 	}
+	router := app.newRouter(sharedhttp.HealthDeps{
+		Custom: secretChecks,
+		State:  tracker.Ready,
+		DB:     func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) },
+		Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
+	})
+	app.Router = runtimeHandler(tracker, router, metrics)
 
 	// Realtime group: connection-capped + a light per-IP connect rate limit, but
 	// NOT the in-flight limiter (streams are long-lived and would pin slots).
@@ -493,11 +489,7 @@ func Run(parent context.Context) error {
 
 	// Broker fan-out loop (single Redis subscriber for all clients).
 	if app.discoveryRuntime != nil {
-		go func() {
-			if e := app.discoveryRuntime.Run(ctx); e != nil && ctx.Err() == nil {
-				logger.Error("discovery runtime stopped", slog.Any("err", e))
-			}
-		}()
+		go app.runDiscovery(ctx)
 	}
 	if app.streamRelay != nil {
 		go app.streamRelay.Run(ctx, logger)
@@ -720,7 +712,7 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 			return errors.New("discovery identity transport unavailable")
 		}
 		var err error
-		runtimeConfig := notifications.RuntimeConfig{Principal: principal, Secrets: sharedsecrets.Options{Provider: sharedsecrets.ProviderType(a.cfg.SecretsProvider), CacheTTL: 0}, Client: concrete.Client, D11Base: document.D11Base, D11TokenRef: document.D11TokenRef, D12Base: document.D12Base, D12TokenRef: document.D12TokenRef, CursorKeyRef: document.CursorKeyRef, InternalTokenRef: document.InternalTokenRef, DeletePeerDNS: document.DeletePeerDNS, ChatPeerDNS: document.ChatPeerDNS, Push: document.Push}
+		runtimeConfig := notifications.RuntimeConfig{Logger: a.logger, Principal: principal, Secrets: sharedsecrets.Options{Provider: sharedsecrets.ProviderType(a.cfg.SecretsProvider), CacheTTL: 0}, Client: concrete.Client, D11Base: document.D11Base, D11TokenRef: document.D11TokenRef, D12Base: document.D12Base, D12TokenRef: document.D12TokenRef, CursorKeyRef: document.CursorKeyRef, InternalTokenRef: document.InternalTokenRef, DeletePeerDNS: document.DeletePeerDNS, ChatPeerDNS: document.ChatPeerDNS, Push: document.Push}
 		runtimeConfig.Pools, runtimeConfig.Intervals, err = notifications.NewRuntimeAuthorities(ctx, a.sqlDB, runtimeConfig, document.QuoteTokenAddress)
 		if err != nil {
 			return err
@@ -743,7 +735,7 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 			router.Handle("/v2/me/notifications/*", handler)
 			router.Handle("/v2/me/alerts", handler)
 			router.Handle("/v2/me/alerts/*", handler)
-			checks["discovery_notifications"] = runtime.Ready
+			checks["discovery_notifications"] = a.discoveryReady
 			return nil
 		}
 		return err
@@ -775,4 +767,48 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 		return errors.New("push target authority and provider credentials unavailable")
 	}
 	return nil
+}
+
+func (a *App) discoveryReady(ctx context.Context) error {
+	bounded, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if a.discoveryRuntime == nil {
+		return notifications.ErrUnavailable
+	}
+	return a.discoveryRuntime.Ready(bounded)
+}
+
+func (a *App) runDiscovery(ctx context.Context) {
+	backoff := time.Second
+	for ctx.Err() == nil {
+		err := a.discoveryRuntime.Run(ctx)
+		if ctx.Err() != nil {
+			return
+		}
+		a.logger.Error("discovery runtime stopped", slog.Any("err", err))
+		if err == nil {
+			backoff = time.Second
+		}
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		backoff *= 2
+		if backoff > 30*time.Second {
+			backoff = 30 * time.Second
+		}
+	}
+}
+
+func (a *App) newRouter(health sharedhttp.HealthDeps) chi.Router {
+	if a.discoveryRuntime != nil || (a.cfg.NodeEnv == literalProduction && a.cfg.APIRole == literalRest && (a.cfg.DiscoveryRuntimeFile != "" || a.cfg.DiscoveryRuntimeDocument != "")) {
+		if health.Custom == nil {
+			health.Custom = map[string]sharedhttp.Check{}
+		}
+		health.Custom["discovery_notifications"] = a.discoveryReady
+	}
+	return sharedhttp.NewRouter(sharedhttp.ServerOptions{CORSOrigins: a.cfg.CORSAllowedOrigins, Health: health})
 }

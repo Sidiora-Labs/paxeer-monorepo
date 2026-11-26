@@ -123,7 +123,7 @@ class MakefileWaveSixTest(unittest.TestCase):
         harness_end = makefile.index("\n\n", makefile.index("\ntest-harness:"))
         next_rule = makefile[harness_end:].lstrip().splitlines()
         self.assertEqual(next_rule[0], ".PHONY: test-tests-python")
-        self.assertEqual(next_rule[1], "test-tests-python:")
+        self.assertEqual(next_rule[1], "test-tests-python: $(LIBRARY)")
 
 
 if __name__ == "__main__":

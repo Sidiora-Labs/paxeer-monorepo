@@ -35,20 +35,20 @@ export function VoiceRoomPanel({ snapshot, capabilities, participants, action, o
             return;
         onModerate?.({ roomId: room.roomId, participantAccountId: participant.accountId, expectedRevision: participant.revision, action: command as VoiceModerateRequest['action'], reason });
     }
-    return <section aria-labelledby={`${id}-heading`} className="space-y-4 rounded-xl bg-surface-2 p-4">
-    <h2 id={`${id}-heading`} className="font-bold text-text">Voice room</h2>
+    return <section aria-labelledby={`${id}-heading`} className="space-y-4 rounded-md bg-surface-1 p-4">
+    <h2 id={`${id}-heading`} className="font-semibold text-text">Voice room</h2>
     <p role="status" aria-live="polite">{room ? `Room status: ${room.state}` : "Room info can't load right now"}</p>
     {room?.state === 'starting' && <p>Starting the room...</p>}
     {room?.state === 'ending' && <p>Ending the room...</p>}
     {!trusted && <p role="status">Voice controls are not available yet</p>}
     <p className="text-sm text-text">Audio is not available yet. Recording is off</p>
     {canEnd && room && <button type="button" disabled={pending} onClick={() => { if (!pending)
-        onEnd?.({ roomId: room.roomId, expectedRevision: room.revision }); }} className="rounded-lg bg-surface-3 px-4 py-2 hover:bg-surface-hover">{room.state === 'ending' ? 'Try ending again' : 'End room'}</button>}
+        onEnd?.({ roomId: room.roomId, expectedRevision: room.revision }); }} className="sl-field rounded-sm bg-surface-2 px-4 py-2 hover:bg-surface-hover">{room.state === 'ending' ? 'Try ending again' : 'End room'}</button>}
     {canModerate && participants.length > 0 && <form onSubmit={moderate} aria-busy={pending} className="space-y-3"><fieldset disabled={pending} className="space-y-3">
-      <label htmlFor={`${id}-participant`} className="block">Participant</label><select id={`${id}-participant`} name="participant" className="rounded-lg bg-surface-3 p-2">{participants.map(item => <option key={item.accountId} value={item.accountId}>{item.displayName}</option>)}</select>
-      <label htmlFor={`${id}-action`} className="block">Action</label><select id={`${id}-action`} name="action" className="rounded-lg bg-surface-3 p-2">{moderationActions.map(value => <option key={value} value={value}>{value === 'remove' ? 'Remove from room' : value === 'ban' ? 'Ban participant' : 'Mute participant'}</option>)}</select>
-      <label htmlFor={`${id}-reason`} className="block">Reason</label><textarea id={`${id}-reason`} name="reason" required maxLength={1000} className="w-full rounded-lg bg-surface-3 p-2"/>
-      <button type="submit" className="rounded-lg bg-surface-3 px-4 py-2 hover:bg-surface-hover">Apply</button>
+      <label htmlFor={`${id}-participant`} className="block">Participant</label><select id={`${id}-participant`} name="participant" className="sl-field rounded-sm bg-surface-2 p-2">{participants.map(item => <option key={item.accountId} value={item.accountId}>{item.displayName}</option>)}</select>
+      <label htmlFor={`${id}-action`} className="block">Action</label><select id={`${id}-action`} name="action" className="sl-field rounded-sm bg-surface-2 p-2">{moderationActions.map(value => <option key={value} value={value}>{value === 'remove' ? 'Remove from room' : value === 'ban' ? 'Ban participant' : 'Mute participant'}</option>)}</select>
+      <label htmlFor={`${id}-reason`} className="block">Reason</label><textarea id={`${id}-reason`} name="reason" required maxLength={1000} className="w-full sl-field rounded-sm bg-surface-2 p-2"/>
+      <button type="submit" className="sl-field rounded-sm bg-surface-2 px-4 py-2 hover:bg-surface-hover">Apply</button>
     </fieldset></form>}
     <p role="status" aria-live="polite">{actionMessage(action)}</p>
   </section>;

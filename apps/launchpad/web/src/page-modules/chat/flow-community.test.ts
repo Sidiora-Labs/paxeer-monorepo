@@ -300,6 +300,7 @@ async function community_interaction_reads_offer_recovery_after_timeouts() {
     process.kill(social.pid, 'SIGCONT');
     for (const button of [...view.container.querySelectorAll('button')].filter(button => button.textContent === 'Try again')) await act(async () => button.click());
     await waitFor(() => view.container.textContent!.includes('No replies yet') && view.container.querySelectorAll('[role="alert"]').length === 0);
+    await waitFor(() => view.container.querySelector<HTMLButtonElement>('button[aria-pressed="false"]')?.disabled === false);
     expect(view.container.querySelector('button[aria-pressed="false"]')?.hasAttribute('disabled')).toBe(false);
   } finally { process.kill(social.pid, 'SIGCONT'); await view.close(); }
 }

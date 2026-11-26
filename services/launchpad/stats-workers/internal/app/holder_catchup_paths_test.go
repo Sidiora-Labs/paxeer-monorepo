@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -14,9 +15,19 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestCanonicalHolderJobAdvancesCommittedTransfers(t *testing.T) {
+	canonicalHolderJob(t, false)
+}
+
+func TestCoinTextHolderJobContinuesWithoutMetadata(t *testing.T) {
+	canonicalHolderJob(t, true)
+}
+
+func canonicalHolderJobFixture(t *testing.T) (context.Context, *pgxpool.Pool, *holdings.Repository, string, string, string) {
+	t.Helper()
 	ctx := context.Background()
 	db := internaltest.NewPostgres(t)
 	if _, err := db.Exec(ctx, "CREATE SCHEMA indexer"); err != nil {
@@ -97,22 +108,196 @@ func TestCanonicalHolderJobAdvancesCommittedTransfers(t *testing.T) {
 	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_token_transfers(chain_id,transaction_hash,log_index,token,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,payload) VALUES(125,$1,1,$2,$3,$4,100,10,0,$5,'{}',$6)`, transactionHash, token, holdings.Zero, wallet, blockHash, payload); err != nil {
 		t.Fatal(err)
 	}
-	after := ""
+	return ctx, db, repository, token, wallet, transactionHash
+}
+
+func canonicalHolderJob(t *testing.T, withoutMetadata bool) {
+	t.Helper()
+	ctx, db, repository, token, wallet, transactionHash := canonicalHolderJobFixture(t)
+	address := func(n int) string { return fmt.Sprintf("0x%040x", n) }
+	tokenLimit := 2
+	if withoutMetadata {
+		tokenLimit = 4
+		for i, metadata := range []string{`{}`, `{"metadata":null}`, `{"metadata":{"decimals":6}}`} {
+			if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) SELECT $1,$2,creator,factory,optical,$3,height,block_hash,$4,transaction_index,log_index,block_timestamp,provenance,$5 FROM indexer.indexer_canonical_creations WHERE token=$6`, address(78+i), address(178+i), 2+i, fmt.Sprintf("0x%064x", i+1), metadata, token); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) SELECT chain_id,$1,log_index,height,transaction_index,block_hash,emitter,topics,data FROM indexer.indexer_raw_logs WHERE transaction_hash=$2 AND log_index=0`, fmt.Sprintf("0x%064x", i+1), transactionHash); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := db.Exec(ctx, `UPDATE indexer.indexer_block_completeness SET raw_count=5; UPDATE indexer.indexer_ingest_commits SET record_count=5`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cursor := statsHolderCursor{}
 	refreshed := []string{}
-	if err := catchUpStatsHolders(ctx, db, repository, "canonical", 2, 10, &after, func(_ context.Context, token string) error { refreshed = append(refreshed, token); return nil }); err != nil {
+	if err := catchUpStatsHolders(ctx, db, repository, "canonical", tokenLimit, 10, &cursor, func(_ context.Context, token string) error { refreshed = append(refreshed, token); return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if after != token || len(refreshed) != 1 || refreshed[0] != token {
-		t.Fatalf("holder cursor=%q refresh=%v", after, refreshed)
+	if cursor.after != token || len(refreshed) != 1 || refreshed[0] != token {
+		t.Fatalf("holder cursor=%q refresh=%v", cursor.after, refreshed)
 	}
 	snapshot, err := repository.Snapshot(ctx, token, 10)
 	if err != nil || snapshot.Supply != "100" || snapshot.Coverage != "complete" || len(snapshot.Balances) != 1 || snapshot.Balances[0].Address != wallet {
 		t.Fatalf("canonical holders: %+v %v", snapshot, err)
 	}
-	if err := catchUpStatsHolders(ctx, db, repository, "canonical", 2, 10, &after); err != nil || after != "" {
-		t.Fatalf("completed scan: %q %v", after, err)
+	if withoutMetadata {
+		for i := 0; i < 3; i++ {
+			if _, err := repository.Snapshot(ctx, address(78+i), 10); !errors.Is(err, holdings.ErrUnknownToken) {
+				t.Fatalf("metadata-free holdings: %v", err)
+			}
+		}
 	}
-	if err := catchUpStatsHolders(ctx, nil, repository, "canonical", 2, 10, &after); err == nil {
+	if err := catchUpStatsHolders(ctx, db, repository, "canonical", tokenLimit, 10, &cursor); err != nil || cursor.after != "" {
+		t.Fatalf("completed scan: %q %v", cursor.after, err)
+	}
+	if err := catchUpStatsHolders(ctx, nil, repository, "canonical", tokenLimit, 10, &cursor); err == nil {
 		t.Fatal("missing source pool accepted")
 	}
+}
+
+func TestHolderIdlePassJobPreservesTwoTokens(t *testing.T) {
+	ctx, db, repository, token, _, transactionHash := canonicalHolderJobFixture(t)
+	second := fmt.Sprintf("0x%040x", 88)
+	secondHash := "0x" + strings.Repeat("c", 64)
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) SELECT $1,$2,creator,factory,optical,2,height,block_hash,$3,transaction_index,log_index,block_timestamp,provenance,payload FROM indexer.indexer_canonical_creations WHERE token=$4`, second, fmt.Sprintf("0x%040x", 89), secondHash, token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) SELECT chain_id,$1,log_index,height,transaction_index,block_hash,CASE WHEN emitter=$2 THEN $3 ELSE emitter END,topics,data FROM indexer.indexer_raw_logs WHERE transaction_hash=$4`, secondHash, token, second, transactionHash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_token_transfers(chain_id,transaction_hash,log_index,token,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,payload) SELECT chain_id,$1,log_index,$2,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,jsonb_set(jsonb_set(payload,'{token}',to_jsonb($2::text)),'{transactionHash}',to_jsonb($1::text)) FROM indexer.indexer_token_transfers WHERE token=$3`, secondHash, second, token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `UPDATE indexer.indexer_block_completeness SET raw_count=4; UPDATE indexer.indexer_ingest_commits SET record_count=4`); err != nil {
+		t.Fatal(err)
+	}
+	cursor := statsHolderCursor{}
+	if err := catchUpStatsHolders(ctx, db, repository, "canonical", 3, 10, &cursor); err != nil || cursor.after != second {
+		t.Fatalf("initial scan cursor=%s: %v", cursor.after, err)
+	}
+	type tokenRow struct{ version, body string }
+	before := map[string]tokenRow{}
+	for _, coin := range []string{token, second} {
+		var row tokenRow
+		if err := db.QueryRow(ctx, `SELECT xmin::text,row_to_json(t)::text FROM job_holders.tokens t WHERE token=$1`, coin).Scan(&row.version, &row.body); err != nil {
+			t.Fatal(err)
+		}
+		before[coin] = row
+	}
+	cursor.after = ""
+	if err := catchUpStatsHolders(ctx, db, repository, "canonical", 3, 10, &cursor); err != nil || cursor.after != second {
+		t.Fatalf("idle scan cursor=%s: %v", cursor.after, err)
+	}
+	for _, coin := range []string{token, second} {
+		var row tokenRow
+		if err := db.QueryRow(ctx, `SELECT xmin::text,row_to_json(t)::text FROM job_holders.tokens t WHERE token=$1`, coin).Scan(&row.version, &row.body); err != nil {
+			t.Fatal(err)
+		}
+		if row != before[coin] {
+			t.Fatalf("idle scan changed %s: %+v -> %+v", coin, before[coin], row)
+		}
+		snapshot, err := repository.Snapshot(ctx, coin, 10)
+		if err != nil || snapshot.Revision != 2 || snapshot.Coverage != "complete" || snapshot.Supply != "100" || len(snapshot.Balances) != 1 || snapshot.Balances[0].Raw != "100" {
+			t.Fatalf("idle holders %s: %+v %v", coin, snapshot, err)
+		}
+	}
+}
+
+func TestAnalyticsIdleRefreshSkipsUnchangedCoin(t *testing.T) {
+	ctx, db, repository, token, _, _ := canonicalHolderJobFixture(t)
+	cursor := statsHolderCursor{}
+	calls := 0
+	refresh := func(_ context.Context, coin string) error {
+		if coin != token {
+			t.Fatalf("refresh coin=%s, want %s", coin, token)
+		}
+		calls++
+		return nil
+	}
+	for pass := 0; pass <= 10; pass++ {
+		cursor.after = ""
+		if err := catchUpStatsHolders(ctx, db, repository, "canonical", 2, 10, &cursor, refresh); err != nil {
+			t.Fatal(err)
+		}
+		if calls != 1 || cursor.after != token || len(cursor.refreshed) != 1 {
+			t.Fatalf("pass=%d calls=%d cursor=%+v", pass, calls, cursor)
+		}
+	}
+}
+
+func TestAnalyticsIdleRefreshChangedCoinRestartAndFailure(t *testing.T) {
+	ctx, db, repository, token, wallet, _ := canonicalHolderJobFixture(t)
+	cursor := statsHolderCursor{}
+	calls := 0
+	var refreshErr error
+	refresh := func(_ context.Context, coin string) error {
+		if coin != token {
+			t.Fatalf("refresh coin=%s, want %s", coin, token)
+		}
+		calls++
+		return refreshErr
+	}
+	run := func(wantCalls int, wantErr error) {
+		t.Helper()
+		cursor.after = ""
+		err := catchUpStatsHolders(ctx, db, repository, "canonical", 2, 10, &cursor, refresh)
+		if !errors.Is(err, wantErr) || calls != wantCalls {
+			t.Fatalf("refresh calls=%d, want %d: %v", calls, wantCalls, err)
+		}
+		if wantErr != nil {
+			if cursor.after != "" || len(cursor.refreshed) != 0 {
+				t.Fatalf("failed refresh advanced cursor: %+v", cursor)
+			}
+		} else if cursor.after != token {
+			t.Fatalf("successful refresh cursor=%+v", cursor)
+		}
+	}
+	run(1, nil)
+	event := holdings.Transfer{ChainID: "125", Token: token, From: wallet, To: fmt.Sprintf("0x%040x", 90), Amount: "10", Height: "11", TransactionIndex: "0", LogIndex: "0", TransactionHash: "0x" + strings.Repeat("c", 64), BlockHash: "0x" + strings.Repeat("d", 64)}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	topics, err := json.Marshal([]string{crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)")).Hex(), "0x" + strings.Repeat("0", 24) + wallet[2:], "0x" + strings.Repeat("0", 24) + event.To[2:]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES(125,$1,0,11,0,$2,$3,$4,$5)`, event.TransactionHash, event.BlockHash, token, topics, big.NewInt(10).FillBytes(make([]byte, 32))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_token_transfers(chain_id,transaction_hash,log_index,token,from_address,to_address,amount_raw,height,transaction_index,block_hash,provenance,payload) VALUES(125,$1,0,$2,$3,$4,10,11,0,$5,'{}',$6)`, event.TransactionHash, token, wallet, event.To, event.BlockHash, payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_block_completeness(chain_id,stream_id,height,block_hash,raw_count,fetch_complete,required_decode_complete) VALUES(125,'canonical',11,$1,1,true,true)`, event.BlockHash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.indexer_ingest_commits(chain_id,stream_id,batch_id,previous_height,last_complete_height,block_hash,record_count,outbox_count) VALUES(125,'canonical','second',10,11,$1,1,0)`, event.BlockHash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `UPDATE indexer.indexer_ingest_watermarks SET raw_complete_height=11,typed_complete_height=11`); err != nil {
+		t.Fatal(err)
+	}
+	refreshErr = errors.New("refresh unavailable")
+	run(2, refreshErr)
+	refreshErr = nil
+	run(3, nil)
+	run(3, nil)
+	snapshot, err := repository.Snapshot(ctx, token, 10)
+	if err != nil || snapshot.Coverage != "complete" || snapshot.Supply != "100" || len(snapshot.Balances) != 2 {
+		t.Fatalf("updated holders: %+v %v", snapshot, err)
+	}
+	cursor = statsHolderCursor{}
+	run(4, nil)
+	run(4, nil)
+	if _, err := db.Exec(ctx, `UPDATE job_holders.tokens SET revision=revision+1 WHERE token=$1`, token); err != nil {
+		t.Fatal(err)
+	}
+	run(5, nil)
+	if _, err := db.Exec(ctx, `UPDATE job_holders.tokens SET coverage='incomplete' WHERE token=$1`, token); err != nil {
+		t.Fatal(err)
+	}
+	run(6, nil)
+	run(6, nil)
 }

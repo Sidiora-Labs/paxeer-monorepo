@@ -25,7 +25,7 @@ def source_baseline():
     pins = json.loads(
         (Path(__file__).with_name("fixtures") / "python_sdk_and_clock_source_pins.json").read_text()
     )
-    assert pins["source_revision"] == "965a7a307bb7ebdc57d1a0c1f8e0357b9786760b"
+    assert pins["source_revision"] == "e72595b9cbcfc97f1a154215e16d8e4c383114e8"
     return pins["python_sdk"]
 
 

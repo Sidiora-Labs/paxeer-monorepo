@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -23,6 +24,7 @@ type Credentials struct {
 	provider  secrets.Provider
 	refreshed time.Time
 	ready     bool
+	wait      runtimeWait
 }
 
 func NewCredentials(ctx context.Context, options secrets.Options, keys ...string) (*Credentials, error) {
@@ -72,9 +74,6 @@ func (c *Credentials) Refresh(ctx context.Context) error {
 			if e == nil {
 				e = errors.New("credential value is empty")
 			}
-			c.mu.Lock()
-			c.ready = false
-			c.mu.Unlock()
 			return fmt.Errorf("%w: refresh credential %s: %w", ErrUnavailable, k, e)
 		}
 		next[k] = value
@@ -87,22 +86,32 @@ func (c *Credentials) Refresh(ctx context.Context) error {
 	return nil
 }
 func (c *Credentials) Run(ctx context.Context) error {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			refresh, cancel := context.WithTimeout(ctx, 5*time.Second)
-			e := c.Refresh(refresh)
-			cancel()
-			if e != nil {
-				return e
+	wait := c.wait
+	if wait == nil {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		wait = func(ctx context.Context, _ time.Duration) error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				return nil
 			}
 		}
 	}
+	for {
+		if err := wait(ctx, 30*time.Second); err != nil {
+			return err
+		}
+		refresh, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := c.Refresh(refresh)
+		cancel()
+		if err != nil {
+			log.Printf("notification runtime job credentials failed: %v", err)
+		}
+	}
 }
+
 func (c *Credentials) Ready(ctx context.Context) error {
 	_, _ = ctx.Deadline()
 	c.mu.RLock()
@@ -120,6 +129,7 @@ type RuntimeOptions struct {
 	EnableAPNS, EnableFCM, EnableWebPush                                                                        bool
 }
 type PushRuntime struct {
+	runtimeJobs
 	Credentials *Credentials
 	Worker      Worker
 }
@@ -181,14 +191,13 @@ func NewPushRuntime(ctx context.Context, db *sql.DB, authority TargetAuthority, 
 	return &PushRuntime{Credentials: credentials, Worker: Worker{Store: Store{DB: db}, Authority: authority, Adapters: adapters, Owner: o.Owner, DeepLinkOrigin: origin}}, nil
 }
 func (r *PushRuntime) Run(ctx context.Context) error {
-	run, cancel := context.WithCancel(ctx)
-	defer cancel()
-	results := make(chan error, 2)
-	go func() { results <- r.Credentials.Run(run) }()
-	go func() { results <- r.Worker.Run(run) }()
-	e := <-results
-	cancel()
-	return errors.Join(e, <-results)
+	if r == nil || r.Credentials == nil {
+		return ErrInvalid
+	}
+	return r.run(ctx, []runtimeJob{
+		{name: "push_credentials", interval: 30 * time.Second, timeout: 5 * time.Second, pass: r.Credentials.Refresh},
+		{name: "push_delivery", interval: time.Second, timeout: 30 * time.Second, pass: func(ctx context.Context) error { return r.Worker.Once(ctx, 20) }},
+	})
 }
 
 type RuntimeConfig struct {
@@ -199,8 +208,11 @@ type RuntimeConfig struct {
 	Push                                                                                                                         RuntimeOptions
 	Pools                                                                                                                        discovery.SourceAuthority
 	Intervals                                                                                                                    discovery.IntervalAuthority
+
+	Logger *slog.Logger
 }
 type HTTPRuntime struct {
+	runtimeJobs
 	DB            *sql.DB
 	Credentials   *Credentials
 	Accounts      *AccountClient
@@ -209,9 +221,6 @@ type HTTPRuntime struct {
 	Notifications HTTP
 	Events        discovery.Runtime
 	Config        RuntimeConfig
-	mu            sync.RWMutex
-	running       bool
-	failure       error
 }
 
 func NewHTTPRuntime(ctx context.Context, db *sql.DB, auth func(*http.Request) (string, error), config RuntimeConfig) (*HTTPRuntime, error) {
@@ -256,7 +265,7 @@ func NewHTTPRuntime(ctx context.Context, db *sql.DB, auth func(*http.Request) (s
 	owned := discovery.OwnedSources{External: external, Callouts: callouts}
 	intervals := config.Intervals
 	policy := InternalPolicy{Credentials: credentials, TokenRef: config.InternalTokenRef, DeletePeerDNS: config.DeletePeerDNS, ChatPeerDNS: config.ChatPeerDNS}
-	r := &HTTPRuntime{DB: db, Credentials: credentials, Accounts: accounts, Config: config}
+	r := &HTTPRuntime{runtimeJobs: runtimeJobs{logger: config.Logger}, DB: db, Credentials: credentials, Accounts: accounts, Config: config}
 	r.Discovery = discovery.HTTP{Store: ds, Callouts: callouts, Authenticate: discovery.Authenticate(auth), Wallet: func(req *http.Request) (string, error) { p, err := config.Principal(req); return p.Wallet, err }, Intervals: intervals, Feed: discovery.Feed{Store: ds, Sources: owned, Preferences: accounts, Graph: social, Signer: discovery.CursorSigner{Key: []byte(key)}}}
 	r.Notifications = HTTP{Store: ns, Discovery: ds, Authenticate: Authenticate(auth), Principal: config.Principal, Recipient: RecipientConsumer{Store: ns, Authority: accounts}, InternalAuthorize: policy.Authorize}
 	r.Events = discovery.Runtime{Store: ds, Publisher: eventPublisher{triggers: TriggerConsumer{Store: ns, Authority: accounts}, social: social}}
@@ -303,10 +312,7 @@ func (r *HTTPRuntime) Ready(ctx context.Context) error {
 	if r == nil || r.DB == nil {
 		return ErrUnavailable
 	}
-	r.mu.RLock()
-	running, failure := r.running, r.failure
-	r.mu.RUnlock()
-	if !running || failure != nil || r.Config.Pools == nil || r.Discovery.Intervals == nil {
+	if r.ready() != nil || r.Credentials == nil || r.Config.Pools == nil || r.Discovery.Intervals == nil {
 		return ErrUnavailable
 	}
 	if e := r.Credentials.Ready(ctx); e != nil {
@@ -328,64 +334,47 @@ func (r *HTTPRuntime) Ready(ctx context.Context) error {
 	return nil
 }
 func (r *HTTPRuntime) Run(ctx context.Context) error {
-	if r == nil {
+	if r == nil || r.DB == nil || r.Credentials == nil {
 		return ErrInvalid
 	}
-	run, cancel := context.WithCancel(ctx)
-	defer cancel()
-	r.mu.Lock()
-	if r.running {
-		r.mu.Unlock()
-		return ErrInvalid
+	jobs := []runtimeJob{
+		{name: "credentials", interval: 30 * time.Second, timeout: 5 * time.Second, pass: r.Credentials.Refresh},
+		{name: "discovery_events", interval: time.Second, timeout: 10 * time.Second, pass: r.eventsOnce},
+		{name: "maintenance", interval: 30 * time.Second, timeout: 10 * time.Second, pass: r.maintain},
 	}
-	r.running = true
-	r.failure = nil
-	r.mu.Unlock()
-	jobs := []func(context.Context) error{r.Credentials.Run, r.Events.Run, r.maintain}
 	if r.Push != nil {
-		jobs = append(jobs, r.Push.Run)
+		// Push jobs share the HTTP runtime's pass state and shutdown boundary.
+		if r.Push.Credentials == nil {
+			return ErrInvalid
+		}
+		jobs = append(jobs,
+			runtimeJob{name: "push_credentials", interval: 30 * time.Second, timeout: 5 * time.Second, pass: r.Push.Credentials.Refresh},
+			runtimeJob{name: "push_delivery", interval: time.Second, timeout: 30 * time.Second, pass: func(ctx context.Context) error { return r.Push.Worker.Once(ctx, 20) }},
+		)
 	}
-	results := make(chan error, len(jobs))
-	for _, job := range jobs {
-		job := job
-		go func() { results <- job(run) }()
-	}
-	e := <-results
+	return r.run(ctx, jobs)
+}
+func (r *HTTPRuntime) eventsOnce(ctx context.Context) error {
+	evaluation, cancel := context.WithTimeout(ctx, 5*time.Second)
+	_, err := r.Events.EvaluateBatch(evaluation, 100, time.Now().UTC())
 	cancel()
-	for remaining := 1; remaining < len(jobs); remaining++ {
-		e = errors.Join(e, <-results)
+	if err != nil {
+		return fmt.Errorf("evaluate discovery alerts: %w", err)
 	}
-	r.mu.Lock()
-	r.running = false
-	r.failure = e
-	r.mu.Unlock()
-	return e
+	_, err = r.Events.PublishBatch(ctx, 100)
+	return err
 }
 func (r *HTTPRuntime) maintain(ctx context.Context) error {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for {
-		bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
-		e := r.refreshSources(bounded)
-		if e == nil {
-			_, e = r.Notifications.Store.Retain(bounded, time.Now().UTC(), 90, 1000)
-		}
-		if e == nil {
-			e = r.Discovery.Store.ExpireSnapshots(bounded, time.Now().UTC())
-		}
-		cancel()
-		if e != nil {
-			log.Printf("notification maintenance failed: %v", e)
-		}
-		if e != nil && !errors.Is(e, ErrUnavailable) {
-			return e
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
+	if err := r.refreshSources(ctx); err != nil {
+		return fmt.Errorf("refresh sources: %w", err)
 	}
+	if _, err := r.Notifications.Store.Retain(ctx, time.Now().UTC(), 90, 1000); err != nil {
+		return fmt.Errorf("retain notifications: %w", err)
+	}
+	if err := r.Discovery.Store.ExpireSnapshots(ctx, time.Now().UTC()); err != nil {
+		return fmt.Errorf("expire snapshots: %w", err)
+	}
+	return nil
 }
 
 type publicSourceLister interface {
@@ -393,23 +382,37 @@ type publicSourceLister interface {
 }
 
 func (r *HTTPRuntime) refreshSources(ctx context.Context) error {
-	refs := []discovery.SourceRef{}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	current := []discovery.SourceRef{}
 	if provider, ok := r.Config.Pools.(publicSourceLister); ok {
-		current, e := provider.PublicSources(ctx)
-		if e != nil {
-			return e
+		var err error
+		current, err = provider.PublicSources(ctx)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
+			return err
 		}
 		if len(current) > 2000 {
 			return ErrInvalid
 		}
-		refs = append(refs, current...)
 	}
 	rows, e := r.DB.QueryContext(ctx, `SELECT document FROM narrative_discovery.sources ORDER BY published_at DESC,event_id LIMIT 2000`)
 	if e != nil {
 		return e
 	}
+	stored := map[string]storedRefreshSource{}
+	remaining := []discovery.SourceRef{}
+	listed := map[string]bool{}
+	for _, ref := range current {
+		if ref.Kind == resourcePool {
+			listed[ref.ID] = true
+		}
+	}
 	for rows.Next() {
-		var raw []byte
+		var raw json.RawMessage
 		var ref discovery.SourceRef
 		if e = rows.Scan(&raw); e == nil {
 			e = json.Unmarshal(raw, &ref)
@@ -417,29 +420,26 @@ func (r *HTTPRuntime) refreshSources(ctx context.Context) error {
 		if e != nil {
 			return errors.Join(e, rows.Close())
 		}
-		refs = append(refs, ref)
+		stored[ref.ID] = storedRefreshSource{ref: ref, document: raw}
+		if !listed[ref.ID] {
+			remaining = append(remaining, ref)
+		}
 	}
-	e = errors.Join(rows.Err(), rows.Close())
-	if e != nil {
+	if e = errors.Join(rows.Err(), rows.Close()); e != nil {
 		return e
 	}
-	seen := map[string]bool{}
-	for _, ref := range refs {
-		if seen[ref.ID] {
-			continue
-		}
-		seen[ref.ID] = true
-		if ref.Tombstone {
-			continue
-		}
-		resource, e := r.Discovery.Feed.Sources.ResolvePublic(ctx, ref.Kind, ref.ID)
-		if e != nil {
-			return e
-		}
-		event := discovery.PublicEvent{Consumer: "authority-refresh-v2", EventID: resource.Ref.EventID + ":" + time.Now().UTC().Format(time.RFC3339Nano), Source: resource.Ref, ObservedAt: time.Now().UTC()}
-		if e = r.Discovery.Store.Consume(ctx, r.Discovery.Feed.Sources, event); e != nil {
-			return e
-		}
+	pass := sourceRefreshPass{runtime: r, stored: stored, listed: listed, seen: map[string]bool{}}
+	if err := pass.group(ctx, current, true); err != nil {
+		return err
+	}
+	if err := pass.group(ctx, remaining, false); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if pass.failures != 0 {
+		return fmt.Errorf("%d failed sources; first %s %s: %s", pass.failures, pass.firstKind, pass.firstID, pass.firstCause)
 	}
 	return nil
 }

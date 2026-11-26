@@ -20,19 +20,20 @@ export interface Preset {
   /** Client-side order applied on top of the snapshot; null keeps the server rank. */
   defaultSort: SortState;
   description: string;
+  emptyDescription: string;
 }
 
 export const presets: readonly Preset[] = Object.freeze([
-  { id: 'movers', label: 'Movers', icon: Rocket, category: 'movers', defaultSort: null, description: 'Biggest price moves right now' },
-  { id: 'new', label: 'New', icon: Sparkles, category: 'new', defaultSort: null, description: 'Newest coins' },
-  { id: 'trending', label: 'Trending', icon: Flame, category: 'trending', defaultSort: null, description: 'Hottest coins right now' },
-  { id: 'volume', label: 'Volume', icon: ChartColumn, category: 'volume', defaultSort: null, description: 'Most traded coins' },
-  { id: 'breakout', label: 'Breakout', icon: Zap, category: 'breakout', defaultSort: null, description: 'Coins breaking out' },
-  { id: 'unusual', label: 'Unusual', icon: Activity, category: 'unusual', defaultSort: null, description: 'Coins with unusual activity' },
-  { id: 'mcap', label: 'Market cap', icon: Coins, category: 'trending', defaultSort: { key: 'mcap', direction: 'desc' }, description: 'Trending coins by market cap' },
+  { id: 'trending', label: 'Trending', icon: Flame, category: 'trending', defaultSort: null, description: 'Hottest coins right now', emptyDescription: 'Trending lists the highest-ranked coins right now.' },
+  { id: 'new', label: 'New', icon: Sparkles, category: 'new', defaultSort: null, description: 'Newest coins', emptyDescription: 'New lists the newest coins.' },
+  { id: 'movers', label: 'Movers', icon: Rocket, category: 'movers', defaultSort: null, description: 'Biggest price moves right now', emptyDescription: 'Movers lists coins with strong price moves outside Trending.' },
+  { id: 'volume', label: 'Volume', icon: ChartColumn, category: 'volume', defaultSort: null, description: 'Most traded coins', emptyDescription: 'Volume lists the most traded coins.' },
+  { id: 'breakout', label: 'Breakout', icon: Zap, category: 'breakout', defaultSort: null, description: 'Coins breaking out', emptyDescription: 'Breakout lists coins gaining momentum.' },
+  { id: 'unusual', label: 'Unusual', icon: Activity, category: 'unusual', defaultSort: null, description: 'Coins with unusual activity', emptyDescription: 'Unusual lists coins with unusual trading activity.' },
+  { id: 'mcap', label: 'Market cap', icon: Coins, category: 'trending', defaultSort: { key: 'mcap', direction: 'desc' }, description: 'Trending coins by market cap', emptyDescription: 'Market cap lists Trending coins by market cap.' },
 ]);
 
-const defaultPreset: Preset = presets[0];
+export const defaultPreset: Preset = presets[0];
 
 export function presetFor(value: string | null | undefined): Preset {
   return presets.find(preset => preset.id === value) ?? defaultPreset;
@@ -43,7 +44,7 @@ export function presetHref(preset: Preset): string {
 }
 
 /**
- * Responsive slots inside the single segmented container: the first preset is always inline,
+ * Responsive slots inside the single row of preset chips: the first preset is always inline,
  * the next two join it from md, the rest from xl. Whatever is not inline lives in "More".
  */
 export type PresetTier = 'always' | 'md' | 'xl';
@@ -69,14 +70,14 @@ export function overflowPresets(viewport: 'narrow' | 'medium' | 'wide'): readonl
   });
 }
 
-const segmentClass = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-sm px-2.5 text-sm font-semibold transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-focus [&_svg]:size-icon-sm';
+const segmentClass = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-sm px-2.5 text-sm font-medium transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-focus [&_svg]:size-icon-sm';
 const segmentIdle = 'text-text-muted hover:bg-surface-hover hover:text-text';
-const segmentActive = 'bg-accent text-on-accent';
+const segmentActive = 'bg-surface-3 text-text';
 
 /* When the active preset is folded into "More", the trigger carries its label and the active fill. */
 const moreActiveClass: Record<Exclude<PresetTier, 'always'>, { fill: string; label: string; more: string }> = {
-  md: { fill: 'bg-accent text-on-accent hover:bg-accent hover:text-on-accent md:bg-transparent md:text-text-muted md:hover:bg-surface-hover md:hover:text-text', label: 'md:hidden', more: 'hidden md:inline' },
-  xl: { fill: 'bg-accent text-on-accent hover:bg-accent hover:text-on-accent xl:bg-transparent xl:text-text-muted xl:hover:bg-surface-hover xl:hover:text-text', label: 'xl:hidden', more: 'hidden xl:inline' },
+  md: { fill: 'bg-surface-3 text-text hover:bg-surface-3 hover:text-text md:bg-transparent md:text-text-muted md:hover:bg-surface-hover md:hover:text-text', label: 'md:hidden', more: 'hidden md:inline' },
+  xl: { fill: 'bg-surface-3 text-text hover:bg-surface-3 hover:text-text xl:bg-transparent xl:text-text-muted xl:hover:bg-surface-hover xl:hover:text-text', label: 'xl:hidden', more: 'hidden xl:inline' },
 };
 
 export interface PresetTabsProps {
@@ -99,9 +100,9 @@ export function PresetTabs({ active, className }: PresetTabsProps) {
   });
 
   return (
-    <nav aria-label="Explore presets" className={cn('min-w-0', className)}>
-      <div className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-md bg-surface-1 p-1">
-        <ul className="flex min-w-0 flex-wrap items-center gap-0.5">
+    <nav aria-label="Explore presets" className={cn('min-w-0 overflow-x-auto', className)}>
+      <div className="inline-flex flex-nowrap items-center gap-0.5 p-1">
+        <ul className="flex min-w-0 flex-nowrap items-center gap-0.5">
           {presets.map((preset, index) => {
             const Icon = preset.icon;
             const selected = preset.id === active;
@@ -127,7 +128,7 @@ export function PresetTabs({ active, className }: PresetTabsProps) {
           size="sm"
           items={items}
           className="shrink-0 xl:hidden"
-          triggerClassName={cn(segmentClass, 'gap-1 font-semibold', folded ? folded.fill : segmentIdle)}
+          triggerClassName={cn(segmentClass, 'gap-1 font-medium', folded ? folded.fill : segmentIdle)}
           trigger={(
             <>
               {folded ? (

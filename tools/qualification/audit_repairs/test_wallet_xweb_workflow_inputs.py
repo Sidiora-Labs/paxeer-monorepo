@@ -185,7 +185,7 @@ def test_only_event_path_filters_change_in_workflows():
     # Fingerprints of the live producer YAML with only event paths removed.
     # Pin jobs, all commands, conditions, permissions and tool versions together.
     expected = {
-        "wallet-go-test": "e8a2fab1d5cfe130875aaedd9d32c199c3c59c8a5d70235b1102a26725096144",
+        "wallet-go-test": "9579569b049c35dddc2d8589563848267442a888b223814e59a1da6d8efc6524",
         "xweb-test": "009e85355b053b6b0bddb201e0550abd57a61ef7d41f036adf7dd7c5e34b81e2",
     }
     for name, digest in expected.items():

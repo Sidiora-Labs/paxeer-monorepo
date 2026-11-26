@@ -74,7 +74,6 @@ func rewardSchemaNode(t *testing.T, ctx context.Context, script string, args ...
 	return exec.CommandContext(ctx, "node", append([]string{filepath.Join(directory, script)}, args...)...)
 }
 
-
 // PGlite executes the real deployment SQL and PostgreSQL wire protocol in WASM;
 // no PostgreSQL installation, shared database or service credentials are used.
 func rewardSchemaStore(t *testing.T, ctx context.Context, directory string) (string, func()) {

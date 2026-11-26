@@ -1,19 +1,14 @@
 package l16
 
 import (
-	"context"
 	"errors"
-	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestBaselineReplayRejectsGiftAndMissingSettlementEvidence(t *testing.T) {
@@ -63,29 +58,9 @@ func TestBaselineTransferDecoderRejectsNoncanonicalAddressAndRemovedLogs(t *test
 }
 
 func TestFreshBaselineCapturedFromActualCanonicalChain(t *testing.T) {
-	required := []string{"L16_TEST_DSN", "L16_BASELINE_RPC", "L16_BASELINE_WALLET", "L16_BASELINE_TOKEN", "L16_BASELINE_SCHEMA", "L16_BASELINE_STREAM", "L16_BASELINE_GENERATION", "L16_BASELINE_OWNER"}
-	for _, name := range required {
-		if os.Getenv(name) == "" {
-			t.Fatalf("%s required for genuine baseline authority qualification", name)
-		}
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	pool, err := pgxpool.New(ctx, os.Getenv("L16_TEST_DSN"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-	rpc, err := ethclient.DialContext(ctx, os.Getenv("L16_BASELINE_RPC"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rpc.Close()
-	authority, err := NewBaselineAuthority(pool, rpc, os.Getenv("L16_BASELINE_SCHEMA"), os.Getenv("L16_BASELINE_STREAM"), "pnl", os.Getenv("L16_BASELINE_GENERATION"), os.Getenv("L16_BASELINE_OWNER"), "inventory-v1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	wallet, token := os.Getenv("L16_BASELINE_WALLET"), os.Getenv("L16_BASELINE_TOKEN")
+	parallelDatabaseTest(t)
+	ctx, authority, wallet, token := localCanonicalBaseline(t)
+	pool := authority.pool
 	digest, err := authority.Capture(ctx, wallet, token)
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +73,7 @@ func TestFreshBaselineCapturedFromActualCanonicalChain(t *testing.T) {
 	if digest != in.CheckpointDigest || in.NextSequence != "1" || in.PreviousEffectIdentity != "" {
 		t.Fatal(in)
 	}
-	store, err := delivery.NewPartitionStore(pool, os.Getenv("L16_BASELINE_SCHEMA"))
+	store, err := delivery.NewPartitionStore(pool, "pnl")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -80,7 +80,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        'fixed bottom-24 left-3 right-3 z-[var(--sl-z-toast)] w-auto transition-all duration-slow ease-sl sm:bottom-5 sm:left-auto sm:right-5 sm:w-90',
+        'fixed bottom-[calc(var(--sl-space)*24+var(--sl-cookie-banner-height,0px))] left-3 right-3 z-[var(--sl-z-toast)] w-auto transition-all duration-slow ease-sl sm:bottom-[calc(var(--sl-space)*5+var(--sl-cookie-banner-height,0px))] sm:left-auto sm:right-5 sm:w-90',
         visible && !exiting ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
       )}
     >
@@ -97,11 +97,11 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
           <dl className="space-y-1.5 text-sm">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-text-muted">{isBuy ? 'Spent' : 'Sold'}</dt>
-              <dd className="font-bold text-text tabular-nums">{data.inputAmount} {data.inputSymbol}</dd>
+              <dd className="min-w-0 truncate font-bold text-text tabular-nums" title={`${data.inputAmount} ${data.inputSymbol}`}>{data.inputAmount} {data.inputSymbol}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-text-muted">{isBuy ? 'Received' : 'Returned'}</dt>
-              <dd className={cn('font-bold tabular-nums', tone)}>{data.outputAmount} {data.outputSymbol}</dd>
+              <dd className={cn('min-w-0 truncate font-bold tabular-nums', tone)} title={`${data.outputAmount} ${data.outputSymbol}`}>{data.outputAmount} {data.outputSymbol}</dd>
             </div>
             {data.feeRaw ? (
               <div className="flex items-center justify-between gap-3 text-xs">
@@ -124,7 +124,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
               <span className="font-bold text-text tabular-nums">{data.newUsdlBalance ?? '...'}</span>
             </div>
             <div className="flex items-center justify-between gap-3 text-xs">
-              <span className="text-text-muted">{data.tokenName || 'Coin'}</span>
+              <span className="min-w-0 truncate text-text-muted" title={data.tokenName}>{data.tokenName || 'Coin'}</span>
               <span className="font-bold text-text tabular-nums">{data.newTokenBalance ?? '...'}</span>
             </div>
           </div>

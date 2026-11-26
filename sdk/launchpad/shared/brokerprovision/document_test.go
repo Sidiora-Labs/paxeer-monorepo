@@ -189,9 +189,26 @@ func TestComposerExamplesMatchBrokerDocument(t *testing.T) {
 	var inventory struct {
 		Streams  map[string][]string         `json:"streams"`
 		Durables []natsdriver.ConsumerConfig `json:"durables"`
+		Access   map[string]struct {
+			Consumers       []natsdriver.ConsumerConfig `json:"consumers"`
+			PublishSubjects []string                    `json:"publishSubjects"`
+		} `json:"identities"`
 	}
 	if err = json.Unmarshal(output, &inventory); err != nil {
 		t.Fatal(err)
+	}
+	searchIdentity, ok := inventory.Access["stats-search"]
+	if !ok || len(searchIdentity.Consumers) != 3 || !reflect.DeepEqual(searchIdentity.PublishSubjects, []string{"search.invalidation.v2"}) {
+		t.Fatal("stats search requires its three consumers and invalidation publication only")
+	}
+	policyConsumer := false
+	for _, consumer := range searchIdentity.Consumers {
+		if consumer.Subject == "social.policy" {
+			policyConsumer = consumer.Stream == "SOCIAL_EVENTS" && consumer.Durable == "stats_search_social_policy"
+		}
+	}
+	if !policyConsumer {
+		t.Fatal("stats search identity is missing its social policy consumer")
 	}
 	d := example(t)
 	if len(inventory.Streams) != len(d.Streams) {
@@ -320,5 +337,55 @@ func TestConfigurationComparisonRetainsExactLimitsAndConsumerOptions(t *testing.
 		if equalConsumer(actual, consumer, 1) {
 			t.Fatal("additional consumer option admitted")
 		}
+	}
+}
+
+func TestStatsSearchSocialPolicyDurable(t *testing.T) {
+	root := repositoryRoot(t)
+	read := func(name string, value any) {
+		t.Helper()
+		raw, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/documents/values", name+".example.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(raw, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var stats struct {
+		Phase2 struct {
+			SearchConsumers []struct {
+				Kind      string                    `json:"kind"`
+				EventType string                    `json:"eventType"`
+				Consumer  natsdriver.ConsumerConfig `json:"consumer"`
+			} `json:"searchConsumers"`
+		} `json:"phase2"`
+	}
+	var social struct{ PolicySubject, PolicyStream, PolicyDurable string }
+	read("stats", &stats)
+	read("social", &social)
+	var search natsdriver.ConsumerConfig
+	for _, sub := range stats.Phase2.SearchConsumers {
+		if sub.Kind == "social_policy" {
+			if sub.EventType != "social.policy.changed.v2" || sub.Consumer.Subject != social.PolicySubject || sub.Consumer.Stream != social.PolicyStream {
+				t.Fatal("stats search policy binding differs from the social publisher")
+			}
+			search = sub.Consumer
+		}
+	}
+	if search.Durable == "" || search.Durable == social.PolicyDurable {
+		t.Fatal("stats search policy consumer is missing")
+	}
+	found := false
+	for _, c := range example(t).Durables {
+		if c.Stream == search.Stream && c.Durable == search.Durable {
+			if c != search {
+				t.Fatal("stats search policy consumer bounds differ")
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("stats search policy durable is missing from broker provisioning")
 	}
 }

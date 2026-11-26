@@ -19,7 +19,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-
 func assertRuntimeStatementAuthority(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	root := coordinatortest.RepositoryRoot(t)
@@ -37,6 +36,7 @@ func assertRuntimeStatementAuthority(t *testing.T, pool *pgxpool.Pool) {
 		charts + "httpapi/symbols.go",
 		shared + "store.go", shared + "partition.go", shared + "stream.go",
 	}
+	var statements []runtimeStatement
 	for _, path := range paths {
 		set := token.NewFileSet()
 		file, err := parser.ParseFile(set, filepath.Join(root, path), nil, 0)
@@ -63,57 +63,112 @@ func assertRuntimeStatementAuthority(t *testing.T, pool *pgxpool.Pool) {
 					return true
 				}
 				method, ok := call.Fun.(*ast.SelectorExpr)
-				if !ok || (method.Sel.Name != "Exec" && method.Sel.Name != "Query" && method.Sel.Name != "QueryRow") {
+				if !ok || (method.Sel.Name != "Exec" && method.Sel.Name != "Query" && method.Sel.Name != "QueryRow" && method.Sel.Name != "queryRow") {
 					return true
 				}
-				predicates := []string{"consumer_id=$1 AND projection_generation=$2 AND partition_kind=$3 AND partition_key=$4"}
-				if fn.Name.Name == "QuarantineAfterRollback" {
-					predicates = append(predicates, "consumer_id=$1 AND projection_generation=$2")
-				}
-				for i, predicate := range predicates {
-					schema := "candles"
-					if path == charts+"consumer/source_authority.go" || path == charts+"httpapi/symbols.go" {
-						schema = "indexer"
-					}
-					statement := runtimeStatementSQL(t, call.Args[1], schema, predicate)
-					name := fmt.Sprintf("%s/%s/%d/%d", filepath.Base(path), fn.Name.Name, set.Position(call.Pos()).Line, i)
-					t.Run(name, func(t *testing.T) {
-						ctx := context.Background()
-						tx, err := pool.Begin(ctx)
-						if err != nil {
-							t.Fatal(err)
-						}
-						defer func() {
-							if err := tx.Rollback(ctx); err != nil {
-								t.Error(err)
-							}
-						}()
-						t.Logf("%s: %s", path, statement)
-						if strings.HasPrefix(statement, "LOCK TABLE ") {
-							if _, err := tx.Exec(ctx, statement); err != nil {
-								t.Fatal(err)
-							}
-							return
-						}
-						conn := tx.Conn()
-						plan, err := conn.Prepare(ctx, "", "EXPLAIN "+statement)
-						if err != nil {
-							t.Fatal(err)
-						}
-						rows, err := tx.Query(ctx, "EXPLAIN "+statement, make([]any, len(plan.ParamOIDs))...)
-						if err != nil {
-							t.Fatal(err)
-						}
-						rows.Close()
-						if err := rows.Err(); err != nil {
-							t.Fatal(err)
-						}
-					})
-				}
+				statements = append(statements, runtimeStatement{path: path, set: set, fn: fn, call: call, method: method.Sel.Name})
 				return true
 			})
 		}
 	}
+	for _, input := range statements {
+		concrete := runtimeStatementInputs(t, input, statements, map[*ast.FuncDecl]bool{})
+		if len(concrete) == 0 {
+			t.Fatalf("runtime SQL has no concrete callers: %s/%s", input.path, input.fn.Name.Name)
+		}
+		for _, source := range concrete {
+			predicates := []string{"consumer_id=$1 AND projection_generation=$2 AND partition_kind=$3 AND partition_key=$4"}
+			if source.fn.Name.Name == "QuarantineAfterRollback" {
+				predicates = append(predicates, "consumer_id=$1 AND projection_generation=$2")
+			}
+			for i, predicate := range predicates {
+				schema := "candles"
+				if source.path == charts+"consumer/source_authority.go" || source.path == charts+"httpapi/symbols.go" {
+					schema = "indexer"
+				}
+				statement := runtimeStatementSQL(t, source.call.Args[1], schema, predicate)
+				name := fmt.Sprintf("%s/%s/%d/%d", filepath.Base(source.path), source.fn.Name.Name, source.set.Position(source.call.Pos()).Line, i)
+				t.Run(name, func(t *testing.T) {
+					ctx := context.Background()
+					tx, err := pool.Begin(ctx)
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer func() {
+						if err := tx.Rollback(ctx); err != nil {
+							t.Error(err)
+						}
+					}()
+					t.Logf("%s: %s", source.path, statement)
+					if strings.HasPrefix(statement, "LOCK TABLE ") {
+						if _, err := tx.Exec(ctx, statement); err != nil {
+							t.Fatal(err)
+						}
+						return
+					}
+					conn := tx.Conn()
+					plan, err := conn.Prepare(ctx, "", "EXPLAIN "+statement)
+					if err != nil {
+						t.Fatal(err)
+					}
+					rows, err := tx.Query(ctx, "EXPLAIN "+statement, make([]any, len(plan.ParamOIDs))...)
+					if err != nil {
+						t.Fatal(err)
+					}
+					rows.Close()
+					if err := rows.Err(); err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+		}
+	}
+}
+
+type runtimeStatement struct {
+	path   string
+	set    *token.FileSet
+	fn     *ast.FuncDecl
+	call   *ast.CallExpr
+	method string
+}
+
+func runtimeStatementInputs(t *testing.T, input runtimeStatement, statements []runtimeStatement, visiting map[*ast.FuncDecl]bool) []runtimeStatement {
+	t.Helper()
+	identifier, ok := input.call.Args[1].(*ast.Ident)
+	if !ok || identifier.Obj == nil {
+		return []runtimeStatement{input}
+	}
+	field, ok := identifier.Obj.Decl.(*ast.Field)
+	if !ok {
+		return []runtimeStatement{input}
+	}
+	parameter := -1
+	index := 0
+	for _, candidate := range input.fn.Type.Params.List {
+		for _, name := range candidate.Names {
+			if candidate == field && name.Name == identifier.Name {
+				parameter = index
+			}
+			index++
+		}
+	}
+	kind, ok := field.Type.(*ast.Ident)
+	if parameter != 1 || !ok || kind.Name != "string" {
+		t.Fatalf("unsupported runtime SQL parameter: %s/%s", input.path, input.fn.Name.Name)
+	}
+	if visiting[input.fn] {
+		return nil
+	}
+	visiting[input.fn] = true
+	defer delete(visiting, input.fn)
+	var concrete []runtimeStatement
+	for _, caller := range statements {
+		if caller.method == input.fn.Name.Name {
+			concrete = append(concrete, runtimeStatementInputs(t, caller, statements, visiting)...)
+		}
+	}
+	return concrete
 }
 
 func TestRuntimeRoleSymbolSourceColumns(t *testing.T) {
@@ -218,6 +273,15 @@ func runtimeStatementSQL(t *testing.T, expr ast.Expr, schema, predicate string) 
 			return runtimeStatementSQL(t, v.X, schema, predicate) + runtimeStatementSQL(t, v.Y, schema, predicate)
 		}
 	case *ast.Ident:
+		if v.Obj != nil && v.Obj.Kind == ast.Con {
+			if declaration, ok := v.Obj.Decl.(*ast.ValueSpec); ok {
+				for i, name := range declaration.Names {
+					if name.Name == v.Name && i < len(declaration.Values) {
+						return runtimeStatementSQL(t, declaration.Values[i], schema, predicate)
+					}
+				}
+			}
+		}
 		switch v.Name {
 		case "q", "schema":
 			return schema

@@ -4,13 +4,13 @@ Paxeer mainnet-beta runs on chain 125 (`0x7d`). The LayerX kernel inside `paxd`
 executes and orders each transaction and builds each block; validators check and
 commit it. A receipt is final when validators commit its block. Public node
 JSON-RPC uses the node root path; connection details are in the
-[public RPC guide](../site/paxeer-docs/src/app/public-rpc/page.tsx).
+[public RPC guide](https://docs.paxeer.app/public-rpc/).
 
 ## Mainnet-beta
 
 Fund accounts through chain transfers on chain 125. Hosted application
 services use separately configured origins. The
-[mainnet-beta contract](content/beta.md) describes the network and application
+[mainnet-beta contract](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/platform/content/beta.md) describes the network and application
 surfaces. A local emulator or private test balance is not a mainnet balance.
 
 ## Private test environment
@@ -22,7 +22,7 @@ manifest, and LXP wire version comes from the wire crate. `GET /v1/parameters`
 reports both independently.
 
 The private reset schedule is 09:00 UTC on the first Tuesday of each month;
-[beta-resets.ics](beta-resets.ics) carries the calendar. Balances and receipts
+[beta-resets.ics](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/platform/beta-resets.ics) carries the calendar. Balances and receipts
 in that environment are disposable across a reset. Resetting it is an
 authenticated operation on its private control service.
 

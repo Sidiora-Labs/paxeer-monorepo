@@ -188,7 +188,7 @@ func sortedRoles(m deployment.Manifest) []string {
 // block identity and the operator-issued chain anchor.
 func ReceiptOptions(in Inputs) (receipt.RPCOptions, Catalog, error) {
 	factory := in.Manifest.Roles["SidioraFactory"]
-	if in.Manifest.ChainID != 125 || in.Anchor.Hash == (common.Hash{}) || in.Anchor.Height < in.Manifest.ActivationHeight || factory.Kind != "surface" && in.PoolRuntimeHash == (common.Hash{}) || len(in.ERC20RuntimeCode) == 0 {
+	if in.Manifest.ChainID != 125 || in.Anchor.Hash == (common.Hash{}) || in.Anchor.Height < in.Manifest.ActivationHeight || factory.Kind != valueSurface && in.PoolRuntimeHash == (common.Hash{}) || len(in.ERC20RuntimeCode) == 0 {
 		return receipt.RPCOptions{}, Catalog{}, errors.New("runtimedocs: incomplete inputs")
 	}
 	catalog, err := TrimCatalog(in.ReviewedCatalog, in.Manifest)
@@ -222,11 +222,11 @@ func ReceiptOptions(in Inputs) (receipt.RPCOptions, Catalog, error) {
 		if native.Kind != "precompile" || native.Address != deployment.LaunchpadPrecompileAddress {
 			return receipt.RPCOptions{}, Catalog{}, errors.New("runtimedocs: invalid native pool authority")
 		}
-		poolKind = "surface"
+		poolKind = valueSurface
 	}
 	pool := receipt.RPCDiscovery{Role: "SidioraPool", Kind: poolKind, ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())}
-	if factory.Kind == "surface" {
-		pool.Kind = "surface"
+	if factory.Kind == valueSurface {
+		pool.Kind = valueSurface
 		pool.RuntimeHash = factory.RuntimeHash
 		pool.StagedRuntimeHash = factory.StagedRuntimeHash
 		pool.StagedUpgrade = factory.StagedUpgrade
@@ -269,6 +269,6 @@ func CommittedOptions(o receipt.RPCOptions) (source.CommittedOptions, error) {
 		Epochs:           epochs,
 		LiveDeadline:     2 * time.Second,
 		BulkDeadline:     15 * time.Second,
-		MaxResponseBytes: 32 << 20,
+		MaxResponseBytes: source.MaxBlockResponseBytes,
 	}, nil
 }

@@ -38,6 +38,7 @@ const served: PoolStats = {
   changeBaselineQuality5m: 'complete', changeBaselineQuality1h: 'complete', changeBaselineQuality6h: 'insufficient_history',
   spotPriceWad: '10000000000000', spotPriceUsdlRaw: '10',
   uniqueTraders24h: '7833', txCount24h: '205', top10HolderShareBps: 2500, creatorHoldingShareBps: 100,
+  circulationModel: 'supply_minus_pool_reserve_v1', totalSupplyRaw: '1000000000000000', circulatingSupplyRaw: '1000000000000000',
 };
 const listing = { poolAddress: pool, tokenAddress: token, creator: '0x' + 'ef'.repeat(20), createdAtMs: now - 20 * 60 * 1000 };
 
@@ -74,7 +75,7 @@ describe('buildExploreRow', () => {
   it('builds the real pool row from the recorded IF_STATS_BATCH bytes', () => {
     const real = decodeV2Contract('StatsBatchResponse', v2Reads.responses.statsBatchReal.body).data.items[0];
     const row = buildExploreRow({ poolAddress: real.poolAddress, rank: 1, stats: real, metadata: null, now });
-    expect(row).toMatchObject({ mcapRaw: '10098226981', mcap: 10098.226981, circulatingMcapRaw: '48505893', price: '0.000010098226981692', priceReason: null, traders: 1, txns: 2, holders: 2, top10Share: 100, devShare: 100, change5m: null, change1h: null, change6h: null, change24h: null });
+    expect(row).toMatchObject({ mcapRaw: '10098226981', mcap: 10098.226981, circulatingMcapRaw: '48505893', price: '0.000010098226981692', priceReason: null, traders: 1, txns: 2, holders: 2, top10Share: 0.4803, devShare: 0.4803, change5m: null, change1h: null, change6h: null, change24h: null });
     expect(row.changes['24h'].reason).toBe(changeReason('24h', 'insufficient_history'));
   });
   it('never fills an unverified market cap or an incomplete 24h baseline from another source', () => {
@@ -82,7 +83,7 @@ describe('buildExploreRow', () => {
     expect(row.change24h).toBeNull();
     expect(row.mcapRaw).toBeNull();
     expect(row.mcap).toBeNull();
-    expect(row.name).toBe('0xababab...abab');
+    expect(row.name).toBe('0xcdcd...cdcd');
     expect(row.symbol).toBe('0xcdcd...cdcd');
     expect(row.image).toBeNull();
   });

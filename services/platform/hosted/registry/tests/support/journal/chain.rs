@@ -56,6 +56,23 @@ fn multistore_with_proof(
 }
 
 impl ChainFixture {
+    pub fn link_previous(&mut self, previous: &Self, result_root: &[u8]) {
+        assert_eq!(
+            previous.header.height.checked_add(1),
+            Some(self.header.height)
+        );
+        self.header
+            .last_block_id
+            .hash
+            .clone_from(&previous.commit.block_id.hash);
+        self.header.last_block_id.part_set_total = previous.commit.block_id.part_set_header.total;
+        self.header
+            .last_block_id
+            .part_set_hash
+            .clone_from(&previous.commit.block_id.part_set_header.hash);
+        self.header.last_results_hash = result_root.to_vec();
+    }
+
     /// # Errors
     /// Returns an error when the generated chain fixture is invalid.
     pub fn new(

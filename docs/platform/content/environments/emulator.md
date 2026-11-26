@@ -88,3 +88,10 @@ through `eth_sendRawTransaction` and obtain signed execution receipts through
 For finality, authenticate the block header and CometBFT commit and verify
 transaction or state inclusion at the relevant height. See
 [Committed block evidence](https://docs.paxeer.app/checkpoints/).
+
+## Enforced by
+
+| Capability | Layer | What that means here |
+| --- | --- | --- |
+| Beta faucet funding | `hosted-surface` | The emulator initializes local balances with `--prefund` or `POST /__emulator/accounts/prefund` instead of a hosted faucet. |
+| Scheduled beta resets | `hosted-surface` | Local state lives in the process and is lost on restart unless restored from a snapshot, rather than following a hosted reset schedule. |

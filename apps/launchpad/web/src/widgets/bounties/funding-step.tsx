@@ -78,8 +78,8 @@ export function PreparedTransactionReview({ title, request, intent, recipient, a
   const cost = state.kind === 'review' || state.kind === 'wallet' ? state.costRaw : null;
 
   return (
-    <section aria-label={title} className={cn('flex flex-col gap-4 rounded-lg bg-surface-2 p-4', className)}>
-      <h3 className="text-md font-bold text-text">{title}</h3>
+    <section aria-label={title} className={cn('flex flex-col gap-4 rounded-sm bg-surface-2 p-4', className)}>
+      <h3 className="text-md font-semibold text-text">{title}</h3>
       <dl className="flex flex-col gap-2 text-sm">
         <KeyValueRow label="From" value={<AddressValue address={request.from} />} />
         <KeyValueRow label="To" value={<AddressValue address={recipient.address} note={recipient.label} />} />
@@ -125,7 +125,7 @@ export function FundingStep({ bounty, request, className }: FundingStepProps) {
   const href = `/bounties/${encodeURIComponent(bounty.bountyId)}`;
   if (!request) {
     return (
-      <NoticeBar tone="warning" variant="card" title="Funding not ready yet" className={className}
+      <NoticeBar tone="neutral" title="Funding not ready yet" className={className}
         action={<Button variant="secondary" size="sm" href={href}>Open bounty</Button>}>
         Your bounty is saved but not funded yet. Check back soon
       </NoticeBar>

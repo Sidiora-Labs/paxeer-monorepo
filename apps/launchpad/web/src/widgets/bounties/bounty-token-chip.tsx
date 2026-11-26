@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { cn } from '@/lib/utils';
 import { Avatar, Chip } from '@/ui/primitives';
 import { formatUsdl, shortAddress } from '@/utils/format';
@@ -24,11 +25,12 @@ export function BountyTokenChip({ poolAddress, stats, className }: BountyTokenCh
   const href = `/coin/${pool}`;
   const token = snapshot.data?.token ?? null;
   if (!token) return <Chip variant="token" href={href} className={cn('max-w-full', className)}>{shortAddress(pool)}</Chip>;
+  const symbol = displayCoinText(token.symbol, token.address);
   const mcap = marketCapRaw(stats ?? snapshot.data?.stats ?? null);
   return (
-    <Chip variant="token" href={href} icon={<Avatar src={null} name={token.symbol} size="xs" decorative />} className={cn('max-w-full flex-wrap', className)}>
+    <Chip variant="token" href={href} icon={<Avatar src={null} name={symbol} size="xs" decorative />} className={cn('max-w-full flex-wrap', className)}>
       <span className="inline-flex max-w-full flex-wrap items-baseline gap-1">
-        <span className="max-w-full shrink-0 text-text">${token.symbol}</span>
+        <span className="min-w-0 max-w-full truncate text-text" title={symbol}>${symbol}</span>
         <span className="max-w-full shrink-0 font-normal text-text-faint"><span className="sr-only">market cap </span><span aria-hidden="true">MC </span>{mcap === null ? '—' : formatUsdl(mcap, { compact: true, unit: false })}</span>
       </span>
     </Chip>

@@ -100,7 +100,14 @@ func newPublicFixture(t *testing.T) *publicFixture {
 		t.Fatal(err)
 	}
 	f.exec("CREATE SCHEMA indexer")
-	for _, id := range []string{"60000", "80000", "190001", "150002", "150004"} {
+	for _, name := range []string{"00001_init.sql", "00002_airdrop_claims.sql"} {
+		legacy, err := os.ReadFile(filepath.Join("..", "..", "..", "indexer", "migrations", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.exec(strings.Split(string(legacy), "-- +goose Down")[0])
+	}
+	for _, id := range []string{"60000", "60003", "80000", "190001", "150002", "150004", "150011"} {
 		f.exec(strings.ReplaceAll(migrationSQL(t, id), `"indexer".`, "indexer."))
 	}
 	if f.repo, err = NewRepository(pg, "stats"); err != nil {
@@ -395,8 +402,8 @@ func TestPublicMarketStatsFromRealPaxeerPool(t *testing.T) {
 	if doc.SourceUpperPosition != Position(sell.Position) || stored.frame.Watermark.Height != "33963749" || stored.frame.Watermark.BlockHash != f.real.Blocks["33963749"].Hash {
 		t.Fatal(doc.SourceUpperPosition, stored.frame.Watermark)
 	}
-	end := f.real.Blocks["33963749"].Timestamp + 1
-	if doc.WindowEnd != publicTime(end) || doc.WindowStart != publicTime(end-86400) || stored.frame.OccurredAt != publicTime(end-1) {
+	end := now.Truncate(publicStatsClockStep).Unix()
+	if doc.WindowEnd != publicTime(end) || doc.WindowStart != publicTime(end-86400) || stored.frame.OccurredAt != publicTime(f.real.Blocks["33963749"].Timestamp) {
 		t.Fatal(doc.WindowStart, doc.WindowEnd, stored.frame.OccurredAt)
 	}
 	// The pool was created inside the window and its creation price is not a

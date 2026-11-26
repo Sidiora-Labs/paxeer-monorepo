@@ -23,7 +23,7 @@ export interface ColumnSpec {
 }
 
 export const columnSpecs: readonly ColumnSpec[] = Object.freeze([
-  // The rank sits inside the coin cell (pump.fun anatomy), so there is no separate "#" column.
+  // The rank sits inside the coin cell.
   { id: 'coin', label: 'Coin', align: 'left', width: 'auto', responsive: '' },
   { id: 'graph', label: 'Graph', hint: '24 hour price', align: 'left', width: surfaceSpacing(28), responsive: '' },
   { id: 'mcap', label: 'MCAP', hint: 'Market cap', sortKey: 'mcap', align: 'right', width: surfaceSpacing(27.5), responsive: '' },
@@ -112,7 +112,7 @@ export function ColumnSettings({ id, settings, onChange, onClose }: ColumnSettin
     <section id={id} aria-labelledby={headingId} className="flex flex-col gap-4 rounded-md bg-surface-2 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-40">
-          <h2 id={headingId} className="text-md font-bold text-text">Columns</h2>
+          <h2 id={headingId} className="text-md font-semibold text-text">Columns</h2>
           <p className="text-xs text-text-faint">Saved on this device</p>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>Done</Button>
@@ -122,9 +122,9 @@ export function ColumnSettings({ id, settings, onChange, onClose }: ColumnSettin
           const labelId = `${id}-${spec.id}-label`;
           return (
             <li key={spec.id} className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-surface-3 px-3 py-2">
-              <span id={labelId} className="min-w-0 flex-1 basis-40 text-sm font-bold text-text">
+              <span id={labelId} className="min-w-0 flex-1 basis-40 text-sm font-medium text-text">
                 {spec.label}
-                {spec.hint ? <span className="mt-1 block text-xs font-semibold text-text-faint">{spec.hint}</span> : null}
+                {spec.hint ? <span className="mt-1 block text-xs font-medium text-text-faint">{spec.hint}</span> : null}
               </span>
               <Toggle size="sm" checked={settings.columns[spec.id]} labelledBy={labelId} onChange={checked => onChange({ columns: { ...settings.columns, [spec.id]: checked } })} />
             </li>
@@ -137,7 +137,7 @@ export function ColumnSettings({ id, settings, onChange, onClose }: ColumnSettin
           value={settings.view}
           onChange={view => onChange({ view })}
           className="md:hidden"
-          options={[{ value: 'table', label: 'Table' }, { value: 'grid', label: 'Grid' }]}
+          options={[{ value: 'table', label: 'Table', ariaLabel: 'Table' }, { value: 'grid', label: 'Grid', ariaLabel: 'Grid' }]}
         />
         <SegmentedControl<Density>
           label="Row density"

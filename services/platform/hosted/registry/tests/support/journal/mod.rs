@@ -13,15 +13,16 @@ use layerx_programs::{
         program_state::ChainProgramStateProof, programs_state_key, wind_down::ChainWindDownProof,
     },
     chain_proof::{
-        decode::decode_commitment_proof,
+        decode::{decode_commitment_proof, CommitmentProof},
         merkle::{hash_from_byte_slices, SimpleProof},
         validators::TrustedValidator,
         vote::{vote_sign_bytes, Timestamp},
     },
-    interface_state_key, interface_state_value, DeploymentProof, InterfaceEntryPoint,
-    ProgramInterface, ProgramLifecycleProof, ProgramStateProof, ProtocolDeploymentVerifier,
-    StateLeafWitness, ValueSchema, ValueType,
+    interface_state_key, interface_state_value, DeploymentExecutionProof, DeploymentProof,
+    InterfaceEntryPoint, ProgramInterface, ProgramLifecycleProof, ProgramStateProof,
+    ProtocolDeploymentVerifier, ValueSchema, ValueType,
 };
+
 use layerx_programs_runtime::{hash_bytes, HashAlgorithm, ProgramId, UpgradePolicy};
 
 pub const NOW: u64 = 1_700_000_150_000;
@@ -45,7 +46,7 @@ const VALIDATOR_SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
 pub struct ProtocolFixture {
     pub chain: ChainFixture,
     pub proof: DeploymentProof,
-    pub interface_witness: StateLeafWitness,
+    pub interface_witness: CommitmentProof,
     pub block_height: u64,
     policy: UpgradePolicy,
     version: u32,
@@ -94,6 +95,60 @@ pub fn deploy_fixture(
         block_height,
         timestamp,
         &fixture_interface(wasm),
+    )
+}
+
+#[must_use]
+pub fn committed_deploy_fixture(abi: u16, block_height: u64, timestamp: u64) -> ProtocolFixture {
+    let admission = crate::committed_program_transport::admission(1);
+    let deployment = admission
+        .verifier
+        .verify_deployment(&admission.proof, admission.now)
+        .unwrap_or_else(|error| panic!("committed deployment: {error}"));
+    let execution = DeploymentExecutionProof::decode(&admission.proof.state.transaction)
+        .unwrap_or_else(|error| panic!("committed execution: {error}"));
+    let transaction = match abi {
+        1 => execution.transaction,
+        5 => {
+            let producer: serde_json::Value =
+                serde_json::from_str(include_str!("../../../src/deployment_abi5.json"))
+                    .unwrap_or_else(|error| panic!("committed ABI five deployment: {error}"));
+            let transaction = layerx_programs::hex::decode(
+                producer["transaction_hex"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("committed transaction absent")),
+            )
+            .unwrap_or_else(|error| panic!("committed transaction encoding: {error}"));
+            assert_eq!(
+                layerx_programs::hex::encode(&code_hash(&transaction)),
+                producer["transaction_digest"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("committed transaction digest absent"))
+            );
+            transaction
+        }
+        _ => panic!("unsupported committed deployment ABI"),
+    };
+    fixture_with_optional_interface(
+        &transaction,
+        &FixtureState {
+            wasm: &deployment.record().module,
+            policy: deployment.record().upgrade_policy,
+            version: deployment.version(),
+            block_height,
+            timestamp,
+            deprecated: false,
+        },
+        abi,
+        if abi == 1 {
+            Some(
+                deployment
+                    .interface()
+                    .unwrap_or_else(|| panic!("committed interface absent")),
+            )
+        } else {
+            None
+        },
     )
 }
 
@@ -214,15 +269,24 @@ fn fixture_with_interface(
     state: &FixtureState<'_>,
     interface: &ProgramInterface,
 ) -> ProtocolFixture {
-    let record = program_record(state.wasm, state.policy, state.version);
+    fixture_with_optional_interface(transaction, state, 1, Some(interface))
+}
+
+fn fixture_with_optional_interface(
+    transaction: &[u8],
+    state: &FixtureState<'_>,
+    abi: u16,
+    interface: Option<&ProgramInterface>,
+) -> ProtocolFixture {
+    let record = program_record(state.wasm, state.policy, state.version, abi);
     let program_key = programs_state_key(&program_key());
     let interface_key = interface_state_key(program());
-    let interface_value = interface_state_value(program(), state.version, interface)
-        .unwrap_or_else(|error| panic!("interface state value: {error}"));
-    let mut pairs = vec![
-        (program_key.clone(), record.clone()),
-        (programs_state_key(&interface_key), interface_value.clone()),
-    ];
+    let mut pairs = vec![(program_key.clone(), record.clone())];
+    if let Some(interface) = interface {
+        let interface_value = interface_state_value(program(), state.version, interface)
+            .unwrap_or_else(|error| panic!("interface state value: {error}"));
+        pairs.push((programs_state_key(&interface_key), interface_value));
+    }
     let status = state.deprecated.then(status_record);
     let status_key = programs_state_key(&status_key());
     if let Some(value) = &status {
@@ -241,7 +305,28 @@ fn fixture_with_interface(
         .unwrap_or_else(|_| panic!("block timestamp nanoseconds"));
     let transaction_hash = code_hash(transaction);
     let transaction_root = hash_from_byte_slices(&[&transaction_hash]);
-    chain.header.data_hash = transaction_root.to_vec();
+    let mut previous = ChainFixture::new(
+        CHAIN_ID,
+        &VALIDATOR_SEEDS,
+        vec![(b"unrelated".to_vec(), vec![1])],
+    )
+    .unwrap_or_else(|error| panic!("previous chain fixture: {error:?}"));
+    previous.header.height = i64::try_from(state.block_height)
+        .unwrap_or_else(|_| panic!("previous block height overflow"));
+    let previous_timestamp = state
+        .timestamp
+        .checked_sub(1)
+        .unwrap_or_else(|| panic!("previous block timestamp overflow"));
+    previous.header.time.seconds = i64::try_from(previous_timestamp / 1_000)
+        .unwrap_or_else(|_| panic!("previous block timestamp overflow"));
+    previous.header.time.nanos = i32::try_from(previous_timestamp % 1_000 * 1_000_000)
+        .unwrap_or_else(|_| panic!("previous block timestamp nanoseconds"));
+    previous.header.data_hash = transaction_root.to_vec();
+    resign_chain(&mut previous);
+    let admission = crate::committed_program_transport::admission(1);
+    let committed_execution = DeploymentExecutionProof::decode(&admission.proof.state.transaction)
+        .unwrap_or_else(|error| panic!("committed execution: {error}"));
+    chain.link_previous(&previous, &admission.chain.header.last_results_hash);
     resign_chain(&mut chain);
     let commitment = decode_commitment_proof(
         &chain
@@ -261,45 +346,63 @@ fn fixture_with_interface(
         chain.prove_absent(&status_key)
     }
     .unwrap_or_else(|error| panic!("status proof: {error:?}"));
-    let interface_witness = StateLeafWitness {
-        key: interface_key.clone(),
-        value: interface_value,
-        proof: chain
-            .prove(&programs_state_key(&interface_key))
-            .unwrap_or_else(|error| panic!("interface proof: {error:?}")),
-    };
-    ProtocolFixture {
-        chain,
-        proof: DeploymentProof {
-            state: ProgramStateProof {
-                commitment,
-                state: program_state.clone(),
-                lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
-                    program: program(),
-                    record: Some(record),
-                    record_ops: program_state.ops.clone(),
-                    status: status.clone(),
-                    status_ops: status_ops.clone(),
-                }),
-                wind_down: ChainWindDownProof {
-                    program: program(),
-                    value: status,
-                    ops: status_ops,
-                },
-                transaction: transaction.to_vec(),
-                transaction_proof: SimpleProof {
-                    total: 1,
-                    index: 0,
-                    leaf_hash: transaction_root,
-                    aunts: Vec::new(),
-                },
+    let interface_witness = decode_commitment_proof(
+        &chain
+            .encode_key(&programs_state_key(&interface_key))
+            .unwrap_or_else(|error| panic!("encode interface commitment: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("decode interface commitment: {error:?}"));
+    let mut proof = DeploymentProof {
+        state: ProgramStateProof {
+            commitment,
+            state: program_state.clone(),
+            lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
+                program: program(),
+                record: Some(record),
+                record_ops: program_state.ops.clone(),
+                status: status.clone(),
+                status_ops: status_ops.clone(),
+            }),
+            wind_down: ChainWindDownProof {
+                program: program(),
+                value: status,
+                ops: status_ops,
             },
-            deployment: ChainDeploymentProof {
-                program_state,
-                code: state.wasm.to_vec(),
-                interface: Some(interface.canonical_encoding().to_vec()),
+            transaction: Vec::new(),
+            transaction_proof: SimpleProof {
+                total: 1,
+                index: 0,
+                leaf_hash: transaction_root,
+                aunts: Vec::new(),
             },
         },
+        deployment: ChainDeploymentProof::from_state_proofs(
+            program_state,
+            state.wasm.to_vec(),
+            &interface_witness,
+        )
+        .unwrap_or_else(|error| panic!("deployment state proofs: {error}")),
+    };
+    proof
+        .bind_execution(&DeploymentExecutionProof {
+            transaction: transaction.to_vec(),
+            previous: decode_commitment_proof(
+                &previous
+                    .encode_key(&program_key)
+                    .unwrap_or_else(|error| panic!("encode previous commitment: {error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("decode previous commitment: {error:?}")),
+            result: committed_execution.result,
+            result_proof: committed_execution.result_proof,
+            interface_ops: interface_witness.proof_ops.clone(),
+            migration: None,
+            migration_ops: Vec::new(),
+            migration_previous_ops: Vec::new(),
+        })
+        .unwrap_or_else(|error| panic!("bind deployment execution: {error}"));
+    ProtocolFixture {
+        chain,
+        proof,
         interface_witness,
         block_height: state.block_height,
         policy: state.policy,
@@ -416,7 +519,7 @@ impl ProtocolFixture {
             commitment: self.proof.state.commitment.clone(),
             program: self.proof.state.state.program,
             program_record_ops: self.proof.state.state.ops.clone(),
-            interface_ops: self.interface_witness.proof.clone(),
+            interface_ops: self.interface_witness.proof_ops.clone(),
             wind_down: Some(self.proof.state.wind_down.clone()),
         }
     }
@@ -475,7 +578,7 @@ fn status_key() -> Vec<u8> {
     key
 }
 
-fn program_record(wasm: &[u8], policy: UpgradePolicy, version: u32) -> Vec<u8> {
+fn program_record(wasm: &[u8], policy: UpgradePolicy, version: u32, abi: u16) -> Vec<u8> {
     let mut record = Vec::with_capacity(71);
     match policy {
         UpgradePolicy::Immutable => {
@@ -488,7 +591,7 @@ fn program_record(wasm: &[u8], policy: UpgradePolicy, version: u32) -> Vec<u8> {
         }
     }
     record.extend_from_slice(&code_hash(wasm));
-    record.extend_from_slice(&1_u16.to_be_bytes());
+    record.extend_from_slice(&abi.to_be_bytes());
     record.extend_from_slice(&version.to_be_bytes());
     record
 }

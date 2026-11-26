@@ -52,6 +52,7 @@ async function developmentOperationsRenderUnsupportedInProduction() {
         state: 'unsupported',
         operation,
         status: 501,
+        notServed: true,
         message,
       });
     }
