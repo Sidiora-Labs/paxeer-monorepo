@@ -214359,7 +214359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1258]
 title = "Bring the journey of an agent of the trading workspace on a local chain, and the repairs of the wallet gateway it needed, into the tree of the main line beside the journey of an agent of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
