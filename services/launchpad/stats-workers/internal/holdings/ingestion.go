@@ -382,7 +382,7 @@ func (r *Repository) catchUpCanonicalAtOnce(ctx context.Context, token, stream, 
 			return out, ErrOrder
 		}
 	}
-	rows, err := tx.Query(ctx, `SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY height,transaction_index,log_index LIMIT $7`, token, creation, watermark, height, ti, li, limit+1)
+	rows, err := tx.Query(ctx, `SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 t WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY t.height,t.transaction_index,t.log_index LIMIT $7`, token, creation, watermark, height, ti, li, limit+1)
 	if err != nil {
 		return out, err
 	}
