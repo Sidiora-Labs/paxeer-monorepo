@@ -17248,6 +17248,18 @@ value = "One. Reproduce first. On the unchanged tree run both files in one run o
 basis = "Gotcha 4947."
 affects = []
 
+[decision.4023]
+title = "The shared module of the launchpad passes its coverage gate again through cases, and the provisioning case that failed once is run repeatedly to find its cause"
+value = "One. Measure first. Run the gate for the module alone: make -C services/launchpad cover-check MODULES=../../sdk/launchpad/shared. Then list the functions of the profile with go tool cover, lowest first, and take the list of work from it: the functions of product code with the most statements that no case reaches. Two. The means. Cases that drive the product code through its real paths with the fixtures the present cases use, and that assert the behaviour they drive. A main function of a command is reached through a function that takes its arguments and its streams; where a command has none, it receives one and its main function calls it. Three. What is not a means. No source is left out of the measurement, no build constraint removes code from it, and the minimum, the filter of generated files and the list of the modules stay as they are. No case is removed, skipped or tagged out and no assertion is weakened. No exported name of the module changes, so no module that reads it changes with this task. Four. The provisioning case. Run it alone twenty times in the module: go test -count=20 -run TestProvisionApplyCause ./brokerprovision/. If a run fails as in gotcha 4948 part four, find why the broker does not know the stream when the durable is applied, and repair it at its cause: in the helper, if it hands out a broker before all three nodes serve, or in Provision, if it applies a durable before the stream it has just created can be read. A repetition of the whole case and a longer wait without a condition are not repairs. A change of Provision is proved by a case. If no run fails, change nothing for it and say so in the final message with the count of the runs. Five. Target: the verification of task 22.39.1216 passes; it runs the targets lint, race and cover-check of the module, the form in which task 22.39.938 passed them. Task 22.39.1216. "
+basis = "Gotcha 4948."
+affects = []
+
+[decision.4024]
+title = "A market value reads with the dollar sign in every view of the launchpad, as the price already does, and an amount of the quote token reads with the unit USDL; one function of the format module writes each"
+value = "One. The rule. A market value of a coin or of the platform reads with the dollar sign before the figure in every view: price, market value, volume, liquidity, total value locked, the value of a position or of a portfolio, profit and loss, and the totals of the platform. The price already reads so in the head of the coin view, in the terminal and on the home, and a market value follows its price. Two. An amount of the quote token that a wallet pays, receives, holds or claims reads with the unit USDL after the figure: the amount field and the summary lines of the trade panel, a balance, a reward to claim, the amount of one trade in a list. Three. One place. One function of apps/launchpad/web/src/utils/format.ts writes a market value and one writes an amount. Every view calls one of the two, and no view sets a sign or a unit of its own or leaves it out. A later change of the choice of point one is then a change of one function. Four. What stays. The figures themselves, their rounding and their short forms do not change, and no value is converted: the sign is a matter of the text. The symbol of the chart keeps its currency code. A text for assistive technology names the same unit as the text beside it. Five. The brief gains one sentence in its section 3 that states points one and two. Six. This is a choice of the look. It is taken in the closing task of the look, task 22.44.147, as its do_7, and it can be turned by point three. "
+basis = "Gotcha 4949."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46908,6 +46920,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1216]
+title = "Bring the shared module of the launchpad over its coverage gate again and run its provisioning case repeatedly to find the cause of its one failure"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared"
+do_1 = "do_1 Gotcha 4948, decision 4023. Read of services/launchpad/Makefile the targets cover and cover-check (line 117) with tools/launchpad/coverage-gate.sh, and of the package brokerprovision the files sdk/launchpad/shared/brokerprovision/provision_apply_cause_test.go, sdk/launchpad/shared/brokerprovision/provision.go from line 119 and the helper of sdk/launchpad/shared/brokerprovision/provision_test.go at line 24."
+symbols = []
 
 [capability.22.39.1215]
 title = "Let the case over the end of a day run after every other file of the web suite, and let the trade case say why no wallet request arrived"
@@ -213373,6 +213394,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1216]
+title = "Bring the shared module of the launchpad over its coverage gate again and run its provisioning case repeatedly to find the cause of its one failure"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1216"]
+interfaces = []
+do_1 = "do_1 Gotcha 4948, decision 4023. Read of services/launchpad/Makefile the targets cover and cover-check (line 117) with tools/launchpad/coverage-gate.sh, and of the package brokerprovision the files sdk/launchpad/shared/brokerprovision/provision_apply_cause_test.go, sdk/launchpad/shared/brokerprovision/provision.go from line 119 and the helper of sdk/launchpad/shared/brokerprovision/provision_test.go at line 24."
+do_2 = "do_2 Measure by point one and write down the figure of the module and the list of work. Add cases by point two, package after package, and measure again until the gate passes; some tenths above the minimum keep it passing when a path that depends on timing is not reached. Point three says what is not a means. Then run the provisioning case by point four."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. Do not run the formatter over a whole existing file. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. The final message names the figure of the module at the gate before and after, each package that gained cases with its figure before and after, each product file that changed with its cause, and the outcome of the twenty runs of point four. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1215]
 title = "Let the case over the end of a day run after every other file of the web suite, and let the trade case say why no wallet request arrived"
 status = "pending"
@@ -213435,7 +213486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.154]
 title = "Let the status line of the chart say that its number is the block of the last update, and show no label where no height is known"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214550,6 +214601,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "do_6 One more named check before the runs of do_5, found on 2026-11-25 in a browser on a test deployment of the web application of commit 87d68b1a38: the table of holders of the coin view (apps/launchpad/web/src/widgets/coin/holders-table.tsx, region at line 178, table at line 179). At the widths 390 and 1440 in both sets, with a row of a holder that has a name and a row of a holder that has none: no head of a column breaks inside a word or is cut off (the heads of the lines 184 and 188 among them), the address of a holder stays on one line and is shortened in the middle where it does not fit, every number of a row stays on one line in its column, and at 390 the table moves sideways inside its region while the page does not. Repair what differs under decision 3973 point three and name the table with its state in the record of do_4. Tasks 22.44.152 and 22.44.153 change the display module of the holder shares and the fixed elements above the tab bar at the same time: where the main line holds their changes, keep them."
+do_7 = "do_7 One more named check before the runs of do_5, gotcha 4949 and decision 4024: the unit of a money figure. Bring every view into the rule of decision 4024 points one and two through the two functions of point three in apps/launchpad/web/src/utils/format.ts (the present ones stand at the lines 205 and 225). Places read on the main line at commit 2cce7845ef that differ today: the market value and the volume in the head of the coin view (apps/launchpad/web/src/widgets/coin/token-header.tsx lines 155 and 160), the card of the market value (apps/launchpad/web/src/widgets/coin/mc-ath-card.tsx line 20), the lines of the card of the pool (apps/launchpad/web/src/widgets/coin/pool-info-card.tsx from line 38), the market value in the row of the home (apps/launchpad/web/src/widgets/home/trending-row.tsx line 120) and the figures in the foot of the page. The list is not complete: search every call of the functions of the format module under apps/launchpad/web/src and decide each by the rule. Bring the cases that expect the earlier text in step with the rule, add the sentence of point five to the brief, and name the rule with its state in the record of do_4. Point four says what stays."
 
 [task.22.44.146]
 title = "Bring the terminal, swap and order views of the launchpad to the visual brief"
