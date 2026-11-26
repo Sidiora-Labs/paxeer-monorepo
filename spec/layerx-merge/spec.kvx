@@ -213294,7 +213294,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1205]
 title = "Let the stream relay of the api retry a transient publication failure until the broker takes the frame, name the cause, and write the retried pass as a warning"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1187"]
@@ -213775,7 +213775,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1193]
 title = "Let the window of the public statistics of a pool end at the clock and append a frame when a figure of the pool changed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1187"]
