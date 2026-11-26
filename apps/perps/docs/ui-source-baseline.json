@@ -1694,8 +1694,8 @@
     },
     {
       "path": "packages/portfolio/src/layout/layout.ui.tsx",
-      "sourceSha256": "4a80f52bfe2c873ff08e895186795bd1742b2590e6f79750c71b422672e6ba9f",
-      "runtimeSha256": "8c5ccfe895a04d5c1f0b84234ed165d1cf034870a42925067219627969a4e51f"
+      "sourceSha256": "0376ee452287956d9471295019978ee1a7459d03caa3b04b368eb4c7c6d267be",
+      "runtimeSha256": "76fa43d9537602998a7359e2d44f2735a0d1060324eb612a8a33e17cf4297da3"
     },
     {
       "path": "packages/portfolio/src/pages/setting/setting.ui.tsx",

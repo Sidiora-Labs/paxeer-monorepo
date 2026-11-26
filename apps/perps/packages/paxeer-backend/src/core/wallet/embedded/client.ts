@@ -34,9 +34,7 @@ export function resolvePaxeerConfig(): ResolvedPaxeerConfig | null {
 
   const apiUrl = process.env.NEXT_PUBLIC_PAXEER_WALLET_API?.trim();
   if (!apiUrl) {
-    throw new Error(
-      "[paxeer] Set NEXT_PUBLIC_PAXEER_WALLET_API to connect the embedded wallet.",
-    );
+    return null;
   }
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
