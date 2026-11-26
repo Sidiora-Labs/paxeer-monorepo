@@ -20,3 +20,11 @@ from untrusted peers are ignored. Configure only the actual proxy ranges.
 
 Whitespace and empty entries are ignored. Invalid CIDRs or more than 32 entries
 refuse startup. The indexer, portal, replay and loadtest do not read this input.
+
+`perps-quoter` is an owner-started manual process with zero default replicas and
+no automatic restart. Start exactly one process for a dedicated account after
+mounting its private key file. Its health listener serves `/healthz`,
+`/healthz/live` and `/healthz/ready` on `PORT` (8081 by default); keep it private.
+The shared Dockerfile accepts `SERVICE=perps-quoter`. The public Railway
+services remain independent of this optional quoting account. Configuration,
+collateral funding and shutdown are described in [the quoter guide](../../../../docs/perps/quoter.md).
