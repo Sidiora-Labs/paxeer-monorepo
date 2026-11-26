@@ -4,6 +4,7 @@
 import {plainCopy} from '@/core/user-facing-error';
 import {LIVESTREAM_SIGNATURE_HEADER,operationHeaders,signOperation,type OperationMethod} from '@/core/operation-envelope';
 import {livestreamApiBase} from '@/core/backend-origins';
+import { retryFields } from '@/core/transient-retry';
 const API=livestreamApiBase()??'';
 export type StreamViewerQuality="verified"|"unavailable"|"stale";
 export type StreamStatus='created'|'starting'|'live'|'ending'|'ended'|'failed'|'suspended';
@@ -42,9 +43,9 @@ function retryAfterHeaderMs(res:Response):number|null{const raw=res.headers.get(
 async function failure(res:Response):Promise<LivestreamApiError>{
  const body:unknown=await res.json().catch(()=>null);
  if(!body||typeof body!=='object'||Array.isArray(body))return new LivestreamApiError(res.status,null,retryAfterHeaderMs(res));
- const row=body as {code?:unknown;retryable?:unknown;retryAfterMs?:unknown};
- const retryAfterMs=typeof row.retryAfterMs==='number'&&Number.isFinite(row.retryAfterMs)&&row.retryAfterMs>=0?row.retryAfterMs:retryAfterHeaderMs(res);
- return new LivestreamApiError(res.status,typeof row.retryable==='boolean'?row.retryable:null,retryAfterMs,typeof row.code==='string'&&codeShape.test(row.code)?row.code:null);
+ const row=body as {code?:unknown};
+ const fields=retryFields(body);
+ return new LivestreamApiError(res.status,fields.retryable,fields.retryAfterMs??retryAfterHeaderMs(res),typeof row.code==='string'&&codeShape.test(row.code)?row.code:null);
 }
 async function read(path:string,options:RequestInit={}):Promise<unknown>{
  if(!API)throw new LivestreamApiError(501);

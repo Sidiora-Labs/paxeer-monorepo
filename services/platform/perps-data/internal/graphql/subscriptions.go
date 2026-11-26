@@ -375,10 +375,9 @@ type subLatestPrice struct {
 	UpdatedAt        *subTime
 }
 
-const latestPricesSQL = `SELECT m.market_id::int4, mp.index_price::text, floor(extract(epoch FROM mp.block_time))::int4, mp.block::int4, mp.block_time
+var latestPricesSQL = `SELECT m.market_id::int4, mp.index_price::text, floor(extract(epoch FROM mp.block_time))::int4, mp.block::int4, mp.block_time
 FROM perps.markets m
-CROSS JOIN LATERAL (SELECT p.index_price, p.block, p.block_time FROM (` + indexPriceRowsSQL + `) p WHERE p.market_id = m.market_id
-    ORDER BY p.block DESC, p.tx_index DESC, p.log_index DESC, p.sub DESC LIMIT 1) mp
+CROSS JOIN LATERAL (` + newestIndexObservationSQL("m.market_id", "", "") + `) mp
 ORDER BY m.market_id`
 
 func scanLatestPrice(s scanner) (*subLatestPrice, error) {
@@ -463,12 +462,11 @@ type subMarket struct {
 	FundingRate *subFundingRate
 }
 
-const subMarketSQL = `SELECT m.market_id::int4, m.name, m.symbol, m.max_leverage::text, m.enabled,
+var subMarketSQL = `SELECT m.market_id::int4, m.name, m.symbol, m.max_leverage::text, m.enabled,
     mp.index_price::text, floor(extract(epoch FROM mp.block_time))::int4, mp.block::int4, mp.block_time,
     fr.row_id::int4, fr.new_rate_per_second::text, fr.funding_rate24h::text, fr.block::int4, '0x' || encode(fr.tx_hash, 'hex'), fr.block_time
 FROM perps.markets m
-LEFT JOIN LATERAL (SELECT p.index_price, p.block, p.block_time FROM (` + indexPriceRowsSQL + `) p WHERE p.market_id = m.market_id
-    ORDER BY p.block DESC, p.tx_index DESC, p.log_index DESC, p.sub DESC LIMIT 1) mp ON true
+LEFT JOIN LATERAL (` + newestIndexObservationSQL("m.market_id", "", "") + `) mp ON true
 LEFT JOIN LATERAL (SELECT r.row_id, r.new_rate_per_second, r.funding_rate24h, r.block, r.tx_hash, r.block_time FROM perps.funding_rates r
     WHERE r.market_id = m.market_id ORDER BY r.block DESC, r.tx_index DESC, r.log_index DESC, r.sub DESC LIMIT 1) fr ON true
 WHERE m.market_id = $1`
