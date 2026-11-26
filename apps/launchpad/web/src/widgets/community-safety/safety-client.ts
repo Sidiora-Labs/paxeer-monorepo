@@ -1,4 +1,5 @@
 import { accountSession, assertAccount } from '@/widgets/profile/account-transport';
+import { readRetryFields } from '@/core/transient-retry';
 import type { PrivateAppealOutcome, ResolveReportCommand, SafetyCase } from './contracts';
 export class SafetyRequestError extends Error {
     constructor(readonly status: number, readonly retryAfterSeconds: number | null = null) { super(status === 409 ? 'Refresh the current revision.' : 'Safety request failed.'); }
@@ -26,7 +27,12 @@ export class SafetyClient {
         const headers: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${token}` };
         if (body !== undefined) headers['Content-Type'] = 'application/json';
         const response = await fetch(new URL(path, this.origin), { method, headers, credentials: 'omit', cache: 'no-store', redirect: 'error', body: body === undefined ? undefined : JSON.stringify(body), signal });
-        if (!response.ok) { const retry = Number(response.headers.get('Retry-After')); throw new SafetyRequestError(response.status, Number.isFinite(retry) && retry > 0 ? retry : null); }
+        if (!response.ok) {
+            const retry = Number(response.headers.get('Retry-After'));
+            const fields = await readRetryFields(response);
+            const seconds = Number.isFinite(retry) && retry > 0 ? retry : fields.retryAfterMs === null ? null : fields.retryAfterMs / 1000;
+            throw new SafetyRequestError(response.status, seconds);
+        }
         const value = await response.json() as T;
         if (scope) assertAccount(scope);
         if (this.accessToken() !== token) throw new SafetyRequestError(401);
