@@ -232,7 +232,7 @@ func TestComposedStatsContainerStartupAndRecovery(t *testing.T) {
 			}
 		}
 	}
-	if len(selected.Streams) != 3 || len(selected.Durables) != 4 {
+	if len(selected.Streams) != 4 || len(selected.Durables) != 7 {
 		t.Fatal("statistics broker resources must be present in the fleet document")
 	}
 	raw, err = json.Marshal(selected)

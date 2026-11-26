@@ -179,6 +179,7 @@ The root `.env.example` contains shared worker settings and Makefile inputs; eac
 | `CANONICAL_SCHEMA` | Canonical database schema | `indexer` | No | [metadata/internal/config/config.go][source-7] |
 | `CANONICAL_STREAM_ID` | Canonical event stream identity | Unset | No | [metadata/internal/config/config.go][source-7] |
 | `CHAIN_ID` | EVM chain identity; the merged network uses 125 | `125` | No | [sdk/launchpad/shared/config/env.go][source-12] (indexer, pnl-tracker, ranking-algo, stats-workers, trading-charts) |
+| `CHART_CONSUMER_READINESS_TIMEOUT` | Consumer readiness timeout as a Go duration, from 30s to 1h | `5m` | No | [trading-charts/internal/config/config.go][source-11] |
 | `CHART_FEATURES_CONFIG_DOCUMENT` | Base64-encoded chart features config JSON; alternative to its file input | Unset | May contain secrets | [trading-charts/internal/config/config.go][source-11] |
 | `CHART_FEATURES_CONFIG_FILE` | Path to the chart features config JSON document; alternative to its inline document | Unset | No | [trading-charts/internal/config/config.go][source-11] |
 | `CHART_FEATURES_CONFIG_FILE (trading-charts): $.anchorHash` | Chart features: anchor hash | None | No | [trading-charts/internal/config/config.go][source-11] |
@@ -338,7 +339,10 @@ The root `.env.example` contains shared worker settings and Makefile inputs; eac
 | `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchConsumers[].consumer.Stream` | Statistics event delivery: stream | None | No | [sdk/launchpad/shared/delivery/natsdriver/driver.go][source-24] |
 | `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchConsumers[].consumer.Subject` | Statistics event delivery: subject | None | No | [sdk/launchpad/shared/delivery/natsdriver/driver.go][source-24] |
 | `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchConsumers[].eventType` | Statistics event delivery: event type | None | No | [stats-workers/internal/app/app.go][source-25] |
-| `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchConsumers[].kind` | Statistics event delivery: kind | None | No | [stats-workers/internal/app/app.go][source-25] |
+| `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchConsumers[].kind` | Statistics event delivery: kind; `account_profile` subscribes separately to `profile.updated`, `account.deletion.requested`, and `account.backfill.completed` | None | No | [stats-workers/internal/app/app.go][source-25] |
+| `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchConsumers[kind=account_profile,eventType=profile.updated]` | Account profile search: stream `USERS`, durable `stats_search_profile_updated`, subject `paxeer.125.users.profile.updated`; admit the event type and subject in `policy` | None | No | [stats-workers/internal/app/app.go][source-25] |
+| `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchConsumers[kind=account_profile,eventType=account.deletion.requested]` | Account profile search: stream `USERS`, durable `stats_search_account_deletion_requested`, subject `paxeer.125.users.account.deletion.requested`; admit the event type and subject in `policy` | None | No | [stats-workers/internal/app/app.go][source-25] |
+| `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchConsumers[kind=account_profile,eventType=account.backfill.completed]` | Account profile search: stream `USERS`, durable `stats_search_account_backfill_completed`, subject `paxeer.125.users.account.backfill.completed`; admit the event type and subject in `policy` | None | No | [stats-workers/internal/app/app.go][source-25] |
 | `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchGeneration` | Statistics event delivery: search generation | None | No | [stats-workers/internal/app/app.go][source-25] |
 | `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchInvalidationEventType` | Statistics event delivery: search invalidation event type | None | No | [stats-workers/internal/app/app.go][source-25] |
 | `DELIVERY_CONFIG_FILE (stats-workers): $.phase2.searchInvalidationSubject` | Statistics event delivery: search invalidation subject | None | No | [stats-workers/internal/app/app.go][source-25] |
@@ -1007,6 +1011,7 @@ The root `.env.example` contains shared worker settings and Makefile inputs; eac
 | `PATH` | Executable search path inherited by supply-chain commands | Inherited process path | No | [security/supplychain/ci_tools.py][source-15] |
 | `PAXSCAN_DATABASE_URL` | Explorer PostgreSQL connection; required when a non-production log or head source uses paxscan | Unset | Yes | [indexer/internal/config/config.go][source-4] |
 | `PNL_CDN_TOKEN` | Credential for PnL CDN requests | Unset | Yes | [pnl-tracker/internal/config/config.go][source-5] |
+| `PNL_CONSUMER_READINESS_TIMEOUT` | Consumer readiness timeout as a Go duration, from 30s to 1h | `5m` | No | [pnl-tracker/internal/config/config.go][source-5] |
 | `PNL_CURSOR_KEY` | Pnl cursor key used to sign, encrypt or authenticate component data | Unset | Yes | [pnl-tracker/internal/config/config.go][source-5] |
 | `PNL_FONT_DIR` | Directory containing PnL image fonts | Unset | No | [pnl-tracker/internal/config/config.go][source-5] |
 | `PNL_JOURNEY_CONFIG_DOCUMENT` | Base64-encoded pnl journey config JSON; alternative to its file input | Unset | May contain secrets | [pnl-tracker/internal/config/config.go][source-5] |
@@ -1057,6 +1062,7 @@ The root `.env.example` contains shared worker settings and Makefile inputs; eac
 | `PNL_OG_BASE_URL` | Open Graph image origin; empty follows PNL_PUBLIC_BASE_URL | `PNL_PUBLIC_BASE_URL` | No | [pnl-tracker/internal/config/config.go][source-5] |
 | `PNL_RECONCILE_BATCH_SIZE` | Pnl reconcile batch size setting | `500` | No | [pnl-tracker/internal/config/config.go][source-5] |
 | `PNL_RECONCILE_INTERVAL_MS` | Pnl reconcile interval in milliseconds | `30000` | No | [pnl-tracker/internal/config/config.go][source-5] |
+| `PNL_REWARDS_TIMEOUT_SECONDS` | Rewards request timeout in seconds, from 1 to 15 | `5` | No | [pnl-tracker/internal/config/config.go][source-5] |
 | `PNL_REWARD_PER_CONVERSION` | Pnl reward per conversion setting | `1` | No | [pnl-tracker/internal/config/config.go][source-5] |
 | `PORT` | Public HTTP listener port; container production requires 8080 | `3000` | No | [api/internal/config/config.go][source-1]; [gateway/internal/config/config.go][source-6]; [sdk/launchpad/shared/config/env.go][source-12] (indexer, pnl-tracker, ranking-algo, stats-workers, trading-charts); [livestream/internal/config/config.go][source-3]; [metadata/internal/config/config.go][source-7]; [social/internal/config/config.go][source-9]; [user/internal/config/config.go][source-2] |
 | `PRIVATE_FIXTURE_MANIFEST_FILE` | Private deployment manifest path; used only in the private_fixture realm | Unset | No | [sdk/launchpad/shared/config/env.go][source-12] (indexer, pnl-tracker, ranking-algo, stats-workers, trading-charts); [livestream/internal/config/config.go][source-3] |
@@ -1228,6 +1234,7 @@ The root `.env.example` contains shared worker settings and Makefile inputs; eac
 | `SSE_MAX_PER_IP` | Sse max per ip setting | `20` | No | [api/internal/config/config.go][source-1] |
 | `STATS_ACTIVE_POOL_WINDOW_HOURS` | Stats active pool window hours setting | `24` | No | [stats-workers/internal/config/config.go][source-10] |
 | `STATS_AUDIT_KEY` | Stats audit key used to sign, encrypt or authenticate component data | Unset | Yes | [stats-workers/internal/config/config.go][source-10] |
+| `STATS_CONSUMER_READINESS_TIMEOUT` | Consumer readiness timeout as a Go duration, from 30s to 1h | `5m` | No | [stats-workers/internal/config/config.go][source-10] |
 | `STATS_CURSOR_KEY` | Stats cursor key used to sign, encrypt or authenticate component data | Unset | Yes | [stats-workers/internal/config/config.go][source-10] |
 | `STATS_HOLDER_REFRESH_INTERVAL_MS` | Stats holder refresh interval in milliseconds | `60000` | No | [stats-workers/internal/config/config.go][source-10] |
 | `STATS_LEGACY_BRIDGE_BATCH` | Stats legacy bridge batch setting | `100` | No | [stats-workers/internal/config/config.go][source-10] |
