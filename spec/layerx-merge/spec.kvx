@@ -17236,6 +17236,12 @@ value = "One. The change of task 22.39.1203 stays as it is. Its verification han
 basis = "Gotcha 4945."
 affects = []
 
+[decision.4021]
+title = "The verification of task 22.44.154 calls the script test of the web with its two case files, so that the render cases find their browser"
+value = "One. The change of task 22.44.154 stays as it is. Its verification calls pnpm --dir apps/launchpad/web run test followed by the two case files. The script hands them to vitest (apps/launchpad/web/package.json line 13), so the same two case files run as before, now with the browser in place. The last part of the command, which requires the words Last update at block in apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx, stays. Two. The rule for later tasks. A verification that runs case files of the web which import apps/launchpad/web/src/core/app-foundation/browser-surface.test-support.ts calls the script test of the web in the form pnpm --dir apps/launchpad/web run test, with the case files after it or without any. A verification of case files that do not import it may call vitest from inside the directory, as the verification of task 22.39.1211 does for apps/launchpad/web/src/widgets/trading/candle-merge-content.test.ts. Three. No case, no assertion and no file of the web changes for this decision. No new task. Target: the verification of task 22.44.154 passes. Task 22.44.154. "
+basis = "Gotcha 4946."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -213399,7 +213405,7 @@ touches = ["apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/widget
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "anvil --version > /dev/null && (cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run src/widgets/coin/chart-toolbar.test.tsx src/widgets/trading/tv-chart.render.test.tsx) && test $(grep -c -e 'Last update at block' apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx) -ge 1"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/coin/chart-toolbar.test.tsx src/widgets/trading/tv-chart.render.test.tsx && test $(grep -c -e 'Last update at block' apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx) -ge 1"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
