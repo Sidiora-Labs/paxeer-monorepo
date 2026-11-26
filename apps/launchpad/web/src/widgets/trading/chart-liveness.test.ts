@@ -355,9 +355,9 @@ async function missingFramesReconnectAndReachCheckpoint() {
     expect(current.state().connectionStatus).toBe('live');
     await vi.advanceTimersByTimeAsync(1000);
     expect(current.state()).toMatchObject({
-      connectionStatus: 'resync_required', lagReason: 'Live updates are reconnecting',
+      connectionStatus: 'replaying', lagReason: 'Live updates are reconnecting',
     });
-    expect(current.resets()).toBe(1);
+    expect(current.resets()).toBe(0);
     expect(current.feed.resourceCounts().sockets).toBe(0);
     current.delivery.silent = false;
     current.delivery.holdCheckpoints = true;
@@ -391,8 +391,8 @@ async function invalidCandleWatermarksRequireRecovery() {
       const transaction = await buy(actual);
       await eventually(() => current.delivery.events.some(event =>
         event.payload.lastPosition.transactionHash.toLowerCase() === transaction.toLowerCase()));
-      expect(current.resets()).toBe(1);
-      expect(current.state().connectionStatus).toBe('resync_required');
+      expect(current.resets()).toBe(0);
+      expect(current.state().connectionStatus).toBe('replaying');
       expect(current.feed.resourceCounts().sockets).toBe(0);
       expect(current.states.some(value => value.connectionStatus === 'resync_required')).toBe(true);
     } finally { await current.close(); }
