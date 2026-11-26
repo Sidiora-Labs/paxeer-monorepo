@@ -17290,6 +17290,12 @@ value = "Point one. The shared router of the launchpad names the answer headers 
 basis = "Gotchas 4957 to 4961, gotchas 4953 and 4956, decision 4028."
 affects = []
 
+[decision.4030]
+title = "What the launchpad shows where a figure, a search or a tab had no source: the served change windows, the all-time high from the candles, the search of profiles, the comments of a wallet, and tabs without a source"
+value = "Point one. A selector of change windows offers the windows the public statistics serve, 5m, 1h, 6h and 24h, from one list beside the mapping of the members in apps/launchpad/web/src/core/market/pool-stats-display.ts. No view keeps a list of its own and no window is offered that reads as coming soon. Point two. The all-time high of a coin is the highest valuation of its total supply since the creation of its pool. Until the public statistics carry it, the web takes it from the daily price candles of the charts service: the highest high since the creation times the total supply of the statistics, and never below the valuation of the moment. It is shown only when the read covers the whole life of the pool, that is when the pool was created inside the span the charts service serves; otherwise the part is not rendered (decision 4027). Point three. The search of profiles is served by the stats service from its profile documents. Who can be found stays as the views of the accounts decide: an account with a display name and a wallet link that is verified and public by the choice of its holder. A search that finds nobody answers an empty page and not a refusal. The subscription of the kind account_profile belongs to the declared subscriptions of the stats service, one for each of the three account events. Point four. The comments of a wallet are served by the social service in the comment view it serves for a pool, under the same rules for what is shown and with the same paging, and the web reads that one shape. Point five. The tab Squads of the leaderboard and the tab Top rewards in the rail of a profile are not rendered until a service ranks them; an address that names such a tab opens the first tab. This extends decision 4027 point three to these two parts. Parts that wait for a product decision of the owner stay as they are: the profit filters of the holders, and the portfolio value and chart of a profile."
+basis = "Gotchas 4962 to 4966, decision 4027, decision 4029 point seven, decision 3708."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46950,6 +46956,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1244]
+title = "Do not render the tab Squads of the leaderboard and the tab Top rewards in the rail of a profile until a service ranks them"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/leaderboard", "apps/launchpad/web/src/widgets/profile/leaderboard-panel.tsx", "apps/launchpad/web/src/app/leaderboard", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test src/widgets/leaderboard src/widgets/profile && grep -rq tabsWithoutASourceAreNotRendered apps/launchpad/web/src/widgets/leaderboard"
+do_1 = "do_1 Gotcha 4966, decision 4030 point five, decision 4027. Read apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx (the type of the tabs, the test of a tab name from the address, the list of the tabs and the panels), apps/launchpad/web/src/widgets/leaderboard/squads-tab.tsx, apps/launchpad/web/src/widgets/profile/leaderboard-panel.tsx (the tabs of the rail), the cases of both directories, and the description of the page in apps/launchpad/web/src/app/leaderboard/page.tsx."
+symbols = []
+
+[capability.22.39.1243]
+title = "Serve the comments of a wallet from the social service and let the tab Replies of a profile read them"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal/interactions", "apps/launchpad/web/src/widgets/profile", "apps/launchpad/web/src/widgets/social"]
+tests = []
+verification_contract = "GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/interactions/... && GOWORK=off go test -count=1 -timeout 10m -v -run ^TestWalletCommentsAcrossPools ./internal/interactions/ | grep -q -e PASS:.TestWalletCommentsAcrossPools) && anvil --version > /dev/null && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test src/widgets/profile && grep -rq repliesReadTheCommentViewOfTheService apps/launchpad/web/src/widgets/profile"
+do_1 = "do_1 Gotcha 4965, decision 4030 point four. Read services/launchpad/social/internal/interactions/http.go (the routes, the handling of the operations comments and followers, commentsSnapshot, CommentView, and the rule near the end of the file that lets public reads pass without a session), the cases of the package for the comments of a pool, apps/launchpad/web/src/widgets/profile/replies-tab.tsx with its cases, how the thread of a coin reads the comments of a pool in the web (its reader and its type), and socialReadUrl in apps/launchpad/web/src/core/sdk-config.ts."
+symbols = []
+
+[capability.22.39.1242]
+title = "Declare the subscription of the stats service to the account events its search of profiles is fed by"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/documents", "services/launchpad/stats-workers/internal/app", "sdk/launchpad/shared/brokerprovision", "docs/release/variables/service-launchpad.md"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/app/...) && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 20m ./brokerprovision/...) && grep -q account_profile deploy/launchpad/documents/values/stats.example.json"
+do_1 = "do_1 Gotcha 4964, decision 4030 point three. Read deploy/launchpad/documents/stats.py (the checks of searchConsumers and of the policy), the example values stats.example.json, user.example.json (the subjects of the account events) and broker.example.json (the stream of the account events, the durables, and how the subscription of the stats service to the social policy is declared) under deploy/launchpad/documents/values, test_compose.py, the validation of the subscriptions in services/launchpad/stats-*/internal/app/app.go with the test data delivery.production.json beside it, the package sdk/launchpad/shared/brokerprovision, and docs/release/variables/service-launchpad.md."
+symbols = []
+
+[capability.22.39.1241]
+title = "Serve the search of profiles from the stats service instead of refusing it"
+reqs = ["22998.1"]
+touches = ["services/launchpad/stats-workers/internal/search", "services/launchpad/stats-workers/internal/httpapi"]
+tests = []
+verification_contract = "MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/search/... ./internal/httpapi/... && GOWORK=off go test -count=1 -timeout 10m -v -run ^TestPublicSearchServesProfilesFromAccountEvents ./internal/httpapi/ | grep -q -e PASS:.TestPublicSearchServesProfilesFromAccountEvents)"
+do_1 = "do_1 Gotcha 4964, decision 4030 point three. Read services/launchpad/stats-*/internal/search/model.go (the parse of a public request near line 322), integrated.go (Validate, SearchIntegrated and searchProfiles), cache.go (how the kind profile passes the cache), projection.go (ConsumeAccountProfile), services/launchpad/stats-*/internal/httpapi/search.go with its case files, and how the api hands a search on (services/launchpad/api/internal/rest/rest.go, RegisterV2SearchProxy)."
+symbols = []
+
+[capability.22.39.1240]
+title = "Show the all-time high of a coin in the card market cap versus all-time high, from the daily candles of its whole life"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/core/market"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test src/core/market src/widgets/coin && grep -rq allTimeHighComesFromTheCandlesOfTheWholeLife apps/launchpad/web/src/core/market"
+do_1 = "do_1 Gotcha 4963, decision 4030 point two, decision 4027. Read apps/launchpad/web/src/widgets/coin/mc-ath-card.tsx, apps/launchpad/web/src/core/clients/candle-stats.ts (fetchCandleHistoryOutcome and fetchCandleStats), how the card gets the statistics of the pool and the live statistics, where the snapshot of a pool gives the time of its creation (apps/launchpad/web/src/core/market/pool-resolver.ts, createdAt), and statsMarketCap in apps/launchpad/web/src/core/market/pool-stats-display.ts."
+symbols = []
+
+[capability.22.39.1239]
+title = "Let the Trending column of the home view offer the change windows the statistics serve: 5m, 1h, 6h and 24h"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/home", "apps/launchpad/web/src/core/market"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test src/widgets/home src/core/market && grep -rq trendingOffersTheServedChangeWindows apps/launchpad/web/src/widgets/home"
+do_1 = "do_1 Gotcha 4962, decision 4030 point one. Read apps/launchpad/web/src/widgets/home/trending-widget.tsx (Timeframe, timeframes, servedTimeframes, timeframeOptions, timeframeSegments, timeframeSegmentsMinWidth and changeFor), apps/launchpad/web/src/core/market/pool-stats-display.ts (the mapping of the change members and the reasons for a missing value), how the rows of the explore view carry their changes (apps/launchpad/web/src/widgets/explore/use-explore-rows.ts), and the cases in home.test.tsx and home-panel-state.test.tsx of the home directory."
+symbols = []
 
 [capability.22.39.1238]
 title = "Let the chart of a coin in market cap mode read its valuation inside the bound of the charts service, and stay live when its window holds no candle"
@@ -182019,7 +182079,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1235]
 title = "Let the agent kit of the trading workspace compare leverage in the scale of the chain, so that its tools accept the markets a chain lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213772,6 +213832,156 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1244]
+title = "Do not render the tab Squads of the leaderboard and the tab Top rewards in the rail of a profile until a service ranks them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1244"]
+interfaces = []
+do_1 = "do_1 Gotcha 4966, decision 4030 point five, decision 4027. Read apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx (the type of the tabs, the test of a tab name from the address, the list of the tabs and the panels), apps/launchpad/web/src/widgets/leaderboard/squads-tab.tsx, apps/launchpad/web/src/widgets/profile/leaderboard-panel.tsx (the tabs of the rail), the cases of both directories, and the description of the page in apps/launchpad/web/src/app/leaderboard/page.tsx."
+do_2 = "do_2 One: the leaderboard lists no tab Squads. An address that names the tab squads opens the first tab without an error, and the description of the page no longer promises squads. The file apps/launchpad/web/src/widgets/leaderboard/squads-tab.tsx and its case go with the tab. Two: the rail of a profile shows the board of the top traders without a strip of tabs, since it has one board only, with its heading as the accessible name. The panel for Top rewards and its notice go. Three: the cases that pin the removed tabs assert the new lists. Add the case tabsWithoutASourceAreNotRendered to the case file of the leaderboard view: for both views no tab, no panel and no hidden text of the removed parts is in the document, and the address with the removed tab opens the first tab. The tab Rewards of the leaderboard and every other tab stay as they are. Leave the pages of a squad and the squad client of the web untouched: only the ranking has no source."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the anvil program, and the environment brings the browser: do not install one. Run the formatter over the files you changed only. If a surface file of the render check under tools/ui-check names one of the two tabs, remove only those entries. The final message lists the tabs both views show now. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/leaderboard", "apps/launchpad/web/src/widgets/profile/leaderboard-panel.tsx", "apps/launchpad/web/src/app/leaderboard", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test src/widgets/leaderboard src/widgets/profile && grep -rq tabsWithoutASourceAreNotRendered apps/launchpad/web/src/widgets/leaderboard"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1243]
+title = "Serve the comments of a wallet from the social service and let the tab Replies of a profile read them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1243"]
+interfaces = []
+do_1 = "do_1 Gotcha 4965, decision 4030 point four. Read services/launchpad/social/internal/interactions/http.go (the routes, the handling of the operations comments and followers, commentsSnapshot, CommentView, and the rule near the end of the file that lets public reads pass without a session), the cases of the package for the comments of a pool, apps/launchpad/web/src/widgets/profile/replies-tab.tsx with its cases, how the thread of a coin reads the comments of a pool in the web (its reader and its type), and socialReadUrl in apps/launchpad/web/src/core/sdk-config.ts."
+do_2 = "do_2 One: the social service serves a GET under users, the wallet and comments: the comments the wallet wrote, newest first and across pools, as a page of the comment view the comments of a pool use, with the same rule for the limit, a cursor of the same form bound to this read, and an ETag as the read of a pool has one. What is shown follows the read of a pool: what that read leaves out of a thread is left out here, and the like counts are counted as there. The wallet is validated like the wallet of the follower routes, a wallet nobody knows answers an empty page, and the read needs no session. Read the plan of the query for a wallet with many comments. If no index on author and time serves it, give the plan in the final message and add no index here: the schema belongs to the registry of migrations. Two: cases in the package. TestWalletCommentsAcrossPools writes comments of two wallets in two pools, a reply, a hidden comment and a liked one, and asserts the page of one wallet, its order, the like count, the paging with a limit of one, and that a cursor of the read of a pool is refused. A second case asserts that a wallet that was erased answers an empty page. Three: the web. apps/launchpad/web/src/widgets/profile/replies-tab.tsx reads the route through the reader and the type the thread of a coin uses for a comment, in the shape the service answers; the private shape with pool_address, author and content goes. A row shows what the tab shows today as far as the comment view carries it. Where the view carries no time, the row shows none and invents none. A route that is not found or not served keeps the state the tab has for it, and an empty page shows the empty state. If the reader of the thread lives outside the paths of this task, import it unchanged. Four: change the cases of the tab to the served shape and add the case repliesReadTheCommentViewOfTheService. Say in the final message whether a contract document lists the routes of the social service and where; change none here."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the anvil program, and the environment brings the browser: do not install one. Run the formatter over the files you changed only. The cases of the package interactions need the database the environment provides, as the neighbour cases do. The final message gives the answer of the new route for one wallet of the cases and names the members a row of the tab shows. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal/interactions", "apps/launchpad/web/src/widgets/profile", "apps/launchpad/web/src/widgets/social"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/social && GOWORK=off go build ./...) && anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/interactions/... && GOWORK=off go test -count=1 -timeout 10m -v -run ^TestWalletCommentsAcrossPools ./internal/interactions/ | grep -q -e PASS:.TestWalletCommentsAcrossPools) && anvil --version > /dev/null && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test src/widgets/profile && grep -rq repliesReadTheCommentViewOfTheService apps/launchpad/web/src/widgets/profile"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 420
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1242]
+title = "Declare the subscription of the stats service to the account events its search of profiles is fed by"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1242"]
+interfaces = []
+do_1 = "do_1 Gotcha 4964, decision 4030 point three. Read deploy/launchpad/documents/stats.py (the checks of searchConsumers and of the policy), the example values stats.example.json, user.example.json (the subjects of the account events) and broker.example.json (the stream of the account events, the durables, and how the subscription of the stats service to the social policy is declared) under deploy/launchpad/documents/values, test_compose.py, the validation of the subscriptions in services/launchpad/stats-*/internal/app/app.go with the test data delivery.production.json beside it, the package sdk/launchpad/shared/brokerprovision, and docs/release/variables/service-launchpad.md."
+do_2 = "do_2 One: the example values of the stats service declare one subscription of the kind account_profile for each of the three account events profile.updated, account.deletion.requested and account.backfill.completed, each with a durable of its own on the stream of the account events and the subject the example values of the account service publish it on. The policy of the stats service admits the three event types and subjects. Two: the example values of the broker carry the three durables for the stats service, declared the way the durable of its subscription to the social policy is declared, so that the provisioning creates them and the permissions of the stats service let it consume them and nothing more. Three: the composer accepts the result and its cases cover it. A case composes the document of the stats service from the example values and asserts the three subscriptions; a case asserts that a subscription of the kind with another event type is refused. The service accepts the composed document: a case of the package app loads a document with the three subscriptions and finds ConsumeAccountProfile bound for each. Four: the variables document names the three subscriptions where it names the others. A fixture or test data outside the paths that pins the list of the subscriptions is changed with them and named in the final message. Change no consumer code of the search and nothing in the account service. If the account service does not publish one of the three events on the stream of the example values, say so with the place and declare only what is published."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The final message lists the three subscriptions with stream, durable and subject as the values of a deployment must declare them, and every file of example values or test data that changed. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/documents", "services/launchpad/stats-workers/internal/app", "sdk/launchpad/shared/brokerprovision", "docs/release/variables/service-launchpad.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/stats.py && (cd services/launchpad/stats-* && GOWORK=off go vet ./internal/app/...) && (cd sdk/launchpad/shared && GOWORK=off go vet ./brokerprovision/...)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/app/...) && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 20m ./brokerprovision/...) && grep -q account_profile deploy/launchpad/documents/values/stats.example.json"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1240]
+title = "Show the all-time high of a coin in the card market cap versus all-time high, from the daily candles of its whole life"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1240"]
+interfaces = []
+do_1 = "do_1 Gotcha 4963, decision 4030 point two, decision 4027. Read apps/launchpad/web/src/widgets/coin/mc-ath-card.tsx, apps/launchpad/web/src/core/clients/candle-stats.ts (fetchCandleHistoryOutcome and fetchCandleStats), how the card gets the statistics of the pool and the live statistics, where the snapshot of a pool gives the time of its creation (apps/launchpad/web/src/core/market/pool-resolver.ts, createdAt), and statsMarketCap in apps/launchpad/web/src/core/market/pool-stats-display.ts."
+do_2 = "do_2 One: the new file apps/launchpad/web/src/core/market/all-time-high.ts holds the rule, without a view. Its read asks fetchCandleHistoryOutcome, unchanged and at its default origin, for the daily price candles from the day of the creation of the pool until now. It asks only when the creation is known and lies less than 365 days back; a longer life gives the state not covered and no read. The highest high of the answer times the total supply of the statistics gives the all-time high in the unit of the market cap of the card. The candles carry the price as a number, so the figure serves the compact form the card shows and is written nowhere else. An answer without candles is a state of its own: the all-time high is then the market cap of the moment. Two: the all-time high is never below the market cap of the moment. When the live market cap passes it, the card shows the live value at once and issues no new read. The read is kept by pool with the policy the web has for candle reads and is renewed at most once a minute while the card is in view. Three: the card. With an all-time high it shows the figure in the compact form of the market cap and fills the track to the share of the market cap in the all-time high, never less than a visible sliver and never more than the track. The accessible name of the bar gives both figures and the share in words. While the read is awaited the figure and the bar keep a loading form. When the read failed or the life is not covered, the label ATH, the track and the hidden notice are not rendered and the card shows the market cap alone. Remove the hidden notice about a missing member of a contract, and rewrite the comment above the component so that it says what the card shows and names no other product. Change nothing in apps/launchpad/web/src/core/clients/candle-stats.ts and nothing in the widgets of the chart."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the anvil program, and the environment brings the browser: do not install one. Run the formatter over the files you changed only. Cases in the new files all-time-high.test.ts beside the rule and mc-ath-card.test.tsx beside the card, with a stand-in for the candle read. allTimeHighComesFromTheCandlesOfTheWholeLife asserts the figure for a pool created 40 days ago from three daily candles, and the span of the read. Further cases assert that a live market cap above the highest candle becomes the all-time high, that a pool older than the span issues no read and renders no part for the all-time high, that a failed read renders the market cap alone, and that the bar carries the share and the accessible name. The final message gives the read of the card with its span for the pool of the cases. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/core/market"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/core/market/all-time-high.ts", "apps/launchpad/web/src/core/market/all-time-high.test.ts", "apps/launchpad/web/src/widgets/coin/mc-ath-card.test.tsx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test src/core/market src/widgets/coin && grep -rq allTimeHighComesFromTheCandlesOfTheWholeLife apps/launchpad/web/src/core/market"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1239]
+title = "Let the Trending column of the home view offer the change windows the statistics serve: 5m, 1h, 6h and 24h"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1239"]
+interfaces = []
+do_1 = "do_1 Gotcha 4962, decision 4030 point one. Read apps/launchpad/web/src/widgets/home/trending-widget.tsx (Timeframe, timeframes, servedTimeframes, timeframeOptions, timeframeSegments, timeframeSegmentsMinWidth and changeFor), apps/launchpad/web/src/core/market/pool-stats-display.ts (the mapping of the change members and the reasons for a missing value), how the rows of the explore view carry their changes (apps/launchpad/web/src/widgets/explore/use-explore-rows.ts), and the cases in home.test.tsx and home-panel-state.test.tsx of the home directory."
+do_2 = "do_2 One: the windows of the column become 5m, 1h, 6h and 24h, taken from the one list of windows beside the mapping in apps/launchpad/web/src/core/market/pool-stats-display.ts (export the list there if it is not exported; the column keeps no second list). The window the column opens with stays the one of today. Two: changeFor gives the change of the row for each of the four windows, with the reason the statistics give when a value is missing. The words coming soon, the set of served windows, the label soon in the menu and the titles of the segments that announce a later window all go. Three: the four segments still share one line with the ranking tabs from the width the column switches at: measure the four labels and set timeframeSegmentsMinWidth from the measure, and keep the compact pill below that width. If the column stores the choice of a visitor, a stored 4h or 12h of an earlier visit falls back to the opening window. Four: change the cases that pin the old windows so that they assert the new ones, and add the case trendingOffersTheServedChangeWindows to home.test.tsx: the four windows in order, each giving the value of its member for a row that carries all four, and the reason for a row that lacks one. Change nothing in the ranking tabs, in the rows and in the other columns."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the anvil program, and the environment brings the browser: do not install one. Run the formatter over the files you changed only. The final message names every place outside the home directory that used the type of the windows and what it does now. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/home", "apps/launchpad/web/src/core/market"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test src/widgets/home src/core/market && grep -rq trendingOffersTheServedChangeWindows apps/launchpad/web/src/widgets/home"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1238]
 title = "Let the chart of a coin in market cap mode read its valuation inside the bound of the charts service, and stay live when its window holds no candle"
 status = "pending"
@@ -214074,7 +214284,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1221]
 title = "Add the agent kit of the launchpad: tools for reading, launching, buying and selling through the agent layer of the wallet gateway, with an entry for the Model Context Protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -271067,6 +271277,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.1241]
+title = "Serve the search of profiles from the stats service instead of refusing it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1241"]
+interfaces = []
+do_1 = "do_1 Gotcha 4964, decision 4030 point three. Read services/launchpad/stats-*/internal/search/model.go (the parse of a public request near line 322), integrated.go (Validate, SearchIntegrated and searchProfiles), cache.go (how the kind profile passes the cache), projection.go (ConsumeAccountProfile), services/launchpad/stats-*/internal/httpapi/search.go with its case files, and how the api hands a search on (services/launchpad/api/internal/rest/rest.go, RegisterV2SearchProxy)."
+do_2 = "do_2 One: the parse no longer refuses the kind profile. A public search of profiles runs through the validation the store already has and is answered by searchProfiles. Keep every other refusal of the parse, and say in the final message why the refusal stood there if the code or its cases tell. A filter or a sort that has no meaning for profiles is answered with the code the public route uses for an invalid field, and not with 412. Two: the answer of a search of profiles carries the members the contract of the public search names for a hit of the kind profile. Compare one answer with the schema the cases of the api hold for the search and repair a member that does not match. A search that finds nobody answers 200 with an empty page. Three: paging. A second page works with the cursor the first page gave, and a cursor of another search is refused as it is for pools. Four: the case that pinned 412 for the kind profile (public_search_delivery_test.go line 425) pins the served answer. Add the case TestPublicSearchServesProfilesFromAccountEvents to the package httpapi. With the database of the cases, an account that is public and has a display name is delivered through ConsumeAccountProfile; the public route then finds it by a part of its name and by its exact address, with the address and the label in the hit. An account that is not public, one without a display name and one that was deleted after it had been found are not found, and a second delivery of the same event changes nothing. Use the helpers of the neighbour cases to build accounts and events; where the views of the accounts need rows no helper writes, build the smallest fixture that goes through the views and name it."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases of the two packages need the database the environment provides, as the neighbour cases do. Run the cases of the packages search and httpapi once by hand and name every case whose result changed. The final message gives the answer of one search of profiles with its status and members, and says whether the api hands the kind on unchanged. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/stats-workers/internal/search", "services/launchpad/stats-workers/internal/httpapi"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/stats-* && GOWORK=off go build ./... && GOWORK=off go vet ./internal/search/... ./internal/httpapi/...)"
+verify_cmd = "MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/search/... ./internal/httpapi/... && GOWORK=off go test -count=1 -timeout 10m -v -run ^TestPublicSearchServesProfilesFromAccountEvents ./internal/httpapi/ | grep -q -e PASS:.TestPublicSearchServesProfilesFromAccountEvents)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1232]
 title = "Add a quoting process for the trading venue: bounded limit orders on both sides of each market around the price of the chain, with a dry mode, a cap on the position and a full stop"

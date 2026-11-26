@@ -153,7 +153,8 @@ export function createAgentTools(
       config.marketId !== marketId ||
       config.tickSize <= 0n ||
       config.lotSize <= 0n ||
-      config.maxLeverage < E18
+      config.maxLeverage < 1n ||
+      tiers.some((tier) => tier.maxLeverage < 1n)
     ) {
       throw new AgentKitError(
         "INVALID_MARKET_CONFIG",
@@ -194,11 +195,11 @@ export function createAgentTools(
           ? config.maxLeverage
           : maxLeverageForNotional(input.sizeUsd, tiers);
       const cap = tierCap < config.maxLeverage ? tierCap : config.maxLeverage;
-      if (input.leverage < E18 || input.leverage > cap) {
+      if (input.leverage < E18 || input.leverage > cap * E18) {
         throw new AgentKitError(
           "LEVERAGE_BOUND",
-          `leverage must be between ${E18} and ${cap} in 18-decimal units`,
-          { minimum: E18.toString(), maximum: cap.toString() },
+          `leverage must be between 1 and ${cap}`,
+          { minimum: "1", maximum: cap.toString() },
         );
       }
     }
