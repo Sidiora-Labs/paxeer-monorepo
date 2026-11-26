@@ -271340,7 +271340,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1230]
 title = "Let the shared router of the launchpad name the answer headers a page of another origin may read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
