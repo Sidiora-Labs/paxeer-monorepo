@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { normalizeAddress } from '@/core/app-foundation/navigation';
 import { statsByPool, useStatsBatch } from '@/core/market/use-stats-batch';
 import { shortAddress } from '@/utils/format';
-import { ActionRow, PaletteInput, PaletteStatus, isSearchHint, ResultGroup, UserRow, UsersGroupBody, hotToSelect, resultToSelect, type SelectArgs } from '@/shell/global-search-parts';
+import { ActionRow, PaletteInput, PaletteStatus, emptySearchHeadline, isSearchHint, ResultGroup, UserRow, UsersGroupBody, hotToSelect, resultToSelect, type SelectArgs } from '@/shell/global-search-parts';
 import { addToRecent, useHotCoins, useSearchResults } from '@/shell/use-global-search';
 import { Search, TriangleAlert } from 'lucide-react';
 import { Button, EmptyState, humanError } from '@/ui/primitives';
@@ -137,7 +137,7 @@ export function SearchView({ initialQuery }: { initialQuery: string }) {
                   const change24h = statsChanges(row.pool_address ? mcapByPool.get(row.pool_address) ?? null : null)['24h'].value;
                   return <CoinRow key={row.identity} id={id} active={activeId === id} tokenAddress={row.token_address} name={row.name} symbol={row.symbol} logo={row.images.logo} mcapRaw={mcap} change24h={change24h} address={address} kind={row.kind} disabled={!row.pool_address}
                     onSelect={() => openCoin(resultToSelect(row, mcap))} />;
-                }) : <EmptyState icon={Search} title={userCount ? `No coins match "${trimmed}"` : `No coins or users match "${trimmed}"`} body="Try another name, ticker or address" announce />}
+                }) : <EmptyState icon={Search} title={userCount ? `No coins match "${trimmed}"` : emptySearchHeadline(trimmed, Boolean(addressQuery))} body="Try another name, ticker or address" announce />}
               </ResultGroup>
               {addressQuery ? (
                 <ResultGroup label="Wallet">
