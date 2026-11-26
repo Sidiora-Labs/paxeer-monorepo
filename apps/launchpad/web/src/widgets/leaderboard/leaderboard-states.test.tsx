@@ -209,9 +209,16 @@ function expectTokens(container: HTMLElement, caller: Caller, state: ReadState, 
     }
   } else {
     const frame = container.querySelector('section')!;
-    expect(frame.className).toContain('bg-surface-1');
-    expect(frame.className).toContain('rounded-lg');
-    expect(frame.className).toContain(caller === 'traders' ? 'sm:p-4' : 'p-2');
+    if (caller === 'traders') {
+      expect(frame.className).toBe('min-w-0');
+      expect(frame.querySelectorAll('thead th')).toHaveLength(4);
+      expect(frame.querySelector('th[aria-sort="descending"]')?.textContent).toBe('Profit');
+      if (state === 'rows') expect(frame.querySelector('tbody tr[data-rank]')?.classList.contains('sl-hairline')).toBe(true);
+    } else {
+      expect(frame.className).toContain('bg-surface-1');
+      expect(frame.className).toContain('rounded-lg');
+      expect(frame.className).toContain('p-2');
+    }
   }
   if (state === 'empty' || state === 'unavailable') {
     const padding = panelPadding[caller][state];

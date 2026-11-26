@@ -13,6 +13,7 @@ import { relativeAge } from '@/utils/format';
 import { FollowButton } from '@/widgets/social/follow-button';
 import { periodLabels, periodWindows, type RollingPeriod } from './period-control';
 import { RankRow } from './rank-row';
+import { RankingTable } from './ranking-table';
 
 export interface TradersBoardProps {
   period: RollingPeriod;
@@ -21,12 +22,7 @@ export interface TradersBoardProps {
 
 const qualityNotes = { complete: null, partial: 'Still counting', unavailable: 'Not tracked yet' } as const;
 
-/**
- * Rolling trader board over IF_LEADERBOARDS (category trader, window 24h /
- * 7d / 30d, limit 100). Identities come from the batched profile lookup;
- * every wallet keeps its short-address fallback. The endpoint's real 404
- * today renders the unavailable state with a retry and no rows.
- */
+/** Rolling trader rankings retain wallet identities, profit quality and pagination. */
 export function TradersBoard({ period, className }: TradersBoardProps) {
   const window: LeaderboardWindow = periodWindows[period];
   const [page, setPage] = useState<{ window: LeaderboardWindow; cursor?: string }>({ window });
@@ -41,49 +37,27 @@ export function TradersBoard({ period, className }: TradersBoardProps) {
   const empty = board.state === 'ready' && board.data.data.snapshot.entries.length === 0;
 
   return (
-    <section aria-labelledby="traders-board-title" className={cn('rounded-lg bg-surface-1 p-3 sm:p-4', className)}>
+    <section aria-labelledby="traders-board-title" className={cn('min-w-0', className)}>
       <SectionHeader
         title={<span id="traders-board-title">Top traders</span>}
         description={`${periodLabels[period]}, ranked by profit`}
         loading={board.state === 'loading'}
       />
-      <div className="relative mt-3 grid min-w-0">
-        <div aria-hidden={!empty || undefined} inert={!empty || undefined} className={cn('col-start-1 row-start-1 min-w-0', !empty && 'absolute invisible')}>
-          <EmptyState icon={Users} title="No traders yet" body={`Top traders from the ${periodLabels[period].toLowerCase()} show up here once people trade`} action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} />
-        </div>
-        <div className="col-start-1 row-start-1 min-w-0">
-          {board.state === 'loading' ? <RankRowSkeleton count={1} /> : null}
-          {board.state === 'unsupported' ? (
-            <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} notServed={board.notServed} error={board.error} message="Trader rankings are coming soon" onRetry={board.retry ?? retry} />
-          ) : null}
-          {board.state === 'error' ? <ErrorState title="Couldn't load the leaderboard" message="Something went wrong, try again" onRetry={board.retry} /> : null}
-          {board.state === 'ready' && board.data.data.snapshot.entries.length > 0 ? (
-            <>
-              <ol className="flex flex-col gap-0.5" aria-label={`Top traders, ${periodLabels[period].toLowerCase()}`}>
-                {board.data.data.snapshot.entries.map(entry => {
-                  const wallet = entry.wallet.toLowerCase();
-                  const identity = identities[wallet];
-                  const metric = entry.quality === 'unavailable' ? null : entry.metricSigned ?? entry.metricRaw;
-                  return (
-                    <RankRow
-                      key={wallet}
-                      rank={entry.rank}
-                      wallet={wallet}
-                      identity={identity}
-                      metricSigned={metric}
-                      qualityNote={qualityNotes[entry.quality]}
-                      self={viewer === wallet}
-                      actions={<FollowButton wallet={wallet} handle={identity?.displayName ?? null} variant="icon" />}
-                    />
-                  );
-                })}
-              </ol>
-              <p className="mt-3 font-mono text-2xs text-text-faint">
-                Updated {relativeAge(board.data.generatedAt)} ago
-              </p>
-            </>
-          ) : null}
-        </div>
+      <div className="mt-3 min-w-0">
+        <RankingTable label={`Top traders, ${periodLabels[period].toLowerCase()}`} state={
+          board.state === 'loading' ? <RankRowSkeleton count={1} /> :
+          board.state === 'unsupported' ? <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} notServed={board.notServed} error={board.error} message="Trader rankings are coming soon" onRetry={board.retry ?? retry} /> :
+          board.state === 'error' ? <ErrorState title="Couldn't load the leaderboard" message="Something went wrong, try again" onRetry={board.retry} /> :
+          empty ? <EmptyState icon={Users} title="No traders yet" body={`Top traders from the ${periodLabels[period].toLowerCase()} show up here once people trade`} action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} /> : null
+        }>
+          {board.state === 'ready' ? board.data.data.snapshot.entries.map(entry => {
+            const wallet = entry.wallet.toLowerCase();
+            const identity = identities[wallet];
+            const metric = entry.quality === 'unavailable' ? null : entry.metricSigned ?? entry.metricRaw;
+            return <RankRow key={wallet} rank={entry.rank} wallet={wallet} identity={identity} metricSigned={metric} qualityNote={qualityNotes[entry.quality]} self={viewer === wallet} actions={<FollowButton wallet={wallet} handle={identity?.displayName ?? null} variant="icon" />} />;
+          }) : null}
+        </RankingTable>
+        {board.state === 'ready' && !empty ? <p className="mt-3 font-mono text-2xs tabular-nums text-text-faint">Updated {relativeAge(board.data.generatedAt)} ago</p> : null}
       </div>
       {board.state === 'ready' && board.data.nextCursor ? <Button variant="secondary" size="sm" onClick={() => setPage({ window, cursor: board.data.nextCursor ?? undefined })}>Next page</Button> : null}
       {cursor ? <Button variant="ghost" size="sm" onClick={() => setPage({ window })}>First page</Button> : null}

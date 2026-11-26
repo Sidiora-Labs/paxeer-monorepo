@@ -73,20 +73,20 @@ const readyStats: HolderRewardsStatsResponse = {
 };
 
 describe('holder rewards components', () => {
-  it('renders the header on a tinted panel with two-line copy, display H1 and the airdrop-strategy create deep link', () => {
+  it('renders the header on the canvas with two-line copy, a view title and the airdrop-strategy create deep link', () => {
     const out = html(
       <HolderRewardsHeader>
         <p>stats slot</p>
       </HolderRewardsHeader>
     );
     expect(out).toContain('Holder rewards coins');
-    expect(out).toMatch(/<header class="[^"]*bg-surface-1/);
-    expect(out).toContain('sm:text-[40px]');
-    expect(out).toContain('sm:leading-[calc(46/40)]');
-    expect(out).toContain('text-[28px]');
-    expect(out).toContain('leading-[calc(34/28)]');
+    expect(out).toMatch(/<header class="[^"]*gap-5 p-4 sm:p-6/);
+    expect(out).toContain('text-lg');
+    expect(out).not.toContain('text-[40px]');
+    expect(out).not.toContain('text-[28px]');
+    expect(out).not.toContain('bg-surface-1');
     expect(out).not.toMatch(/font-(extrabold|black)/);
-    expect(out).toMatch(/<h1 class="[^"]*font-medium/);
+    expect(out).toMatch(/<h1 class="[^"]*font-bold/);
     expect(out).toContain('stats slot');
     expect(out).toContain('paid in USDL');
     const copy = /<p class="[^"]*">([^<]+)<\/p>/.exec(out)?.[1] ?? '';
@@ -96,7 +96,7 @@ describe('holder rewards components', () => {
     expect(assertControlEdges(out)).not.toMatch(BORDER);
   });
 
-  it("shows three display tiles, real totals only, today's value derived from the served USDL total", () => {
+  it("shows three figures above the table, real totals only, today's value derived from the served USDL total", () => {
     const ready = html(<StatsRow stats={{ state: 'ready', data: readyStats }} />);
     expect(ready.match(/<dt /g)).toHaveLength(3);
     expect(ready).toContain('Holder rewards');
@@ -106,14 +106,14 @@ describe('holder rewards components', () => {
     expect(ready).toContain('Valued in USDL');
     expect(ready).toContain('445,691');
     for (const markup of [ready, html(<StatsRow stats={{ state: 'loading' }} />), html(<StatsRow stats={unsupportedStats} />)]) {
-      expect(markup.match(/text-\[36px\]/g)).toHaveLength(3);
-      expect(markup.match(/leading-\[1\.1111112\]/g)).toHaveLength(3);
-      expect(markup.match(/sm:text-\[44px\]/g)).toHaveLength(3);
-      expect(markup.match(/sm:leading-\[1\.0909091\]/g)).toHaveLength(3);
+      expect(markup.match(/text-xl font-bold/g)).toHaveLength(3);
+      expect(markup).not.toContain('bg-surface-2 px-5');
+      expect(markup).not.toContain('sm:text-');
+      expect(markup).not.toContain('text-[36px]');
       expect(markup.match(/font-bold tracking-tight tabular-nums/g)).toHaveLength(3);
       expect(markup.match(/min-h-23\.5 sm:min-h-31\.5/g)).toHaveLength(3);
     }
-    expect(ready.match(/class="min-w-0 text-(success|text)"/g)).toHaveLength(3);
+    expect(ready.match(/class="shrink-0 text-(success|text)"/g)).toHaveLength(3);
     expect(ready.match(/ml-1\.5 shrink-0 whitespace-nowrap/g)).toHaveLength(2);
     expect(ready).toContain(
       'grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'
@@ -130,20 +130,20 @@ describe('holder rewards components', () => {
     expect(unavailable).toContain('Holder rewards are not available yet<');
     expect(unavailable).toContain('Today&#x27;s value is not available yet<');
     expect(unavailable).toContain('Wallet count is not available yet<');
-    expect(unavailable.match(/role="status"[^>]*data-state="unavailable"/g)).toHaveLength(3);
-    expect(unavailable).toContain('bg-surface-3');
+    expect(unavailable.match(/role="status"[^>]*data-state="empty"/g)).toHaveLength(3);
+    expect(unavailable).toContain('bg-surface-2');
     expect(unavailable).not.toContain('IF_HOLDER_REWARDS_STATS');
     expect(unavailable).not.toMatch(/\d{2,} USDL/);
     expect(unavailable).not.toMatch(/>\d[\d,]*</);
     expect(unavailable.match(/aria-label="Not available yet"/g)).toHaveLength(3);
-    expect(unavailable).toContain('text-[36px]');
+    expect(unavailable.match(/text-xl font-bold/g)).toHaveLength(3);
     expect(unavailable).not.toContain('Failed to fetch');
     expect(assertControlEdges(unavailable)).not.toMatch(BORDER);
     const failed = html(
       <StatsRow stats={{ state: 'error', error: new TypeError('Failed to fetch'), retry: noop }} />
     );
     expect(failed.match(/<dt /g)).toHaveLength(3);
-    expect(failed.match(/sm:text-\[44px\]/g)).toHaveLength(3);
+    expect(failed.match(/text-xl font-bold/g)).toHaveLength(3);
     expect(failed).not.toContain('Failed to fetch');
     expect(failed).toContain('Totals can&#x27;t load right now');
     expect(failed).toMatch(/Try again|Retry/);
@@ -199,7 +199,9 @@ describe('holder rewards components', () => {
     const ready = html(<TopPayingRail rows={rows} />);
     expect(ready).toContain('<ol');
     expect(ready).toContain('Pill');
-    expect(ready).toContain('bg-rank-1-soft');
+    expect(ready).toContain('text-rank-1');
+    expect(ready).toContain('text-rank-2');
+    expect(ready).not.toContain('bg-rank-1-soft');
     expect(ready).toContain(`href="/coin/${poolA}"`);
     expect(ready).toContain('Strategy changed');
     expect(assertControlEdges(ready)).not.toMatch(BORDER);
@@ -231,13 +233,16 @@ describe('holder rewards components', () => {
     expect(out).toContain('>Holder rewards');
     expect(out).toContain('>Holders paid');
     expect(out).not.toContain('>Age');
-    expect(/<thead>.*<\/thead>/.exec(out)?.[0]).not.toContain('uppercase');
+    expect(/<thead>.*<\/thead>/.exec(out)?.[0]).toContain('uppercase');
     expect(out).toContain('whitespace-nowrap');
     expect(out).toContain('>14,648<');
     expect(out).toContain('>USDL<');
     expect(out).toContain('Ranked across the 2 coins shown');
     expect(out).toContain('Load more');
-    expect(out).toContain('odd:bg-surface-2');
+    expect(out).toContain('sl-hairline');
+    expect(out).not.toContain('odd:bg-surface-2');
+    expect(out).toContain('text-rank-1');
+    expect(out).toContain('text-rank-2');
     expect(assertControlEdges(out)).not.toMatch(BORDER);
     expect(out).not.toMatch(/\$\s?\d/);
   });

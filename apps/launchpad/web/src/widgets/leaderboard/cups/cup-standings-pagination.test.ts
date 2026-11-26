@@ -158,7 +158,9 @@ function button(container: HTMLElement, label: string) {
 }
 
 function ranks(container: HTMLElement) {
-  return Array.from(container.querySelectorAll('ol[aria-label="Live standings"] li[data-rank]')).map(node => Number(node.getAttribute('data-rank')));
+  const table = Array.from(container.querySelectorAll('table')).find(node => node.caption?.textContent === 'Live standings');
+  expect(table).toBeDefined();
+  return Array.from(table!.querySelectorAll('tbody tr[data-rank]')).map(node => Number(node.getAttribute('data-rank')));
 }
 
 async function cup_standings_pagination_appends_beyond_one_hundred_and_exhausts_cursor() {
