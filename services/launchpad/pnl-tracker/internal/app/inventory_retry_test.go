@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -379,4 +380,56 @@ func TestInventoryRunAgainRecoveryWhileRunning(t *testing.T) {
 		t.Fatalf("consumer calls = %d, waits = %v", calls, waits)
 	}
 	inventoryRunTestStates(t, lines, nil)
+}
+
+func TestInventoryRunAgainWritesTheErrorTextWithoutAddresses(t *testing.T) {
+	ctx := context.Background()
+	clock := &inventoryRunTestClock{}
+	lines := make(inventoryRunLog, 16)
+	logger := slog.New(slog.NewJSONHandler(lines, nil))
+	first := errors.New("read https://service.invalid/rpc and nats://broker.invalid failed")
+	failures := []error{first, first, errors.New("read https://another.invalid/rpc and nats://other.invalid failed"), errors.New("block range too large"), context.DeadlineExceeded, errors.New(strings.Repeat("界", 301) + " https://service.invalid/rpc")}
+	want := []struct{ class, text string }{
+		{"transient", "read [redacted] and [redacted] failed"},
+		{"transient", "block range too large"},
+		{"timeout", context.DeadlineExceeded.Error()},
+		{"transient", strings.Repeat("界", 300)},
+	}
+	calls, waits := 0, 0
+	run := func(context.Context) error {
+		calls++
+		if calls <= len(failures) {
+			return failures[calls-1]
+		}
+		return nil
+	}
+	wait := func(operation context.Context, _ time.Duration) {
+		if operation != ctx {
+			<-operation.Done()
+			return
+		}
+		waits++
+		wantLines := []int{1, 1, 1, 2, 3, 4}[waits-1]
+		if len(lines) != wantLines {
+			t.Errorf("run %d wrote %d lines, want %d", calls, len(lines), wantLines)
+		}
+	}
+	if err := runInventoryAgain(ctx, logger, run, wait, clock.now); err != nil {
+		t.Fatal(err)
+	}
+	if calls != len(failures)+1 || waits != len(failures) || len(lines) != len(want) {
+		t.Fatal(calls, waits, len(lines))
+	}
+	for _, expected := range want {
+		line := <-lines
+		var entry struct {
+			Job, State, Class, Error string
+		}
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			t.Fatal(err)
+		}
+		if entry.Job != "inventory consumer" || entry.State != "failing" || entry.Class != expected.class || entry.Error != expected.text || strings.Contains(line, ".invalid") || strings.Contains(line, "://") {
+			t.Fatalf("consumer log = %s, want class=%s error=%q", line, expected.class, expected.text)
+		}
+	}
 }

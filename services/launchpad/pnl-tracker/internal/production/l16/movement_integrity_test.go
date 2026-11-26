@@ -40,6 +40,7 @@ func TestIndexedMovementsRequireCanonicalLogOrderAndContent(t *testing.T) {
 			})
 			a := *s.authority
 			a.rpc = client
+			a.nodeWindowBlocks = 33963733 - 33963716 + 1
 			tx, err := pool.Begin(ctx)
 			if err != nil {
 				t.Fatal(err)
