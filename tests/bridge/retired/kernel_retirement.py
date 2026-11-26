@@ -150,6 +150,10 @@ RETIREMENT_ASSERTIONS: Final[frozenset[str]] = frozenset(
         "cmd/retirement/**",
         "tools/paxeer-x/retired_callers.json",
         "tools/ci/tests/test_makefile_*.py",
+        "modules/evm/client/cli/completion_gate_test.go",
+        "tools/qualification/audit_repairs/test_program_market_and_service_qualification.py",
+        "tools/jev/tests/fixtures/ledger/beta-qualification.kvx",
+        "tools/*/core/kvx/testdata/valid/layerx-qualification.kvx",
     }
 )
 

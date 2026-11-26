@@ -156,7 +156,7 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     expect(panelModule.default).toBe(LeaderboardPanel);
   });
 
-  it('renders the real 404 as an unavailable leaderboard with a retry that issues a new request', async () => {
+  it('renders the real 404 as an unavailable leaderboard without a retry control', async () => {
     const { root, container, queryClient } = mount(unserved.origin, <LeaderboardPanel />);
     expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
     await waitFor(() => container.textContent?.includes('Leaderboard is not available yet') === true);
@@ -165,12 +165,8 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     expect(container.querySelector('ol')).toBeNull();
     expect(unserved.paths).toEqual(['/v2/leaderboards/trader?window=7d&limit=25']);
 
-    const retry = buttonNamed(container, 'Try again');
-    expect(retry).toBeDefined();
-    act(() => retry?.click());
-    await waitFor(() => unserved.paths.length === 2);
-    expect(unserved.paths[1]).toBe('/v2/leaderboards/trader?window=7d&limit=25');
-    await waitFor(() => container.textContent?.includes('Leaderboard is not available yet') === true);
+    expect(buttonNamed(container, 'Try again')).toBeUndefined();
+    expect(unserved.paths).toEqual(['/v2/leaderboards/trader?window=7d&limit=25']);
     unmount(root, container, queryClient);
   });
 

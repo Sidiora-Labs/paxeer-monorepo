@@ -35,6 +35,7 @@ import (
 
 // Config is the parsed stats environment.
 type Config struct {
+	ConsumerReadinessTimeout  string `env:"STATS_CONSUMER_READINESS_TIMEOUT" envDefault:"5m"`
 	StatsCursorKey            string `env:"STATS_CURSOR_KEY"`
 	StatsAuditKey             string `env:"STATS_AUDIT_KEY"`
 	RuntimeZone               string `env:"ZONE"`
@@ -108,6 +109,9 @@ func Load() (Config, error) {
 	cfg, err := env.ParseAs[Config]()
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
+	}
+	if _, err := cfg.ConsumerReadinessBound(); err != nil {
+		return Config{}, err
 	}
 	if err = cfg.registerInlineDocuments(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)

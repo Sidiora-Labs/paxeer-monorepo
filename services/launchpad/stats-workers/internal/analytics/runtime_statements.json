@@ -5,7 +5,7 @@
       "function": "Projector.ApplyFillTx",
       "call": 1,
       "expression": "\"SELECT pg_advisory_xact_lock(hashtextextended($1,0))\"",
-      "line": 112,
+      "line": 113,
       "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       "kind": "SELECT",
       "tables": [],
@@ -16,14 +16,14 @@
       ],
       "sequences": [],
       "id": "analytics_projector_Projector.ApplyFillTx_1",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.ApplyFillTx",
       "call": 2,
       "expression": "\"SELECT digest FROM \"+t+\" WHERE source_id=$1\"",
-      "line": 120,
+      "line": 121,
       "sql": "SELECT digest FROM \"stats\".\"analytics_trades\" WHERE source_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -36,14 +36,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_Projector.ApplyFillTx_2",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.ApplyFillTx",
       "call": 3,
       "expression": "\"SELECT block_hash=$3 FROM \"+progress+\" WHERE pool=$1 AND height=$2::numeric\"",
-      "line": 131,
+      "line": 132,
       "sql": "SELECT block_hash=$3 FROM \"stats\".\"analytics_progress\" WHERE pool=$1 AND height=$2::numeric",
       "kind": "SELECT",
       "tables": [
@@ -57,14 +57,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_Projector.ApplyFillTx_3",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.ApplyFillTx",
       "call": 4,
       "expression": "\"INSERT INTO \"+t+\"(source_id,pool,height,transaction_index,log_index,block_hash,event_time,side,usdl_raw,digest) VALUES($1,$2,$3::numeric,$4::numeric,$5::numeric,$6,$7,$8,$9::numeric,$10)\"",
-      "line": 138,
+      "line": 139,
       "sql": "INSERT INTO \"stats\".\"analytics_trades\"(source_id,pool,height,transaction_index,log_index,block_hash,event_time,side,usdl_raw,digest) VALUES($1,$2,$3::numeric,$4::numeric,$5::numeric,$6,$7,$8,$9::numeric,$10)",
       "kind": "INSERT",
       "tables": [
@@ -74,14 +74,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_Projector.ApplyFillTx_4",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.ApplyFillTx",
       "call": 5,
       "expression": "\"INSERT INTO \"+progress+\"(pool,height,transaction_index,log_index,block_hash,revision,observed_at) VALUES($1,$2::numeric,$3::numeric,$4::numeric,$5,1,$6) ON CONFLICT(pool) DO UPDATE SET height=EXCLUDED.height,transaction_index=EXCLUDED.transaction_index,log_index=EXCLUDED.log_index,block_hash=EXCLUDED.block_hash,revision=\"+progress+\".revision+1,observed_at=EXCLUDED.observed_at WHERE (EXCLUDED.height,EXCLUDED.transaction_index,EXCLUDED.log_index)>(\"+progress+\".height,\"+progress+\".transaction_index,\"+progress+\".log_index) RETURNING revision::text\"",
-      "line": 143,
+      "line": 144,
       "sql": "INSERT INTO \"stats\".\"analytics_progress\"(pool,height,transaction_index,log_index,block_hash,revision,observed_at) VALUES($1,$2::numeric,$3::numeric,$4::numeric,$5,1,$6) ON CONFLICT(pool) DO UPDATE SET height=EXCLUDED.height,transaction_index=EXCLUDED.transaction_index,log_index=EXCLUDED.log_index,block_hash=EXCLUDED.block_hash,revision=\"stats\".\"analytics_progress\".revision+1,observed_at=EXCLUDED.observed_at WHERE (EXCLUDED.height,EXCLUDED.transaction_index,EXCLUDED.log_index)>(\"stats\".\"analytics_progress\".height,\"stats\".\"analytics_progress\".transaction_index,\"stats\".\"analytics_progress\".log_index) RETURNING revision::text",
       "kind": "INSERT",
       "tables": [
@@ -102,14 +102,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_Projector.ApplyFillTx_5",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.RecomputeExpiryTx",
       "call": 1,
       "expression": "\"SELECT pg_advisory_xact_lock(hashtextextended($1,0))\"",
-      "line": 159,
+      "line": 160,
       "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       "kind": "SELECT",
       "tables": [],
@@ -120,14 +120,14 @@
       ],
       "sequences": [],
       "id": "analytics_projector_Projector.RecomputeExpiryTx_1",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.RecomputeExpiryTx",
       "call": 2,
       "expression": "\"UPDATE \"+progress+\" SET revision=revision+1 WHERE pool=$1 RETURNING height::text,block_hash,revision::text,observed_at\"",
-      "line": 163,
+      "line": 164,
       "sql": "UPDATE \"stats\".\"analytics_progress\" SET revision=revision+1 WHERE pool=$1 RETURNING height::text,block_hash,revision::text,observed_at",
       "kind": "UPDATE",
       "tables": [
@@ -143,14 +143,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_Projector.RecomputeExpiryTx_2",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.recompute",
       "call": 1,
       "expression": "\"SELECT clock_timestamp()\"",
-      "line": 176,
+      "line": 177,
       "sql": "SELECT clock_timestamp()",
       "kind": "SELECT",
       "tables": [],
@@ -160,14 +160,14 @@
       ],
       "sequences": [],
       "id": "analytics_projector_Projector.recompute_1",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.recompute",
       "call": 2,
       "expression": "\"SELECT count(*) FILTER(WHERE side='buy'),count(*) FILTER(WHERE side='sell'),COALESCE(sum(usdl_raw) FILTER(WHERE side='buy'),0)::text,COALESCE(sum(usdl_raw) FILTER(WHERE side='sell'),0)::text FROM \"+t+\" WHERE pool=$1 AND event_time>$2 AND event_time<=$3\"",
-      "line": 195,
+      "line": 196,
       "sql": "SELECT count(*) FILTER(WHERE side='buy'),count(*) FILTER(WHERE side='sell'),COALESCE(sum(usdl_raw) FILTER(WHERE side='buy'),0)::text,COALESCE(sum(usdl_raw) FILTER(WHERE side='sell'),0)::text FROM \"stats\".\"analytics_trades\" WHERE pool=$1 AND event_time>$2 AND event_time<=$3",
       "kind": "SELECT",
       "tables": [
@@ -185,14 +185,14 @@
       ],
       "sequences": [],
       "id": "analytics_projector_Projector.recompute_2",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.recompute",
       "call": 3,
       "expression": "\"INSERT INTO \"+outbox+\"(pool,model,revision,payload) VALUES($1,$2,$3::numeric,$4::jsonb)\"",
-      "line": 226,
+      "line": 227,
       "sql": "INSERT INTO \"stats\".\"analytics_outbox\"(pool,model,revision,payload) VALUES($1,$2,$3::numeric,$4::jsonb)",
       "kind": "INSERT",
       "tables": [
@@ -202,14 +202,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_Projector.recompute_3",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "Projector.RunExpiry",
       "call": 1,
       "expression": "\"SELECT pool FROM \"+progress+\" WHERE pool>$1 ORDER BY pool LIMIT $2\"",
-      "line": 248,
+      "line": 249,
       "sql": "SELECT pool FROM \"stats\".\"analytics_progress\" WHERE pool>$1 ORDER BY pool LIMIT $2",
       "kind": "SELECT",
       "tables": [
@@ -221,14 +221,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_Projector.RunExpiry_1",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "PostgresRiskInputs.LoadRiskInputs",
       "call": 1,
       "expression": "\"SELECT payload FROM \"+table+\" WHERE pool=$1 AND height=$2::numeric AND block_hash=$3\"",
-      "line": 300,
+      "line": 301,
       "sql": "SELECT payload FROM \"stats\".\"analytics_risk_inputs\" WHERE pool=$1 AND height=$2::numeric AND block_hash=$3",
       "kind": "SELECT",
       "tables": [
@@ -243,14 +243,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_PostgresRiskInputs.LoadRiskInputs_1",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "ReactionAuthority.PersistRiskInputsTx",
       "call": 1,
       "expression": "\"SELECT pg_advisory_xact_lock(hashtextextended($1,0))\"",
-      "line": 333,
+      "line": 334,
       "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       "kind": "SELECT",
       "tables": [],
@@ -261,14 +261,14 @@
       ],
       "sequences": [],
       "id": "analytics_projector_ReactionAuthority.PersistRiskInputsTx_1",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "ReactionAuthority.PersistRiskInputsTx",
       "call": 2,
       "expression": "\"SELECT block_hash,payload FROM \"+table+\" WHERE pool=$1 AND height=$2::numeric\"",
-      "line": 338,
+      "line": 339,
       "sql": "SELECT block_hash,payload FROM \"stats\".\"analytics_risk_inputs\" WHERE pool=$1 AND height=$2::numeric",
       "kind": "SELECT",
       "tables": [
@@ -283,14 +283,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_ReactionAuthority.PersistRiskInputsTx_2",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/projector.go",
       "function": "ReactionAuthority.PersistRiskInputsTx",
       "call": 3,
       "expression": "\"INSERT INTO \"+table+\"(pool,height,block_hash,payload) VALUES($1,$2::numeric,$3,$4::jsonb) ON CONFLICT(pool) DO UPDATE SET height=EXCLUDED.height,block_hash=EXCLUDED.block_hash,payload=EXCLUDED.payload WHERE EXCLUDED.height>\"+table+\".height OR (EXCLUDED.height=\"+table+\".height AND EXCLUDED.block_hash=\"+table+\".block_hash AND (EXCLUDED.payload->>'projectionRevision')::numeric>COALESCE((\"+table+\".payload->>'projectionRevision')::numeric,0))\"",
-      "line": 363,
+      "line": 364,
       "sql": "INSERT INTO \"stats\".\"analytics_risk_inputs\"(pool,height,block_hash,payload) VALUES($1,$2::numeric,$3,$4::jsonb) ON CONFLICT(pool) DO UPDATE SET height=EXCLUDED.height,block_hash=EXCLUDED.block_hash,payload=EXCLUDED.payload WHERE EXCLUDED.height>\"stats\".\"analytics_risk_inputs\".height OR (EXCLUDED.height=\"stats\".\"analytics_risk_inputs\".height AND EXCLUDED.block_hash=\"stats\".\"analytics_risk_inputs\".block_hash AND (EXCLUDED.payload->>'projectionRevision')::numeric>COALESCE((\"stats\".\"analytics_risk_inputs\".payload->>'projectionRevision')::numeric,0))",
       "kind": "INSERT",
       "tables": [
@@ -307,7 +307,7 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_projector_ReactionAuthority.PersistRiskInputsTx_3",
-      "source_sha256": "a5dc04951d0103c5df34f8d2f19799f8e63ab002606d60cc5624427648c1d47b"
+      "source_sha256": "6ce9922de7ca13224381985961e7dc2f32180772418e90c3aa4b6db61a9ce5af"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/reactions.go",
@@ -653,7 +653,7 @@
       "function": "CanonicalRiskInputs.LoadRiskInputs",
       "call": 1,
       "expression": "\"SELECT clock_timestamp()\"",
-      "line": 50,
+      "line": 51,
       "sql": "SELECT clock_timestamp()",
       "kind": "SELECT",
       "tables": [],
@@ -663,14 +663,14 @@
       ],
       "sequences": [],
       "id": "analytics_risk_inputs_CanonicalRiskInputs.LoadRiskInputs_1",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
       "function": "CanonicalRiskInputs.LoadRiskInputsAt",
       "call": 1,
       "expression": "\"SELECT pg_advisory_xact_lock(hashtextextended($1,0))\"",
-      "line": 63,
+      "line": 64,
       "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       "kind": "SELECT",
       "tables": [],
@@ -681,15 +681,15 @@
       ],
       "sequences": [],
       "id": "analytics_risk_inputs_CanonicalRiskInputs.LoadRiskInputsAt_1",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
       "function": "CanonicalRiskInputs.LoadRiskInputsAt",
       "call": 2,
-      "expression": "fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s b JOIN %s w ON w.chain_id=b.chain_id AND w.stream_id=b.stream_id WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2::bigint AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND w.raw_complete_height=w.typed_complete_height AND w.typed_complete_height>=b.height) AND EXISTS(SELECT 1 FROM %s c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.previous_height<$2::bigint AND c.last_complete_height>=$2::bigint)`, p.source(\"indexer_block_completeness_v1\"), p.source(\"indexer_ingest_watermarks_v1\"), p.source(\"indexer_ingest_commits_v1\"))",
-      "line": 67,
-      "sql": "SELECT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_block_completeness_v1\" b JOIN \"indexer\".\"indexer_ingest_watermarks_v1\" w ON w.chain_id=b.chain_id AND w.stream_id=b.stream_id WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2::bigint AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND w.raw_complete_height=w.typed_complete_height AND w.typed_complete_height>=b.height) AND EXISTS(SELECT 1 FROM \"indexer\".\"indexer_ingest_commits_v1\" c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.previous_height<$2::bigint AND c.last_complete_height>=$2::bigint)",
+      "expression": "fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s b JOIN %s w ON w.chain_id=b.chain_id AND w.stream_id=b.stream_id WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2::bigint AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND w.raw_complete_height=w.typed_complete_height AND w.typed_complete_height>=b.height) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT 1 FROM %s c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.previous_height<(SELECT height FROM bounds) AND c.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(c.previous_height,c.last_complete_height)::numeric,greatest(c.previous_height,c.last_complete_height)::numeric,'[]') @> $2::numeric)`, p.source(\"indexer_block_completeness_v1\"), p.source(\"indexer_ingest_watermarks_v1\"), p.source(\"indexer_ingest_commits_v1\"))",
+      "line": 68,
+      "sql": "SELECT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_block_completeness_v1\" b JOIN \"indexer\".\"indexer_ingest_watermarks_v1\" w ON w.chain_id=b.chain_id AND w.stream_id=b.stream_id WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2::bigint AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND w.raw_complete_height=w.typed_complete_height AND w.typed_complete_height>=b.height) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT 1 FROM \"indexer\".\"indexer_ingest_commits_v1\" c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.previous_height<(SELECT height FROM bounds) AND c.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(c.previous_height,c.last_complete_height)::numeric,greatest(c.previous_height,c.last_complete_height)::numeric,'[]') @> $2::numeric)",
       "kind": "SELECT",
       "tables": [
         "indexer.indexer_block_completeness_v1",
@@ -707,22 +707,27 @@
         "c.last_complete_height",
         "c.previous_height",
         "c.stream_id",
+        "height",
         "w.chain_id",
         "w.raw_complete_height",
         "w.stream_id",
         "w.typed_complete_height"
       ],
-      "functions": [],
+      "functions": [
+        "greatest",
+        "least",
+        "numrange"
+      ],
       "sequences": [],
       "id": "analytics_risk_inputs_CanonicalRiskInputs.LoadRiskInputsAt_2",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
       "function": "CanonicalRiskInputs.LoadRiskInputsAt",
       "call": 3,
       "expression": "\"SELECT token,lower(creator),block_timestamp,height::text,transaction_hash,payload FROM \"+p.source(\"indexer_canonical_creations_v1\")+\" WHERE pool=$1 AND height<=$2::bigint\"",
-      "line": 76,
+      "line": 77,
       "sql": "SELECT token,lower(creator),block_timestamp,height::text,transaction_hash,payload FROM \"indexer\".\"indexer_canonical_creations_v1\" WHERE pool=$1 AND height<=$2::bigint",
       "kind": "SELECT",
       "tables": [
@@ -742,14 +747,14 @@
       ],
       "sequences": [],
       "id": "analytics_risk_inputs_CanonicalRiskInputs.LoadRiskInputsAt_3",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
       "function": "CanonicalRiskInputs.LoadRiskInputsAt",
       "call": 4,
       "expression": "fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s t WHERE t.token=$1 AND t.coverage='complete' AND t.expected_initial_supply=$4::numeric AND t.creation_transaction_hash=$5) AND (SELECT count(*) FROM %s b WHERE b.chain_id=125 AND b.stream_id=$3 AND b.height BETWEEN $6::bigint AND $2::bigint AND b.fetch_complete AND b.required_decode_complete)=($2::bigint-$6::bigint+1) AND NOT EXISTS(SELECT 1 FROM %s s WHERE s.chain_id=125 AND s.token=$1 AND s.height<=$2::bigint AND NOT EXISTS(SELECT 1 FROM %s h WHERE h.token=s.token AND %s)) AND NOT EXISTS(SELECT 1 FROM %s h WHERE h.token=$1 AND (h.event->>'height')::numeric<=$2::numeric AND NOT EXISTS(SELECT 1 FROM %s s WHERE s.chain_id=125 AND s.token=h.token AND %s))`, p.holder(\"tokens\"), p.source(\"indexer_block_completeness_v1\"), transfers, ledger, match, ledger, transfers, match)",
-      "line": 103,
+      "line": 104,
       "sql": "SELECT EXISTS(SELECT 1 FROM \"stats_transfer_holdings\".\"tokens\" t WHERE t.token=$1 AND t.coverage='complete' AND t.expected_initial_supply=$4::numeric AND t.creation_transaction_hash=$5) AND (SELECT count(*) FROM \"indexer\".\"indexer_block_completeness_v1\" b WHERE b.chain_id=125 AND b.stream_id=$3 AND b.height BETWEEN $6::bigint AND $2::bigint AND b.fetch_complete AND b.required_decode_complete)=($2::bigint-$6::bigint+1) AND NOT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_token_transfers_v1\" s WHERE s.chain_id=125 AND s.token=$1 AND s.height<=$2::bigint AND NOT EXISTS(SELECT 1 FROM \"stats_transfer_holdings\".\"transfers\" h WHERE h.token=s.token AND h.identity='125:'||s.token||':'||s.transaction_hash||':'||s.log_index::text AND h.event->>'chainId'='125' AND h.event->>'token'=s.token AND h.event->>'transactionHash'=s.transaction_hash AND h.event->>'blockHash'=s.block_hash AND h.event->>'height'=s.height::text AND h.event->>'transactionIndex'=s.transaction_index::text AND h.event->>'logIndex'=s.log_index::text AND h.event->>'from'=s.from_address AND h.event->>'to'=s.to_address AND h.event->>'amount'=s.amount_raw::text)) AND NOT EXISTS(SELECT 1 FROM \"stats_transfer_holdings\".\"transfers\" h WHERE h.token=$1 AND (h.event->>'height')::numeric<=$2::numeric AND NOT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_token_transfers_v1\" s WHERE s.chain_id=125 AND s.token=h.token AND h.identity='125:'||s.token||':'||s.transaction_hash||':'||s.log_index::text AND h.event->>'chainId'='125' AND h.event->>'token'=s.token AND h.event->>'transactionHash'=s.transaction_hash AND h.event->>'blockHash'=s.block_hash AND h.event->>'height'=s.height::text AND h.event->>'transactionIndex'=s.transaction_index::text AND h.event->>'logIndex'=s.log_index::text AND h.event->>'from'=s.from_address AND h.event->>'to'=s.to_address AND h.event->>'amount'=s.amount_raw::text))",
       "kind": "SELECT",
       "tables": [
@@ -787,14 +792,14 @@
       ],
       "sequences": [],
       "id": "analytics_risk_inputs_CanonicalRiskInputs.LoadRiskInputsAt_4",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
       "function": "CanonicalRiskInputs.LoadRiskInputsAt",
       "call": 5,
       "expression": "fmt.Sprintf(`WITH deltas AS (\n SELECT h.event->>'to' AS wallet,(h.event->>'amount')::numeric AS delta FROM %s h WHERE h.token=$1 AND (h.event->>'height')::numeric<=$2::numeric\n UNION ALL SELECT h.event->>'from',-(h.event->>'amount')::numeric FROM %s h WHERE h.token=$1 AND (h.event->>'height')::numeric<=$2::numeric\n ), balances AS (SELECT wallet,sum(delta) AS raw FROM deltas WHERE wallet<>$3 GROUP BY wallet HAVING sum(delta)<>0)\n SELECT wallet,raw::text,(sum(raw) OVER())::text FROM balances ORDER BY wallet`, ledger, ledger)",
-      "line": 108,
+      "line": 109,
       "sql": "WITH deltas AS (\n SELECT h.event->>'to' AS wallet,(h.event->>'amount')::numeric AS delta FROM \"stats_transfer_holdings\".\"transfers\" h WHERE h.token=$1 AND (h.event->>'height')::numeric<=$2::numeric\n UNION ALL SELECT h.event->>'from',-(h.event->>'amount')::numeric FROM \"stats_transfer_holdings\".\"transfers\" h WHERE h.token=$1 AND (h.event->>'height')::numeric<=$2::numeric\n ), balances AS (SELECT wallet,sum(delta) AS raw FROM deltas WHERE wallet<>$3 GROUP BY wallet HAVING sum(delta)<>0)\n SELECT wallet,raw::text,(sum(raw) OVER())::text FROM balances ORDER BY wallet",
       "kind": "SELECT",
       "tables": [
@@ -812,14 +817,14 @@
       ],
       "sequences": [],
       "id": "analytics_risk_inputs_CanonicalRiskInputs.LoadRiskInputsAt_5",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
       "function": "CanonicalRiskInputs.LoadRiskInputsAt",
       "call": 6,
       "expression": "fmt.Sprintf(`SELECT f.payload,f.source_fact_digest,COALESCE(c.fill,'null'::jsonb),COALESCE(c.source_fact_digest,'') FROM %s f LEFT JOIN %s c ON c.source_fill_id=f.source_fill_id AND c.projection_version=$3 WHERE f.chain_id=125 AND f.pool_address=$1 AND (f.payload->'position'->>'height')::numeric<=$2::numeric ORDER BY (f.payload->'position'->>'height')::numeric,(f.payload->'position'->>'transactionIndex')::numeric,(f.payload->'position'->>'logIndex')::numeric`, p.source(\"indexer_accounting_fills_v1\"), commits)",
-      "line": 164,
+      "line": 165,
       "sql": "SELECT f.payload,f.source_fact_digest,COALESCE(c.fill,'null'::jsonb),COALESCE(c.source_fact_digest,'') FROM \"indexer\".\"indexer_accounting_fills_v1\" f LEFT JOIN \"stats\".\"accounting_market_commits\" c ON c.source_fill_id=f.source_fill_id AND c.projection_version=$3 WHERE f.chain_id=125 AND f.pool_address=$1 AND (f.payload->'position'->>'height')::numeric<=$2::numeric ORDER BY (f.payload->'position'->>'height')::numeric,(f.payload->'position'->>'transactionIndex')::numeric,(f.payload->'position'->>'logIndex')::numeric",
       "kind": "SELECT",
       "tables": [
@@ -840,14 +845,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_risk_inputs_CanonicalRiskInputs.LoadRiskInputsAt_6",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
       "function": "CanonicalRiskInputs.LoadRiskInputsAt",
       "call": 7,
       "expression": "fmt.Sprintf(`SELECT NOT EXISTS(SELECT 1 FROM %s c WHERE c.pool=$1 AND c.projection_version=$3 AND (c.fill->'position'->>'height')::numeric<=$2::numeric AND NOT EXISTS(SELECT 1 FROM %s f WHERE f.chain_id=125 AND f.source_fill_id=c.source_fill_id AND f.source_fact_digest=c.source_fact_digest AND f.payload=c.fill))`, commits, p.source(\"indexer_accounting_fills_v1\"))",
-      "line": 214,
+      "line": 215,
       "sql": "SELECT NOT EXISTS(SELECT 1 FROM \"stats\".\"accounting_market_commits\" c WHERE c.pool=$1 AND c.projection_version=$3 AND (c.fill->'position'->>'height')::numeric<=$2::numeric AND NOT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_accounting_fills_v1\" f WHERE f.chain_id=125 AND f.source_fill_id=c.source_fill_id AND f.source_fact_digest=c.source_fact_digest AND f.payload=c.fill))",
       "kind": "SELECT",
       "tables": [
@@ -868,14 +873,14 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_risk_inputs_CanonicalRiskInputs.LoadRiskInputsAt_7",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
       "function": "Projector.RefreshTokenInputs",
       "call": 1,
       "expression": "\"SELECT p.pool FROM \"+progress+\" p JOIN \"+source.source(\"indexer_canonical_creations_v1\")+\" k ON k.pool=p.pool WHERE k.token=$1 ORDER BY p.pool\"",
-      "line": 255,
+      "line": 256,
       "sql": "SELECT p.pool FROM \"stats\".\"analytics_progress\" p JOIN \"indexer\".\"indexer_canonical_creations_v1\" k ON k.pool=p.pool WHERE k.token=$1 ORDER BY p.pool",
       "kind": "SELECT",
       "tables": [
@@ -890,7 +895,7 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_risk_inputs_Projector.RefreshTokenInputs_1",
-      "source_sha256": "70b5879dd2227c0b18a714d4166c3bb299804a585efd5d09a953f698d40c2a70"
+      "source_sha256": "85b3ca688bf70e7ce84792183ffd1c823640042080fa9b314ab5cc9da13331a8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/snapshot.go",
@@ -983,7 +988,7 @@
       "function": "newWithRuntimePool",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 415,
+      "line": 432,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1006,14 +1011,14 @@
       ],
       "sequences": [],
       "id": "app_app_newWithRuntimePool_1",
-      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
+      "source_sha256": "c43d1d9161f63bf210c3076513d7b455b72f42b0ac0145e6b35087187a1b8aaf"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/readiness.go",
       "function": "Store.Ready",
       "call": 1,
       "expression": "\"SELECT g.state='active' AND g.validated_at IS NOT NULL FROM stats_search.active_v2 a JOIN stats_search.generations_v2 g USING(generation) WHERE a.singleton\"",
-      "line": 15,
+      "line": 13,
       "sql": "SELECT g.state='active' AND g.validated_at IS NOT NULL FROM stats_search.active_v2 a JOIN stats_search.generations_v2 g USING(generation) WHERE a.singleton",
       "kind": "SELECT",
       "tables": [
@@ -1036,7 +1041,7 @@
       "function": "catchUpStatsHolders",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 928,
+      "line": 968,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1059,14 +1064,14 @@
       ],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_1",
-      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
+      "source_sha256": "c43d1d9161f63bf210c3076513d7b455b72f42b0ac0145e6b35087187a1b8aaf"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
       "function": "catchUpStatsHolders",
       "call": 2,
       "expression": "`SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`",
-      "line": 934,
+      "line": 974,
       "sql": "SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4",
       "kind": "SELECT",
       "tables": [
@@ -1088,7 +1093,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_2",
-      "source_sha256": "aab01f35017a6bf5dbdebdca7758a8cec384f1214d8b079ba30e83943c8221d4"
+      "source_sha256": "c43d1d9161f63bf210c3076513d7b455b72f42b0ac0145e6b35087187a1b8aaf"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1118,7 +1123,7 @@
       ],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.sourceState_1",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1136,7 +1141,7 @@
       ],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.RunOnce_1",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1173,15 +1178,15 @@
       "functions": [],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.RunOnce_2",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
       "function": "canonicalMultihopProjection.projectRoute",
       "call": 1,
-      "expression": "`SELECT EXISTS(SELECT 1 FROM indexer.indexer_block_completeness_v1 b WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2 AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND b.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=b.chain_id AND r.height=b.height AND r.block_hash=b.block_hash) AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 c WHERE c.chain_id=b.chain_id AND c.stream_id=b.stream_id AND c.previous_height<b.height AND c.last_complete_height>=b.height))`",
+      "expression": "`SELECT EXISTS(SELECT 1 FROM indexer.indexer_block_completeness_v1 b WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2 AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND b.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=b.chain_id AND r.height=b.height AND r.block_hash=b.block_hash) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT b.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 c WHERE c.chain_id=b.chain_id AND c.stream_id=b.stream_id AND c.previous_height<(SELECT height FROM bounds) AND c.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(c.previous_height,c.last_complete_height)::numeric,greatest(c.previous_height,c.last_complete_height)::numeric,'[]') @> b.height::numeric))`",
       "line": 180,
-      "sql": "SELECT EXISTS(SELECT 1 FROM indexer.indexer_block_completeness_v1 b WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2 AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND b.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=b.chain_id AND r.height=b.height AND r.block_hash=b.block_hash) AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 c WHERE c.chain_id=b.chain_id AND c.stream_id=b.stream_id AND c.previous_height<b.height AND c.last_complete_height>=b.height))",
+      "sql": "SELECT EXISTS(SELECT 1 FROM indexer.indexer_block_completeness_v1 b WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2 AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND b.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=b.chain_id AND r.height=b.height AND r.block_hash=b.block_hash) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT b.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 c WHERE c.chain_id=b.chain_id AND c.stream_id=b.stream_id AND c.previous_height<(SELECT height FROM bounds) AND c.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(c.previous_height,c.last_complete_height)::numeric,greatest(c.previous_height,c.last_complete_height)::numeric,'[]') @> b.height::numeric))",
       "kind": "SELECT",
       "tables": [
         "indexer.indexer_block_completeness_v1",
@@ -1200,16 +1205,20 @@
         "c.last_complete_height",
         "c.previous_height",
         "c.stream_id",
+        "height",
         "r.block_hash",
         "r.chain_id",
         "r.height"
       ],
       "functions": [
-        "count"
+        "count",
+        "greatest",
+        "least",
+        "numrange"
       ],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.projectRoute_1",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1237,7 +1246,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.projectRoute_2",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1264,7 +1273,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.projectRoute_3",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1295,7 +1304,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.projectRoute_4",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1312,7 +1321,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.projectRoute_5",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1338,14 +1347,14 @@
       "functions": [],
       "sequences": [],
       "id": "app_canonical_multihop_canonicalMultihopProjection.projectRoute_6",
-      "source_sha256": "ec903d957e25e68b1491b4d1cb35a7e67cbb69ab6e0f20daa1f558d97aefa127"
+      "source_sha256": "75bbc9e1c4a91738c86543835dc3e701ce44025e8723e517a157697d3b9e8b6b"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 205,
+      "line": 207,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1368,15 +1377,15 @@
       ],
       "sequences": [],
       "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_1",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
+      "source_sha256": "b8fcfae22a975161b04b3b6c90af28c8b7745d17cc57275eea18cf5e83787ddb"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 2,
-      "expression": "`SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11`",
-      "line": 241,
-      "sql": "SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11",
+      "expression": "`SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(WITH bounds AS MATERIALIZED (SELECT r.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<(SELECT height FROM bounds) AND a.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(a.previous_height,a.last_complete_height)::numeric,greatest(a.previous_height,a.last_complete_height)::numeric,'[]') @> r.height::numeric) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11`",
+      "line": 243,
+      "sql": "SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(WITH bounds AS MATERIALIZED (SELECT r.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<(SELECT height FROM bounds) AND a.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(a.previous_height,a.last_complete_height)::numeric,greatest(a.previous_height,a.last_complete_height)::numeric,'[]') @> r.height::numeric) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11",
       "kind": "SELECT",
       "tables": [
         "indexer.indexer_accounting_fills_v1",
@@ -1402,6 +1411,7 @@
         "f.source_fact_digest",
         "f.source_fill_id",
         "f.transaction_hash",
+        "height",
         "r.block_hash",
         "r.chain_id",
         "r.emitter",
@@ -1410,123 +1420,21 @@
         "r.transaction_hash",
         "r.transaction_index"
       ],
-      "functions": [],
+      "functions": [
+        "greatest",
+        "least",
+        "numrange"
+      ],
       "sequences": [],
       "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_2",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
+      "source_sha256": "b8fcfae22a975161b04b3b6c90af28c8b7745d17cc57275eea18cf5e83787ddb"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
       "function": "NewSourceVerifiedAccountingConsumer",
       "call": 3,
-      "expression": "`SELECT a.previous_height,a.last_complete_height,a.block_hash,a.record_count FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$1 AND a.previous_height>=$2 AND a.last_complete_height<=$3 ORDER BY a.previous_height LIMIT $4`",
-      "line": 323,
-      "sql": "SELECT a.previous_height,a.last_complete_height,a.block_hash,a.record_count FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$1 AND a.previous_height>=$2 AND a.last_complete_height<=$3 ORDER BY a.previous_height LIMIT $4",
-      "kind": "SELECT",
-      "tables": [
-        "indexer.indexer_ingest_commits_v1"
-      ],
-      "columns": [
-        "a.block_hash",
-        "a.chain_id",
-        "a.last_complete_height",
-        "a.previous_height",
-        "a.record_count",
-        "a.stream_id"
-      ],
-      "functions": [],
-      "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_3",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
-      "function": "NewSourceVerifiedAccountingConsumer",
-      "call": 4,
-      "expression": "`SELECT count(*),COALESCE(sum(raw_count),0),(SELECT block_hash FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height=$3) FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3 AND fetch_complete AND required_decode_complete`",
-      "line": 352,
-      "sql": "SELECT count(*),COALESCE(sum(raw_count),0),(SELECT block_hash FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height=$3) FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3 AND fetch_complete AND required_decode_complete",
-      "kind": "SELECT",
-      "tables": [
-        "indexer.indexer_block_completeness_v1"
-      ],
-      "columns": [
-        "block_hash",
-        "chain_id",
-        "fetch_complete",
-        "height",
-        "raw_count",
-        "required_decode_complete",
-        "stream_id"
-      ],
-      "functions": [
-        "count",
-        "sum"
-      ],
-      "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_4",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
-      "function": "NewSourceVerifiedAccountingConsumer",
-      "call": 5,
-      "expression": "`SELECT topics=$4::jsonb AND data=$5 AND block_hash=$6 AND emitter=$7 FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2 AND height=$3`",
-      "line": 410,
-      "sql": "SELECT topics=$4::jsonb AND data=$5 AND block_hash=$6 AND emitter=$7 FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2 AND height=$3",
-      "kind": "SELECT",
-      "tables": [
-        "indexer.indexer_raw_logs_v1"
-      ],
-      "columns": [
-        "block_hash",
-        "chain_id",
-        "data",
-        "emitter",
-        "height",
-        "log_index",
-        "topics",
-        "transaction_hash"
-      ],
-      "functions": [],
-      "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_5",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
-      "function": "NewSourceVerifiedAccountingConsumer",
-      "call": 6,
-      "expression": "`SELECT count(*) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) WHERE f.pool_address=$1 AND (r.height,r.transaction_index,r.log_index)<=($2::bigint,$3::bigint,$4::bigint)`",
-      "line": 418,
-      "sql": "SELECT count(*) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) WHERE f.pool_address=$1 AND (r.height,r.transaction_index,r.log_index)<=($2::bigint,$3::bigint,$4::bigint)",
-      "kind": "SELECT",
-      "tables": [
-        "indexer.indexer_accounting_fills_v1",
-        "indexer.indexer_raw_logs_v1"
-      ],
-      "columns": [
-        "chain_id",
-        "f.pool_address",
-        "log_index",
-        "r.height",
-        "r.log_index",
-        "r.transaction_index",
-        "transaction_hash"
-      ],
-      "functions": [
-        "count"
-      ],
-      "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_6",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/consumer/accounting.go",
-      "function": "NewSourceVerifiedAccountingConsumer",
-      "call": 7,
       "expression": "`SELECT p.payload=$2::jsonb AND convert_from(s.position,'UTF8')::jsonb=$3::jsonb FROM indexer.indexer_accounting_publications_v1 p JOIN `+q+`.indexer_market_partition_positions_v1 s ON s.projection_version=$4 AND s.partition_kind='market' AND s.partition_key=$5 AND s.sequence=$6 WHERE p.publication_id=$1`",
-      "line": 489,
+      "line": 272,
       "sql": "SELECT p.payload=$2::jsonb AND convert_from(s.position,'UTF8')::jsonb=$3::jsonb FROM indexer.indexer_accounting_publications_v1 p JOIN \"indexer\".indexer_market_partition_positions_v1 s ON s.projection_version=$4 AND s.partition_kind='market' AND s.partition_key=$5 AND s.sequence=$6 WHERE p.publication_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1546,15 +1454,15 @@
         "convert_from"
       ],
       "sequences": [],
-      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_7",
-      "source_sha256": "8eec84950e3213ff15b4f48eff7ced4e9cf3581a9b60cc8f6195c45b7b5829f7"
+      "id": "consumer_accounting_NewSourceVerifiedAccountingConsumer_3",
+      "source_sha256": "b8fcfae22a975161b04b3b6c90af28c8b7745d17cc57275eea18cf5e83787ddb"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_legacy.go",
       "function": "CanonicalLegacyBridge.beginProjection",
       "call": 1,
       "expression": "\"SELECT pg_advisory_xact_lock(hashtextextended($1,0))\"",
-      "line": 88,
+      "line": 72,
       "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       "kind": "SELECT",
       "tables": [],
@@ -1572,7 +1480,7 @@
       "function": "CanonicalLegacyBridge.RunOnce",
       "call": 1,
       "expression": "\"SELECT w.raw_complete_height,w.typed_complete_height,l.expires_at>clock_timestamp() FROM \"+b.source(\"indexer_ingest_watermarks_v1\")+\" w JOIN \"+b.source(\"indexer_ingest_leases_v1\")+\" l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1\"",
-      "line": 93,
+      "line": 92,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.expires_at>clock_timestamp() FROM \"indexer\".\"indexer_ingest_watermarks_v1\" w JOIN \"indexer\".\"indexer_ingest_leases_v1\" l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1600,7 +1508,7 @@
       "function": "CanonicalLegacyBridge.creations",
       "call": 1,
       "expression": "\"SELECT k.pool,k.token,k.creator,k.block_timestamp FROM \"+b.source(\"indexer_canonical_creations_v1\")+\" k WHERE k.height<=$1 AND NOT EXISTS(SELECT 1 FROM stats.pool_stats s WHERE s.pool_address=k.pool) ORDER BY k.height,k.transaction_index,k.log_index LIMIT $2\"",
-      "line": 116,
+      "line": 115,
       "sql": "SELECT k.pool,k.token,k.creator,k.block_timestamp FROM \"indexer\".\"indexer_canonical_creations_v1\" k WHERE k.height<=$1 AND NOT EXISTS(SELECT 1 FROM stats.pool_stats s WHERE s.pool_address=k.pool) ORDER BY k.height,k.transaction_index,k.log_index LIMIT $2",
       "kind": "SELECT",
       "tables": [
@@ -1627,7 +1535,7 @@
       "function": "CanonicalLegacyBridge.swaps",
       "call": 1,
       "expression": "`SELECT c.fill,r.emitter,r.topics,r.data FROM `+commits+` c\n LEFT JOIN `+b.source(\"indexer_raw_logs_v1\")+` r ON r.chain_id=125 AND r.transaction_hash=c.fill->'position'->>'transactionHash' AND r.log_index=(c.fill->'position'->>'logIndex')::bigint AND r.block_hash=c.fill->'position'->>'blockHash'\n WHERE c.projection_version=$1 AND (c.fill->'position'->>'height')::numeric<=$2::numeric\n  AND EXISTS(SELECT 1 FROM stats.pool_stats s WHERE s.pool_address=c.pool)\n  AND NOT EXISTS(SELECT 1 FROM stats.pool_transactions p WHERE p.id=(c.fill->'position'->>'transactionHash')||'-'||(c.fill->'position'->>'logIndex'))\n ORDER BY (c.fill->'position'->>'height')::numeric,(c.fill->'position'->>'transactionIndex')::numeric,(c.fill->'position'->>'logIndex')::numeric LIMIT $3`",
-      "line": 178,
+      "line": 188,
       "sql": "SELECT c.fill,r.emitter,r.topics,r.data FROM \"stats\".\"accounting_market_commits\" c\n LEFT JOIN \"indexer\".\"indexer_raw_logs_v1\" r ON r.chain_id=125 AND r.transaction_hash=c.fill->'position'->>'transactionHash' AND r.log_index=(c.fill->'position'->>'logIndex')::bigint AND r.block_hash=c.fill->'position'->>'blockHash'\n WHERE c.projection_version=$1 AND (c.fill->'position'->>'height')::numeric<=$2::numeric\n  AND EXISTS(SELECT 1 FROM stats.pool_stats s WHERE s.pool_address=c.pool)\n  AND NOT EXISTS(SELECT 1 FROM stats.pool_transactions p WHERE p.id=(c.fill->'position'->>'transactionHash')||'-'||(c.fill->'position'->>'logIndex'))\n ORDER BY (c.fill->'position'->>'height')::numeric,(c.fill->'position'->>'transactionIndex')::numeric,(c.fill->'position'->>'logIndex')::numeric LIMIT $3",
       "kind": "SELECT",
       "tables": [
@@ -2156,9 +2064,9 @@
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.ApplyCanonicalTransferTx",
       "call": 1,
-      "expression": "`SELECT r.emitter,r.block_hash,r.height::text,r.transaction_index::text,r.log_index::text,r.topics,r.data FROM indexer.indexer_raw_logs_v1 r JOIN indexer.indexer_token_transfers_v1 t ON t.chain_id=r.chain_id AND t.transaction_hash=r.transaction_hash AND t.log_index=r.log_index JOIN indexer.indexer_canonical_creations_v1 k ON k.token=t.token JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$3 WHERE r.chain_id=125 AND r.transaction_hash=$1 AND r.log_index=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND t.token=$4 AND t.from_address=$5 AND t.to_address=$6 AND t.amount_raw=$7::numeric AND t.height=r.height AND t.transaction_index=r.transaction_index AND t.block_hash=r.block_hash AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_watermarks_v1 w WHERE w.chain_id=125 AND w.stream_id=$3 AND w.typed_complete_height>=r.height) AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$3 AND a.previous_height<r.height AND a.last_complete_height>=r.height)`",
-      "line": 69,
-      "sql": "SELECT r.emitter,r.block_hash,r.height::text,r.transaction_index::text,r.log_index::text,r.topics,r.data FROM indexer.indexer_raw_logs_v1 r JOIN indexer.indexer_token_transfers_v1 t ON t.chain_id=r.chain_id AND t.transaction_hash=r.transaction_hash AND t.log_index=r.log_index JOIN indexer.indexer_canonical_creations_v1 k ON k.token=t.token JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$3 WHERE r.chain_id=125 AND r.transaction_hash=$1 AND r.log_index=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND t.token=$4 AND t.from_address=$5 AND t.to_address=$6 AND t.amount_raw=$7::numeric AND t.height=r.height AND t.transaction_index=r.transaction_index AND t.block_hash=r.block_hash AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_watermarks_v1 w WHERE w.chain_id=125 AND w.stream_id=$3 AND w.typed_complete_height>=r.height) AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$3 AND a.previous_height<r.height AND a.last_complete_height>=r.height)",
+      "expression": "`SELECT r.emitter,r.block_hash,r.height::text,r.transaction_index::text,r.log_index::text,r.topics,r.data FROM indexer.indexer_raw_logs_v1 r JOIN indexer.indexer_token_transfers_v1 t ON t.chain_id=r.chain_id AND t.transaction_hash=r.transaction_hash AND t.log_index=r.log_index JOIN indexer.indexer_canonical_creations_v1 k ON k.token=t.token JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$3 WHERE r.chain_id=125 AND r.transaction_hash=$1 AND r.log_index=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND t.token=$4 AND t.from_address=$5 AND t.to_address=$6 AND t.amount_raw=$7::numeric AND t.height=r.height AND t.transaction_index=r.transaction_index AND t.block_hash=r.block_hash AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_watermarks_v1 w WHERE w.chain_id=125 AND w.stream_id=$3 AND w.typed_complete_height>=r.height) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT r.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$3 AND a.previous_height<(SELECT height FROM bounds) AND a.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(a.previous_height,a.last_complete_height)::numeric,greatest(a.previous_height,a.last_complete_height)::numeric,'[]') @> r.height::numeric)`",
+      "line": 71,
+      "sql": "SELECT r.emitter,r.block_hash,r.height::text,r.transaction_index::text,r.log_index::text,r.topics,r.data FROM indexer.indexer_raw_logs_v1 r JOIN indexer.indexer_token_transfers_v1 t ON t.chain_id=r.chain_id AND t.transaction_hash=r.transaction_hash AND t.log_index=r.log_index JOIN indexer.indexer_canonical_creations_v1 k ON k.token=t.token JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$3 WHERE r.chain_id=125 AND r.transaction_hash=$1 AND r.log_index=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND t.token=$4 AND t.from_address=$5 AND t.to_address=$6 AND t.amount_raw=$7::numeric AND t.height=r.height AND t.transaction_index=r.transaction_index AND t.block_hash=r.block_hash AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_watermarks_v1 w WHERE w.chain_id=125 AND w.stream_id=$3 AND w.typed_complete_height>=r.height) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT r.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$3 AND a.previous_height<(SELECT height FROM bounds) AND a.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(a.previous_height,a.last_complete_height)::numeric,greatest(a.previous_height,a.last_complete_height)::numeric,'[]') @> r.height::numeric)",
       "kind": "SELECT",
       "tables": [
         "indexer.indexer_block_completeness_v1",
@@ -2179,6 +2087,7 @@
         "c.height",
         "c.required_decode_complete",
         "c.stream_id",
+        "height",
         "k.token",
         "r.block_hash",
         "r.chain_id",
@@ -2203,17 +2112,21 @@
         "w.stream_id",
         "w.typed_complete_height"
       ],
-      "functions": [],
+      "functions": [
+        "greatest",
+        "least",
+        "numrange"
+      ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ApplyCanonicalTransferTx_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.enrichActorTx",
       "call": 1,
       "expression": "\"SELECT digest FROM \"+r.schema+\".transfers WHERE identity=$1 FOR UPDATE\"",
-      "line": 105,
+      "line": 107,
       "sql": "SELECT digest FROM stats_transfer_holdings.transfers WHERE identity=$1 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -2226,14 +2139,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.enrichActorTx",
       "call": 2,
       "expression": "\"SELECT payload FROM \"+r.schema+\".provenance WHERE identity=$1 FOR UPDATE\"",
-      "line": 113,
+      "line": 115,
       "sql": "SELECT payload FROM stats_transfer_holdings.provenance WHERE identity=$1 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -2246,14 +2159,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_2",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.enrichActorTx",
       "call": 3,
       "expression": "\"UPDATE \"+r.schema+\".provenance SET payload=$2 WHERE identity=$1\"",
-      "line": 132,
+      "line": 134,
       "sql": "UPDATE stats_transfer_holdings.provenance SET payload=$2 WHERE identity=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2265,14 +2178,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_3",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.enrichActorTx",
       "call": 4,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET revision=revision+1 WHERE token=$1\"",
-      "line": 135,
+      "line": 137,
       "sql": "UPDATE stats_transfer_holdings.tokens SET revision=revision+1 WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2285,14 +2198,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_4",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.ImportLegacyRowsTx",
       "call": 1,
       "expression": "\"SELECT holder_address,balance FROM stats.pool_holders WHERE pool_address=$1 AND holder_address>$2 ORDER BY holder_address LIMIT 1000\"",
-      "line": 149,
+      "line": 151,
       "sql": "SELECT holder_address,balance FROM stats.pool_holders WHERE pool_address=$1 AND holder_address>$2 ORDER BY holder_address LIMIT 1000",
       "kind": "SELECT",
       "tables": [
@@ -2306,14 +2219,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ImportLegacyRowsTx_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.ImportLegacyRowsTx",
       "call": 2,
       "expression": "\"INSERT INTO \"+r.schema+\".legacy_rows(pool,address,raw,normalized_address,numeric_balance,reason) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(pool,address) DO UPDATE SET raw=excluded.raw,normalized_address=excluded.normalized_address,numeric_balance=excluded.numeric_balance,reason=excluded.reason\"",
-      "line": 185,
+      "line": 187,
       "sql": "INSERT INTO stats_transfer_holdings.legacy_rows(pool,address,raw,normalized_address,numeric_balance,reason) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(pool,address) DO UPDATE SET raw=excluded.raw,normalized_address=excluded.normalized_address,numeric_balance=excluded.numeric_balance,reason=excluded.reason",
       "kind": "INSERT",
       "tables": [
@@ -2328,15 +2241,15 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ImportLegacyRowsTx_2",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.EnrichCanonicalActorTx",
       "call": 1,
-      "expression": "`SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND r.block_hash=$4 AND r.height=$5::bigint AND r.emitter=$6 AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$7 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$7 WHERE f.source_fill_id=$1`",
-      "line": 216,
-      "sql": "SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND r.block_hash=$4 AND r.height=$5::bigint AND r.emitter=$6 AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$7 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$7 WHERE f.source_fill_id=$1",
+      "expression": "`SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND r.block_hash=$4 AND r.height=$5::bigint AND r.emitter=$6 AND c.fetch_complete AND c.required_decode_complete AND EXISTS(WITH bounds AS MATERIALIZED (SELECT r.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$7 AND a.previous_height<(SELECT height FROM bounds) AND a.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(a.previous_height,a.last_complete_height)::numeric,greatest(a.previous_height,a.last_complete_height)::numeric,'[]') @> r.height::numeric) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$7 WHERE f.source_fill_id=$1`",
+      "line": 218,
+      "sql": "SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND r.block_hash=$4 AND r.height=$5::bigint AND r.emitter=$6 AND c.fetch_complete AND c.required_decode_complete AND EXISTS(WITH bounds AS MATERIALIZED (SELECT r.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$7 AND a.previous_height<(SELECT height FROM bounds) AND a.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(a.previous_height,a.last_complete_height)::numeric,greatest(a.previous_height,a.last_complete_height)::numeric,'[]') @> r.height::numeric) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$7 WHERE f.source_fill_id=$1",
       "kind": "SELECT",
       "tables": [
         "indexer.indexer_accounting_fills_v1",
@@ -2359,6 +2272,7 @@
         "f.payload",
         "f.source_fact_digest",
         "f.source_fill_id",
+        "height",
         "log_index",
         "r.block_hash",
         "r.chain_id",
@@ -2366,17 +2280,21 @@
         "r.height",
         "transaction_hash"
       ],
-      "functions": [],
+      "functions": [
+        "greatest",
+        "least",
+        "numrange"
+      ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.EnrichCanonicalActorTx_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.DiscoverCanonical",
       "call": 1,
       "expression": "`SELECT k.payload,k.height::text,k.transaction_hash FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.block_hash=k.block_hash AND r.height=k.height JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$2 WHERE k.token=$1 AND c.fetch_complete AND c.required_decode_complete`",
-      "line": 240,
+      "line": 242,
       "sql": "SELECT k.payload,k.height::text,k.transaction_hash FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.block_hash=k.block_hash AND r.height=k.height JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.height=r.height AND c.block_hash=r.block_hash AND c.stream_id=$2 WHERE k.token=$1 AND c.fetch_complete AND c.required_decode_complete",
       "kind": "SELECT",
       "tables": [
@@ -2406,15 +2324,38 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.DiscoverCanonical",
       "call": 2,
-      "expression": "\"UPDATE \"+r.schema+\".tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR (expected_initial_supply=$2::numeric AND creation_transaction_hash=$3))\"",
-      "line": 262,
-      "sql": "UPDATE stats_transfer_holdings.tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR (expected_initial_supply=$2::numeric AND creation_transaction_hash=$3))",
+      "expression": "\"SELECT COALESCE(expected_initial_supply=$2::numeric AND creation_transaction_hash=$3,false),expected_initial_supply IS NULL OR creation_transaction_hash IS NULL FROM \"+r.schema+\".tokens WHERE token=$1\"",
+      "line": 266,
+      "sql": "SELECT COALESCE(expected_initial_supply=$2::numeric AND creation_transaction_hash=$3,false),expected_initial_supply IS NULL OR creation_transaction_hash IS NULL FROM stats_transfer_holdings.tokens WHERE token=$1",
+      "kind": "SELECT",
+      "tables": [
+        "stats_transfer_holdings.tokens"
+      ],
+      "columns": [
+        "creation_transaction_hash",
+        "expected_initial_supply",
+        "token"
+      ],
+      "functions": [
+        "coalesce"
+      ],
+      "sequences": [],
+      "id": "holdings_ingestion_Repository.DiscoverCanonical_2",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
+      "function": "Repository.DiscoverCanonical",
+      "call": 3,
+      "expression": "\"UPDATE \"+r.schema+\".tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR creation_transaction_hash IS NULL) AND (expected_initial_supply IS NULL OR expected_initial_supply=$2::numeric) AND (creation_transaction_hash IS NULL OR creation_transaction_hash=$3)\"",
+      "line": 275,
+      "sql": "UPDATE stats_transfer_holdings.tokens SET expected_initial_supply=$2,creation_transaction_hash=$3 WHERE token=$1 AND (expected_initial_supply IS NULL OR creation_transaction_hash IS NULL) AND (expected_initial_supply IS NULL OR expected_initial_supply=$2::numeric) AND (creation_transaction_hash IS NULL OR creation_transaction_hash=$3)",
       "kind": "UPDATE",
       "tables": [
         "stats_transfer_holdings.tokens"
@@ -2426,15 +2367,36 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.DiscoverCanonical_2",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.DiscoverCanonical_3",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.DiscoverCanonical",
+      "call": 4,
+      "expression": "\"SELECT expected_initial_supply=$2::numeric AND creation_transaction_hash=$3 FROM \"+r.schema+\".tokens WHERE token=$1\"",
+      "line": 280,
+      "sql": "SELECT expected_initial_supply=$2::numeric AND creation_transaction_hash=$3 FROM stats_transfer_holdings.tokens WHERE token=$1",
+      "kind": "SELECT",
+      "tables": [
+        "stats_transfer_holdings.tokens"
+      ],
+      "columns": [
+        "creation_transaction_hash",
+        "expected_initial_supply",
+        "token"
+      ],
+      "functions": [],
+      "sequences": [],
+      "id": "holdings_ingestion_Repository.DiscoverCanonical_4",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 1,
       "expression": "\"SELECT creation_height::text,last_event,revision,coverage FROM \"+r.schema+\".tokens WHERE token=$1 FOR UPDATE\"",
-      "line": 298,
+      "line": 350,
       "sql": "SELECT creation_height::text,last_event,revision,coverage FROM stats_transfer_holdings.tokens WHERE token=$1 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -2449,15 +2411,15 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_1",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_1",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 2,
       "expression": "\"SELECT typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1\"",
-      "line": 306,
+      "line": 358,
       "sql": "SELECT typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -2470,34 +2432,15 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_2",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_2",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 3,
-      "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='incomplete' WHERE token=$1\"",
-      "line": 320,
-      "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='incomplete' WHERE token=$1",
-      "kind": "UPDATE",
-      "tables": [
-        "stats_transfer_holdings.tokens"
-      ],
-      "columns": [
-        "token"
-      ],
-      "functions": [],
-      "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_3",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
-    },
-    {
-      "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
-      "call": 4,
       "expression": "`SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY height,transaction_index,log_index LIMIT $7`",
-      "line": 335,
+      "line": 385,
       "sql": "SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY height,transaction_index,log_index LIMIT $7",
       "kind": "SELECT",
       "tables": [
@@ -2517,15 +2460,34 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_4",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_3",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
+      "call": 4,
+      "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='incomplete' WHERE token=$1\"",
+      "line": 407,
+      "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='incomplete' WHERE token=$1",
+      "kind": "UPDATE",
+      "tables": [
+        "stats_transfer_holdings.tokens"
+      ],
+      "columns": [
+        "token"
+      ],
+      "functions": [],
+      "sequences": [],
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_4",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 5,
       "expression": "\"SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2::numeric AND $3 AND fetch_complete AND required_decode_complete\"",
-      "line": 374,
+      "line": 431,
       "sql": "SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2::numeric AND $3 AND fetch_complete AND required_decode_complete",
       "kind": "SELECT",
       "tables": [
@@ -2542,15 +2504,15 @@
         "count"
       ],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_5",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_5",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 6,
       "expression": "\"SELECT t.expected_initial_supply IS NOT NULL AND t.expected_initial_supply=COALESCE((SELECT sum(CASE WHEN x.from_address=$2 THEN x.amount_raw WHEN x.to_address=$2 THEN -x.amount_raw ELSE 0 END) FROM indexer.indexer_token_transfers_v1 x WHERE x.chain_id=125 AND x.token=t.token AND x.transaction_hash=t.creation_transaction_hash),0) FROM \"+r.schema+\".tokens t WHERE t.token=$1\"",
-      "line": 382,
+      "line": 439,
       "sql": "SELECT t.expected_initial_supply IS NOT NULL AND t.expected_initial_supply=COALESCE((SELECT sum(CASE WHEN x.from_address=$2 THEN x.amount_raw WHEN x.to_address=$2 THEN -x.amount_raw ELSE 0 END) FROM indexer.indexer_token_transfers_v1 x WHERE x.chain_id=125 AND x.token=t.token AND x.transaction_hash=t.creation_transaction_hash),0) FROM stats_transfer_holdings.tokens t WHERE t.token=$1",
       "kind": "SELECT",
       "tables": [
@@ -2572,16 +2534,16 @@
         "sum"
       ],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_6",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_6",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 7,
-      "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='complete' WHERE token=$1\"",
-      "line": 386,
-      "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='complete' WHERE token=$1",
+      "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage=$2 WHERE token=$1\"",
+      "line": 448,
+      "sql": "UPDATE stats_transfer_holdings.tokens SET coverage=$2 WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
         "stats_transfer_holdings.tokens"
@@ -2591,15 +2553,15 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_7",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_7",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
-      "function": "Repository.CatchUpCanonicalAt",
+      "function": "Repository.catchUpCanonicalAtOnce",
       "call": 8,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET revision=revision+1 WHERE token=$1 RETURNING revision\"",
-      "line": 394,
+      "line": 453,
       "sql": "UPDATE stats_transfer_holdings.tokens SET revision=revision+1 WHERE token=$1 RETURNING revision",
       "kind": "UPDATE",
       "tables": [
@@ -2611,15 +2573,15 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "holdings_ingestion_Repository.CatchUpCanonicalAt_8",
-      "source_sha256": "2bff8b6e9e7fd11facb36c2777d543c388fd312ae90dac9c89f6fe2ac7a88230"
+      "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_8",
+      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.Discover",
       "call": 1,
       "expression": "\"INSERT INTO \"+r.schema+\".tokens(token,decimals,creation_height,coverage) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING\"",
-      "line": 75,
+      "line": 76,
       "sql": "INSERT INTO stats_transfer_holdings.tokens(token,decimals,creation_height,coverage) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -2629,14 +2591,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.Discover_1",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.Discover",
       "call": 2,
       "expression": "\"SELECT decimals,creation_height::text FROM \"+r.schema+\".tokens WHERE token=$1\"",
-      "line": 82,
+      "line": 83,
       "sql": "SELECT decimals,creation_height::text FROM stats_transfer_holdings.tokens WHERE token=$1",
       "kind": "SELECT",
       "tables": [
@@ -2650,14 +2612,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.Discover_2",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 1,
       "expression": "\"SELECT supply::text,creation_height::text,revision,coverage,last_event FROM \"+r.schema+\".tokens WHERE token=$1 FOR UPDATE\"",
-      "line": 147,
+      "line": 148,
       "sql": "SELECT supply::text,creation_height::text,revision,coverage,last_event FROM stats_transfer_holdings.tokens WHERE token=$1 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -2674,14 +2636,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_1",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 2,
       "expression": "\"SELECT digest,revision FROM \"+r.schema+\".transfers WHERE identity=$1\"",
-      "line": 156,
+      "line": 157,
       "sql": "SELECT digest,revision FROM stats_transfer_holdings.transfers WHERE identity=$1",
       "kind": "SELECT",
       "tables": [
@@ -2695,14 +2657,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_2",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 3,
       "expression": "\"SELECT balance::text FROM \"+r.schema+\".balances WHERE token=$1 AND address=$2\"",
-      "line": 194,
+      "line": 195,
       "sql": "SELECT balance::text FROM stats_transfer_holdings.balances WHERE token=$1 AND address=$2",
       "kind": "SELECT",
       "tables": [
@@ -2716,14 +2678,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_3",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 4,
       "expression": "\"INSERT INTO \"+r.schema+\".incidents(identity,token,event,reason) VALUES($1,$2,$3,'underflow_or_overflow') ON CONFLICT DO NOTHING\"",
-      "line": 211,
+      "line": 212,
       "sql": "INSERT INTO stats_transfer_holdings.incidents(identity,token,event,reason) VALUES($1,$2,$3,'underflow_or_overflow') ON CONFLICT DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -2733,14 +2695,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_4",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 5,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='quarantined' WHERE token=$1\"",
-      "line": 215,
+      "line": 216,
       "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='quarantined' WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2752,14 +2714,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_5",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 6,
       "expression": "\"DELETE FROM \"+r.schema+\".balances WHERE token=$1 AND address=$2\"",
-      "line": 234,
+      "line": 235,
       "sql": "DELETE FROM stats_transfer_holdings.balances WHERE token=$1 AND address=$2",
       "kind": "DELETE",
       "tables": [
@@ -2772,14 +2734,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_6",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 7,
       "expression": "\"INSERT INTO \"+r.schema+\".balances(token,address,balance,category,classification_version) VALUES($1,$2,$3,COALESCE((SELECT category FROM \"+r.schema+\".classifications WHERE token=$1 AND address=$2),'unknown'),COALESCE((SELECT version FROM \"+r.schema+\".classifications WHERE token=$1 AND address=$2),0)) ON CONFLICT(token,address) DO UPDATE SET balance=excluded.balance\"",
-      "line": 237,
+      "line": 238,
       "sql": "INSERT INTO stats_transfer_holdings.balances(token,address,balance,category,classification_version) VALUES($1,$2,$3,COALESCE((SELECT category FROM stats_transfer_holdings.classifications WHERE token=$1 AND address=$2),'unknown'),COALESCE((SELECT version FROM stats_transfer_holdings.classifications WHERE token=$1 AND address=$2),0)) ON CONFLICT(token,address) DO UPDATE SET balance=excluded.balance",
       "kind": "INSERT",
       "tables": [
@@ -2796,14 +2758,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_7",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 8,
       "expression": "\"INSERT INTO \"+r.schema+\".transfers(identity,token,digest,event,revision) VALUES($1,$2,$3,$4,$5)\"",
-      "line": 249,
+      "line": 250,
       "sql": "INSERT INTO stats_transfer_holdings.transfers(identity,token,digest,event,revision) VALUES($1,$2,$3,$4,$5)",
       "kind": "INSERT",
       "tables": [
@@ -2813,14 +2775,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_8",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 9,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET supply=$2,revision=$3,first_event=COALESCE(first_event,$4),last_event=$4 WHERE token=$1\"",
-      "line": 252,
+      "line": 253,
       "sql": "UPDATE stats_transfer_holdings.tokens SET supply=$2,revision=$3,first_event=COALESCE(first_event,$4),last_event=$4 WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2833,14 +2795,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_9",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.applyTx",
       "call": 10,
       "expression": "\"INSERT INTO \"+r.schema+\".provenance(identity,payload) VALUES($1,$2)\"",
-      "line": 260,
+      "line": 261,
       "sql": "INSERT INTO stats_transfer_holdings.provenance(identity,payload) VALUES($1,$2)",
       "kind": "INSERT",
       "tables": [
@@ -2850,14 +2812,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.applyTx_10",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.Snapshot",
       "call": 1,
       "expression": "\"SELECT decimals,supply::text,coverage,revision,last_event FROM \"+r.schema+\".tokens WHERE token=$1\"",
-      "line": 294,
+      "line": 295,
       "sql": "SELECT decimals,supply::text,coverage,revision,last_event FROM stats_transfer_holdings.tokens WHERE token=$1",
       "kind": "SELECT",
       "tables": [
@@ -2874,14 +2836,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.Snapshot_1",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
       "function": "Repository.Snapshot",
       "call": 2,
       "expression": "\"SELECT address,balance::text,category FROM \"+r.schema+\".balances b WHERE token=$1 ORDER BY b.balance DESC,address ASC LIMIT $2\"",
-      "line": 307,
+      "line": 308,
       "sql": "SELECT address,balance::text,category FROM stats_transfer_holdings.balances b WHERE token=$1 ORDER BY b.balance DESC,address ASC LIMIT $2",
       "kind": "SELECT",
       "tables": [
@@ -2897,7 +2859,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_postgres_Repository.Snapshot_2",
-      "source_sha256": "97cffbbe9ba2c612ead30a6a52a0e33a139fa46e665a86cf33e7ff86e6cb9ea2"
+      "source_sha256": "a5637a85f740a3184864fc80a1360bfe1b20a8d2599df6dc53ca7845addbf4ac"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/replay.go",
@@ -3494,7 +3456,7 @@
       "function": "DurableReactionDeps.executeValidated",
       "call": 1,
       "expression": "\"SET LOCAL search_path = pg_catalog, \"+pgx.Identifier{d.Authority.Schema}.Sanitize()",
-      "line": 305,
+      "line": 310,
       "sql": "SET LOCAL search_path = pg_catalog, \"stats\"",
       "kind": "SET",
       "tables": [],
@@ -3655,7 +3617,7 @@
       "function": "ExpiryScheduler.Refresh",
       "call": 1,
       "expression": "\"SELECT pool FROM \"+e.Service.source(\"indexer_canonical_creations_v1\")+\" WHERE pool>$1 ORDER BY pool LIMIT 100\"",
-      "line": 44,
+      "line": 45,
       "sql": "SELECT pool FROM \"indexer\".\"indexer_canonical_creations_v1\" WHERE pool>$1 ORDER BY pool LIMIT 100",
       "kind": "SELECT",
       "tables": [
@@ -4144,7 +4106,7 @@
       "function": "PublicStatsProjector.refreshPage",
       "call": 1,
       "expression": "\"SELECT pg_advisory_xact_lock(hashtextextended($1,0))\"",
-      "line": 151,
+      "line": 152,
       "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       "kind": "SELECT",
       "tables": [],
@@ -4155,14 +4117,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.refreshPage",
       "call": 2,
       "expression": "\"SELECT clock_timestamp()\"",
-      "line": 164,
+      "line": 165,
       "sql": "SELECT clock_timestamp()",
       "kind": "SELECT",
       "tables": [],
@@ -4172,14 +4134,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_2",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.refreshPage",
       "call": 3,
       "expression": "\"SELECT pool,token,lower(creator),block_timestamp FROM \"+p.reads.source(\"indexer_canonical_creations_v1\")+\" WHERE height<=$1 AND pool>$2 ORDER BY pool LIMIT $3\"",
-      "line": 167,
+      "line": 168,
       "sql": "SELECT pool,token,lower(creator),block_timestamp FROM \"indexer\".\"indexer_canonical_creations_v1\" WHERE height<=$1 AND pool>$2 ORDER BY pool LIMIT $3",
       "kind": "SELECT",
       "tables": [
@@ -4197,14 +4159,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_3",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.anchorTx",
       "call": 1,
       "expression": "fmt.Sprintf(`SELECT height::text,transaction_index::text,log_index::text,transaction_hash,block_hash,block_timestamp FROM (\n SELECT t.height,t.transaction_index,t.log_index,t.payload->'position'->>'transactionHash' AS transaction_hash,t.payload->'position'->>'blockHash' AS block_hash,t.block_timestamp\n  FROM %[1]s.trade_facts t JOIN %[1]s.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index\n  WHERE t.projection_version=$1 AND t.height<=$2::numeric\n UNION ALL\n SELECT k.height::numeric,k.transaction_index::numeric,k.log_index::numeric,k.transaction_hash,k.block_hash,k.block_timestamp FROM %[2]s k WHERE k.height<=$2::bigint\n) a ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1`, schema, p.reads.source(\"indexer_canonical_creations_v1\"))",
-      "line": 259,
+      "line": 286,
       "sql": "SELECT height::text,transaction_index::text,log_index::text,transaction_hash,block_hash,block_timestamp FROM (\n SELECT t.height,t.transaction_index,t.log_index,t.payload->'position'->>'transactionHash' AS transaction_hash,t.payload->'position'->>'blockHash' AS block_hash,t.block_timestamp\n  FROM stats.trade_facts t JOIN stats.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index\n  WHERE t.projection_version=$1 AND t.height<=$2::numeric\n UNION ALL\n SELECT k.height::numeric,k.transaction_index::numeric,k.log_index::numeric,k.transaction_hash,k.block_hash,k.block_timestamp FROM \"indexer\".\"indexer_canonical_creations_v1\" k WHERE k.height<=$2::bigint\n) a ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1",
       "kind": "SELECT",
       "tables": [
@@ -4239,14 +4201,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.anchorTx",
       "call": 2,
       "expression": "\"SELECT EXISTS(SELECT 1 FROM \"+p.reads.source(\"indexer_block_completeness_v1\")+\" WHERE chain_id=125 AND stream_id=$1 AND height=$2::bigint AND block_hash=$3 AND fetch_complete AND required_decode_complete)\"",
-      "line": 278,
+      "line": 305,
       "sql": "SELECT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_block_completeness_v1\" WHERE chain_id=125 AND stream_id=$1 AND height=$2::bigint AND block_hash=$3 AND fetch_complete AND required_decode_complete)",
       "kind": "SELECT",
       "tables": [
@@ -4263,14 +4225,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_2",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.emittersTx",
       "call": 1,
       "expression": "\"SELECT DISTINCT fill->>'actualEmitter' FROM \"+p.reads.repository.schema+\".accounting_market_commits WHERE projection_version=$1 ORDER BY 1\"",
-      "line": 290,
+      "line": 317,
       "sql": "SELECT DISTINCT fill->>'actualEmitter' FROM stats.accounting_market_commits WHERE projection_version=$1 ORDER BY 1",
       "kind": "SELECT",
       "tables": [
@@ -4283,14 +4245,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.emittersTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.swapPriceTx",
       "call": 1,
       "expression": "\"SELECT emitter,block_hash,topics,data FROM \"+p.reads.source(\"indexer_raw_logs_v1\")+\" WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2::bigint AND height=$3::bigint AND transaction_index=$4::bigint\"",
-      "line": 420,
+      "line": 447,
       "sql": "SELECT emitter,block_hash,topics,data FROM \"indexer\".\"indexer_raw_logs_v1\" WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2::bigint AND height=$3::bigint AND transaction_index=$4::bigint",
       "kind": "SELECT",
       "tables": [
@@ -4310,14 +4272,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.swapPriceTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.syncEventsTx",
       "call": 1,
       "expression": "\"SELECT checkpoint_key,events FROM \"+table+\" WHERE projection_version=$1 AND pool=$2\"",
-      "line": 520,
+      "line": 547,
       "sql": "SELECT checkpoint_key,events FROM stats.public_stats_sync_baselines WHERE projection_version=$1 AND pool=$2",
       "kind": "SELECT",
       "tables": [
@@ -4332,14 +4294,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.syncEventsTx",
       "call": 2,
       "expression": "\"SELECT height::text,transaction_index::text,log_index::text,topics,data FROM \"+p.reads.source(\"indexer_raw_logs_v1\")+\" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1\"",
-      "line": 547,
+      "line": 574,
       "sql": "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM \"indexer\".\"indexer_raw_logs_v1\" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1",
       "kind": "SELECT",
       "tables": [
@@ -4360,14 +4322,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_2",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.syncEventsTx",
       "call": 3,
       "expression": "\"INSERT INTO \"+table+\"(projection_version,pool,checkpoint_key,events) VALUES($1,$2,$3,$4) ON CONFLICT(projection_version,pool) DO UPDATE SET checkpoint_key=excluded.checkpoint_key,events=excluded.events\"",
-      "line": 564,
+      "line": 591,
       "sql": "INSERT INTO stats.public_stats_sync_baselines(projection_version,pool,checkpoint_key,events) VALUES($1,$2,$3,$4) ON CONFLICT(projection_version,pool) DO UPDATE SET checkpoint_key=excluded.checkpoint_key,events=excluded.events",
       "kind": "INSERT",
       "tables": [
@@ -4380,14 +4342,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_3",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.latestFillTx",
       "call": 1,
       "expression": "fmt.Sprintf(`SELECT c.fill,t.block_timestamp,c.sequence,c.source_fact_digest FROM %[1]s.trade_facts t JOIN %[1]s.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND ($6::bigint<0 OR t.block_timestamp<$6::bigint) ORDER BY t.height DESC,t.transaction_index DESC,t.log_index DESC LIMIT 1`, schema)",
-      "line": 582,
+      "line": 639,
       "sql": "SELECT c.fill,t.block_timestamp,c.sequence,c.source_fact_digest FROM stats.trade_facts t JOIN stats.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND ($6::bigint<0 OR t.block_timestamp<$6::bigint) ORDER BY t.height DESC,t.transaction_index DESC,t.log_index DESC LIMIT 1",
       "kind": "SELECT",
       "tables": [
@@ -4411,14 +4373,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.latestFillTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.realUsdlTx",
       "call": 1,
       "expression": "\"SELECT COALESCE(SUM(CASE WHEN fill->>'side'='buy' THEN (fill->>'paidInputRaw')::numeric-(fill->>'feeRaw')::numeric WHEN fill->>'side'='sell' THEN -(fill->>'usdlAmountRaw')::numeric END),0)::text,bool_and(fill->>'side' IN ('buy','sell')) FROM \"+p.reads.repository.schema+\".accounting_market_commits WHERE projection_version=$1 AND pool=$2 AND ((fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric)>($3::numeric,$4::numeric,$5::numeric) AND ((fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric)<=($6::numeric,$7::numeric,$8::numeric)\"",
-      "line": 612,
+      "line": 669,
       "sql": "SELECT COALESCE(SUM(CASE WHEN fill->>'side'='buy' THEN (fill->>'paidInputRaw')::numeric-(fill->>'feeRaw')::numeric WHEN fill->>'side'='sell' THEN -(fill->>'usdlAmountRaw')::numeric END),0)::text,bool_and(fill->>'side' IN ('buy','sell')) FROM stats.accounting_market_commits WHERE projection_version=$1 AND pool=$2 AND ((fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric)>($3::numeric,$4::numeric,$5::numeric) AND ((fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric)<=($6::numeric,$7::numeric,$8::numeric)",
       "kind": "SELECT",
       "tables": [
@@ -4435,14 +4397,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.realUsdlTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 1,
       "expression": "\"SELECT coverage,last_event,supply::text,decimals FROM \"+p.table(p.holders, \"tokens\")+\" WHERE token=$1\"",
-      "line": 650,
+      "line": 707,
       "sql": "SELECT coverage,last_event,supply::text,decimals FROM stats_transfer_holdings.tokens WHERE token=$1",
       "kind": "SELECT",
       "tables": [
@@ -4458,14 +4420,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 2,
       "expression": "\"SELECT EXISTS(SELECT 1 FROM \"+transfers+\" WHERE chain_id=125 AND token=$1 AND (height,transaction_index,log_index)>($2::bigint,$3::bigint,$4::bigint) AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint))\"",
-      "line": 681,
+      "line": 738,
       "sql": "SELECT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_token_transfers_v1\" WHERE chain_id=125 AND token=$1 AND (height,transaction_index,log_index)>($2::bigint,$3::bigint,$4::bigint) AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint))",
       "kind": "SELECT",
       "tables": [
@@ -4481,14 +4443,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_2",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 3,
       "expression": "\"SELECT from_address,to_address,amount_raw::text FROM \"+transfers+\" WHERE chain_id=125 AND token=$1 AND (height,transaction_index,log_index)>($2::bigint,$3::bigint,$4::bigint) AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint) LIMIT $8\"",
-      "line": 687,
+      "line": 744,
       "sql": "SELECT from_address,to_address,amount_raw::text FROM \"indexer\".\"indexer_token_transfers_v1\" WHERE chain_id=125 AND token=$1 AND (height,transaction_index,log_index)>($2::bigint,$3::bigint,$4::bigint) AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint) LIMIT $8",
       "kind": "SELECT",
       "tables": [
@@ -4507,14 +4469,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_3",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 4,
       "expression": "\"SELECT count(*) FROM \"+p.table(p.holders, \"balances\")+\" WHERE token=$1 AND balance>0\"",
-      "line": 737,
+      "line": 794,
       "sql": "SELECT count(*) FROM stats_transfer_holdings.balances WHERE token=$1 AND balance>0",
       "kind": "SELECT",
       "tables": [
@@ -4529,14 +4491,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_4",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 5,
       "expression": "\"SELECT balance::text FROM \"+p.table(p.holders, \"balances\")+\" WHERE token=$1 AND address=$2\"",
-      "line": 742,
+      "line": 799,
       "sql": "SELECT balance::text FROM stats_transfer_holdings.balances WHERE token=$1 AND address=$2",
       "kind": "SELECT",
       "tables": [
@@ -4550,14 +4512,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_5",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 6,
       "expression": "\"SELECT address,balance::text FROM \"+p.table(p.holders, \"balances\")+\" WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY balance DESC,address ASC LIMIT $3\"",
-      "line": 800,
+      "line": 857,
       "sql": "SELECT address,balance::text FROM stats_transfer_holdings.balances WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY balance DESC,address ASC LIMIT $3",
       "kind": "SELECT",
       "tables": [
@@ -4571,14 +4533,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_6",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.poolStatsTx",
       "call": 1,
       "expression": "fmt.Sprintf(`SELECT COALESCE(SUM(t.volume),0)::text,COUNT(*) FILTER(WHERE t.side='buy')::text,COUNT(*) FILTER(WHERE t.side='sell')::text,COUNT(DISTINCT t.actor)::text,COUNT(*)::text FROM %[1]s.trade_facts t JOIN %[1]s.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND t.block_timestamp>=$6 AND t.block_timestamp<$7`, schema)",
-      "line": 935,
+      "line": 998,
       "sql": "SELECT COALESCE(SUM(t.volume),0)::text,COUNT(*) FILTER(WHERE t.side='buy')::text,COUNT(*) FILTER(WHERE t.side='sell')::text,COUNT(DISTINCT t.actor)::text,COUNT(*)::text FROM stats.trade_facts t JOIN stats.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND t.block_timestamp>=$6 AND t.block_timestamp<$7",
       "kind": "SELECT",
       "tables": [
@@ -4606,7 +4568,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.poolStatsTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
@@ -4691,7 +4653,7 @@
       "function": "Repository.publishPending",
       "call": 1,
       "expression": "fmt.Sprintf(`SELECT event_id,projection_version,revision,payload FROM %s.outbox WHERE NOT published ORDER BY event_id LIMIT $1 FOR UPDATE SKIP LOCKED`, r.schema)",
-      "line": 218,
+      "line": 227,
       "sql": "SELECT event_id,projection_version,revision,payload FROM stats.outbox WHERE NOT published ORDER BY event_id LIMIT $1 FOR UPDATE SKIP LOCKED",
       "kind": "SELECT",
       "tables": [
@@ -4714,7 +4676,7 @@
       "function": "Repository.publishPending",
       "call": 2,
       "expression": "fmt.Sprintf(`UPDATE %s.outbox SET published=true,attempts=attempts+1 WHERE event_id=$1 AND projection_version=$2`, r.schema)",
-      "line": 239,
+      "line": 248,
       "sql": "UPDATE stats.outbox SET published=true,attempts=attempts+1 WHERE event_id=$1 AND projection_version=$2",
       "kind": "UPDATE",
       "tables": [
@@ -4735,7 +4697,7 @@
       "function": "Repository.PublishDurable",
       "call": 1,
       "expression": "\"SELECT payload,block_timestamp FROM \"+r.schema+\".trade_facts WHERE event_id=$1 AND projection_version=$2\"",
-      "line": 257,
+      "line": 266,
       "sql": "SELECT payload,block_timestamp FROM stats.trade_facts WHERE event_id=$1 AND projection_version=$2",
       "kind": "SELECT",
       "tables": [
@@ -5264,7 +5226,7 @@
       "function": "Service.state",
       "call": 1,
       "expression": "\"SELECT generation,revision,privacy_revision FROM stats_search.active_v2 WHERE singleton\"",
-      "line": 108,
+      "line": 109,
       "sql": "SELECT generation,revision,privacy_revision FROM stats_search.active_v2 WHERE singleton",
       "kind": "SELECT",
       "tables": [
@@ -5286,7 +5248,7 @@
       "function": "Service.Personalize",
       "call": 1,
       "expression": "\"SELECT payload FROM stats_search.preferences_v2 WHERE wallet=$1 AND payload->>'accountId'=$2\"",
-      "line": 245,
+      "line": 246,
       "sql": "SELECT payload FROM stats_search.preferences_v2 WHERE wallet=$1 AND payload->>'accountId'=$2",
       "kind": "SELECT",
       "tables": [
@@ -5730,7 +5692,7 @@
       "function": "Store.searchProfiles",
       "call": 1,
       "expression": "\"SET LOCAL statement_timeout='150ms'\"",
-      "line": 320,
+      "line": 324,
       "sql": "SET LOCAL statement_timeout='150ms'",
       "kind": "SET",
       "tables": [],
@@ -5745,7 +5707,7 @@
       "function": "Store.searchProfiles",
       "call": 2,
       "expression": "\"SELECT generation,revision,privacy_revision FROM stats_search.active_v2 WHERE singleton\"",
-      "line": 324,
+      "line": 328,
       "sql": "SELECT generation,revision,privacy_revision FROM stats_search.active_v2 WHERE singleton",
       "kind": "SELECT",
       "tables": [
@@ -5767,7 +5729,7 @@
       "function": "Store.searchProfiles",
       "call": 3,
       "expression": "`SELECT d.wallet,d.display_name FROM stats_search.profile_documents_v2 d JOIN users.account_public_search_v2 a USING(wallet) WHERE $1::text IS NOT NULL AND $2::text IS NOT NULL AND a.public AND NOT a.deleted AND a.revision=d.revision AND a.display_name=d.display_name AND NOT EXISTS(SELECT 1 FROM stats_search.profile_tombstones_v2 t WHERE t.wallet=d.wallet) AND (`+predicate+`) AND ($3='' OR d.wallet>$3) ORDER BY d.wallet LIMIT $4`",
-      "line": 344,
+      "line": 348,
       "sql": "SELECT d.wallet,d.display_name FROM stats_search.profile_documents_v2 d JOIN users.account_public_search_v2 a USING(wallet) WHERE $1::text IS NOT NULL AND $2::text IS NOT NULL AND a.public AND NOT a.deleted AND a.revision=d.revision AND a.display_name=d.display_name AND NOT EXISTS(SELECT 1 FROM stats_search.profile_tombstones_v2 t WHERE t.wallet=d.wallet) AND (d.wallet LIKE $1 ESCAPE '\\') AND ($3='' OR d.wallet>$3) ORDER BY d.wallet LIMIT $4",
       "kind": "SELECT",
       "tables": [
@@ -6399,7 +6361,7 @@
       "function": "Projection.ConsumeAccountProfile",
       "call": 5,
       "expression": "\"DELETE FROM stats_search.profile_documents_v2 WHERE wallet=$1\"",
-      "line": 483,
+      "line": 487,
       "sql": "DELETE FROM stats_search.profile_documents_v2 WHERE wallet=$1",
       "kind": "DELETE",
       "tables": [
@@ -8797,7 +8759,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_CatalogFingerprint_1",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8812,7 +8774,7 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_CheckReadiness_1",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8848,7 +8810,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_CheckReadiness_2",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8870,7 +8832,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_CheckReadiness_3",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8893,7 +8855,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_CheckReadiness_4",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8913,7 +8875,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_CheckReadiness_5",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8930,7 +8892,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkPrivilege_1",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8947,7 +8909,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkPrivilege_2",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8964,7 +8926,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkPrivilege_3",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -8981,7 +8943,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkPrivilege_4",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -9009,7 +8971,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkUnexpectedPrivileges_1",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -9042,7 +9004,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkUnexpectedPrivileges_2",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -9070,7 +9032,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkUnexpectedPrivileges_3",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",
@@ -9098,7 +9060,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkUnexpectedPrivileges_4",
-      "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+      "source_sha256": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -9148,7 +9110,7 @@
       "function": "PublicStatsProjector.openingPriceTx",
       "call": 1,
       "expression": "\"SELECT st.virtual_reserve,st.real_reserve,st.token_reserve FROM \"+p.reads.source(\"pool_state_snapshots_v1\")+\" st JOIN \"+p.reads.source(\"pools_read_v1\")+\" p ON p.pool_id=st.pool_id JOIN \"+p.reads.source(\"indexer_canonical_creations_v1\")+\" c ON c.pool=lower(p.pool_address) AND c.height=st.block_number AND c.log_index=st.log_index WHERE c.pool=$1\"",
-      "line": 570,
+      "line": 597,
       "sql": "SELECT st.virtual_reserve,st.real_reserve,st.token_reserve FROM \"indexer\".\"pool_state_snapshots_v1\" st JOIN \"indexer\".\"pools_read_v1\" p ON p.pool_id=st.pool_id JOIN \"indexer\".\"indexer_canonical_creations_v1\" c ON c.pool=lower(p.pool_address) AND c.height=st.block_number AND c.log_index=st.log_index WHERE c.pool=$1",
       "kind": "SELECT",
       "tables": [
@@ -9174,7 +9136,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.openingPriceTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
@@ -9278,6 +9240,132 @@
       ],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_5",
       "source_sha256": "2fed5820b99f23e92160a0c2dc39fa7fd9546551d1d2aaa43d3a4ebf4e36f57e"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/consumer/source_bootstrap.go",
+      "function": "statsBootstrapper.slice",
+      "call": 1,
+      "expression": "`WITH bounds AS MATERIALIZED (SELECT $2::bigint start_height,$3::bigint end_height), blocks AS MATERIALIZED (\n SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness_v1\n WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3\n), logs AS MATERIALIZED (\n SELECT * FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$3\n), raw AS (\n SELECT height,count(*) n FROM logs GROUP BY height\n), ranges AS (\n SELECT previous_height p,last_complete_height l,block_hash h,record_count n,\n lag(last_complete_height) OVER (ORDER BY previous_height,last_complete_height) prior\n FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT end_height FROM bounds) AND last_complete_height>(SELECT start_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]')\n), totals AS MATERIALIZED (\n SELECT height,(sum(n) OVER (ORDER BY height ROWS UNBOUNDED PRECEDING))::bigint seen FROM (\n  SELECT height,sum(n) n FROM (\n   SELECT height,raw_count n FROM blocks\n   UNION ALL SELECT greatest($2,least(p,$3)),0 FROM ranges\n   UNION ALL SELECT greatest($2,least(l,$3)),0 FROM ranges\n  ) points GROUP BY height\n ) points\n), ranged AS (\n SELECT a.p,a.l,a.n,CASE WHEN a.l>a.p THEN (hi.seen-lo.seen)*a.copies ELSE 0 END seen\n FROM (SELECT p,l,n,count(*) copies FROM ranges GROUP BY p,l,n) a\n JOIN totals lo ON lo.height=greatest($2,least(a.p,$3))\n JOIN totals hi ON hi.height=greatest($2,least(a.l,$3))\n), swaps AS (\n SELECT * FROM logs WHERE topics->>0=$4 AND topics->>1=$5 AND (height,transaction_index,log_index)<=($6::bigint,$7::bigint,$8::bigint)\n)\nSELECT (SELECT count(*) FROM blocks WHERE fetch_complete AND required_decode_complete),\n (SELECT COALESCE(sum(raw_count),0) FROM blocks),\n (SELECT COALESCE(sum(n) FILTER (WHERE l<=$3),0) FROM ranges),\n (SELECT count(*) FROM ranges WHERE l<=$3), (SELECT count(*) FROM swaps),\n (SELECT count(*) FROM blocks b LEFT JOIN raw r USING(height) WHERE b.raw_count<>COALESCE(r.n,0))+\n (SELECT count(*) FROM logs r LEFT JOIN blocks b USING(height) WHERE b.block_hash IS DISTINCT FROM r.block_hash)+\n (SELECT count(*) FROM ranges a LEFT JOIN blocks b ON b.height=a.l WHERE a.l<=a.p OR (prior IS NOT NULL AND prior<>a.p) OR a.p<$9 OR a.l>$10 OR (a.l<=$3 AND b.block_hash IS DISTINCT FROM a.h))+\n CASE WHEN (SELECT min(p) FROM ranges)<=$2 AND (SELECT max(l) FROM ranges)>=$3 THEN 0 ELSE 1 END+\n (SELECT count(*) FROM swaps WHERE (height,transaction_index,log_index)<($6::bigint,$7::bigint,$8::bigint)),\n (SELECT count(*) FROM ranged WHERE l<=$3 AND n<>seen+CASE WHEN p<$2 THEN $11::bigint ELSE 0 END),\n (SELECT COALESCE(sum(seen+CASE WHEN p<$2 THEN $11::bigint ELSE 0 END),0) FROM ranged WHERE l>$3)`",
+      "line": 263,
+      "sql": "WITH bounds AS MATERIALIZED (SELECT $2::bigint start_height,$3::bigint end_height), blocks AS MATERIALIZED (\n SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness_v1\n WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3\n), logs AS MATERIALIZED (\n SELECT * FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$3\n), raw AS (\n SELECT height,count(*) n FROM logs GROUP BY height\n), ranges AS (\n SELECT previous_height p,last_complete_height l,block_hash h,record_count n,\n lag(last_complete_height) OVER (ORDER BY previous_height,last_complete_height) prior\n FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT end_height FROM bounds) AND last_complete_height>(SELECT start_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]')\n), totals AS MATERIALIZED (\n SELECT height,(sum(n) OVER (ORDER BY height ROWS UNBOUNDED PRECEDING))::bigint seen FROM (\n  SELECT height,sum(n) n FROM (\n   SELECT height,raw_count n FROM blocks\n   UNION ALL SELECT greatest($2,least(p,$3)),0 FROM ranges\n   UNION ALL SELECT greatest($2,least(l,$3)),0 FROM ranges\n  ) points GROUP BY height\n ) points\n), ranged AS (\n SELECT a.p,a.l,a.n,CASE WHEN a.l>a.p THEN (hi.seen-lo.seen)*a.copies ELSE 0 END seen\n FROM (SELECT p,l,n,count(*) copies FROM ranges GROUP BY p,l,n) a\n JOIN totals lo ON lo.height=greatest($2,least(a.p,$3))\n JOIN totals hi ON hi.height=greatest($2,least(a.l,$3))\n), swaps AS (\n SELECT * FROM logs WHERE topics->>0=$4 AND topics->>1=$5 AND (height,transaction_index,log_index)<=($6::bigint,$7::bigint,$8::bigint)\n)\nSELECT (SELECT count(*) FROM blocks WHERE fetch_complete AND required_decode_complete),\n (SELECT COALESCE(sum(raw_count),0) FROM blocks),\n (SELECT COALESCE(sum(n) FILTER (WHERE l<=$3),0) FROM ranges),\n (SELECT count(*) FROM ranges WHERE l<=$3), (SELECT count(*) FROM swaps),\n (SELECT count(*) FROM blocks b LEFT JOIN raw r USING(height) WHERE b.raw_count<>COALESCE(r.n,0))+\n (SELECT count(*) FROM logs r LEFT JOIN blocks b USING(height) WHERE b.block_hash IS DISTINCT FROM r.block_hash)+\n (SELECT count(*) FROM ranges a LEFT JOIN blocks b ON b.height=a.l WHERE a.l<=a.p OR (prior IS NOT NULL AND prior<>a.p) OR a.p<$9 OR a.l>$10 OR (a.l<=$3 AND b.block_hash IS DISTINCT FROM a.h))+\n CASE WHEN (SELECT min(p) FROM ranges)<=$2 AND (SELECT max(l) FROM ranges)>=$3 THEN 0 ELSE 1 END+\n (SELECT count(*) FROM swaps WHERE (height,transaction_index,log_index)<($6::bigint,$7::bigint,$8::bigint)),\n (SELECT count(*) FROM ranged WHERE l<=$3 AND n<>seen+CASE WHEN p<$2 THEN $11::bigint ELSE 0 END),\n (SELECT COALESCE(sum(seen+CASE WHEN p<$2 THEN $11::bigint ELSE 0 END),0) FROM ranged WHERE l>$3)",
+      "kind": "SELECT",
+      "tables": [
+        "indexer.indexer_block_completeness_v1",
+        "indexer.indexer_ingest_commits_v1",
+        "indexer.indexer_raw_logs_v1"
+      ],
+      "columns": [
+        "a.copies",
+        "a.h",
+        "a.l",
+        "a.n",
+        "a.p",
+        "b.block_hash",
+        "b.height",
+        "b.raw_count",
+        "block_hash",
+        "chain_id",
+        "end_height",
+        "fetch_complete",
+        "height",
+        "hi.height",
+        "hi.seen",
+        "l",
+        "last_complete_height",
+        "lo.height",
+        "lo.seen",
+        "log_index",
+        "n",
+        "p",
+        "previous_height",
+        "prior",
+        "r.block_hash",
+        "r.n",
+        "raw_count",
+        "record_count",
+        "required_decode_complete",
+        "seen",
+        "start_height",
+        "stream_id",
+        "topics",
+        "transaction_index"
+      ],
+      "functions": [
+        "count",
+        "greatest",
+        "lag",
+        "least",
+        "max",
+        "min",
+        "numrange",
+        "sum"
+      ],
+      "sequences": [],
+      "id": "consumer_source_bootstrap_statsBootstrapper.slice_1",
+      "source_sha256": "7c6ccb5a6ed8359368f75248ff4a51313aebcf04e2e5aca59e7d7fe4bd68f913"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/consumer/source_bootstrap.go",
+      "function": "statsBootstrapper.counts",
+      "call": 1,
+      "expression": "`WITH bounds AS MATERIALIZED (SELECT $2::bigint start_height,$3::bigint end_height) SELECT\n (SELECT count(*) FROM (SELECT previous_height,last_complete_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height>=(SELECT start_height FROM bounds) AND last_complete_height<=(SELECT end_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]') ORDER BY previous_height,last_complete_height) commits),\n (SELECT count(*) FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$4 AND topics->>0=$7 AND topics->>1=$8 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint))`",
+      "line": 318,
+      "sql": "WITH bounds AS MATERIALIZED (SELECT $2::bigint start_height,$3::bigint end_height) SELECT\n (SELECT count(*) FROM (SELECT previous_height,last_complete_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height>=(SELECT start_height FROM bounds) AND last_complete_height<=(SELECT end_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]') ORDER BY previous_height,last_complete_height) commits),\n (SELECT count(*) FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$4 AND topics->>0=$7 AND topics->>1=$8 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint))",
+      "kind": "SELECT",
+      "tables": [
+        "indexer.indexer_ingest_commits_v1",
+        "indexer.indexer_raw_logs_v1"
+      ],
+      "columns": [
+        "chain_id",
+        "end_height",
+        "height",
+        "last_complete_height",
+        "log_index",
+        "previous_height",
+        "start_height",
+        "stream_id",
+        "topics",
+        "transaction_index"
+      ],
+      "functions": [
+        "count",
+        "greatest",
+        "least",
+        "numrange"
+      ],
+      "sequences": [],
+      "id": "consumer_source_bootstrap_statsBootstrapper.counts_1",
+      "source_sha256": "7c6ccb5a6ed8359368f75248ff4a51313aebcf04e2e5aca59e7d7fe4bd68f913"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/consumer/source_bootstrap.go",
+      "function": "statsBootstrapper.firstFill",
+      "call": 1,
+      "expression": "`SELECT count(*) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) WHERE f.chain_id=125 AND f.pool_address=$1 AND (r.height,r.transaction_index,r.log_index)<=($2::bigint,$3::bigint,$4::bigint)`",
+      "line": 327,
+      "sql": "SELECT count(*) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r USING(chain_id,transaction_hash,log_index) WHERE f.chain_id=125 AND f.pool_address=$1 AND (r.height,r.transaction_index,r.log_index)<=($2::bigint,$3::bigint,$4::bigint)",
+      "kind": "SELECT",
+      "tables": [
+        "indexer.indexer_accounting_fills_v1",
+        "indexer.indexer_raw_logs_v1"
+      ],
+      "columns": [
+        "chain_id",
+        "f.chain_id",
+        "f.pool_address",
+        "log_index",
+        "r.height",
+        "r.log_index",
+        "r.transaction_index",
+        "transaction_hash"
+      ],
+      "functions": [
+        "count"
+      ],
+      "sequences": [],
+      "id": "consumer_source_bootstrap_statsBootstrapper.firstFill_1",
+      "source_sha256": "7c6ccb5a6ed8359368f75248ff4a51313aebcf04e2e5aca59e7d7fe4bd68f913"
     }
   ],
   "boundaries": [
@@ -9406,7 +9494,7 @@
       "function": "RunPhase4Measurement",
       "call": 1,
       "expression": "\"SELECT current_setting('track_commit_timestamp'),pg_is_in_recovery()\"",
-      "line": 1249,
+      "line": 1253,
       "boundary": "Holdings capacity measurement"
     },
     {
@@ -9414,7 +9502,7 @@
       "function": "RunPhase4Measurement",
       "call": 2,
       "expression": "\"SELECT count(*) FROM \"+pgx.Identifier{p.HolderSchema}.Sanitize()+\".transfers WHERE pg_xact_commit_timestamp(xmin)>=$1\"",
-      "line": 1373,
+      "line": 1377,
       "boundary": "Holdings capacity measurement"
     },
     {
@@ -9422,7 +9510,7 @@
       "function": "RunPhase4Measurement",
       "call": 3,
       "expression": "\"SELECT COALESCE(sum(record_count),0)::bigint FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND pg_xact_commit_timestamp(xmin)>=$2\"",
-      "line": 1380,
+      "line": 1384,
       "boundary": "Holdings capacity measurement"
     },
     {
@@ -9454,7 +9542,7 @@
       "function": "Store.MeasurePlan",
       "call": 1,
       "expression": "\"SET LOCAL statement_timeout='150ms'\"",
-      "line": 477,
+      "line": 481,
       "boundary": "Search capacity measurement"
     },
     {
@@ -9462,7 +9550,7 @@
       "function": "Store.MeasurePlan",
       "call": 2,
       "expression": "\"SELECT generation,revision,privacy_revision FROM stats_search.active_v2 WHERE singleton\"",
-      "line": 481,
+      "line": 485,
       "boundary": "Search capacity measurement"
     },
     {
@@ -9470,7 +9558,7 @@
       "function": "Store.MeasurePlan",
       "call": 3,
       "expression": "\"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) \"+query",
-      "line": 489,
+      "line": 493,
       "boundary": "Search capacity measurement"
     },
     {
@@ -9664,6 +9752,14 @@
       "expression": "recoverySnapshotSQL",
       "line": 948,
       "boundary": "Migration coordinator administration"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/consumer/source_bootstrap.go",
+      "function": "statsBoundedQuery.QueryRow",
+      "call": 1,
+      "expression": "sql",
+      "line": 72,
+      "boundary": "Per-statement deadline adapter"
     }
   ]
 }

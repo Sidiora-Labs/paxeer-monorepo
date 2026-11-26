@@ -226,6 +226,8 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 	t.Run("composed container startup", assertComposedChartStartup)
 	ctx := context.Background()
 	cfg, features, document, stream := productionChartRuntime(t)
+	cfg.RPCURLFallback = os.Getenv("RPC_URL")
+	t.Setenv("RPC_URL_FALLBACK", cfg.RPCURLFallback)
 	consumerConfig := document.Consumer
 	brokerConfig, err := consumerConfig.BrokerConsumerConfig()
 	if err != nil {
@@ -237,7 +239,7 @@ func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testin
 	}
 	t.Cleanup(application.Close)
 	baseConfig := cfg
-	if application.accounting == nil || application.exact == nil || application.transport == nil || application.chartPublisher == nil || application.verifiedRPC == nil || application.features.AnchorHash != features.AnchorHash {
+	if application.accounting == nil || application.exact == nil || application.transport == nil || application.chartPublisher == nil || application.verifiedRPC == nil || application.rpcFallback == nil || application.features.AnchorHash != features.AnchorHash {
 		t.Fatalf("production provider wiring: %+v", application)
 	}
 	if err := verifyArchiveAnchor(ctx, application.verifiedRPC, features.AnchorHeight, features.AnchorHash); err != nil {

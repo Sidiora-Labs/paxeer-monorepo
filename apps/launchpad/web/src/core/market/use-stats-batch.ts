@@ -1,5 +1,6 @@
 'use client';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
+import { type UseQueryResult } from '@tanstack/react-query';
 import type { Operations, V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
@@ -28,7 +29,7 @@ export function statsByPool(response: StatsBatchResponse | undefined): ReadonlyM
  * requested, a duplicate row or a quarantined row rejects the whole batch.
  */
 export async function fetchStatsBatch(operations: Operations, addresses: readonly string[], signal?: AbortSignal): Promise<StatsBatchResponse> {
-  const pools = [...new Set(addresses.map(marketAddress))].sort();
+  const pools = [...new Set(addresses.map(marketAddress))];
   if (pools.length === 0 || pools.length > marketLimits.rankingPage) throw new RangeError('Stats batch bound exceeded');
   const response = await operations.call('IF_STATS_BATCH', { body: { poolAddresses: pools } }, { signal });
   if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined') throw new Error('Statistics integrity quarantined');
@@ -52,7 +53,7 @@ export function useStatsBatch(addresses: readonly string[]): UseQueryResult<Stat
   const operations = useOperations();
   const pools = [...new Set(addresses.map(marketAddress))].sort();
   if (pools.length > marketLimits.rankingPage) throw new RangeError('Stats batch exceeds 50 pools');
-  return useQuery({
+  return useMarketQuery({
     queryKey: queryKeys.statsBatch(client.config.apiOrigin, pools),
     queryFn: ({ signal }) => fetchStatsBatch(operations, pools, signal),
     enabled: pools.length > 0,

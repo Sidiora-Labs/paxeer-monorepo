@@ -22,7 +22,7 @@ export interface TopTradesProps {
 /** Static (not shimmering) row frames shown while the list could not load, so the rail keeps its shape. */
 function PlaceholderRows({ rows }: { rows: number }) {
   return (
-    <ol aria-hidden="true" data-top-trades-placeholder className="flex flex-col gap-0.5">
+    <ol aria-hidden="true" data-top-trades-placeholder className="flex flex-col">
       {Array.from({ length: rows }).map((_, index) => (
         <li key={index} className="flex min-h-14 items-center gap-3 px-3 py-2">
           <span className="w-4 shrink-0 text-center text-xs text-text-faint">{index + 1}</span>
@@ -41,18 +41,18 @@ function PlaceholderRows({ rows }: { rows: number }) {
 function TradeRow({ trade, name, symbol, logo, poolAddress }: { trade: TopTrade; name: string; symbol: string | null; logo: string | null; poolAddress: string | null }) {
   const tone = trade.realizedRaw > 0n ? 'text-success' : trade.realizedRaw < 0n ? 'text-danger' : 'text-text';
   return (
-    <li className="flex min-h-14 items-center gap-3 rounded-md px-3 py-2 hover:bg-surface-2">
-      <Link prefetch={false} href={coinHref(trade.position.tokenAddress, poolAddress)} className="flex min-w-0 flex-1 items-center gap-3 rounded-sm">
+    <li>
+      <Link prefetch={false} href={coinHref(trade.position.tokenAddress, poolAddress)} className={cn('sl-hairline flex min-h-14 min-w-0 items-center gap-3 px-3 py-2 transition-colors duration-fast hover:bg-surface-1', trade.realizedRaw > 0n && 'sl-row-wash-up', trade.realizedRaw < 0n && 'sl-row-wash-down')}>
         <Avatar src={logo} name={symbol ?? name} size="lg" shape="square" decorative />
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-bold text-text" title={`${name}${symbol ? ` ${symbol}` : ''}`}>{name}{symbol ? <span className="ml-1 font-semibold text-text-muted">{symbol}</span> : null}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-text" title={`${name}${symbol ? ` ${symbol}` : ''}`}>{name}{symbol ? <span className="ml-1 font-semibold text-text-muted">{symbol}</span> : null}</span>
           <span className="block truncate font-mono-sl text-xs text-text-faint">{shortAddress(trade.position.tokenAddress, 6, 4)}</span>
         </span>
+        <span className="flex shrink-0 flex-col items-end">
+          <MaskedAmount className={cn('text-num-md font-bold tabular-nums', tone)}>{formatUsdl(trade.realizedRaw, { signed: true })}</MaskedAmount>
+          <span className="text-xs text-text-faint">realized</span>
+        </span>
       </Link>
-      <span className="flex shrink-0 flex-col items-end">
-        <MaskedAmount className={cn('text-num-md font-bold tabular-nums', tone)}>{formatUsdl(trade.realizedRaw, { signed: true })}</MaskedAmount>
-        <span className="text-xs text-text-faint">realized</span>
-      </span>
     </li>
   );
 }
@@ -81,17 +81,14 @@ export function TopTrades({ wallet, isOwner, limit = 5, className }: TopTradesPr
         action={<span className="text-xs text-text-faint">Profit</span>}
         className="items-center px-1"
       />
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
-        <div aria-hidden="true" className="invisible col-start-1 row-start-1 pointer-events-none">
-          <Skeleton variant="rows" rows={3} className="[&_.h-table-row]:h-5 [&_.size-avatar-sm]:size-4" />
-        </div>
+      <div className="min-w-0">
         <div className="col-start-1 row-start-1 min-w-0">
           {state.state === 'loading' ? (
             <Skeleton variant="rows" rows={3} label="Loading top trades" className="[&_.h-table-row]:h-5 [&_.size-avatar-sm]:size-4" />
           ) : issue ? (
             <PortfolioIssueState issue={issue} variant="inline" className="py-2" />
           ) : state.state === 'unsupported' ? (
-            <UnavailableState variant="inline" title="Top trades" plural operation={state.operation} status={state.status} message="Check back in a bit" />
+            <UnavailableState variant="inline" title="Top trades" plural operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} message="Check back in a bit" />
           ) : state.state === 'error' && collected ? (
             <PlaceholderRows rows={limit} />
           ) : state.state === 'error' ? (
@@ -100,7 +97,7 @@ export function TopTrades({ wallet, isOwner, limit = 5, className }: TopTradesPr
             <EmptyState variant="inline" title="No closed trades yet." body={page?.next ? 'None of the loaded trades are closed yet.' : "Trades show up here once they're sold."} className="py-4 text-center" />
           ) : (
             <>
-              <ol aria-label="Top trades" className="flex flex-col gap-0.5">
+              <ol aria-label="Top trades" className="flex flex-col">
                 {trades.map(trade => {
                   const meta = metadata.data?.[trade.position.tokenAddress.toLowerCase()];
                   const identity = tokenIdentity(trade.position.tokenAddress, meta);

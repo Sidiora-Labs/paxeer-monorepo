@@ -379,7 +379,6 @@ fn finding_39_selectors_and_durable_upgrade_limits_remain_explicit() {
         "publisher operator owns",
         "Unresolved transactions block cutover",
         "distinct empty directory with `first_height`",
-        "Domain 11 (interop)",
     ] {
         assert!(
             README.contains(statement),

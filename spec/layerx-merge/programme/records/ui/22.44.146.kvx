@@ -1,0 +1,31 @@
+[presentation]
+brief = "launchpad-ui/design-brief.md sections 1, 2, 4, 5 and 7"
+terminal = "Text tabs, quiet tools, flush panels and rails, hairline rows, rounded-square coin images and right-aligned tabular figures."
+swap = "A surface-one panel, labelled amount fields, unit chips, balance and maximum below the figure, summary lines, settings and an inverse connect action."
+orders = "Neutral availability forms, labelled fields, review summaries, directional trade actions and flat order rows."
+control_edges = "Inputs retain the shared control-edge role; hairlines separate the surrounding rows and regions."
+local_forms = "Terminal ranking presentation and the trading capability state use the shared tokens and state primitives."
+recovery = "Trending read errors show a reason and Try again action; the chart recovery control reserves its place as live updates resume."
+accessibility = "Position figures show a focus outline, and swap token labels use the primary text colour in both schemes."
+
+[coverage]
+views = 13
+named_states = 8
+render_cases = 714
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[views]
+terminal = "Sections 2, 4, 5 and 7: text tabs, quiet tools and a flat rankings table."
+terminal_slug = "Sections 2, 4, 5 and 7: named trending route uses the same rankings composition."
+terminal_coin = "Sections 2, 4, 5 and 7: flush discovery, chart, activity and trading regions."
+terminal_portfolio = "Sections 4, 5 and 7: content-height sign-in form with an inverse action."
+terminal_track = "Sections 4, 5 and 7: content-height sign-in form and flush followed-wallet regions."
+terminal_rewards = "Sections 4, 5 and 7: shared wallet-gated reward content within the workspace."
+terminal_trenches = "Sections 2, 4, 5 and 7: flat coin rows and neutral graduation availability forms."
+terminal_empty = "Sections 5 and 7: a neutral empty form beneath the table heads."
+terminal_loading = "Sections 5 and 7: waiting rows reserve the rankings shape."
+terminal_error = "Sections 5 and 7: a failed read retains its recovery action."
+swap = "Sections 2, 4, 5 and 7: amount fields, unit selection, balance, summary and settings."
+meta_ag_swap = "Sections 4, 5 and 7: a neutral first state and a labelled route review panel."
+meta_ag_orders = "Sections 4, 5 and 7: neutral first states and order review details."

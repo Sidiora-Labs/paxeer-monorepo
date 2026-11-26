@@ -217,7 +217,7 @@ export default function ProfileEditModal({ open, onClose, onSaved, initialField 
         {state === 'committed' ? <p role="status" className="text-xs text-text-faint">Profile saved</p> : null}
         {dirty && state !== 'loading' ? (
           <details className="rounded-md bg-surface-3 p-3 text-xs text-text-muted">
-            <summary className="cursor-pointer text-sm font-bold text-text">Currently saved</summary>
+            <summary className="cursor-pointer text-sm font-semibold text-text">Currently saved</summary>
             <dl className="mt-2 grid gap-1">
               <div className="flex gap-2"><dt className="text-text-faint">Name</dt><dd className="truncate">{baseline.displayName || '—'}</dd></div>
               <div className="flex gap-2"><dt className="text-text-faint">Bio</dt><dd className="truncate">{baseline.bio || '—'}</dd></div>
@@ -251,7 +251,7 @@ function ImagePicker({ kind, currentAssetId, upload, disabled, autoFocus, onSele
   return (
     <div className="flex flex-col gap-2 rounded-md bg-surface-3 p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-bold text-text">{label}</span>
+        <span className="text-sm font-semibold text-text">{label}</span>
         <span className="text-xs text-text-faint">PNG, JPEG or WebP, under 6 MB</span>
       </div>
       <div className="flex items-center gap-3">

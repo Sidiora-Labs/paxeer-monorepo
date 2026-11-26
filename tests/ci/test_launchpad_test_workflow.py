@@ -186,6 +186,17 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
             assert package["packageManager"] == manager_version, directory
 
 
+@pytest.mark.parametrize(
+    "job_name", ("launchpad-test", "launchpad-go-test", "launchpad-go-ci"),
+)
+def test_launchpad_jobs_use_the_registry_postgres_major(job_name):
+    registry = json.loads((ROOT / "migrations/registry.json").read_text())
+    job = launchpad_workflow()["jobs"][job_name]
+    assert job["services"]["postgres"]["image"] == (
+        f"postgres:{registry['server_major_version']}"
+    )
+
+
 def test_launchpad_service_health_commands_use_container_option_quoting():
     workflow = launchpad_workflow()
     health_commands = {

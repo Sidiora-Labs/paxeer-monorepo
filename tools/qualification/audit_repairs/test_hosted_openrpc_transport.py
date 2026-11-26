@@ -45,7 +45,7 @@ def test_openrpc_retired_server_alias_is_not_advertised():
 def test_openrpc_introduction_describes_merged_hosted_namespace_contract():
     document = openrpc()
     names = [method["name"] for method in document["methods"]]
-    assert len(names) == len(set(names)) == 22
+    assert len(names) == len(set(names)) == 23
     assert {"px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
             "px_getInferencePeer", "px_getInferenceReceipts"} <= set(names)
     assert "pax_sequencerReceipt" in names

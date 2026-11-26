@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync, appendFileSync } f
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { sendTimestampedTransaction } from '../../../scripts/timestamped-transaction.mjs';
+import { observeOraclePublication } from './oracle-publication.mjs';
 
 export function prepareOwnedCoreDeployment(inputFile, profileFile, creationFile, tradeFile) {
   const value = JSON.parse(readFileSync(inputFile, 'utf8'));
@@ -67,6 +68,8 @@ function inventory(path) {
 inventory(join(contracts, 'artifacts/contracts'));
 const sources = {};
 sources[new URL(import.meta.url).pathname] = sha(readFileSync(new URL(import.meta.url)));
+const oraclePublicationSource = new URL('./oracle-publication.mjs', import.meta.url);
+sources[oraclePublicationSource.pathname] = sha(readFileSync(oraclePublicationSource));
 const timestampedTransactionSource = new URL(
   '../../../scripts/timestamped-transaction.mjs',
   import.meta.url
@@ -213,16 +216,34 @@ await commit(usdl.transfer(user.address, 10000000000000n));
 await commit(usdl.connect(user).approve(orders.target, ethers.MaxUint256));
 await commit(usdl.connect(user).approve(router.target, ethers.MaxUint256));
 const publishPrices = async () => {
-  const currentPrice = await pool.getPrice();
-  if (currentPrice <= 0n) throw new Error('Owned pool price is unavailable');
-  for (const [asset, price] of [[usdl.target, one], [token.target, currentPrice], [wrapped.target, 2n * one]]) {
-    const receipt = await commit(
-      sendTimestampedTransaction(oracle.connect(relayer).updatePrice, asset, price)
-    );
-    appendFileSync(join(output, 'price-publications.ndjson'), JSON.stringify({
-      asset, price: String(price), hash: receipt.hash, blockHash: receipt.blockHash,
-    }) + '\n', {mode: 0o600});
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const currentPrice = await pool.getPrice();
+    if (currentPrice <= 0n) throw new Error('Owned pool price is unavailable');
+    let reorganized = false;
+    for (const [asset, price] of [
+      [usdl.target, one],
+      [token.target, currentPrice],
+      [wrapped.target, 2n * one],
+    ]) {
+      const transaction = await sendTimestampedTransaction(
+        oracle.connect(relayer).updatePrice, asset, price
+      );
+      const observed = await observeOraclePublication(provider, transaction);
+      if (observed.state === 'reorganized') {
+        appendFileSync(join(output, 'price-reorganizations.ndjson'), JSON.stringify({
+          asset, transactionHash: observed.transactionHash,
+        }) + '\n', {mode: 0o600});
+        reorganized = true;
+        break;
+      }
+      const receipt = observed.receipt;
+      appendFileSync(join(output, 'price-publications.ndjson'), JSON.stringify({
+        asset, price: String(price), hash: receipt.transactionHash, blockHash: receipt.blockHash,
+      }) + '\n', {mode: 0o600});
+    }
+    if (!reorganized) return;
   }
+  throw new Error('Oracle publication reorganized repeatedly');
 };
 await publishPrices();
 let publishing = false;

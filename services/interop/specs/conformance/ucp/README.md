@@ -36,7 +36,7 @@ vocabulary. Its descriptor, exported identifier, vendored-revision and receipt
 checks are additional Rust cases outside the JSON record count.
 
 `services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs` exercises receipt
-and order settlement from its crate-local `fixtures/sequenced-order.json`, using
+and order settlement from `sequenced-order.json` in this suite directory, using
 producer recordings in `sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json`
 and `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`.
 

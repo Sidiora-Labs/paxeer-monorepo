@@ -105,11 +105,11 @@ def test_observability_source_root_and_safety_conditions(phase4):
     for condition in (
         "--phase 3 --operator-authority-file /private/operator-authority.json",
         "OS-owned private authority mount",
-        "Native promtool 3.2.1 required",
+        "Native promtool 3.2.1 is required",
         "verify its binary digest",
-        "Runtime activation intentionally fails closed",
-        "capacity, monthly availability and production qualification remain false",
-        "Final shared 24-hour soak and all burst/restore acceptance belong to gate 9.1",
+        "an orphan bundle is verified before retry and never implies activation",
+        "retain false capacity and monthly-availability qualification",
+        "Shared evaluation requires the measured 24-hour workload",
     ):
         assert condition in readme
 

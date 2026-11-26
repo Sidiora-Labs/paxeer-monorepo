@@ -25,6 +25,7 @@ MANIFEST_NAMES = {
 VENDORED_TREES = {
     "apps/explorer": "Blockscout frontend and its upstream deploy tools",
     "apps/launchpad/web/public/charting_library": "TradingView charting library",
+    "apps/perps": "Paxeer Xtrades workspace with its own release line",
     "contracts/bridge/solana/vendor": "Agave dependencies",
     "core/deps": "Imported chain dependencies",
     "programs/vendor": "Pinned Cargo dependencies",

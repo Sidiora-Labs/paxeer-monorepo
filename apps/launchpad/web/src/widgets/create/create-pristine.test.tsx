@@ -116,7 +116,7 @@ describe('CreateWizard pristine validation', () => {
   });
 });
 
-describe('CreateWizard reference layout', () => {
+describe('CreateWizard create layout', () => {
   const classes = (node: Element | null | undefined) => (node?.getAttribute('class') ?? '').split(/\s+/);
 
   it('uses the compact heading scale and level Preview label', () => {
@@ -139,6 +139,8 @@ describe('CreateWizard reference layout', () => {
     expect(nameRow!.contains(field(container, 'create-symbol'))).toBe(true);
     expect(classes(nameRow)).toContain('sm:grid-cols-2');
     expect(classes(nameRow)).toContain('sm:gap-3');
+    expect(container.querySelector('#create-media-title')!.compareDocumentPosition(nameRow!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector('[data-create-action]')?.className).toContain('fixed');
     const text = container.textContent ?? '';
     expect(text).not.toContain(`0/${NAME_MAX_BYTES}`);
     expect(text).not.toContain(`0/${SYMBOL_MAX_BYTES}`);
@@ -147,10 +149,15 @@ describe('CreateWizard reference layout', () => {
     expect(container.querySelector('#create-name-count')!.textContent).toBe(`4/${NAME_MAX_BYTES}`);
   });
 
-  it('renders a tall preview frame and keeps explainers to one line with the detail in a tooltip', () => {
+  it('renders a compact preview and opens the rewards explanation in place', () => {
     const container = mount(<CreateWizard />);
     const frame = container.querySelector('[data-create-preview-frame]');
-    expect(classes(frame)).toContain('lg:min-h-72');
+    expect(classes(frame)).toContain('bg-surface-1');
+    expect(classes(frame)).not.toContain('lg:min-h-72');
+    const rewards = container.querySelector<HTMLElement>('#create-rewards')!;
+    expect(rewards.getAttribute('aria-expanded')).toBe('false');
+    act(() => rewards.click());
+    expect(rewards.getAttribute('aria-expanded')).toBe('true');
     expect(container.textContent).not.toContain(FEE_RIGHTS_DETAIL);
     expect(container.textContent).not.toContain('The factory takes no quote parameter');
     const info = container.querySelector<HTMLButtonElement>('button[aria-label="About creator rewards"]')!;

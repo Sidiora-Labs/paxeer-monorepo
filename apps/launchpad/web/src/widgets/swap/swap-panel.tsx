@@ -24,9 +24,8 @@ import { useOperations } from '@/core/market/operations';
 import { reportUserFacingError } from '@/core/user-facing-error';
 import { fetchStatsBatch } from '@/core/market/use-stats-batch';
 import { fetchTokenMetadataBatch } from '@/core/clients/metadata';
-import { Coins, SearchX } from 'lucide-react';
-import TokenImage from '@/ui/shared/token-image';
-import { Button, EmptyState, ErrorState } from '@/ui/primitives';
+import { Coins, SearchX, X, ArrowDownUp } from 'lucide-react';
+import { Avatar, Button, EmptyState, ErrorState, IconButton, Skeleton } from '@/ui/primitives';
 import { ModalDialog } from '@/core/app-foundation/modal-dialog';
 import type { TokenMetadata } from '@/widgets/home/types';
 import { SlippageSelector, HighImpactWarning, computeMinOut, DEFAULT_SLIPPAGE_BPS } from '@/widgets/trade/slippage-selector';
@@ -84,7 +83,7 @@ export async function loadSwapTokens(operations: Operations, signal: AbortSignal
   } while (cursor);
   if (pools.length === 0) return [];
   const stats = new Map<string, { price: number | null; marketCap: number | null }>();
-  const addresses = pools.map(pool => pool.poolAddress.toLowerCase());
+  const addresses = pools.map(pool => pool.poolAddress.toLowerCase()).sort();
   for (let start = 0; start < addresses.length; start += STATS_BATCH_LIMIT) {
     const batch = await fetchStatsBatch(operations, addresses.slice(start, start + STATS_BATCH_LIMIT), signal);
     for (const row of batch.data.items) {
@@ -154,15 +153,11 @@ function TokenSelectorModal({
   });
 
   return (
-    <ModalDialog open={open} onClose={onClose} aria-labelledby="swap-selector-title" className="max-h-[var(--sl-dialog-max-height)] max-w-modal-width-sm flex-col rounded-xl bg-surface-1">
+    <ModalDialog open={open} onClose={onClose} aria-labelledby="swap-selector-title" className="sl-floating sl-sheet max-h-[var(--sl-dialog-max-height)] max-w-modal-width-sm flex-col rounded-md">
       <div className="shrink-0 p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 id="swap-selector-title" className="text-base font-bold text-text">Select a coin</h2>
-          <button type="button" onClick={onClose} aria-label="Close coin selector" className="p-1 text-text-faint transition hover:text-text">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
+          <h2 id="swap-selector-title" className="text-base font-semibold text-text">Select a coin</h2>
+          <IconButton label="Close coin selector" icon={<X />} size="sm" onClick={onClose} />
         </div>
         <label htmlFor="swap-coin-search" className="sr-only">Search coins</label><input
           id="swap-coin-search"
@@ -171,14 +166,14 @@ function TokenSelectorModal({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, symbol, or address"
-          className="w-full border border-control-edge bg-surface-2 rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space)*2.5-var(--sl-edge-width))] text-xs text-text transition placeholder:text-text-faint"
+          className="w-full border border-control-edge bg-surface-2 rounded-sm px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space)*2.5-var(--sl-edge-width))] text-xs text-text transition placeholder:text-text-faint"
         />
       </div>
 
       <div className="shrink-0 py-1">
         {filtered.length === 0 && (
           loading ? (
-            <div role="status" className="px-4 py-8 text-center text-text-faint text-xs animate-pulse">Loading coins…</div>
+            <div role="status" className="px-4 py-2 text-text-faint text-xs"><span className="sr-only">Loading coins…</span><Skeleton variant="rows" rows={3} /></div>
           ) : error && tokens.length === 0 ? (
             <ErrorState title="Coins can't load right now" message="Something went wrong, try again" onRetry={onRetry} />
           ) : search.trim() ? (
@@ -191,36 +186,29 @@ function TokenSelectorModal({
           const bal = balances[token.tokenAddress.toLowerCase()];
           const balFmt = bal !== undefined ? Number(formatUnits(bal.raw, bal.decimals)) : null;
           return (
+            <div key={token.tokenAddress} className="sl-hairline">
             <button
-              key={token.tokenAddress}
               type="button"
               onClick={() => { onSelect(token); onClose(); }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition text-left"
+              className="w-full flex items-center gap-3 border border-transparent px-[calc(var(--sl-space-4)-var(--sl-edge-width))] py-[calc(var(--sl-space)*2.5-var(--sl-edge-width))] hover:border-control-edge hover:bg-surface-1 transition text-left"
             >
-              <div className="relative w-9 h-9 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
-                <TokenImage
-                  fill
-                  src={token.logo}
-                  alt={token.symbol}
-                  sizes="36px"
-                  className="object-cover"
-                />
-              </div>
+              <Avatar src={token.logo} name={token.name} size="lg" shape="square" decorative className="size-9" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="min-w-0 truncate text-sm font-bold text-text" title={token.name}>{token.name}</span>
-                  <span className="block min-w-0 truncate text-2xs text-text-faint" title={token.symbol}>{token.symbol}</span>
+                  <span className="min-w-0 truncate text-sm font-semibold text-text" title={token.name}>{token.name}</span>
+                  <span className="block min-w-0 truncate text-2xs text-text" title={token.symbol}>{token.symbol}</span>
                 </div>
                 {token.marketCap !== null && token.marketCap > 0 && (
                   <span className="text-2xs text-text-faint">MC: {formatCurrency(token.marketCap)}</span>
                 )}
               </div>
               {balFmt !== null && balFmt > 0 && (
-                <span className="text-2xs text-text font-bold flex-shrink-0">
+                <span className="text-2xs text-text font-bold tabular-nums flex-shrink-0">
                   {formatNumber(balFmt, 2)}
                 </span>
               )}
             </button>
+            </div>
           );
         })}
       </div>
@@ -238,6 +226,7 @@ export function TokenInputBox({
   balance,
   decimals,
   readOnly,
+  invalid,
   onSelectClick,
   onMaxClick,
 }: {
@@ -248,6 +237,7 @@ export function TokenInputBox({
   balance: bigint | null;
   decimals: number | undefined;
   readOnly?: boolean;
+  invalid?: boolean;
   onSelectClick: () => void;
   onMaxClick?: () => void;
 }) {
@@ -257,41 +247,20 @@ export function TokenInputBox({
     : 0;
 
   return (
-    <div className="bg-surface-2 rounded-xl p-3.5 transition-all duration-base">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-        <span className="text-2xs text-text-faint uppercase tracking-wide">{label}</span>
-        {balFmt !== null && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-2xs text-text-faint">Balance: {formatNumber(balFmt, 4)}</span>
-            {onMaxClick && !readOnly && (
-              <button
-                type="button"
-                onClick={onMaxClick}
-                className="text-2xs text-info hover:text-text font-bold transition"
-              >
-                {amount && parseFloat(amount) > 0 && balFmt > 0 && parseFloat(amount) >= balFmt ? (
-                  <span key="using">Using Max</span>
-                ) : (
-                  <span key="use">Use Max</span>
-                )}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-24 flex-1">
+    <div className={`rounded-sm border bg-surface-2 p-[calc(var(--sl-space-2)-var(--sl-edge-width))] transition-colors duration-base ${invalid ? 'border-danger' : 'border-control-edge'}`}>
+      <span className="mb-1.5 block text-2xs font-semibold text-text-muted">{label}</span>
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
           <input
             type="text"
             inputMode="decimal"
             aria-label={`${label} amount`}
+            aria-invalid={invalid || undefined}
             value={amount}
             onChange={onAmountChange ? (e) => onAmountChange(e.target.value) : undefined}
             readOnly={readOnly}
             placeholder="0.00"
-            className={`w-full bg-transparent text-md font-bold text-text caret-text min-w-0 ${
-              readOnly ? 'cursor-default opacity-70' : ''
-            }`}
+            className={`w-full min-w-0 rounded-xs bg-transparent text-md font-bold tabular-nums text-text caret-text ${readOnly ? 'cursor-default' : ''}`}
             min="0"
             step="any"
           />
@@ -299,33 +268,26 @@ export function TokenInputBox({
         <button
           type="button"
           onClick={onSelectClick}
-          className="flex min-h-8 items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))] transition max-w-full flex-shrink-0"
+          className="flex min-h-8 min-w-0 max-w-[50%] shrink-0 items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-sm px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))] transition-colors"
         >
           {token ? (
             <>
-              <div className="relative w-6 h-6 rounded-full bg-surface-2 overflow-hidden flex-shrink-0"
-                style={{ filter: 'url(#SkiperSquiCircleFilterLayout)' }}>
-                <TokenImage
-                  fill
-                  src={token.logo}
-                  alt={token.symbol}
-                  sizes="24px"
-                  className="object-cover"
-                />
-              </div>
-              <span className="min-w-0 truncate text-sm font-bold text-text" title={token.symbol}>{token.symbol}</span>
+              <Avatar src={token.logo} name={token.symbol} size="xs" shape="square" decorative />
+              <span className="min-w-0 truncate text-sm font-semibold text-text" title={token.symbol}>{token.symbol}</span>
             </>
-          ) : (
-            <span className="text-xs font-bold text-text">Select coin</span>
-          )}
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-text-faint">
+          ) : <span title="Select coin" className="min-w-0 truncate text-xs font-semibold text-text">Select coin</span>}
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-text-faint" aria-hidden="true">
             <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </div>
-      {usdValue > 0 ? (
-        <div key="usd-value" className="mt-1">
-          <span className="text-2xs text-text-faint">{formatCurrency(usdValue)}</span>
+      {balFmt !== null || usdValue > 0 ? (
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 text-2xs tabular-nums text-text-muted">
+          {balFmt !== null ? <span className="inline-flex items-center gap-1.5">
+            Balance: {formatNumber(balFmt, 4)}
+            {onMaxClick && !readOnly ? <button type="button" onClick={onMaxClick} className="whitespace-nowrap rounded-xs font-semibold text-text hover:text-text-muted">{amount && parseFloat(amount) > 0 && balFmt > 0 && parseFloat(amount) >= balFmt ? 'Using Max' : 'Use Max'}</button> : null}
+          </span> : null}
+          {usdValue > 0 ? <span>{formatCurrency(usdValue)}</span> : null}
         </div>
       ) : null}
     </div>
@@ -751,13 +713,13 @@ export default function SwapPanel() {
 
   return (
     <div className="relative mx-auto w-full max-w-[calc(var(--sl-space)*115)]">
-      <div className="rounded-2xl bg-surface-1 overflow-hidden">
+      <div className="rounded-md bg-surface-1 overflow-hidden">
         {/* Header */}
-        <div className="px-5 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-3">
           <h1 className="shrink-0 text-md font-bold text-text">Swap</h1>
-          <div className="flex max-w-full flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <SlippageSelector bps={slippageBps} onChange={setSlippageBps} />
-          <div className="flex items-center gap-1.5 text-2xs text-text-faint">
+          <div className="hidden items-center gap-1.5 text-2xs text-text-faint sm:flex">
             <img src="/icons/ArrowsLeftRight.svg" alt="" width={14} height={14} className="opacity-60" />
             Token to Token
           </div>
@@ -774,27 +736,13 @@ export default function SwapPanel() {
             balance={isConnected ? balIn : null}
             decimals={tokenInDec}
             onSelectClick={() => setSelectorFor('in')}
+            invalid={!!amount.errorCode}
             onMaxClick={handleMaxIn}
           />
 
           {/* Flip button */}
           <div className="flex justify-center -my-3 relative z-10">
-            <button
-              onClick={handleFlip}
-              className="w-10 h-10 rounded-xl bg-surface-3 hover:bg-surface-hover transition flex items-center justify-center group"
-              title="Switch tokens"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 18 18"
-                fill="none"
-                className="text-text-muted group-hover:text-text transition group-hover:rotate-180 duration-slow"
-              >
-                <path d="M9 3V15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                <path d="M5 11L9 15L13 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+            <IconButton label="Switch tokens" icon={<ArrowDownUp />} variant="raised" size="md" onClick={handleFlip} className="size-10" />
           </div>
 
           {/* Token Out */}
@@ -810,7 +758,7 @@ export default function SwapPanel() {
 
           {/* Quote details */}
           {canQuote && hasAmount && (
-            <div className="rounded-xl p-3.5 mt-3 space-y-2 bg-surface-2">
+            <div className="p-3.5 mt-3 space-y-2 tabular-nums [&>div]:gap-2 [&>div>span:last-child]:text-right">
               {quoteLoading && !quote && (
                 <div className="text-2xs text-text-faint text-center animate-pulse py-2">Getting price...</div>
               )}
@@ -892,12 +840,10 @@ export default function SwapPanel() {
             type="button"
             onClick={() => void handleSwap()}
             disabled={buttonDisabled}
-            className={`w-full py-3.5 rounded-xl text-base font-bold transition mt-2 disabled:opacity-40 disabled:cursor-not-allowed ${
-              insufficientBalance
-                ? 'bg-danger-soft text-danger'
-                : needsApproval
-                  ? 'bg-info-soft text-info hover:bg-surface-hover'
-                  : 'bg-accent text-on-accent hover:bg-accent-hover'
+            className={`w-full py-3.5 rounded-sm text-base font-bold transition-colors mt-2 disabled:opacity-40 disabled:cursor-not-allowed ${
+              !isConnected
+                ? 'bg-surface-inverse text-canvas hover:opacity-90'
+                : 'bg-accent text-on-accent hover:bg-accent-hover'
             }`}
           >
             {buttonLabel}
@@ -917,7 +863,7 @@ export default function SwapPanel() {
 
       {/* Loading state */}
       {tokensLoading && (
-        <div role="status" className="absolute inset-x-0 top-full text-center text-text-faint text-2xs mt-4 animate-pulse">
+        <div role="status" className="absolute inset-x-0 top-full text-center text-text-faint text-2xs mt-4">
           Loading tokens...
         </div>
       )}

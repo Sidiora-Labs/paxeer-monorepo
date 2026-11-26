@@ -1,5 +1,6 @@
 'use client';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
+import { type UseQueryResult } from '@tanstack/react-query';
 import type { OperationInput, V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
@@ -21,7 +22,7 @@ export function useRankings(category: RankingCategory, cursor: string | null = n
   const client = useMarketClient();
   const operations = useOperations();
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > marketLimits.rankingPage) throw new RangeError('Invalid ranking page bound');
-  return useQuery({
+  return useMarketQuery({
     queryKey: queryKeys.rankings(client.config.apiOrigin, category, cursor, limit),
     queryFn: async ({ signal }) => {
       const response = await operations.call('IF_RANKINGS', cursor ? { path: { category }, query: { cursor } } : { path: { category } }, { signal });

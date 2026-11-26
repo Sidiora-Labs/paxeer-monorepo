@@ -1,0 +1,45 @@
+[foundation]
+brief = "launchpad-ui/design-brief.md sections 2, 3, 4, 5 and 9"
+colour_mode = "Dark first; dark, light and device choices persist on the device and apply to the chart and browser frame."
+type = "Text weights are 500, names 600 and values 700; type steps and existing control, bar and row heights are retained."
+shape = "Chips are 8, controls 12, panels 16 and sheet tops 20 pixels; coin images have 22 percent corners and account images are circular."
+components = "Inverse action, direction chip, outline coin badges, verified mark, text tabs, panel segments, coin row, progress line, option row, panel and sheet."
+states = "Waiting content reserves its shape; empty and signed-out forms are neutral, and failed reads retain their recovery action."
+
+[colour.text_faint]
+brief_dark = "#8e8e99"
+dark = "#9f9faa"
+light = "#435568"
+sections = "2 and 5"
+use = "Secondary metadata remains readable on raised and active surfaces with text contrast of at least 4.5:1."
+
+[colour.control_edge]
+brief_dark = "#70707c"
+dark = "#81818e"
+light = "#657587"
+sections = "2 and 5"
+use = "Control boundaries remain identifiable on raised and active surfaces with contrast of at least 3:1."
+
+[coverage]
+part = "home"
+views = 8
+named_states = 6
+render_cases = 476
+empty_renders = 0
+failed_renders = 0
+retries = 0
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+create_part = "Create and create-chain retain their seven named states in a dedicated part; coin, token and token metadata remain in the coin part."
+
+[findings]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0

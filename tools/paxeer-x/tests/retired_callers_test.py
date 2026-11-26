@@ -963,7 +963,7 @@ def self_test(catalogue):
         root = Path(directory)
         git(root, ["init", "-q"])
         files = {
-            "services/platform/hosted/indexer/src/abi.rs": 'retained\n("layerxverify", 0x1012),\n',
+            "services/platform/hosted/indexer/src/caller.rs": 'retained\n("layerxverify", 0x1012),\n',
             "live.c": "lxp_guarantor_init();\n",
             "examples/vectors.rs": "layerxverify\n",
             "pkg/keeper_test.go": "layerxverify\n",
@@ -987,14 +987,14 @@ def self_test(catalogue):
             ("embedded.rs", 1, "verify", "layerxverify"),
             ("examples/vectors.rs", 1, "verify", "layerxverify"),
             ("odd:name\nfile.rs", 1, "verify", "layerxverify"),
-            ("services/platform/hosted/indexer/src/abi.rs", 2, "verify", "layerxverify"),
+            ("services/platform/hosted/indexer/src/caller.rs", 2, "verify", "layerxverify"),
         ]
         check_equal(
             scan(root, catalogue, ["verify"], []),
             expected,
             "real git tracked scan and exclusions",
         )
-        target = "services/platform/hosted/indexer/src/abi.rs"
+        target = "services/platform/hosted/indexer/src/caller.rs"
         check_equal(
             scan(root, catalogue, ["verify"], [target]),
             [expected[-1]],
@@ -1247,10 +1247,18 @@ def self_test(catalogue):
             [(retired, 1, "paxeer-verifier", "deleted tree still exists")],
             "record pattern never hides a deleted tree",
         )
-        retiring, task = next(iter(components["lni"]["retiring_trees"].items()))
+        retiring = "services/agent/crates/layerx-client/src/pending"
+        task = "9.24.7"
+        document = {
+            **catalogue,
+            "components": {
+                **components,
+                "lni": {**components["lni"], "retiring_trees": {retiring: task}},
+            },
+        }
         write_tracked(root, {retiring + "/repair_history.kvx": "layerxverify\n"})
         check_equal(
-            scan(root, catalogue, ["lni"], [retiring], deleted=True),
+            scan(root, document, ["lni"], [retiring], deleted=True),
             [(retiring, 1, "lni", "tree retirement pending task " + task)],
             "record pattern never hides a pending retirement",
         )

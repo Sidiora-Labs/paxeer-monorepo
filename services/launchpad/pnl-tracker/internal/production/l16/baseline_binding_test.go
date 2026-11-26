@@ -15,6 +15,7 @@ import (
 )
 
 func TestRecordedBaselinePreparationAndAttestationIntegrity(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	service, pool := recordedRebuildService(t, ctx)
@@ -90,6 +91,7 @@ func TestRecordedBaselinePreparationAndAttestationIntegrity(t *testing.T) {
 }
 
 func TestBaselineAheadEnrolledWalletAndRefusalBound(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	service, pool := recordedRebuildService(t, ctx)

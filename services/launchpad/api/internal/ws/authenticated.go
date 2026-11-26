@@ -331,7 +331,11 @@ func (h *Hub) privateHandle(w http.ResponseWriter, r *http.Request) {
 				_ = control("resnapshot_required", lastWritten, broker.StreamFailure(e), nil)
 				return
 			}
-			if replay.CheckDelivery(ctx) != nil || write(frame) != nil {
+			if err := replay.CheckDelivery(ctx); err != nil {
+				_ = control("resnapshot_required", lastWritten, broker.StreamFailure(err), nil)
+				return
+			}
+			if write(frame) != nil {
 				return
 			}
 			lastWritten = cursor

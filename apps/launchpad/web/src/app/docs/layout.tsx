@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { DOC_LINKS } from './doc-links';
+import './docs.css';
 
 export default function DocsLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-canvas">
+    <div className="sl-documents bg-canvas">
       <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-7">
           <Link
@@ -31,7 +32,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
               aria-label="Documentation"
               className="lg:sticky lg:top-[calc(var(--shell-top)+var(--sl-space-4))]"
             >
-              <p className="text-2xs text-text-faint font-bold uppercase tracking-wider mb-3 px-2">
+              <p className="text-2xs text-text-faint font-semibold uppercase tracking-wider mb-3 px-2">
                 <Link
                   prefetch={false}
                   href="/docs"
@@ -46,7 +47,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                     prefetch={false}
                     key={href}
                     href={href}
-                    className="flex items-center text-xs text-text-muted hover:text-text py-1.5 px-2 rounded-lg hover:bg-surface-3 transition"
+                    className="flex items-center text-xs font-medium text-text-muted hover:text-text py-1.5 px-2 rounded-pill hover:bg-surface-2 transition-colors duration-fast"
                   >
                     {label}
                   </Link>

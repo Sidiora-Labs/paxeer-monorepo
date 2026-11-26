@@ -501,8 +501,9 @@ describe('column tab rows never clip a control', () => {
     const ranking = container.querySelector('[role="radiogroup"][aria-label="Ranking"]')!;
     const toolbar = ranking.parentElement!;
     const classes = toolbar.className.split(/\s+/);
-    expect(classes).toContain('flex-wrap');
-    expect(classes.some((name) => /^overflow-/.test(name) || name === 'h-10')).toBe(false);
+    expect(classes).toContain('flex-nowrap');
+    expect(classes).toContain('overflow-x-auto');
+    expect(classes).not.toContain('h-10');
     // The widget root is the size container both forms query; exactly one of them is displayed at any column width.
     expect(toolbar.parentElement?.className.split(/\s+/)).toContain('@container');
     expect(timeframeSegmentsMinWidth).toBe(376);
@@ -625,7 +626,7 @@ describe('column tab rows never clip a control', () => {
     unmount(root, container, queryClient);
   });
 
-  it('Leaderboard: tabs on the left and the window dropdown pinned right, in a wrapping row with no clipping', async () => {
+  it('Leaderboard: tabs on the left and the window dropdown pinned right, in one scrolling row with no clipping', async () => {
     const { LeaderboardWidget } = await import('./leaderboard-widget');
     const { root, container, queryClient } = mount(url0(), <LeaderboardWidget {...props} />);
     const tabs = container.querySelector<HTMLElement>(
@@ -635,8 +636,8 @@ describe('column tab rows never clip a control', () => {
       Array.from(tabs.querySelectorAll('[role="radio"]')).map((tab) => tab.textContent)
     ).toEqual(['Traders', 'Creators', 'Volume']);
     const toolbar = tabs.parentElement!;
-    expect(toolbar.className.split(/\s+/)).toContain('flex-wrap');
-    expect(toolbar.className.split(/\s+/).some((name) => /^overflow-/.test(name))).toBe(false);
+    expect(toolbar.className.split(/\s+/)).toContain('flex-nowrap');
+    expect(toolbar.className.split(/\s+/)).toContain('overflow-x-auto');
     const pill = toolbar.querySelector<HTMLSelectElement>('select[aria-label="Window"]')!;
     expect(pill.value).toBe('24h');
     expect(pill.parentElement?.parentElement?.className.split(/\s+/)).toContain('ml-auto');
@@ -659,7 +660,7 @@ describe('column tab rows never clip a control', () => {
     const toolbar = container.querySelector(
       '[role="radiogroup"][aria-label="Screener list"]'
     )!.parentElement!;
-    expect(toolbar.className.split(/\s+/)).toContain('flex-wrap');
+    expect(toolbar.className.split(/\s+/)).toContain('flex-nowrap');
     // ml-auto sits on the tooltip anchor, the toolbar's direct child, so the icon pins to the right edge.
     expect(legend.parentElement?.className.split(/\s+/)).toContain('ml-auto');
     unmount(root, container, queryClient);
@@ -698,7 +699,7 @@ describe('dashboard board fills the width with its columns and makes overflow us
     expect(boardVisibleClass).toContain('board-wide:[--board-visible:4]');
     // A board with more columns than fit keeps whole columns of the visible count: at 1920, 4 of 6.
     expect(slotWidth(1920 - 56 - 16 - 40, 4, 6)).toBeCloseTo((1808 - 24) / 4, 5);
-    // Below lg home is the callouts feed, not the board.
+    // Below lg home presents discovery tabs.
     expect(compactHomeQuery).toBe('(max-width: 1023px)');
   });
 
@@ -859,7 +860,7 @@ describe('dashboard board fills the width with its columns and makes overflow us
   }, 15000);
 });
 
-describe('home below lg is a single callouts feed', () => {
+describe('home below lg starts with coins', () => {
   function withViewport(compact: boolean): () => void {
     const previous = window.matchMedia;
     window.matchMedia = ((query: string) => ({
@@ -902,7 +903,7 @@ describe('home below lg is a single callouts feed', () => {
     restore();
   });
 
-  it('switches between the chronological and relevance feeds with large tabs and keeps the feed frame on failure', async () => {
+  async function homeDiscoveryTabsKeepReadFailuresAndKeyboardNavigation() {
     const feedOrigin = await serve(() => ({
       status: 503,
       body: {
@@ -910,46 +911,43 @@ describe('home below lg is a single callouts feed', () => {
       },
     }));
     const { root, container, queryClient } = mount(feedOrigin.origin, <HomeFeed />);
-    const tablist = container.querySelector<HTMLElement>(
-      '[role="tablist"][aria-label="Callout feed"]'
-    )!;
-    const tabs = Array.from(tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
-    expect(tabs.map((tab) => tab.textContent)).toEqual(homeFeedTabs.map((tab) => tab.label));
-    expect(tabs.map((tab) => tab.textContent)).toEqual(['Callouts', 'Top']);
-    expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual(['true', 'false']);
-    for (const tab of tabs)
-      expect(tab.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-lg', 'font-bold']));
-    const panel = container.querySelector<HTMLElement>('[role="tabpanel"]')!;
-    expect(panel.getAttribute('aria-labelledby')).toBe(tabs[0].id);
-    await waitFor(() =>
-      feedOrigin.paths.some(
-        (path) => path.startsWith('/v2/discovery/feed') && path.includes('order=chronological')
-      )
-    );
-    act(() => {
-      tabs[1].click();
-    });
-    expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual(['false', 'true']);
-    expect(panel.getAttribute('aria-labelledby')).toBe(tabs[1].id);
-    await waitFor(() =>
-      feedOrigin.paths.some(
-        (path) => path.startsWith('/v2/discovery/feed') && path.includes('order=relevance')
-      )
-    );
-    // Arrow keys move between tabs.
-    act(() => {
-      tabs[1].dispatchEvent(
-        new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
-      );
-    });
-    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
-    // The header and live toggle stay when the feed is unavailable; the body says so instead of collapsing the page.
-    await waitFor(() => !/Loading callouts/.test(container.textContent ?? ''), 8000);
-    expect(container.querySelector('[data-home-feed] [role="tablist"]')).not.toBeNull();
-    expect(container.querySelector('button[aria-pressed]')?.textContent).toBe('Live');
-    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
-    expect(container.innerHTML).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
-    unmount(root, container, queryClient);
-    await new Promise<void>((resolve) => feedOrigin.server.close(() => resolve()));
-  }, 15000);
+    try {
+      const tablist = container.querySelector<HTMLElement>('[role="tablist"][aria-label="Home discovery"]')!;
+      const tabs = Array.from(tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+      expect(tabs.map(tab => tab.textContent)).toEqual(homeFeedTabs.map(tab => tab.label));
+      expect(tabs.map(tab => tab.textContent)).toEqual(['Coins', 'Callouts', 'Top']);
+      expect(tabs.map(tab => tab.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
+      for (const tab of tabs) {
+        expect(tab.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-base', 'font-medium', 'whitespace-nowrap']));
+      }
+      expect(container.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toBe(tabs[0].id);
+      await waitFor(() => feedOrigin.paths.includes('/v2/rankings/trending'));
+      await waitFor(() => container.textContent?.includes('Trending is not available yet') === true, 8000);
+      expect(container.querySelector('[data-state="unavailable"]')?.textContent).toContain('Try again');
+      act(() => tabs[1].click());
+      expect(tabs.map(tab => tab.getAttribute('aria-selected'))).toEqual(['false', 'true', 'false']);
+      expect(container.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toBe(tabs[1].id);
+      await waitFor(() => feedOrigin.paths.some(path => path.startsWith('/v2/discovery/feed') && path.includes('order=chronological')));
+      act(() => tabs[2].click());
+      expect(tabs.map(tab => tab.getAttribute('aria-selected'))).toEqual(['false', 'false', 'true']);
+      await waitFor(() => feedOrigin.paths.some(path => path.startsWith('/v2/discovery/feed') && path.includes('order=relevance')));
+      await waitFor(() => !/Loading callouts/.test(container.textContent ?? ''), 8000);
+      expect(container.querySelector('button[aria-pressed]')?.textContent).toBe('Live');
+      expect(container.querySelector('[data-state="unavailable"]')?.textContent).toContain('Try again');
+      act(() => tabs[2].dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
+      expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+      expect(document.activeElement).toBe(tabs[0]);
+      act(() => tabs[0].dispatchEvent(new window.KeyboardEvent('keydown', { key: 'End', bubbles: true })));
+      expect(tabs[2].getAttribute('aria-selected')).toBe('true');
+      act(() => tabs[2].dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Home', bubbles: true })));
+      expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+      expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
+      expect(container.innerHTML).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+    } finally {
+      unmount(root, container, queryClient);
+      await new Promise<void>(resolve => feedOrigin.server.close(() => resolve()));
+    }
+  }
+
+  it(homeDiscoveryTabsKeepReadFailuresAndKeyboardNavigation.name, homeDiscoveryTabsKeepReadFailuresAndKeyboardNavigation, 15000);
 });

@@ -13,6 +13,7 @@ import (
 )
 
 func TestReplayPersistenceRetainsImmutableArchiveAndMonotonicHead(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	snapshot, err := s.Rebuild(ctx, realMarketCreator, realMarketToken, 33963733)
@@ -109,6 +110,7 @@ func TestReplayPersistenceRetainsImmutableArchiveAndMonotonicHead(t *testing.T) 
 }
 
 func TestReplayArchiveRejectsUnboundStoredRecords(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	snapshot, err := s.Rebuild(ctx, realMarketCreator, realMarketToken, 33963733)

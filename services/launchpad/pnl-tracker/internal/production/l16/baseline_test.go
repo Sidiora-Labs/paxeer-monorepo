@@ -58,6 +58,7 @@ func TestBaselineTransferDecoderRejectsNoncanonicalAddressAndRemovedLogs(t *test
 }
 
 func TestFreshBaselineCapturedFromActualCanonicalChain(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, authority, wallet, token := localCanonicalBaseline(t)
 	pool := authority.pool
 	digest, err := authority.Capture(ctx, wallet, token)

@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, test, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import { CapabilityUnavailableError, HttpError, StreamTransportError, type V2ContractTypes } from '@kindle/sdk';
-import { isPolicyBlockedError, isTransientError, networkRetryBudgetMs, readRetryFields, retryTransientOnly, transientRetry, transientRetryBudgetMs, transientRetryCapMs, transientRetryDelay, transientRetryLimit } from './transient-retry';
+import { isPolicyBlockedError, isTransientError, networkRetryBudgetMs, readRetryFields, retryTransientOnly, transientRetry, transientRetryBudgetMs, transientRetryCapMs, transientRetryDelay, transientRetryFallbackMs, transientRetryLimit } from './transient-retry';
 import { clearPolicyViolations, installPolicyViolationMonitor, policyBlockedOrigin, PolicyBlockedError, recordPolicyViolation } from './policy-block';
 import { plainCopy, userFacingMessage } from './user-facing-error';
 import { dataApiUrl } from './sdk-config';
@@ -23,7 +23,7 @@ describe('transient retry policy', () => {
 
   it('leaves every other failure to the caller', () => {
     expect(isTransientError(new HttpError(503, envelope('DEPENDENCY_UNAVAILABLE', false, null)))).toBe(false);
-    expect(isTransientError(new HttpError(503, envelope('PROJECTION_UNAVAILABLE', true, null)))).toBe(false);
+    expect(isTransientError(new HttpError(500, envelope('PROJECTION_UNAVAILABLE', true, null)))).toBe(false);
     expect(isTransientError(new HttpError(503))).toBe(false);
     expect(isTransientError(new HttpError(429, envelope('RATE_LIMITED', false, null)))).toBe(false);
     expect(isTransientError(new HttpError(422, envelope('FIELD_INVALID', false, null)))).toBe(false);
@@ -59,11 +59,53 @@ describe('transient retry policy', () => {
   it('keeps last-good data when a refetch ran out of transient retries, but not for other failures', () => {
     const refetch = () => Promise.resolve() as never;
     const blip = new HttpError(503, envelope('DEPENDENCY_UNAVAILABLE', true, 1000));
-    expect(loadable({ status: 'error', data: [1], error: blip, refetch }, 'IF_FEED')).toEqual({ state: 'ready', data: [1] });
-    expect(loadable({ status: 'error', data: undefined, error: blip, refetch }, 'IF_FEED')).toMatchObject({ state: 'unsupported', status: 503 });
+    expect(loadable({ status: 'error', data: [1], error: blip, refetch }, 'IF_FEED')).toEqual({ state: 'ready', data: [1], stale: true });
+    expect(loadable({ status: 'error', data: undefined, error: blip, refetch }, 'IF_FEED')).toMatchObject({ state: 'unsupported', status: 503, error: blip });
     expect(loadable({ status: 'error', data: [1], error: new HttpError(422), refetch }, 'IF_FEED').state).toBe('error');
   });
 });
+
+function retryable503WithoutDelayIsTransientWithTheFallbackWait() {
+  for (const error of [
+    new HttpError(503, envelope('DEPENDENCY_UNAVAILABLE', true, null)),
+    Object.assign(new Error('Dependency unavailable'), { status: 503, retryable: true }),
+    new AccountApiError(503, 'DEPENDENCY_UNAVAILABLE', [], true),
+    new LivestreamApiError(503, true),
+  ]) {
+    expect(isTransientError(error)).toBe(true);
+    expect(transientRetryDelay(0, error)).toBe(transientRetryFallbackMs);
+  }
+}
+test(retryable503WithoutDelayIsTransientWithTheFallbackWait.name, retryable503WithoutDelayIsTransientWithTheFallbackWait);
+
+function retryable503WithoutDelayGetsExactlyOneRetry() {
+  const error = new HttpError(503, envelope('DEPENDENCY_UNAVAILABLE', true, null));
+  expect(retryTransientOnly.retry(0, error)).toBe(true);
+  expect(retryTransientOnly.retry(1, error)).toBe(false);
+  expect(transientRetry(4).retry(1, error)).toBe(false);
+}
+test(retryable503WithoutDelayGetsExactlyOneRetry.name, retryable503WithoutDelayGetsExactlyOneRetry);
+
+function retryable500WithoutDelayIsNotTransient() {
+  const error = new HttpError(500, envelope('DEPENDENCY_UNAVAILABLE', true, null));
+  expect(isTransientError(error)).toBe(false);
+  expect(retryTransientOnly.retry(0, error)).toBe(false);
+}
+test(retryable500WithoutDelayIsNotTransient.name, retryable500WithoutDelayIsNotTransient);
+
+function nonRetryable503AndUnavailableStatusesKeepTheirPolicy() {
+  for (const status of [503, 404, 501, 412]) {
+    const error = new HttpError(status, envelope('DEPENDENCY_UNAVAILABLE', false, null));
+    expect(isTransientError(error)).toBe(false);
+    expect(retryTransientOnly.retry(0, error)).toBe(false);
+  }
+  for (const status of [404, 501, 412]) {
+    const error = new HttpError(status, envelope('DEPENDENCY_UNAVAILABLE', true, null));
+    expect(isTransientError(error)).toBe(false);
+    expect(retryTransientOnly.retry(0, error)).toBe(false);
+  }
+}
+test(nonRetryable503AndUnavailableStatusesKeepTheirPolicy.name, nonRetryable503AndUnavailableStatusesKeepTheirPolicy);
 
 /**
  * Wall-clock behaviour through a real React Query client: how long a read
@@ -86,6 +128,16 @@ async function timeToFailure(error: Error, options = transientRetry(1)): Promise
 
 describe('retry ownership and wall-time budget', () => {
   afterEach(() => { vi.useRealTimers(); clearPolicyViolations(); });
+
+  async function retryable503WithoutDelaySurfacesAfterOneSecond() {
+    vi.useFakeTimers();
+    const error = new HttpError(503, envelope('DEPENDENCY_UNAVAILABLE', true, null));
+    expect(await timeToFailure(error)).toEqual({ attempts: 2, elapsedMs: transientRetryFallbackMs });
+    const refetch = () => Promise.resolve() as never;
+    expect(loadable({ status: 'error', data: undefined, error, refetch }, 'IF_CONNECTED_FEED')).toMatchObject({ state: 'unsupported', status: 503, error });
+    expect(loadable({ status: 'error', data: [1], error, refetch }, 'IF_CONNECTED_FEED')).toEqual({ state: 'ready', data: [1], stale: true });
+  }
+  test(retryable503WithoutDelaySurfacesAfterOneSecond.name, retryable503WithoutDelaySurfacesAfterOneSecond);
 
   it('adds no query-layer retries to an SDK network interruption (the SDK transport already retried the read)', async () => {
     vi.useFakeTimers();

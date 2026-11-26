@@ -51,7 +51,7 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
   if (state.loading || ranking.state === 'loading') {
     body = <div role="status" aria-label={`Loading ${title.toLowerCase()}`} className="absolute inset-0 overflow-hidden"><TableRowsSkeleton rows={6} columns={3} dense /></div>;
   } else if (ranking.state === 'unsupported') {
-    body = <UnavailableState title={title} operation={ranking.operation} status={ranking.status} message={ranking.message} onRetry={state.reload} className="p-4" />;
+    body = <UnavailableState title={title} operation={ranking.operation} status={ranking.status} notServed={ranking.notServed} message={ranking.message} onRetry={state.reload} className="p-4" />;
   } else if (ranking.state === 'error') {
     body = <ErrorState title={`${title} can't load right now`} message={userFacingMessage(ranking.error)} onRetry={ranking.retry} className="p-4" />;
   } else if (rows.length === 0) {
@@ -73,9 +73,9 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
   }
 
   return (
-    <section aria-labelledby={headingId} className={cn('flex min-h-0 flex-col bg-surface-1', className)}>
+    <section aria-labelledby={headingId} className={cn('sl-hairline flex min-h-0 flex-col bg-surface-1', className)}>
       <header className="flex min-h-control-height-sm shrink-0 flex-wrap items-center gap-1 px-2 min-[835px]:flex-nowrap">
-        <h2 id={headingId} className="mr-auto truncate text-sm font-bold text-text">{title}</h2>
+        <h2 id={headingId} className="mr-auto truncate text-sm font-semibold text-text">{title}</h2>
         <SegmentedControl
           label={`${title} change window`}
           className="shrink-0"

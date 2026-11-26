@@ -121,7 +121,11 @@ def test_attestor_inventory_path_entrypoint_guards_and_signer_consumer():
         "COPY services/interop/deploy/bridge-relayer/signer-keys.json "
         "/etc/layerx/bridge-signer/keys.json"
     ) in dockerfile.splitlines()
-    assert 'ENTRYPOINT ["/usr/local/bin/bridge-relayer-entrypoint"]' in dockerfile.splitlines()
+    assert 'ENTRYPOINT ["/usr/local/bin/bridge-relayer-env-entrypoint"]' in dockerfile.splitlines()
+    env_entrypoint = (ROOT / "docker/bridge-relayer/env-entrypoint.sh").read_text()
+    assert (
+        "exec /usr/local/bin/layerx-env-files /usr/local/bin/bridge-relayer-entrypoint"
+    ) in env_entrypoint.splitlines()
     consumer = (ROOT / "services/interop/crates/layerx-mirror-signer/src/lib.rs").read_text()
     assert 'pub const DEFAULT_BRIDGE_KEYS_FILE: &str = "/etc/layerx/bridge-signer/keys.json";' in consumer
     assert 'keys_file: PathBuf::from(DEFAULT_BRIDGE_KEYS_FILE)' in consumer

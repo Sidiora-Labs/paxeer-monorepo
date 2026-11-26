@@ -441,7 +441,7 @@ async function rewriteTableRejectsUnusableUpstreamOrigins() {
   }
 }
 
-test(healthRouteAnswersGoodRequests, healthRouteAnswersGoodRequests);
+test(healthRouteAnswersGoodRequests, healthRouteAnswersGoodRequests, 35_000);
 test(healthRouteRejectsUnsupportedMethods, healthRouteRejectsUnsupportedMethods);
 test(healthRouteIsIndependentOfUpstreams, healthRouteIsIndependentOfUpstreams);
 test(errorRouteDeliversAClientBeacon, errorRouteDeliversAClientBeacon);

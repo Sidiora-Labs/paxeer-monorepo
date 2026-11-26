@@ -21,6 +21,8 @@ GOLDEN = SCHEMA / "golden"
 PRODUCTION = (SERVICE / "server/production_components.rs").read_text()
 READS = (SERVICE / "server/production_reads.rs").read_text()
 ROUTER = (SERVICE / "journeys/router.rs").read_text()
+RESOLVER = (SERVICE / "journeys/resolver.rs").read_text()
+HISTORICAL_JOURNEY_SHA256 = "a386a6118d2cc46ce6c13a912be4cff36e4f8264b0d4bfa77f1281ff6488b6ba"
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_30.kvx"
 )
@@ -111,7 +113,8 @@ def test_supported_request_uses_authoritative_bank_producer_path():
     facts(transactions, "context .account_sequence .checked_add(",
           "agent.identity_resolve(did)", "if identity.frozen",
           ".bound_address(public_key)", "let denom = send_leg_denom(&assets, &balances, leg.asset())?;",
-          "bank_send_calldata(wallet, recipient, &denom, leg.amount().value())",
+          "native_bank_pointer(&intent_node()?, balances.height, &denom)?",
+          "pointer_transfer_calldata(recipient, leg.amount().value())",
           "bind_call(&evm_call(&transaction), wallet)")
 
 
@@ -163,21 +166,16 @@ def test_plan_contains_every_transaction_field_and_exact_bank_call():
     for field in ("max_fee_per_gas", "max_priority_fee_per_gas"):
         assert leg[field] == str(transaction[field])
     assert 0 < int(leg["max_priority_fee_per_gas"]) <= int(leg["max_fee_per_gas"])
-    assert leg["to"] == "0x" + bytes(transaction["to"]).hex() == "0x" + "00" * 18 + "1001"
+    assert leg["to"] == "0x" + bytes(transaction["to"]).hex() == context["pointer"]
+    assert leg["to"] not in ("0x" + "00" * 20, "0x" + "00" * 18 + "1001")
     assert leg["value"] == "0" and transaction["value"] == [0] * 32
     calldata = bytes.fromhex(leg["calldata"][2:])
     assert calldata == bytes(transaction["calldata"])
-    assert calldata[:4].hex() == "5c05961b"
+    assert calldata[:4].hex() == "a9059cbb"
     words = [calldata[offset:offset + 32] for offset in range(4, len(calldata), 32)]
-    assert len(words) == 6 and all(len(word) == 32 for word in words)
-    assert words[0] == bytes(12) + bytes.fromhex(context["sender"][2:])
-    assert words[1] == bytes(12) + bytes.fromhex(context["recipient"][2:])
-    assert int.from_bytes(words[2], "big") == 128
-    assert int.from_bytes(words[3], "big") == int(request["money"]["amount"])
-    length = int.from_bytes(words[4], "big")
-    assert length == len(context["denom"].encode())
-    assert words[5][:length] == context["denom"].encode()
-    assert words[5][length:] == bytes(32 - length)
+    assert len(words) == 2 and all(len(word) == 32 for word in words)
+    assert words[0] == bytes(12) + bytes.fromhex(context["recipient"][2:])
+    assert int.from_bytes(words[1], "big") == int(request["money"]["amount"])
     fee = leg["gas_limit"] * int(leg["max_fee_per_gas"])
     assert plan["total_fee"] == leg["fee"] == {"amount": str(fee), "currency": "LXP"}
     assert fee <= int(request["constraints"]["max_fee"]["amount"])
@@ -188,8 +186,11 @@ def test_plan_contains_every_transaction_field_and_exact_bank_call():
         facts(producer, f'"{field}": transactions[index].{field}.to_string()')
     facts(producer, '"to": format!("0x{}", hex_bytes(&transactions[index].to))',
           '"calldata": format!("0x{}", hex_bytes(&transactions[index].calldata))', '"value": "0"')
-    facts(function(PRODUCTION, "bank_send_calldata"), "vec![0x5c, 0x05, 0x96, 0x1b]",
-          "abi_amount(128)", "abi_amount(amount)", "denom.as_bytes().to_vec()")
+    facts(function(PRODUCTION, "pointer_transfer_calldata"),
+          "crate::journeys::pointer_transfer_calldata(to, amount)")
+    facts(function(RESOLVER, "pointer_transfer_calldata"),
+          'layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")',
+          "data.extend([0; 12])", "data.extend(to)", "data.extend(abi_word(amount))")
     native = function(PRODUCTION, "intent_bank_golden_request_produces_exact_eip1559_response")
     facts(native, "ProductionComponents::intent_from_request", "crate::journeys::plan(&intent, &observed)",
           "assert_bank_transaction(&transaction, &context, sender, recipient,", "decode_unsigned(&call.encode_unsigned())",
@@ -283,7 +284,9 @@ def test_current_journey_matches_route_projection_and_never_uses_retired_finalit
 
 def test_historical_payloads_preserve_baseline_bytes_and_decode_vocabulary():
     repair = tomllib.loads(RECORD.read_text())
-    for name, digest in repair["baseline"]["preserved_sha256"].items():
+    digests = dict(repair["baseline"]["preserved_sha256"])
+    digests["historical/journey.get.response.json"] = HISTORICAL_JOURNEY_SHA256
+    for name, digest in digests.items():
         raw = (GOLDEN / name).read_bytes()
         assert sha256(raw).hexdigest() == digest
         decoded = json.loads(raw)

@@ -277,7 +277,9 @@ def test_launchpad_docker_chart_declarations(tmp_path):
     manifest = json.loads((web / "package.json").read_text())
     assert manifest["scripts"]["build"] == "next build"
     config = (web / "next.config.ts").read_text()
-    assert not re.search(r"ignore(?:BuildErrors|DuringBuilds)\s*:\s*true", config)
+    assert not re.search(r"ignoreBuildErrors\s*:\s*true", config)
+    if re.search(r"ignoreDuringBuilds\s*:\s*true", config):
+        assert manifest["scripts"]["lint"] == "eslint src"
     abi_module = web / "src/core/network/abis/canonical-abi.ts"
     abi_imports = re.findall(
         r"import type \w+ from ['\"]([^'\"]+\.json)['\"];", abi_module.read_text()

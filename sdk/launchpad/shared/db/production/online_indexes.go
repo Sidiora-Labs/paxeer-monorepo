@@ -35,7 +35,12 @@ type OnlineIndexKey struct {
 	JSONTextPosition *int   `json:"json_text_position,omitempty"`
 }
 
+const onlineIndexGiST = "gist"
+
+const onlineIndexBtree = "btree"
+
 type OnlineIndexPlan struct {
+	Method  string           `json:"method,omitempty"`
 	Schema  string           `json:"schema"`
 	Table   string           `json:"table"`
 	Name    string           `json:"name"`
@@ -45,6 +50,12 @@ type OnlineIndexPlan struct {
 }
 
 func (p OnlineIndexPlan) keys() ([]OnlineIndexKey, error) {
+	if p.Method != "" && p.Method != onlineIndexBtree && p.Method != onlineIndexGiST {
+		return nil, fmt.Errorf("unsupported online index method")
+	}
+	if p.Method == onlineIndexGiST && p.Unique {
+		return nil, fmt.Errorf("GiST online indexes are not unique")
+	}
 	if len(p.Columns) > 0 && len(p.Keys) > 0 {
 		return nil, fmt.Errorf("one index key representation required")
 	}
@@ -57,6 +68,9 @@ func (p OnlineIndexPlan) keys() ([]OnlineIndexKey, error) {
 	}
 	seen := map[string]bool{}
 	for _, k := range keys {
+		if p.Method == onlineIndexGiST && (k.Numeric || k.Descending || k.JSONTextPosition != nil) {
+			return nil, fmt.Errorf("GiST online indexes require plain columns")
+		}
 		identity := k.Column
 		if k.JSONTextPosition != nil {
 			if *k.JSONTextPosition < 0 || *k.JSONTextPosition > 3 || k.Numeric {
@@ -72,7 +86,27 @@ func (p OnlineIndexPlan) keys() ([]OnlineIndexKey, error) {
 	return keys, nil
 }
 
+const onlineBtreeGiSTDDL = `CREATE EXTENSION IF NOT EXISTS "btree_gist" WITH SCHEMA "public";`
+
+func (p OnlineIndexPlan) method() string {
+	if p.Method == "" {
+		return onlineIndexBtree
+	}
+	return p.Method
+}
+
 func (p OnlineIndexPlan) CreateSQL() (string, error) {
+	statement, err := p.indexSQL()
+	if err != nil {
+		return "", err
+	}
+	if p.Method == onlineIndexGiST {
+		return onlineBtreeGiSTDDL + "\n" + statement, nil
+	}
+	return statement, nil
+}
+
+func (p OnlineIndexPlan) indexSQL() (string, error) {
 	keys, err := p.keys()
 	if err != nil {
 		return "", err
@@ -93,7 +127,11 @@ func (p OnlineIndexPlan) CreateSQL() (string, error) {
 	if p.Unique {
 		unique = "UNIQUE "
 	}
-	return "CREATE " + unique + "INDEX CONCURRENTLY " + pgx.Identifier{p.Name}.Sanitize() + " ON " + pgx.Identifier{p.Schema, p.Table}.Sanitize() + " (" + strings.Join(columns, ", ") + ");", nil
+	method := ""
+	if p.Method == onlineIndexGiST {
+		method = " USING gist"
+	}
+	return "CREATE " + unique + "INDEX CONCURRENTLY " + pgx.Identifier{p.Name}.Sanitize() + " ON " + pgx.Identifier{p.Schema, p.Table}.Sanitize() + method + " (" + strings.Join(columns, ", ") + ");", nil
 }
 
 type OnlineIndexState struct {
@@ -124,7 +162,7 @@ func InspectOnlineIndex(ctx context.Context, conn *pgx.Conn, p OnlineIndexPlan) 
 			positions[i] = int32(position)
 		}
 	}
-	err := conn.QueryRow(ctx, `SELECT i.indisvalid,i.indisready,i.indisunique,t.relname,tn.nspname,am.amname,ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum ORDER BY k.ord),pg_get_expr(i.indpred,i.indrelid),pg_get_expr(i.indexprs,i.indrelid),pg_get_indexdef(i.indexrelid)=format('CREATE %sINDEX %I ON %I.%I USING btree (%s)',$4::text,$2::text,$1::text,$3::text,(SELECT string_agg(CASE WHEN pos>=0 THEN '(('||quote_ident(v)||' ->> '||pos::text||'))' WHEN num THEN '(('||quote_ident(v)||')::numeric)' ELSE quote_ident(v) END || CASE WHEN desc_key THEN ' DESC' ELSE '' END,', ' ORDER BY ord) FROM unnest($5::text[],$6::boolean[],$7::boolean[],$8::integer[]) WITH ORDINALITY col(v,num,desc_key,pos,ord))) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace tn ON tn.oid=t.relnamespace JOIN pg_am am ON am.oid=c.relam WHERE n.nspname=$1 AND c.relname=$2`, p.Schema, p.Name, p.Table, indexUniquePrefix(p.Unique), keyNames, numeric, descending, positions).Scan(&state.Valid, &state.Ready, &state.Unique, &state.Table, &state.Schema, &state.Method, &state.Columns, &state.Predicate, &state.Expressions, &state.DefinitionMatches)
+	err := conn.QueryRow(ctx, `SELECT i.indisvalid,i.indisready,i.indisunique,t.relname,tn.nspname,am.amname,ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum ORDER BY k.ord),pg_get_expr(i.indpred,i.indrelid),pg_get_expr(i.indexprs,i.indrelid),pg_get_indexdef(i.indexrelid)=format('CREATE %sINDEX %I ON %I.%I USING %s (%s)',$4::text,$2::text,$1::text,$3::text,$9::text,(SELECT string_agg(CASE WHEN pos>=0 THEN '(('||quote_ident(v)||' ->> '||pos::text||'))' WHEN num THEN '(('||quote_ident(v)||')::numeric)' ELSE quote_ident(v) END || CASE WHEN desc_key THEN ' DESC' ELSE '' END,', ' ORDER BY ord) FROM unnest($5::text[],$6::boolean[],$7::boolean[],$8::integer[]) WITH ORDINALITY col(v,num,desc_key,pos,ord))) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace tn ON tn.oid=t.relnamespace JOIN pg_am am ON am.oid=c.relam WHERE n.nspname=$1 AND c.relname=$2`, p.Schema, p.Name, p.Table, indexUniquePrefix(p.Unique), keyNames, numeric, descending, positions, p.method()).Scan(&state.Valid, &state.Ready, &state.Unique, &state.Table, &state.Schema, &state.Method, &state.Columns, &state.Predicate, &state.Expressions, &state.DefinitionMatches)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return state, nil
 	}
@@ -160,7 +198,7 @@ func (s OnlineIndexState) matches(p OnlineIndexPlan) bool {
 	if s.Expressions != nil {
 		expressionMatches = *s.Expressions == strings.Join(expressions, ", ")
 	}
-	return s.Exists && s.DefinitionMatches && s.Schema == p.Schema && s.Table == p.Table && s.Unique == p.Unique && s.Method == "btree" && s.Predicate == nil && expressionMatches && reflect.DeepEqual(s.Columns, columns)
+	return s.Exists && s.DefinitionMatches && s.Schema == p.Schema && s.Table == p.Table && s.Unique == p.Unique && s.Method == p.method() && s.Predicate == nil && expressionMatches && reflect.DeepEqual(s.Columns, columns)
 }
 
 type IndexRepairApproval struct {
@@ -356,6 +394,18 @@ func ApplyOnlineIndexMigrationAsOwner(ctx context.Context, conn *pgx.Conn, m Mig
 			}
 		}
 	}()
+	if plan.Method == onlineIndexGiST {
+		if _, err = conn.Exec(ctx, onlineBtreeGiSTDDL); err != nil {
+			return err
+		}
+		var schema string
+		if err = conn.QueryRow(ctx, "SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='btree_gist'").Scan(&schema); err != nil {
+			return err
+		}
+		if schema != publicSchema {
+			return fmt.Errorf("btree_gist requires its approved public schema")
+		}
+	}
 	if _, err = conn.Exec(ctx, "SET ROLE "+pgx.Identifier{owner}.Sanitize()); err != nil {
 		return err
 	}
@@ -364,7 +414,11 @@ func ApplyOnlineIndexMigrationAsOwner(ctx context.Context, conn *pgx.Conn, m Mig
 			return err
 		}
 	}
-	if _, err = conn.Exec(ctx, sql); err != nil {
+	statement, err := plan.indexSQL()
+	if err != nil {
+		return err
+	}
+	if _, err = conn.Exec(ctx, statement); err != nil {
 		return err
 	}
 	state, err = InspectOnlineIndex(ctx, conn, plan)

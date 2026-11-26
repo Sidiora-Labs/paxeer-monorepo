@@ -10,6 +10,9 @@ def frozen_v1_generator():
  if hashlib.sha256(FROZEN_V1_GENERATOR_SOURCE).hexdigest()!='9c86c1072975321e426a91d65dfd10123a3b9df6ca53c2a6dcc34a547abe3681':raise GenerationError("immutable v1 generator source mismatch")
  return FROZEN_V1_GENERATOR_SOURCE
 
+def validator_template(major):
+ return pathlib.Path(__file__).with_name('validator.go.txt' if major==1 else 'validator.compiled.go.txt')
+
 KEYWORDS={'$schema','$id','$ref','$defs','type','title','description','default','examples','example','deprecated','readOnly','writeOnly','const','enum','oneOf','anyOf','allOf','not','properties','required','additionalProperties','items','minItems','maxItems','uniqueItems','minLength','maxLength','pattern','format','minimum','maximum','exclusiveMinimum','exclusiveMaximum','multipleOf','minProperties','maxProperties'}
 FORMATS={'date-time','uuid','uri','email','hostname','ipv4','ipv6'}
 def ident(s):
@@ -127,7 +130,7 @@ class Generator:
   for name in sorted(self.document['$defs']):decoders.append(f'func Decode{name}(raw []byte) ({name},error) {{var value {name};if err:=ValidateJSON("{name}",raw);err!=nil{{return value,err}};err:=json.Unmarshal(raw,&value);return value,err}}\n')
   gocode=go_header+''.join(go)+''.join(decoders)
   go_output=self.format_go(gocode)
-  validators=(pathlib.Path(__file__).parent/'validator.go.txt').read_text().replace('__SCHEMA_JSON__',json.dumps(schema))
+  validators=validator_template(self.major).read_text().replace('__SCHEMA_JSON__',json.dumps(schema))
   if self.major!=1 or self.go_package!='v1':
    lines=validators.splitlines(keepends=True);packages=0;versions=0
    for i,line in enumerate(lines):
@@ -160,7 +163,7 @@ def main(argv=None):
   data=source.read_bytes();doc=json.loads(data)
   if not isinstance(doc.get('$defs'),dict) or not doc['$defs']:raise GenerationError('nonempty $defs required')
   for name,node in doc['$defs'].items():validate_schema(node,doc['$defs'],name)
-  outputs=Generator(doc,args.major,args.go_package,args.go_out,args.ts_out,not args.no_format).emit();manifest={'formatVersion':1,'generator':'tools/launchpad/production/interfaces/codegen.py','generatorSha256':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),'validatorTemplateSha256':hashlib.sha256(pathlib.Path(__file__).with_name('validator.go.txt').read_bytes()).hexdigest(),'schemaPath':str(source.relative_to(root)) if source.is_relative_to(root) else str(source),'schemaSha256':hashlib.sha256(data).hexdigest(),'definitionCount':len(doc['$defs']),'outputs':{p:hashlib.sha256(v.encode()).hexdigest() for p,v in outputs.items()}}
+  outputs=Generator(doc,args.major,args.go_package,args.go_out,args.ts_out,not args.no_format).emit();manifest={'formatVersion':1,'generator':'tools/launchpad/production/interfaces/codegen.py','generatorSha256':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),'validatorTemplateSha256':hashlib.sha256(validator_template(args.major).read_bytes()).hexdigest(),'schemaPath':str(source.relative_to(root)) if source.is_relative_to(root) else str(source),'schemaSha256':hashlib.sha256(data).hexdigest(),'definitionCount':len(doc['$defs']),'outputs':{p:hashlib.sha256(v.encode()).hexdigest() for p,v in outputs.items()}}
   if args.major==1:
    frozen=json.loads((root/manifest_path).read_bytes())
    if frozen['schemaSha256']!=manifest['schemaSha256'] or frozen['outputs']!=manifest['outputs']:raise GenerationError('immutable v1 input/output reproduction differs')

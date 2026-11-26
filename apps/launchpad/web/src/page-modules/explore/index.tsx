@@ -1,9 +1,9 @@
 'use client';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, TriangleAlert } from 'lucide-react';
 import { SourceNotice } from '@/ui/common/source-notice';
-import { Button, EmptyState, StateNotice, UnavailableState } from '@/ui/primitives';
+import { Button, EmptyState, humanError, UnavailableState } from '@/ui/primitives';
 import { ExploreView } from '@/widgets/explore/explore-view';
 import { ExploreLoading } from '@/widgets/explore/explore-loading';
 import { presetFor, PresetTabs } from '@/widgets/explore/preset-tabs';
@@ -31,22 +31,22 @@ function ExplorePage() {
   const tabs = <PresetTabs active={preset.id} />;
 
   const rankingFailed = data.ranking.state === 'unsupported' || data.ranking.state === 'error';
-  /* A failed ranking keeps the toolbar and the table frame (headers, card) and puts a notice inside it. */
+  /* A failed ranking keeps the toolbar and table heads with its notice below them. */
   let empty: React.ReactNode;
   if (data.ranking.state === 'unsupported') {
     empty = (
       <div
         data-ranking-state="unsupported"
-        className="flex min-h-64 items-center justify-center p-6"
+        className="flex items-center justify-center"
       >
         <UnavailableState
-          variant="chip"
+          variant="panel"
           plural="auto"
           surface={1}
           wrap
           title="Coins"
           operation={data.ranking.operation}
-          status={data.ranking.status}
+          status={data.ranking.status} notServed={data.ranking.notServed}
           message={data.ranking.message}
           onRetry={data.reload}
         />
@@ -54,16 +54,14 @@ function ExplorePage() {
     );
   } else if (data.ranking.state === 'error') {
     empty = (
-      <div data-ranking-state="error" className="flex min-h-64 items-center justify-center p-6">
-        <StateNotice
-          kind="error"
-          surface={1}
-          wrap
-          error={data.ranking.error}
-          onRetry={data.ranking.retry}
-        >
-          {"Couldn't load coins right now"}
-        </StateNotice>
+      <div data-ranking-state="error" className="flex items-center justify-center">
+        <EmptyState
+          icon={TriangleAlert}
+          title="Couldn't load coins right now"
+          body={humanError(data.ranking.error)}
+          action={<Button variant="secondary" size="sm" onClick={data.ranking.retry}>Try again</Button>}
+          announce
+        />
       </div>
     );
   } else {
@@ -71,10 +69,10 @@ function ExplorePage() {
       <EmptyState
         variant="panel"
         icon={TrendingUp}
-        title="No coins yet"
-        body="Coins show up here once they start trading"
+        title={`No coins in ${preset.label} yet`}
+        body={preset.emptyDescription}
         action={
-          <Button variant="primary" size="sm" href="/create">
+          <Button variant="secondary" size="sm" href="/create">
             Create coin
           </Button>
         }
@@ -117,7 +115,7 @@ function ExplorePage() {
 export default function ExploreModule() {
   return (
     <div className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
-      <h1 className="text-lg font-medium text-text">Explore coins</h1>
+      <h1 className="text-lg font-bold text-text">Explore coins</h1>
       <Suspense fallback={<ExploreLoading />}>
         <ExplorePage />
       </Suspense>

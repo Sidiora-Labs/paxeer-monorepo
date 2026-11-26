@@ -280,7 +280,6 @@ impl Boundary {
             ("gateway", "gateway-token"),
             ("registry", "registry-token"),
             ("webhook", "webhook-token"),
-            ("node", "node-token"),
         ] {
             must(fs::write(directory.join(name), token));
         }
@@ -323,18 +322,11 @@ impl Boundary {
                 "LAYERX_AGENT_BOUNDARY_WEBHOOK_TOKEN_FILE",
                 directory.join("webhook"),
             )
-            .env(
-                "LAYERX_AGENT_BOUNDARY_NODE_BEARER_TOKEN_FILE",
-                directory.join("node"),
-            )
-            .env("LAYERX_AGENT_BOUNDARY_NODE_URL", "http://127.0.0.1:1")
             .env("LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL", url)
             .env(
                 "LAYERX_AGENT_BOUNDARY_RECEIPT_KEYS_FILE",
                 directory.join("keys.json"),
             )
-            .env("LAYERX_AGENT_BOUNDARY_STATE_DIR", directory.join("state"))
-            .env("LAYERX_AGENT_BOUNDARY_PROTOCOL_NETWORK_ID", "125")
             .env("LAYERX_AGENT_BOUNDARY_NETWORK_ID", "receipt-chain")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -579,7 +571,10 @@ fn boundary_starts_without_an_lni_socket() {
             );
         }
     }
-    assert!(must(fs::read_dir(boundary.directory.join("state/journal")))
-        .next()
-        .is_none());
+    for name in ["state", "journal", "activities"] {
+        assert!(
+            !boundary.directory.join(name).exists(),
+            "created unused {name} directory"
+        );
+    }
 }

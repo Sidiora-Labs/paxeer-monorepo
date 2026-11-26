@@ -448,6 +448,9 @@ func TestPostgresDelivery(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		if _, err := pool.Exec(ctx, "UPDATE "+q+".delivery_outbox SET attempts=$1 WHERE event_id='crash-budget'", relayBudgetMaxAttempts); err != nil {
+			t.Fatal(err)
+		}
 		restarted, err := NewStore(pool, schema, fixturePolicy())
 		if err != nil {
 			t.Fatal(err)

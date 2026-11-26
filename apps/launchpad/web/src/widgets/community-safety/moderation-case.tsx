@@ -11,8 +11,8 @@ interface Props {
     action: SafetyActionState;
     onResolve?: (caseId: string, command: ResolveReportCommand) => void;
 }
-const fieldClass = 'w-full rounded-sm bg-surface-2 px-3 text-base text-text outline-none transition-colors duration-fast placeholder:text-text-faint focus-visible:outline-2 focus-visible:outline-focus disabled:text-text-disabled';
-const labelClass = 'text-sm font-bold text-text';
+const fieldClass = 'sl-field w-full rounded-sm bg-surface-2 px-3 text-base text-text outline-none transition-colors duration-fast placeholder:text-text-faint focus-visible:outline-2 focus-visible:outline-focus disabled:text-text-disabled';
+const labelClass = 'text-sm font-semibold text-text';
 export function ModerationCasePanel({ caseRecord, canResolve, action, onResolve }: Props) {
     const id = useId();
     const submitted = useRef(false);
@@ -37,7 +37,7 @@ export function ModerationCasePanel({ caseRecord, canResolve, action, onResolve 
     }
     const busy = action.state === 'pending';
     return <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-4 rounded-md bg-surface-1 p-4">
-    <h2 id={`${id}-heading`} className="text-md font-bold text-text">Review report</h2>
+    <h2 id={`${id}-heading`} className="text-md font-semibold text-text">Review report</h2>
     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-sm bg-surface-2 p-3 text-sm"><dt className="text-text-faint">Content</dt><dd className="break-all text-text">{caseRecord.TargetType}: {caseRecord.TargetID}</dd><dt className="text-text-faint">Status</dt><dd className="text-text">{caseRecord.State}</dd><dt className="text-text-faint">Revision</dt><dd className="text-text" data-numeric>{caseRecord.Revision}</dd></dl>
     {!available && <p role="status" className="text-sm text-text-faint">{mutable ? "You can't review this report" : 'This report is closed or under appeal'}</p>}
     {available && <form onSubmit={submit} aria-busy={busy || undefined} className="flex flex-col gap-3">
@@ -62,5 +62,5 @@ export function ConnectedModerationCases({client,canResolve}:{client:SafetyClien
  const [cases,setCases]=useState<SafetyCase[]>([]);const [loaded,setLoaded]=useState(false);const [state,setState]=useState<SafetyActionState>({state:'idle'});const lock=useRef(false);
  useEffect(()=>{const abort=new AbortController();setCases([]);setLoaded(false);setState({state:'idle'});client.cases(abort.signal).then(rows=>{if(abort.signal.aborted)return;setCases(rows);setLoaded(true);}).catch(error=>{if(!abort.signal.aborted)setState({state:'failed',status:error instanceof SafetyRequestError?error.status:503});});return()=>abort.abort();},[client,attempt]);
  async function resolve(id:string,command:ResolveReportCommand){if(lock.current)return;lock.current=true;setState({state:'pending'});try{await client.resolve(id,command);setCases((await client.cases())??[]);setState({state:'acknowledged'});}catch(error){setState({state:'failed',status:error instanceof SafetyRequestError?error.status:503});}finally{lock.current=false;}}
- return <section aria-label="Moderation queue" className="flex flex-col gap-3"><h2 className="text-md font-bold text-text">Reports to review</h2>{!loaded&&state.state!=='failed'&&<p role="status" className="text-sm text-text-muted">Loading reports...</p>}{state.state==='failed'&&<Button variant="secondary" size="sm" onClick={()=>setAttempt(value=>value+1)}>Try again</Button>}{loaded&&cases.length===0&&<EmptyState icon={ShieldCheck} title="No reports to review" body="New reports show up here" announce/>}{cases.map(record=><ModerationCasePanel key={record.ID} caseRecord={record} canResolve={canResolve} action={state} onResolve={resolve}/>)}<p role="status" className={cn('text-xs', state.state === 'failed' ? 'text-danger' : 'text-text-muted')}>{actionMessage(state)}</p></section>;
+ return <section aria-label="Moderation queue" className="flex flex-col gap-3"><h2 className="text-md font-semibold text-text">Reports to review</h2>{!loaded&&state.state!=='failed'&&<p role="status" className="text-sm text-text-muted">Loading reports...</p>}{state.state==='failed'&&<Button variant="secondary" size="sm" onClick={()=>setAttempt(value=>value+1)}>Try again</Button>}{loaded&&cases.length===0&&<EmptyState icon={ShieldCheck} title="No reports to review" body="New reports show up here" announce/>}{cases.map(record=><ModerationCasePanel key={record.ID} caseRecord={record} canResolve={canResolve} action={state} onResolve={resolve}/>)}<p role="status" className={cn('text-xs', state.state === 'failed' ? 'text-danger' : 'text-text-muted')}>{actionMessage(state)}</p></section>;
 }

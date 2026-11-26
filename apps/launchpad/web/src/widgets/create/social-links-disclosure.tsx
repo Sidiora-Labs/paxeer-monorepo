@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Link2 } from 'lucide-react';
-import { DisclosureRow, FormField } from '@/ui/primitives';
+import { FormField } from '@/ui/primitives';
+import { OptionRow } from './option-row';
 
 export interface SocialSlots {
   x: string;
@@ -63,7 +63,6 @@ export interface SocialLinksDisclosureProps {
 }
 
 export function SocialLinksDisclosure({ links, onChange, disabled = false, error = null, defaultOpen = false }: SocialLinksDisclosureProps) {
-  const [open, setOpen] = useState(defaultOpen || links.length > 0);
   const [slots, setSlots] = useState<SocialSlots>(() => slotsFromLinks(links));
 
   useEffect(() => {
@@ -78,14 +77,12 @@ export function SocialLinksDisclosure({ links, onChange, disabled = false, error
 
   const count = linksFromSlots(slots).length;
   return (
-    <DisclosureRow
+    <OptionRow
       id="create-social-links"
       label="Add social links"
-      icon={Link2}
-      optional
-      open={open}
-      onToggle={setOpen}
-      trailing={count > 0 ? <span className="text-xs text-text-faint">{count} added</span> : null}
+      choice={count > 0 ? `${count} added` : 'None'}
+      defaultOpen={defaultOpen}
+      error={error || links.map(linkProblem).find(Boolean)}
     >
       <div className="flex flex-col gap-4">
         <FormField
@@ -127,8 +124,7 @@ export function SocialLinksDisclosure({ links, onChange, disabled = false, error
           />
         ))}
         <p className="text-xs text-text-faint">Add up to 5 links. You can edit them later.</p>
-        {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
       </div>
-    </DisclosureRow>
+    </OptionRow>
   );
 }

@@ -4,9 +4,12 @@ import { useRouter } from 'next/navigation';
 import { normalizeAddress } from '@/core/app-foundation/navigation';
 import { statsByPool, useStatsBatch } from '@/core/market/use-stats-batch';
 import { shortAddress } from '@/utils/format';
-import { ActionRow, CoinRow, PaletteInput, PaletteStatus, ResultGroup, UserRow, UsersGroupBody, hotToSelect, resultToSelect, type SelectArgs } from '@/shell/global-search-parts';
+import { ActionRow, PaletteInput, PaletteStatus, isSearchHint, ResultGroup, UserRow, UsersGroupBody, hotToSelect, resultToSelect, type SelectArgs } from '@/shell/global-search-parts';
 import { addToRecent, useHotCoins, useSearchResults } from '@/shell/use-global-search';
-import { marketCapRaw } from '@/core/market/pool-stats-display';
+import { Search, TriangleAlert } from 'lucide-react';
+import { Button, EmptyState, humanError } from '@/ui/primitives';
+import { SearchCoinRow as CoinRow, SearchCoinWaiting } from './search-coin-row';
+import { marketCapRaw, statsChanges } from '@/core/market/pool-stats-display';
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const MAX_QUERY = 80;
@@ -23,8 +26,8 @@ function writeQueryToUrl(query: string) {
 }
 
 /**
- * /search?q=: the same coin and user search as the Ctrl+K palette (useSearchResults, the
- * palette rows and status line), laid out as a page so search links can be shared and opened.
+ * /search?q=: coin and user search with shared coin identities and combobox navigation.
+ * The query stays in the URL so search links can be shared and opened.
  */
 export function SearchView({ initialQuery }: { initialQuery: string }) {
   const router = useRouter();
@@ -99,8 +102,8 @@ export function SearchView({ initialQuery }: { initialQuery: string }) {
 
   return (
     <div data-search-route className="mx-auto flex w-full max-w-[calc(var(--sl-modal-width-lg)+var(--sl-space-2))] flex-col gap-4 px-4 py-4 md:px-6">
-      <h1 className="text-xl font-extrabold text-text">Search</h1>
-      <div className="flex flex-col gap-2 rounded-md bg-surface-1 p-2">
+      <h1 className="text-lg font-bold text-text">Search</h1>
+      <div className="flex min-w-0 flex-col gap-2">
         <PaletteInput value={query} onChange={change} inputRef={inputRef} onKeyDown={onKeyDown} listId={listId} activeId={activeId}
           onPaste={() => { void paste(); }} pasteState={pasteState} />
         <div role="listbox" id={listId} aria-label="Search results" aria-busy={searching || undefined} className="flex flex-col">
@@ -119,15 +122,22 @@ export function SearchView({ initialQuery }: { initialQuery: string }) {
             </>
           ) : (
             <>
-              <PaletteStatus loading={searching} error={error} coinCount={coins.length} userCount={userCount} onRetry={refetch} query={query} />
+              {!searching && !error && coins.length + userCount > 0 ? <PaletteStatus loading={false} error={null} coinCount={coins.length} userCount={userCount} onRetry={refetch} query={query} /> : null}
               <ResultGroup label="Coins">
-                {coins.length ? coins.slice(0, 20).map(row => {
+                {searching ? <SearchCoinWaiting /> : error ? (
+                  <EmptyState icon={isSearchHint(error) ? Search : TriangleAlert}
+                    title={isSearchHint(error) ? error.message : "Search isn't working right now"}
+                    body={isSearchHint(error) ? undefined : humanError(error)}
+                    action={isSearchHint(error) ? undefined : <Button variant="secondary" size="sm" onClick={refetch}>Try again</Button>}
+                    announce />
+                ) : coins.length ? coins.slice(0, 20).map(row => {
                   const id = optionId(`coin:${row.identity}`);
                   const mcap = row.pool_address ? marketCapRaw(mcapByPool.get(row.pool_address)) : null;
                   const address = row.kind === 'pool' ? row.pool_address : row.token_address;
-                  return <CoinRow key={row.identity} id={id} active={activeId === id} tokenAddress={row.token_address} name={row.name} symbol={row.symbol} logo={row.images.logo} mcapRaw={mcap} address={address} kind={row.kind} disabled={!row.pool_address}
+                  const change24h = statsChanges(row.pool_address ? mcapByPool.get(row.pool_address) ?? null : null)['24h'].value;
+                  return <CoinRow key={row.identity} id={id} active={activeId === id} tokenAddress={row.token_address} name={row.name} symbol={row.symbol} logo={row.images.logo} mcapRaw={mcap} change24h={change24h} address={address} kind={row.kind} disabled={!row.pool_address}
                     onSelect={() => openCoin(resultToSelect(row, mcap))} />;
-                }) : !searching && !error ? <p className="px-3 pb-2 text-xs text-text-faint">{`No coins match "${trimmed}"`}</p> : null}
+                }) : <EmptyState icon={Search} title={userCount ? `No coins match "${trimmed}"` : `No coins or users match "${trimmed}"`} body="Try another name, ticker or address" announce />}
               </ResultGroup>
               {addressQuery ? (
                 <ResultGroup label="Wallet">

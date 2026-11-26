@@ -3,7 +3,7 @@
     "id": "sourcebootstrap/sourcebootstrap.FirstMarketPosition.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "FirstMarketPosition",
-    "line": 81,
+    "line": 83,
     "expression": "`SELECT position FROM `+pgx.Identifier{partitionSchema}.Sanitize()+`.indexer_market_partition_positions_v1 WHERE projection_version=$1 AND partition_kind='market' AND partition_key=$2 AND sequence=1`",
     "sql": "SELECT position FROM \"indexer\".indexer_market_partition_positions_v1 WHERE projection_version=$1 AND partition_kind='market' AND partition_key=$2 AND sequence=1",
     "bindings": {},
@@ -32,7 +32,7 @@
     "id": "sourcebootstrap/sourcebootstrap.MarketPublication.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "MarketPublication",
-    "line": 89,
+    "line": 91,
     "expression": "`SELECT payload FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'facet'='market' AND payload->>'sourceFillId'=$1 AND payload->'positions'->0->>'projectionVersion'=$2`",
     "sql": "SELECT payload FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'facet'='market' AND payload->>'sourceFillId'=$1 AND payload->'positions'->0->>'projectionVersion'=$2",
     "bindings": {},
@@ -54,39 +54,12 @@
     "ctes": []
   },
   {
-    "id": "sourcebootstrap/sourcebootstrap.InitialPreviousHeight.1",
-    "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
-    "function": "InitialPreviousHeight",
-    "line": 97,
-    "expression": "`SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 ORDER BY previous_height LIMIT 1`",
-    "sql": "SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 ORDER BY previous_height LIMIT 1",
-    "bindings": {},
-    "roles": [
-      "api_rest_runtime"
-    ],
-    "package": "sdk/launchpad/shared/accounting/sourcebootstrap",
-    "kinds": [
-      "SELECT"
-    ],
-    "tables": [
-      "indexer.indexer_ingest_commits_v1"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "chain_id",
-      "previous_height",
-      "stream_id"
-    ],
-    "ctes": []
-  },
-  {
     "id": "sourcebootstrap/sourcebootstrap.CommitContaining.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "CommitContaining",
-    "line": 112,
-    "expression": "`SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`",
-    "sql": "SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
+    "line": 106,
+    "expression": "`WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric`",
+    "sql": "WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -99,24 +72,31 @@
       "indexer.indexer_ingest_commits_v1"
     ],
     "sequences": [],
-    "functions": [],
+    "functions": [
+      "greatest",
+      "least",
+      "numrange"
+    ],
     "columns": [
       "batch_id",
       "block_hash",
       "chain_id",
+      "height",
       "last_complete_height",
       "previous_height",
       "stream_id"
     ],
-    "ctes": []
+    "ctes": [
+      "bounds"
+    ]
   },
   {
     "id": "sourcebootstrap/sourcebootstrap.PreviousHeightContaining.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "PreviousHeightContaining",
-    "line": 120,
-    "expression": "`SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`",
-    "sql": "SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
+    "line": 114,
+    "expression": "`WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric`",
+    "sql": "WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -129,20 +109,27 @@
       "indexer.indexer_ingest_commits_v1"
     ],
     "sequences": [],
-    "functions": [],
+    "functions": [
+      "greatest",
+      "least",
+      "numrange"
+    ],
     "columns": [
       "chain_id",
+      "height",
       "last_complete_height",
       "previous_height",
       "stream_id"
     ],
-    "ctes": []
+    "ctes": [
+      "bounds"
+    ]
   },
   {
     "id": "sourcebootstrap/sourcebootstrap.CanonicalCreation.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "CanonicalCreation",
-    "line": 137,
+    "line": 131,
     "expression": "`SELECT k.height,k.block_hash,k.transaction_hash,k.transaction_index,k.log_index,k.factory,r.topics,r.data FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.height=k.height AND r.transaction_index=k.transaction_index AND r.block_hash=k.block_hash AND r.emitter=lower(k.factory) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$2 AND c.height=k.height AND c.block_hash=k.block_hash AND c.fetch_complete AND c.required_decode_complete WHERE lower(k.pool)=$1`",
     "sql": "SELECT k.height,k.block_hash,k.transaction_hash,k.transaction_index,k.log_index,k.factory,r.topics,r.data FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.height=k.height AND r.transaction_index=k.transaction_index AND r.block_hash=k.block_hash AND r.emitter=lower(k.factory) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$2 AND c.height=k.height AND c.block_hash=k.block_hash AND c.fetch_complete AND c.required_decode_complete WHERE lower(k.pool)=$1",
     "bindings": {},
@@ -674,7 +661,7 @@
     "id": "delivery/stream.StreamOutboxRelay.claim.1",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.claim",
-    "line": 397,
+    "line": 404,
     "expression": "`INSERT INTO api_stream.stream_delivery_offsets(partition_id) SELECT partition_id FROM api_stream.stream_projection ON CONFLICT DO NOTHING`",
     "sql": "INSERT INTO api_stream.stream_delivery_offsets(partition_id) SELECT partition_id FROM api_stream.stream_projection ON CONFLICT DO NOTHING",
     "bindings": {},
@@ -701,7 +688,7 @@
     "id": "delivery/stream.StreamOutboxRelay.claim.2",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.claim",
-    "line": 400,
+    "line": 407,
     "expression": "`SELECT o.partition_id,o.sequence,o.event_id,o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_delivery_offsets c ON c.partition_id=o.partition_id AND c.next_sequence=o.sequence LEFT JOIN api_stream.stream_delivery_publications p ON p.partition_id=o.partition_id AND p.sequence=o.sequence WHERE p.partition_id IS NULL ORDER BY o.created_at,o.partition_id LIMIT $1`",
     "sql": "SELECT o.partition_id,o.sequence,o.event_id,o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_delivery_offsets c ON c.partition_id=o.partition_id AND c.next_sequence=o.sequence LEFT JOIN api_stream.stream_delivery_publications p ON p.partition_id=o.partition_id AND p.sequence=o.sequence WHERE p.partition_id IS NULL ORDER BY o.created_at,o.partition_id LIMIT $1",
     "bindings": {},
@@ -736,7 +723,7 @@
     "id": "delivery/stream.StreamOutboxRelay.claim.3",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.claim",
-    "line": 419,
+    "line": 426,
     "expression": "`INSERT INTO api_stream.stream_delivery_publications(partition_id,sequence,event_id,frame_sha256) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`",
     "sql": "INSERT INTO api_stream.stream_delivery_publications(partition_id,sequence,event_id,frame_sha256) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
     "bindings": {},
@@ -765,7 +752,7 @@
     "id": "delivery/stream.StreamOutboxRelay.claim.4",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.claim",
-    "line": 424,
+    "line": 431,
     "expression": "`WITH picked AS(SELECT p.partition_id,p.sequence FROM api_stream.stream_delivery_publications p JOIN api_stream.stream_delivery_offsets c ON c.partition_id=p.partition_id AND c.next_sequence=p.sequence WHERE p.state='pending' AND p.available_at<=clock_timestamp() AND (p.expires_at IS NULL OR p.expires_at<=clock_timestamp()) ORDER BY p.available_at,p.partition_id FOR UPDATE OF p SKIP LOCKED LIMIT 1) UPDATE api_stream.stream_delivery_publications p SET lease_expiry_count=p.lease_expiry_count+CASE WHEN p.expires_at<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),owner=$1,epoch=p.epoch+1,expires_at=clock_timestamp()+$2::bigint*interval '1 millisecond',attempts=p.attempts+1 FROM picked q WHERE p.partition_id=q.partition_id AND p.sequence=q.sequence RETURNING p.partition_id,p.sequence,p.epoch,p.event_id,p.frame_sha256,p.attempts`",
     "sql": "WITH picked AS(SELECT p.partition_id,p.sequence FROM api_stream.stream_delivery_publications p JOIN api_stream.stream_delivery_offsets c ON c.partition_id=p.partition_id AND c.next_sequence=p.sequence WHERE p.state='pending' AND p.available_at<=clock_timestamp() AND (p.expires_at IS NULL OR p.expires_at<=clock_timestamp()) ORDER BY p.available_at,p.partition_id FOR UPDATE OF p SKIP LOCKED LIMIT 1) UPDATE api_stream.stream_delivery_publications p SET lease_expiry_count=p.lease_expiry_count+CASE WHEN p.expires_at<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),owner=$1,epoch=p.epoch+1,expires_at=clock_timestamp()+$2::bigint*interval '1 millisecond',attempts=p.attempts+1 FROM picked q WHERE p.partition_id=q.partition_id AND p.sequence=q.sequence RETURNING p.partition_id,p.sequence,p.epoch,p.event_id,p.frame_sha256,p.attempts",
     "bindings": {},
@@ -816,7 +803,7 @@
     "id": "delivery/stream.StreamOutboxRelay.claim.5",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.claim",
-    "line": 431,
+    "line": 438,
     "expression": "`SELECT s.topic,o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection s USING(partition_id) WHERE o.partition_id=$1 AND o.sequence=$2 AND o.event_id=$3`",
     "sql": "SELECT s.topic,o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection s USING(partition_id) WHERE o.partition_id=$1 AND o.sequence=$2 AND o.event_id=$3",
     "bindings": {},
@@ -847,7 +834,7 @@
     "id": "delivery/stream.StreamOutboxRelay.fail.1",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.fail",
-    "line": 441,
+    "line": 452,
     "expression": "`UPDATE api_stream.stream_delivery_publications SET state=CASE WHEN attempts>=$5 OR $6<>'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$6,available_at=clock_timestamp()+$7::bigint*interval '1 millisecond',owner=NULL,expires_at=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'`",
     "sql": "UPDATE api_stream.stream_delivery_publications SET state=CASE WHEN attempts>=$5 OR $6<>'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$6,available_at=clock_timestamp()+$7::bigint*interval '1 millisecond',owner=NULL,expires_at=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'",
     "bindings": {},
@@ -882,7 +869,7 @@
     "id": "delivery/stream.StreamOutboxRelay.markPublished.1",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.markPublished",
-    "line": 458,
+    "line": 469,
     "expression": "`SELECT o.frame,s.topic FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection s USING(partition_id) WHERE o.partition_id=$1 AND o.sequence=$2 AND o.event_id=$3`",
     "sql": "SELECT o.frame,s.topic FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection s USING(partition_id) WHERE o.partition_id=$1 AND o.sequence=$2 AND o.event_id=$3",
     "bindings": {},
@@ -913,7 +900,7 @@
     "id": "delivery/stream.StreamOutboxRelay.markPublished.2",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.markPublished",
-    "line": 465,
+    "line": 476,
     "expression": "`UPDATE api_stream.stream_delivery_publications SET state='published',broker_stream=$5,broker_sequence=$6,published_at=clock_timestamp(),acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM(clock_timestamp()-claimed_at))*1000)::bigint,owner=NULL,expires_at=NULL,failure_class=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'`",
     "sql": "UPDATE api_stream.stream_delivery_publications SET state='published',broker_stream=$5,broker_sequence=$6,published_at=clock_timestamp(),acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM(clock_timestamp()-claimed_at))*1000)::bigint,owner=NULL,expires_at=NULL,failure_class=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'",
     "bindings": {},
@@ -952,7 +939,7 @@
     "id": "delivery/stream.StreamOutboxRelay.markPublished.3",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.markPublished",
-    "line": 473,
+    "line": 484,
     "expression": "`UPDATE api_stream.stream_delivery_offsets SET next_sequence=$2+1,broker_stream=$3,broker_sequence=$4,updated_at=clock_timestamp() WHERE partition_id=$1 AND next_sequence=$2`",
     "sql": "UPDATE api_stream.stream_delivery_offsets SET next_sequence=$2+1,broker_stream=$3,broker_sequence=$4,updated_at=clock_timestamp() WHERE partition_id=$1 AND next_sequence=$2",
     "bindings": {},
@@ -983,9 +970,9 @@
     "id": "delivery/stream.StreamOutboxRelay.Stats.1",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.Stats",
-    "line": 548,
-    "expression": "`SELECT count(*) FILTER(WHERE p.state IS NULL OR p.state='pending'),COALESCE(sum(octet_length(o.frame)) FILTER(WHERE p.state IS NULL OR p.state<>'published'),0)::bigint,count(*) FILTER(WHERE p.state='quarantined'),COALESCE(sum(p.lease_expiry_count),0)::bigint,COALESCE(max(p.acknowledgement_latency_ms),0)::bigint,COALESCE(EXTRACT(EPOCH FROM(clock_timestamp()-min(o.created_at) FILTER(WHERE p.state IS NULL OR p.state<>'published'))),0)::double precision FROM api_stream.stream_delivery_outbox o LEFT JOIN api_stream.stream_delivery_publications p USING(partition_id,sequence)`",
-    "sql": "SELECT count(*) FILTER(WHERE p.state IS NULL OR p.state='pending'),COALESCE(sum(octet_length(o.frame)) FILTER(WHERE p.state IS NULL OR p.state<>'published'),0)::bigint,count(*) FILTER(WHERE p.state='quarantined'),COALESCE(sum(p.lease_expiry_count),0)::bigint,COALESCE(max(p.acknowledgement_latency_ms),0)::bigint,COALESCE(EXTRACT(EPOCH FROM(clock_timestamp()-min(o.created_at) FILTER(WHERE p.state IS NULL OR p.state<>'published'))),0)::double precision FROM api_stream.stream_delivery_outbox o LEFT JOIN api_stream.stream_delivery_publications p USING(partition_id,sequence)",
+    "line": 576,
+    "expression": "`SELECT pending.rows,pending.bytes,\n (SELECT count(*) FROM api_stream.stream_delivery_publications WHERE state='quarantined'),\n (SELECT COALESCE(sum(lease_expiry_count),0)::bigint FROM api_stream.stream_delivery_publications WHERE lease_expiry_count>0),\n COALESCE((SELECT acknowledgement_latency_ms FROM api_stream.stream_delivery_publications WHERE acknowledgement_latency_ms IS NOT NULL ORDER BY acknowledgement_latency_ms DESC LIMIT 1),0),\n COALESCE(EXTRACT(EPOCH FROM(clock_timestamp()-pending.oldest)),0)::double precision\nFROM (SELECT count(*) FILTER(WHERE p.state IS NULL OR p.state='pending') AS rows,\n COALESCE(sum(octet_length(o.frame)) FILTER(WHERE p.state IS NULL OR p.state<>'published'),0)::bigint AS bytes,\n min(o.created_at) FILTER(WHERE p.state IS NULL OR p.state<>'published') AS oldest\n FROM api_stream.stream_projection s LEFT JOIN api_stream.stream_delivery_offsets c USING(partition_id)\n CROSS JOIN LATERAL (SELECT frame,created_at,sequence FROM api_stream.stream_delivery_outbox\n  WHERE partition_id=s.partition_id AND sequence>=COALESCE(c.next_sequence,1) ORDER BY sequence OFFSET 0) o\n LEFT JOIN LATERAL (SELECT state FROM api_stream.stream_delivery_publications\n  WHERE partition_id=s.partition_id AND sequence=o.sequence OFFSET 0) p ON true) pending`",
+    "sql": "SELECT pending.rows,pending.bytes,\n (SELECT count(*) FROM api_stream.stream_delivery_publications WHERE state='quarantined'),\n (SELECT COALESCE(sum(lease_expiry_count),0)::bigint FROM api_stream.stream_delivery_publications WHERE lease_expiry_count>0),\n COALESCE((SELECT acknowledgement_latency_ms FROM api_stream.stream_delivery_publications WHERE acknowledgement_latency_ms IS NOT NULL ORDER BY acknowledgement_latency_ms DESC LIMIT 1),0),\n COALESCE(EXTRACT(EPOCH FROM(clock_timestamp()-pending.oldest)),0)::double precision\nFROM (SELECT count(*) FILTER(WHERE p.state IS NULL OR p.state='pending') AS rows,\n COALESCE(sum(octet_length(o.frame)) FILTER(WHERE p.state IS NULL OR p.state<>'published'),0)::bigint AS bytes,\n min(o.created_at) FILTER(WHERE p.state IS NULL OR p.state<>'published') AS oldest\n FROM api_stream.stream_projection s LEFT JOIN api_stream.stream_delivery_offsets c USING(partition_id)\n CROSS JOIN LATERAL (SELECT frame,created_at,sequence FROM api_stream.stream_delivery_outbox\n  WHERE partition_id=s.partition_id AND sequence>=COALESCE(c.next_sequence,1) ORDER BY sequence OFFSET 0) o\n LEFT JOIN LATERAL (SELECT state FROM api_stream.stream_delivery_publications\n  WHERE partition_id=s.partition_id AND sequence=o.sequence OFFSET 0) p ON true) pending",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -995,27 +982,34 @@
       "SELECT"
     ],
     "tables": [
+      "api_stream.stream_delivery_offsets",
       "api_stream.stream_delivery_outbox",
-      "api_stream.stream_delivery_publications"
+      "api_stream.stream_delivery_publications",
+      "api_stream.stream_projection"
     ],
     "sequences": [],
     "functions": [
       "clock_timestamp",
       "count",
-      "max",
       "min",
       "octet_length",
       "pg_catalog.extract",
       "sum"
     ],
     "columns": [
+      "acknowledgement_latency_ms",
+      "c.next_sequence",
+      "created_at",
+      "frame",
+      "lease_expiry_count",
       "o.created_at",
       "o.frame",
-      "p.acknowledgement_latency_ms",
-      "p.lease_expiry_count",
+      "o.sequence",
       "p.state",
       "partition_id",
-      "sequence"
+      "s.partition_id",
+      "sequence",
+      "state"
     ],
     "ctes": []
   },
@@ -1023,9 +1017,9 @@
     "id": "delivery/stream.StreamOutboxRelay.Stats.2",
     "file": "sdk/launchpad/shared/delivery/stream.go",
     "function": "StreamOutboxRelay.Stats",
-    "line": 552,
-    "expression": "`SELECT count(*) FROM api_stream.stream_projection s JOIN api_stream.stream_delivery_offsets c USING(partition_id) LEFT JOIN api_stream.stream_delivery_outbox o ON o.partition_id=c.partition_id AND o.sequence=c.next_sequence WHERE c.next_sequence<=s.sequence AND o.sequence IS NULL`",
-    "sql": "SELECT count(*) FROM api_stream.stream_projection s JOIN api_stream.stream_delivery_offsets c USING(partition_id) LEFT JOIN api_stream.stream_delivery_outbox o ON o.partition_id=c.partition_id AND o.sequence=c.next_sequence WHERE c.next_sequence<=s.sequence AND o.sequence IS NULL",
+    "line": 592,
+    "expression": "`SELECT count(*) FROM api_stream.stream_projection s JOIN api_stream.stream_delivery_offsets c USING(partition_id) LEFT JOIN LATERAL (SELECT sequence FROM api_stream.stream_delivery_outbox WHERE partition_id=c.partition_id AND sequence=c.next_sequence LIMIT 1) o ON true WHERE c.next_sequence<=s.sequence AND o.sequence IS NULL`",
+    "sql": "SELECT count(*) FROM api_stream.stream_projection s JOIN api_stream.stream_delivery_offsets c USING(partition_id) LEFT JOIN LATERAL (SELECT sequence FROM api_stream.stream_delivery_outbox WHERE partition_id=c.partition_id AND sequence=c.next_sequence LIMIT 1) o ON true WHERE c.next_sequence<=s.sequence AND o.sequence IS NULL",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -1046,10 +1040,10 @@
     "columns": [
       "c.next_sequence",
       "c.partition_id",
-      "o.partition_id",
       "o.sequence",
       "partition_id",
-      "s.sequence"
+      "s.sequence",
+      "sequence"
     ],
     "ctes": []
   },
@@ -1264,7 +1258,7 @@
     "id": "broker/postgres_stream.PostgresStream.Resume.1",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresStream.Resume",
-    "line": 355,
+    "line": 356,
     "expression": "\"SELECT generation::text,transaction_timestamp() FROM \"+s.table(\"stream_generation\")+\" WHERE singleton\"",
     "sql": "SELECT generation::text,transaction_timestamp() FROM \"api_stream\".\"stream_generation\" WHERE singleton",
     "bindings": {},
@@ -1293,7 +1287,7 @@
     "id": "broker/postgres_stream.PostgresStream.Resume.2",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresStream.Resume",
-    "line": 364,
+    "line": 365,
     "expression": "\"SELECT s.scope,s.initial_offsets,transaction_timestamp(),g.generation::text FROM \"+s.table(\"stream_snapshots\")+\" s CROSS JOIN \"+s.table(\"stream_generation\")+\" g WHERE s.snapshot_id=$1 AND s.account_id=$2 AND s.session_id=$3 AND s.auth_epoch=$4 AND s.filter_digest=$5 AND s.expires_at>transaction_timestamp() AND g.singleton AND s.generation=g.generation\"",
     "sql": "SELECT s.scope,s.initial_offsets,transaction_timestamp(),g.generation::text FROM \"api_stream\".\"stream_snapshots\" s CROSS JOIN \"api_stream\".\"stream_generation\" g WHERE s.snapshot_id=$1 AND s.account_id=$2 AND s.session_id=$3 AND s.auth_epoch=$4 AND s.filter_digest=$5 AND s.expires_at>transaction_timestamp() AND g.singleton AND s.generation=g.generation",
     "bindings": {},
@@ -1332,7 +1326,7 @@
     "id": "broker/postgres_stream.PostgresStream.Resume.3",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresStream.Resume",
-    "line": 391,
+    "line": 403,
     "expression": "\"SELECT COALESCE(min(sequence),0)::text FROM \"+s.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1\"",
     "sql": "SELECT COALESCE(min(sequence),0)::text FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1",
     "bindings": {},
@@ -1361,7 +1355,7 @@
     "id": "broker/postgres_stream.PostgresStream.Resume.4",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresStream.Resume",
-    "line": 402,
+    "line": 414,
     "expression": "\"SELECT count(*),COALESCE(sum(octet_length(frame)),0)::bigint FROM (SELECT frame FROM \"+s.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT 10001) retained\"",
     "sql": "SELECT count(*),COALESCE(sum(octet_length(frame)),0)::bigint FROM (SELECT frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT 10001) retained",
     "bindings": {},
@@ -1393,7 +1387,7 @@
     "id": "broker/postgres_stream.PostgresReplay.Check.1",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresReplay.Check",
-    "line": 458,
+    "line": 483,
     "expression": "\"SELECT generation::text FROM \"+r.source.table(\"stream_generation\")+\" WHERE singleton\"",
     "sql": "SELECT generation::text FROM \"api_stream\".\"stream_generation\" WHERE singleton",
     "bindings": {},
@@ -1417,12 +1411,40 @@
     "ctes": []
   },
   {
+    "id": "broker/postgres_stream.PostgresReplay.Check.2",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresReplay.Check",
+    "line": 491,
+    "expression": "\"SELECT EXISTS(SELECT 1 FROM \"+r.source.table(\"stream_projection\")+\" WHERE topic=ANY($1) AND sequence>0 AND frame IS NOT NULL)\"",
+    "sql": "SELECT EXISTS(SELECT 1 FROM \"api_stream\".\"stream_projection\" WHERE topic=ANY($1) AND sequence>0 AND frame IS NOT NULL)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "frame",
+      "sequence",
+      "topic"
+    ],
+    "ctes": []
+  },
+  {
     "id": "broker/postgres_stream.PostgresReplay.Batch.1",
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresReplay.Batch",
-    "line": 501,
-    "expression": "\"SELECT sequence::text,frame FROM \"+r.source.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4\"",
-    "sql": "SELECT sequence::text,frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4",
+    "line": 535,
+    "expression": "\"SELECT sequence::text,frame FROM \"+r.source.table(\"stream_delivery_outbox\")+\" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4\"",
+    "sql": "SELECT sequence::text,frame FROM \"api_stream\".\"stream_delivery_outbox\" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4",
     "bindings": {},
     "roles": [
       "api_rest_runtime",
@@ -1531,6 +1553,51 @@
     "ctes": []
   },
   {
+    "id": "store/accounting_readmodel.AccountingReadModel.head.1.candles",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.head",
+    "line": 192,
+    "expression": "`SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM `+q+`.delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN `+q+`.delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN `+q+`.delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity`",
+    "sql": "SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM \"candles\".delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN \"candles\".delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN \"candles\".delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity",
+    "bindings": {
+      "deliverySchema": "candles"
+    },
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "candles.delivery_ordered_quarantine_v1",
+      "candles.delivery_partition_commits_v1",
+      "candles.delivery_partition_offsets_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "affected_pools",
+      "c.consumer_id",
+      "c.effect_identity",
+      "c.partition_key",
+      "c.partition_kind",
+      "c.position",
+      "c.projection_generation",
+      "c.sequence",
+      "consumer_id",
+      "o.checkpoint_digest",
+      "o.consumer_id",
+      "o.next_sequence",
+      "o.partition_key",
+      "o.partition_kind",
+      "o.previous_effect_identity",
+      "o.projection_generation",
+      "projection_generation"
+    ],
+    "ctes": []
+  },
+  {
     "id": "store/accounting_readmodel.AccountingReadModel.vector.1.stats",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.vector",
@@ -1567,6 +1634,51 @@
       "o.projection_generation",
       "partition_key",
       "partition_kind",
+      "projection_generation"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.head.1.stats",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.head",
+    "line": 192,
+    "expression": "`SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM `+q+`.delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN `+q+`.delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN `+q+`.delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity`",
+    "sql": "SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM \"stats\".delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN \"stats\".delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN \"stats\".delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity",
+    "bindings": {
+      "deliverySchema": "stats"
+    },
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.delivery_ordered_quarantine_v1",
+      "stats.delivery_partition_commits_v1",
+      "stats.delivery_partition_offsets_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "affected_pools",
+      "c.consumer_id",
+      "c.effect_identity",
+      "c.partition_key",
+      "c.partition_kind",
+      "c.position",
+      "c.projection_generation",
+      "c.sequence",
+      "consumer_id",
+      "o.checkpoint_digest",
+      "o.consumer_id",
+      "o.next_sequence",
+      "o.partition_key",
+      "o.partition_kind",
+      "o.previous_effect_identity",
+      "o.projection_generation",
       "projection_generation"
     ],
     "ctes": []
@@ -1630,70 +1742,10 @@
     "ctes": []
   },
   {
-    "id": "store/accounting_readmodel.AccountingReadModel.untradedPage.1.candles",
-    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
-    "function": "AccountingReadModel.untradedPage",
-    "line": 206,
-    "expression": "`SELECT EXISTS(SELECT 1 FROM `+pgx.Identifier{deliverySchema}.Sanitize()+`.delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)`",
-    "sql": "SELECT EXISTS(SELECT 1 FROM \"candles\".delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)",
-    "bindings": {
-      "deliverySchema": "candles"
-    },
-    "roles": [
-      "api_rest_runtime"
-    ],
-    "package": "services/launchpad/api/internal/store",
-    "kinds": [
-      "SELECT"
-    ],
-    "tables": [
-      "candles.delivery_partition_offsets_v1"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "consumer_id",
-      "partition_key",
-      "partition_kind",
-      "projection_generation"
-    ],
-    "ctes": []
-  },
-  {
-    "id": "store/accounting_readmodel.AccountingReadModel.untradedPage.1.stats",
-    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
-    "function": "AccountingReadModel.untradedPage",
-    "line": 206,
-    "expression": "`SELECT EXISTS(SELECT 1 FROM `+pgx.Identifier{deliverySchema}.Sanitize()+`.delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)`",
-    "sql": "SELECT EXISTS(SELECT 1 FROM \"stats\".delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)",
-    "bindings": {
-      "deliverySchema": "stats"
-    },
-    "roles": [
-      "api_rest_runtime"
-    ],
-    "package": "services/launchpad/api/internal/store",
-    "kinds": [
-      "SELECT"
-    ],
-    "tables": [
-      "stats.delivery_partition_offsets_v1"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "consumer_id",
-      "partition_key",
-      "partition_kind",
-      "projection_generation"
-    ],
-    "ctes": []
-  },
-  {
     "id": "store/accounting_readmodel.AccountingReadModel.untradedPage.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.untradedPage",
-    "line": 215,
+    "line": 226,
     "expression": "`SELECT transaction_timestamp()`",
     "sql": "SELECT transaction_timestamp()",
     "bindings": {},
@@ -1716,7 +1768,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.snapshot.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.snapshot",
-    "line": 243,
+    "line": 274,
     "expression": "`SELECT frozen FROM `+pgx.Identifier{s.config.ChartsSchema}.Sanitize()+`.chart_pool_fences_v1 WHERE chain_id='125' AND pool=$1`",
     "sql": "SELECT frozen FROM \"candles\".chart_pool_fences_v1 WHERE chain_id='125' AND pool=$1",
     "bindings": {},
@@ -1743,7 +1795,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.snapshot.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.snapshot",
-    "line": 250,
+    "line": 281,
     "expression": "`SELECT frozen FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_pool_fences_v1 WHERE pool=$1`",
     "sql": "SELECT frozen FROM \"stats\".accounting_pool_fences_v1 WHERE pool=$1",
     "bindings": {},
@@ -1769,7 +1821,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.snapshot.3",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.snapshot",
-    "line": 270,
+    "line": 305,
     "expression": "`SELECT transaction_timestamp()`",
     "sql": "SELECT transaction_timestamp()",
     "bindings": {},
@@ -1792,7 +1844,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.sourceFills.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.sourceFills",
-    "line": 326,
+    "line": 361,
     "expression": "`SELECT source_fill_id,source_fact_digest,fill FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND source_fill_id=ANY($3) AND sequence<=$4 LIMIT $5`",
     "sql": "SELECT source_fill_id,source_fact_digest,fill FROM \"stats\".accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND source_fill_id=ANY($3) AND sequence<=$4 LIMIT $5",
     "bindings": {},
@@ -1822,7 +1874,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.Candles.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.Candles",
-    "line": 437,
+    "line": 472,
     "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
     "sql": "SET LOCAL statement_timeout = '150ms'",
     "bindings": {},
@@ -1843,7 +1895,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.Candles.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.Candles",
-    "line": 451,
+    "line": 486,
     "expression": "`SELECT start,snapshot FROM `+pgx.Identifier{s.config.ChartsSchema}.Sanitize()+`.chart_exact_v1 WHERE chain_id='125' AND pool=$1 AND interval=$2 AND start>=$3 AND start<$4 ORDER BY start ASC LIMIT $5`",
     "sql": "SELECT start,snapshot FROM \"candles\".chart_exact_v1 WHERE chain_id='125' AND pool=$1 AND interval=$2 AND start>=$3 AND start<$4 ORDER BY start ASC LIMIT $5",
     "bindings": {},
@@ -1872,7 +1924,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.Trades.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.Trades",
-    "line": 534,
+    "line": 569,
     "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
     "sql": "SET LOCAL statement_timeout = '150ms'",
     "bindings": {},
@@ -1893,7 +1945,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.Trades.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.Trades",
-    "line": 555,
+    "line": 590,
     "expression": "`SELECT fill,source_fact_digest,sequence FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND sequence<=$3 AND ($4::bigint IS NULL OR sequence<$4) AND ($5='' OR fill->>'side'=$5) ORDER BY sequence DESC LIMIT $6`",
     "sql": "SELECT fill,source_fact_digest,sequence FROM \"stats\".accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND sequence<=$3 AND ($4::bigint IS NULL OR sequence<$4) AND ($5='' OR fill->>'side'=$5) ORDER BY sequence DESC LIMIT $6",
     "bindings": {},
@@ -1922,7 +1974,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.PublicProjections.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.PublicProjections",
-    "line": 662,
+    "line": 697,
     "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
     "sql": "SET LOCAL statement_timeout = '150ms'",
     "bindings": {},
@@ -1943,7 +1995,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.PublicProjections.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.PublicProjections",
-    "line": 665,
+    "line": 700,
     "expression": "\"SELECT topic,sequence::text,frame FROM \"+pgx.Identifier{s.config.StreamSchema, literalStreamProjection}.Sanitize()+\" WHERE topic=ANY($1) ORDER BY topic\"",
     "sql": "SELECT topic,sequence::text,frame FROM \"api_stream\".\"stream_projection\" WHERE topic=ANY($1) ORDER BY topic",
     "bindings": {},
@@ -1970,7 +2022,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.1",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.TopicSnapshotAt",
-    "line": 730,
+    "line": 765,
     "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
     "sql": "SET LOCAL statement_timeout = '150ms'",
     "bindings": {},
@@ -1991,7 +2043,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.2",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.TopicSnapshotAt",
-    "line": 756,
+    "line": 791,
     "expression": "\"SELECT frame FROM \"+pgx.Identifier{s.config.StreamSchema, \"stream_delivery_outbox\"}.Sanitize()+\" WHERE partition_id=$1 AND sequence=$2\"",
     "sql": "SELECT frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence=$2",
     "bindings": {},
@@ -2018,7 +2070,7 @@
     "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.3",
     "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
     "function": "AccountingReadModel.TopicSnapshotAt",
-    "line": 766,
+    "line": 801,
     "expression": "\"SELECT transaction_timestamp()\"",
     "sql": "SELECT transaction_timestamp()",
     "bindings": {},
@@ -4652,6 +4704,36 @@
     "ctes": []
   },
   {
+    "id": "discovery/source_refresh.Store.RenewSources.1",
+    "file": "services/launchpad/discovery/source_refresh.go",
+    "function": "Store.RenewSources",
+    "line": 25,
+    "expression": "`UPDATE narrative_discovery.sources AS s SET observed_at=$2 FROM jsonb_array_elements($1::jsonb) AS renewal(document) WHERE s.id=renewal.document->>'ID' AND s.document=renewal.document`",
+    "sql": "UPDATE narrative_discovery.sources AS s SET observed_at=$2 FROM jsonb_array_elements($1::jsonb) AS renewal(document) WHERE s.id=renewal.document->>'ID' AND s.document=renewal.document",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_array_elements"
+    ],
+    "columns": [
+      "observed_at",
+      "renewal.document",
+      "s.document",
+      "s.id"
+    ],
+    "ctes": []
+  },
+  {
     "id": "discovery/store.lock.1",
     "file": "services/launchpad/discovery/store.go",
     "function": "lock",
@@ -5238,7 +5320,7 @@
     "id": "notifications/runtime.HTTPRuntime.Ready.1",
     "file": "services/launchpad/notifications/runtime.go",
     "function": "HTTPRuntime.Ready",
-    "line": 321,
+    "line": 327,
     "expression": "`SELECT to_regclass('narrative_discovery.sources') IS NOT NULL AND to_regclass('discovery_notifications.inbox') IS NOT NULL`",
     "sql": "SELECT to_regclass('narrative_discovery.sources') IS NOT NULL AND to_regclass('discovery_notifications.inbox') IS NOT NULL",
     "bindings": {},
@@ -5261,7 +5343,7 @@
     "id": "notifications/runtime.HTTPRuntime.refreshSources.1",
     "file": "services/launchpad/notifications/runtime.go",
     "function": "HTTPRuntime.refreshSources",
-    "line": 407,
+    "line": 402,
     "expression": "`SELECT document FROM narrative_discovery.sources ORDER BY published_at DESC,event_id LIMIT 2000`",
     "sql": "SELECT document FROM narrative_discovery.sources ORDER BY published_at DESC,event_id LIMIT 2000",
     "bindings": {},
@@ -5863,6 +5945,130 @@
       "fence",
       "id",
       "lease_owner"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream_retention.StreamOutboxRelay.acquireRetention.1",
+    "file": "sdk/launchpad/shared/delivery/stream_retention.go",
+    "function": "StreamOutboxRelay.acquireRetention",
+    "line": 31,
+    "expression": "`UPDATE api_stream.stream_delivery_offsets SET retention_owner=$1,retention_epoch=retention_epoch+1,retention_expires_at=clock_timestamp()+$2::bigint*interval '1 millisecond',retention_next_at=clock_timestamp()+interval '1 minute' WHERE partition_id=(SELECT partition_id FROM api_stream.stream_delivery_offsets ORDER BY partition_id LIMIT 1) AND (retention_expires_at IS NULL OR retention_expires_at<=clock_timestamp()) AND (retention_next_at IS NULL OR retention_next_at<=clock_timestamp()) AND retention_epoch<9223372036854775807 RETURNING partition_id,retention_epoch`",
+    "sql": "UPDATE api_stream.stream_delivery_offsets SET retention_owner=$1,retention_epoch=retention_epoch+1,retention_expires_at=clock_timestamp()+$2::bigint*interval '1 millisecond',retention_next_at=clock_timestamp()+interval '1 minute' WHERE partition_id=(SELECT partition_id FROM api_stream.stream_delivery_offsets ORDER BY partition_id LIMIT 1) AND (retention_expires_at IS NULL OR retention_expires_at<=clock_timestamp()) AND (retention_next_at IS NULL OR retention_next_at<=clock_timestamp()) AND retention_epoch<9223372036854775807 RETURNING partition_id,retention_epoch",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "SELECT",
+      "UPDATE"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "partition_id",
+      "retention_epoch",
+      "retention_expires_at",
+      "retention_next_at",
+      "retention_owner"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream_retention.StreamOutboxRelay.pruneRetentionBatch.1",
+    "file": "sdk/launchpad/shared/delivery/stream_retention.go",
+    "function": "StreamOutboxRelay.pruneRetentionBatch",
+    "line": 49,
+    "expression": "`UPDATE api_stream.stream_delivery_offsets SET retention_cutoff=clock_timestamp()-$4::bigint*interval '1 millisecond' WHERE partition_id=$1 AND retention_owner=$2 AND retention_epoch=$3 AND retention_expires_at>clock_timestamp() RETURNING retention_removed`",
+    "sql": "UPDATE api_stream.stream_delivery_offsets SET retention_cutoff=clock_timestamp()-$4::bigint*interval '1 millisecond' WHERE partition_id=$1 AND retention_owner=$2 AND retention_epoch=$3 AND retention_expires_at>clock_timestamp() RETURNING retention_removed",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "partition_id",
+      "retention_cutoff",
+      "retention_epoch",
+      "retention_expires_at",
+      "retention_owner",
+      "retention_removed"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream_retention.StreamOutboxRelay.pruneRetentionBatch.2",
+    "file": "sdk/launchpad/shared/delivery/stream_retention.go",
+    "function": "StreamOutboxRelay.pruneRetentionBatch",
+    "line": 57,
+    "expression": "`SELECT retention_owner=$2 AND retention_epoch=$3 AND retention_expires_at>clock_timestamp() FROM api_stream.stream_delivery_offsets WHERE partition_id=$1`",
+    "sql": "SELECT retention_owner=$2 AND retention_epoch=$3 AND retention_expires_at>clock_timestamp() FROM api_stream.stream_delivery_offsets WHERE partition_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "partition_id",
+      "retention_epoch",
+      "retention_expires_at",
+      "retention_owner"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream_retention.StreamOutboxRelay.Prune.1",
+    "file": "sdk/launchpad/shared/delivery/stream_retention.go",
+    "function": "StreamOutboxRelay.Prune",
+    "line": 98,
+    "expression": "`UPDATE api_stream.stream_delivery_offsets SET retention_expires_at=clock_timestamp() WHERE partition_id=$1 AND retention_owner=$2 AND retention_epoch=$3 AND retention_expires_at>clock_timestamp()`",
+    "sql": "UPDATE api_stream.stream_delivery_offsets SET retention_expires_at=clock_timestamp() WHERE partition_id=$1 AND retention_owner=$2 AND retention_epoch=$3 AND retention_expires_at>clock_timestamp()",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "partition_id",
+      "retention_epoch",
+      "retention_expires_at",
+      "retention_owner"
     ],
     "ctes": []
   }

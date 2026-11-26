@@ -55,7 +55,7 @@ export function StatTile({
   const empty = value === null || value === undefined;
   const valueClass =
     size === 'bar'
-      ? 'text-2xl font-extrabold'
+      ? 'text-2xl font-bold'
       : size === 'inline'
         ? 'text-lg font-bold'
         : 'text-md font-bold';
@@ -69,7 +69,7 @@ export function StatTile({
         className
       )}
     >
-      <dt className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
+      <dt className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
         {label}
       </dt>
       <dd
@@ -317,7 +317,7 @@ export function ProgressBar({
   value,
   label,
   size = 6,
-  tone = 'auto',
+  tone = 'accent',
   showValue = false,
   completeLabel,
   flash = false,
@@ -531,7 +531,7 @@ export function KeyValueRow({
 }: KeyValueRowProps) {
   const empty = value === null || value === undefined;
   return (
-    <div className={cn('flex min-h-10 flex-wrap items-center justify-between gap-3 py-1', className)}>
+    <div className={cn('sl-hairline flex min-h-10 flex-wrap items-center justify-between gap-3 py-1', className)}>
       <dt className="min-w-0 max-w-full break-words text-sm text-text-faint">{label}</dt>
       <dd
         data-numeric

@@ -32,7 +32,7 @@ export default function TokenLogo({ tokenAddress, symbol, size, className = '' }
         width={size}
         height={size}
         style={{ width: size, height: size }}
-        className={cn('size-avatar-md rounded-full object-cover', className)}
+        className={cn('size-avatar-md rounded-coin object-cover', className)}
       />
     );
   }
@@ -44,7 +44,7 @@ export default function TokenLogo({ tokenAddress, symbol, size, className = '' }
       width={size}
       height={size}
       style={{ width: size, height: size }}
-      className={cn('size-avatar-md rounded-full object-cover', className)}
+      className={cn('size-avatar-md rounded-coin object-cover', className)}
       onError={() =>
         setLogo((current) =>
           current.tokenAddress === tokenAddress ? { tokenAddress, failed: true } : current

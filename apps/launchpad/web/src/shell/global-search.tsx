@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { normalizeAddress } from '@/core/app-foundation/navigation';
 import { useStatsBatch, statsByPool } from '@/core/market/use-stats-batch';
-import { ModalFrame } from '@/ui/primitives';
+import { Sheet } from '@/ui/primitives';
 import { shortAddress } from '@/utils/format';
 import {
   useHotCoins,
@@ -321,7 +321,7 @@ function SearchPalette({
   const userCount = users.state === 'ready' ? users.items.length : 0;
 
   return (
-    <ModalFrame
+    <Sheet
       open={open}
       onClose={closeSearchPalette}
       title="Search coins and users"
@@ -361,7 +361,7 @@ function SearchPalette({
                     <button
                       type="button"
                       onClick={clear}
-                      className="text-xs font-bold text-text-muted hover:text-text"
+                      className="text-xs font-medium text-text-muted hover:text-text"
                     >
                       Clear
                     </button>
@@ -500,6 +500,6 @@ function SearchPalette({
           </span>
         </div>
       </div>
-    </ModalFrame>
+    </Sheet>
   );
 }

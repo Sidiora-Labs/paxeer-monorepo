@@ -24,7 +24,7 @@ export default function WalletGate({
 
   if (!isConnected) {
     return (
-      <div className="flex min-h-[var(--sl-page-min-height)] items-center justify-center px-4">
+      <div className="flex items-center justify-center px-4">
         <EmptyState
           className="px-8"
           icon={Wallet}
@@ -32,7 +32,7 @@ export default function WalletGate({
           headingLevel={headingLevel}
           body="No account or password needed"
           action={
-            <Button variant="primary" onClick={() => openModal(message)}>
+            <Button variant="inverse" onClick={() => openModal(message)}>
               Connect wallet
             </Button>
           }

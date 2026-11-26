@@ -86,17 +86,19 @@ export function CreateBountyButton({
   gate,
   label,
   pill = false,
+  variant = 'primary',
   className,
 }: {
   gate: CreateBountyGate;
   label: string;
   pill?: boolean;
+  variant?: 'primary' | 'secondary';
   className?: string;
 }) {
   if (gate.ready)
     return (
       <Button
-        variant="primary"
+        variant={variant}
         size="md"
         pill={pill}
         icon={<Plus />}
@@ -108,7 +110,7 @@ export function CreateBountyButton({
     );
   return (
     <Button
-      variant="primary"
+      variant={variant}
       size="md"
       pill={pill}
       icon={<Plus />}
@@ -140,7 +142,7 @@ export function CreateBountyNotice({
       announce
       onDismiss={gate.dismiss}
       className={cn(
-        'fixed inset-x-4 bottom-[calc(var(--sl-bounty-notice-bottom)+env(safe-area-inset-bottom,0px))] z-[var(--sl-z-toast)] md:static md:inset-auto md:z-auto',
+        'fixed inset-x-4 bottom-[calc(var(--sl-bounty-notice-bottom)+env(safe-area-inset-bottom,0px)+var(--sl-cookie-banner-height,0px))] z-[var(--sl-z-toast)] md:static md:inset-auto md:z-auto',
         className
       )}
     >
@@ -157,7 +159,7 @@ export function CreateBountyNotice({
 /** Phone-only "Post bounty" action above the bottom navigation. */
 export function CreateBountyFab({ gate }: { gate: CreateBountyGate }) {
   return (
-    <div className="fixed bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-space-4)+env(safe-area-inset-bottom,0px))] right-4 z-[var(--sl-z-sticky)] md:hidden" data-floating-action="" data-testid="post-bounty-fab">
+    <div className="fixed bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-space-4)+env(safe-area-inset-bottom,0px)+var(--sl-cookie-banner-height,0px))] right-4 z-[var(--sl-z-sticky)] md:hidden" data-floating-action="" data-testid="post-bounty-fab">
       <CreateBountyButton gate={gate} label="Post bounty" pill className="min-h-control-height-md px-5" />
     </div>
   );
@@ -185,10 +187,10 @@ export function BountiesHeader({ tab, gate, stats, inlineStats, className }: Bou
     <header className={cn('flex flex-col gap-3', className)}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
+          <p className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
             Bounties
           </p>
-          <h1 className="text-xl font-bold text-text md:text-[28px] md:leading-[calc(var(--sl-space)*9/28px)]">{copy.title}</h1>
+          <h1 className="text-lg font-bold text-text">{copy.title}</h1>
           <p className="text-sm text-text-muted">{copy.subtitle}</p>
           {inlineStats ? <div className="pt-1 lg:hidden">{inlineStats}</div> : null}
         </div>

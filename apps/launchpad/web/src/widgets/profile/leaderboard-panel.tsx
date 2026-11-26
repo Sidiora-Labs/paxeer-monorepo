@@ -85,7 +85,7 @@ function LeaderboardRow({ entry, identity, metric, self }: LeaderboardRowProps) 
         </span>
         <Avatar src={identity?.avatarUrl ?? null} name={avatarName(identity, wallet)} size="md" decorative loading={identity?.resolution === 'pending'} />
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className={cn('truncate text-sm font-bold', name ? 'text-text' : 'font-mono text-text-muted')}>{label}</span>
+          <span className={cn('truncate text-sm font-semibold', name ? 'text-text' : 'font-mono text-text-muted')}>{label}</span>
           {self ? <span className="shrink-0 rounded-pill bg-accent-soft-strong px-1.5 text-2xs font-bold text-accent">You</span> : null}
           {entry.quality === 'partial' ? <span className="shrink-0 text-2xs text-text-faint">partial</span> : null}
         </span>
@@ -133,7 +133,7 @@ function LeaderboardBody({ board, identities, metric, viewer, onRetry }: Leaderb
   const collected = useProfileIssue('leaderboard', board.state === 'error' ? { label: 'Leaderboard', error: board.error, retry: board.retry } : null);
   if (board.state === 'loading') return <Skeleton variant="rows" rows={8} label="leaderboard" />;
   if (board.state === 'unsupported') {
-    return <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} message="Check back in a bit" onRetry={onRetry} />;
+    return <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} notServed={board.notServed} error={board.error} message="Check back in a bit" onRetry={board.retry ?? onRetry} />;
   }
   if (board.state === 'error' && collected) return <PlaceholderRows rows={12} />;
   if (board.state === 'error') return <ErrorState title="Can't load leaderboard right now" message="Check your connection and try again" onRetry={board.retry} />;

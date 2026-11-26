@@ -80,7 +80,7 @@ function RepliesContent({ wallet, isOwner = false }: RepliesTabProps) {
 
   if (state.state === 'loading') return <Skeleton variant="rows" rows={4} label="replies" />;
   if (state.state === 'unsupported') {
-    return <UnavailableState title="Replies" plural operation={state.operation} status={state.status} message="Check back in a bit" onRetry={() => { void query.refetch(); }} />;
+    return <UnavailableState title="Replies" plural operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} message="Check back in a bit" onRetry={() => { void query.refetch(); }} />;
   }
   if (state.state === 'error' && collected) return <CollectedPlaceholder label="Replies" />;
   if (state.state === 'error') return <ErrorState title="Can't load replies right now" message="Check your connection and try again" onRetry={state.retry} />;
@@ -97,10 +97,10 @@ function RepliesContent({ wallet, isOwner = false }: RepliesTabProps) {
   }
   const now = Date.now();
   return (
-    <section aria-label="Replies" className="flex flex-col gap-1 rounded-lg bg-surface-1 p-1">
-      <ul className="flex flex-col gap-1">
+    <section aria-label="Replies" className="flex flex-col bg-surface-1">
+      <ul className="flex flex-col">
         {comments.map(comment => (
-          <li key={comment.id} className="rounded-md bg-surface-2 px-3 py-2">
+          <li key={comment.id} className="sl-hairline px-3 py-2">
             <div className="flex items-center justify-between gap-3 text-xs text-text-faint">
               <Link prefetch={false} href={poolPath(125, comment.pool_address)} className="truncate font-mono text-text-muted hover:text-text">{comment.parent_id ? 'Replied on' : 'Posted on'} {shortAddress(comment.pool_address)}</Link>
               <span className="shrink-0 tabular-nums">{relativeAge(comment.created_at, now)} ago{comment.like_count > 0 ? ` · ${formatCount(comment.like_count)} likes` : ''}</span>
@@ -115,12 +115,5 @@ function RepliesContent({ wallet, isOwner = false }: RepliesTabProps) {
 }
 
 export function RepliesTab(props: RepliesTabProps) {
-  return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
-      <div aria-hidden="true" className="invisible col-start-1 row-start-1 pointer-events-none">
-        <Skeleton variant="rows" rows={4} />
-      </div>
-      <div className="col-start-1 row-start-1 min-w-0"><RepliesContent {...props} /></div>
-    </div>
-  );
+  return <RepliesContent {...props} />;
 }

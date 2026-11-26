@@ -47,8 +47,9 @@ make test
 `make build` runs `go build ./...` in the listed modules. `make test` runs each
 module through the repository's
 [test runner](../../tests/ci/data/launchpad_go_tests.py) and
-[test baseline](../../tests/ci/data/launchpad_go_test_baseline.json), so Python 3
-is also required. Integration tests use PostgreSQL, Redis, NATS and chain clients;
+[test baseline](../../tests/ci/data/launchpad_go_test_baseline.json), which is
+empty, so the runner selects no tests to skip. Python 3 is also required.
+Integration tests use PostgreSQL, Redis, NATS and chain clients;
 service-specific tests may also require Anvil and S3-compatible object storage.
 
 Additional targets in the same Makefile are `make vet`, `make fmt-check`,

@@ -59,7 +59,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
   size = 'sm',
-  shape = 'pill',
+  shape = 'sm',
   tone = 'neutral',
   fullWidth = false,
   compact = false,
@@ -102,7 +102,7 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cn(
-        'inline-flex min-w-0 max-w-full flex-wrap bg-surface-2 p-0.5',
+        'inline-flex min-w-0 max-w-full overflow-x-auto bg-surface-2 p-0.5',
         radius,
         fullWidth && 'flex w-full',
         className
@@ -115,7 +115,7 @@ export function SegmentedControl<T extends string>({
             ? index === 0
               ? 'bg-accent text-on-accent'
               : 'bg-danger text-on-danger'
-            : 'border-[var(--sl-control-edge)] bg-surface-active text-text';
+            : 'border-[var(--sl-control-edge)] bg-surface-3 text-text';
         return (
           <button
             key={option.value}
@@ -132,15 +132,15 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 border border-transparent py-0.5 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold transition-colors duration-fast',
+              'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border border-transparent py-0.5 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-semibold transition-colors duration-base',
               compact
                 ? 'whitespace-nowrap px-[calc(var(--sl-space-1)*1.5-var(--sl-edge-width))]'
                 : 'px-[calc(var(--sl-space-3)-var(--sl-edge-width))]',
-              radius,
+              'rounded-pill',
               size === 'sm' ? 'min-h-6' : 'min-h-8',
               fullWidth && 'flex-1',
               selected
-                ? `${tradeTone} underline underline-offset-[var(--sl-focus-offset)]`
+                ? tradeTone
                 : 'text-text-muted hover:bg-surface-hover hover:text-text',
               option.disabled && 'cursor-not-allowed text-text-disabled hover:bg-transparent'
             )}
@@ -239,7 +239,7 @@ export function TabStrip<T extends string>({
   }
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div className={cn('sl-hairline flex min-w-0 items-center gap-2', className)}>
       <div
         role="tablist"
         aria-label={label}
@@ -268,7 +268,7 @@ export function TabStrip<T extends string>({
               onClick={() => onChange(tab.id)}
               onKeyDown={(event) => onKeyDown(event, index)}
               className={cn(
-                'relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 font-bold transition-colors duration-fast',
+                'relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 font-medium transition-colors duration-base',
                 variant === 'underline'
                   ? 'min-h-11 py-2 text-base'
                   : 'min-h-control-height-md border border-control-edge px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-2)-var(--sl-edge-width))] rounded-sm text-sm',
@@ -295,7 +295,7 @@ export function TabStrip<T extends string>({
               {selected ? (
                 <span
                   aria-hidden="true"
-                  className="absolute inset-x-3 bottom-0 h-0.5 rounded-pill bg-accent"
+                  className="absolute inset-x-3 bottom-0 h-0.5 rounded-pill bg-text"
                 />
               ) : null}
             </button>
@@ -366,7 +366,7 @@ export function SelectPill<T extends string>({
         className={cn(
           'sl-field relative inline-flex min-h-control-height-sm min-w-0 items-center gap-1.5 rounded-pill px-3',
           compact && 'px-2 py-0',
-          error ? 'bg-danger-soft' : 'bg-surface-2'
+          'bg-surface-2'
         )}
       >
         {showLabel ? (
@@ -645,9 +645,9 @@ export interface FormFieldProps {
 }
 
 const controlSurface = {
-  canvas: 'bg-surface-1',
+  canvas: 'bg-surface-2',
   'surface-1': 'bg-surface-2',
-  'surface-2': 'bg-surface-3',
+  'surface-2': 'bg-surface-2',
 } as const;
 
 export function FormField({
@@ -682,8 +682,6 @@ export function FormField({
     ]
       .filter(Boolean)
       .join(' ') || undefined;
-  const disabled = Boolean(inputProps?.disabled ?? textareaProps?.disabled);
-  const readOnly = Boolean(inputProps?.readOnly ?? textareaProps?.readOnly);
   const counterTone = counter
     ? counter.count >= counter.max
       ? 'text-danger'
@@ -693,13 +691,7 @@ export function FormField({
     : '';
   const shell = cn(
     'sl-field flex min-w-0 items-center gap-2 rounded-sm px-3 transition-colors duration-fast',
-    error
-      ? 'bg-danger-soft'
-      : readOnly
-        ? 'bg-transparent'
-        : disabled
-          ? 'bg-surface-2'
-          : controlSurface[surface],
+    controlSurface[surface],
     'focus-within:outline-2 focus-within:outline-focus',
     multiline
       ? 'items-start py-[calc(var(--sl-space-2)-var(--sl-edge-width))]'
@@ -717,7 +709,7 @@ export function FormField({
 
   return (
     <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="text-sm font-bold text-text">
+      <label htmlFor={id} className="text-sm font-semibold text-text">
         {label}
         {optional ? <span className="ml-1 inline-block font-semibold text-text-faint">(Optional)</span> : null}
       </label>
@@ -839,7 +831,7 @@ export function SortHeader({
       aria-sort={ariaSort}
       style={width !== undefined ? { width } : undefined}
       className={cn(
-        'h-table-header-height px-3 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)]',
+        'h-table-header-height bg-canvas px-3 text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)]',
         sort ? 'text-text' : 'text-text-faint',
         align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left',
         className

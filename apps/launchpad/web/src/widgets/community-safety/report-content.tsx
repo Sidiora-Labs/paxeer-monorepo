@@ -13,7 +13,7 @@ const reportCategories = [
     { value: 'other', label: 'Something else' },
 ] as const;
 
-const fieldClass = 'w-full rounded-sm bg-surface-2 px-3 text-base text-text outline-none transition-colors duration-fast placeholder:text-text-faint focus-visible:outline-2 focus-visible:outline-focus disabled:text-text-disabled';
+const fieldClass = 'sl-field w-full rounded-sm bg-surface-2 px-3 text-base text-text outline-none transition-colors duration-fast placeholder:text-text-faint focus-visible:outline-2 focus-visible:outline-focus disabled:text-text-disabled';
 
 export interface ReportContentProps {
     client: SafetyClient;
@@ -45,22 +45,22 @@ export function ReportContent({ client, targetType, targetId, onLocalMute, onLoc
     }
     const busy = state.state === 'pending';
     return <section className={cn('flex flex-col gap-3', !embedded && 'rounded-md bg-surface-1 p-4')} aria-label="Report">
-        {!embedded && <h2 className="text-md font-bold text-text">Report</h2>}
+        {!embedded && <h2 className="text-md font-semibold text-text">Report</h2>}
         <p className="text-sm text-text-muted">Only our team sees your report</p>
         {(onLocalMute || onLocalBlock) && <div className="flex flex-wrap gap-2">
             {onLocalMute && <Button variant="secondary" size="sm" onClick={onLocalMute}>Mute</Button>}
             {onLocalBlock && <Button variant="danger-text" size="sm" onClick={onLocalBlock}>Block</Button>}
         </div>}
-        {caseId ? <p role="status" className="rounded-sm bg-success-soft px-3 py-2 text-sm text-success">Thanks, we got your report</p> : <form onSubmit={submit} aria-busy={busy || undefined} className="flex flex-col gap-3">
+        {caseId ? <p role="status" className="rounded-sm bg-surface-2 px-3 py-2 text-sm text-text">Thanks, we got your report</p> : <form onSubmit={submit} aria-busy={busy || undefined} className="flex flex-col gap-3">
             <fieldset disabled={busy} className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                    <label htmlFor={`${id}-category`} className="text-sm font-bold text-text">Reason</label>
+                    <label htmlFor={`${id}-category`} className="text-sm font-semibold text-text">Reason</label>
                     <select id={`${id}-category`} name="category" required className={cn(fieldClass, 'h-control-height-md')}>
                         {reportCategories.map(category => <option key={category.value} value={category.value}>{category.label}</option>)}
                     </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <label htmlFor={`${id}-description`} className="text-sm font-bold text-text">Details</label>
+                    <label htmlFor={`${id}-description`} className="text-sm font-semibold text-text">Details</label>
                     <textarea id={`${id}-description`} name="description" maxLength={4000} rows={4} className={cn(fieldClass, 'min-h-24 resize-y py-2 leading-[var(--sl-leading-base)]')} placeholder="What happened? (optional)" />
                 </div>
                 <div className="flex justify-end">

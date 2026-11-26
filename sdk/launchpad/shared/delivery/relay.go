@@ -23,6 +23,17 @@ type Relay struct {
 	Budget                                    *WorkBudget
 }
 
+const relayBudgetMaxAttempts = 100
+
+func relayBudgetRetryDelay(delay time.Duration, attempts int) time.Duration {
+	limit := max(5*time.Second, delay)
+	for attempts > 1 && delay < limit {
+		delay = min(delay*2, limit)
+		attempts--
+	}
+	return delay
+}
+
 // RunOnce is bounded; independent replicas use SKIP LOCKED and fenced leases.
 func (r Relay) RunOnce(ctx context.Context) error {
 	if r.Store == nil || r.Publisher == nil || !token.MatchString(r.Owner) || r.Batch < 1 || r.Batch > 1000 || r.MaxAttempts < 1 || r.MaxAttempts > 100 || r.PublishTimeout <= 0 || r.PublishTimeout >= r.LeaseDuration || r.RetryDelay < time.Second || r.RetryDelay > time.Hour {
@@ -45,7 +56,7 @@ func (r Relay) RunOnce(ctx context.Context) error {
 			return poison
 		}
 		l := leases[0]
-		allowed, err := r.Store.CheckAttemptBudget(ctx, l, r.MaxAttempts)
+		allowed, err := r.Store.CheckAttemptBudget(ctx, l, relayBudgetMaxAttempts)
 		if err != nil {
 			return errors.Join(poison, err)
 		}
@@ -71,7 +82,12 @@ func (r Relay) RunOnce(ctx context.Context) error {
 		}
 		if puberr != nil {
 			// A crash here leaves the exact immutable row reclaimable after lease expiry.
-			if retryErr := r.Store.Retry(ctx, l, publicationFailureClass(puberr), r.MaxAttempts, r.RetryDelay); retryErr != nil {
+			class := publicationFailureClass(puberr)
+			delay := r.RetryDelay
+			if class == Transient {
+				delay = relayBudgetRetryDelay(delay, l.Attempts)
+			}
+			if retryErr := r.Store.Retry(ctx, l, class, relayBudgetMaxAttempts, delay); retryErr != nil {
 				return errors.Join(poison, puberr, retryErr)
 			}
 			return errors.Join(poison, puberr)

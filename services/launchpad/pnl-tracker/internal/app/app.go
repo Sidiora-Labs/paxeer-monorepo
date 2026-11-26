@@ -55,6 +55,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/card"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/config"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/migrate"
@@ -70,6 +71,11 @@ const (
 	// (100 req / 60s per client).
 	rateLimitMax    = 100
 	rateLimitWindow = 60 * time.Second
+)
+
+const (
+	backgroundJobErrorThreshold = 3
+	backgroundJobErrorInterval  = 30 * time.Second
 )
 
 // App is a fully-wired, ready-to-run pnl service.
@@ -88,6 +94,7 @@ type App struct {
 	readinessStop     context.CancelFunc
 	tracker           *sharedprocess.Tracker
 	Router            http.Handler
+	backgroundJobNow  func() time.Time
 
 	logger      *slog.Logger
 	pool        *pgxpool.Pool
@@ -98,6 +105,10 @@ type App struct {
 
 // New runs migrations and builds every component.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
+	accountingHealth, err := newConsumerReadiness(cfg, "inventory_consumer", logger, time.Now)
+	if err != nil {
+		return nil, err
+	}
 	secretCheck, secretStop, secretErr := cfg.ResolveProductionSecrets(ctx)
 	if secretErr != nil {
 		return nil, secretErr
@@ -282,6 +293,19 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		return nil, err
 	}
+	if accountingConsumer != nil {
+		accountingConsumer.Progress = accountingHealth
+		secretChecks["inventory_consumer"] = accountingHealth.Check
+	}
+	var liveHealth *consumerhealth.State
+	if journeys != nil {
+		liveHealth, err = newConsumerReadiness(cfg, "live_wallet_consumer", logger, time.Now)
+		if err != nil {
+			return nil, err
+		}
+		journeys.live.Progress = liveHealth
+		secretChecks["live_wallet_consumer"] = liveHealth.Check
+	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins:    cfg.CORSAllowedOrigins,
 		TrustedProxies: trustedProxies,
@@ -361,7 +385,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	})(router)
 
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", consumerhealth.Metrics(metrics, "pnld", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone, accountingHealth, liveHealth))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err
@@ -466,6 +490,12 @@ func (a *App) startBackgroundJobs(ctx context.Context) {
 func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn func(context.Context) error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	now := time.Now
+	if a.backgroundJobNow != nil {
+		now = a.backgroundJobNow
+	}
+	failedPasses := 0
+	var lastError time.Time
 	for {
 		select {
 		case <-ctx.Done():
@@ -475,7 +505,19 @@ func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn 
 				return
 			}
 			if err := fn(ctx); err != nil {
-				a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
+				failedPasses++
+				if failedPasses < backgroundJobErrorThreshold {
+					a.logger.Warn("background job pass failed", slog.String("job", name), slog.Any("err", err), slog.Int("failed_passes", failedPasses))
+				} else {
+					current := now()
+					if failedPasses == backgroundJobErrorThreshold || current.Sub(lastError) >= backgroundJobErrorInterval {
+						a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err), slog.Int("failed_passes", failedPasses))
+						lastError = current
+					}
+				}
+			} else if failedPasses > 0 {
+				a.logger.Info("background job recovered", slog.String("job", name), slog.Int("failed_passes", failedPasses))
+				failedPasses = 0
 			}
 		}
 	}
@@ -734,6 +776,10 @@ func JourneysEnabled(cfg config.Config) bool {
 }
 
 func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, rdb *goredis.Client, rpc *ethclient.Client, nc *nats.Conn, baseline *inventory.BaselineAuthority, accounting *inventory.AccountingConsumer) (*pnlJourneys, error) {
+	rewardsTimeout, err := cfg.RewardsTimeout()
+	if err != nil {
+		return nil, err
+	}
 	var d pnlJourneyDocument
 	if err := config.ReadBoundDocument(cfg.JourneyConfigFile, cfg.JourneyConfigSHA256, &d); err != nil {
 		return nil, err
@@ -874,7 +920,7 @@ func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	if err != nil {
 		return nil, err
 	}
-	rewardsHTTP := l18.HTTP{Service: rewards, Authenticate: func(request *http.Request) (l18.Actor, error) {
+	rewardsHTTP := l18.HTTP{Service: rewards, Timeout: rewardsTimeout, Authenticate: func(request *http.Request) (l18.Actor, error) {
 		principal, e := identity.AuthenticateRequest(request.Context(), request)
 		if e != nil {
 			return l18.Actor{}, e

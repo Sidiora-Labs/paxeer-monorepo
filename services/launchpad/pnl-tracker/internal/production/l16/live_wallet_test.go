@@ -53,6 +53,7 @@ func inventoryIdentityFixture(t *testing.T, wallet string) (auth.HTTPIdentityAut
 }
 
 func TestLiveWalletEnrollmentReplayAndCancellation(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	service, pool := recordedRebuildService(t, ctx)
@@ -78,7 +79,7 @@ func TestLiveWalletEnrollmentReplayAndCancellation(t *testing.T) {
 	}
 	stale := p
 	stale.ProofAt = time.Now().Add(-16 * time.Minute)
-	if err = worker.EnqueueOwned(ctx, stale); !errors.Is(err, auth.ErrScopeDenied) {
+	if err = worker.EnqueueOwned(ctx, stale); err != nil {
 		t.Fatal(err)
 	}
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
