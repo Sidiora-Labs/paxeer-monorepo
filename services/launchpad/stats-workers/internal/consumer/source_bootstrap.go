@@ -260,7 +260,7 @@ func (s *statsBootstrapper) slice(ctx context.Context, p *statsBootstrapProgress
 	b := p.bootstrap
 	q := statsBoundedQuery{s.config.Pool, s.config.StatementTimeout}
 	var complete, raw, records, commits, swaps, violations, openRaw, recordViolations int64
-	err := q.QueryRow(ctx, `WITH blocks AS MATERIALIZED (
+	err := q.QueryRow(ctx, `WITH bounds AS MATERIALIZED (SELECT $2::bigint start_height,$3::bigint end_height), blocks AS MATERIALIZED (
  SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness_v1
  WHERE chain_id=125 AND stream_id=$1 AND height>$2 AND height<=$3
 ), logs AS MATERIALIZED (
@@ -270,10 +270,20 @@ func (s *statsBootstrapper) slice(ctx context.Context, p *statsBootstrapProgress
 ), ranges AS (
  SELECT previous_height p,last_complete_height l,block_hash h,record_count n,
  lag(last_complete_height) OVER (ORDER BY previous_height,last_complete_height) prior
- FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$3 AND last_complete_height>$2
+ FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT end_height FROM bounds) AND last_complete_height>(SELECT start_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]')
+), totals AS MATERIALIZED (
+ SELECT height,(sum(n) OVER (ORDER BY height ROWS UNBOUNDED PRECEDING))::bigint seen FROM (
+  SELECT height,sum(n) n FROM (
+   SELECT height,raw_count n FROM blocks
+   UNION ALL SELECT greatest($2,least(p,$3)),0 FROM ranges
+   UNION ALL SELECT greatest($2,least(l,$3)),0 FROM ranges
+  ) points GROUP BY height
+ ) points
 ), ranged AS (
- SELECT a.p,a.l,a.n,COALESCE(sum(b.raw_count),0) seen FROM ranges a
- LEFT JOIN blocks b ON b.height>a.p AND b.height<=a.l GROUP BY a.p,a.l,a.n
+ SELECT a.p,a.l,a.n,CASE WHEN a.l>a.p THEN (hi.seen-lo.seen)*a.copies ELSE 0 END seen
+ FROM (SELECT p,l,n,count(*) copies FROM ranges GROUP BY p,l,n) a
+ JOIN totals lo ON lo.height=greatest($2,least(a.p,$3))
+ JOIN totals hi ON hi.height=greatest($2,least(a.l,$3))
 ), swaps AS (
  SELECT * FROM logs WHERE topics->>0=$4 AND topics->>1=$5 AND (height,transaction_index,log_index)<=($6::bigint,$7::bigint,$8::bigint)
 )
@@ -305,8 +315,8 @@ SELECT (SELECT count(*) FROM blocks WHERE fetch_complete AND required_decode_com
 func (s *statsBootstrapper) counts(ctx context.Context, q sourcebootstrap.Querier, b statsSourceBootstrap) (int64, int64, error) {
 	var commits, swaps int64
 	q = statsBoundedQuery{q, s.config.StatementTimeout}
-	err := q.QueryRow(ctx, `SELECT
- (SELECT count(*) FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height>=$2 AND last_complete_height<=$3),
+	err := q.QueryRow(ctx, `WITH bounds AS MATERIALIZED (SELECT $2::bigint start_height,$3::bigint end_height) SELECT
+ (SELECT count(*) FROM (SELECT previous_height,last_complete_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height>=(SELECT start_height FROM bounds) AND last_complete_height<=(SELECT end_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]') ORDER BY previous_height,last_complete_height) commits),
  (SELECT count(*) FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>$2 AND height<=$4 AND topics->>0=$7 AND topics->>1=$8 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint))`, s.config.SourceStream, b.Evidence.ReplayFromHeight, b.Evidence.FirstCommitLastHeight, b.Fill.Position.Height, b.Fill.Position.TransactionIndex, b.Fill.Position.LogIndex, statsSwapTopic.Hex(), common.BytesToHash(common.HexToAddress(b.Fill.PoolAddress).Bytes()).Hex()).Scan(&commits, &swaps)
 	return commits, swaps, err
 }

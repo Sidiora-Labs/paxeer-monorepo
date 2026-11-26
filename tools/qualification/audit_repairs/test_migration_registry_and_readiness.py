@@ -70,7 +70,7 @@ def test_registered_sql_paths_digests_and_application_order():
     assert registry["schema_version"] == 2
     assert registry["path_base"] == "monorepo-root"
     entries = registry["registrations"]
-    assert len(entries) == 100
+    assert len(entries) == 101
     by_id = {entry["migration_id"]: entry for entry in entries}
     assert len(by_id) == len(entries)
     assert len(registry["application_order"]) == len(entries)
@@ -93,7 +93,7 @@ def test_registered_sql_paths_digests_and_application_order():
     } | {"0001_genesis_sections.sql", "0001_projection.sql", "0007_history_index.sql"}
     assert inventory_digest(
         [(entry["migration_id"], entry["sha256"]) for entry in entries]
-    ) == "a896c1f093c6593a64087ab3caef30fd9a26e67ae89f4052eaf8e5f4fec0f2f8"
+    ) == "bdaf91af5e721dae9db0a793c1f9f638bcada89f99087c0535c3c984adc1cfc2"
 
 
 def test_source_inputs_relocated_without_reapproving_drift():
@@ -135,6 +135,9 @@ def test_unqualified_registry_has_no_approval_authority():
             assert DIGEST.fullmatch(predecessor["structural_fingerprint"])
     assert registry["extension_prerequisites"] == [{
         "extension": "pg_trgm", "schema": "public", "version": None,
+        "runtime_install": False,
+    }, {
+        "extension": "btree_gist", "schema": "public", "version": None,
         "runtime_install": False,
     }]
     proposal = document("pnl-reward-approval.json")

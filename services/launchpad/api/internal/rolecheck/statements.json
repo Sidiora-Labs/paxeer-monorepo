@@ -58,8 +58,8 @@
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "CommitContaining",
     "line": 106,
-    "expression": "`SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`",
-    "sql": "SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
+    "expression": "`WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric`",
+    "sql": "WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -72,24 +72,31 @@
       "indexer.indexer_ingest_commits_v1"
     ],
     "sequences": [],
-    "functions": [],
+    "functions": [
+      "greatest",
+      "least",
+      "numrange"
+    ],
     "columns": [
       "batch_id",
       "block_hash",
       "chain_id",
+      "height",
       "last_complete_height",
       "previous_height",
       "stream_id"
     ],
-    "ctes": []
+    "ctes": [
+      "bounds"
+    ]
   },
   {
     "id": "sourcebootstrap/sourcebootstrap.PreviousHeightContaining.1",
     "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
     "function": "PreviousHeightContaining",
     "line": 114,
-    "expression": "`SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`",
-    "sql": "SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
+    "expression": "`WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric`",
+    "sql": "WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height<(SELECT height FROM bounds) AND last_complete_height>=(SELECT height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') @> $2::numeric",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -102,14 +109,21 @@
       "indexer.indexer_ingest_commits_v1"
     ],
     "sequences": [],
-    "functions": [],
+    "functions": [
+      "greatest",
+      "least",
+      "numrange"
+    ],
     "columns": [
       "chain_id",
+      "height",
       "last_complete_height",
       "previous_height",
       "stream_id"
     ],
-    "ctes": []
+    "ctes": [
+      "bounds"
+    ]
   },
   {
     "id": "sourcebootstrap/sourcebootstrap.CanonicalCreation.1",
