@@ -19,7 +19,7 @@ stop_gateway() {
     dir=$(realpath -e "$dir")
     [[ "$dir" == "$BASE"/gateway.* ]] && [ -f "$dir/.local-perps-gateway" ] \
         || fail 'not a disposable gateway home'
-    for role in gateway nats-1 nats-2 nats-3; do
+    for role in gateway indexer nats-1 nats-2 nats-3; do
         [ -f "$dir/$role.pid" ] || continue
         pid=$(cat "$dir/$role.pid")
         [[ "$pid" =~ ^[1-9][0-9]*$ ]] || fail "invalid $role pid"
@@ -83,11 +83,14 @@ for tool in go python3 curl jq openssl nats-server setsid timeout; do
     command -v "$tool" >/dev/null || fail "$tool is required"
 done
 [ -n "${PERPS_DATA_TEST_RPC:-}" ] || fail 'node env must set PERPS_DATA_TEST_RPC'
+[ -n "${PERPS_DATA_TEST_COMET:-}" ] || fail 'node env must set PERPS_DATA_TEST_COMET'
+[[ "${LOCAL_NODE_START_HEIGHT:-}" =~ ^[1-9][0-9]*$ ]] || fail 'node env must set LOCAL_NODE_START_HEIGHT'
 [ -n "${PERPS_DATA_TEST_DATABASE_URL:-}" ] || fail 'PERPS_DATA_TEST_DATABASE_URL must name a local disposable Postgres database'
 python3 - <<'PY'
 import os
 from urllib.parse import urlsplit
 for key, schemes in [('PERPS_DATA_TEST_RPC', ('http', 'https')),
+                     ('PERPS_DATA_TEST_COMET', ('http', 'https')),
                      ('PERPS_DATA_TEST_DATABASE_URL', ('postgres', 'postgresql'))]:
     u = urlsplit(os.environ[key])
     if u.scheme not in schemes or u.hostname not in ('127.0.0.1', 'localhost', '::1'):
@@ -99,9 +102,9 @@ fi
 mkdir -p "$BASE"
 STATE=$(mktemp -d "$BASE/gateway.XXXXXXXX")
 touch "$STATE/.local-perps-gateway"
-read -r PORT NATS_PORT NATS_PORT_2 NATS_PORT_3 MONITOR_PORT MONITOR_PORT_2 MONITOR_PORT_3 CLUSTER_PORT CLUSTER_PORT_2 CLUSTER_PORT_3 < <(python3 - <<'PORTS'
+read -r PORT INDEXER_PORT NATS_PORT NATS_PORT_2 NATS_PORT_3 MONITOR_PORT MONITOR_PORT_2 MONITOR_PORT_3 CLUSTER_PORT CLUSTER_PORT_2 CLUSTER_PORT_3 < <(python3 - <<'PORTS'
 import socket
-listeners = [socket.socket() for _ in range(10)]
+listeners = [socket.socket() for _ in range(11)]
 for listener in listeners:
     listener.bind(('127.0.0.1', 0))
 print(*(listener.getsockname()[1] for listener in listeners))
@@ -110,7 +113,19 @@ for listener in listeners:
 PORTS
 )
 export PORT PERPS_CHAIN_ID=125 PERPS_RPC_URLS="$PERPS_DATA_TEST_RPC"
-export DATABASE_URL="$PERPS_DATA_TEST_DATABASE_URL" NATS_URL="nats://127.0.0.1:$NATS_PORT"
+export PERPS_COMET_URLS="$PERPS_DATA_TEST_COMET" PERPS_START_HEIGHT="$LOCAL_NODE_START_HEIGHT"
+# Each gateway indexes one disposable chain in its own database.
+export LOCAL_PERPS_DATABASE_ADMIN_URL="$PERPS_DATA_TEST_DATABASE_URL"
+export LOCAL_PERPS_DATABASE_NAME="lx_perps_${STATE##*.}"
+DATABASE_URL=$(python3 - <<'PY'
+import os
+from urllib.parse import urlsplit, urlunsplit
+url = urlsplit(os.environ['LOCAL_PERPS_DATABASE_ADMIN_URL'])
+print(urlunsplit(url._replace(path='/' + os.environ['LOCAL_PERPS_DATABASE_NAME'])))
+PY
+)
+export DATABASE_URL NATS_URL="nats://127.0.0.1:$NATS_PORT"
+export PERPS_DATA_TEST_DATABASE_URL="$DATABASE_URL"
 export PERPS_AUTH_SECRET="$(openssl rand -hex 32)"
 NATS_PORTS=("$NATS_PORT" "$NATS_PORT_2" "$NATS_PORT_3")
 MONITOR_PORTS=("$MONITOR_PORT" "$MONITOR_PORT_2" "$MONITOR_PORT_3")
@@ -164,6 +179,7 @@ import (
     "time"
 
     "github.com/ethereum/go-ethereum/ethclient"
+    "github.com/lib/pq"
     "github.com/nats-io/nats.go"
     "github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/markets"
     "github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/publish"
@@ -183,6 +199,10 @@ func bootstrap() error {
     chain, err := client.ChainID(ctx)
     if err != nil { return err }
     if chain.Cmp(big.NewInt(125)) != 0 { return fmt.Errorf("chain ID = %s, want 125", chain) }
+    admin, err := store.Open(os.Getenv("LOCAL_PERPS_DATABASE_ADMIN_URL"))
+    if err != nil { return err }
+    defer admin.Close()
+    if _, err := admin.ExecContext(ctx, "CREATE DATABASE " + pq.QuoteIdentifier(os.Getenv("LOCAL_PERPS_DATABASE_NAME"))); err != nil { return err }
     db, err := store.Open(os.Getenv("DATABASE_URL"))
     if err != nil { return err }
     defer db.Close()
@@ -210,10 +230,19 @@ if source.count(old) != 1:
 (state / 'gateway.go').write_text(source.replace(old, new))
 for mode in ('bootstrap', 'gateway'):
     (state / f'{mode}.json').write_text(json.dumps({'Replace': {str(main): str(state / f'{mode}.go')}}))
+indexer = root / 'services/platform/perps-data/cmd/perps-indexer/main.go'
+source = indexer.read_text()
+if source.count(old) != 1:
+    raise SystemExit('indexer listener must have one port binding')
+(state / 'indexer.go').write_text(source.replace(old, new))
+(state / 'indexer.json').write_text(json.dumps({'Replace': {str(indexer): str(state / 'indexer.go')}}))
 PY
 cd "$ROOT"
 timeout 180s go run -overlay "$STATE/bootstrap.json" ./services/platform/perps-data/cmd/perps-gateway \
     > "$STATE/bootstrap.log" 2>&1 || fail "bootstrap failed; see $STATE/bootstrap.log"
+PORT=$INDEXER_PORT nohup setsid go run -overlay "$STATE/indexer.json" ./services/platform/perps-data/cmd/perps-indexer \
+    > "$STATE/indexer.log" 2>&1 < /dev/null &
+echo "$!" > "$STATE/indexer.pid"
 nohup setsid go run -overlay "$STATE/gateway.json" ./services/platform/perps-data/cmd/perps-gateway \
     > "$STATE/gateway.log" 2>&1 < /dev/null &
 echo "$!" > "$STATE/gateway.pid"
@@ -221,10 +250,12 @@ URL=http://127.0.0.1:$PORT
 deadline=$((SECONDS + 120))
 while :; do
     kill -0 "$(cat "$STATE/gateway.pid")" 2>/dev/null || fail "gateway exited; see $STATE/gateway.log"
+    kill -0 "$(cat "$STATE/indexer.pid")" 2>/dev/null || fail "indexer exited; see $STATE/indexer.log"
     for peer in 1 2 3; do
         kill -0 "$(cat "$STATE/nats-$peer.pid")" 2>/dev/null || fail "NATS peer exited; see $STATE/nats-$peer.log"
     done
-    if curl -fsS --max-time 2 "$URL/healthz/ready" > "$STATE/health.json" 2>/dev/null \
+    if curl -fsS --max-time 2 "http://127.0.0.1:$INDEXER_PORT/healthz/ready" > "$STATE/indexer-health.json" 2>/dev/null \
+        && curl -fsS --max-time 2 "$URL/healthz/ready" > "$STATE/health.json" 2>/dev/null \
         && curl -fsS --max-time 2 -H 'Content-Type: application/json' \
             --data '{"query":"query LocalGatewayHealth { markets { marketId } }"}' \
             "$URL/graphql" > "$STATE/graphql-health.json" 2>/dev/null \
@@ -237,6 +268,7 @@ while :; do
 done
 {
     printf '\nLOCAL_PERPS_GATEWAY_HOME=%q\n' "$STATE"
+    printf 'PERPS_DATA_TEST_DATABASE_URL=%q\n' "$DATABASE_URL"
     printf 'NEXT_PUBLIC_PERPS_GATEWAY_URL=%q\n' "$URL"
 } >> "$ENV_FILE"
 SUCCESS=1

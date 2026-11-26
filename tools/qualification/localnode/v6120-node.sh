@@ -164,7 +164,11 @@ activate_merge() {
     done
     height=$current
     height=$((height + 20))
-    activation_height=$(jq -er '.app_state.sequencer.activation_height' "$GENESIS")
+    # Plain consensus keeps sequencing inactive; sequencer mode activates at the merge.
+    activation_height=9223372036854775807
+    if [ "$SEQUENCER" = 1 ]; then
+        activation_height=$(jq -er '.app_state.sequencer.activation_height' "$GENESIS")
+    fi
     info=$(python3 - "$NODE_HOME/config/priv_validator_key.json" "$height" "$activation_height" \
         "$(jq -er '.public_key' "$NODE_HOME/receipt-public.json")" <<'PY'
 import base64
@@ -490,6 +494,8 @@ VALIDATOR=$("$PAXD" keys show validator -a --bech val --home "$NODE_HOME" --keyr
 CONS=$("$PAXD" tendermint show-address --home "$NODE_HOME")
 KEY=$(printf 'y\n' | "$PAXD" keys export test --unsafe --unarmored-hex --home "$NODE_HOME" --keyring-backend test 2> "$NODE_HOME/export-key.log")
 [[ "$KEY" =~ ^[0-9a-fA-F]{64}$ ]] || fail 'test key export failed'
+MAKER_KEY=$(printf 'y\n' | "$PAXD" keys export deployer --unsafe --unarmored-hex --home "$NODE_HOME" --keyring-backend test 2> "$NODE_HOME/export-maker-key.log")
+[[ "$MAKER_KEY" =~ ^[0-9a-fA-F]{64}$ ]] || fail 'maker key export failed'
 
 # Re-key the retained validator and its references, preserving exported module state.
 SOURCE=$ROOT/node/testdata/v6120-halt-export.json
@@ -616,15 +622,13 @@ if [ "$SIDIORA" = 1 ]; then
     (cd "$ROOT" && go run ./tools/qualification/localnode/sidioragenesis \
         "$GENESIS" "$ROOT/contracts/test/sidiora_pointer_proposal.json" "$SOURCE")
 fi
+"$PAXD" sequencer gen-receipt-key --output "$NODE_HOME/config/receipt-key.hex" \
+    > "$NODE_HOME/receipt-public.json"
+chmod 600 "$NODE_HOME/config/receipt-key.hex"
 if [ "$SEQUENCER" = 1 ]; then
-    for home in "$NODE_HOME"; do
-        "$PAXD" sequencer gen-receipt-key --output "$home/config/receipt-key.hex" \
-            > "$home/receipt-public.json"
-        chmod 600 "$home/config/receipt-key.hex"
-        public=$(jq -er '.public_key' "$home/receipt-public.json")
-        "$PAXD" add-genesis-receipt-key --home "$NODE_HOME" --public-key "$public" \
-            --first-height 1 --last-height 9223372036854775807 >> "$NODE_HOME/init.log" 2>&1
-    done
+    public=$(jq -er '.public_key' "$NODE_HOME/receipt-public.json")
+    "$PAXD" add-genesis-receipt-key --home "$NODE_HOME" --public-key "$public" \
+        --first-height 1 --last-height 9223372036854775807 >> "$NODE_HOME/init.log" 2>&1
     jq '.app_state.sequencer.activation_height = 0 | .app_state.sequencer.leaders = []' \
         "$GENESIS" > "$GENESIS.tmp"
     mv "$GENESIS.tmp" "$GENESIS"
@@ -868,6 +872,8 @@ fi
 configure_xweb
 printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
 evm_call deployer "$USDL" "$MINT_DATA"
+printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[0]#0x}" 1000000000000
+evm_call deployer "$USDL" "$MINT_DATA"
 PERPS=0x0000000000000000000000000000000000001015
 COLLATERAL_AMOUNT=1000000000
 printf -v APPROVE_DATA '095ea7b3000000000000000000000000%s%064x' "${PERPS#0x}" "$COLLATERAL_AMOUNT"
@@ -958,6 +964,8 @@ fi
     printf 'LOCAL_NODE_RPC=%q\n' "$EVM"
     printf 'LOCAL_NODE_HOME=%q\n' "$NODE_HOME"
     printf 'LOCAL_NODE_KEY=%q\n' "0x$KEY"
+    printf 'LOCAL_NODE_MAKER_KEY=%q\n' "0x$MAKER_KEY"
+    printf 'LOCAL_NODE_START_HEIGHT=%q\n' "$HEIGHT"
     if [ "$SEQUENCER" = 1 ]; then
         printf 'LOCAL_NODE_SEQUENCER_RPC=%q\n' "$EVM"
         printf 'LOCAL_NODE_ADDRESS=%q\n' "${ETH_ADDRESSES[1]}"
