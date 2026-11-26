@@ -22,7 +22,8 @@ var ErrCostAllocationUnavailable = errors.New("inventory cost allocation unavail
 
 // The issuer must prove a fresh zero balance, complete actual mint/transfer
 // history and exact settlement-transfer suppression through the fill frontier.
-// Unsupported gifts, multihop or unresolved movements must return an error.
+// Unsupported gifts or unresolved movements must return an error.
+// Receipt-proven routed sells and buys settle for the same wallet.
 type FreshBaselineAuthority interface {
 	VerifyFreshSameOwnerTx(context.Context, pgx.Tx, string, accounting.FillV1, accounting.PartitionPosition) error
 	VerifyBootstrapTx(context.Context, pgx.Tx, delivery.BootstrapInput) error
