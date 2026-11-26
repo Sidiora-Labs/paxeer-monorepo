@@ -214209,7 +214209,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1257]
 title = "Read the swap record of a buy or a sell of the launchpad web from the launchpad module address, so that a trade that went through is shown as confirmed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
