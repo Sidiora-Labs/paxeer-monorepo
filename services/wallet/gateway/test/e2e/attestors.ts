@@ -299,6 +299,9 @@ export async function startAttestorNetwork(opts: {
   rpcUrl: string;
   size?: number;
   readyTimeoutMs?: number;
+  tokenCaps?: readonly { address: `0x${string}`; perTransaction: bigint; daily: bigint }[];
+  selectors?: Readonly<Record<string, readonly string[]>>;
+  trustedSpenders?: readonly `0x${string}`[];
 }): Promise<AttestorNetwork> {
   const size = opts.size ?? 5;
   const ids = Array.from({ length: size }, (_, i) => `node-${i + 1}`);
@@ -366,12 +369,19 @@ export async function startAttestorNetwork(opts: {
             per_transaction: NATIVE_PER_TX_CAP_WEI.toString(),
             daily: (NATIVE_PER_TX_CAP_WEI * 10n).toString(),
           },
+          ...Object.fromEntries(
+            (opts.tokenCaps ?? []).map((cap) => [
+              cap.address.toLowerCase(),
+              { per_transaction: cap.perTransaction.toString(), daily: cap.daily.toString() },
+            ]),
+          ),
           '0x21f7b20a555199fa73A238B1a91FD0f549068fEe': {
             per_transaction: '1000000',
             daily: '1000000',
           },
         },
-        selectors: { [ADDR]: [BIND_SELECTOR] },
+        selectors: { ...opts.selectors, [ADDR]: [BIND_SELECTOR] },
+        trusted_spenders: opts.trustedSpenders ?? [],
         rate_per_minute: 600,
       },
     }),
