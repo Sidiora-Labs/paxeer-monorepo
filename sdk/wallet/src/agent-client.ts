@@ -219,6 +219,7 @@ export type AgentActionErrorCode =
   | 'FORBIDDEN_DESTINATION'
   | 'SIMULATION_REVERTED'
   | 'TRANSACTION_REVERTED'
+  | 'NONCE_CONSUMED'
   | 'CUSTODY_AUTHORITY_REQUIRED'
   | 'AGENT_REAUTHORIZATION_REQUIRED'
   | 'AGENT_FROZEN'
@@ -288,20 +289,20 @@ export class AgentClient extends GatewayHttpClient {
     token: string,
     method: string,
     path: string,
-    body?: unknown
+    body?: unknown,
   ): Promise<T> {
     return this.request(
       method,
       path,
       gatewayBearer(token),
-      body === undefined ? undefined : JSON.stringify(body)
+      body === undefined ? undefined : JSON.stringify(body),
     );
   }
 
   private async signedRequest<T>(
     path: string,
     body: unknown,
-    signing: AgentSigningOptions
+    signing: AgentSigningOptions,
   ): Promise<T> {
     const serialized = JSON.stringify(body);
     const headers = signAgentRequest({
@@ -319,7 +320,7 @@ export class AgentClient extends GatewayHttpClient {
           ? {}
           : { 'x-agent-attestor-authorization-id': signing.authorizationId }),
       },
-      serialized
+      serialized,
     );
   }
 
@@ -341,7 +342,7 @@ export class AgentClient extends GatewayHttpClient {
 
   provision(
     body: AgentProvisionRequest,
-    signing: AgentSigningOptions
+    signing: AgentSigningOptions,
   ): Promise<AgentProvisionResponse> {
     return this.signedRequest('/v1/agent/provision', body, signing);
   }
@@ -350,7 +351,10 @@ export class AgentClient extends GatewayHttpClient {
     return this.readRequest(token, 'GET', '/v1/agent/me');
   }
 
-  balances(token: string, tokens: readonly `0x${string}`[] = []): Promise<AgentBalancesResponse> {
+  balances(
+    token: string,
+    tokens: readonly `0x${string}`[] = [],
+  ): Promise<AgentBalancesResponse> {
     const query = tokens.length ? `?${new URLSearchParams({ tokens: tokens.join(',') })}` : '';
     return this.readRequest(token, 'GET', `/v1/agent/balances${query}`);
   }
@@ -367,7 +371,7 @@ export class AgentClient extends GatewayHttpClient {
     return this.readRequest(
       token,
       'GET',
-      `/v1/agent/allowance?${new URLSearchParams({ token: query.token, spender: query.spender })}`
+      `/v1/agent/allowance?${new URLSearchParams({ token: query.token, spender: query.spender })}`,
     );
   }
 
@@ -383,41 +387,44 @@ export class AgentClient extends GatewayHttpClient {
     return this.signedRequest('/v1/agent/sign', body, signing);
   }
 
-  send(body: AgentTransactionBody, signing: AgentSigningOptions): Promise<AgentBroadcastResponse> {
+  send(
+    body: AgentTransactionBody,
+    signing: AgentSigningOptions,
+  ): Promise<AgentBroadcastResponse> {
     return this.signedRequest('/v1/agent/send', body, signing);
   }
 
   signMessage(
     body: AgentSignMessageRequest,
-    signing: AgentSigningOptions
+    signing: AgentSigningOptions,
   ): Promise<SignMessageResponse> {
     return this.signedRequest('/v1/agent/sign-message', body, signing);
   }
 
   signTypedData(
     body: AgentSignTypedDataRequest,
-    signing: AgentSigningOptions
+    signing: AgentSigningOptions,
   ): Promise<SignMessageResponse> {
     return this.signedRequest('/v1/agent/sign-typed-data', body, signing);
   }
 
   transfer(
     body: AgentTransferRequest,
-    signing: AgentSigningOptions
+    signing: AgentSigningOptions,
   ): Promise<AgentBroadcastResponse> {
     return this.signedRequest('/v1/agent/transfer', body, signing);
   }
 
   approve(
     body: AgentApproveRequest,
-    signing: AgentSigningOptions
+    signing: AgentSigningOptions,
   ): Promise<AgentBroadcastResponse> {
     return this.signedRequest('/v1/agent/approve', body, signing);
   }
 
   allowanceAndCall(
     body: AgentAllowanceAndCallRequest,
-    signing: AgentSigningOptions
+    signing: AgentSigningOptions,
   ): Promise<AgentActionResponse> {
     return this.signedRequest('/v1/agent/actions/allowance-and-call', body, signing);
   }
