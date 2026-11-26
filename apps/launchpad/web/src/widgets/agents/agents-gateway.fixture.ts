@@ -55,7 +55,7 @@ export class AgentsGatewayFixture {
     this.chainUrl = `http://127.0.0.1:${port}`;
     const chain = defineChain({ id: 125, name: 'Agent wallet local chain', nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 }, rpcUrls: { default: { http: [this.chainUrl] } } });
     this.anvil = spawn('anvil', ['--host', '127.0.0.1', '--port', String(port), '--chain-id', '125', '--silent'], { stdio: 'ignore' });
-    this.reader = createPublicClient({ chain, transport: http(this.chainUrl, { retryCount: 0, timeout: 500 }) });
+    this.reader = createPublicClient({ chain, pollingInterval: 10, transport: http(this.chainUrl, { retryCount: 0, timeout: 500 }) });
     this.writer = createWalletClient({ chain, transport: http(this.chainUrl) });
     this.chainTest = createTestClient({ mode: 'anvil', chain, transport: http(this.chainUrl) });
     let ready = false;
