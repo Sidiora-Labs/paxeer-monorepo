@@ -101,7 +101,7 @@ export function FeedPauseButton({ state, compact = false, className }: { state: 
       type="button"
       aria-pressed={paused}
       onClick={state.togglePause}
-      className={cn('inline-flex h-control-height-sm shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border border-control-edge text-xs font-bold focus-visible:bg-surface-hover focus-visible:text-text', compact ? 'px-2' : 'px-3', paused ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-muted hover:bg-surface-hover hover:text-text', className)}
+      className={cn('inline-flex h-control-height-sm shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border border-control-edge text-xs font-medium focus-visible:bg-surface-hover focus-visible:text-text', compact ? 'px-2' : 'px-3', paused ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-muted hover:bg-surface-hover hover:text-text', className)}
     >
       {paused ? <Play aria-hidden="true" className="size-3" /> : <Pause aria-hidden="true" className="size-3" />}
       <span className={cn(compact && 'sr-only @min-column-icon:not-sr-only')}>{paused ? (pending > 0 ? `Paused, ${pending} new` : 'Paused') : 'Live'}</span>
@@ -113,7 +113,7 @@ export function FeedPauseButton({ state, compact = false, className }: { state: 
 export function CalloutsFeedBody({ feed, filter, state, className }: { feed: CalloutsFeed; filter: string; state: CalloutsFeedState; className?: string }) {
   const { page, visible, statsFor, paused } = state;
   return (
-    <div aria-live={paused ? 'off' : 'polite'} aria-busy={page.state === 'loading'} className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto', className)}>
+    <div aria-live={paused ? 'off' : 'polite'} aria-busy={page.state === 'loading'} className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', className)}>
       {page.state === 'loading' ? (
         <>
           <span className="sr-only">Loading callouts</span>
@@ -146,18 +146,18 @@ export function CalloutsWidget({ filter, feed = 'latest' }: CalloutsWidgetProps)
   const headerSlot = useColumnHeaderSlot();
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* In a board column the Live / Paused pill sits in the header's right cluster (no tab row, as on pump.fun). */}
+      {/* Board feeds place the live control beside the column title. */}
       {headerSlot === undefined ? (
         <div className={columnToolbarClass}>
           <FeedPauseButton state={state} className="ml-auto" />
         </div>
       ) : headerSlot ? createPortal(<FeedPauseButton state={state} compact />, headerSlot) : null}
-      <CalloutsFeedBody feed={feed} filter={filter} state={state} className="px-2 pb-2" />
+      <CalloutsFeedBody feed={feed} filter={filter} state={state} className="pb-2" />
     </div>
   );
 }
 
-/** Hot callouts column: the relevance-ordered feed (pump.fun's second default column). */
+/** Hot callouts column: the relevance-ordered discovery feed. */
 export function HotCalloutsWidget(props: WidgetProps) {
   return <CalloutsWidget {...props} feed="hot" />;
 }

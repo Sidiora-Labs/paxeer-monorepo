@@ -8,6 +8,7 @@ export default function Loading() {
   if (pathname === '/new' || pathname === '/explore') return <ExplorePageLoading />;
 
   const reservesViewport =
+    pathname === '/' ||
     pathname === '/live' ||
     pathname.startsWith('/live/') ||
     pathname.startsWith('/profile/') ||

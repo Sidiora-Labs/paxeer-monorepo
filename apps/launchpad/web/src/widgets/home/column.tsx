@@ -33,7 +33,7 @@ export function draggedColumnId(event: DragEvent<HTMLElement>): string | null {
 }
 
 /**
- * One dashboard column (layout.md S03): a surface-1 card with the widget
+ * One dashboard column: a flush canvas section with the widget
  * chrome on top and the widget body scrolling inside. HTML5 drag and drop
  * reorders columns; the dragged card lifts to surface-3 with the pop shadow
  * and the drop target widens its leading gap.
@@ -63,9 +63,9 @@ export function Column({ column, index, count, dragging, onDragStart, onDragEnd,
       onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false); }}
       onDrop={event => { event.preventDefault(); setOver(false); const id = draggedColumnId(event) ?? dragging; if (id) onDrop(id, index); }}
       className={cn(
-        'relative flex h-full min-w-0 shrink-0 snap-start flex-col bg-surface-1 transition-[margin,background-color,box-shadow] duration-base',
+        'relative flex h-full min-w-0 shrink-0 snap-start flex-col bg-canvas transition-[margin,background-color] duration-base',
         fluid ? 'w-full' : 'w-dashboard-column-width max-xl:w-85 max-lg:w-80',
-        isDragging && 'bg-surface-3 shadow-pop opacity-90',
+        isDragging && 'bg-surface-3 opacity-90',
         dropTarget && 'ml-4',
         className,
       )}

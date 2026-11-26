@@ -14,8 +14,9 @@
           "name": "search-dialog",
           "steps": [
             {
-              "action": "wait",
-              "text": "callouts yet"
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+              "key": "Shift"
             },
             {
               "action": "click",
@@ -31,8 +32,9 @@
           "name": "sign-in-dialog",
           "steps": [
             {
-              "action": "wait",
-              "text": "callouts yet"
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+              "key": "Shift"
             },
             {
               "action": "click",
@@ -48,8 +50,9 @@
           "name": "paste-address-dialog",
           "steps": [
             {
-              "action": "wait",
-              "text": "callouts yet"
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+              "key": "Shift"
             },
             {
               "action": "click",
@@ -65,8 +68,9 @@
           "name": "search-filled",
           "steps": [
             {
-              "action": "wait",
-              "text": "callouts yet"
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+              "key": "Shift"
             },
             {
               "action": "click",
@@ -79,29 +83,58 @@
             },
             {
               "action": "wait",
-              "text": "1 coin, 0 users"
+              "text": "2 coins, 0 users"
+            }
+          ]
+        },
+        {
+          "name": "callouts-tab",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Callouts\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible [role=\"tabpanel\"] :text(\"No callouts yet\")), html:has([data-home-board]:visible section[aria-label=\"Hot callouts\"] :text(\"callouts yet\"))",
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "top-tab",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Top\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible [role=\"tabpanel\"] :text(\"No hot callouts yet\")), html:has([data-home-board]:visible section[aria-label=\"Hot callouts\"] :text(\"callouts yet\"))",
+              "key": "Shift"
             }
           ]
         }
       ],
       "ready": [
         {
-          "action": "wait",
-          "text": "callouts yet"
-        },
-        {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
           "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
           "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has([data-home-feed]:visible :text(\"Pool details: Prices are not loading right now, try again\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -139,22 +172,23 @@
       ],
       "ready": [
         {
-          "action": "wait",
-          "text": "callouts yet"
-        },
-        {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
           "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
           "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has([data-home-feed]:visible :text(\"Pool details: Prices are not loading right now, try again\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -168,12 +202,13 @@
       "path": "/?render=empty",
       "ready": [
         {
-          "action": "wait",
-          "text": "callouts yet"
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible h3:text(\"No coins trending yet\")), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+          "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"No coins trending yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"No traders yet\"))",
+          "selector": "html:has([data-home-feed]:visible h3:text(\"No coins trending yet\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"No coins trending yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"No traders yet\"))",
           "key": "Shift"
         },
         {
@@ -184,6 +219,36 @@
         {
           "action": "wait",
           "text": "2.00 USDL"
+        }
+      ],
+      "states": [
+        {
+          "name": "callouts-empty",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Callouts\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible [role=\"tabpanel\"] :text(\"No callouts yet\")), html:has([data-home-board]:visible section[aria-label=\"Hot callouts\"] :text(\"callouts yet\"))",
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "top-empty",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Top\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible [role=\"tabpanel\"] :text(\"No hot callouts yet\")), html:has([data-home-board]:visible section[aria-label=\"Hot callouts\"] :text(\"callouts yet\"))",
+              "key": "Shift"
+            }
+          ]
         }
       ]
     },
@@ -199,12 +264,13 @@
       ],
       "ready": [
         {
-          "action": "wait",
-          "text": "Callouts are not available yet"
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible [data-state=\"unavailable\"]:has-text(\"Trending is not available yet\")), html:has([data-home-board]:visible :text(\"Callouts are not available yet\"))",
+          "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Trending is not available yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"Leaderboard is not available yet\"))",
+          "selector": "html:has([data-home-feed]:visible [data-state=\"unavailable\"]:has-text(\"Trending is not available yet\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Trending is not available yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"Leaderboard is not available yet\"))",
           "key": "Shift"
         },
         {
@@ -223,6 +289,10 @@
       "path": "/?render=loading",
       "ready": [
         {
+          "action": "click",
+          "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Callouts\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+        },
+        {
           "action": "wait",
           "text": "Loading callouts"
         },
@@ -238,7 +308,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -257,7 +327,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -564,7 +634,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -741,7 +811,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -831,7 +901,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -935,7 +1005,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -1912,7 +1982,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -1936,7 +2006,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -1968,7 +2038,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -1994,7 +2064,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2506,7 +2576,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2575,7 +2645,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2601,7 +2671,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2715,7 +2785,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2740,7 +2810,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2765,7 +2835,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2790,7 +2860,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2816,7 +2886,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2846,7 +2916,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2904,7 +2974,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2928,7 +2998,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
