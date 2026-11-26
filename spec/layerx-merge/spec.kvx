@@ -213699,7 +213699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1202]
 title = "Give both fills of a direct swap of one token for another through the router the attribution of their sender in the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214489,7 +214489,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.145]
 title = "Bring the ranking, rewards and holder rewards views of the launchpad to the visual brief"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138"]
