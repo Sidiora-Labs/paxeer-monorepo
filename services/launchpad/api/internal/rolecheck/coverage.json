@@ -1,7 +1,8 @@
 {
   "sources": [
     {
-      "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go"
+      "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
+      "functions": []
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",

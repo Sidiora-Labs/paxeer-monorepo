@@ -266,7 +266,7 @@ type bootstrapSlice struct {
 	Swaps, Earlier, First int64
 }
 
-const bootstrapSliceSQL = `WITH raw AS MATERIALIZED (
+const bootstrapSliceSQL = `WITH bounds AS MATERIALIZED (SELECT $2::bigint start_height,$3::bigint end_height), raw AS MATERIALIZED (
  SELECT r.height,count(*) n,bool_and(r.block_hash=c.block_hash) canonical
  FROM indexer.indexer_raw_logs_v1 r
  LEFT JOIN indexer.indexer_block_completeness_v1 c USING(chain_id,height)
@@ -283,10 +283,18 @@ const bootstrapSliceSQL = `WITH raw AS MATERIALIZED (
  SELECT a.previous_height AS "Previous",a.last_complete_height AS "Last",a.record_count AS "Records",
  COALESCE(hi.n-lo.n,-1) AS "Blocks",COALESCE(hi.raw-lo.raw,0) AS "Raw",
  COALESCE(hi.bad-lo.bad,1)+CASE WHEN a.last_complete_height<=$3 AND hi.block_hash IS DISTINCT FROM a.block_hash THEN 1 ELSE 0 END AS "Violations"
- FROM indexer.indexer_ingest_commits_v1 a
+ FROM (
+  (SELECT previous_height,last_complete_height,block_hash,record_count FROM indexer.indexer_ingest_commits_v1
+  WHERE chain_id=125 AND stream_id=$1 AND previous_height<(SELECT end_height FROM bounds) AND last_complete_height>(SELECT start_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]') ORDER BY previous_height,last_complete_height)
+  UNION ALL
+  (SELECT previous_height,last_complete_height,block_hash,record_count FROM indexer.indexer_ingest_commits_v1
+  WHERE chain_id=125 AND stream_id=$1 AND previous_height>=(SELECT start_height FROM bounds) AND last_complete_height<=(SELECT end_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]') AND previous_height>=(SELECT end_height FROM bounds) ORDER BY previous_height,last_complete_height)
+  UNION ALL
+  (SELECT previous_height,last_complete_height,block_hash,record_count FROM indexer.indexer_ingest_commits_v1
+  WHERE chain_id=125 AND stream_id=$1 AND previous_height>=(SELECT start_height FROM bounds) AND last_complete_height<=(SELECT end_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]') AND previous_height<(SELECT end_height FROM bounds) AND last_complete_height<=(SELECT start_height FROM bounds) ORDER BY previous_height,last_complete_height)
+ ) a
  LEFT JOIN totals lo ON lo.height=greatest(a.previous_height,$2)
  LEFT JOIN totals hi ON hi.height=least(a.last_complete_height,$3)
- WHERE a.chain_id=125 AND a.stream_id=$1 AND ((a.previous_height<$3 AND a.last_complete_height>$2) OR (a.previous_height>=$2 AND a.last_complete_height<=$3))
 ), swaps AS (
  SELECT count(*) AS "Swaps",count(*) FILTER(WHERE (height,transaction_index,log_index)<($5::bigint,$6::bigint,$7::bigint)) AS "Earlier",
  count(*) FILTER(WHERE (height,transaction_index,log_index)=($5::bigint,$6::bigint,$7::bigint) AND transaction_hash=$8 AND block_hash=$9 AND emitter=$10) AS "First"
@@ -418,7 +426,7 @@ func (s sourceBootstrapper) recheck(ctx context.Context, q sourcebootstrap.Queri
 	if err != nil {
 		return err
 	}
-	err = q.QueryRow(ctx, `SELECT (SELECT count(*) FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height>=$2 AND last_complete_height<=$3), (SELECT count(*) FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>=$4 AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint) AND topics->>0=$8 AND topics->>1=$9)`, s.config.SourceStream, b.ReplayFromHeight, b.FirstCommitLastHeight, b.Creation.Height, height, ti, li, swapEventTopic.Hex(), common.BytesToHash(common.HexToAddress(b.Fill.PoolAddress).Bytes()).Hex()).Scan(&commits, &swaps)
+	err = q.QueryRow(ctx, `WITH bounds AS MATERIALIZED (SELECT $2::bigint start_height,$3::bigint end_height) SELECT (SELECT count(*) FROM (SELECT previous_height,last_complete_height FROM indexer.indexer_ingest_commits_v1 WHERE (chain_id,stream_id)=(125,$1) AND previous_height>=(SELECT start_height FROM bounds) AND last_complete_height<=(SELECT end_height FROM bounds) AND numrange(least(previous_height,last_complete_height)::numeric,greatest(previous_height,last_complete_height)::numeric,'[]') && numrange($2::numeric,$3::numeric,'[]') ORDER BY previous_height,last_complete_height) commits), (SELECT count(*) FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND height>=$4 AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint) AND topics->>0=$8 AND topics->>1=$9)`, s.config.SourceStream, b.ReplayFromHeight, b.FirstCommitLastHeight, b.Creation.Height, height, ti, li, swapEventTopic.Hex(), common.BytesToHash(common.HexToAddress(b.Fill.PoolAddress).Bytes()).Hex()).Scan(&commits, &swaps)
 	if err != nil {
 		return err
 	}
