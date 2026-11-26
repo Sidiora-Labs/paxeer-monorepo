@@ -17326,6 +17326,12 @@ value = "Point one. Decision 4034 point one is applied to three more tasks. The 
 basis = "Gotchas 4977 and 4978, decision 4034."
 affects = []
 
+[decision.4036]
+title = "The image of a web holds every file its build reads, and a case keeps the imports of the web and the copies of the image in step"
+value = "Point one. A file of the launchpad web that the build checks may take code from outside the trees the image copies only by a relative path to a single file, and the build stage of deploy/launchpad/Dockerfile.web copies that file to the same path by a line of its own, the way it copies services/launchpad/security/control/cap-admission.ts. A whole directory of a service is never copied for one file. Point two. The definition of the build of the web in the deployment under deploy/launchpad lists the same file among the paths it watches, so that a change of the file builds the web again. Point three. A case under tools/deploy/tests reads the files of the web the build checks, resolves every relative import that leaves the tree of the launchpad, and ends with file and import when the image file copies neither the file nor a directory above it. It leaves out the files the build reports no type error of, which are the files named as cases, and it runs without an installed package and without a container. Point four. The fixture of the agents page keeps the function of the wallet gateway source: a case that checks the signature of an agent with the code of the gateway itself is worth more than a second copy of that code in the web. Point five. A fixture is named so that the build checks it, and so it follows the rule of point one; a case file may read a file of record outside the image because the build does not report on it."
+basis = "Gotcha 4979, decision 4035 point three."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46986,6 +46992,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1249]
+title = "Copy the file of the wallet gateway source that a fixture of the launchpad web takes into the image of the web, watch it for a build, and add a case that keeps the imports of the web and the copies of the image in step"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "tools/deploy/tests"]
+tests = []
+verification_contract = "bash tools/deploy/tests/dockerfile-web-args.test.sh && bash tools/deploy/tests/dockerfile-web-copies.test.sh && grep -q services/wallet/gateway/src/auth/did.ts deploy/launchpad/Dockerfile.web"
+do_1 = "do_1 Gotcha 4979, decision 4036. Read deploy/launchpad/Dockerfile.web whole and the ignore file beside it, the definition of the build of the web in the deployment under deploy/launchpad (the file that names Dockerfile.web as its image file and lists the paths it watches), apps/launchpad/web/src/widgets/agents/agents-gateway.fixture.ts down to line 11, services/wallet/gateway/src/auth/did.ts, tools/deploy/tests/dockerfile-web-args.test.sh, and the places of deploy/launchpad/README.md that say what the image of the web copies."
+symbols = []
 
 [capability.22.39.1248]
 title = "Let the empty headline of the search of the launchpad agree with the wallet row it offers for a full address"
@@ -182115,7 +182130,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1247]
 title = "Keep the cookie notice of the trading web off the bottom navigation and the order form at phone size, make its close mark visible, and give the legal pages a title and the icon and every view a description and a preview title"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213984,6 +213999,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1249]
+title = "Copy the file of the wallet gateway source that a fixture of the launchpad web takes into the image of the web, watch it for a build, and add a case that keeps the imports of the web and the copies of the image in step"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1249"]
+interfaces = []
+do_1 = "do_1 Gotcha 4979, decision 4036. Read deploy/launchpad/Dockerfile.web whole and the ignore file beside it, the definition of the build of the web in the deployment under deploy/launchpad (the file that names Dockerfile.web as its image file and lists the paths it watches), apps/launchpad/web/src/widgets/agents/agents-gateway.fixture.ts down to line 11, services/wallet/gateway/src/auth/did.ts, tools/deploy/tests/dockerfile-web-args.test.sh, and the places of deploy/launchpad/README.md that say what the image of the web copies."
+do_2 = "do_2 One: the build stage of deploy/launchpad/Dockerfile.web copies services/wallet/gateway/src/auth/did.ts to the same path under /src by a line of its own, directly after the line that copies services/launchpad/security/control/cap-admission.ts. Two: the definition of the build of the web lists the path of services/wallet/gateway/src/auth/did.ts among the paths it watches, directly after the path of services/launchpad/security/control/cap-admission.ts and in the same form. Three: if the ignore file of the image keeps that file out of the build context, let it in by one line; if it does not, leave the ignore file as it is. Four: where deploy/launchpad/README.md lists the files the image takes from outside the launchpad, add the file there; if it has no such list, leave it as it is. Change no other line of the image file, and change nothing under apps/launchpad and nothing under services/wallet."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. New case file tools/deploy/tests/dockerfile-web-copies.test.sh in the style of tools/deploy/tests/dockerfile-web-args.test.sh, with bash and the tools that file already uses or python3 with its standard library only, no installed package and no container. It lists the files under apps/launchpad/web that end in ts or tsx, outside node_modules, outside the output directories of the build and outside what the ignore file of the image keeps out of the context. It leaves out the files the build of the web reports no type error of: read that rule in the type check of the installed package next once (files named test or spec before their ending, and files in a directory named __tests__ or __mocks__), write the rule into the case as its own pattern and name in the final message the file of the package you read it in. For each remaining file it takes every relative specifier of an import, of an export from and of an import call with a literal path, resolves it against the directory of the file, and for each one that lands outside apps/launchpad it requires that a COPY line of the build stage of deploy/launchpad/Dockerfile.web names the resolved file or a directory above it, trying the endings ts, tsx, d.ts and json and the index file of a directory the way the compile tries them. For each miss it prints file and specifier, and it ends with a status other than zero when there is one. Prove it both ways inside the case file: against the image file of the tree it passes, and against a temporary copy of the image file without the new line it reports apps/launchpad/web/src/widgets/agents/agents-gateway.fixture.ts and the specifier of line 11 and nothing else. The five case files that import tests/vectors/chains/abi-vectors.json and the one that imports services/platform/hosted/indexer/tests/fixtures/chains_blocks.json are no miss, because the build does not report on them; a case of the new file says so by name for apps/launchpad/web/src/widgets/create-chain/chain-launch-recovery.test.ts. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "tools/deploy/tests"]
+tests = []
+planned_paths = ["tools/deploy/tests/dockerfile-web-copies.test.sh"]
+build_cmd = "bash -n tools/deploy/tests/dockerfile-web-args.test.sh && test -f deploy/launchpad/Dockerfile.web"
+verify_cmd = "bash tools/deploy/tests/dockerfile-web-args.test.sh && bash tools/deploy/tests/dockerfile-web-copies.test.sh && grep -q services/wallet/gateway/src/auth/did.ts deploy/launchpad/Dockerfile.web"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
