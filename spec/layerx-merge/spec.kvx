@@ -214647,7 +214647,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1262]
 title = "Let the inventory consumer of the pnl service of the launchpad take a position its broker no longer delivers from the publication records of the indexer, so that no wallet stays without its position for good"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
