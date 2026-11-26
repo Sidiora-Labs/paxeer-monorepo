@@ -206,9 +206,7 @@ function AuditTab({ poolAddress, now }: { poolAddress: string; now: number }) {
 /* ------------------------------------------------------------- stats */
 
 /**
- * Frame of a split bar whose values are not served: the label row with dashes over an empty track, so
- * the panel keeps its three-bar structure. The reason stays
- * available to assistive tech through the shared unavailable state.
+ * Split-bar loading and unavailable states, with the reason available to assistive tech.
  */
 function SplitBarFrame({ leftLabel, rightLabel, title, operation, loading = false }: { leftLabel: string; rightLabel: string; title: string; operation: string; loading?: boolean }) {
   return (
@@ -264,7 +262,7 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
         {buys !== null && sells !== null ? <PairedBar left={buys} right={sells} leftLabel="Buys" rightLabel="Sells" /> : (
           <div className="flex flex-col gap-1">
             {agg ? <dl><KeyValueRow className="min-h-8 py-0.5" label="Trades" value={formatCount(agg.trades)} /></dl> : null}
-            <SplitBarFrame leftLabel="buys" rightLabel="sells" title={`Buy and sell counts for ${selected}`} operation="IF_CANDLES.trades (not split by side)" loading={snapshot.isPending} />
+            {selected === '24h' && snapshot.isPending ? <SplitBarFrame leftLabel="buys" rightLabel="sells" title="Buy and sell counts for 24h" operation="IF_POOL_STATS" loading /> : null}
           </div>
         )}
         {agg ? <PairedBar left={usdlUnits(agg.buyVolume)} right={usdlUnits(agg.sellVolume)} leftLabel="Buy vol" rightLabel="Sell vol" format={formatUnits} /> : null}
@@ -277,7 +275,6 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
             <div className="flex items-baseline gap-1.5"><dt className="text-text-faint">Txns</dt><dd data-numeric className="text-sm font-bold tabular-nums text-text">{txns === null ? '—' : formatCount(txns)}</dd></div>
           </dl>
         ) : null}
-        <SplitBarFrame leftLabel="buyers" rightLabel="sellers" title="Buyers versus sellers" operation="PoolStats.uniqueTraders24h (not split by side)" loading={snapshot.isPending} />
       </div>
     </div>
   );
