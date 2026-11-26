@@ -813,7 +813,10 @@ def test_launchpad_go_job_provides_remaining_module_fixtures():
         "PNL_TEST_REDIS_URL",
     )
     assert len({job["env"][name] for name in redis_names}) == len(redis_names)
-    assert job["services"]["postgres"]["image"] == "postgres:16"
+    registry = json.loads((ROOT / "migrations/registry.json").read_text())
+    assert job["services"]["postgres"]["image"] == (
+        f"postgres:{registry['server_major_version']}"
+    )
     assert job["services"]["redis"]["image"] == "redis:7"
     assert job["env"]["L13_PHASE3_REDIS_SERVER"] == "/usr/bin/redis-server"
     (install,) = [step for step in job["steps"]
