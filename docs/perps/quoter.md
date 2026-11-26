@@ -97,6 +97,16 @@ replacement is placed in a market until obsolete orders have been cancelled.
 Shutdown drains all orders independently of the round budget, confirming each
 cancellation before sending the next.
 
+Dry and live quoting also work through a node that does not serve the pending
+tag. When the node returns a JSON-RPC error for the pending account count, the
+quoter uses the mined count and waits sixty seconds before asking for the tag
+again. Its retained signed transaction remains the record of the one transaction
+in flight; the next transaction uses the mined count as its nonce after that
+receipt is resolved. A transaction sent elsewhere from the same account can
+therefore cause a nonce conflict, counted as a refusal. On a node that serves the
+pending tag, the quoter still waits while pending and mined counts differ.
+Transport failures, timeouts and unreadable responses remain failed chain reads.
+
 The sum of each side's resting base exposure plus the signed current position
 must fit the position cap at the current mark. Levels that would breach it are
 omitted. If a position passes the cap, orders that would grow it are withdrawn;
