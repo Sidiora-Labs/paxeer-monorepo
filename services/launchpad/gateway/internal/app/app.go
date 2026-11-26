@@ -60,10 +60,11 @@ import (
 )
 
 const (
-	identityAudience          = "identity"
-	responseCodeField         = "code"
-	gatewayServiceName        = "gateway"
-	nodeEnvironmentProduction = "production"
+	identityAudience            = "identity"
+	responseCodeField           = "code"
+	gatewayServiceName          = "gateway"
+	nodeEnvironmentProduction   = "production"
+	gatewayExposedAnswerHeaders = "X-CSRF-Token, X-Request-ID, ETag, Retry-After, X-Recovery-Receipt, X-Schema-Version"
 )
 
 // App is a fully-wired, ready-to-serve gateway edge.
@@ -276,14 +277,19 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	}
 	var trustedProxies []netip.Prefix
+	var additionalExposedHeaders []string
+	if cfg.NodeEnv == nodeEnvironmentProduction {
+		additionalExposedHeaders = []string{"X-CSRF-Token", "X-Recovery-Receipt"}
+	}
 	if connected != nil {
 		trustedProxies = connected.trustedProxies
 	} else if cfg.NodeEnv != nodeEnvironmentProduction {
 		trustedProxies = developmentTrustedProxies()
 	}
 	mux := sharedhttp.NewRouter(sharedhttp.ServerOptions{
-		TrustedProxies: trustedProxies,
-		CORSOrigins:    cfg.CORSAllowedOrigins,
+		TrustedProxies:           trustedProxies,
+		CORSOrigins:              cfg.CORSAllowedOrigins,
+		AdditionalExposedHeaders: additionalExposedHeaders,
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
@@ -1291,7 +1297,7 @@ func publicGatewayHandler(next http.Handler, cfg config.Config) http.Handler {
 					sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{responseCodeField: "SCOPE_DENIED"})
 					return
 				}
-				w.Header().Set("Access-Control-Expose-Headers", "X-CSRF-Token, X-Request-ID, ETag, Retry-After, X-Recovery-Receipt")
+				w.Header().Set("Access-Control-Expose-Headers", gatewayExposedAnswerHeaders)
 			}
 		}
 		next.ServeHTTP(w, r)
