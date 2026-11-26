@@ -188,7 +188,7 @@ async function chartBrowserProxy(authorities: { api: string; gateway: string; ch
   };
 }
 
-async function historyAndTopicKeepFeedDrawingNewerRevisions() {
+async function assertHistoryAndTopicKeepFeedDrawingNewerRevisions(crossDay: boolean) {
   const bytes = readFileSync(text(process.env.JOINED_CONFIG_FILE));
   expect(createHash('sha256').update(bytes).digest('hex')).toBe(process.env.JOINED_CONFIG_SHA256);
   expect(process.env.JOINED_ALLOW_CHAIN_MUTATION).toBe('1');
@@ -219,8 +219,27 @@ async function historyAndTopicKeepFeedDrawingNewerRevisions() {
     return result.result;
   };
   try {
-    const now = Math.floor(Date.now() / 1000);
+    await rpc('anvil_setBlockTimestampInterval', [1]);
+    const latestBlock = async () => object(await rpc('eth_getBlockByNumber', ['latest', false]));
+    const now = Number(BigInt(text((await latestBlock()).timestamp)));
     const period = { from: now - 3 * 86400, to: now + 60 };
+    const router = getAddress(text(object(object(object(chain.manifest).roles).Router).address));
+    const buy = async (timestamp: number) => {
+      const data = encodeFunctionData({ abi: parseAbi(['function buy(address pool,uint256 usdlAmountIn,uint256 minTokensOut,uint256 deadline) returns (uint256)']), functionName: 'buy', args: [pool, 1000000n, 1n, BigInt(timestamp) + 600n] });
+      const call = { from: getAddress(text(chain.account)), to: router, data };
+      const gas = '0x' + ((BigInt(text(await rpc('eth_estimateGas', [call]))) * 5n + 3n) / 4n).toString(16);
+      await rpc('evm_setNextBlockTimestamp', [timestamp]);
+      const transaction = text(await rpc('eth_sendTransaction', [{ ...call, gas }]));
+      await eventually(async () => {
+        const receipt = await rpc('eth_getTransactionReceipt', [transaction]);
+        if (receipt === null) return false;
+        expect(object(receipt).status).toBe('0x1');
+        const block = object(await rpc('eth_getBlockByHash', [text(object(receipt).blockHash), false]));
+        expect(BigInt(text(block.timestamp))).toBe(BigInt(timestamp));
+        return true;
+      });
+      return transaction;
+    };
     const readHistory = async () => {
       let page: Awaited<ReturnType<typeof fetchCanonicalCandlePage>> | undefined;
       await eventually(async () => {
@@ -238,13 +257,35 @@ async function historyAndTopicKeepFeedDrawingNewerRevisions() {
     const topic = `market.candles.${pool.toLowerCase()}.1d`;
     let held: Candle | undefined;
     let answer: Candle | undefined;
-    await eventually(async () => {
-      held = (await readHistory()).data.items.at(-1)!;
-      const snapshot = decodeV2Contract('TopicSnapshot', await browserStreamTransportV2(client, { applicationOrigin, snapshotPath: '/v2/snapshots' }, false).snapshot([topic], authorization.signal));
-      answer = decodeV2Contract('Candle', snapshot.topics[0].payload);
-      return answer.start === held.start && answer.revision === held.revision;
-    });
+    const readHistoryAndTopic = async (transaction?: string) => {
+      await eventually(async () => {
+        held = (await readHistory()).data.items.at(-1)!;
+        const snapshot = decodeV2Contract('TopicSnapshot', await browserStreamTransportV2(client, { applicationOrigin, snapshotPath: '/v2/snapshots' }, false).snapshot([topic], authorization.signal));
+        answer = decodeV2Contract('Candle', snapshot.topics[0].payload);
+        return answer.start === held.start && answer.revision === held.revision
+          && (!transaction || held.lastPosition.transactionHash.toLowerCase() === transaction.toLowerCase());
+      });
+    };
+    await readHistoryAndTopic();
     if (!held || !answer) throw new Error('Canonical history and topic candles required');
+    const initialStart = held.start;
+    if (crossDay) {
+      const timestamp = Number(BigInt(text((await latestBlock()).timestamp)));
+      const midnight = (Math.floor(timestamp / 86400) + 1) * 86400;
+      await rpc('evm_setNextBlockTimestamp', [midnight]);
+      await rpc('evm_mine', []);
+      expect(BigInt(text((await latestBlock()).timestamp))).toBe(BigInt(midnight));
+    }
+    let nextTimestamp = Number(BigInt(text((await latestBlock()).timestamp))) + 1;
+    period.to = nextTimestamp + 60;
+    if (new Date(Math.floor(nextTimestamp / 86400) * 86400 * 1000).toISOString() !== held.start) {
+      const transaction = await buy(nextTimestamp);
+      await readHistoryAndTopic(transaction);
+      nextTimestamp = Number(BigInt(text((await latestBlock()).timestamp))) + 1;
+    }
+    if (!held || !answer) throw new Error('Canonical history and topic candles required');
+    if (crossDay) expect(Date.parse(held.start)).toBeGreaterThan(Date.parse(initialStart));
+    expect(new Date(Math.floor(nextTimestamp / 86400) * 86400 * 1000).toISOString()).toBe(held.start);
     const bars = await new Promise<ReturnType<typeof canonicalCandleToDisplayBar>[]>((resolve, reject) => feed.getBars({}, '1D', period, resolve, reason => reject(new Error(reason))));
     expect(bars.length).toBeGreaterThan(0);
     expect(answer.start).toBe(held.start);
@@ -255,18 +296,7 @@ async function historyAndTopicKeepFeedDrawingNewerRevisions() {
     feed.subscribeBars({}, '1D', bar => ticks.push(bar), 'candle-content');
     await eventually(() => feed.replayStatus()[0]?.replayComplete === true);
     expect(ticks.at(-1)).toEqual(canonicalCandleToDisplayBar(held));
-    const block = object(await rpc('eth_getBlockByNumber', ['latest', false]));
-    const router = getAddress(text(object(object(object(chain.manifest).roles).Router).address));
-    const data = encodeFunctionData({ abi: parseAbi(['function buy(address pool,uint256 usdlAmountIn,uint256 minTokensOut,uint256 deadline) returns (uint256)']), functionName: 'buy', args: [pool, 1000000n, 1n, BigInt(text(block.timestamp)) + 600n] });
-    const call = { from: getAddress(text(chain.account)), to: router, data };
-    const gas = '0x' + ((BigInt(text(await rpc('eth_estimateGas', [call]))) * 5n + 3n) / 4n).toString(16);
-    const transaction = text(await rpc('eth_sendTransaction', [{ ...call, gas }]));
-    await eventually(async () => {
-      const receipt = await rpc('eth_getTransactionReceipt', [transaction]);
-      if (receipt === null) return false;
-      expect(object(receipt).status).toBe('0x1');
-      return true;
-    });
+    const transaction = await buy(nextTimestamp);
     const snapshotUrl = new URL('/v2/snapshots', proxy.origin);
     snapshotUrl.searchParams.set('topics', topic);
     await eventually(async () => {
@@ -299,6 +329,15 @@ async function historyAndTopicKeepFeedDrawingNewerRevisions() {
     authorization.abort();
     release();
     await proxy.close();
+    await rpc('anvil_removeBlockTimestampInterval', []);
   }
 }
+async function historyAndTopicKeepFeedDrawingNewerRevisions() {
+  await assertHistoryAndTopicKeepFeedDrawingNewerRevisions(false);
+}
 test(historyAndTopicKeepFeedDrawingNewerRevisions, historyAndTopicKeepFeedDrawingNewerRevisions, 150_000);
+
+async function historyAndTopicKeepFeedDrawingNewerRevisionsAcrossDay() {
+  await assertHistoryAndTopicKeepFeedDrawingNewerRevisions(true);
+}
+test(historyAndTopicKeepFeedDrawingNewerRevisionsAcrossDay, historyAndTopicKeepFeedDrawingNewerRevisionsAcrossDay, 150_000);
