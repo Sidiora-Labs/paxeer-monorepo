@@ -38,6 +38,7 @@ type localCanonicalFixture struct {
 	authority *BaselineAuthority
 	env       []string
 	root      string
+	control   string
 }
 
 func newLocalCanonicalFixture(t *testing.T, mode string) localCanonicalFixture {
@@ -132,7 +133,7 @@ func newLocalCanonicalFixture(t *testing.T, mode string) localCanonicalFixture {
 		t.Fatal(err)
 	}
 	authority.factory = chain.Factory
-	return localCanonicalFixture{ctx: ctx, chain: chain, db: db, authority: authority, env: env, root: root}
+	return localCanonicalFixture{ctx: ctx, chain: chain, db: db, authority: authority, env: env, root: root, control: control}
 }
 
 func localCanonicalBaseline(t *testing.T) (context.Context, *BaselineAuthority, string, string) {
