@@ -182064,7 +182064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1245]
 title = "Build the preset of the trading agent kit from the one list of functions of the trading workspace and write the spender of the approval as a rule, so that the kit and the agents page give an agent the same rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -271325,7 +271325,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.1241]
 title = "Serve the search of profiles from the stats service instead of refusing it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
