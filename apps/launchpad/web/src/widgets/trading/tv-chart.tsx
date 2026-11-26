@@ -197,7 +197,8 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
   const mode: ChartMode = settings.mode === 'mcap' && verifiedSupply ? 'mcap' : 'price';
   const feedSupply = mode === 'mcap' ? verifiedSupply : undefined;
 
-  const actors = useMemo(() => [...new Set(view.markers.map(marker => marker.actor.toLowerCase()))], [view.markers]);
+  const actorKey = [...new Set(view.markers.map(marker => marker.actor.toLowerCase()))].sort().join(',');
+  const actors = useMemo(() => actorKey ? actorKey.split(',') : [], [actorKey]);
   const { identities } = useWalletIdentities(settings.markers ? actors : []);
   const markerActors = useMemo<ChartMarkerActor[]>(() => actors.map(wallet => {
     const identity = identities[wallet];

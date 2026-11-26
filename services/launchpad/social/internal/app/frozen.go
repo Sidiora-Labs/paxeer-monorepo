@@ -91,7 +91,7 @@ func frozenPublicRead(r *http.Request) bool {
 		return e == nil
 	}
 	// The interaction comment list is the second view of these same rows.
-	return len(p) == 6 && p[1] == "v2" && p[2] == socialService && p[3] == poolResource && common.IsAddr(p[4]) && p[5] == commentsResource
+	return len(p) == 6 && p[1] == "v2" && p[2] == socialService && (p[3] == poolResource || p[3] == "users") && common.IsAddr(p[4]) && p[5] == commentsResource
 }
 
 func frozenError(w http.ResponseWriter, req *http.Request, err error) {
