@@ -581,7 +581,7 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_reads_ReactionAuthority.ReadSnapshot_1",
-      "source_sha256": "a78becc993f1e0914b848b475a198a70e9d4473b890a308274793ff443ab8932"
+      "source_sha256": "27951435c85bff89cc8fd401a9a4db4e1550561fe67fb814063023f28c381277"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/reads.go",
@@ -601,7 +601,7 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_reads_ReactionAuthority.ReadReactions_1",
-      "source_sha256": "a78becc993f1e0914b848b475a198a70e9d4473b890a308274793ff443ab8932"
+      "source_sha256": "27951435c85bff89cc8fd401a9a4db4e1550561fe67fb814063023f28c381277"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/reads.go",
@@ -623,15 +623,15 @@
       ],
       "sequences": [],
       "id": "analytics_reads_ReactionAuthority.ReadReactions_2",
-      "source_sha256": "a78becc993f1e0914b848b475a198a70e9d4473b890a308274793ff443ab8932"
+      "source_sha256": "27951435c85bff89cc8fd401a9a4db4e1550561fe67fb814063023f28c381277"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/reads.go",
       "function": "ReactionAuthority.ReplaySnapshots",
       "call": 1,
-      "expression": "\"SELECT id::text,model,revision::text,payload FROM \"+table+\" WHERE pool=$1 AND id>$2 ORDER BY id LIMIT $3\"",
+      "expression": "\"SELECT id::text,model,revision::text,payload FROM \"+table+\" o WHERE pool=$1 AND id>$2 ORDER BY o.id LIMIT $3\"",
       "line": 126,
-      "sql": "SELECT id::text,model,revision::text,payload FROM \"stats\".\"analytics_outbox\" WHERE pool=$1 AND id>$2 ORDER BY id LIMIT $3",
+      "sql": "SELECT id::text,model,revision::text,payload FROM \"stats\".\"analytics_outbox\" o WHERE pool=$1 AND id>$2 ORDER BY o.id LIMIT $3",
       "kind": "SELECT",
       "tables": [
         "stats.analytics_outbox"
@@ -646,7 +646,7 @@
       "functions": [],
       "sequences": [],
       "id": "analytics_reads_ReactionAuthority.ReplaySnapshots_1",
-      "source_sha256": "a78becc993f1e0914b848b475a198a70e9d4473b890a308274793ff443ab8932"
+      "source_sha256": "27951435c85bff89cc8fd401a9a4db4e1550561fe67fb814063023f28c381277"
     },
     {
       "file": "services/launchpad/stats-workers/internal/analytics/risk_inputs.go",
@@ -2119,7 +2119,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ApplyCanonicalTransferTx_1",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2139,7 +2139,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_1",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2159,7 +2159,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_2",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2178,7 +2178,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_3",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2198,7 +2198,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_4",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2219,7 +2219,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ImportLegacyRowsTx_1",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2241,7 +2241,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ImportLegacyRowsTx_2",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2287,7 +2287,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.EnrichCanonicalActorTx_1",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2324,7 +2324,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_1",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2347,7 +2347,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_2",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2368,7 +2368,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_3",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2389,7 +2389,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_4",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2412,7 +2412,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_1",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2433,15 +2433,15 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_2",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.catchUpCanonicalAtOnce",
       "call": 3,
-      "expression": "`SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY height,transaction_index,log_index LIMIT $7`",
+      "expression": "`SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 t WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY t.height,t.transaction_index,t.log_index LIMIT $7`",
       "line": 385,
-      "sql": "SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY height,transaction_index,log_index LIMIT $7",
+      "sql": "SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 t WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY t.height,t.transaction_index,t.log_index LIMIT $7",
       "kind": "SELECT",
       "tables": [
         "indexer.indexer_token_transfers_v1"
@@ -2461,7 +2461,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_3",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2480,7 +2480,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_4",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2505,7 +2505,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_5",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2535,7 +2535,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_6",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2554,7 +2554,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_7",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2574,7 +2574,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_8",
-      "source_sha256": "0923103c8e359901590546de0a40f2ace7b150467f1506c04068c5af59248bf8"
+      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
@@ -3336,7 +3336,7 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_1",
-      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
+      "source_sha256": "21d256057392143feef5a9b70d90f31a3c15b29351d845485f4f80c462546b26"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3359,7 +3359,7 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_2",
-      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
+      "source_sha256": "21d256057392143feef5a9b70d90f31a3c15b29351d845485f4f80c462546b26"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3382,7 +3382,7 @@
       ],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_3",
-      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
+      "source_sha256": "21d256057392143feef5a9b70d90f31a3c15b29351d845485f4f80c462546b26"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3406,7 +3406,7 @@
       ],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_4",
-      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
+      "source_sha256": "21d256057392143feef5a9b70d90f31a3c15b29351d845485f4f80c462546b26"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3428,15 +3428,15 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_5",
-      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
+      "source_sha256": "21d256057392143feef5a9b70d90f31a3c15b29351d845485f4f80c462546b26"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
       "function": "readOwnership",
       "call": 6,
-      "expression": "\"SELECT address,balance::text FROM \"+schema+\".balances WHERE token=$1 AND balance>=$2::numeric AND ($5 OR balance<$3::numeric OR (balance=$3::numeric AND address>$4)) ORDER BY balance DESC,address ASC LIMIT $6 OFFSET $7\"",
+      "expression": "\"SELECT address,balance::text FROM \"+schema+\".balances b WHERE token=$1 AND balance>=$2::numeric AND ($5 OR balance<$3::numeric OR (balance=$3::numeric AND address>$4)) ORDER BY b.balance DESC,address ASC LIMIT $6 OFFSET $7\"",
       "line": 204,
-      "sql": "SELECT address,balance::text FROM stats_transfer_holdings.balances WHERE token=$1 AND balance>=$2::numeric AND ($5 OR balance<$3::numeric OR (balance=$3::numeric AND address>$4)) ORDER BY balance DESC,address ASC LIMIT $6 OFFSET $7",
+      "sql": "SELECT address,balance::text FROM stats_transfer_holdings.balances b WHERE token=$1 AND balance>=$2::numeric AND ($5 OR balance<$3::numeric OR (balance=$3::numeric AND address>$4)) ORDER BY b.balance DESC,address ASC LIMIT $6 OFFSET $7",
       "kind": "SELECT",
       "tables": [
         "stats_transfer_holdings.balances"
@@ -3449,7 +3449,7 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_6",
-      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
+      "source_sha256": "21d256057392143feef5a9b70d90f31a3c15b29351d845485f4f80c462546b26"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/reactions.go",
@@ -4117,7 +4117,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4134,7 +4134,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_2",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4159,7 +4159,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_3",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4201,7 +4201,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4225,7 +4225,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_2",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4245,7 +4245,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.emittersTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4272,7 +4272,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.swapPriceTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4294,15 +4294,15 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.syncEventsTx",
       "call": 2,
-      "expression": "\"SELECT height::text,transaction_index::text,log_index::text,topics,data FROM \"+p.reads.source(\"indexer_raw_logs_v1\")+\" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1\"",
+      "expression": "\"SELECT height::text,transaction_index::text,log_index::text,topics,data FROM \"+p.reads.source(\"indexer_raw_logs_v1\")+\" r WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY r.height DESC,r.transaction_index DESC,r.log_index DESC LIMIT 1\"",
       "line": 574,
-      "sql": "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM \"indexer\".\"indexer_raw_logs_v1\" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1",
+      "sql": "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM \"indexer\".\"indexer_raw_logs_v1\" r WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY r.height DESC,r.transaction_index DESC,r.log_index DESC LIMIT 1",
       "kind": "SELECT",
       "tables": [
         "indexer.indexer_raw_logs_v1"
@@ -4322,7 +4322,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_2",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4342,7 +4342,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_3",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4373,7 +4373,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.latestFillTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4397,7 +4397,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.realUsdlTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4420,7 +4420,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4443,7 +4443,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_2",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4469,7 +4469,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_3",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4491,7 +4491,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_4",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4512,15 +4512,15 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_5",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 6,
-      "expression": "\"SELECT address,balance::text FROM \"+p.table(p.holders, \"balances\")+\" WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY balance DESC,address ASC LIMIT $3\"",
+      "expression": "\"SELECT address,balance::text FROM \"+p.table(p.holders, \"balances\")+\" b WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY b.balance DESC,address ASC LIMIT $3\"",
       "line": 857,
-      "sql": "SELECT address,balance::text FROM stats_transfer_holdings.balances WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY balance DESC,address ASC LIMIT $3",
+      "sql": "SELECT address,balance::text FROM stats_transfer_holdings.balances b WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY b.balance DESC,address ASC LIMIT $3",
       "kind": "SELECT",
       "tables": [
         "stats_transfer_holdings.balances"
@@ -4533,7 +4533,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_6",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4568,7 +4568,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.poolStatsTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
@@ -5542,7 +5542,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_1",
-      "source_sha256": "7ad8c1e2c08c99a4318cf7c9b1c1cd9889e8133af0a8b23b2636bcbe1c827e7e"
+      "source_sha256": "6bb87c95ceb36274650a334a50496621b447ce4d303edc91efb4467a32198e3e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5564,7 +5564,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_2",
-      "source_sha256": "7ad8c1e2c08c99a4318cf7c9b1c1cd9889e8133af0a8b23b2636bcbe1c827e7e"
+      "source_sha256": "6bb87c95ceb36274650a334a50496621b447ce4d303edc91efb4467a32198e3e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5604,7 +5604,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_3_0",
-      "source_sha256": "7ad8c1e2c08c99a4318cf7c9b1c1cd9889e8133af0a8b23b2636bcbe1c827e7e"
+      "source_sha256": "6bb87c95ceb36274650a334a50496621b447ce4d303edc91efb4467a32198e3e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5644,7 +5644,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_3_1",
-      "source_sha256": "7ad8c1e2c08c99a4318cf7c9b1c1cd9889e8133af0a8b23b2636bcbe1c827e7e"
+      "source_sha256": "6bb87c95ceb36274650a334a50496621b447ce4d303edc91efb4467a32198e3e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5685,7 +5685,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_3_2",
-      "source_sha256": "7ad8c1e2c08c99a4318cf7c9b1c1cd9889e8133af0a8b23b2636bcbe1c827e7e"
+      "source_sha256": "6bb87c95ceb36274650a334a50496621b447ce4d303edc91efb4467a32198e3e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5700,7 +5700,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.searchProfiles_1",
-      "source_sha256": "7ad8c1e2c08c99a4318cf7c9b1c1cd9889e8133af0a8b23b2636bcbe1c827e7e"
+      "source_sha256": "6bb87c95ceb36274650a334a50496621b447ce4d303edc91efb4467a32198e3e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5722,7 +5722,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.searchProfiles_2",
-      "source_sha256": "7ad8c1e2c08c99a4318cf7c9b1c1cd9889e8133af0a8b23b2636bcbe1c827e7e"
+      "source_sha256": "6bb87c95ceb36274650a334a50496621b447ce4d303edc91efb4467a32198e3e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5753,7 +5753,7 @@
       ],
       "sequences": [],
       "id": "search_integrated_Store.searchProfiles_3",
-      "source_sha256": "7ad8c1e2c08c99a4318cf7c9b1c1cd9889e8133af0a8b23b2636bcbe1c827e7e"
+      "source_sha256": "6bb87c95ceb36274650a334a50496621b447ce4d303edc91efb4467a32198e3e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/postgres.go",
@@ -9136,7 +9136,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.openingPriceTx_1",
-      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
+      "source_sha256": "8b3543241641f7154ee6ce8d7fcd9a1481a63d92aed2dd889036dd6fe517c272"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",

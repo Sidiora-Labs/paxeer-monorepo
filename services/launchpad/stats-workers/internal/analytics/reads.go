@@ -123,7 +123,7 @@ func (a ReactionAuthority) ReplaySnapshots(ctx context.Context, pool, after stri
 	if err != nil {
 		return ReplayPage{}, err
 	}
-	rows, err := a.Pool.Query(ctx, "SELECT id::text,model,revision::text,payload FROM "+table+" WHERE pool=$1 AND id>$2 ORDER BY id LIMIT $3", pool, cursor, limit)
+	rows, err := a.Pool.Query(ctx, "SELECT id::text,model,revision::text,payload FROM "+table+" o WHERE pool=$1 AND id>$2 ORDER BY o.id LIMIT $3", pool, cursor, limit)
 	if err != nil {
 		return ReplayPage{}, err
 	}
