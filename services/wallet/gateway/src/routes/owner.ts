@@ -30,7 +30,12 @@ import {
   logSignature,
   type WalletRow,
 } from '../db/wallets.js';
-import { encodeErc20Transfer, getErc20Balance, getNativeBalance, resolveGas } from '../chainReads.js';
+import {
+  encodeErc20Transfer,
+  getErc20Balance,
+  getNativeBalance,
+  resolveGas,
+} from '../chainReads.js';
 import { sharedRpcPool } from '../rpc/pool.js';
 import { broadcastReserved } from '../nonce/store.js';
 import { query } from '../db/pool.js';
@@ -68,13 +73,18 @@ async function replicateOwnerMutation(reply: FastifyReply): Promise<boolean> {
     return true;
   } catch (error) {
     if (!(error instanceof CustodyAuthorityError)) throw error;
-    void reply.code(503).send({ error: error.code, replication_pending: true, mutation_recorded: true });
+    void reply
+      .code(503)
+      .send({ error: error.code, replication_pending: true, mutation_recorded: true });
     return false;
   }
 }
 
 /** Resolve + authorise the :did param. Sends the error reply + returns null on failure. */
-async function loadOwned(req: FastifyRequest, reply: FastifyReply): Promise<AgentPrincipalRow | null> {
+async function loadOwned(
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<AgentPrincipalRow | null> {
   const { did } = req.params as { did: string };
   if (!parseDid(did)) {
     void reply.code(400).send({ error: 'malformed_did' });
@@ -98,15 +108,36 @@ async function sendFromWallet(
   args: { to: `0x${string}`; value?: bigint; data?: Hex },
   token: string,
   request: FastifyRequest,
+  activityPrincipalDid: string
 ): Promise<Hex> {
   const outcome = await withWalletLock(wallet.address, async (lease) => {
-    const account = await getMigrationAwareSigningAccountForRow(wallet, { scheme: 'supabase_jwt', token }, undefined, undefined, {
-      subject: request.user!.id, route: request.url.split('?')[0]!, requestHash: hashRequest(request.body),
+    const account = await getMigrationAwareSigningAccountForRow(
+      wallet,
+      { scheme: 'supabase_jwt', token },
+      undefined,
+      undefined,
+      {
+        subject: request.user!.id,
+        route: request.url.split('?')[0]!,
+        requestHash: hashRequest(request.body),
+        activityPrincipalDid,
+      }
+    );
+    const gas = await resolveGas({
+      from: wallet.address,
+      to: args.to,
+      value: args.value,
+      data: args.data,
     });
-    const gas = await resolveGas({ from: wallet.address, to: args.to, value: args.value, data: args.data });
     const nonce = await lease.next();
     const raw = await account.signTransaction({
-      type: 'eip1559', chainId: hyperPaxeer.id, nonce, to: args.to, value: args.value ?? 0n, data: args.data, ...gas,
+      type: 'eip1559',
+      chainId: hyperPaxeer.id,
+      nonce,
+      to: args.to,
+      value: args.value ?? 0n,
+      data: args.data,
+      ...gas,
     });
     return broadcastReserved(lease, nonce, raw, (r) => sharedRpcPool().sendRawTransactionVia(r));
   });
@@ -141,7 +172,7 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
           created_at: p.created_at,
           last_seen_at: p.last_seen_at,
         };
-      }),
+      })
     );
     return reply.send({ agents });
   });
@@ -165,7 +196,11 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
       created_at: principal.created_at,
       last_seen_at: principal.last_seen_at,
       wallet: wallet
-        ? { id: wallet.id, address: wallet.address, native_wei: native !== null ? native.toString() : null }
+        ? {
+            id: wallet.id,
+            address: wallet.address,
+            native_wei: native !== null ? native.toString() : null,
+          }
         : null,
       policy: {
         mode: eff.mode,
@@ -203,7 +238,8 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     const principal = await loadOwned(req, reply);
     if (!principal) return;
     const parsed = PolicyPatchBody.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+    if (!parsed.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
     const p = parsed.data;
 
     const patch: PolicyPatch = {};
@@ -211,11 +247,13 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     if (p.max_tx_value_wei !== undefined)
       patch.max_tx_value_wei = p.max_tx_value_wei === null ? null : BigInt(p.max_tx_value_wei);
     if (p.max_daily_value_wei !== undefined)
-      patch.max_daily_value_wei = p.max_daily_value_wei === null ? null : BigInt(p.max_daily_value_wei);
+      patch.max_daily_value_wei =
+        p.max_daily_value_wei === null ? null : BigInt(p.max_daily_value_wei);
     if (p.rate_limit_per_min !== undefined) patch.rate_limit_per_min = p.rate_limit_per_min;
     if (p.max_approve_wei !== undefined)
       patch.max_approve_wei = p.max_approve_wei === null ? null : BigInt(p.max_approve_wei);
-    if (p.allow_native_transfer !== undefined) patch.allow_native_transfer = p.allow_native_transfer;
+    if (p.allow_native_transfer !== undefined)
+      patch.allow_native_transfer = p.allow_native_transfer;
     if (p.withdrawal_allowlist_only !== undefined)
       patch.withdrawal_allowlist_only = p.withdrawal_allowlist_only;
     if (p.daily_reset_utc_hour !== undefined) patch.daily_reset_utc_hour = p.daily_reset_utc_hour;
@@ -279,12 +317,14 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     const principal = await loadOwned(req, reply);
     if (!principal) return;
     const parsed = RuleBody.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+    if (!parsed.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
     const value = validateRuleValue(parsed.data.subject, parsed.data.value);
     if (!value) {
-      return reply
-        .code(400)
-        .send({ error: 'invalid_rule_value', message: `value must be a ${parsed.data.subject === 'selector' ? '4-byte selector' : '20-byte address'}` });
+      return reply.code(400).send({
+        error: 'invalid_rule_value',
+        message: `value must be a ${parsed.data.subject === 'selector' ? '4-byte selector' : '20-byte address'}`,
+      });
     }
     const rule = await addRule({
       did: principal.did,
@@ -342,7 +382,8 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     const principal = await loadOwned(req, reply);
     if (!principal) return;
     const parsed = BudgetBody.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+    if (!parsed.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
     const expiresAt = new Date(Date.now() + parsed.data.expires_in_seconds * 1000);
     const budget = await addBudget({
       did: principal.did,
@@ -364,15 +405,19 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
-  app.delete('/v1/agents/:did/budgets/:budgetId', { preHandler: requireAuth }, async (req, reply) => {
-    const principal = await loadOwned(req, reply);
-    if (!principal) return;
-    const { budgetId } = req.params as { budgetId: string };
-    if (!/^\d+$/.test(budgetId)) return reply.code(400).send({ error: 'invalid_budget_id' });
-    const ok = await deactivateBudget(principal.did, budgetId);
-    if (!(await replicateOwnerMutation(reply))) return;
-    return reply.code(ok ? 200 : 404).send({ deactivated: ok });
-  });
+  app.delete(
+    '/v1/agents/:did/budgets/:budgetId',
+    { preHandler: requireAuth },
+    async (req, reply) => {
+      const principal = await loadOwned(req, reply);
+      if (!principal) return;
+      const { budgetId } = req.params as { budgetId: string };
+      if (!/^\d+$/.test(budgetId)) return reply.code(400).send({ error: 'invalid_budget_id' });
+      const ok = await deactivateBudget(principal.did, budgetId);
+      if (!(await replicateOwnerMutation(reply))) return;
+      return reply.code(ok ? 200 : 404).send({ deactivated: ok });
+    }
+  );
 
   // ── Treasury: fund / sweep the agent wallet ─────────────────────────────────
 
@@ -380,29 +425,48 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     const principal = await loadOwned(req, reply);
     if (!principal) return;
     const parsed = FundAgentBody.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+    if (!parsed.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
 
     const ownerWallet = await findWalletByUserId(req.user!.id, 'standard');
     if (!ownerWallet) {
-      return reply.code(400).send({ error: 'no_owner_wallet', message: 'provision your standard wallet first' });
+      return reply
+        .code(400)
+        .send({ error: 'no_owner_wallet', message: 'provision your standard wallet first' });
     }
     const agentWallet = await findWalletByUserId(agentWalletUserId(principal.did), 'agent');
     if (!agentWallet) {
-      return reply.code(400).send({ error: 'agent_wallet_missing', message: 'agent has not provisioned a wallet yet' });
+      return reply
+        .code(400)
+        .send({ error: 'agent_wallet_missing', message: 'agent has not provisioned a wallet yet' });
     }
     const amount = BigInt(parsed.data.amount);
 
     let txHash: Hex;
     try {
       if (!parsed.data.token) {
-        txHash = await sendFromWallet(ownerWallet, { to: agentWallet.address, value: amount }, (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(), req);
+        txHash = await sendFromWallet(
+          ownerWallet,
+          { to: agentWallet.address, value: amount },
+          (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(),
+          req,
+          principal.did
+        );
       } else {
         const data = encodeErc20Transfer(agentWallet.address, amount);
-        txHash = await sendFromWallet(ownerWallet, { to: parsed.data.token as `0x${string}`, value: 0n, data }, (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(), req);
+        txHash = await sendFromWallet(
+          ownerWallet,
+          { to: parsed.data.token as `0x${string}`, value: 0n, data },
+          (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(),
+          req,
+          principal.did
+        );
       }
     } catch (err) {
-      if (err instanceof CustodyAuthorityError) return reply.code(503).send({ error: err.code, replication_pending: true });
-      if (err instanceof AttestorError) return reply.code(attestorErrorStatus(err)).send(attestorErrorBody(err));
+      if (err instanceof CustodyAuthorityError)
+        return reply.code(503).send({ error: err.code, replication_pending: true });
+      if (err instanceof AttestorError)
+        return reply.code(attestorErrorStatus(err)).send(attestorErrorBody(err));
       const refusal = custodyRefusal(err);
       if (refusal) return reply.code(refusal.status).send(refusal.body);
       req.log.error({ err }, 'fund agent failed');
@@ -421,6 +485,7 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
       tx_hash: txHash,
       ip: req.ip,
       user_agent: (req.headers['user-agent'] as string | undefined) ?? null,
+      principal_did: principal.did,
     });
 
     return reply.send({ tx_hash: txHash, from: ownerWallet.address, to: agentWallet.address });
@@ -430,11 +495,14 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     const principal = await loadOwned(req, reply);
     if (!principal) return;
     const parsed = SweepBody.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+    if (!parsed.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
 
     const agentWallet = await findWalletByUserId(agentWalletUserId(principal.did), 'agent');
     if (!agentWallet) {
-      return reply.code(400).send({ error: 'agent_wallet_missing', message: 'agent has no wallet to sweep' });
+      return reply
+        .code(400)
+        .send({ error: 'agent_wallet_missing', message: 'agent has no wallet to sweep' });
     }
 
     if (parsed.data.to) {
@@ -447,9 +515,10 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     if (!dest) {
       const ownerWallet = await findWalletByUserId(req.user!.id, 'standard');
       if (!ownerWallet) {
-        return reply
-          .code(400)
-          .send({ error: 'no_destination', message: 'provide `to` or provision your standard wallet' });
+        return reply.code(400).send({
+          error: 'no_destination',
+          message: 'provide `to` or provision your standard wallet',
+        });
       }
       dest = ownerWallet.address;
     }
@@ -458,14 +527,28 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     let txHash: Hex;
     try {
       if (!parsed.data.token) {
-        txHash = await sendFromWallet(agentWallet, { to: dest, value: amount }, (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(), req);
+        txHash = await sendFromWallet(
+          agentWallet,
+          { to: dest, value: amount },
+          (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(),
+          req,
+          principal.did
+        );
       } else {
         const data = encodeErc20Transfer(dest, amount);
-        txHash = await sendFromWallet(agentWallet, { to: parsed.data.token as `0x${string}`, value: 0n, data }, (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(), req);
+        txHash = await sendFromWallet(
+          agentWallet,
+          { to: parsed.data.token as `0x${string}`, value: 0n, data },
+          (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(),
+          req,
+          principal.did
+        );
       }
     } catch (err) {
-      if (err instanceof CustodyAuthorityError) return reply.code(503).send({ error: err.code, replication_pending: true });
-      if (err instanceof AttestorError) return reply.code(attestorErrorStatus(err)).send(attestorErrorBody(err));
+      if (err instanceof CustodyAuthorityError)
+        return reply.code(503).send({ error: err.code, replication_pending: true });
+      if (err instanceof AttestorError)
+        return reply.code(attestorErrorStatus(err)).send(attestorErrorBody(err));
       const refusal = custodyRefusal(err);
       if (refusal) return reply.code(refusal.status).send(refusal.body);
       req.log.error({ err }, 'sweep agent failed');
@@ -508,7 +591,7 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
         where principal_did = $1
         order by created_at desc
         limit 100`,
-      [principal.did],
+      [principal.did]
     );
     return reply.send({ did: principal.did, events: rows });
   });

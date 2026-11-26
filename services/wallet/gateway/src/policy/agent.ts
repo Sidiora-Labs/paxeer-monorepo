@@ -3,6 +3,7 @@ import { PRECOMPILE_ADDRESSES, SCHEDULER_ABI, STREAMS_ABI } from '../precompiles
 import { publicClient } from '../chainReads.js';
 import { agentWalletUserId, findWalletByUserId } from '../db/wallets.js';
 import { env } from '../env.js';
+import { LAUNCHPAD_BUY_ABI, LAUNCHPAD_BUY_SELECTOR, decodeLaunchpadBuy } from './launchpad.js';
 import {
   countAgentSignaturesLastMinute,
   reserveBudget as reserveAgentBudget,
@@ -37,7 +38,7 @@ export function decodeUintArg(data: string, argIndex: number): bigint | null {
 
 export function decodeMoverCounterparty(
   selector: string,
-  data: string,
+  data: string
 ): { counterparty: string | null; isApprove: boolean; known: boolean } {
   switch (selector.toLowerCase()) {
     case ERC20_APPROVE_SELECTOR:
@@ -224,7 +225,7 @@ function indexRules(rules: AgentPolicyRuleRow[]): RuleIndex {
 function deny(
   code: AgentDenyCode,
   message: string,
-  detail?: Record<string, unknown>,
+  detail?: Record<string, unknown>
 ): AgentDecision {
   return { allow: false, code, message, detail };
 }
@@ -233,7 +234,7 @@ function deny(
 function dailyWindowStartIso(hour: number): string {
   const now = new Date();
   const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, 0, 0, 0),
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, 0, 0, 0)
   );
   if (start.getTime() > now.getTime()) start.setUTCDate(start.getUTCDate() - 1);
   return start.toISOString();
@@ -260,7 +261,7 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
 async function evaluateAgentIntent(
   input: EvaluateAgentInput,
   movementOnly: boolean,
-  depth: number,
+  depth: number
 ): Promise<AgentDecision> {
   const { principal } = input;
   let intent = input.intent;
@@ -296,7 +297,7 @@ async function evaluateAgentIntent(
     if (eff.mode !== 'full') {
       return deny(
         'CONTRACT_CREATION_BLOCKED',
-        'contract creation requires a full-mode agent policy',
+        'contract creation requires a full-mode agent policy'
       );
     }
     if (value > eff.maxTxValueWei) {
@@ -310,7 +311,7 @@ async function evaluateAgentIntent(
       const dailySpent = await sumAgentDailyValue(
         principal.did,
         windowStart,
-        input.pendingSignature,
+        input.pendingSignature
       );
       if (dailySpent + value > eff.maxDailyValueWei) {
         return deny('DAILY_VALUE_CAP', 'daily value cap exceeded by this deployment', {
@@ -345,7 +346,7 @@ async function evaluateAgentIntent(
     if (!decoded)
       return deny(
         'COUNTERPARTY_UNDECODED',
-        'precompile movement cannot be decoded from signed calldata',
+        'precompile movement cannot be decoded from signed calldata'
       );
     intent = decoded.intent;
     scheduled = decoded.scheduled;
@@ -394,7 +395,7 @@ async function evaluateAgentIntent(
     mover?.known &&
     (mover.counterparty === null ||
       ![ERC20_APPROVE_SELECTOR, ERC20_TRANSFER_SELECTOR, ERC20_TRANSFER_FROM_SELECTOR].includes(
-        selector!,
+        selector!
       ))
   ) {
     return deny('COUNTERPARTY_UNDECODED', 'scheduled movement has no decodable counterparty');
@@ -464,7 +465,7 @@ async function evaluateAgentIntent(
         'known asset-moving call has no decodable counterparty',
         {
           selector,
-        },
+        }
       );
     }
     const recipientNeedingAllow: string | null =
@@ -477,8 +478,23 @@ async function evaluateAgentIntent(
       return deny(
         'WITHDRAWAL_NOT_ALLOWLISTED',
         'recipient/spender is not on the withdrawal allowlist',
-        { recipient: recipientNeedingAllow },
+        { recipient: recipientNeedingAllow }
       );
+    }
+  }
+
+  if (selector === LAUNCHPAD_BUY_SELECTOR && idx.allowTokenCaps.size > 0) {
+    try {
+      const buy = decodeLaunchpadBuy(data as Hex);
+      const quoteToken = await publicClient().readContract({
+        address: to as Hex,
+        abi: LAUNCHPAD_BUY_ABI,
+        functionName: 'usdlAddress',
+      });
+      tokenContract = quoteToken.toLowerCase();
+      tokenAmount = buy.amount;
+    } catch {
+      return deny('INVALID_TX_SHAPE', 'launchpad buy operands or quote token could not be read');
     }
   }
 
@@ -570,7 +586,7 @@ async function evaluateAgentIntent(
 async function rateLimited(
   did: string,
   perMin: number,
-  pending?: PendingAgentSignature,
+  pending?: PendingAgentSignature
 ): Promise<AgentDecision | null> {
   try {
     const recent = await countAgentSignaturesLastMinute(did, pending);
@@ -597,7 +613,7 @@ function decodeApproveAmount(data: string): bigint | null {
 /** Decode only signed operands; helper annotations never grant precompile authority. */
 async function decodePrecompilePolicy(
   intent: AgentTxIntent,
-  did: string,
+  did: string
 ): Promise<{
   intent: AgentTxIntent;
   scheduled: AgentTxIntent | null;
