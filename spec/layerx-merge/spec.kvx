@@ -214239,7 +214239,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1259]
 title = "Bound the read of the transfer records of a coin from the node when a fill is qualified, so that the position of a wallet follows a fill made long after the creation of the coin, and write the error of a failing run of the inventory consumer to the log"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
