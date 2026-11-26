@@ -140,7 +140,13 @@ async function coinFirstTradeAndPhoneComposition() {
     }
   } finally {
     await browser.close();
-    if (server.pid) process.kill(-server.pid, 'SIGTERM');
+    if (server.pid && server.exitCode === null && server.signalCode === null) {
+      try {
+        process.kill(-server.pid, 'SIGTERM');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+      }
+    }
     await new Promise<void>(accept => { if (server.exitCode !== null || server.signalCode !== null) accept(); else server.once('exit', () => accept()); });
   }
 }
