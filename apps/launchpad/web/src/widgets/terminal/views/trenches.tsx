@@ -101,16 +101,16 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
     : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-sm font-bold tabular-nums text-text">{formatUsdl(row.mcapRaw, { compact: true, unit: false })}</span>;
   const statisticsClass = 'flex h-full shrink-0 flex-col items-end justify-center gap-0.5';
   return (
-    <li className="relative flex h-11 items-center gap-2 bg-surface-1 px-2 transition-colors duration-fast hover:bg-surface-hover">
+    <li className="sl-hairline relative flex h-11 items-center gap-2 bg-surface-1 px-2 transition-colors duration-fast hover:bg-surface-hover">
       <Link prefetch={false} href={terminalPoolPath(row.poolAddress)} aria-label={`${row.symbol} ${row.name}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
-      <Avatar src={row.image} name={row.symbol} size="md" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} /> : undefined} />
+      <Avatar src={row.image} name={row.name} size="md" shape="square" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="flex min-w-0 items-baseline gap-1.5 text-sm">
-          <span className="min-w-0 truncate font-bold text-text" title={row.symbol}>{row.symbol}</span>
-          <span className="truncate text-xs text-text-muted" title={row.name}>{row.name}</span>
+          <span className="min-w-0 truncate font-semibold text-text" title={row.name}>{row.name}</span>
+          <span className="truncate text-xs text-text-muted" title={row.symbol}>{row.symbol}</span>
         </p>
         <div className="flex min-w-0 items-center gap-2 text-xs text-text-faint">
-          <AgeChip iso={row.createdAtMs} className="font-bold text-accent" />
+          <AgeChip iso={row.createdAtMs} className="text-text-muted" />
           {row.holders !== null ? (
             <span className="inline-flex items-center gap-0.5 tabular-nums" title="Holders">
               <Users aria-hidden="true" className="size-3" />
@@ -140,7 +140,7 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
       ) : (
         <div className={statisticsClass}>
           {marketCap}
-          <PercentPill value={change.value} variant="text" />
+          <PercentPill value={change.value} />
         </div>
       )}
     </li>
@@ -156,9 +156,9 @@ interface TrenchColumnProps {
 
 function TrenchColumn({ title, count, control, children }: TrenchColumnProps) {
   return (
-    <section aria-label={title} className="flex min-h-0 flex-col overflow-hidden rounded-md bg-surface-1">
+    <section aria-label={title} className="sl-hairline flex min-h-0 flex-col overflow-hidden bg-surface-1">
       <header className="flex min-h-8 shrink-0 flex-wrap items-center justify-between gap-2 px-2">
-        <h2 className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-text">
+        <h2 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-text">
           {title}
           {count !== null ? <span data-numeric className="text-xs font-semibold tabular-nums text-text-faint">{formatCount(count)}</span> : null}
         </h2>
@@ -220,7 +220,7 @@ function NewPairsColumn() {
 function GraduationColumn({ title }: { title: string }) {
   return (
     <TrenchColumn title={title} count={null}>
-      <UnavailableState title={title} operation={graduationEvidence.operation} status={null} message={graduationEvidence.message} />
+      <EmptyState icon={Sprout} title={`${title} is not available yet`} body={graduationEvidence.message} />
     </TrenchColumn>
   );
 }

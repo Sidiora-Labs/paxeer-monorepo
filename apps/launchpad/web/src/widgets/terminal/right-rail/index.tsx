@@ -34,10 +34,10 @@ export default function TerminalRightRail({ poolAddress }: { poolAddress: string
   const [sort, setSort] = useState<SimilarSort>('liq');
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-0">
       <PositionSummary poolAddress={pool} tokenAddress={tokenAddress} />
 
-      <section aria-label="Trade" className="flex flex-col gap-1 rounded-md bg-surface-1 p-1">
+      <section aria-label="Trade" className="sl-hairline flex flex-col gap-1 bg-surface-1 p-1">
         <div className="flex min-h-7 flex-wrap items-center gap-1">
           <IconButton label="Edit trade presets" icon={<Settings />} size="sm" onClick={() => setEditorOpen(true)} />
           <SegmentedControl<`${PresetId}`>

@@ -92,37 +92,34 @@ export function OrdersList({ operations, scope, poolAddress, cancellationProvide
   return (
     <div className="flex flex-col gap-1">
       {signNotice ? <NoticeBar tone="warning" announce onDismiss={() => setSignNotice(null)}>{signNotice}</NoticeBar> : null}
-      {orders.length === 0
-        ? <EmptyState icon={ListOrdered} title={query.hasNextPage ? 'No open orders found yet' : 'No open orders'} body={query.hasNextPage ? 'Load more to keep looking.' : 'Orders you place on this coin show up here.'} />
-        : (
-          <div role="region" aria-label="Open orders table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
+      <div role="region" aria-label="Open orders table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
 
-            <table aria-label="Your open orders" className="w-full min-w-128 text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
-              <thead className="bg-surface-1">
-                <tr>
-                  <SortHeader className="h-6" label="Type" />
-                  <SortHeader className="h-6" label="Amount (raw)" align="right" />
-                  <SortHeader className="h-6" label="Trigger" align="right" />
-                  <SortHeader className="h-6" label="Status" />
-                  <SortHeader className="h-6" label="Order" />
-                  <SortHeader className="h-6" label="" align="right" />
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map(order => (
-                  <tr key={order.orderId} data-order-id={order.orderId} className="min-h-table-row-dense bg-surface-1 transition-colors hover:bg-surface-hover">
-                    <td className="font-bold capitalize text-text">{order.kind}</td>
-                    <td data-numeric className="text-right font-mono tabular-nums text-text" title="Amount in raw units">{order.inputRaw}</td>
-                    <td data-numeric className="text-right tabular-nums text-text-muted">{triggerLabel(order)}</td>
-                    <td className="capitalize text-text-muted">{order.status}</td>
-                    <td className="font-mono text-text-faint" title={order.orderId}>{order.orderId.slice(0, 8)}</td>
-                    <td className="text-right"><Button size="sm" variant="danger-text" disabled={pending !== null} onClick={() => { cancel.reset(); setPrepared(null); setPending({ order, idempotencyKey: crypto.randomUUID() }); }}>Cancel</Button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <table aria-label="Your open orders" className="w-full min-w-128 text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
+          <thead className="bg-canvas">
+            <tr>
+              <SortHeader className="h-6" label="Type" />
+              <SortHeader className="h-6" label="Amount (raw)" align="right" />
+              <SortHeader className="h-6" label="Trigger" align="right" />
+              <SortHeader className="h-6" label="Status" />
+              <SortHeader className="h-6" label="Order" />
+              <SortHeader className="h-6" label="" align="right" />
+            </tr>
+          </thead>
+          <tbody>
+            {orders.length === 0 ? <EmptyState variant="table" colSpan={6} icon={ListOrdered} title={query.hasNextPage ? 'No open orders found yet' : 'No open orders'} body={query.hasNextPage ? 'Load more to keep looking.' : 'Orders you place on this coin show up here.'} /> : null}
+            {orders.map(order => (
+              <tr key={order.orderId} data-order-id={order.orderId} className="sl-hairline min-h-table-row-dense bg-surface-1 transition-colors hover:bg-surface-hover">
+                <td className="font-bold capitalize text-text">{order.kind}</td>
+                <td data-numeric className="text-right font-mono tabular-nums text-text" title="Amount in raw units">{order.inputRaw}</td>
+                <td data-numeric className="text-right tabular-nums text-text-muted">{triggerLabel(order)}</td>
+                <td className="capitalize text-text-muted">{order.status}</td>
+                <td className="font-mono text-text-faint" title={order.orderId}>{order.orderId.slice(0, 8)}</td>
+                <td className="text-right"><Button size="sm" variant="danger-text" disabled={pending !== null} onClick={() => { cancel.reset(); setPrepared(null); setPending({ order, idempotencyKey: crypto.randomUUID() }); }}>Cancel</Button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {query.hasNextPage ? <LoadMore auto={false} hasMore loading={query.isFetchingNextPage} error={query.isFetchNextPageError} label="Load more orders" onLoadMore={() => { void query.fetchNextPage(); }} /> : null}
       <ModalFrame
         open={pending !== null}
@@ -150,7 +147,7 @@ export function OrdersPanel({ poolAddress, cancellationProvider }: { poolAddress
   const operations = useSessionOperations();
   const scope = useSyncExternalStore(subscribeAccount, accountSession, noSession);
   if (!operations || !scope) {
-    return <EmptyState icon={LogIn} title="Sign in to see your orders" body="Orders are read from your signed-in account." action={<Button size="sm" onClick={() => openAuthModal('Sign in to see your orders')}>Sign in</Button>} />;
+    return <EmptyState icon={LogIn} title="Sign in to see your orders" body="Orders are read from your signed-in account." action={<Button variant="inverse" size="sm" onClick={() => openAuthModal('Sign in to see your orders')}>Sign in</Button>} />;
   }
   return <OrdersList key={`${scope.session.sessionId}:${scope.epoch}`} operations={operations} scope={scope} poolAddress={poolAddress} cancellationProvider={cancellationProvider} />;
 }

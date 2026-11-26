@@ -1,4 +1,6 @@
 'use client';
+import { CapabilityState } from './capability-state';
+import styles from './presentation.module.css';
 import { useEffect, useRef, useState } from 'react';
 import { ListOrdered } from 'lucide-react';
 import { EmptyState } from '@/ui/primitives';
@@ -8,7 +10,7 @@ import { eligibility, reconcileOrder } from './domain';
 import type { AdvancedProvider, ConnectedOrder } from './advanced-provider';
 export interface OpenOrdersListProps { refreshSignal?: number; provider?: AdvancedProvider }
 export default function OpenOrdersList(props: OpenOrdersListProps) {
-  if (!props.provider) return <p role="status" className="p-4 text-2xs text-text">Orders are not available yet</p>;
+  if (!props.provider) return <CapabilityState kind="orders" />;
   return <ConnectedOrders {...props} provider={props.provider} />;
 }
 function ConnectedOrders({ provider, refreshSignal }: OpenOrdersListProps & { provider: AdvancedProvider }) {
@@ -60,9 +62,9 @@ function ConnectedOrders({ provider, refreshSignal }: OpenOrdersListProps & { pr
     finally { activeCancel.current = false; if (version === generation.current) setBusy(false); }
   };
   const blocker = provider.blockers.get('orders');
-  if (blocker) return <p role="status">Orders are not available yet</p>;
-  return <section aria-labelledby="open-orders-title" className="space-y-3 rounded-xl bg-surface-1 p-4"><div className="flex items-center justify-between gap-2"><h2 id="open-orders-title" className="font-bold">Your orders</h2><button type="button" className="rounded-md bg-surface-3 px-3 py-2" disabled={busy || !owner} onClick={() => void load(null)}>Refresh</button></div>{items.length === 0 && (ownerChecked && !owner ? <SignedOutState icon={ListOrdered} title="Sign in to see your orders" body="Connect the wallet you placed them with" /> : loaded ? <EmptyState icon={ListOrdered} title="No open orders" body="Limit and stop orders you place show up here" announce /> : message ? null : <p role="status">Loading orders...</p>)}{items.map(item => {
+  if (blocker) return <CapabilityState kind="orders" />;
+  return <section aria-labelledby="open-orders-title" className={`${styles.panel} w-full max-w-search-max space-y-3 rounded-md bg-surface-1 p-4`}><div className="flex items-center justify-between gap-2"><h2 id="open-orders-title" className="text-md font-semibold">Your orders</h2><button type="button" className="rounded-sm px-3 py-2 text-text-muted transition-colors hover:bg-surface-hover disabled:opacity-40" disabled={busy || !owner} onClick={() => void load(null)}>Refresh</button></div>{items.length === 0 && (ownerChecked && !owner ? <SignedOutState icon={ListOrdered} title="Sign in to see your orders" body="Connect the wallet you placed them with" /> : loaded ? <EmptyState icon={ListOrdered} title="No open orders" body="Limit and stop orders you place show up here" announce /> : message ? null : <p role="status">Loading orders...</p>)}{items.map(item => {
     const health = eligibility(item.eligible, item.keeperCheckedAt, item.keeperHealthy, Date.now());
-    return <article key={`${owner}:${item.family}:${item.orderId}`} className="rounded-xl bg-surface-2 p-3 space-y-2"><p>Order {item.orderId} · {item.type} · {item.state}</p><p>Trigger: {health.eligibility === 'eligible' ? 'hit' : health.eligibility === 'ineligible' ? 'not hit yet' : 'checking'} · Order bot: {health.executionHealth === 'healthy' ? 'running' : 'slow'} · Checked {item.keeperCheckedAt ? new Date(item.keeperCheckedAt).toLocaleTimeString() : 'not yet'}</p><p>Traded {item.filledRaw.toString()} units · Refunded {item.refundRaw.toString()} units</p>{item.executionTxHash && <p className="break-all">Trade transaction {item.executionTxHash}</p>}{pending[`${item.family}:${item.orderId}`] && <p>Cancelling · {pending[`${item.family}:${item.orderId}`]}</p>}{(['active','triggered'].includes(item.state) || pending[`${item.family}:${item.orderId}`]) && <button disabled={busy} onClick={() => { if (window.confirm(`Cancel order ${item.orderId}? It may trade before the cancel goes through.`)) void cancel(item); }}>{pending[`${item.family}:${item.orderId}`] ? 'Check cancel status' : 'Cancel order'}</button>}</article>;
+    return <article key={`${owner}:${item.family}:${item.orderId}`} className={`${styles.order} p-3 space-y-2`}><p>Order {item.orderId} · {item.type} · {item.state}</p><p>Trigger: {health.eligibility === 'eligible' ? 'hit' : health.eligibility === 'ineligible' ? 'not hit yet' : 'checking'} · Order bot: {health.executionHealth === 'healthy' ? 'running' : 'slow'} · Checked {item.keeperCheckedAt ? new Date(item.keeperCheckedAt).toLocaleTimeString() : 'not yet'}</p><p>Traded {item.filledRaw.toString()} units · Refunded {item.refundRaw.toString()} units</p>{item.executionTxHash && <p className="break-all">Trade transaction {item.executionTxHash}</p>}{pending[`${item.family}:${item.orderId}`] && <p>Cancelling · {pending[`${item.family}:${item.orderId}`]}</p>}{(['active','triggered'].includes(item.state) || pending[`${item.family}:${item.orderId}`]) && <button disabled={busy} onClick={() => { if (window.confirm(`Cancel order ${item.orderId}? It may trade before the cancel goes through.`)) void cancel(item); }}>{pending[`${item.family}:${item.orderId}`] ? 'Check cancel status' : 'Cancel order'}</button>}</article>;
   })}{cursor && <button disabled={busy} onClick={() => void load(cursor)}>Load more</button>}<p role="status" className="break-all">{message}</p></section>;
 }
