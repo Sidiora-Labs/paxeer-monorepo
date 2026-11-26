@@ -264,11 +264,11 @@ type PublicRequestError struct {
 
 func (e PublicRequestError) Error() string { return e.Code }
 
-func ParsePublicRequest(values url.Values) (Request, error) {
-	r := Request{Limit: PublicMaxLimit}
-	invalid := func(status int, code string) (Request, error) { return r, PublicRequestError{status, code} }
+func ParsePublicRequest(values url.Values) (IntegratedRequest, error) {
+	r := IntegratedRequest{Request: Request{Limit: PublicMaxLimit}, Sort: valueAddress}
+	invalid := func(status int, code string) (IntegratedRequest, error) { return r, PublicRequestError{status, code} }
 	for key, vs := range values {
-		if key != "q" && key != "type" && key != "limit" && key != "filter" && key != "cursor" {
+		if key != "q" && key != "type" && key != "limit" && key != "filter" && key != "cursor" && (key != "sort" || values.Get("type") != valueProfile) {
 			return invalid(400, "QUERY_INVALID")
 		}
 		if len(vs) != 1 {
@@ -304,6 +304,25 @@ func ParsePublicRequest(values url.Values) (Request, error) {
 			return invalid(400, "QUERY_INVALID")
 		}
 	}
+	if r.Kind == valueProfile {
+		if _, hasSort := values["sort"]; hasSort {
+			return invalid(422, "FIELD_INVALID")
+		}
+		if _, err := r.Validate(); err != nil {
+			return invalid(422, "FIELD_INVALID")
+		}
+		r.Filter.Version = Version
+		if raw, ok := values["cursor"]; ok {
+			r.Position = &IntegratedCursor{}
+			if decode(raw[0], r.Position) != nil {
+				return invalid(400, "CURSOR_INVALID")
+			}
+		}
+		if _, err := r.Validate(); err != nil {
+			return invalid(400, "CURSOR_INVALID")
+		}
+		return r, nil
+	}
 	filter, err := r.Filter.Public()
 	if err != nil {
 		if errors.Is(err, ErrUnsupported) {
@@ -318,10 +337,7 @@ func ParsePublicRequest(values url.Values) (Request, error) {
 			return invalid(400, "CURSOR_INVALID")
 		}
 	}
-	if r.Kind == valueProfile {
-		return invalid(412, "PRECONDITION_FAILED")
-	}
-	if _, err := ValidateRequest(r); err != nil {
+	if _, err := ValidateRequest(r.Request); err != nil {
 		if errors.Is(err, ErrUnsupported) {
 			return invalid(501, "FEATURE_UNAVAILABLE")
 		}
