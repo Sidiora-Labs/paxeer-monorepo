@@ -182115,7 +182115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1247]
 title = "Keep the cookie notice of the trading web off the bottom navigation and the order form at phone size, make its close mark visible, and give the legal pages a title and the icon and every view a description and a preview title"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
