@@ -2,6 +2,7 @@ package candlewire_test
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"reflect"
 	"testing"
@@ -10,6 +11,17 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire/testfixture"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
 )
+
+func TestFromStoredBarRejectsInvalidInput(t *testing.T) {
+	for _, raw := range []string{"{", `{"trades":"invalid"}`} {
+		if _, err := candlewire.FromStoredBar([]byte(raw), nil); err == nil {
+			t.Fatalf("malformed bar accepted: %s", raw)
+		}
+	}
+	if _, err := candlewire.FromStoredBar([]byte(`{}`), nil); !errors.Is(err, engine.ErrInvalidFill) {
+		t.Fatalf("invalid bar: %v", err)
+	}
+}
 
 func identityJSON(t *testing.T, raw []byte) any {
 	t.Helper()
