@@ -213720,7 +213720,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1203]
 title = "Read the sell and the buy of a routed swap as the own trades of the wallet in both receipt functions of the pnl module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1200", "22.39.1201"]
