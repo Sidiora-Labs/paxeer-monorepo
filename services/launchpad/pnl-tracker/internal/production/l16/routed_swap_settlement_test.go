@@ -116,6 +116,7 @@ func bindRoutedSwap(t *testing.T, ctx context.Context, fixture nativeSettlementF
 }
 
 func TestRoutedSwapSettlement(t *testing.T) {
+	parallelDatabaseTest(t)
 	fixture := newNativeSettlementFixture(t, context.Background())
 	t.Run("OwnTrades", func(t *testing.T) { routedSwapSettlementOwnTrades(t, fixture) })
 	t.Run("RejectsUnallocatedRoutes", func(t *testing.T) { routedSwapSettlementRejectsUnallocatedRoutes(t, fixture) })

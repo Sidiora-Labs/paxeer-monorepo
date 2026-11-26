@@ -12,6 +12,7 @@ import (
 )
 
 func TestActiveSnapshotAndPublicationRequireBoundPayload(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	service, pool := recordedRebuildService(t, ctx)
 	original, err := service.Rebuild(ctx, realMarketCreator, realMarketToken, 33963733)

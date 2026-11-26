@@ -3,6 +3,7 @@ package l16
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var parallelDatabaseTest = coordinatortest.NewTestGroup(runtime.GOMAXPROCS(0)).Parallel
 
 func recordedRebuildService(t *testing.T, ctx context.Context) (*Service, *pgxpool.Pool) {
 	t.Helper()
@@ -55,6 +58,7 @@ func recordedRebuildService(t *testing.T, ctx context.Context) (*Service, *pgxpo
 }
 
 func TestRecordedInventoryOrdinaryReplay(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	service, _ := recordedRebuildService(t, ctx)
@@ -74,6 +78,7 @@ func TestRecordedInventoryOrdinaryReplay(t *testing.T) {
 }
 
 func TestRecordedInventoryRebuildAndPublication(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	service, pool := recordedRebuildService(t, ctx)
@@ -122,6 +127,7 @@ func TestRecordedInventoryRebuildAndPublication(t *testing.T) {
 }
 
 func TestRecordedInventoryRejectsUnqualifiedRequests(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	service, pool := recordedRebuildService(t, ctx)

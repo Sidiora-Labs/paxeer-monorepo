@@ -8,6 +8,7 @@ import (
 )
 
 func TestWalletRebuildDiscoversTransferredTokensAndReusesArchive(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	repository := l17.Repository{Pool: pool}

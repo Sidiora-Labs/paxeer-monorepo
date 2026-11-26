@@ -290,6 +290,7 @@ func incrementalWorker(t *testing.T, service *Service, wallet string) (*LiveTran
 }
 
 func TestLiveWalletIncrementalEnrollmentRestart(t *testing.T) {
+	parallelDatabaseTest(t)
 	fixture := newLocalCanonicalFixture(t, "incremental")
 	ctx := fixture.ctx
 	a := fixture.authority
@@ -386,6 +387,7 @@ func TestLiveWalletIncrementalEnrollmentRestart(t *testing.T) {
 }
 
 func TestLiveWalletIncrementalExtendsAcceptedHeightAndQuarantinesReorg(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	service, admin := recordedRebuildService(t, ctx)

@@ -30,6 +30,7 @@ func parityWorker(t *testing.T) (*LiveTransferWorker, *internaltest.QueryCancell
 }
 
 func TestLiveWalletQuarantinesParityBeforePortfolioCommit(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	probe, trace := parityWorker(t)
 	trace.Start(0)

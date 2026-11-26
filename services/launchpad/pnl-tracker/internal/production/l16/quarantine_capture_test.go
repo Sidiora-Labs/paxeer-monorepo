@@ -12,6 +12,7 @@ import (
 )
 
 func TestQuarantineCaptureValidatesEvidenceAndCancellation(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, trace := inventoryCancelableService(t)
 	pool := s.authority.pool

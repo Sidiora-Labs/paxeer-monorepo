@@ -14,6 +14,7 @@ import (
 )
 
 func TestLiveWalletPublishesEmptyCompletePortfolio(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	inventoryCommittedHead(t, ctx, pool)
@@ -85,6 +86,7 @@ func TestLiveWalletPublishesEmptyCompletePortfolio(t *testing.T) {
 }
 
 func TestInventoryRuntimeRequiresQualifiedAuthorities(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	for _, change := range []func(*Service){func(s *Service) { s.authority = nil }, func(s *Service) { s.second = s.authority.rpc }, func(s *Service) { s.nodeIDs[1] = s.nodeIDs[0] }, func(s *Service) { s.release = strings.Repeat("g", 64) }, func(s *Service) { s.outbox = nil }} {
