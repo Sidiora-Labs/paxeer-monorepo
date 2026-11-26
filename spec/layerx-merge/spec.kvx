@@ -214645,7 +214645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1231]
 title = "Let the chart of a coin load its trade markers when the browser hides the answer headers, and stop repeating a read that cannot pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1223"]
