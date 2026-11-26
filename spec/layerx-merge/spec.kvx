@@ -214104,7 +214104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1256]
 title = "Serve the read of the comments of a wallet from the social service of the launchpad to a request without a session, with cases that send the read through the ingress"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214765,7 +214765,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1223]
 title = "Stop the coin page from reading the list of trades again with every published view of the chart"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
