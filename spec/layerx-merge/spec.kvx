@@ -214272,7 +214272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1265]
 title = "Sort holders, logs and transfers by their numbers in the stats service of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
