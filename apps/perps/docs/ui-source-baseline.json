@@ -1694,8 +1694,8 @@
     },
     {
       "path": "packages/portfolio/src/layout/layout.ui.tsx",
-      "sourceSha256": "4a80f52bfe2c873ff08e895186795bd1742b2590e6f79750c71b422672e6ba9f",
-      "runtimeSha256": "8c5ccfe895a04d5c1f0b84234ed165d1cf034870a42925067219627969a4e51f"
+      "sourceSha256": "0376ee452287956d9471295019978ee1a7459d03caa3b04b368eb4c7c6d267be",
+      "runtimeSha256": "76fa43d9537602998a7359e2d44f2735a0d1060324eb612a8a33e17cf4297da3"
     },
     {
       "path": "packages/portfolio/src/pages/setting/setting.ui.tsx",
@@ -2511,6 +2511,16 @@
       "path": "packages/ui-tradingview/src/components/tradingview.ui.tsx",
       "sourceSha256": "1c7e580f0d3bb70ca567a00cec247999de3b6b8fa25d6a48c1aaab35ffa6da50",
       "runtimeSha256": "a01bed01e0dbddb9fcde25d4fa25e773a52888b371c76f8480ea4f215750be9b"
+    },
+    {
+      "path": "packages/portfolio/src/pages/agents/agents.ui.tsx",
+      "sourceSha256": "51f0fb8b159106b2706bb0ec384cf9cb2ae0dfa04e05073fb07559a08fcd97c2",
+      "runtimeSha256": "313cd5032bbefa13ed912db183817ee6b2c28a63e7cffd913a7ea81dc8a50abe"
+    },
+    {
+      "path": "packages/portfolio/src/pages/agents/agents.connect.ui.tsx",
+      "sourceSha256": "ee992cf18e0bb9833c6dbb017c0aa3a1c4f730173365c746b4835357367a2057",
+      "runtimeSha256": "60b837bedba6a265787f59dba81715d886fe44700d81c275864cec2ec6432845"
     }
   ],
   "nativeBrandArtwork": ["packages/ui/src/icon/paxeer-network.tsx"]

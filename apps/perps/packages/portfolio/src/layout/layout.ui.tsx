@@ -59,18 +59,20 @@ const LeftSidebar: FC<LeftSidebarProps> = (props) => {
   const { expanded, setExpand } = useScaffoldContext();
   const { t } = useTranslation();
   return (
-    <SideBar
-      title={t("common.portfolio")}
-      {...props}
-      open={expanded}
-      onOpenChange={(open) => setExpand(open)}
-      onItemSelect={(e) => {
-        props.onItemSelect?.(e);
-        props.routerAdapter?.onRouteChange?.({
-          href: e.href || "",
-          name: e.name,
-        });
-      }}
-    />
+    <nav aria-label={t("common.portfolio")}>
+      <SideBar
+        title={t("common.portfolio")}
+        {...props}
+        open={expanded}
+        onOpenChange={(open) => setExpand(open)}
+        onItemSelect={(e) => {
+          props.onItemSelect?.(e);
+          props.routerAdapter?.onRouteChange?.({
+            href: e.href || "",
+            name: e.name,
+          });
+        }}
+      />
+    </nav>
   );
 };

@@ -17296,6 +17296,12 @@ value = "Point one. A selector of change windows offers the windows the public s
 basis = "Gotchas 4962 to 4966, decision 4027, decision 4029 point seven, decision 3708."
 affects = []
 
+[decision.4031]
+title = "One rule for the spender of an approval at both policy layers, one list of functions for every preset of an application, and the figures of a position as the chain reads them"
+value = "Point one. An allow rule of the subject address names a permitted spender of approvals. When an agent has at least one such rule, an approval is allowed only to a listed spender, and the withdrawal list is not asked for that spender. With no such rule the spender of an approval must be on the withdrawal list. A transfer and a transferFrom stay under the withdrawal list, also when the recipient is a permitted spender. A deny rule beats every allow rule, and the approve cap, the token cap and the contract rule of trade_only apply as before. This is how the preset of decision 4028 point three is enforced. Point two. The wallet gateway and the attestor decide alike on a request of an agent. A change of the policy of one layer comes with the same change of the other and with cases that give the same inputs to both. Point three. An application keeps one list of the functions an agent may call and one approval with its spender, and every preset of that application is built from it, the preset of its kit and the preset of its agents page. A preset writes an allow rule of the subject contract for each target and for the token, of the subject selector for each function and for the approval, of the subject address for the spender, of the subject token with the cap, and of the subject withdrawal for the wallet of the owner only. Point four. What the data service of the trading venue serves for a position and for an account agrees with the read of the chain after every event: the collateral, the balance and the locked margin. A journey on a local chain compares them after every step, and an assertion of that journey is never loosened to make a figure pass."
+basis = "Gotchas 4967 to 4969, decision 4028 point three, decision 4029 points four and six."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46956,6 +46962,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1245]
+title = "Build the preset of the trading agent kit from the one list of functions of the trading workspace and write the spender of the approval as a rule, so that the kit and the agents page give an agent the same rules"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages/agent-kit", "apps/perps/packages/paxeer-backend/src/core/wallet/embedded", "apps/perps/tests/agent-kit.test.ts"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/agent-kit.test.ts tests/agent-owner.test.ts && grep -q kitPresetAndPagePresetGiveTheSameRules apps/perps/tests/agent-kit.test.ts"
+do_1 = "do_1 Gotchas 4967 and 4968, decision 4031 points one and three, decision 4028 point three. Read apps/perps/packages/agent-kit/src/preset.ts whole, apps/perps/packages/paxeer-backend/src/core/wallet/embedded/agentPreset.ts whole (the list of the functions, the approval with its spender, and the preset of the page), how the agents page shows and saves it (apps/perps/packages/portfolio/src/pages/agents/agents.ui.tsx), the step of the README of the kit that describes the preset, the case tradingPresetContainsExactlyTheWriteCapabilities in apps/perps/tests/agent-kit.test.ts, the cases of apps/perps/tests/agent-owner.test.ts that pin the preset of the page, and sdk/launchpad/packages/agent-kit/src/preset.ts for the form of the rule in the kit of the launchpad."
+symbols = []
 
 [capability.22.39.1244]
 title = "Do not render the tab Squads of the leaderboard and the tab Top rewards in the rail of a profile until a service ranks them"
@@ -182047,6 +182062,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1245]
+title = "Build the preset of the trading agent kit from the one list of functions of the trading workspace and write the spender of the approval as a rule, so that the kit and the agents page give an agent the same rules"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1245"]
+interfaces = []
+do_1 = "do_1 Gotchas 4967 and 4968, decision 4031 points one and three, decision 4028 point three. Read apps/perps/packages/agent-kit/src/preset.ts whole, apps/perps/packages/paxeer-backend/src/core/wallet/embedded/agentPreset.ts whole (the list of the functions, the approval with its spender, and the preset of the page), how the agents page shows and saves it (apps/perps/packages/portfolio/src/pages/agents/agents.ui.tsx), the step of the README of the kit that describes the preset, the case tradingPresetContainsExactlyTheWriteCapabilities in apps/perps/tests/agent-kit.test.ts, the cases of apps/perps/tests/agent-owner.test.ts that pin the preset of the page, and sdk/launchpad/packages/agent-kit/src/preset.ts for the form of the rule in the kit of the launchpad."
+do_2 = "do_2 One: the kit takes the functions an agent may call and the approval with its spender from the one list the agents page uses, PERPS_AGENT_FUNCTIONS and PERPS_AGENT_APPROVAL of apps/perps/packages/paxeer-backend/src/core/wallet/embedded/agentPreset.ts. It keeps no list of its own. If the kit cannot import that file as it stands, move the list and the approval into a file of the same directory that imports only the builders and the configuration, let the preset of the page import them from there, and keep every name the page and its cases use exported where they import it today. Two: the rules of the preset of the kit are an allow rule of the subject contract for each target of the list and for the token of the approval, of the subject selector for each function of the list and for the approval, of the subject address for the spender of the approval, of the subject token for the collateral token with the approve cap, and of the subject withdrawal for the wallet of the owner only. For the same owner and the same caps the preset of the kit and the preset of the page hold the same rules, compared as effect, subject and value without regard to the case of the letters of an address. The member approvalSpenders stays for the callers that read it. The policy and the budget of both presets stay as they are. Three: every tool of the kit that sends a transaction sends a function of the list. Assert it in a case over the tools, so that a tool added later without its function in the list fails. Four: the step of the README of the kit on the preset says that the spender is an allow rule of the subject address and names the functions the preset allows. Change nothing in the pages of the web application beyond an import that moved."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in apps/perps/tests/agent-kit.test.ts: kitPresetAndPagePresetGiveTheSameRules builds both presets for the same owner and caps and asserts the same set of rules, exactly one allow rule of the subject address whose value is the spender of the approval, and the wallet of the owner as the only withdrawal entry; tradingPresetContainsExactlyTheWriteCapabilities asserts the functions of the one list. The final message lists the rules of the preset, names each function the preset of the kit did not allow before, and says whether the list moved to a file of its own. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages/agent-kit", "apps/perps/packages/paxeer-backend/src/core/wallet/embedded", "apps/perps/tests/agent-kit.test.ts"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/agent-kit.test.ts tests/agent-owner.test.ts && grep -q kitPresetAndPagePresetGiveTheSameRules apps/perps/tests/agent-kit.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1237]
 title = "Tell an agent how to join the trading workspace: a connect section on the agents page and one document for agents the web application serves, built from the agent kit"
 status = "pending"
@@ -182109,7 +182154,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1227]
 title = "Add the agents page of the trading workspace beside the API key page: create or claim an agent, fund it from the embedded wallet, set its limits, freeze, sweep and see its activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214017,7 +214062,7 @@ title = "Walk an agent of the trading workspace through its whole journey on a l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.1220", "22.39.1226", "22.39.1228", "22.39.1235"]
+requires = ["22.39.1220", "22.39.1226", "22.39.1228", "22.39.1235", "22.39.1245"]
 reqs = ["22998.1"]
 capabilities = ["22.39.1236"]
 interfaces = []
@@ -214194,7 +214239,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1224]
 title = "Find and repair why the case TestLiveDenseCanonicalTransfersUseCommittedReceiptPages of the pnl package l16 loses its delivery lease"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -271280,7 +271325,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.1241]
 title = "Serve the search of profiles from the stats service instead of refusing it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -271340,7 +271385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1230]
 title = "Let the shared router of the launchpad name the answer headers a page of another origin may read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

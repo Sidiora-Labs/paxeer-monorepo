@@ -180,6 +180,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@paxeer-network/agent-kit':
+        specifier: workspace:*
+        version: link:../../packages/agent-kit
       '@paxeer-network/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -1070,6 +1073,9 @@ importers:
 
   packages/portfolio:
     dependencies:
+      '@paxeer-network/agent-kit':
+        specifier: workspace:*
+        version: link:../agent-kit
       '@paxeer-network/chart':
         specifier: workspace:*
         version: link:../chart
