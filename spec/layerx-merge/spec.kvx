@@ -213973,7 +213973,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1187]
 title = "Let the reads of the source commits by height use an index and let the step statement of the stats proof cost in proportion to its step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1184", "22.39.1186", "22.39.1189"]
@@ -214257,7 +214257,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.141]
 title = "Bring the explore, search and watchlist views of the launchpad to the visual brief"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138"]
