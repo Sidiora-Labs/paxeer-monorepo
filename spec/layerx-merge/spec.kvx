@@ -214038,7 +214038,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1243]
 title = "Serve the comments of a wallet from the social service and let the tab Replies of a profile read them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
