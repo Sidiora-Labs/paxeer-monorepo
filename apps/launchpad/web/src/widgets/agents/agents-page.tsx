@@ -8,6 +8,7 @@ import { openAuthModal } from '@/shell/auth-modal-store';
 import { PageWithFooter } from '@/shell/platform-metrics';
 import { Button, EmptyState, ErrorState, Panel, Skeleton } from '@/ui/primitives';
 import { AgentsWorkspace } from './agents-workspace';
+import type { AgentConnection } from './agent-connection';
 
 export type AgentsAccessState = 'loading' | 'unconfigured' | 'signed-out' | 'external-wallet' | 'wrong-chain' | 'wallet-error' | 'ready';
 export function AgentsAccess({ state, onSignIn, onRetry, children }: { state: AgentsAccessState; onSignIn: () => void; onRetry: () => void; children?: ReactNode }) {
@@ -26,7 +27,7 @@ export function AgentsAccess({ state, onSignIn, onRetry, children }: { state: Ag
   </div>;
 }
 
-export default function AgentsPage() {
+export default function AgentsPage({ connection }: { connection: AgentConnection }) {
   const embedded = usePaxeerOptional();
   const account = useAccount();
   const reader = usePublicClient({ chainId: 125 });
@@ -42,6 +43,7 @@ export default function AgentsPage() {
     {state === 'ready' && embedded?.wallet && embedded.session && account.address && reader ? <AgentsWorkspace
       key={`${embedded.session.user.id}:${embedded.session.access_token}:${account.address}`}
       wallet={embedded.wallet} owner={account.address} userId={embedded.session.user.id} accessToken={embedded.session.access_token} reader={reader}
+      connection={connection}
     /> : null}
   </AgentsAccess></PageWithFooter>;
 }

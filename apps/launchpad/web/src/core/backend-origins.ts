@@ -210,6 +210,15 @@ export interface EmbeddedWalletEndpoints {
   supabaseAnonKey: string;
 }
 
+/** Public wallet gateway base URL shared by embedded wallets and agent clients. */
+export function walletGatewayApiBase(): string {
+  return checked(
+    'NEXT_PUBLIC_PAXEER_WALLET_API',
+    process.env.NEXT_PUBLIC_PAXEER_WALLET_API || PAXPORT_WALLET_API,
+    HTTP,
+  );
+}
+
 /**
  * Embedded wallet endpoints, or null when the feature is off. The SDK needs
  * both the Supabase project URL and its publishable key; without them the
@@ -220,11 +229,7 @@ export function embeddedWalletEndpoints(): EmbeddedWalletEndpoints | null {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!supabaseUrl || !supabaseAnonKey) return null;
   return {
-    apiUrl: checked(
-      'NEXT_PUBLIC_PAXEER_WALLET_API',
-      process.env.NEXT_PUBLIC_PAXEER_WALLET_API || PAXPORT_WALLET_API,
-      HTTP,
-    ),
+    apiUrl: walletGatewayApiBase(),
     supabaseUrl: checked('NEXT_PUBLIC_SUPABASE_URL', supabaseUrl, HTTP),
     supabaseAnonKey,
   };
