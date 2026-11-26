@@ -23,7 +23,10 @@ import {
   PerpsPrecompileABI,
   TimeInForce,
 } from "@paxeer-network/paxeer-backend/core/network/abi/PerpsPrecompile";
-import type { MarketConfig } from "@paxeer-network/paxeer-backend/core/perps/marketConfig";
+import type {
+  MarketConfig,
+  MarginTier,
+} from "@paxeer-network/paxeer-backend/core/perps/marketConfig";
 import type { TradingCall } from "../packages/agent-kit/src/execution";
 import type { WireTransaction } from "../packages/agent-kit/src/gateway";
 
@@ -63,7 +66,7 @@ const marketConfig: MarketConfig = {
   pxDecimals: 2,
   tickSize: E18 / 100n,
   lotSize: E18,
-  maxLeverage: 20n * E18,
+  maxLeverage: 20n,
   tierClass: 0,
   impactNotionalUsd: 10_000n * E18,
   oiCapUsd: 1_000_000n * E18,
@@ -74,7 +77,7 @@ const marketConfig: MarketConfig = {
 const tiers = [
   {
     lowerBoundUsd: 0n,
-    maxLeverage: 20n * E18,
+    maxLeverage: 20n,
     maintenanceBps: 500n,
     deductionUsd: 0n,
   },
@@ -256,7 +259,8 @@ function environment() {
     typeof decodeFunctionData<typeof PerpsPrecompileABI>
   >[] = [];
   let config = { ...marketConfig };
-  let tierLeverage = 20n * E18;
+  let marginTiers: readonly MarginTier[] = tiers;
+  let openQuote = { ...quote };
   let positionOwner = WALLET;
   let fresh = true;
   const rpc = createPublicClient({
@@ -282,7 +286,7 @@ function environment() {
               return encodeFunctionResult({
                 abi: PerpsPrecompileABI,
                 functionName: "getMarginTiers",
-                result: [{ ...tiers[0], maxLeverage: tierLeverage }],
+                result: marginTiers,
               });
             case "getMarkPriceDetails":
               return encodeFunctionResult({
@@ -294,14 +298,14 @@ function environment() {
               assert.deepEqual(decoded.args, [
                 1n,
                 USDL,
-                100_000_000n,
-                2n * E18,
+                openQuote.collateralUsd / 10n ** 12n,
+                openQuote.leverage,
                 true,
               ]);
               return encodeFunctionResult({
                 abi: PerpsPrecompileABI,
                 functionName: "quoteOpenPosition",
-                result: quote,
+                result: openQuote,
               });
             case "getAccount":
               assert.deepEqual(decoded.args, [WALLET]);
@@ -440,7 +444,7 @@ function environment() {
               tickSize: (E18 / 100n).toString(),
               lotSize: E18.toString(),
               tierClass: 0,
-              maxLeverage: (20n * E18).toString(),
+              maxLeverage: "20",
               enabled: true,
               createdAt: null,
               latestPrice: { price: "3000", onchainTimestamp: 1 },
@@ -480,7 +484,13 @@ function environment() {
       config = { ...config, ...value };
     },
     setTierLeverage(value: bigint) {
-      tierLeverage = value;
+      marginTiers = [{ ...tiers[0], maxLeverage: value }];
+    },
+    setTiers(value: readonly MarginTier[]) {
+      marginTiers = value;
+    },
+    setQuote(value: Partial<typeof quote>) {
+      openQuote = { ...openQuote, ...value };
     },
     setOwner(value: Address) {
       positionOwner = value;
@@ -996,7 +1006,7 @@ async function marketBoundsRefuseBeforeSigningOrSending() {
     assert.equal(env.gateway.requests.length, 0);
   }
   const env = environment();
-  env.setTierLeverage(E18);
+  env.setTierLeverage(1n);
   const result = await env.kit.callTool("place_limit", restingInput);
   assert.equal(result.ok, false);
   if (result.ok) throw new Error("Expected tier refusal");
@@ -1004,6 +1014,153 @@ async function marketBoundsRefuseBeforeSigningOrSending() {
   assert.equal(env.gateway.requests.length, 0);
 }
 test(marketBoundsRefuseBeforeSigningOrSending);
+
+async function leverageBoundOfTheChainIsAPlainInteger() {
+  for (const name of ["place_limit", "place_stop_limit", "open_market"]) {
+    for (const multiple of [1n, 2n, 1000n]) {
+      const env = environment();
+      env.setConfig({ maxLeverage: 1000n });
+      env.setTierLeverage(1000n);
+      env.setQuote({
+        leverage: multiple * E18,
+        sizeUsd: 100n * multiple * E18,
+      });
+      const input =
+        name === "open_market"
+          ? {
+              marketId: "1",
+              isLong: true,
+              collateralAmount: "100",
+              leverage: multiple.toString(),
+            }
+          : {
+              ...restingInput,
+              leverage: multiple.toString(),
+              ...(name === "place_stop_limit" ? { triggerPrice: "2950" } : {}),
+            };
+      assertSuccess(await env.kit.callTool(name, input));
+      const sent = env.gateway.requests.find(
+        (request) => request.route === "/v1/agent/send",
+      )!.body.tx as WireTransaction;
+      const decoded = decodeFunctionData({
+        abi: PerpsPrecompileABI,
+        data: sent.data,
+      });
+      assert.equal(decoded.functionName, "placeOrder");
+      if (decoded.functionName !== "placeOrder")
+        throw new Error("Expected order");
+      assert.equal(decoded.args[0].leverage, multiple * E18);
+      assert.equal(
+        decoded.args[0].collateralAmount,
+        name === "open_market" ? 100_000_000n : (200n * 10n ** 6n) / multiple,
+      );
+    }
+    for (const leverage of ["1001", "1000.000000000000000001"]) {
+      const env = environment();
+      env.setConfig({ maxLeverage: 1000n });
+      env.setTierLeverage(1000n);
+      const input =
+        name === "open_market"
+          ? { marketId: "1", isLong: true, collateralAmount: "100", leverage }
+          : {
+              ...restingInput,
+              leverage,
+              ...(name === "place_stop_limit" ? { triggerPrice: "2950" } : {}),
+            };
+      const result = await env.kit.callTool(name, input);
+      assert.equal(result.ok, false);
+      if (result.ok) throw new Error("Expected leverage refusal");
+      assert.equal(result.error.code, "LEVERAGE_BOUND");
+      assert.equal(result.error.message, "leverage must be between 1 and 1000");
+      assert.deepEqual(result.error.details, { minimum: "1", maximum: "1000" });
+      assert.equal(env.gateway.requests.length, 0);
+    }
+  }
+
+  for (const [sizeUsd, leverage, accepted] of [
+    ["199", "1000", true],
+    ["200", "2", true],
+    ["201", "2", true],
+    ["200", "2.000000000000000001", false],
+    ["201", "3", false],
+  ] as const) {
+    const env = environment();
+    env.setConfig({ maxLeverage: 1000n });
+    env.setTiers([
+      { ...tiers[0], maxLeverage: 1000n },
+      { ...tiers[0], lowerBoundUsd: 200n * E18, maxLeverage: 2n },
+    ]);
+    const result = await env.kit.callTool("place_limit", {
+      ...restingInput,
+      sizeUsd,
+      leverage,
+    });
+    if (accepted) assertSuccess(result);
+    else {
+      assert.equal(result.ok, false);
+      if (result.ok) throw new Error("Expected tier refusal");
+      assert.equal(result.error.code, "LEVERAGE_BOUND");
+      assert.equal(result.error.message, "leverage must be between 1 and 2");
+      assert.equal(env.gateway.requests.length, 0);
+    }
+  }
+
+  for (const lowerBoundUsd of [200n * E18, 201n * E18]) {
+    const env = environment();
+    env.setConfig({ maxLeverage: 1000n });
+    env.setTiers([
+      { ...tiers[0], maxLeverage: 1000n },
+      { ...tiers[0], lowerBoundUsd, maxLeverage: 1n },
+    ]);
+    const result = await env.kit.callTool("open_market", {
+      marketId: "1",
+      isLong: true,
+      collateralAmount: "100",
+      leverage: "2",
+    });
+    assert.ok(
+      env.rpcCalls.some((call) => call.functionName === "quoteOpenPosition"),
+    );
+    if (lowerBoundUsd === 201n * E18) assertSuccess(result);
+    else {
+      assert.equal(result.ok, false);
+      if (result.ok) throw new Error("Expected quoted-size tier refusal");
+      assert.equal(result.error.code, "LEVERAGE_BOUND");
+      assert.equal(result.error.message, "leverage must be between 1 and 1");
+      assert.equal(env.gateway.requests.length, 0);
+    }
+  }
+
+  for (const [marketCap, tierCap] of [
+    [0n, 1000n],
+    [1000n, 0n],
+    [1n, 1000n],
+    [1000n, 1n],
+  ]) {
+    const env = environment();
+    env.setConfig({ maxLeverage: marketCap });
+    env.setTierLeverage(tierCap);
+    const result = await env.kit.callTool("place_limit", restingInput);
+    assert.equal(result.ok, false);
+    if (result.ok) throw new Error("Expected bound refusal");
+    assert.equal(
+      result.error.code,
+      marketCap === 0n || tierCap === 0n
+        ? "INVALID_MARKET_CONFIG"
+        : "LEVERAGE_BOUND",
+    );
+    assert.equal(env.gateway.requests.length, 0);
+    if (marketCap !== 0n && tierCap !== 0n) {
+      assertSuccess(
+        await env.kit.callTool("place_limit", {
+          ...restingInput,
+          leverage: "1",
+        }),
+      );
+    }
+  }
+}
+test(leverageBoundOfTheChainIsAPlainInteger);
 
 async function positionActionsCheckOwnershipAndProtectionBounds() {
   for (const scenario of scenarios.filter((item) =>
@@ -1075,7 +1232,9 @@ async function readToolsUseTradingChainAndIndexerReads() {
   const markets = assertSuccess(
     await env.kit.callTool("markets", {}),
   ) as Awaited<ReturnType<typeof env.data.markets>>;
-  assert.equal(markets[0].config.maxLeverage, 20n * E18);
+  assert.equal(markets[0].config.maxLeverage, 20n);
+  assert.deepEqual(markets[0].config, marketConfig);
+  assert.deepEqual(markets[0].tiers, tiers);
   assert.equal(markets[0].mark.markPrice, 3000n * E18);
   assert.equal(markets[0].fundingRate?.rate24h, "0.0864");
   const account = assertSuccess(
@@ -1084,15 +1243,31 @@ async function readToolsUseTradingChainAndIndexerReads() {
   assert.equal(account.collateral, 100_000_000n);
   assert.equal(account.initialMarginUsd, 20n * E18);
   assert.equal(account.withdrawable, 80_000_000n);
+  assert.deepEqual(account.state, accountState);
+  assert.equal(account.equityUsd, 100n * E18);
+  assert.equal(account.maintenanceMarginUsd, 10n * E18);
+  assert.equal(account.risk.headroomUsd, 90n * E18);
+  assert.equal(account.risk.maintenanceUsageBps, 1000n);
+  assert.equal(account.risk.display.equity, "100 USD");
+  assert.equal(account.risk.display.maintenanceUsage, "10%");
   const positions = assertSuccess(
     await env.kit.callTool("positions", {}),
   ) as Awaited<ReturnType<typeof env.data.positions>>;
   assert.equal(positions[0].positionId, 7n);
   assert.equal(positions[0].margin.lockedAmount, 100_000_000n);
+  assert.equal(positions[0].sizeUsd, 200n * E18);
+  assert.equal(positions[0].collateralUsd, 100n * E18);
+  assert.equal(positions[0].collateralAmount, 100_000_000n);
+  assert.equal(positions[0].entryPrice, 3000n * E18);
+  assert.equal(positions[0].details.leverage, 2n * E18);
   const orders = assertSuccess(
     await env.kit.callTool("open_orders", {}),
   ) as Awaited<ReturnType<typeof env.data.openOrders>>;
   assert.equal(orders[0].orderId, 12n);
+  assert.equal(orders[0].sizeUsd, 200n * E18);
+  assert.equal(orders[0].limitPrice, 2900n * E18);
+  assert.equal(orders[0].leverage, 2n * E18);
+  assert.equal(orders[0].collateralAmount, 100_000_000n);
   const history = assertSuccess(
     await env.kit.callTool("history", { limit: 10, offset: 20 }),
   ) as Awaited<ReturnType<typeof env.data.history>>;
