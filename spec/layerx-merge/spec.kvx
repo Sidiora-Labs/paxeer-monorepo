@@ -17440,6 +17440,12 @@ value = "Point one. The pill shows the USDL balance of the wallet of the session
 basis = "Gotcha 4998."
 affects = []
 
+[decision.4055]
+title = "The quoting process works through a node that does not serve the pending tag: the mined count and its own record of the one transaction in flight stand in for the tag"
+value = "Point one. When the node answers the read of the count at the pending tag with an error of its own for that request, the tag is not served there. That is not a failure: the process takes the mined count in its place for that call. An error of the transport, a timeout or an answer that cannot be read stays a failed chain request as today. Point two. The process keeps at most one transaction in flight and holds the signed transaction until its receipt exists, as today. On a node without the tag that record alone says whether a transaction is in flight, and the nonce of the next transaction is the mined count. While the record holds a transaction the process signs no other. A transaction of the same account sent from elsewhere in that moment shows as a nonce conflict, a refusal the process already counts. Point three. On a node that serves the tag nothing changes: the rule of line 464 of services/platform/perps-data/internal/quoter/rpc.go stays. Point four. After a node refused the tag the process does not ask it for the tag again for sixty seconds, so a round sends no refused request with every read. Point five. In the dry mode the process reads through such a node, completes its rounds and logs its plan as today. In the live mode it places, renews and cancels through such a node, and the stop cancels every order. Point six. The document docs/perps/quoter.md says that the process works through a node that does not serve the pending tag and what stands in for the tag there. Point seven. Not changed: the ladder, the caps, the modes, the stop, the names of the configuration, the kinds of transaction, the health answers and what the process logs."
+basis = "Gotcha 4999."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47100,6 +47106,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1271]
+title = "Let the quoting process of the trading venue read and send through a node that refuses the pending tag"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data/internal/quoter", "docs/perps"]
+tests = []
+verification_contract = "go test -count=1 -timeout 14m ./services/platform/perps-data/internal/quoter/ ./services/platform/perps-data/cmd/perps-quoter/ && test $(go test -count=1 -timeout 10m -v -run ^TestPendingTag ./services/platform/perps-data/internal/quoter/ | grep -c -e ^---.PASS:.TestPendingTag) -ge 5 && bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-quoter-follower.env && set -a && . /tmp/lx-localnode-quoter-follower.env && set +a && go test -count=1 -timeout 14m -v -run ^TestLocalChainMarketOrderFillsAgainstTheQuotes ./services/platform/perps-data/internal/quoter/ | grep -q -e PASS:.TestLocalChainMarketOrderFillsAgainstTheQuotes && go test -count=1 -timeout 14m -v -run ^TestLocalChainQuotesThroughAFollowerNode ./services/platform/perps-data/internal/quoter/ | grep -q -e PASS:.TestLocalChainQuotesThroughAFollowerNode && grep -q -i -e pending.tag docs/perps/quoter.md"
+do_1 = "do_1 Gotcha 4999, decision 4055. Read services/platform/perps-data/internal/quoter/rpc.go whole, the cases of services/platform/perps-data/internal/quoter/rpc_test.go and of services/platform/perps-data/internal/quoter/local_chain_test.go, how the engine of the package calls Orders, Snapshot, Place and Cancel, the option follower of tools/qualification/localnode/v6120-node.sh with the names it writes to its file of variables, and where the node refuses the tag: line 3560 of node/app.go and line 52 of rpc/utils.go."
+symbols = []
 
 [capability.22.39.1270]
 title = "Show the USDL balance of the wallet in the pill beside Deposit in the header of the launchpad web"
@@ -272436,6 +272451,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.1271]
+title = "Let the quoting process of the trading venue read and send through a node that refuses the pending tag"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1271"]
+interfaces = []
+do_1 = "do_1 Gotcha 4999, decision 4055. Read services/platform/perps-data/internal/quoter/rpc.go whole, the cases of services/platform/perps-data/internal/quoter/rpc_test.go and of services/platform/perps-data/internal/quoter/local_chain_test.go, how the engine of the package calls Orders, Snapshot, Place and Cancel, the option follower of tools/qualification/localnode/v6120-node.sh with the names it writes to its file of variables, and where the node refuses the tag: line 3560 of node/app.go and line 52 of rpc/utils.go."
+do_2 = "do_2 Change settle and send of services/platform/perps-data/internal/quoter/rpc.go as decision 4055 says. The engine, the ladder and the configuration stay as they are. Add what point six asks to docs/perps/quoter.md in the words of that document. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases with a stand-in for the node that speaks JSON-RPC over a local connection, in the new file services/platform/perps-data/internal/quoter/rpc_pending_test.go. One: TestPendingTagRefusedDryReadsComplete. The stand-in refuses the count at the pending tag with the message of the node and answers every other read; Orders and Snapshot of a process in the dry mode return without an error. Two: TestPendingTagRefusedSendTakesTheMinedCount. In the live mode against the same stand-in a placement is signed with the mined count as its nonce, sent once, and settled by its receipt. Three: TestPendingTagTransportFailureStaysAFailure. The stand-in closes the connection on the read at the pending tag; the call ends as a failed chain request. Four: TestPendingTagRefusedIsNotAskedAgainWithinAMinute. After one refusal, further reads inside sixty seconds send no request with the pending tag, counted on the stand-in; after sixty seconds one is sent again. Use a clock the case can move, not a wait. Five: TestPendingTagServedStillHoldsBackWhileItDiffers. A stand-in that serves the tag with a count above the mined one makes send end with the reason transaction pending, as today. On the local chain, in the new file services/platform/perps-data/internal/quoter/local_follower_test.go: TestLocalChainQuotesThroughAFollowerNode. It takes its node from LOCAL_NODE_FOLLOWER_RPC and skips without it, with the same guard for a local address as the case of line 47 of services/platform/perps-data/internal/quoter/local_chain_test.go. The process in the live mode places its levels through the follower, the orders rest on the book, a market order of the second account fills against them, and the stop leaves no order, as the existing local case shows it through the sequencer. Share the steps with the existing case through a helper of the package instead of a copy. The verification starts one chain with a sequencer and a follower and runs the existing local case and then the new one on it: each must pass after the other has run on the same chain. Say in the final message which cases you saw fail before the change, and how long the start of the chain with the follower took. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data/internal/quoter", "docs/perps"]
+tests = []
+planned_paths = ["services/platform/perps-data/internal/quoter/rpc_pending_test.go", "services/platform/perps-data/internal/quoter/local_follower_test.go"]
+build_cmd = "go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/cmd/perps-quoter/ ./services/platform/perps-data/internal/quoter/"
+verify_cmd = "go test -count=1 -timeout 14m ./services/platform/perps-data/internal/quoter/ ./services/platform/perps-data/cmd/perps-quoter/ && test $(go test -count=1 -timeout 10m -v -run ^TestPendingTag ./services/platform/perps-data/internal/quoter/ | grep -c -e ^---.PASS:.TestPendingTag) -ge 5 && bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-quoter-follower.env && set -a && . /tmp/lx-localnode-quoter-follower.env && set +a && go test -count=1 -timeout 14m -v -run ^TestLocalChainMarketOrderFillsAgainstTheQuotes ./services/platform/perps-data/internal/quoter/ | grep -q -e PASS:.TestLocalChainMarketOrderFillsAgainstTheQuotes && go test -count=1 -timeout 14m -v -run ^TestLocalChainQuotesThroughAFollowerNode ./services/platform/perps-data/internal/quoter/ | grep -q -e PASS:.TestLocalChainQuotesThroughAFollowerNode && grep -q -i -e pending.tag docs/perps/quoter.md"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1241]
 title = "Serve the search of profiles from the stats service instead of refusing it"
