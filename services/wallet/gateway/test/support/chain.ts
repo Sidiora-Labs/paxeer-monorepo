@@ -195,7 +195,9 @@ export async function verifyChainSequencerReceipt(
     !receiptAddress(from).equals(r.from) ||
     !receiptAddress(tx.to ?? ZERO_ADDRESS).equals(r.to) ||
     r.operation !==
-      (Number.parseInt(raw.slice(2, 4), 16) < 128 ? Number.parseInt(raw.slice(2, 4), 16) : 0) ||
+      (Number.parseInt(raw.slice(2, 4), 16) < 128
+        ? Number.parseInt(raw.slice(2, 4), 16)
+        : 0) ||
     toHex(verified.receiptKey.publicKey) !== view.signingKey ||
     (view.status !== '0x0' && view.status !== '0x1')
   ) {
@@ -316,6 +318,8 @@ export class TestChain {
     { balances: Map<string, bigint>; allowances: Map<string, bigint> }
   >();
   readonly requests: Array<{ method: string; params: unknown[] }> = [];
+  automine = true;
+  readonly pendingTransactions = new Map<Hex, { raw: Hex; from: string; nonce: number }>();
   readonly nonces = new Map<string, number>();
   readonly bindNonces = new Map<string, bigint>();
   readonly bindings = new Map<string, string>();
@@ -407,7 +411,9 @@ export class TestChain {
       vmError: '',
       keyId: pin.keyId,
       signingKey: toHex(
-        this.sequencerPublicKey.export({ type: 'spki', format: 'der' }).subarray(ED_SPKI.length),
+        this.sequencerPublicKey
+          .export({ type: 'spki', format: 'der' })
+          .subarray(ED_SPKI.length),
       ),
       receipt: '0x',
     };
@@ -513,11 +519,17 @@ export class TestChain {
     return this.balances.get(a.toLowerCase()) ?? 0n;
   }
 
-  private call(c: { from?: string; to: string; data?: Hex; value?: Hex }, method: string): Hex {
+  private call(
+    c: { from?: string; to: string; data?: Hex; value?: Hex },
+    method: string,
+  ): Hex {
     const to = c.to.toLowerCase();
     const data = c.data ?? '0x';
     const value = c.value ? BigInt(c.value) : 0n;
-    if (value > 0n && this.bal(c.from ?? '0x0000000000000000000000000000000000000000') < value) {
+    if (
+      value > 0n &&
+      this.bal(c.from ?? '0x0000000000000000000000000000000000000000') < value
+    ) {
       throw new Error('insufficient funds for transfer');
     }
     const token = this.tokens.get(to);
@@ -527,7 +539,9 @@ export class TestChain {
         return toHex(token.balances.get(call.args[0].toLowerCase()) ?? 0n, { size: 32 });
       if (call.functionName === 'allowance')
         return toHex(
-          token.allowances.get(`${call.args[0].toLowerCase()}:${call.args[1].toLowerCase()}`) ?? 0n,
+          token.allowances.get(
+            `${call.args[0].toLowerCase()}:${call.args[1].toLowerCase()}`,
+          ) ?? 0n,
           { size: 32 },
         );
       if (call.functionName === 'decimals') return toHex(6, { size: 32 });
@@ -582,7 +596,8 @@ export class TestChain {
         return encodeAbiParameters([{ type: 'uint64' }, { type: 'bool' }], [0n, false]);
       throw new Error(`anchor method ${decoded.functionName} is not served`);
     }
-    if (PRECOMPILE_RANGE.test(to)) throw new Error(`${method}: precompile ${to} is not served`);
+    if (PRECOMPILE_RANGE.test(to))
+      throw new Error(`${method}: precompile ${to} is not served`);
     return '0x';
   }
 
@@ -625,20 +640,33 @@ export class TestChain {
 
   private async sendRaw(raw: Hex): Promise<Hex> {
     const hash = keccak256(raw);
-    if (this.receipts.has(hash)) throw new Error('already known');
+    if (this.receipts.has(hash) || this.pendingTransactions.has(hash))
+      throw new Error('already known');
     const tx = parseTransaction(raw);
     const from = (
       await recoverTransactionAddress({ serializedTransaction: raw as `0x02${string}` })
     ).toLowerCase();
     if (tx.chainId !== this.chainId) throw new Error('wrong chain id');
     const expected = this.nonces.get(from) ?? 0;
-    if (tx.nonce !== expected) throw new Error(`nonce ${tx.nonce} but account is at ${expected}`);
+    if (tx.nonce !== undefined && tx.nonce < expected) throw new Error('nonce too low');
+    if (tx.nonce !== expected)
+      throw new Error(`nonce ${tx.nonce} but account is at ${expected}`);
     const gas = tx.gas!;
     const maxFee = tx.maxFeePerGas!;
     const value = tx.value ?? 0n;
     if (maxFee < this.baseFee) throw new Error('max fee below base fee');
     if (this.bal(from) < value + gas * maxFee)
       throw new Error('insufficient funds for gas * price + value');
+    const pooled = [...this.pendingTransactions.entries()].find(
+      ([, pending]) => pending.from === from && pending.nonce === tx.nonce,
+    );
+    if (pooled && maxFee * 100n < parseTransaction(pooled[1].raw).maxFeePerGas! * 110n)
+      throw new Error('replacement transaction underpriced');
+    if (pooled) this.pendingTransactions.delete(pooled[0]);
+    if (!this.automine) {
+      this.pendingTransactions.set(hash, { raw, from, nonce: tx.nonce });
+      return hash;
+    }
     const price =
       maxFee < this.baseFee + (tx.maxPriorityFeePerGas ?? 0n)
         ? maxFee
@@ -657,9 +685,8 @@ export class TestChain {
     } else if (to === ADDR && this.mode === 'paxeer') {
       if (value !== 0n || !tx.data || !this.applyBind(from, tx.data)) status = 0n;
     } else if (tx.type === 'eip7702' && this.mode === 'paxeer') {
-      const { constructionDigest, sponsorQuoteDigest } = await import(
-        '../../src/attestor/client.js'
-      );
+      const { constructionDigest, sponsorQuoteDigest } =
+        await import('../../src/attestor/client.js');
       if (value !== 0n || !tx.data || tx.authorizationList.length !== 1)
         throw new Error('invalid sponsored binding envelope');
       const auth = tx.authorizationList[0]!;
@@ -800,7 +827,8 @@ export class TestChain {
         if (this.mode !== 'evm') throw new ChainRpcError(-32601, 'eth_accounts not served');
         return [this.faucet.address];
       case 'eth_sendTransaction': {
-        if (this.mode !== 'evm') throw new ChainRpcError(-32601, 'eth_sendTransaction not served');
+        if (this.mode !== 'evm')
+          throw new ChainRpcError(-32601, 'eth_sendTransaction not served');
         const tx = params[0] as { from: Hex; to: Hex; value: Hex };
         if (tx.from.toLowerCase() !== this.faucet.address.toLowerCase())
           throw new Error('unlocked account required');
@@ -854,9 +882,12 @@ export class TestChain {
         return hash;
       }
       case 'eth_getTransactionByHash': {
+        const pending = this.pendingTransactions.get(params[0] as Hex);
+        if (pending) return { hash: keccak256(pending.raw), blockNumber: null };
         const r = this.receipts.get(params[0] as string);
         if (!r) return null;
-        if (this.mode === 'paxeer') return { hash: r.transactionHash, blockNumber: r.blockNumber };
+        if (this.mode === 'paxeer')
+          return { hash: r.transactionHash, blockNumber: r.blockNumber };
         const raw = this.rawTransactions.get(params[0] as string)!;
         const tx = parseTransaction(raw);
         const sent = this.sent.find((entry) => entry.hash === r.transactionHash)!;
@@ -900,11 +931,15 @@ export class TestChain {
           return null;
         }
         const raw = this.rawTransactions.get(hash);
-        if (!raw || receipt.txHash !== hash) throw new TypeError('receipt transaction mismatch');
+        if (!raw || receipt.txHash !== hash)
+          throw new TypeError('receipt transaction mismatch');
         return verifyChainSequencerReceipt(receipt, raw, this.receiptKeyPins);
       }
       default:
-        throw new ChainRpcError(-32601, `the method ${method} does not exist/is not available`);
+        throw new ChainRpcError(
+          -32601,
+          `the method ${method} does not exist/is not available`,
+        );
     }
   }
 
