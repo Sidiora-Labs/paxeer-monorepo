@@ -59,6 +59,7 @@ import { PurchaseRecoveryControl } from './purchase-recovery-control';
 import { CoinPreviewCard } from './coin-preview-card';
 import { FeeSummary, fundingCopy } from './fee-summary';
 import { LaunchProgress, type LaunchStep } from './launch-progress';
+import { deriveLaunchSteps, fundingPlanForSummary } from './launch-steps';
 import { MediaDropzone } from './media-dropzone';
 import { MediaRuleLegend } from './media-rule-legend';
 import type { StagedMedia } from './media-validation';
@@ -588,7 +589,7 @@ export default function CreateWizard() {
     Object.keys(fieldErrors).length === 0 && missing.length === 0;
   const reviewed = state.reviewed;
   const read = reviewed?.read ?? lastRead;
-  const plan = read ? creationFunding(read) : null;
+  const plan = fundingPlanForSummary(attempt, read);
 
   const opticalReason = useCallback((presetId: string) => {
     if (presetId === STANDARD_OPTICAL) return null;
@@ -768,68 +769,25 @@ export default function CreateWizard() {
   }
 
   function buildSteps(): LaunchStep[] {
-    const steps: LaunchStep[] = [];
-    const approveStatus = attempt
-      ? 'done'
-      : state.phase === 'approving' || plan?.state === 'approval_required'
-        ? 'active'
-        : plan?.state === 'signable'
-          ? 'done'
-          : 'pending';
-    steps.push({
-      id: 'approve',
-      label: 'Approve the 1 USDL fee',
-      status: approveStatus,
-      detail:
-        approveStatus === 'done'
-          ? 'Approved'
-          : approveStatus === 'active'
-            ? 'Confirm in your wallet'
-            : undefined,
+    const descriptions = deriveLaunchSteps({
+      phase: state.phase,
+      approvalStage: state.approvalStage,
+      attempt,
+      plan,
+      firstBuyRaw: draft?.firstBuyRaw,
+      resolutionVerified: state.resolutionVerified,
+      publicationVerified: state.publicationVerified,
+      imageSkipped,
+      metadataSkipped,
+      metadataSettled,
     });
-
-    if (!attempt) {
-      steps.push({
-        id: 'create',
-        label: 'Create coin',
-        status: state.phase === 'signing' ? 'active' : 'pending',
-        detail:
-          state.phase === 'signing' ? 'Confirm in your wallet' : undefined,
-      });
-      steps.push({ id: 'image', label: 'Upload image', status: 'pending' });
-      steps.push({
-        id: 'metadata',
-        label: 'Save coin details',
-        status: 'pending',
-      });
-      steps.push({
-        id: 'first-buy',
-        label: 'First buy',
-        status: draft?.firstBuyRaw === '0' ? 'skipped' : 'pending',
-        detail: draft?.firstBuyRaw === '0' ? 'None' : undefined,
-      });
-      return steps;
-    }
-
+    const steps: LaunchStep[] = [...descriptions];
+    if (!attempt) return steps;
+    const [, createStep, imageStep, metadataStep, buyStep] = descriptions;
     const a = attempt;
-    const resolved = a.state === 'resolved' && state.resolutionVerified;
-    const createStatus =
-      a.state === 'reverted' ? 'error' : resolved ? 'done' : 'active';
-    steps.push({
-      id: 'create',
-      label: 'Create coin',
-      status: createStatus,
-      detail:
-        a.state === 'reverted'
-          ? "Didn't go through"
-          : resolved
-            ? 'Created'
-            : a.createTxHash
-              ? a.state === 'resolved'
-                ? 'Checking...'
-                : 'Confirming...'
-              : 'Not confirmed yet',
-      body: !a.createTxHash ? (
+    steps[1] = {
+      ...createStep,
+      body: createStep.showRecoveryForm ? (
         <>
           <p className="text-xs text-text-muted">
             We couldn&apos;t tell if your wallet sent this. Check your
@@ -872,7 +830,7 @@ export default function CreateWizard() {
             </Button>
           </div>
         </>
-      ) : (
+      ) : a.createTxHash ? (
         <div className="flex flex-wrap items-center gap-3">
           <TxLink hash={a.createTxHash} />
           {a.state !== 'reverted' ? (
@@ -887,34 +845,17 @@ export default function CreateWizard() {
             </Button>
           ) : null}
         </div>
-      ),
-    });
+      ) : undefined,
+    };
 
-    const imageDone = Boolean(a.metadataAssetId);
-    const imageClosed =
-      Boolean(a.metadataPatch) || a.metadataStatus === 'published';
-    const imageStatus = imageDone
-      ? 'done'
-      : imageClosed || imageSkipped
-        ? 'skipped'
-        : resolved
-          ? 'active'
-          : 'pending';
     const differentImage =
       staged &&
       a.draft.stagedMedia &&
       staged.descriptor.sha256 !== a.draft.stagedMedia.sha256;
-    steps.push({
-      id: 'image',
-      label: 'Upload image',
-      status: imageStatus,
-      detail: imageDone
-        ? 'Uploaded'
-        : imageStatus === 'skipped'
-          ? 'No image'
-          : undefined,
+    steps[2] = {
+      ...imageStep,
       body:
-        imageStatus === 'active' ? (
+        imageStep.status === 'active' ? (
           <>
             {staged ? (
               <div className="flex flex-wrap items-center gap-3">
@@ -975,32 +916,12 @@ export default function CreateWizard() {
             </Button>
           </>
         ) : undefined,
-    });
+    };
 
-    const metadataStatus =
-      a.metadataStatus === 'published'
-        ? state.publicationVerified
-          ? 'done'
-          : 'active'
-        : metadataSkipped
-          ? 'skipped'
-          : resolved && (imageDone || imageSkipped || imageClosed)
-            ? 'active'
-            : 'pending';
-    steps.push({
-      id: 'metadata',
-      label: 'Save coin details',
-      status: metadataStatus,
-      detail:
-        a.metadataStatus === 'published'
-          ? 'Saved'
-          : metadataSkipped
-            ? 'Add them later from the coin page'
-            : a.metadataLastError
-              ? "Didn't save, try again"
-              : undefined,
+    steps[3] = {
+      ...metadataStep,
       body:
-        metadataStatus === 'active' ? (
+        metadataStep.status === 'active' ? (
           <>
             <p className="text-xs text-text-muted">
               Adds your description, links and image to the coin page. Your
@@ -1042,42 +963,13 @@ export default function CreateWizard() {
             </div>
           </>
         ) : undefined,
-    });
+    };
 
-    const buyRequested = a.draft.firstBuyRaw !== '0';
-    const buyStatus = !buyRequested
-      ? 'skipped'
-      : a.purchaseState === 'confirmed'
-        ? 'done'
-        : a.purchaseState === 'skipped'
-          ? 'skipped'
-          : a.purchaseState === 'failed'
-            ? 'error'
-            : resolved &&
-                (metadataSettled ||
-                  ['signing_locked', 'outcome_unknown', 'submitted'].includes(
-                    a.purchaseState,
-                  ))
-              ? 'active'
-              : 'pending';
     const quote = state.quote;
-    steps.push({
-      id: 'first-buy',
-      label: 'First buy',
-      status: buyStatus,
-      detail: !buyRequested
-        ? 'None'
-        : a.purchaseState === 'confirmed'
-          ? `${formatUsdl(a.draft.firstBuyRaw)} bought`
-          : a.purchaseState === 'skipped'
-            ? 'Skipped'
-            : a.purchaseState === 'failed'
-              ? "Didn't go through"
-              : buyRequested
-                ? formatUsdl(a.draft.firstBuyRaw)
-                : undefined,
+    steps[4] = {
+      ...buyStep,
       body:
-        buyStatus === 'active' || buyStatus === 'error' ? (
+        buyStep.status === 'active' || buyStep.status === 'error' ? (
           <>
             {!['signing_locked', 'outcome_unknown', 'submitted'].includes(
               a.purchaseState,
@@ -1262,7 +1154,7 @@ export default function CreateWizard() {
             ) : null}
           </>
         ) : undefined,
-    });
+    };
     return steps;
   }
 

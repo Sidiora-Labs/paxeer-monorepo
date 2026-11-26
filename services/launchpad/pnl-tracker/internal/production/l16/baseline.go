@@ -22,6 +22,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const baselineNodeWindowBlocks int64 = 8
+
 var transferTopic = crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)"))
 var balanceSelector = crypto.Keccak256([]byte("balanceOf(address)"))[:4]
 var totalSupplySelector = crypto.Keccak256([]byte("totalSupply()"))[:4]
@@ -51,8 +53,9 @@ type BaselineAuthority struct {
 	schema, sourceStream, consumerID, generation, owner, projectionVersion string
 	// factory is the deployed SidioraFactory (shared/config/deployment
 	// manifest role), the only minter of a canonical market's supply.
-	factory    string
-	epochGuard func(context.Context, pgx.Tx) error
+	factory          string
+	nodeWindowBlocks int64
+	epochGuard       func(context.Context, pgx.Tx) error
 }
 
 type baselineAttestation struct {
@@ -86,7 +89,7 @@ func NewBaselineAuthority(pool *pgxpool.Pool, rpc *ethclient.Client, schema, sou
 	if !ok || !address.MatchString(factory) || factory == zeroAddress {
 		return nil, ErrBaselineUnavailable
 	}
-	return &BaselineAuthority{pool: pool, rpc: rpc, schema: pgx.Identifier{schema}.Sanitize(), sourceStream: sourceStream, consumerID: consumerID, generation: generation, owner: owner, projectionVersion: projectionVersion, factory: factory}, nil
+	return &BaselineAuthority{pool: pool, rpc: rpc, schema: pgx.Identifier{schema}.Sanitize(), sourceStream: sourceStream, consumerID: consumerID, generation: generation, owner: owner, projectionVersion: projectionVersion, factory: factory, nodeWindowBlocks: baselineNodeWindowBlocks}, nil
 }
 
 func NewBaselineAuthorityWithEpochGuard(pool *pgxpool.Pool, rpc *ethclient.Client, schema, sourceStream, consumerID, generation, owner, projectionVersion string, guard func(context.Context, pgx.Tx) error) (*BaselineAuthority, error) {
@@ -145,8 +148,8 @@ func decodeTransfer(log types.Log) (movement, error) {
 	return movement{TransactionHash: strings.ToLower(log.TxHash.Hex()), LogIndex: uint32(log.Index), Height: int64(log.BlockNumber), TransactionIndex: uint32(log.TxIndex), BlockHash: strings.ToLower(log.BlockHash.Hex()), From: strings.ToLower(common.BytesToAddress(log.Topics[1].Bytes()[12:]).Hex()), To: strings.ToLower(common.BytesToAddress(log.Topics[2].Bytes()[12:]).Hex()), Amount: new(big.Int).SetBytes(log.Data).String()}, nil
 }
 
-func (a *BaselineAuthority) coverage(ctx context.Context, tx pgx.Tx, start, end int64) (map[int64]string, error) {
-	if start <= 0 || end < start || end-start > 10000 {
+func (a *BaselineAuthority) coverage(ctx context.Context, tx pgx.Tx, start, end int64, nodeStart ...int64) (map[int64]string, error) {
+	if tx == nil || start <= 0 || end < start {
 		return nil, ErrBaselineUnavailable
 	}
 	var watermark int64
@@ -156,36 +159,59 @@ func (a *BaselineAuthority) coverage(ctx context.Context, tx pgx.Tx, start, end 
 	if watermark < end {
 		return nil, delivery.ErrGap
 	}
-	rows, err := tx.Query(ctx, `SELECT c.height,c.block_hash,c.raw_count,(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=125 AND r.height=c.height) FROM indexer.indexer_block_completeness_v1 c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.height BETWEEN $2 AND $3 AND c.fetch_complete AND c.required_decode_complete ORDER BY c.height`, a.sourceStream, start, end)
+	recent := start
+	if len(nodeStart) > 0 {
+		recent = nodeStart[0]
+		if recent < start || recent > end {
+			return nil, ErrBaselineUnavailable
+		}
+	}
+	if recent > start {
+		var complete int64
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM indexer.indexer_block_completeness_v1 c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.height BETWEEN $2 AND $3 AND c.fetch_complete AND c.required_decode_complete AND c.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=125 AND r.height=c.height)`, a.sourceStream, start, recent-1).Scan(&complete); err != nil {
+			return nil, err
+		}
+		if complete != recent-start {
+			return nil, delivery.ErrGap
+		}
+	}
+	rows, err := tx.Query(ctx, `SELECT c.height,c.block_hash,c.raw_count,(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=125 AND r.height=c.height) FROM indexer.indexer_block_completeness_v1 c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.height BETWEEN $2 AND $3 AND c.fetch_complete AND c.required_decode_complete ORDER BY c.height`, a.sourceStream, recent, end)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	blocks := map[int64]string{}
-	next := start
+	count := int64(0)
 	for rows.Next() {
 		var h, expected, actual int64
 		var hash string
 		if err = rows.Scan(&h, &hash, &expected, &actual); err != nil {
 			return nil, err
 		}
-		if h != next || expected != actual {
+		if h != recent+count || expected != actual {
 			return nil, delivery.ErrGap
 		}
 		blocks[h] = hash
-		next++
+		count++
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	if next != end+1 {
+	if count != end-recent+1 {
 		return nil, delivery.ErrGap
 	}
 	return blocks, nil
 }
 
 func (a *BaselineAuthority) verifiedMovements(ctx context.Context, tx pgx.Tx, token string, start, end int64) ([]movement, string, string, error) {
-	blocks, err := a.coverage(ctx, tx, start, end)
+	if start <= 0 || end < start || a.nodeWindowBlocks <= 0 {
+		return nil, "", "", ErrBaselineUnavailable
+	}
+	nodeStart := start
+	if end-start >= a.nodeWindowBlocks {
+		nodeStart = end - a.nodeWindowBlocks + 1
+	}
+	blocks, err := a.coverage(ctx, tx, start, end, nodeStart)
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -203,7 +229,7 @@ func (a *BaselineAuthority) verifiedMovements(ctx context.Context, tx pgx.Tx, to
 	if reportedEnd != blocks[end] {
 		return nil, "", "", delivery.ErrIntegrity
 	}
-	logs, err := a.rpc.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: big.NewInt(start), ToBlock: big.NewInt(end), Addresses: []common.Address{common.HexToAddress(token)}, Topics: [][]common.Hash{{transferTopic}}})
+	logs, err := a.rpc.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: big.NewInt(nodeStart), ToBlock: big.NewInt(end), Addresses: []common.Address{common.HexToAddress(token)}, Topics: [][]common.Hash{{transferTopic}}})
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -211,16 +237,17 @@ func (a *BaselineAuthority) verifiedMovements(ctx context.Context, tx pgx.Tx, to
 		return nil, "", "", ErrBaselineUnavailable
 	}
 	known := map[string]movement{}
-	rows, err := tx.Query(ctx, `SELECT t.transaction_hash,t.log_index,t.height,t.transaction_index,t.block_hash,t.from_address,t.to_address,t.amount_raw,r.emitter,r.topics,r.data FROM indexer.indexer_token_transfers_v1 t JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=t.chain_id AND r.transaction_hash=t.transaction_hash AND r.log_index=t.log_index WHERE t.chain_id=125 AND t.token=$1 AND t.height BETWEEN $2 AND $3 ORDER BY t.height,t.transaction_index,t.log_index`, token, start, end)
+	result := make([]movement, 0)
+	rows, err := tx.Query(ctx, `SELECT t.transaction_hash,t.log_index,t.height,t.transaction_index,t.block_hash,t.from_address,t.to_address,t.amount_raw,r.emitter,r.topics,r.data,c.block_hash FROM indexer.indexer_token_transfers_v1 t JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=t.chain_id AND r.transaction_hash=t.transaction_hash AND r.log_index=t.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=t.chain_id AND c.stream_id=$4 AND c.height=t.height WHERE t.chain_id=125 AND t.token=$1 AND t.height BETWEEN $2 AND $3 ORDER BY t.height,t.transaction_index,t.log_index`, token, start, end, a.sourceStream)
 	if err != nil {
 		return nil, "", "", err
 	}
 	for rows.Next() {
 		var m movement
 		var logIndex, txIndex int64
-		var emitter string
+		var emitter, blockHash string
 		var topicsRaw, data []byte
-		if err = rows.Scan(&m.TransactionHash, &logIndex, &m.Height, &txIndex, &m.BlockHash, &m.From, &m.To, &m.Amount, &emitter, &topicsRaw, &data); err != nil {
+		if err = rows.Scan(&m.TransactionHash, &logIndex, &m.Height, &txIndex, &m.BlockHash, &m.From, &m.To, &m.Amount, &emitter, &topicsRaw, &data, &blockHash); err != nil {
 			rows.Close()
 			return nil, "", "", err
 		}
@@ -241,7 +268,7 @@ func (a *BaselineAuthority) verifiedMovements(ctx context.Context, tx pgx.Tx, to
 		}
 		reconstructed := types.Log{Address: common.HexToAddress(emitter), Topics: []common.Hash{common.HexToHash(topics[0]), common.HexToHash(topics[1]), common.HexToHash(topics[2])}, Data: data, BlockNumber: uint64(m.Height), TxHash: common.HexToHash(m.TransactionHash), TxIndex: uint(m.TransactionIndex), BlockHash: common.HexToHash(m.BlockHash), Index: uint(m.LogIndex)}
 		decoded, decodeErr := decodeTransfer(reconstructed)
-		if decodeErr != nil || decoded != m || blocks[m.Height] != m.BlockHash {
+		if decodeErr != nil || decoded != m || blockHash != m.BlockHash {
 			rows.Close()
 			return nil, "", "", delivery.ErrIntegrity
 		}
@@ -251,20 +278,26 @@ func (a *BaselineAuthority) verifiedMovements(ctx context.Context, tx pgx.Tx, to
 			return nil, "", "", delivery.ErrIntegrity
 		}
 		known[key] = m
+		if len(known) > 100000 {
+			rows.Close()
+			return nil, "", "", ErrBaselineUnavailable
+		}
+		if m.Height < nodeStart {
+			result = append(result, m)
+		}
 	}
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
 		return nil, "", "", err
 	}
-	if len(known) != len(logs) {
+	if len(known)-len(result) != len(logs) {
 		return nil, "", "", delivery.ErrGap
 	}
-	result := make([]movement, 0, len(logs))
 	seen := map[string]bool{}
 	for _, log := range logs {
 		m, decodeErr := decodeTransfer(log)
-		if decodeErr != nil || strings.ToLower(log.Address.Hex()) != token || blocks[m.Height] != m.BlockHash {
+		if decodeErr != nil || strings.ToLower(log.Address.Hex()) != token || m.Height < nodeStart || m.Height > end || blocks[m.Height] != m.BlockHash {
 			return nil, "", "", delivery.ErrIntegrity
 		}
 		key := m.TransactionHash + ":" + strconv.FormatUint(uint64(m.LogIndex), 10)

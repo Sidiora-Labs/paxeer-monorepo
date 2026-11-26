@@ -1,11 +1,12 @@
 'use client';
 import './coin-market.css';
 import TabUnavailable from './tab-unavailable';
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CircleHelp, SearchX, Users } from 'lucide-react';
 import { Avatar, CountPill, EmptyState, ErrorState, LoadMore, NoticeBar, Skeleton, SortHeader, Tooltip, UnavailableState, type SortDirection } from '@/ui/primitives';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
+import type { PoolStats } from '@/core/market/pool-resolver';
 import { useHolders, type HoldersPage } from '@/core/market/use-holders';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
 import { formatShare, statsShare, statsSpotPrice } from '@/core/market/pool-stats-display';
@@ -27,6 +28,14 @@ type SortKey = 'held' | 'supply';
 const defaultSort: { key: SortKey; direction: SortDirection } = { key: 'held', direction: 'desc' };
 const pnlOperation = 'Coming soon';
 const pnlReason = 'Profit, average entry and amount bought for each holder are coming soon.';
+
+export const HolderStatsContext = createContext<PoolStats | null>(null);
+
+export function holderValuationPrice(stats: PoolStats | null, livePrice: number | null): number | null {
+  const spot = statsSpotPrice(stats).value;
+  if (spot !== null) return Number(spot);
+  return livePrice !== null && Number.isFinite(livePrice) ? livePrice : null;
+}
 
 function ratioPercent(numerator: string, denominator: string): number | null {
   if (!/^(0|[1-9][0-9]*)$/.test(numerator) || !/^[1-9][0-9]*$/.test(denominator)) return null;
@@ -93,6 +102,7 @@ function ShareChip({ label, spoken, share }: { label: string; spoken: string; sh
 
 function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   const snapshot = usePoolSnapshot(pool);
+  const liveStats = useContext(HolderStatsContext);
   const [cursor, setCursor] = useState<string | null>(null);
   const [pages, setPages] = useState<Record<string, HoldersPage>>({});
   const [sort, setSort] = useState(defaultSort);
@@ -138,10 +148,8 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
     return chain;
   }, [pages, firstPage]);
   const token = snapshot.data?.token ?? null;
-  // The live quote first; else PoolStats.spotPriceWad (null before the first trade: positions stay unavailable).
-  const spot = statsSpotPrice(snapshot.data?.stats ?? null).value;
-  const livePrice = price ?? (spot !== null && Number.isFinite(Number(spot)) ? Number(spot) : null);
   const stats = snapshot.data?.stats ?? null;
+  const livePrice = holderValuationPrice(liveStats ?? stats, price);
   const top10 = stats ? statsShare(stats, 'top10') : null;
   const devShare = stats ? statsShare(stats, 'creator') : null;
   const creator = snapshot.data?.creator?.toLowerCase() ?? null;

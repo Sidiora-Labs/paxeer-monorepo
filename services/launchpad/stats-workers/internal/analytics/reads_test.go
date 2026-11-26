@@ -8,6 +8,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi"
 	"github.com/go-chi/chi/v5"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -121,5 +122,54 @@ func TestPhase3SnapshotCorruptionAndStaleDisclosure(t *testing.T) {
 	quarantined, err := a.ReadSnapshot(ctx, pool, s.Model, now-31)
 	if err != nil || !quarantined.Stale {
 		t.Fatal("quarantine presented as fresh", quarantined, err)
+	}
+}
+
+func TestNumericOrderSnapshotReplay(t *testing.T) {
+	a := phase2Authority(t)
+	ctx := context.Background()
+	pool := "0x" + strings.Repeat("7", 40)
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	for i := 1; i <= 12; i++ {
+		revision := strconv.Itoa(i)
+		snapshot := analytics.Snapshot{Pool: pool, Model: "pressure-v1", Watermark: analytics.Watermark{ChainID: "125", Height: "10", BlockHash: "0x" + strings.Repeat("b", 64), ProjectionRevision: revision, ObservedAt: now.Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}, CalculatedAt: now.Unix(), Payload: json.RawMessage(`{}`)}
+		raw, err := json.Marshal(snapshot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = a.Pool.Exec(ctx, "INSERT INTO "+a.Schema+".analytics_outbox(pool,model,revision,payload) VALUES($1,$2,$3::numeric,$4::jsonb)", pool, snapshot.Model, revision, raw); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cursor := "0"
+	count := 0
+	for page := 0; page < 4; page++ {
+		result, err := a.ReplaySnapshots(ctx, pool, cursor, 5)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := 5
+		if page == 2 {
+			want = 2
+		}
+		if page == 3 {
+			want = 0
+		}
+		if len(result.Items) != want {
+			t.Fatalf("replay page %d: %+v", page, result)
+		}
+		for _, item := range result.Items {
+			count++
+			if item.Cursor != strconv.Itoa(count) || item.Snapshot.Watermark.ProjectionRevision != strconv.Itoa(count) {
+				t.Fatalf("replay snapshot %d: %+v", count, item)
+			}
+		}
+		if result.NextCursor != strconv.Itoa(count) {
+			t.Fatalf("replay cursor: %+v", result)
+		}
+		cursor = result.NextCursor
+	}
+	if count != 12 {
+		t.Fatalf("replayed snapshots: %d", count)
 	}
 }

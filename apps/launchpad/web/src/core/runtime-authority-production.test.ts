@@ -186,6 +186,7 @@ async function authorityProductionCoverageAcceptsCurrentGoProducer() {
     );
     const authority = await loadRuntimeAuthority(AbortSignal.timeout(15_000));
     expect(authority.revision).toEqual(state.emitted.serialExport.revision);
+    expect(authority.tradeDeployment.swapRecordWriter).toBe(CORE_DEPLOYMENT.launchpadPrecompile);
     for (const [role, field] of [
       ['Router', 'router'],
       ['Quoter', 'quoter'],

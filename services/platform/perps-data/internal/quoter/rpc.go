@@ -34,19 +34,22 @@ var venueABI, venueABIError = perpsabi.ABI()
 var feedABI, feedABIError = abi.JSON(strings.NewReader(priceabi.JSON))
 
 const requestTimeout = 45 * time.Second
+const pendingTagRetryInterval = time.Minute
 
 // RPC owns one signing account and a serial transaction stream. Ambiguous
 // submissions retain the signed transaction and nonce until a receipt exists.
 type RPC struct {
-	client          *ethclient.Client
-	key             *ecdsa.PrivateKey
-	account         common.Address
-	chain           *big.Int
-	mode            string
-	mu              sync.Mutex
-	pending         *pendingTx
-	completed       map[string]bool
-	completionOrder []string
+	client            *ethclient.Client
+	key               *ecdsa.PrivateKey
+	account           common.Address
+	chain             *big.Int
+	mode              string
+	mu                sync.Mutex
+	pending           *pendingTx
+	completed         map[string]bool
+	completionOrder   []string
+	now               func() time.Time
+	pendingTagRetryAt time.Time
 }
 type pendingTx struct {
 	tx   *types.Transaction
@@ -97,7 +100,7 @@ func NewRPC(ctx context.Context, cfg *config.Config) (*RPC, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &RPC{key: key, account: crypto.PubkeyToAddress(key.PublicKey), chain: new(big.Int).SetUint64(cfg.ChainID), mode: cfg.Quoting.Mode, completed: map[string]bool{}}
+	r := &RPC{key: key, account: crypto.PubkeyToAddress(key.PublicKey), chain: new(big.Int).SetUint64(cfg.ChainID), mode: cfg.Quoting.Mode, completed: map[string]bool{}, now: time.Now}
 	var last error
 	for _, endpoint := range cfg.RPCURLs {
 		attempt, cancel := context.WithTimeout(ctx, requestTimeout)
@@ -142,9 +145,6 @@ func rpcError(err error, transaction bool) error {
 				}
 			}
 		}
-		if transaction {
-			return refused("transaction reverted")
-		}
 	}
 	// Classify known transport refusals without returning arbitrary remote text.
 	if transaction {
@@ -160,6 +160,9 @@ func rpcError(err error, transaction bool) error {
 			return refused("transaction reverted")
 		case strings.Contains(message, "intrinsic gas"), strings.Contains(message, "exceeds block gas"), strings.Contains(message, "invalid sender"):
 			return refused("transaction refused")
+		}
+		if dataErr != nil {
+			return refused("transaction reverted")
 		}
 	}
 	return failed("chain request failed")
@@ -453,13 +456,9 @@ func (r *RPC) send(ctx context.Context, to common.Address, data []byte, key stri
 	if r.completed[key] {
 		return nil
 	}
-	nonce, err := r.client.PendingNonceAt(ctx, r.account)
+	nonce, minedNonce, err := r.nonceCounts(ctx)
 	if err != nil {
-		return rpcError(err, false)
-	}
-	minedNonce, err := r.client.NonceAt(ctx, r.account, nil)
-	if err != nil {
-		return rpcError(err, false)
+		return err
 	}
 	if nonce != minedNonce {
 		return failed("transaction pending")
@@ -492,18 +491,44 @@ func (r *RPC) send(ctx context.Context, to common.Address, data []byte, key stri
 	return r.settle(ctx)
 }
 func slicesCopy(data []byte) []byte { return append([]byte(nil), data...) }
+
+// nonceCounts uses the mined count while the endpoint refuses pending reads.
+// The caller holds mu; a retained signed transaction is settled separately.
+func (r *RPC) nonceCounts(ctx context.Context) (uint64, uint64, error) {
+	var pending uint64
+	served := false
+	if !r.now().Before(r.pendingTagRetryAt) {
+		var err error
+		pending, err = r.client.PendingNonceAt(ctx, r.account)
+		if err != nil {
+			var responseError rpc.Error
+			if !errors.As(err, &responseError) {
+				return 0, 0, rpcError(err, false)
+			}
+			r.pendingTagRetryAt = r.now().Add(pendingTagRetryInterval)
+		} else {
+			served = true
+			r.pendingTagRetryAt = time.Time{}
+		}
+	}
+	mined, err := r.client.NonceAt(ctx, r.account, nil)
+	if err != nil {
+		return 0, 0, rpcError(err, false)
+	}
+	if !served {
+		pending = mined
+	}
+	return pending, mined, nil
+}
+
 func (r *RPC) settle(ctx context.Context) error {
 	if r.pending == nil {
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 		for {
-			pending, err := r.client.PendingNonceAt(ctx, r.account)
+			pending, mined, err := r.nonceCounts(ctx)
 			if err != nil {
-				return rpcError(err, false)
-			}
-			mined, err := r.client.NonceAt(ctx, r.account, nil)
-			if err != nil {
-				return rpcError(err, false)
+				return err
 			}
 			if pending == mined {
 				return nil

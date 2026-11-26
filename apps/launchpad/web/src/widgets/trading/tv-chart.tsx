@@ -6,7 +6,14 @@ import { surfaceColor } from '@/core/app-foundation/surface-color';
 import { getColorScheme } from '@/core/app-foundation/color-mode';
 import { useColorMode } from '@/core/app-foundation/use-color-mode';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { ChartingLibraryWidgetConstructor, ChartingLibraryWidgetOptions, IBasicDataFeed, IChartingLibraryWidget, ResolutionString, TimeFrameItem } from '../../../public/charting_library/charting_library';
+import type {
+  ChartingLibraryWidgetConstructor,
+  ChartingLibraryWidgetOptions,
+  IBasicDataFeed,
+  IChartingLibraryWidget,
+  ResolutionString,
+  TimeFrameItem,
+} from '../../../public/charting_library/charting_library';
 import { CandlestickChart } from 'lucide-react';
 import { Button, EmptyState, ErrorState, StateNotice, UnavailableState } from '@/ui/primitives';
 import { transientRetryBudgetMs } from '@/core/transient-retry';
@@ -20,10 +27,31 @@ import { useWalletIdentities } from '@/core/market/use-wallet-identities';
 import { shortAddress } from '@/utils/format';
 import { ChartToolbar, type ChartMarkerActor } from '@/widgets/coin/chart-toolbar';
 import { ChartSplit } from '@/widgets/coin/chart-split';
-import { CHART_DEFAULT_HEIGHT, CHART_MAX_HEIGHT, CHART_MIN_HEIGHT, isChartInterval, useChartSettings, type ChartInterval } from '@/widgets/coin/use-chart-settings';
+import {
+  CHART_DEFAULT_HEIGHT,
+  CHART_MAX_HEIGHT,
+  CHART_MIN_HEIGHT,
+  isChartInterval,
+  useChartSettings,
+  type ChartInterval,
+} from '@/widgets/coin/use-chart-settings';
 import { browserStreamTransportV2 } from '@kindle/sdk';
 import { useMarketClient } from '@/core/market/client';
-import { createReplayUdfDatafeed, registerChartReplayTransport, type CanonicalSupply, type ChartMode, type ChartFreshness, type ChartAccessibleView, type ChartMarkPalette, type ChartMarkPresentation, type ChartMarketSource, type ValuationState, resolutionToSeconds, resolutionToWsTimeframe, VALUATION_HISTORY_OPERATION } from './udf-datafeed';
+import {
+  createReplayUdfDatafeed,
+  registerChartReplayTransport,
+  type CanonicalSupply,
+  type ChartMode,
+  type ChartFreshness,
+  type ChartAccessibleView,
+  type ChartMarkPalette,
+  type ChartMarkPresentation,
+  type ChartMarketSource,
+  type ValuationState,
+  resolutionToSeconds,
+  resolutionToWsTimeframe,
+  VALUATION_HISTORY_OPERATION,
+} from './udf-datafeed';
 
 export interface TvChartProps {
   poolAddress: string;
@@ -43,7 +71,8 @@ declare global {
 /** Delegate the chart frame's lifecycle permission before its first navigation. */
 function prepareChartFrames(container: HTMLElement): () => void {
   const html = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-  if (!html?.get || !html.set) throw new Error('Chart container requires the HTML element accessors');
+  if (!html?.get || !html.set)
+    throw new Error('Chart container requires the HTML element accessors');
   const read = html.get;
   const write = html.set;
   Object.defineProperty(container, 'innerHTML', {
@@ -59,7 +88,9 @@ function prepareChartFrames(container: HTMLElement): () => void {
       write.call(container, template.innerHTML);
     },
   });
-  return () => { Reflect.deleteProperty(container, 'innerHTML'); };
+  return () => {
+    Reflect.deleteProperty(container, 'innerHTML');
+  };
 }
 
 const TV_LIB_URL = '/charting_library/charting_library.standalone.js';
@@ -88,32 +119,85 @@ const CANDLE_HISTORY_OPERATION = 'GET /v2/pools/{poolAddress}/candles';
 
 type FeedAnswer = 'waiting' | 'answered' | 'stalled';
 
-const initialFreshness: ChartFreshness = { sourceObservedAt: null, lastReceivedAt: null, lastSourceHeight: null, connectionStatus: 'connecting', lagReason: null };
-const initialView: ChartAccessibleView = { rows: [], markers: [], annotationState: 'unavailable', annotationReason: 'Confirmed fill annotations have not loaded' };
+const initialFreshness: ChartFreshness = {
+  sourceObservedAt: null,
+  lastReceivedAt: null,
+  lastSourceHeight: null,
+  connectionStatus: 'connecting',
+  lagReason: null,
+};
+const initialView: ChartAccessibleView = {
+  rows: [],
+  markers: [],
+  annotationState: 'unavailable',
+  annotationReason: 'Confirmed fill annotations have not loaded',
+};
 const subscribeWithoutMarket = () => () => {};
 const noMarketTrades = () => false;
 
-type Palette = Partial<Record<'canvas' | 'surface' | 'text' | 'textFaint' | 'grid' | 'crosshair' | 'up' | 'down' | 'volumeUp' | 'volumeDown' | 'accent' | 'onAccent', string>>;
+type Palette = Partial<
+  Record<
+    | 'canvas'
+    | 'surface'
+    | 'text'
+    | 'textFaint'
+    | 'grid'
+    | 'crosshair'
+    | 'up'
+    | 'down'
+    | 'volumeUp'
+    | 'volumeDown'
+    | 'accent'
+    | 'onAccent',
+    string
+  >
+>;
 
 /** The library renders inside its own iframe, so the role tokens are read once from the host document and handed over as values. */
 function readPalette(): Palette {
   if (typeof document === 'undefined') return {};
   const token = surfaceColor;
   return {
-    canvas: token('--sl-canvas'), surface: token('--sl-surface-1'), text: token('--sl-text-muted'), textFaint: token('--sl-text-faint'), grid: token('--sl-chart-grid'), crosshair: token('--sl-chart-crosshair'),
-    up: token('--sl-candle-up'), down: token('--sl-candle-down'), volumeUp: token('--sl-volume-up'), volumeDown: token('--sl-volume-down'), accent: token('--sl-accent'), onAccent: token('--sl-on-accent'),
+    canvas: token('--sl-canvas'),
+    surface: token('--sl-surface-1'),
+    text: token('--sl-text-muted'),
+    textFaint: token('--sl-text-faint'),
+    grid: token('--sl-chart-grid'),
+    crosshair: token('--sl-chart-crosshair'),
+    up: token('--sl-candle-up'),
+    down: token('--sl-candle-down'),
+    volumeUp: token('--sl-volume-up'),
+    volumeDown: token('--sl-volume-down'),
+    accent: token('--sl-accent'),
+    onAccent: token('--sl-on-accent'),
   };
 }
 
 function widgetOverrides(palette: Palette): ChartingLibraryWidgetOptions['overrides'] {
-  const overrides: Record<string, string | boolean> = { 'paneProperties.backgroundType': 'solid', 'paneProperties.legendProperties.showSeriesOHLC': true, 'paneProperties.legendProperties.showBarChange': true, 'paneProperties.legendProperties.showVolume': true };
+  const overrides: Record<string, string | boolean> = {
+    'paneProperties.backgroundType': 'solid',
+    'paneProperties.legendProperties.showSeriesOHLC': true,
+    'paneProperties.legendProperties.showBarChange': true,
+    'paneProperties.legendProperties.showVolume': true,
+  };
   if (palette.canvas) overrides['paneProperties.background'] = palette.canvas;
-  if (palette.grid) { overrides['paneProperties.vertGridProperties.color'] = palette.grid; overrides['paneProperties.horzGridProperties.color'] = palette.grid; }
+  if (palette.grid) {
+    overrides['paneProperties.vertGridProperties.color'] = palette.grid;
+    overrides['paneProperties.horzGridProperties.color'] = palette.grid;
+  }
   if (palette.crosshair) overrides['paneProperties.crossHairProperties.color'] = palette.crosshair;
   if (palette.textFaint) overrides['scalesProperties.textColor'] = palette.textFaint;
   if (palette.grid) overrides['scalesProperties.lineColor'] = palette.grid;
-  if (palette.up) { overrides['mainSeriesProperties.candleStyle.upColor'] = palette.up; overrides['mainSeriesProperties.candleStyle.wickUpColor'] = palette.up; overrides['mainSeriesProperties.candleStyle.borderUpColor'] = palette.up; }
-  if (palette.down) { overrides['mainSeriesProperties.candleStyle.downColor'] = palette.down; overrides['mainSeriesProperties.candleStyle.wickDownColor'] = palette.down; overrides['mainSeriesProperties.candleStyle.borderDownColor'] = palette.down; }
+  if (palette.up) {
+    overrides['mainSeriesProperties.candleStyle.upColor'] = palette.up;
+    overrides['mainSeriesProperties.candleStyle.wickUpColor'] = palette.up;
+    overrides['mainSeriesProperties.candleStyle.borderUpColor'] = palette.up;
+  }
+  if (palette.down) {
+    overrides['mainSeriesProperties.candleStyle.downColor'] = palette.down;
+    overrides['mainSeriesProperties.candleStyle.wickDownColor'] = palette.down;
+    overrides['mainSeriesProperties.candleStyle.borderDownColor'] = palette.down;
+  }
   return overrides as ChartingLibraryWidgetOptions['overrides'];
 }
 
@@ -125,13 +209,37 @@ function studiesOverrides(palette: Palette): ChartingLibraryWidgetOptions['studi
 }
 
 /** Stable key so a refetched token record with the same supply does not rebuild the widget. */
-function verifiedSupplyKey(token: { supplyQuality: string; totalSupplyRaw: string | null; decimalsQuality: string; decimals: number | null } | null): string | null {
-  if (!token || token.supplyQuality !== 'verified' || token.totalSupplyRaw === null || token.decimalsQuality !== 'verified' || token.decimals === null) return null;
+function verifiedSupplyKey(
+  token: {
+    supplyQuality: string;
+    totalSupplyRaw: string | null;
+    decimalsQuality: string;
+    decimals: number | null;
+  } | null
+): string | null {
+  if (
+    !token ||
+    token.supplyQuality !== 'verified' ||
+    token.totalSupplyRaw === null ||
+    token.decimalsQuality !== 'verified' ||
+    token.decimals === null
+  )
+    return null;
   return `${token.totalSupplyRaw}:${token.decimals}`;
 }
 
-export default function TvChart({ poolAddress, symbol, market, height: heightProp, onHeightChange }: TvChartProps) {
-  const noTradesYet = useSyncExternalStore(market?.subscribe ?? subscribeWithoutMarket, () => market?.getSnapshot().noTradesYet ?? false, noMarketTrades);
+export default function TvChart({
+  poolAddress,
+  symbol,
+  market,
+  height: heightProp,
+  onHeightChange,
+}: TvChartProps) {
+  const noTradesYet = useSyncExternalStore(
+    market?.subscribe ?? subscribeWithoutMarket,
+    () => market?.getSnapshot().noTradesYet ?? false,
+    noMarketTrades
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const symbolRef = useRef(symbol);
   const widgetRef = useRef<IChartingLibraryWidget | null>(null);
@@ -142,6 +250,7 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
   const markerDigestRef = useRef('');
   const intervalRef = useRef<ChartInterval>('5');
   const accessibleIntervalRef = useRef<ChartInterval | null>(null);
+  const valuationContextRef = useRef('');
   const presentationRef = useRef<ChartMarkPresentation>({ enabled: true });
 
   const { scheme } = useColorMode();
@@ -164,11 +273,24 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
   useEffect(() => {
     // The SDK refuses a non-HTTPS page origin for a production client; the
     // chart then stays on its HTTP polling path.
-    const transport = (() => { try { return browserStreamTransportV2(marketClient, { applicationOrigin: window.location.origin, snapshotPath: '/v2/snapshots' }, false); } catch { return null; } })();
+    const transport = (() => {
+      try {
+        return browserStreamTransportV2(
+          marketClient,
+          { applicationOrigin: window.location.origin, snapshotPath: '/v2/snapshots' },
+          false
+        );
+      } catch {
+        return null;
+      }
+    })();
     if (!transport) return;
     const authorization = new AbortController();
     const release = registerChartReplayTransport({ transport, signal: authorization.signal });
-    return () => { release(); authorization.abort(); };
+    return () => {
+      release();
+      authorization.abort();
+    };
   }, [marketClient]);
 
   const { settings, update } = useChartSettings();
@@ -178,7 +300,10 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
 
   const snapshot = usePoolSnapshot(poolAddress);
   const token = snapshot.data?.token ?? null;
-  symbolRef.current = displayCoinText(symbol ?? token?.symbol, snapshot.data?.pool.tokenAddress ?? poolAddress);
+  symbolRef.current = displayCoinText(
+    symbol ?? token?.symbol,
+    snapshot.data?.pool.tokenAddress ?? poolAddress
+  );
   const supplyKey = verifiedSupplyKey(token);
   const verifiedSupply = useMemo<CanonicalSupply | undefined>(() => {
     if (supplyKey === null) return undefined;
@@ -197,19 +322,43 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
   const mode: ChartMode = settings.mode === 'mcap' && verifiedSupply ? 'mcap' : 'price';
   const feedSupply = mode === 'mcap' ? verifiedSupply : undefined;
 
-  const actorKey = [...new Set(view.markers.map(marker => marker.actor.toLowerCase()))].sort().join(',');
-  const actors = useMemo(() => actorKey ? actorKey.split(',') : [], [actorKey]);
+  const actorKey = [...new Set(view.markers.map((marker) => marker.actor.toLowerCase()))]
+    .sort()
+    .join(',');
+  const actors = useMemo(() => (actorKey ? actorKey.split(',') : []), [actorKey]);
   const { identities } = useWalletIdentities(settings.markers ? actors : []);
-  const markerActors = useMemo<ChartMarkerActor[]>(() => actors.map(wallet => {
-    const identity = identities[wallet];
-    return { wallet, name: identity?.displayName ?? shortAddress(wallet), avatarUrl: identity?.avatarUrl ?? null };
-  }), [actors, identities]);
+  const markerActors = useMemo<ChartMarkerActor[]>(
+    () =>
+      actors.map((wallet) => {
+        const identity = identities[wallet];
+        return {
+          wallet,
+          name: identity?.displayName ?? shortAddress(wallet),
+          avatarUrl: identity?.avatarUrl ?? null,
+        };
+      }),
+    [actors, identities]
+  );
 
-  const setHeight = useCallback((next: number) => { update({ height: next }); onHeightChange?.(next); }, [update, onHeightChange]);
-  const setIntervalValue = useCallback((next: ChartInterval) => { update({ interval: next }); }, [update]);
+  const setHeight = useCallback(
+    (next: number) => {
+      update({ height: next });
+      onHeightChange?.(next);
+    },
+    [update, onHeightChange]
+  );
+  const setIntervalValue = useCallback(
+    (next: ChartInterval) => {
+      update({ interval: next });
+    },
+    [update]
+  );
 
   useEffect(() => {
-    if (window.TradingView) { setLoaded(true); return; }
+    if (window.TradingView) {
+      setLoaded(true);
+      return;
+    }
     let active = true;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
@@ -222,7 +371,12 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
       const script = document.createElement('script');
       script.src = TV_LIB_URL;
       script.async = true;
-      script.onload = () => { if (active) { if (window.TradingView) setLoaded(true); else setError("Chart can't load right now"); } };
+      script.onload = () => {
+        if (active) {
+          if (window.TradingView) setLoaded(true);
+          else setError("Chart can't load right now");
+        }
+      };
       script.onerror = () => {
         if (!active) return;
         if (attempts < maxAttempts) retryTimer = setTimeout(tryLoad, 1000 * attempts);
@@ -235,7 +389,10 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
     return () => {
       active = false;
       if (retryTimer !== undefined) clearTimeout(retryTimer);
-      if (currentScript) { currentScript.onload = null; currentScript.onerror = null; }
+      if (currentScript) {
+        currentScript.onload = null;
+        currentScript.onerror = null;
+      }
       if (currentScript?.parentNode) currentScript.parentNode.removeChild(currentScript);
     };
   }, [retryGeneration]);
@@ -247,48 +404,72 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
     const startInterval = intervalRef.current;
     setView(initialView);
     setValuation(null);
+    if (mode === 'mcap') setFreshness(initialFreshness);
     setAnswer('waiting');
     setEmptyCandles(false);
     // Bounded wait for the first history answer (success or a reported failure); see CHART_ANSWER_BUDGET_MS.
-    const stallTimer = setTimeout(() => { if (active) setAnswer(value => value === 'waiting' ? 'stalled' : value); }, CHART_ANSWER_BUDGET_MS);
+    const stallTimer = setTimeout(() => {
+      if (active) setAnswer((value) => (value === 'waiting' ? 'stalled' : value));
+    }, CHART_ANSWER_BUDGET_MS);
     const datafeed = createReplayUdfDatafeed(
       poolAddress,
       mode,
-      value => { if (active) setFreshness(value); },
+      (value) => {
+        if (active) setFreshness(value);
+      },
       feedSupply,
       undefined,
-      value => {
+      (value) => {
         if (!active) return;
         setView(value);
         const digest = JSON.stringify(value.markers);
-        if (digest !== markerDigestRef.current) { markerDigestRef.current = digest; if (chartReadyRef.current) widgetRef.current?.activeChart().refreshMarks(); }
+        if (digest !== markerDigestRef.current) {
+          markerDigestRef.current = digest;
+          if (chartReadyRef.current) widgetRef.current?.activeChart().refreshMarks();
+        }
       },
-      value => { if (active) setValuation(value); },
-      reason => { if (active) { setError(reason); if (reason) setAnswer('answered'); } },
-      market,
+      (value) => {
+        if (active) setValuation(value);
+      },
+      (reason) => {
+        if (active) {
+          setError(reason);
+          if (reason) setAnswer('answered');
+        }
+      },
+      market
     );
     datafeedRef.current = datafeed;
     datafeed.setMarkPresentation(presentationRef.current);
     accessibleIntervalRef.current = null;
     const now = Math.floor(Date.now() / 1000);
-    const range = viewportRef.current?.pool === poolAddress ? viewportRef.current : { from: Math.max(0, now - resolutionToSeconds(startInterval) * 50), to: now + 60 };
+    const range =
+      viewportRef.current?.pool === poolAddress
+        ? viewportRef.current
+        : { from: Math.max(0, now - resolutionToSeconds(startInterval) * 50), to: now + 60 };
     const startAccessibleStream = () => {
       if (!active || widgetRef.current || accessibleIntervalRef.current !== null) return;
       const resolution = intervalRef.current;
       datafeed.subscribeBars({}, resolution, () => {}, 'accessible-chart');
       accessibleIntervalRef.current = resolution;
     };
-    datafeed.getBars({}, startInterval, { from: Math.floor(range.from), to: Math.ceil(range.to) }, bars => {
-      if (!active) return;
-      setEmptyCandles(bars.length === 0);
-      setAnswer('answered');
-      startAccessibleStream();
-    }, reason => {
-      if (!active) return;
-      setAnswer('answered');
-      setFreshness(value => ({ ...value, connectionStatus: 'degraded', lagReason: reason }));
-      startAccessibleStream();
-    });
+    datafeed.getBars(
+      {},
+      startInterval,
+      { from: Math.floor(range.from), to: Math.ceil(range.to) },
+      (bars) => {
+        if (!active) return;
+        setEmptyCandles(bars.length === 0);
+        setAnswer('answered');
+        startAccessibleStream();
+      },
+      (reason) => {
+        if (!active) return;
+        setAnswer('answered');
+        setFreshness((value) => ({ ...value, connectionStatus: 'degraded', lagReason: reason }));
+        startAccessibleStream();
+      }
+    );
     retryRef.current = datafeed.retry;
     return () => {
       active = false;
@@ -303,7 +484,8 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
   useEffect(() => {
     if (!containerRef.current) return;
     const datafeed = datafeedRef.current;
-    const constructor: { widget: ChartingLibraryWidgetConstructor } | undefined = window.TradingView;
+    const constructor: { widget: ChartingLibraryWidgetConstructor } | undefined =
+      window.TradingView;
     if (!datafeed || !loaded || !constructor) return;
     let active = true;
     const startInterval = intervalRef.current;
@@ -316,7 +498,12 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
     const restoreContainer = prepareChartFrames(container);
     let frame: HTMLIFrameElement | null = null;
     const syncFrameFocus = () => {
-      container.toggleAttribute('data-chart-focus', frame !== null && document.activeElement === frame && frame.contentDocument?.hasFocus() === true);
+      container.toggleAttribute(
+        'data-chart-focus',
+        frame !== null &&
+          document.activeElement === frame &&
+          frame.contentDocument?.hasFocus() === true
+      );
     };
     const leaveChart = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
@@ -337,7 +524,9 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
         fullscreen: false,
         autosize: true,
         theme: getColorScheme(),
-        custom_font_family: getComputedStyle(document.documentElement).getPropertyValue('--sl-font-sans').trim(),
+        custom_font_family: getComputedStyle(document.documentElement)
+          .getPropertyValue('--sl-font-sans')
+          .trim(),
         time_frames: TIME_FRAMES,
         toolbar_bg: palette.canvas,
         loading_screen: { backgroundColor: palette.canvas, foregroundColor: palette.accent },
@@ -382,25 +571,50 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
         }
         const chart = widget.activeChart();
         const viewport = viewportRef.current;
-        if (viewport?.pool === poolAddress) chart.dataReady(() => {
-          const restore = (remaining: number, rightOffset = 0) => {
-            if (!active || widgetRef.current !== widget) return;
-            void chart.setVisibleRange({ from: viewport.from, to: viewport.to + rightOffset }, { applyDefaultRightMargin: false }).then(() => {
-              requestAnimationFrame(() => {
-                if (!active || widgetRef.current !== widget) return;
-                const range = chart.getVisibleRange();
-                if (remaining > 0 && (Math.abs(range.from - viewport.from) > 1 || Math.abs(range.to - viewport.to) > 1)) restore(remaining - 1, rightOffset + viewport.to - range.to);
-              });
-            }).catch((reason: unknown) => { if (active) setFreshness(value => ({ ...value, lagReason: reportUserFacingError(reason, 'Chart zoom was reset', 'chart viewport') })); });
-          };
-          requestAnimationFrame(() => restore(2));
-        });
-        chart.onIntervalChanged().subscribe(null, next => {
+        if (viewport?.pool === poolAddress)
+          chart.dataReady(() => {
+            const restore = (remaining: number, rightOffset = 0) => {
+              if (!active || widgetRef.current !== widget) return;
+              void chart
+                .setVisibleRange(
+                  { from: viewport.from, to: viewport.to + rightOffset },
+                  { applyDefaultRightMargin: false }
+                )
+                .then(() => {
+                  requestAnimationFrame(() => {
+                    if (!active || widgetRef.current !== widget) return;
+                    const range = chart.getVisibleRange();
+                    if (
+                      remaining > 0 &&
+                      (Math.abs(range.from - viewport.from) > 1 ||
+                        Math.abs(range.to - viewport.to) > 1)
+                    )
+                      restore(remaining - 1, rightOffset + viewport.to - range.to);
+                  });
+                })
+                .catch((reason: unknown) => {
+                  if (active)
+                    setFreshness((value) => ({
+                      ...value,
+                      lagReason: reportUserFacingError(
+                        reason,
+                        'Chart zoom was reset',
+                        'chart viewport'
+                      ),
+                    }));
+                });
+            };
+            requestAnimationFrame(() => restore(2));
+          });
+        chart.onIntervalChanged().subscribe(null, (next) => {
           if (!active) return;
           const resolution = String(next);
-          if (isChartInterval(resolution) && resolution !== intervalRef.current) { intervalRef.current = resolution; update({ interval: resolution }); }
+          if (isChartInterval(resolution) && resolution !== intervalRef.current) {
+            intervalRef.current = resolution;
+            update({ interval: resolution });
+          }
         });
-        setAccessibleGeneration(value => value + 1);
+        setAccessibleGeneration((value) => value + 1);
       });
     } catch (err: unknown) {
       datafeed.subscribeBars({}, startInterval, () => {}, 'accessible-chart');
@@ -411,10 +625,23 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
     return () => {
       active = false;
       if (widgetRef.current && chartReadyRef.current) {
-        try { const current = widgetRef.current.activeChart().getVisibleRange(); if (Number.isFinite(current.from) && Number.isFinite(current.to) && current.to > current.from) viewportRef.current = { pool: poolAddress, from: current.from, to: current.to }; } catch {}
+        try {
+          const current = widgetRef.current.activeChart().getVisibleRange();
+          if (
+            Number.isFinite(current.from) &&
+            Number.isFinite(current.to) &&
+            current.to > current.from
+          )
+            viewportRef.current = { pool: poolAddress, from: current.from, to: current.to };
+        } catch {}
       }
       chartReadyRef.current = false;
-      if (widgetRef.current) { try { widgetRef.current.remove(); } catch {} widgetRef.current = null; }
+      if (widgetRef.current) {
+        try {
+          widgetRef.current.remove();
+        } catch {}
+        widgetRef.current = null;
+      }
       frame?.contentWindow?.removeEventListener('focus', syncFrameFocus);
       frame?.contentWindow?.removeEventListener('blur', syncFrameFocus);
       frame?.contentDocument?.removeEventListener('focusin', syncFrameFocus);
@@ -429,42 +656,65 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
     const widget = widgetRef.current;
     if (!widget || !chartReadyRef.current) return;
     let current = true;
-    void widget.changeTheme(scheme).then(() => {
-      if (!current || widgetRef.current !== widget) return;
-      const palette = readPalette();
-      widget.applyOverrides(widgetOverrides(palette) ?? {});
-      widget.applyStudiesOverrides(studiesOverrides(palette) ?? {});
-      for (const [property, role] of Object.entries(launchpadChartRoles)) {
-        const color = surfaceColor(role);
-        if (color) widget.setCSSCustomProperty(property, color);
-      }
-    }).catch((reason: unknown) => {
-      if (current) setError(reportUserFacingError(reason, "Chart colours can't update right now", 'chart theme'));
-    });
-    return () => { current = false; };
+    void widget
+      .changeTheme(scheme)
+      .then(() => {
+        if (!current || widgetRef.current !== widget) return;
+        const palette = readPalette();
+        widget.applyOverrides(widgetOverrides(palette) ?? {});
+        widget.applyStudiesOverrides(studiesOverrides(palette) ?? {});
+        for (const [property, role] of Object.entries(launchpadChartRoles)) {
+          const color = surfaceColor(role);
+          if (color) widget.setCSSCustomProperty(property, color);
+        }
+      })
+      .catch((reason: unknown) => {
+        if (current)
+          setError(
+            reportUserFacingError(reason, "Chart colours can't update right now", 'chart theme')
+          );
+      });
+    return () => {
+      current = false;
+    };
   }, [scheme, accessibleGeneration]);
 
   useEffect(() => {
+    const context = `${mode}:${interval}`;
+    if (mode === 'mcap' && valuationContextRef.current !== context) {
+      setValuation(null);
+      datafeedRef.current?.selectResolution(interval);
+    }
+    valuationContextRef.current = context;
     const widget = widgetRef.current;
     if (widget && chartReadyRef.current) {
       const chart = widget.activeChart();
-      if (String(chart.resolution()) !== interval) void chart.setResolution(interval as ResolutionString);
+      if (String(chart.resolution()) !== interval)
+        void chart.setResolution(interval as ResolutionString);
       return;
     }
     const datafeed = datafeedRef.current;
-    if (!datafeed || accessibleIntervalRef.current === null || accessibleIntervalRef.current === interval) return;
+    if (
+      !datafeed ||
+      accessibleIntervalRef.current === null ||
+      accessibleIntervalRef.current === interval
+    )
+      return;
     datafeed.subscribeBars({}, interval, () => {}, 'accessible-chart');
     accessibleIntervalRef.current = interval;
-  }, [interval, loaded, accessibleGeneration]);
+  }, [interval, mode, loaded, accessibleGeneration]);
 
   useEffect(() => {
     const palette = readPalette();
-    const markPalette: ChartMarkPalette | undefined = palette.up && palette.down && palette.onAccent ? { buy: palette.up, sell: palette.down, label: palette.onAccent } : undefined;
-    const byWallet = new Map(markerActors.map(actor => [actor.wallet, actor]));
+    const markPalette: ChartMarkPalette | undefined =
+      palette.up && palette.down && palette.onAccent
+        ? { buy: palette.up, sell: palette.down, label: palette.onAccent }
+        : undefined;
+    const byWallet = new Map(markerActors.map((actor) => [actor.wallet, actor]));
     const presentation: ChartMarkPresentation = {
       enabled: settings.markers,
       palette: markPalette,
-      decorate: marker => {
+      decorate: (marker) => {
         const actor = byWallet.get(marker.actor.toLowerCase());
         const name = actor?.name ?? shortAddress(marker.actor);
         return { name, label: initialsOf(name), imageUrl: actor?.avatarUrl ?? null };
@@ -484,88 +734,306 @@ export default function TvChart({ poolAddress, symbol, market, height: heightPro
   // A pool with no recorded fill has no candles: its newest trade page is empty with no older cursor
   // and no candle has arrived. That is an empty chart, not a failure.
   const firstTrades = useMarketTrades(poolAddress);
-  const noTrades = (noTradesYet || emptyCandles || (firstTrades.data !== undefined && firstTrades.data.data.items.length === 0 && firstTrades.data.nextCursor === null)) && view.rows.length === 0;
+  const noTrades =
+    (noTradesYet ||
+      emptyCandles ||
+      (firstTrades.data !== undefined &&
+        firstTrades.data.data.items.length === 0 &&
+        firstTrades.data.nextCursor === null)) &&
+    view.rows.length === 0;
   const valuationBlocked = mode === 'mcap' && valuation !== null && valuation.state !== 'ready';
   const openingQuote = usePoolDetailListings(noTrades && snapshot.data ? [poolAddress] : []);
   const openingPrice = openingQuote.data?.[poolAddress.toLowerCase()]?.spotPrice ?? null;
   const stalled = answer === 'stalled' && !error && !noTrades && !valuationBlocked;
-  const retryChart = useCallback(() => { setError(null); setLoaded(false); setRetryGeneration(value => value + 1); }, []);
+  const retryChart = useCallback(() => {
+    setError(null);
+    setLoaded(false);
+    setRetryGeneration((value) => value + 1);
+  }, []);
 
   return (
-    <section aria-label="Price chart" className="flex w-full max-w-full flex-col overflow-hidden bg-canvas">
+    <section
+      aria-label="Price chart"
+      className="flex w-full max-w-full flex-col overflow-hidden bg-canvas"
+    >
       <ChartToolbar
         interval={interval}
         onIntervalChange={setIntervalValue}
         mode={mode}
-        onModeChange={next => update({ mode: next })}
+        onModeChange={(next) => update({ mode: next })}
         mcapDisabledReason={mcapDisabledReason}
         markers={settings.markers}
-        onMarkersChange={next => update({ markers: next })}
+        onMarkersChange={(next) => update({ markers: next })}
         markerActors={markerActors}
         freshness={freshness}
         noTrades={noTrades}
         waitingForFirstTrade={noTradesYet}
         onRetry={() => retryRef.current?.()}
       />
-      <ChartSplit height={height} onHeightChange={setHeight} min={CHART_MIN_HEIGHT} max={CHART_MAX_HEIGHT} defaultHeight={CHART_DEFAULT_HEIGHT}>
-        <div ref={containerRef} role="group" tabIndex={0} aria-label="Interactive price chart. Press Enter to explore the chart and Escape to return to the page."
-          onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) { event.preventDefault(); event.currentTarget.querySelector('iframe')?.focus(); } }}
-          inert={!loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked}
-          data-chart-canvas style={{ visibility: !loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked ? 'hidden' : 'visible' }}
-          className="absolute inset-0 h-full w-full outline-none after:pointer-events-none after:absolute after:inset-0 after:z-20 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-focus data-[chart-focus]:after:outline-2 data-[chart-focus]:after:-outline-offset-2 data-[chart-focus]:after:outline-focus" />
-        {(!loaded || answer === 'waiting') && !error && !stalled && !noTrades && !valuationBlocked ? (
-          <div role="status" className="absolute inset-0 flex items-center justify-center bg-canvas text-sm text-text-faint">Loading chart...</div>
+      <ChartSplit
+        height={height}
+        onHeightChange={setHeight}
+        min={CHART_MIN_HEIGHT}
+        max={CHART_MAX_HEIGHT}
+        defaultHeight={CHART_DEFAULT_HEIGHT}
+      >
+        <div
+          ref={containerRef}
+          role="group"
+          tabIndex={0}
+          aria-label="Interactive price chart. Press Enter to explore the chart and Escape to return to the page."
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && event.target === event.currentTarget) {
+              event.preventDefault();
+              event.currentTarget.querySelector('iframe')?.focus();
+            }
+          }}
+          inert={
+            !loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked
+          }
+          aria-hidden={
+            !loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked
+          }
+          data-chart-canvas
+          style={{
+            visibility:
+              !loaded || answer === 'waiting' || !!error || stalled || noTrades || valuationBlocked
+                ? 'hidden'
+                : 'visible',
+          }}
+          className="absolute inset-0 h-full w-full outline-none after:pointer-events-none after:absolute after:inset-0 after:z-20 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-focus data-[chart-focus]:after:outline-2 data-[chart-focus]:after:-outline-offset-2 data-[chart-focus]:after:outline-focus"
+        />
+        {(!loaded || answer === 'waiting') &&
+        !error &&
+        !stalled &&
+        !noTrades &&
+        !valuationBlocked ? (
+          <div
+            role="status"
+            className="absolute inset-0 flex items-center justify-center bg-canvas text-sm text-text-faint"
+          >
+            Loading chart...
+          </div>
         ) : null}
         {noTrades ? (
-          <div data-chart-empty className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-canvas">
-            <EmptyState icon={CandlestickChart} title="No trades yet" body="The chart starts with the first trade." />
-            <p data-opening-price className="px-4 text-center text-xs text-text-muted tabular-nums">Opening price {openingPrice === null ? <span aria-label="Opening price not available yet">—</span> : formatSpotPrice(openingPrice)}</p>
-            {openingQuote.isError ? <ErrorState variant="inline" message="Opening price can't load right now" onRetry={() => { void openingQuote.refetch(); }} /> : null}
+          <div
+            data-chart-empty
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-canvas"
+          >
+            <EmptyState
+              icon={CandlestickChart}
+              title="No trades yet"
+              body="The chart starts with the first trade."
+            />
+            <p data-opening-price className="px-4 text-center text-xs text-text-muted tabular-nums">
+              Opening price{' '}
+              {openingPrice === null ? (
+                <span aria-label="Opening price not available yet">—</span>
+              ) : (
+                formatSpotPrice(openingPrice)
+              )}
+            </p>
+            {openingQuote.isError ? (
+              <ErrorState
+                variant="inline"
+                message="Opening price can't load right now"
+                onRetry={() => {
+                  void openingQuote.refetch();
+                }}
+              />
+            ) : null}
           </div>
         ) : null}
         {stalled ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-surface-1 p-4">
-            <UnavailableState variant="chip" surface={1} wrap title="Chart data" operation={CANDLE_HISTORY_OPERATION} status={null} onRetry={retryChart} />
+            <UnavailableState
+              variant="chip"
+              surface={1}
+              wrap
+              title="Chart data"
+              operation={CANDLE_HISTORY_OPERATION}
+              status={null}
+              onRetry={retryChart}
+            />
           </div>
         ) : null}
         {error && !noTrades ? (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-surface-1 p-4 text-center">
-            <ErrorState variant="chip" wrap message="Chart can't load right now" onRetry={retryChart} />
+            <ErrorState
+              variant="chip"
+              wrap
+              message="Chart can't load right now"
+              onRetry={retryChart}
+            />
             <p className="text-xs text-text-faint">Prices are still listed below.</p>
           </div>
         ) : null}
         {valuationBlocked && !noTrades ? (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-surface-1 p-4">
             {valuation.state === 'unsupported' ? (
-              <UnavailableState variant="chip" surface={1} wrap title="Market cap history" operation={valuation.operation} status={valuation.status} message={valuation.message} onRetry={() => retryRef.current?.()} />
+              <UnavailableState
+                variant="chip"
+                surface={1}
+                wrap
+                title="Market cap history"
+                operation={valuation.operation}
+                status={valuation.status}
+                message={valuation.message}
+                onRetry={() => retryRef.current?.()}
+              />
             ) : (
               // A genuine failure (not an unserved route): an error chip, with the operation kept as developer detail.
-              <StateNotice kind="error" wrap detail={VALUATION_HISTORY_OPERATION} onRetry={() => retryRef.current?.()}>Market cap chart can&apos;t load right now</StateNotice>
+              <StateNotice
+                kind="error"
+                wrap
+                detail={VALUATION_HISTORY_OPERATION}
+                onRetry={() => retryRef.current?.()}
+              >
+                Market cap chart can&apos;t load right now
+              </StateNotice>
             )}
-            <Button variant="secondary" size="sm" onClick={() => update({ mode: 'price' })}>Show price instead</Button>
+            <Button variant="secondary" size="sm" onClick={() => update({ mode: 'price' })}>
+              Show price instead
+            </Button>
           </div>
         ) : null}
       </ChartSplit>
       <div className="flex flex-col gap-2 bg-canvas px-3 py-2">
-        <Button variant="ghost" size="sm" aria-expanded={tableOpen || !!error} aria-controls="canonical-chart-table" onClick={() => setTableOpen(value => !value)} className="self-start">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={tableOpen || !!error}
+          aria-controls="canonical-chart-table"
+          onClick={() => setTableOpen((value) => !value)}
+          className="self-start"
+        >
           {tableOpen || !!error ? 'Hide price list' : 'Show price list'}
         </Button>
         {tableOpen || !!error ? (
-          <div id="canonical-chart-table" className="flex flex-col gap-3 rounded-md bg-surface-2 p-3 text-xs text-text-muted">
-            <p role="status">{view.annotationState === 'complete' ? 'Trade markers are up to date.' : view.annotationState === 'partial' ? 'Some trade markers are still loading.' : 'Trade markers are still loading.'}</p>
-            <div tabIndex={0} role="region" aria-label="Prices and volume" className="overflow-x-auto">
+          <div
+            id="canonical-chart-table"
+            className="flex flex-col gap-3 rounded-md bg-surface-2 p-3 text-xs text-text-muted"
+          >
+            <p role="status">
+              {view.annotationState === 'complete'
+                ? 'Trade markers are up to date.'
+                : view.annotationState === 'partial'
+                  ? 'Some trade markers are still loading.'
+                  : 'Trade markers are still loading.'}
+            </p>
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Prices and volume"
+              className="overflow-x-auto"
+            >
               <table className="w-full text-left">
-                <caption className="pb-2 text-left text-text-faint">Prices in USDL, every {timeframe}, times in UTC</caption>
-                <thead><tr>{['Time', 'Open', 'High', 'Low', 'Close', 'Volume (USDL)', 'Volume (coin, raw)', 'Version'].map(label => <th key={label} scope="col" className="p-2 font-bold text-text-faint">{label}</th>)}</tr></thead>
-                <tbody>{view.rows.filter(row => row.interval === timeframe).map(row => <tr key={row.start} className="odd:bg-surface-3"><th scope="row" className="p-2 font-semibold"><time dateTime={row.start}>{row.start}</time></th>{[row.open, row.high, row.low, row.close, row.volumeUsdl, row.volumeTokenRaw, row.revision].map((value, index) => <td key={index} data-numeric className="p-2 text-right font-mono tabular-nums">{value}</td>)}</tr>)}</tbody>
+                <caption className="pb-2 text-left text-text-faint">
+                  Prices in USDL, every {timeframe}, times in UTC
+                </caption>
+                <thead>
+                  <tr>
+                    {[
+                      'Time',
+                      'Open',
+                      'High',
+                      'Low',
+                      'Close',
+                      'Volume (USDL)',
+                      'Volume (coin, raw)',
+                      'Version',
+                    ].map((label) => (
+                      <th key={label} scope="col" className="p-2 font-bold text-text-faint">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {view.rows
+                    .filter((row) => row.interval === timeframe)
+                    .map((row) => (
+                      <tr key={row.start} className="odd:bg-surface-3">
+                        <th scope="row" className="p-2 font-semibold">
+                          <time dateTime={row.start}>{row.start}</time>
+                        </th>
+                        {[
+                          row.open,
+                          row.high,
+                          row.low,
+                          row.close,
+                          row.volumeUsdl,
+                          row.volumeTokenRaw,
+                          row.revision,
+                        ].map((value, index) => (
+                          <td
+                            key={index}
+                            data-numeric
+                            className="p-2 text-right font-mono tabular-nums"
+                          >
+                            {value}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                </tbody>
               </table>
             </div>
             {view.rows.length === 0 ? <p>No trades in this range yet</p> : null}
-            <div tabIndex={0} role="region" aria-label="Trades on the chart" className="overflow-x-auto">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Trades on the chart"
+              className="overflow-x-auto"
+            >
               <table className="w-full text-left">
-                <caption className="pb-2 text-left text-text-faint">Trades shown on the chart</caption>
-                <thead><tr>{['Date', 'Type', 'Amount (raw)', 'USDL (raw)', 'Price', 'Transaction', 'Account', 'Source'].map(label => <th key={label} scope="col" className="p-2 font-bold text-text-faint">{label}</th>)}</tr></thead>
-                <tbody>{view.markers.filter(marker => marker.interval === timeframe).map(marker => <tr key={marker.id} className="odd:bg-surface-3"><td className="p-2">{new Date(marker.time * 1000).toISOString()}</td>{[marker.side, marker.tokenAmountRaw, marker.usdlAmountRaw, marker.executionPrice, marker.transactionHash, marker.actor, marker.actorBasis].map((value, index) => <td key={index} data-numeric className="p-2 text-right font-mono tabular-nums">{value}</td>)}</tr>)}</tbody>
+                <caption className="pb-2 text-left text-text-faint">
+                  Trades shown on the chart
+                </caption>
+                <thead>
+                  <tr>
+                    {[
+                      'Date',
+                      'Type',
+                      'Amount (raw)',
+                      'USDL (raw)',
+                      'Price',
+                      'Transaction',
+                      'Account',
+                      'Source',
+                    ].map((label) => (
+                      <th key={label} scope="col" className="p-2 font-bold text-text-faint">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {view.markers
+                    .filter((marker) => marker.interval === timeframe)
+                    .map((marker) => (
+                      <tr key={marker.id} className="odd:bg-surface-3">
+                        <td className="p-2">{new Date(marker.time * 1000).toISOString()}</td>
+                        {[
+                          marker.side,
+                          marker.tokenAmountRaw,
+                          marker.usdlAmountRaw,
+                          marker.executionPrice,
+                          marker.transactionHash,
+                          marker.actor,
+                          marker.actorBasis,
+                        ].map((value, index) => (
+                          <td
+                            key={index}
+                            data-numeric
+                            className="p-2 text-right font-mono tabular-nums"
+                          >
+                            {value}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                </tbody>
               </table>
             </div>
           </div>
