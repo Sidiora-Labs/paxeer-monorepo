@@ -491,6 +491,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     metadataError = reason; onMetadataError(reason); emitFreshness(lastFreshness);
   });
   let markPresentation: ChartMarkPresentation = { enabled: true };
+  let markerInterval: string | undefined;
   const subscriptions = new Map<string, ReplayChartSubscription>();
   const historyRequests = new Set<AbortController>();
   const valuations = new Map<string, Bar>();
@@ -509,12 +510,14 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   let historyError: unknown;
   let annotationGeneration = 0;
   let annotationRequest: AbortController | undefined;
+  let annotationPending: Promise<void> | undefined;
   let annotationRetryTimer: ReturnType<typeof setTimeout> | undefined;
   let annotationRetryCount = 0;
   let annotationError: unknown;
   let markers: ConfirmedChartMarker[] = [];
   let annotationState: ChartAccessibleView['annotationState'] = 'unavailable';
   let annotationReason: string | null = 'Confirmed fill annotations have not loaded';
+  let publishedViewContent: string | undefined;
   const retryAnnotations = (error?: unknown) => {
     if (annotationRetryCount >= 20 && !isTransientError(error)) return;
     annotationRetryCount++;
@@ -526,7 +529,11 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   const candleIdentity = (candle: CanonicalCandle) => `${candle.poolAddress.toLowerCase()}:${candle.interval}:${candle.start}`;
   const publishView = () => {
     if (disposed) return;
-    onView({ rows: [...visibleCandles.values()].sort((a, b) => Date.parse(a.start) - Date.parse(b.start)).map(canonicalCandleTableRow), markers: [...markers], annotationState, annotationReason });
+    const view: ChartAccessibleView = { rows: [...visibleCandles.values()].sort((a, b) => Date.parse(a.start) - Date.parse(b.start)).map(canonicalCandleTableRow), markers: [...markers], annotationState, annotationReason };
+    const content = JSON.stringify(view);
+    if (content === publishedViewContent) return;
+    publishedViewContent = content;
+    onView(view);
   };
   function retain(candle: CanonicalCandle, resolution: string, publish = true) {
     const decision = viewMerge.accept(candle, poolAddress, resolutionToWsTimeframe(resolution));
@@ -542,7 +549,14 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     }
     return visibleCandles.get(key) ?? candle;
   }
-  async function reconcileMarkers() {
+  function reconcileMarkers() {
+    if (disposed) return Promise.resolve();
+    const pending = readMarkers();
+    annotationPending = pending;
+    void pending.then(() => { if (annotationPending === pending) annotationPending = undefined; });
+    return pending;
+  }
+  async function readMarkers() {
     if (annotationRetryTimer !== undefined) clearTimeout(annotationRetryTimer);
     annotationRetryTimer = undefined;
     annotationRequest?.abort();
@@ -896,6 +910,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     getBars: (_symbol: unknown, resolution: string, period: { from: number; to: number; countBack?: number; firstDataRequest?: boolean }, result: (bars: Bar[], meta: { noData?: boolean }) => void, error: (message: string) => void) => {
       if (disposed) return;
       try { chartResolution(resolution); if (!Number.isSafeInteger(period.from) || !Number.isSafeInteger(period.to) || period.from < 0 || period.to <= period.from || (period.countBack !== undefined && (!Number.isSafeInteger(period.countBack) || period.countBack < 1 || period.countBack > CHART_WINDOW_CANDLES))) throw new Error('Invalid chart history window'); } catch (reason) { error(reportUserFacingError(reason, "Chart can't load right now", 'chart history range')); return; }
+      markerInterval = resolutionToWsTimeframe(resolution);
       const controller = new AbortController(); historyRequests.add(controller);
       const owners = [...subscriptions.values()].filter(sub => sub.resolution === resolution);
       owners.forEach(sub => { sub.loading++; sub.requests.add(controller); });
@@ -912,6 +927,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     },
     subscribeBars: (_symbol: unknown, resolution: string, tick: (bar: Bar) => void, guid: string, reset: () => void = () => {}) => {
       if (disposed) return; chartResolution(resolution);
+      markerInterval = resolutionToWsTimeframe(resolution);
       const old = subscriptions.get(guid); if (old) close(old);
       const sub: ReplayChartSubscription = { guid, resolution, tick, reset, alive: true, generation: ++serial, requests: new Set(), merge: new CanonicalCandleRevisionMerge(), cursor: null, sequence: 0n, watermark: null, pending: [], pendingBytes: 0, acknowledged: false, replaying: true, loading: 0, checkpoint: null, snapshotReady: false, waitingForCandle: market?.getSnapshot().noTradesYet ?? false, failures: 0, retries: 0, lastTime: -1, lastBarKey: '', freshness: { sourceObservedAt: null, lastReceivedAt: null, lastSourceHeight: null, connectionStatus: 'connecting', lagReason: null } };
       subscriptions.set(guid, sub); void recover(sub, true);
@@ -920,9 +936,19 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     getMarks: (_symbol: unknown, from: number, to: number, callback: (marks: TradingViewChartMark[]) => void) => {
       if (disposed) return;
       if (!markPresentation.enabled) { callback([]); return; }
-      void reconcileMarkers().then(() => { if (!disposed && markPresentation.enabled) callback(markers.filter(marker => marker.time >= from && marker.time <= to).map(marker => tradingViewChartMark(marker, markPresentation))); });
+      const answer = () => {
+        if (disposed) return;
+        const pending = annotationPending;
+        if (pending) { void pending.then(answer); return; }
+        callback(markPresentation.enabled ? markers.filter(marker => marker.interval === markerInterval && marker.time >= from && marker.time <= to).map(marker => tradingViewChartMark(marker, markPresentation)) : []);
+      };
+      answer();
     },
-    setMarkPresentation: (presentation: ChartMarkPresentation) => { markPresentation = presentation; },
+    setMarkPresentation: (presentation: ChartMarkPresentation) => {
+      const enabled = !markPresentation.enabled && presentation.enabled;
+      markPresentation = presentation;
+      if (enabled && visibleCandles.size) void reconcileMarkers();
+    },
     markPresentation: () => markPresentation,
     retry: () => { marketRetryPace.retryNow(historyError); marketRetryPace.retryNow(annotationError); metadata.retry(); bindingChanged(); if (visibleCandles.size) void reconcileMarkers(); },
     resumeFromCursor: (guid: string, cursor: string) => { const sub = subscriptions.get(guid); if (!sub || !current(sub) || !sub.snapshotReady) throw new Error('Existing authoritative chart snapshot required'); sub.cursor = decodeV2Contract('OpaqueResumeCursor', cursor); sub.retries = 0; void recover(sub, false); },
