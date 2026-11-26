@@ -17,6 +17,7 @@ import TickerStrip from './ticker-strip';
 import MobileBottomNav from './mobile-bottom-nav';
 import { SHELL_TOP_VARS } from './nav-config';
 import { ShellFooter } from './platform-metrics';
+import './shell.css';
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -224,7 +225,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </div>
           ) : (
             <section data-shell-content="" className="flex flex-1 flex-col items-start gap-3 p-6">
-              <h1 className="text-xl font-extrabold text-text">Page not found</h1>
+              <h1 className="text-lg font-bold text-text">Page not found</h1>
               <p className="text-sm text-text-muted">We couldn't find that page</p>
               <Button href="/" variant="secondary" size="md">
                 Go home

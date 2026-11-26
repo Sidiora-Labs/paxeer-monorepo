@@ -32,7 +32,7 @@ function BountyHeader({ bounty }: { bounty: Bounty }) {
         <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
         {bounty.poolAddress ? <span className="flex min-w-0 flex-1"><BountyTokenChip poolAddress={bounty.poolAddress} /></span> : null}
       </div>
-      <h1 className="break-words text-2xl font-extrabold text-text">{bounty.title}</h1>
+      <h1 className="break-words text-lg font-bold text-text">{bounty.title}</h1>
       <div className="flex flex-wrap items-center gap-2 text-sm text-text-muted">
         <Avatar src={null} name={bounty.creatorWallet} size="sm" decorative />
         <span>by</span>
@@ -62,7 +62,7 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
   const visible = loadable.state === 'ready' ? loadable.data.filter(item => item.state !== 'rejected' || own(item)) : [];
   return (
     <section aria-labelledby="bounty-submissions-heading" className="flex flex-col gap-3">
-      <h2 id="bounty-submissions-heading" className="text-lg font-bold text-text">Submissions</h2>
+      <h2 id="bounty-submissions-heading" className="text-md font-semibold text-text">Submissions</h2>
       {loadable.state === 'loading' ? (
         <div aria-busy="true" className="flex min-h-40 flex-col justify-center gap-3 rounded-lg bg-surface-1 p-4">
           <Skeleton height={surfaceSpacing(6)} width={surfaceSpacing(6)} label="Loading submissions" className="self-center" />
@@ -97,7 +97,7 @@ function DetailSkeleton() {
     <>
       <div aria-busy="true" className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] md:p-6">
         <Skeleton variant="pill" width={surfaceSpacing(45)} height={surfaceSpacing(11)} label="Loading bounty" />
-        <Skeleton width="70%" className="h-[1lh] text-2xl" />
+        <Skeleton width="70%" className="h-[1lh] text-lg" />
         <Skeleton width={surfaceSpacing(40)} height={surfaceSpacing(11)} />
         <Skeleton width={surfaceSpacing(30)} height={surfaceSpacing(7)} />
         <Skeleton width="70%" className="h-[1lh] text-sm" />
@@ -136,7 +136,7 @@ export function BountyDetail({ bountyId, className }: { bountyId: string; classN
           {bounty ? <BountyHeader bounty={bounty} /> : null}
           {bounty ? (
             <section aria-labelledby="bounty-description-heading" className="flex flex-col gap-2 rounded-lg bg-surface-1 p-4 md:p-6">
-              <h2 id="bounty-description-heading" className="text-md font-bold text-text">Tasks and rules</h2>
+              <h2 id="bounty-description-heading" className="text-md font-semibold text-text">Tasks and rules</h2>
               <p className="whitespace-pre-wrap break-words text-sm text-text">{bounty.description}</p>
             </section>
           ) : null}
@@ -154,6 +154,12 @@ export function BountyDetail({ bountyId, className }: { bountyId: string; classN
           {bounty && creator ? (
             submissions.loadable.state === 'ready' ? (
               <JudgePanel bounty={bounty} revision={detail.state === 'ready' ? detail.data.revision : null} submissions={submissions.loadable.data} asset={asset} />
+            ) : submissions.loadable.state === 'loading' ? (
+              <div aria-busy="true" className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4">
+                <Skeleton label="Loading judging" width={surfaceSpacing(30)} />
+                <Skeleton variant="block" height={surfaceSpacing(24)} />
+                <Skeleton variant="pill" height={surfaceSpacing(11)} />
+              </div>
             ) : (
               <p className="rounded-lg bg-surface-1 p-4 text-sm text-text-faint">Submissions can't load right now, so you can't pick a winner yet</p>
             )

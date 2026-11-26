@@ -113,12 +113,12 @@ export default function PlatformMetricsFooter() {
         aria-busy={query.isPending || undefined}
         aria-hidden={failure ? true : undefined}
         inert={failure ? true : undefined}
-        className={`col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1${failure ? ' invisible' : ''}`}
+        className={`col-start-1 row-start-1 flex min-w-0 items-center gap-x-3 gap-y-1 whitespace-nowrap${failure ? ' invisible' : ''}`}
       >
         {items.map((item) => {
           const detail = item.value === null ? technicalDetail(item.operation, null) : null;
           return (
-            <div key={item.label} className="flex min-w-0 items-baseline gap-1 text-2xs">
+            <div key={item.label} className="relative flex shrink-0 items-baseline gap-1 text-2xs">
               <dt className="text-text-faint">{item.label}</dt>
               {query.isPending ? (
                 <dd className="min-h-[1lh] self-center text-right font-bold tabular-nums">
@@ -170,21 +170,25 @@ const LEGAL_LINKS = [
  */
 export function ShellFooter() {
   return (
-    <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-canvas px-3 py-3 text-2xs text-text-faint sm:px-4 lg:px-6">
-      <p suppressHydrationWarning>© {new Date().getFullYear()} Sidiora</p>
-      <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {LEGAL_LINKS.map(({ label, href }) => (
-          <Link
-            prefetch={false}
-            key={href}
-            href={href}
-            className="inline-flex items-center transition-colors duration-fast hover:text-text"
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
-      <div className="min-h-[1lh] min-w-0 sm:ml-auto">
+    <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-canvas px-3 py-3 text-2xs text-text-faint sm:px-4 md:flex-nowrap lg:px-6">
+      <div className="flex w-full min-w-0 items-center gap-4 overflow-x-auto whitespace-nowrap md:w-auto">
+        <p suppressHydrationWarning className="shrink-0 whitespace-nowrap">
+          © {new Date().getFullYear()} Sidiora
+        </p>
+        <nav aria-label="Legal" className="flex shrink-0 items-center gap-x-3 gap-y-1">
+          {LEGAL_LINKS.map(({ label, href }) => (
+            <Link
+              prefetch={false}
+              key={href}
+              href={href}
+              className="inline-flex items-center transition-colors duration-fast hover:text-text"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+      <div className="min-h-[1lh] min-w-0 max-w-full overflow-x-auto md:ml-auto">
         <PlatformMetricsFooter />
       </div>
     </footer>

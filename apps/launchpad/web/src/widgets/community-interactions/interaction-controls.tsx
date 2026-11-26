@@ -44,7 +44,7 @@ export function FollowControl({ client, wallet }: { client: InteractionClient; w
     return () => controller.abort();
   }, [client, wallet, attempt]);
   return <div className="flex flex-col gap-1">
-    <Button variant="secondary" size="sm" disabled={following === null || action.busy} loading={action.busy} aria-pressed={following === true} className={cn('group', following && 'bg-accent-soft text-accent hover:bg-danger-soft hover:text-danger')} onClick={() => {
+    <Button variant="secondary" size="sm" disabled={following === null || action.busy} loading={action.busy} aria-pressed={following === true} className={cn('group', following && 'bg-surface-3 text-text hover:bg-surface-hover')} onClick={() => {
       if (following === null) return;
       const mutation = retry.current?.remove === following ? retry.current : { remove: following, key: crypto.randomUUID() };
       retry.current = mutation;
@@ -94,11 +94,11 @@ export function CommentActions({ client, comment, own, creator, onChanged }: { c
   return <section aria-label="Comment actions" className="flex flex-col gap-3 rounded-md bg-surface-1 p-3">
     <p className="text-base text-text"><PlainInteractionContent text={comment.body} />{comment.edited && <small className="ml-2 text-xs text-text-faint">Edited</small>}</p>
     {own && <div className="flex flex-col gap-2">
-      <FormField id={editID} label="Edit your comment" multiline surface="surface-1" textareaProps={{ value: text, onChange: event => setText(event.target.value), disabled: action.busy, rows: 3 }} />
+      <FormField id={editID} label="Edit your comment" multiline surface="surface-2" textareaProps={{ value: text, onChange: event => setText(event.target.value), disabled: action.busy, rows: 3 }} />
       <div className="flex flex-wrap justify-end gap-2"><Button variant="primary" size="sm" disabled={action.busy || !validateInteractionText(text)} onClick={() => mutate('edit')}>Save</Button><Button variant="danger-text" size="sm" disabled={action.busy} onClick={() => mutate('delete')}>Delete</Button></div>
     </div>}
     {creator && !own && <div className="flex flex-col gap-2">
-      <FormField id={reasonID} label="Reason for hiding" surface="surface-1" inputProps={{ value: reason, onChange: event => setReason(event.target.value), disabled: action.busy }} />
+      <FormField id={reasonID} label="Reason for hiding" surface="surface-2" inputProps={{ value: reason, onChange: event => setReason(event.target.value), disabled: action.busy }} />
       <div className="flex justify-end"><Button variant="danger-text" size="sm" disabled={action.busy || !validateInteractionText(reason)} onClick={() => mutate('hide')}>Hide as coin creator</Button></div>
     </div>}
     {action.error && <Alert>{action.error}</Alert>}

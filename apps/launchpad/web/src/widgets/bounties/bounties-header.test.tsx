@@ -194,12 +194,12 @@ describe('create bounty call to action', () => {
     ).toBe('/bounties/new');
   });
 
-  it('keeps the title at the reference scale and puts chips and the CTA on the title row from md', () => {
+  it('keeps the title at the view title scale and puts chips and the CTA on the title row from md', () => {
     const container = mount(<Harness availability={ready} />);
     const h1 = container.querySelector('h1');
     expect(h1?.textContent).toBe('Open bounties');
     expect(h1?.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(['text-xl', 'md:text-[28px]', 'md:leading-[calc(var(--sl-space)*9/28px)]', 'font-bold'])
+      expect.arrayContaining(['text-lg', 'font-bold'])
     );
     expect(h1?.className).not.toMatch(/extrabold|(?:^|\s)text-2xl(?:\s|$)/);
     const row = h1?.closest('div')?.parentElement;
@@ -210,7 +210,7 @@ describe('create bounty call to action', () => {
 });
 
 describe('bounty totals', () => {
-  it('renders four compact chips within the available width with real values', () => {
+  it('renders four unframed totals within the available width with real values', () => {
     const container = mount(<BountiesStats stats={statsReady} openCount={null} />);
     const dl = container.querySelector('dl');
     expect(dl?.className).toMatch(/flex-wrap/);
@@ -222,7 +222,10 @@ describe('bounty totals', () => {
       'submissions',
       'paid',
     ]);
-    for (const chip of chips) expect(chip.className).toMatch(/py-1\.5/);
+    for (const chip of chips) {
+      expect(chip.className).toMatch(/py-1\.5/);
+      expect(chip.className).not.toMatch(/bg-|rounded-/);
+    }
     expect(chips[0].textContent).toContain('74');
     expect(chips[2].textContent).toContain('893');
     expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);

@@ -101,25 +101,25 @@ export default function ConversationList() {
   }
 
   return (
-    <div className="space-y-1">
+    <div className="divide-y divide-surface-3">
       {(scope === sessionEpoch ? conversations : []).map(convo => {
         const meta = peerMeta[convo.peer.toLowerCase()];
         return (
           <Link prefetch={false}
             key={convo.id}
             href={`/chat/${encodeURIComponent(convo.id)}`}
-            className="flex min-h-touch-target-min items-center gap-3 rounded-lg px-4 py-3 transition-colors duration-fast hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-focus"
+            className="flex min-h-touch-target-min items-center gap-3 px-4 py-3 transition-colors duration-fast hover:bg-surface-1 focus-visible:outline-2 focus-visible:outline-focus"
           >
             <div className="flex size-avatar-lg shrink-0 items-center justify-center overflow-hidden rounded-pill bg-surface-2">
-              <span className="text-xs font-bold text-text-faint">
+              <span className="text-xs font-medium text-text-faint">
                 {convo.peer.slice(2, 4).toUpperCase()}
               </span>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-bold text-text">
+              <div className="truncate text-sm font-semibold text-text">
                 {meta?.displayName || formatAddress(convo.peer, 6)}
               </div>
-              <div className="text-2xs text-text-faint">
+              <div className="text-2xs tabular-nums text-text-faint">
                 {relTime(convo.lastMessageAt)}{convo.unreadCount > 0 ? ` · ${convo.unreadCount} unread` : ''}
               </div>
             </div>

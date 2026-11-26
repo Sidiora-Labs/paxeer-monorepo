@@ -48,20 +48,20 @@ function useInAppHistory(pathname: string): boolean {
 }
 
 const squareLink =
-  'inline-flex size-8 shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active [&_svg]:size-icon-md';
+  'inline-flex size-8 shrink-0 items-center justify-center rounded-sm bg-accent text-on-accent transition-colors duration-fast hover:bg-accent-hover active:bg-accent-active [&_svg]:size-icon-md';
 
 /**
- * Search trigger density. Desktop gets the reference's 32px field on a subtle
- * surface-1 fill; touch widths get an icon-only ghost trigger that opens the
+ * Search trigger density. Desktop gets a compact pill on surface 2;
+ * touch widths get an icon-only quiet trigger that opens the
  * same palette, which carries its own input.
  */
 const searchField =
-  '[&>button]:h-8 [&>button]:min-h-8 [&>button]:py-0 [&>button]:bg-surface-1 [&>button]:hover:bg-surface-hover';
+  '[&>button]:h-8 [&>button]:min-h-8 [&>button]:py-0 [&>button]:bg-surface-2 [&>button]:hover:bg-surface-hover';
 const searchIcon =
   '[&>button]:size-9 [&>button]:py-0 [&>button]:bg-transparent [&>button]:text-text [&>button]:hover:bg-surface-hover';
 
 /**
- * Top bar anatomy, following the reference at each width:
+ * Top bar anatomy at each width:
  * - phone (< md): logo, then paste, search icon and sign in on the right;
  *   create lives in the bottom tab bar.
  * - tablet (md to lg): the rail carries the logo; back, then paste, search
@@ -81,7 +81,7 @@ export default function TopBar() {
   };
 
   return (
-    <header className="sl-top-bar flex min-h-header-height flex-wrap items-center gap-1 bg-canvas px-3 sm:px-4 lg:gap-2">
+    <header className="sl-top-bar sl-hairline flex min-h-header-height flex-wrap items-center gap-1 bg-canvas px-3 sm:px-4 lg:gap-2">
       <Link
         prefetch={false}
         href="/"
