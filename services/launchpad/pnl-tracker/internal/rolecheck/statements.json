@@ -1024,6 +1024,29 @@
     "sha256": "557dae230682f0d8a1d21f25bfc172d9ab578fb65a3e289f04b2e3521e455776"
   },
   {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.observeSourceLease:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.observeSourceLease",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_ingest_leases_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "chain_id",
+      "expires_at",
+      "fence_token",
+      "owner_instance",
+      "stream_id"
+    ],
+    "sha256": "dd41c8a64557f89d2f03102342702cce94a1fe83fd89abd5d52fd99abec89b53"
+  },
+  {
     "id": "internal/production/l16/baseline.go:BaselineAuthority.sourceLease:1",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
     "function": "BaselineAuthority.sourceLease",
@@ -1077,6 +1100,33 @@
       "pg_catalog.count"
     ],
     "columns": [
+      "c.chain_id",
+      "c.fetch_complete",
+      "c.height",
+      "c.raw_count",
+      "c.required_decode_complete",
+      "c.stream_id",
+      "r.chain_id",
+      "r.height"
+    ],
+    "sha256": "5fc003d9303892da88ff859452a47beedf769fe522105179695d84ccd173474e"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.coverage:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.coverage",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_raw_logs_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
       "c.block_hash",
       "c.chain_id",
       "c.fetch_complete",
@@ -1097,12 +1147,17 @@
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
+      "indexer.indexer_block_completeness_v1",
       "indexer.indexer_raw_logs_v1",
       "indexer.indexer_token_transfers_v1"
     ],
     "sequences": [],
     "functions": [],
     "columns": [
+      "c.block_hash",
+      "c.chain_id",
+      "c.height",
+      "c.stream_id",
       "r.chain_id",
       "r.data",
       "r.emitter",
@@ -1120,7 +1175,7 @@
       "t.transaction_hash",
       "t.transaction_index"
     ],
-    "sha256": "e94d362b87cb87d59d25c2259e365073d843d0f3eac9f8daba8da53984e0b4bc"
+    "sha256": "8bb79a1cdae29b6b28ca4adeee600f56f7f06048baa5ee906dcc023c779447bb"
   },
   {
     "id": "internal/production/l16/baseline.go:BaselineAuthority.Capture:1",
@@ -3821,10 +3876,11 @@
     "columns": [
       "expires_at",
       "id",
+      "portfolio_snapshots.revision",
       "revision",
       "wallet"
     ],
-    "sha256": "82219f5cb9c3457be0c8c93fd27e280ea1b4a2fdfe68e7560c559840489c6e9b"
+    "sha256": "656fe17d52de50a1aa2106e779c7b059730cc888bb341d4a7f33d29f2e2cf443"
   },
   {
     "id": "internal/production/l17/share_export.go:Repository.CommitHistoryMetadataTx:1",
@@ -6522,9 +6578,9 @@
     "sha256": "9b1e9b2a2533328e84e88dc6b997e6d8107a31613a4d13a0a31887587c257592"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:1",
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueObservedTx:1",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "Service.liveContinueTx",
+    "function": "Service.liveContinueObservedTx",
     "call": 1,
     "role": "pnl_runtime",
     "kind": "SELECT",
@@ -6538,9 +6594,9 @@
     "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:2",
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueObservedTx:2",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "Service.liveContinueTx",
+    "function": "Service.liveContinueObservedTx",
     "call": 2,
     "role": "pnl_runtime",
     "kind": "SELECT",
@@ -6554,9 +6610,9 @@
     "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:3",
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueObservedTx:3",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "Service.liveContinueTx",
+    "function": "Service.liveContinueObservedTx",
     "call": 3,
     "role": "pnl_runtime",
     "kind": "SELECT",
@@ -6575,9 +6631,9 @@
     "sha256": "0a328dcf80777719ea1ef83272e32efda30353d7617325f6e5785c45ae97b36a"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:4",
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueObservedTx:4",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "Service.liveContinueTx",
+    "function": "Service.liveContinueObservedTx",
     "call": 4,
     "role": "pnl_runtime",
     "kind": "SELECT",
@@ -6593,9 +6649,9 @@
     "sha256": "03fd607402db79fa52afd48b224d05003a5f887bb15059c145e14395972bc001"
   },
   {
-    "id": "internal/production/l16/live_transfers.go:Service.liveContinueTx:5",
+    "id": "internal/production/l16/live_transfers.go:Service.liveContinueObservedTx:5",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
-    "function": "Service.liveContinueTx",
+    "function": "Service.liveContinueObservedTx",
     "call": 5,
     "role": "pnl_runtime",
     "kind": "INSERT",

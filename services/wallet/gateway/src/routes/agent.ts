@@ -20,7 +20,7 @@ import {
   getErc20Metadata,
   getNativeBalance,
   getReceipt,
-  simulate,
+  simulate
 } from '../chainReads.js';
 import {
   AgentApproveBody,
@@ -29,7 +29,7 @@ import {
   AgentSignTxBody,
   AgentSignTypedDataBody,
   AgentSimulateBody,
-  AgentTransferBody,
+  AgentTransferBody
 } from '../schemas/agent.js';
 import {
   ensureAgentWallet,
@@ -38,7 +38,7 @@ import {
   executeAgentTransaction,
   executeAgentTypedData,
   getAgentWallet,
-  type AgentTxInput,
+  type AgentTxInput
 } from './agentExec.js';
 import { provisionAccount, ProvisionError } from '../provision/state.js';
 import { withWalletLock } from '../util/walletLock.js';
@@ -56,7 +56,7 @@ function audit(
   return {
     request_hash: hashRequest(payload),
     ip: req.ip,
-    user_agent: (req.headers['user-agent'] as string | undefined) ?? null,
+    user_agent: (req.headers['user-agent'] as string | undefined) ?? null
   };
 }
 
@@ -117,7 +117,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
           keyId: wire.key_id,
           nonce: Buffer.from(authorization.nonce, 'hex'),
           expiry: BigInt(authorization.expiry),
-          body: Buffer.from(authorization.body, 'utf8'),
+          body: Buffer.from(authorization.body, 'utf8')
         });
         if (!verifyEd25519(req.agent!.principal.public_key, digest, authorization.signature)) {
           return reply.code(403).send({ error: 'agent_attestor_authorization_bad_signature' });
@@ -139,10 +139,11 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       const parsed = z
         .object({
           stage: z.enum(['wallet', 'identity']).optional(),
+          funding: z.literal('self').optional(),
           bind_signature: z
             .string()
             .regex(/^(0x)?[0-9a-fA-F]{128}$/)
-            .optional(),
+            .optional()
         })
         .strict()
         .safeParse(req.body ?? {});
@@ -156,6 +157,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
           did: req.agent!.did,
           custody: req.agent!.custody,
           agentSignature: body.bind_signature,
+          funding: body.funding
         },
         body.stage
       );
@@ -164,9 +166,9 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
           id: provision.walletId,
           address: provision.address,
           chain_id: env.HYPERPAXEER_CHAIN_ID,
-          kind: 'agent',
+          kind: 'agent'
         },
-        provision,
+        provision
       });
     } catch (err) {
       const refusal = custodyRefusal(err);
@@ -196,9 +198,9 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         max_tx_value_wei: eff.maxTxValueWei.toString(),
         max_daily_value_wei: eff.maxDailyValueWei.toString(),
         max_approve_wei: eff.maxApproveWei.toString(),
-        rate_limit_per_min: eff.rateLimitPerMin,
+        rate_limit_per_min: eff.rateLimitPerMin
       },
-      chain: { id: env.HYPERPAXEER_CHAIN_ID, rpc_url: env.HYPERPAXEER_RPC_URL },
+      chain: { id: env.HYPERPAXEER_CHAIN_ID, rpc_url: env.HYPERPAXEER_RPC_URL }
     });
   });
 
@@ -219,13 +221,13 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       tokenList.map(async (token) => {
         const [bal, meta] = await Promise.all([
           getErc20Balance(token as `0x${string}`, wallet.address).catch(() => null),
-          getErc20Metadata(token as `0x${string}`),
+          getErc20Metadata(token as `0x${string}`)
         ]);
         return {
           token,
           symbol: meta.symbol,
           decimals: meta.decimals,
-          balance: bal !== null ? bal.toString() : null,
+          balance: bal !== null ? bal.toString() : null
         };
       })
     );
@@ -233,7 +235,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({
       address: wallet.address,
       native_wei: native !== null ? native.toString() : null,
-      tokens,
+      tokens
     });
   });
 
@@ -254,13 +256,13 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       from: wallet.address,
       to: tx.to,
       data: tx.data,
-      value: tx.value,
+      value: tx.value
     });
     return reply.send({
       ok: result.ok,
       gas: result.gas !== null ? result.gas.toString() : null,
       return_data: result.returnData,
-      error: result.error,
+      error: result.error
     });
   });
 
@@ -286,7 +288,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({
       token: q.token.toLowerCase(),
       spender: q.spender.toLowerCase(),
-      allowance: allowance.toString(),
+      allowance: allowance.toString()
     });
   });
 
@@ -334,14 +336,14 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       kind: 'transaction',
       to: tx.to,
       value: tx.value,
-      data: tx.data,
+      data: tx.data
     };
     const res = await executeAgentTransaction({
       ctx: req.agent!,
       intent,
       tx,
       broadcast: false,
-      audit: audit(req, { tx: parsed.data.tx }),
+      audit: audit(req, { tx: parsed.data.tx })
     });
     return reply.code(res.status).send(res.body);
   });
@@ -359,7 +361,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       kind: 'transaction',
       to: tx.to,
       value: tx.value,
-      data: tx.data,
+      data: tx.data
     };
     const res = await executeAgentTransaction({
       ctx: req.agent!,
@@ -367,7 +369,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       tx,
       broadcast: true,
       audit: audit(req, { tx: parsed.data.tx }),
-      label: 'send',
+      label: 'send'
     });
     return reply.code(res.status).send(res.body);
   });
@@ -382,7 +384,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       const res = await executeAgentMessage({
         ctx: req.agent!,
         message: parsed.data.message,
-        audit: audit(req, { message: parsed.data.message }),
+        audit: audit(req, { message: parsed.data.message })
       });
       return reply.code(res.status).send(res.body);
     }
@@ -398,7 +400,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       const res = await executeAgentTypedData({
         ctx: req.agent!,
         typedData: parsed.data.typedData as Record<string, unknown>,
-        audit: audit(req, { typedData: parsed.data.typedData }),
+        audit: audit(req, { typedData: parsed.data.typedData })
       });
       return reply.code(res.status).send(res.body);
     }
@@ -432,7 +434,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         data,
         tokenContract: token,
         tokenRecipient: to,
-        tokenAmount: amountWei,
+        tokenAmount: amountWei
       };
     }
 
@@ -442,7 +444,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       tx,
       broadcast: true,
       audit: audit(req, { transfer: parsed.data }),
-      label: token ? 'erc20.transfer' : 'native.transfer',
+      label: token ? 'erc20.transfer' : 'native.transfer'
     });
     return reply.code(res.status).send(res.body);
   });
@@ -465,7 +467,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       tokenContract: token,
       tokenRecipient: spender,
       tokenAmount: amountWei,
-      isApprove: true,
+      isApprove: true
     };
     const res = await executeAgentTransaction({
       ctx: req.agent!,
@@ -473,7 +475,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       tx,
       broadcast: true,
       audit: audit(req, { approve: parsed.data }),
-      label: 'erc20.approve',
+      label: 'erc20.approve'
     });
     return reply.code(res.status).send(res.body);
   });

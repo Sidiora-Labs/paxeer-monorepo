@@ -5,7 +5,7 @@ import {
   generateKeyPairSync,
   randomBytes,
   randomUUID,
-  sign,
+  sign
 } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
@@ -22,7 +22,7 @@ import {
   reservePorts,
   startOnReservedPorts,
   stopPortProcess,
-  type PortReservation,
+  type PortReservation
 } from '../support/ports.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -35,8 +35,8 @@ export const KERNEL_POLICY = {
   version: 1,
   defaults: {
     modules: { asset: [5] },
-    caps: { native: { per_operation: '6000000', daily: '8000000' } },
-  },
+    caps: { native: { per_operation: '6000000', daily: '8000000' } }
+  }
 };
 
 export interface Pki {
@@ -119,7 +119,7 @@ export function makePki(nodeIds: string[]): Pki {
     '-days',
     '1',
     '-subj',
-    '/CN=attestor-e2e-ca',
+    '/CN=attestor-e2e-ca'
   ]);
   writeFileSync(
     p('leaf.ext'),
@@ -136,7 +136,7 @@ export function makePki(nodeIds: string[]): Pki {
     '-days',
     '1',
     '-subj',
-    '/CN=attestor-e2e-operator-ca',
+    '/CN=attestor-e2e-operator-ca'
   ]);
   const issue = (name: string, ca = 'ca'): void => {
     openssl([
@@ -147,7 +147,7 @@ export function makePki(nodeIds: string[]): Pki {
       '-out',
       p(`${name}.csr`),
       '-subj',
-      `/CN=${name}`,
+      `/CN=${name}`
     ]);
     openssl([
       'x509',
@@ -164,7 +164,7 @@ export function makePki(nodeIds: string[]): Pki {
       '-days',
       '1',
       '-extfile',
-      p('leaf.ext'),
+      p('leaf.ext')
     ]);
   };
   for (const id of nodeIds) issue(id);
@@ -183,7 +183,7 @@ export function makePki(nodeIds: string[]): Pki {
     clientKey: p('wallet-gateway.key'),
     operatorCaFile: p('operator-ca.crt'),
     operatorCert: p('wallet-operator.crt'),
-    operatorKey: p('wallet-operator.key'),
+    operatorKey: p('wallet-operator.key')
   };
 }
 
@@ -219,7 +219,7 @@ export async function startIdentity(): Promise<Identity> {
     issuer,
     mint: (sub) => sign(sub, privateKey),
     mintForeign: (sub) => sign(sub, foreign.privateKey),
-    close: () => new Promise<void>((r) => server.close(() => r())),
+    close: () => new Promise<void>((r) => server.close(() => r()))
   };
 }
 
@@ -229,7 +229,7 @@ function attestorPortPairs(listeners: PortReservation[]) {
     peer: listeners[i * 2 + 1]!.port,
     async release() {
       await Promise.all([listeners[i * 2]!.release(), listeners[i * 2 + 1]!.release()]);
-    },
+    }
   }));
 }
 
@@ -242,7 +242,7 @@ export function buildAttestor(outDir: string): string {
   execFileSync('go', ['build', '-o', bin, './cmd/attestor'], {
     cwd: attestorModuleDir,
     stdio: 'pipe',
-    env: { ...process.env, CGO_ENABLED: process.env.CGO_ENABLED ?? '0' },
+    env: { ...process.env, CGO_ENABLED: process.env.CGO_ENABLED ?? '0' }
   });
   return bin;
 }
@@ -253,7 +253,7 @@ function mtlsAgent(pki: Pki, cert = pki.clientCert, key = pki.clientKey): Agent 
     key: readFileSync(key),
     ca: readFileSync(pki.caFile),
     rejectUnauthorized: true,
-    minVersion: 'TLSv1.3',
+    minVersion: 'TLSv1.3'
   });
 }
 
@@ -274,7 +274,7 @@ function call(
         timeout: timeoutMs,
         headers: payload
           ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) }
-          : { accept: 'application/json' },
+          : { accept: 'application/json' }
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -284,7 +284,7 @@ function call(
           try {
             resolveCall({
               status: res.statusCode ?? 0,
-              body: text ? (JSON.parse(text) as Record<string, unknown>) : {},
+              body: text ? (JSON.parse(text) as Record<string, unknown>) : {}
             });
           } catch {
             reject(new Error(`${url} answered non-JSON ${res.statusCode}: ${text}`));
@@ -306,6 +306,9 @@ export async function startAttestorNetwork(opts: {
   size?: number;
   readyTimeoutMs?: number;
   assetCaps?: Record<string, AssetCap>;
+  tokenCaps?: readonly { address: `0x${string}`; perTransaction: bigint; daily: bigint }[];
+  selectors?: Readonly<Record<string, readonly string[]>>;
+  trustedSpenders?: readonly `0x${string}`[];
 }): Promise<AttestorNetwork> {
   const size = opts.size ?? 5;
   const ids = Array.from({ length: size }, (_, i) => `node-${i + 1}`);
@@ -318,7 +321,7 @@ export async function startAttestorNetwork(opts: {
   const inventoryPublic = join(work, 'inventory.pub');
   const inventoryFile = join(work, 'inventory.jwt');
   writeFileSync(producerKeyFile, producer.privateKey.export({ format: 'pem', type: 'pkcs8' }), {
-    mode: 0o600,
+    mode: 0o600
   });
   writeFileSync(producerPublic, producer.publicKey.export({ format: 'pem', type: 'spki' }));
   writeFileSync(inventoryPublic, inventorySigner.publicKey.export({ format: 'pem', type: 'spki' }));
@@ -340,13 +343,13 @@ export async function startAttestorNetwork(opts: {
         protocol: 'wallet',
         threshold: 3,
         members: ids.map((id) => ({ id, spki_sha256: pki.node(id).pin })),
-        keys,
+        keys
       })
     ).toString('base64url');
     const input = `${header}.${payload}`;
     const signature = sign('sha256', Buffer.from(input), {
       key: inventorySigner.privateKey,
-      dsaEncoding: 'ieee-p1363',
+      dsaEncoding: 'ieee-p1363'
     });
     writeFileSync(inventoryFile, `${input}.${signature.toString('base64url')}`, { mode: 0o600 });
   };
@@ -363,23 +366,30 @@ export async function startAttestorNetwork(opts: {
         'personal_message',
         'lx_bind',
         'sponsored_batch',
-        'eip7702_authorization',
+        'eip7702_authorization'
       ],
       authorization_delegates: [PAYMASTER],
       caps: {
         ...opts.assetCaps,
+        ...Object.fromEntries(
+          (opts.tokenCaps ?? []).map((cap) => [
+            cap.address.toLowerCase(),
+            { per_transaction: cap.perTransaction.toString(), daily: cap.daily.toString() }
+          ])
+        ),
         native: {
           per_transaction: NATIVE_PER_TX_CAP_WEI.toString(),
-          daily: (NATIVE_PER_TX_CAP_WEI * 10n).toString(),
+          daily: (NATIVE_PER_TX_CAP_WEI * 10n).toString()
         },
         '0x21f7b20a555199fa73A238B1a91FD0f549068fEe': {
           per_transaction: '1000000',
-          daily: '1000000',
-        },
+          daily: '1000000'
+        }
       },
-      selectors: { [ADDR]: [BIND_SELECTOR] },
-      rate_per_minute: 600,
-    },
+      selectors: { ...opts.selectors, [ADDR]: [BIND_SELECTOR] },
+      trusted_spenders: opts.trustedSpenders ?? [],
+      rate_per_minute: 600
+    }
   };
   writeFileSync(policyFile, JSON.stringify(policyDocument));
   const kernelPolicyFile = join(work, 'kernel-policy.json');
@@ -389,7 +399,7 @@ export async function startAttestorNetwork(opts: {
   const launchNode = (node: AttestorProcess): void => {
     const child = spawn(bin, [], {
       env: nodeEnvironments.get(node.nodeId)!,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     node.child = child;
     child.stdout?.on('data', (chunk: Buffer) => node.log.push(chunk.toString('utf8')));
@@ -446,7 +456,7 @@ export async function startAttestorNetwork(opts: {
               ATTESTOR_INVENTORY_FILE: inventoryFile,
               ATTESTOR_KERNEL_POLICY_FILE: kernelPolicyFile,
               ATTESTOR_RPC_URL: opts.rpcUrl,
-              ATTESTOR_ACTIVITY_TYPES: '0x10005',
+              ATTESTOR_ACTIVITY_TYPES: '0x10005'
             };
             await ports[i]!.release();
             nodeEnvironments.set(id, env);
@@ -497,7 +507,7 @@ export async function startAttestorNetwork(opts: {
       tenant: 'e2e',
       inventoryFile,
       inventoryPublicKeyFile: inventoryPublic,
-      approveInventory,
+      approveInventory
     },
     health,
     async publicKey(keyId) {
@@ -559,7 +569,7 @@ export async function startAttestorNetwork(opts: {
         keyId,
         address: first.address as `0x${string}`,
         publicKey: first.public_key as string,
-        auditSequences: answers.map((a) => a.body.audit_sequence as number),
+        auditSequences: answers.map((a) => a.body.audit_sequence as number)
       };
     },
     stopNode,
@@ -597,6 +607,6 @@ export async function startAttestorNetwork(opts: {
       operator.destroy();
       rmSync(work, { recursive: true, force: true });
       rmSync(pki.dir, { recursive: true, force: true });
-    },
+    }
   };
 }
