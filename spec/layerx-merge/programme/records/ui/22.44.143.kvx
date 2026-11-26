@@ -1,0 +1,21 @@
+[create]
+sections = ["1", "2", "4", "5", "7"]
+fields = "Image, coin name, ticker and description precede social links, pair, creator rewards and trading rules."
+options = "Each option row names its current choice, opens in place and reveals validation messages."
+action = "The cost summary and creation action stay above the phone navigation."
+preview = "The coin card shows the image, name, ticker, creator, description and market value state; descriptions wrap in full as text size increases."
+
+[create_chain]
+sections = ["1", "2", "4", "5", "7"]
+fields = "Chain and token names keep the three-step launch flow and existing launch values."
+options = "Social links, pair, creator rewards and trading rules use closed option rows."
+metadata = "The coin page accepts image, description and social links after a chain launch."
+action = "Chain cost and the current step action stay above the phone navigation."
+preview = "The shared coin card accompanies the launch summary."
+
+[coverage]
+part = "create"
+views = ["create", "create-chain"]
+states = ["draft-filled", "social-links", "fee-strategies", "pair-open", "names-filled", "name-validation", "connect-wallet"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]

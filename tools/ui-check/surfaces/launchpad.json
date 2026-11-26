@@ -783,11 +783,28 @@
           "steps": [
             {
               "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#create-rewards"
+            },
+            {
+              "action": "click",
               "selector": "html:has([data-shell-ready]) button:has-text(\"More options\")"
             },
             {
               "action": "wait",
               "text": "Fewer options"
+            }
+          ]
+        },
+        {
+          "name": "pair-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#create-pair"
+            },
+            {
+              "action": "wait",
+              "text": "Paired with USDL"
             }
           ]
         }
@@ -857,6 +874,10 @@
           "steps": [
             {
               "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#chain-rewards"
+            },
+            {
+              "action": "click",
               "selector": "html:has([data-shell-ready]) button:has-text(\"More options\")"
             },
             {
@@ -875,6 +896,19 @@
             {
               "action": "wait",
               "text": "Connect a wallet to sign in"
+            }
+          ]
+        },
+        {
+          "name": "pair-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#chain-pair"
+            },
+            {
+              "action": "wait",
+              "text": "Paired with USDL"
             }
           ]
         }
