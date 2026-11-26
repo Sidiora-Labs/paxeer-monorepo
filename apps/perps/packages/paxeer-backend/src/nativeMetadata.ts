@@ -1,8 +1,6 @@
-import {
-  PERPS_MARKETS,
-  COLLATERAL_TOKENS,
-  getMarketCategory,
-} from "./core/perps/config";
+import { formatUnits } from "viem";
+import Decimal from "decimal.js";
+import { COLLATERAL_TOKENS, getMarketCategory } from "./core/perps/config";
 import { paxeerChain } from "./core/chain";
 import { PERPS_SPENDER } from "./core/network/approvals";
 import { getNativeSnapshot } from "./runtime";
@@ -14,33 +12,39 @@ export const toNativeSymbol = (symbol: string) =>
 export const toTradingSymbol = (symbol: string) =>
   `PERP_${toNativeSymbol(symbol)}_USDC`;
 export function nativeSymbols() {
-  // Paxeer positions are sized in USD collateral. These ticks define the
-  // native UI's base-quantity and quote-input precision, not a remote order lot.
-  return PERPS_MARKETS.map((market) => ({
-    marketId: market.marketId,
-    symbol: toTradingSymbol(market.symbol),
-    display_symbol_name: market.symbol,
-    base_tick: 0.00000001,
-    base_min: 0.00000001,
-    base_max: Number.MAX_SAFE_INTEGER,
-    quote_tick: 0.000001,
-    quote_min: 0.000001,
-    quote_max: Number.MAX_SAFE_INTEGER,
-    min_notional: 0.000001,
-    base_imr: 1 / (market.maxLeverage ?? 20),
-    base_mmr: undefined,
-    imr_factor: 0,
-    interest_rate: undefined,
-    cap_funding: undefined,
-    floor_funding: undefined,
-    liquidation_fee: undefined,
-    max_leverage: market.maxLeverage ?? 20,
-    funding_period: 8,
-    category: getMarketCategory(market.marketId),
-    is_rwa: ["stocks", "indices", "commodities"].includes(
-      getMarketCategory(market.marketId),
-    ),
-  }));
+  // Native prices use the market tick expressed in 18-decimal USD units.
+  return getNativeSnapshot().marketCatalog.flatMap((market) => {
+    if (market.tickSize === null || BigInt(market.tickSize) <= 0n) return [];
+    const tick = new Decimal(formatUnits(BigInt(market.tickSize), 18));
+    return [
+      {
+        marketId: market.marketId,
+        symbol: toTradingSymbol(market.symbol),
+        display_symbol_name: market.symbol,
+        base_tick: 0.00000001,
+        base_min: 0.00000001,
+        base_max: Number.MAX_SAFE_INTEGER,
+        quote_tick: tick.toNumber(),
+        quote_dp: tick.decimalPlaces(),
+        quote_min: tick.toNumber(),
+        quote_max: Number.MAX_SAFE_INTEGER,
+        min_notional: 0.000001,
+        base_imr: 1 / (market.maxLeverage ?? 20),
+        base_mmr: undefined,
+        imr_factor: 0,
+        interest_rate: undefined,
+        cap_funding: undefined,
+        floor_funding: undefined,
+        liquidation_fee: undefined,
+        max_leverage: market.maxLeverage ?? 20,
+        funding_period: 8,
+        category: getMarketCategory(market.marketId),
+        is_rwa: ["stocks", "indices", "commodities"].includes(
+          getMarketCategory(market.marketId),
+        ),
+      },
+    ];
+  });
 }
 export function nativeMarketRows() {
   const snapshots = new Map(

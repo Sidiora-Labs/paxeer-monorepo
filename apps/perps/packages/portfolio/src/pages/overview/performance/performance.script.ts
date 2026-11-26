@@ -1,7 +1,6 @@
-import { useMemo } from "react";
 import { useAccount, useLocalStorage } from "@paxeer-network/hooks";
 import { useAppContext, useDataTap } from "@paxeer-network/react-app";
-import { AccountStatusEnum } from "@paxeer-network/types";
+import { EMPTY_LIST, AccountStatusEnum } from "@paxeer-network/types";
 import { PAXEER_NETWORK_ASSETS_VISIBLE_KEY } from "../../assets/type";
 import { useOverviewContext } from "../provider/overviewContext";
 
@@ -19,21 +18,8 @@ export const usePerformanceScript = () => {
       state.status === AccountStatusEnum.EnableTradingWithoutConnected
         ? AccountStatusEnum.EnableTradingWithoutConnected
         : AccountStatusEnum.EnableTrading,
-    fallbackData: ctx?.createFakeData?.(
-      { account_value: 0, pnl: 0 },
-      { account_value: 500, pnl: 500 },
-    ),
+    fallbackData: EMPTY_LIST,
   });
-
-  const _data = useMemo(() => {
-    if (filteredData?.length) {
-      return filteredData;
-    }
-    return ctx?.createFakeData?.(
-      { account_value: 0, pnl: 0 },
-      { account_value: 500, pnl: 500 },
-    );
-  }, [ctx, filteredData]);
 
   const invisible =
     wrongNetwork ||
@@ -43,7 +29,7 @@ export const usePerformanceScript = () => {
 
   return {
     ...ctx,
-    data: _data as ReadonlyArray<any>,
+    data: filteredData ?? EMPTY_LIST,
     invisible,
     visible: visible as boolean,
     setVisible: setVisible,

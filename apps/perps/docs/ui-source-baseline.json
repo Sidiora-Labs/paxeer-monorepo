@@ -339,8 +339,8 @@
     },
     {
       "path": "packages/ui-scaffold/src/components/chainMenu/chainMenu.ui.tsx",
-      "sourceSha256": "83952a9ceaa34c7075c5c0e6261c92a54fa23b3f0b57c364be1629053319deab",
-      "runtimeSha256": "0990439c162c3636104fcd6203698dac037f4bffa5a227ce964ed6351fd8e48b"
+      "sourceSha256": "73915557d61ecbd390ce026db5ec4ede0c4a5bf8e4c50c8a969711ac372e0266",
+      "runtimeSha256": "887642417a36726390704249cba2928b3eb2a4a1dd0b47cc696009dcf5ad7463"
     },
     {
       "path": "packages/ui-scaffold/src/components/scanQRCode/scanQRCode.ui.tsx",
@@ -499,8 +499,8 @@
     },
     {
       "path": "packages/markets/src/components/symbolInfoBarFull/symbolInfoBarFull.ui.tsx",
-      "sourceSha256": "590a19dacbaaa6ea49aa24281b3aadf3bc72005f6999a3374ba5217e653afd17",
-      "runtimeSha256": "295d6ecbb716f4924cbfe85bc5c639ffcd276f9befe77942e523d3d9191ab706"
+      "sourceSha256": "7e0bd73664471dbca2639030c0677266c3ce171f02a22c09572a548dacf87a89",
+      "runtimeSha256": "45158ab1a9d36e1e7c845102749f93a1ebc617128c17b28a44b2bad5d438c358"
     },
     {
       "path": "packages/markets/src/components/symbolInfoBarFull/dataItem.ui.tsx",
@@ -564,18 +564,18 @@
     },
     {
       "path": "packages/markets/src/components/horizontalMarkets/marketItem.ui.tsx",
-      "sourceSha256": "42ae0c904f382a005ba8c4c16d3ef122ea465bc426f5c347334f105b4f9c4e8b",
-      "runtimeSha256": "bd256c43ebc85bdae1f33bab7ef183b5502b49028b48716764ff0e87a4d46f16"
+      "sourceSha256": "397a5990f6ed844d5c7bd85dd4d8b95e043a29cad08ec2d16901c8cfc8c732d4",
+      "runtimeSha256": "55f21766dd5572ef6a13d2c07026add99b761fc53cb7a7fb7b94a9208880d033"
     },
     {
       "path": "packages/markets/src/pages/home/marketsHeader/marketsHeader.mobile.ui.tsx",
-      "sourceSha256": "bd72aeef1039555090e1ce70bf0ac2c05ad113036ecc5c80a3d6d86971901bb6",
-      "runtimeSha256": "1070cfb30d3c79fcca6195a8bc96e6fe6c7615c3917c6a463fd90623e211f6a2"
+      "sourceSha256": "fcaaf5aae49be74b92a6153315ced2eaca3a57b32711d5199f613ce6b9e089e1",
+      "runtimeSha256": "6d6e34bc08e33c33f0aaf378d8dce1c6eb198e861d4eae639e5910e49828e8d4"
     },
     {
       "path": "packages/markets/src/pages/home/marketsHeader/marketsHeader.ui.tsx",
-      "sourceSha256": "358df2964af766769bf4e61425cbeab0fcd8214af6a2f380bec3cf0936f72099",
-      "runtimeSha256": "6d698c3f6bf40b67267213856deed931b5e7cfee2dab2a7765512a64956fec52"
+      "sourceSha256": "6825ded2479b1a9f6a51b18535d45c9af3f209111955c710d28a9debf893cd37",
+      "runtimeSha256": "11f7a10ffc76b15bb39812082dc101f8e2de286402f23858c1301676e5cf17c8"
     },
     {
       "path": "packages/markets/src/pages/home/marketsDataList/marketsDataList.mobile.ui.tsx",
@@ -1254,8 +1254,8 @@
     },
     {
       "path": "packages/ui/src/icon/chainIcon.tsx",
-      "sourceSha256": "46087bebff80b6ae84eff400962038ef8c1247e90a964e5dedfd49c8ca33b6e4",
-      "runtimeSha256": "e694575a4be288440e5893535bfdb908e5d0e2aa824c3ce65d0b5d372167182e"
+      "sourceSha256": "ddcf8c3059c80a2e794ee8e98db25f38a6d4597f39a86ce2afd333cb532ca5ff",
+      "runtimeSha256": "dbc7db3e6fb0f2292b48c2cacaa924e339f99f0bc2fbca795c00ae026442ae7a"
     },
     {
       "path": "packages/ui/src/icon/checkSquareFill.tsx",
@@ -1719,8 +1719,8 @@
     },
     {
       "path": "packages/portfolio/src/pages/overview/assetChart/assetsChart.ui.tsx",
-      "sourceSha256": "762ebd6c79fd1c15043446f0af9eb5ab2500b5fb16dc7959667818010c161942",
-      "runtimeSha256": "eec937615d127f6d4f7aaa4fa56b95c7b66d285b648ada53763070c1d27261ce"
+      "sourceSha256": "b67708351b530e2e429111b16584d93c169202dfcf16b55a3a768f2f45f3ba49",
+      "runtimeSha256": "96cb538a40004100f43e7af4bffd05f95acbd2e022045e780572f30b4255bb8e"
     },
     {
       "path": "packages/portfolio/src/pages/overview/assetHistory/assetHistory.ui.tsx",
@@ -1729,8 +1729,8 @@
     },
     {
       "path": "packages/portfolio/src/pages/overview/performanceMobileDialog/performance.ui.tsx",
-      "sourceSha256": "148cef464004863d21faf88189d7dc04fbf238f6e52a585ab998552c1fd63dbe",
-      "runtimeSha256": "957a8846edf3ef4e0ffe49413f61fcf9bab9dcf751fb71c5a1e95c255a5390bc"
+      "sourceSha256": "1adf8875a3cd464939e08f43c910c91196e511504f4dec1c222fdef86c767d7b",
+      "runtimeSha256": "a38e9a24808bd48c7b52a8f5154ae1c3ea842c26c2bd2ad7ecca432b0ffdc6ca"
     },
     {
       "path": "packages/portfolio/src/pages/overview/assets/assets.ui.tsx",
@@ -1749,8 +1749,8 @@
     },
     {
       "path": "packages/portfolio/src/pages/overview/portfolioChartsMobile/portfolioChartsMobile.ui.tsx",
-      "sourceSha256": "e8113fe20411b4820ea131f0d30fa866a246e1d1979647a5975d36d44a078cb7",
-      "runtimeSha256": "1e99bca51d3985ef58ee0f9992d3b1e86e64180c2e4d49f02c9980131bdce10a"
+      "sourceSha256": "96108ea8d7a99816be3cf7de658cb6376c6abb23092b7a0d079ecc32f8169dc0",
+      "runtimeSha256": "a444303cfe75969c1d093992d717fe2f5ed44aea9284d022a515bfaf90f2542a"
     },
     {
       "path": "packages/portfolio/src/pages/overview/TransferHistory/transfer.ui.tsx",
@@ -1764,8 +1764,8 @@
     },
     {
       "path": "packages/portfolio/src/pages/overview/performance/performance.ui.tsx",
-      "sourceSha256": "e28181970756797be24b4fef32a289651dfc9562858c1cad2571caea1844a72e",
-      "runtimeSha256": "758c74dd438d4466e81756a6a094fd7b9a7c200e3a4958cabab45727b85a8d1c"
+      "sourceSha256": "b8d434cedf3936e1c10600fe8fcc420d626d4ce4fd62ed8453aa8abecfa99f44",
+      "runtimeSha256": "5577acf694f70813c5d0b6395c8d181be20ba4b9d4f0a584ed07ce463feaf629"
     },
     {
       "path": "packages/portfolio/src/pages/overview/funding/fundingHistory.ui.tsx",
@@ -2514,8 +2514,8 @@
     },
     {
       "path": "packages/portfolio/src/pages/agents/agents.ui.tsx",
-      "sourceSha256": "51f0fb8b159106b2706bb0ec384cf9cb2ae0dfa04e05073fb07559a08fcd97c2",
-      "runtimeSha256": "313cd5032bbefa13ed912db183817ee6b2c28a63e7cffd913a7ea81dc8a50abe"
+      "sourceSha256": "513d47e62af0ce4fd7b406ddd6ab60d913fefd87fa462b09a294ce3add322dca",
+      "runtimeSha256": "9397ed38ec83726fd3452253c935145615228dea8c540eef860294dd0c8dca42"
     },
     {
       "path": "packages/portfolio/src/pages/agents/agents.connect.ui.tsx",

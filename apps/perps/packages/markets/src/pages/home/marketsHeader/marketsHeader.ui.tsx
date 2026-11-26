@@ -1,6 +1,6 @@
 import { FC, ReactNode, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Box, cn, Flex, Text } from "@paxeer-network/ui";
+import { Box, cn, EmptyDataState, Flex, Text } from "@paxeer-network/ui";
 import { Decimal } from "@paxeer-network/utils";
 import { useMarketsContext } from "../../../components/marketsProvider";
 import { SymbolDisplay } from "../../../components/symbolDisplay";
@@ -187,9 +187,13 @@ const CardItem: React.FC<CardItemProps> = (props) => {
       </Box>
 
       <Flex direction="column" itemAlign="start" mt={2}>
-        {props.data?.map((item, index) => (
-          <ListItem key={item.symbol} item={item} onSymbol={props.onSymbol} />
-        ))}
+        {props.data?.length ? (
+          props.data.map((item, index) => (
+            <ListItem key={item.symbol} item={item} onSymbol={props.onSymbol} />
+          ))
+        ) : (
+          <EmptyDataState className="oui-w-full oui-py-4" />
+        )}
       </Flex>
     </Box>
   );
@@ -236,6 +240,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
           size="xs"
           weight="semibold"
           dp={item.quote_dp}
+          tick={item.quote_tick}
           className="oui-tabular-nums oui-text-end"
         >
           {item["24h_close"]}
