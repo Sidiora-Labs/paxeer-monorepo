@@ -19,6 +19,13 @@ import { formatCount, formatPrice, formatUsdl, shortAddress } from '@/utils/form
 
 type Headline = 'mcap' | 'price';
 
+export function tokenHeaderPrice(stats: PoolStats | null, livePrice: number | null): StatValue<string> {
+  const spot = statsSpotPrice(stats);
+  if (spot.value !== null) return { value: formatSpotPrice(spot.value), reason: spot.reason };
+  if (livePrice !== null && Number.isFinite(livePrice)) return { value: formatPrice(livePrice), reason: null };
+  return { value: null, reason: spot.reason };
+}
+
 function socialIcon(label: string, url: string) {
   const key = `${label} ${url}`.toLowerCase();
   if (/x\.com|twitter/.test(key)) return AtSign;
@@ -150,16 +157,14 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
   const mcapStat = statsMarketCap(stats);
   const circulating = statsCirculatingMarketCap(stats).value;
   const mcap = mcapStat.value === null ? null : formatUsdl(mcapStat.value, { compact: true });
-  // The live quote first; else PoolStats.spotPriceWad (null before the first trade).
-  const spot = statsSpotPrice(stats);
-  const price = livePrice !== null && Number.isFinite(livePrice) ? formatPrice(livePrice) : spot.value === null ? null : formatSpotPrice(spot.value);
+  const price = tokenHeaderPrice(stats, livePrice);
   const change24h = stats ? statsChange(stats, '24h') : null;
   const volume24h = stats ? formatUsdl(stats.volume24hRaw, { compact: true, unit: false }) : null;
   const holders = stats?.holderCount !== null && stats?.holderCount !== undefined ? formatCount(stats.holderCount) : null;
   const devShare = stats ? statsShare(stats, 'creator') : null;
   const socials = (data.metadata?.socialLinks ?? []).map(link => ({ ...link, href: socialHref(link.url) })).filter(link => link.href !== null);
-  const headlineValue = headline === 'mcap' ? mcap : price;
-  const headlineReason = headline === 'mcap' ? mcapStat.reason : livePrice !== null ? null : spot.reason;
+  const headlineValue = headline === 'mcap' ? mcap : price.value;
+  const headlineReason = headline === 'mcap' ? mcapStat.reason : price.reason;
 
   return (
     <header data-coin-header="ready" aria-label={`${symbol} header`} className={headerClass}>

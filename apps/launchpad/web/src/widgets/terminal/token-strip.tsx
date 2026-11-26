@@ -41,11 +41,9 @@ export interface StripStatInput {
 
 /** Maps the served pool reads onto the six strip tiles; anything the backend does not serve stays null with the reason. */
 export function tokenStripStats({ stats, token, livePrice }: StripStatInput): StripStat[] {
-  // PoolStats.spotPriceWad (exact, 1e18-scaled) is the last known price until the live feed quotes; null means no trade yet.
-  const spot = stats ? statsSpotPrice(stats).value : null;
-  const spotPrice = spot !== null && Number(spot) > 0 ? spot : null;
-  const price = livePrice !== null && Number.isFinite(livePrice) ? formatPrice(livePrice) : spotPrice !== null ? formatSpotPrice(spotPrice) : null;
-  const priceReason = livePrice !== null ? null : spotPrice !== null ? 'Last known price, live updates are catching up' : 'No price yet. A price shows up after the first trade.';
+  const spot = statsSpotPrice(stats);
+  const price = spot.value !== null ? formatSpotPrice(spot.value) : livePrice !== null && Number.isFinite(livePrice) ? formatPrice(livePrice) : null;
+  const priceReason = price !== null ? null : 'No price yet. A price shows up after the first trade.';
 
   const liquidity = stats ? formatUsdl(stats.realUsdlBalanceRaw, { compact: true, unit: false }) : null;
   const liquidityReason = stats ? null : 'Liquidity is not available for this coin yet';
