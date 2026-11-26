@@ -2122,8 +2122,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.LaunchedChains",
     "line": 111,
-    "expression": "`SELECT `+chainColumns+` FROM indexer.launched_chains_v1 ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2`",
-    "sql": "SELECT chain::text,chain_id::text,pool,token,fee_right,creator,block_number::text,status FROM indexer.launched_chains_v1 ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2",
+    "expression": "`SELECT `+chainColumns+` FROM indexer.launched_chains_v1 ORDER BY launched_chains_v1.block_number DESC,launched_chains_v1.chain DESC LIMIT $1 OFFSET $2`",
+    "sql": "SELECT chain::text,chain_id::text,pool,token,fee_right,creator,block_number::text,status FROM indexer.launched_chains_v1 ORDER BY launched_chains_v1.block_number DESC,launched_chains_v1.chain DESC LIMIT $1 OFFSET $2",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2215,8 +2215,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.ChainRevenue",
     "line": 172,
-    "expression": "`SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3`",
-    "sql": "SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3",
+    "expression": "`SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY chain_revenue_epochs_v1.epoch DESC LIMIT $2 OFFSET $3`",
+    "sql": "SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY chain_revenue_epochs_v1.epoch DESC LIMIT $2 OFFSET $3",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2244,8 +2244,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.ChainRevenue",
     "line": 209,
-    "expression": "`SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC`",
-    "sql": "SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC",
+    "expression": "`SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY chain_revenue_claims_v1.epoch DESC`",
+    "sql": "SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY chain_revenue_claims_v1.epoch DESC",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
