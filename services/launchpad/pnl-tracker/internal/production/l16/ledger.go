@@ -680,14 +680,29 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 			if e != nil {
 				return update, wireWatermark, "", e
 			}
-			if replay.Height >= height && replay.State != row.Inventory || replay.Height < height && (replay.State.Unknown != row.Inventory.Unknown || replay.State.IncompleteRealized && !row.Inventory.IncompleteRealized) {
-				return update, wireWatermark, "", delivery.ErrGap
+			if replay.Height >= height && replay.State != row.Inventory {
+				behind, err := portfolioReplayBehindTx(ctx, tx, leg.Wallet, row.LogicalPartition, &row.Fill.Position, replay.Height)
+				if err != nil {
+					return update, wireWatermark, "", err
+				}
+				if !behind {
+					return update, wireWatermark, "", fmt.Errorf("portfolio replay state mismatch: %w", delivery.ErrGap)
+				}
+			}
+			if replay.Height < height && (replay.State.Unknown != row.Inventory.Unknown || replay.State.IncompleteRealized && !row.Inventory.IncompleteRealized) {
+				return update, wireWatermark, "", fmt.Errorf("portfolio replay state mismatch: %w", delivery.ErrGap)
 			}
 			delete(active, row.LogicalPartition)
 		}
 	}
-	if len(active) > 0 {
-		return update, wireWatermark, "", delivery.ErrGap
+	for partition, replay := range active {
+		behind, err := portfolioReplayBehindTx(ctx, tx, leg.Wallet, partition, nil, replay.Height)
+		if err != nil {
+			return update, wireWatermark, "", err
+		}
+		if !behind {
+			return update, wireWatermark, "", fmt.Errorf("portfolio replay without ledger row: %w", delivery.ErrGap)
+		}
 	}
 	revision := new(big.Int)
 	newest := rows[0]
@@ -804,6 +819,29 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 		return update, wireWatermark, "", err
 	}
 	return update, wireWatermark, watermark.ObservedAt, nil
+}
+
+func portfolioReplayBehindTx(ctx context.Context, tx pgx.Tx, wallet, partition string, last *accounting.SourcePosition, replayHeight int64) (bool, error) {
+	parts := strings.Split(partition, ":")
+	if len(parts) != 3 || parts[0] != "125" || parts[1] != wallet || !address.MatchString(parts[2]) {
+		return false, delivery.ErrIntegrity
+	}
+	height, transaction, log := int64(-1), int64(-1), int64(-1)
+	if last != nil {
+		var err error
+		if height, err = strconv.ParseInt(last.Height, 10, 64); err != nil {
+			return false, err
+		}
+		if transaction, err = strconv.ParseInt(last.TransactionIndex, 10, 64); err != nil {
+			return false, err
+		}
+		if log, err = strconv.ParseInt(last.LogIndex, 10, 64); err != nil {
+			return false, err
+		}
+	}
+	var behind bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM indexer.indexer_accounting_fills_v1 WHERE chain_id=125 AND payload->'token'->>'address'=$1 AND (payload->'attribution'->>'transactionSender'=$2 OR payload->'attribution'->>'payer'=$2 OR payload->'attribution'->>'recipient'=$2 OR payload->'attribution'->>'trader'=$2) AND (payload->'position'->>'height')::bigint <= $3 AND ((payload->'position'->>'height')::bigint,(payload->'position'->>'transactionIndex')::bigint,(payload->'position'->>'logIndex')::bigint)>($4,$5,$6))`, parts[2], wallet, replayHeight, height, transaction, log).Scan(&behind)
+	return behind, err
 }
 
 func (c *AccountingConsumer) commitPortfolioHistoryTx(ctx context.Context, tx pgx.Tx, wallet, snapshot, sourceEvent string) error {

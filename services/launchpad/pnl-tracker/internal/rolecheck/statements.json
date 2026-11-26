@@ -1905,6 +1905,24 @@
     "sha256": "0b093e49d5809edabe6c05de5e3294f7e023a27a820027adffc3ed167471ccac"
   },
   {
+    "id": "internal/production/l16/ledger.go:portfolioReplayBehindTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "portfolioReplayBehindTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "chain_id",
+      "payload"
+    ],
+    "sha256": "505955316e76d8a17954abc8525a5e49c68d56550efc388a6343af52617d09bd"
+  },
+  {
     "id": "internal/production/l16/ledger.go:AccountingConsumer.commitFullPortfolioTx:1",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
     "function": "AccountingConsumer.commitFullPortfolioTx",
