@@ -73,9 +73,9 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
   }
 
   return (
-    <section aria-labelledby={headingId} className={cn('flex min-h-0 flex-col bg-surface-1', className)}>
+    <section aria-labelledby={headingId} className={cn('sl-hairline flex min-h-0 flex-col bg-surface-1', className)}>
       <header className="flex min-h-control-height-sm shrink-0 flex-wrap items-center gap-1 px-2 min-[835px]:flex-nowrap">
-        <h2 id={headingId} className="mr-auto truncate text-sm font-bold text-text">{title}</h2>
+        <h2 id={headingId} className="mr-auto truncate text-sm font-semibold text-text">{title}</h2>
         <SegmentedControl
           label={`${title} change window`}
           className="shrink-0"

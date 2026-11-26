@@ -21,14 +21,14 @@ export function pageCount(total: number, size = recentPageSize): number {
 function RecentPairRow({ row, active, loadingPrice }: { row: RecentRow; active: boolean; loadingPrice: boolean }) {
   row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   return (
-    <li data-pool={row.poolAddress} className={cn('relative grid min-h-9 grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-control-height-sm)] [@media(max-width:834px)]:grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-touch-target-min)] items-center gap-1 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}>
+    <li data-pool={row.poolAddress} className={cn('sl-hairline relative grid min-h-9 grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-control-height-sm)] [@media(max-width:834px)]:grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-touch-target-min)] items-center gap-1 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}>
       <div className="flex min-w-0 items-center gap-1.5">
-        <Avatar src={row.image} name={row.name} size="xs" decorative />
+        <Avatar src={row.image} name={row.name} size="xs" shape="square" decorative />
         <Link prefetch={false}
           href={row.href}
           aria-current={active ? 'page' : undefined}
           title={row.symbol}
-          className="min-w-0 flex-1 truncate text-xs font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
+          className="min-w-0 flex-1 truncate text-xs font-semibold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
         >
           {row.symbol}
           <span className="sr-only">{`, ${row.name}`}</span>
@@ -75,9 +75,9 @@ export function RecentPanel({ activePool, className }: RecentPanelProps) {
   const shown = rows.slice(current * recentPageSize, current * recentPageSize + recentPageSize);
 
   return (
-    <section aria-labelledby={headingId} className={cn('flex flex-col bg-surface-1', className)}>
+    <section aria-labelledby={headingId} className={cn('sl-hairline flex flex-col bg-surface-1', className)}>
       <header className="flex min-h-control-height-sm shrink-0 flex-wrap items-center gap-1 px-2">
-        <h2 id={headingId} className="mr-auto truncate text-sm font-bold text-text">Recently viewed</h2>
+        <h2 id={headingId} className="mr-auto truncate text-sm font-semibold text-text">Recently viewed</h2>
         {pages > 1
           ? (
             <div className="flex items-center gap-0.5">

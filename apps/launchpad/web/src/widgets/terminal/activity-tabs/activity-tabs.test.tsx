@@ -176,10 +176,11 @@ describe('fill filters', () => {
     expect([...arrivedKeys(previous, fills)]).toEqual([`125:${fills[0].position.transactionHash}:0`]);
   });
 
-  it('FillsTable renders the Dev filter rows with side, scaled amount, USDL total and explorer link, without strokes', async () => {
+  it('FillsTable renders the Dev filter rows with side, scaled amount, USDL total and explorer link and row hairlines', async () => {
     const view = mount(<FillsTable rows={fills} token={{ decimals: 6, decimalsQuality: 'verified' }} filter="dev" wallets={wallets} contiguous />);
     const rows = view.container.querySelectorAll('tbody tr');
     expect(rows).toHaveLength(2);
+    expect([...rows].every(row => row.classList.contains('sl-hairline'))).toBe(true);
     expect(rows[0].textContent).toContain('103');
     expect(rows[0].textContent).toContain('buy');
     expect(rows[0].textContent).toContain('2.5K');
@@ -194,6 +195,8 @@ describe('fill filters', () => {
     const view = mount(<FillsTable rows={[]} token={{ decimals: 6, decimalsQuality: 'verified' }} filter="all" wallets={wallets} contiguous={false} />);
     expect(view.container.textContent).toContain('No trades yet');
     expect(view.container.textContent).toContain('Trades appear here as soon as someone buys or sells this coin.');
+    expect([...view.container.querySelectorAll('thead th')].map(head => head.textContent)).toEqual(expect.arrayContaining(['Type', 'Amount', 'USDL', 'Account', 'Transaction']));
+    expect(view.container.querySelector('tbody td[colspan="6"] h3')?.textContent).toBe('No trades yet');
     expect(view.container.querySelector('[role="alert"]')).toBeNull();
     unmount(view);
   });
@@ -201,6 +204,7 @@ describe('fill filters', () => {
   it('FillsTable says when no retained fill matches', () => {
     const view = mount(<FillsTable rows={fills} token={{ decimals: 6, decimalsQuality: 'verified' }} filter="mine" wallets={{ mine: stranger.replace('b2', 'c9'), dev }} contiguous />);
     expect(view.container.textContent).toContain('No trades match this filter');
+    expect(view.container.querySelector('tbody td[colspan="6"] [role="status"]')).not.toBeNull();
     unmount(view);
   });
 });

@@ -295,6 +295,14 @@ function FirstMarketView({ session }: { session: MarketSession }) {
   );
 }
 
+function expectChartRecoveryReserved(container: HTMLElement) {
+  const retry = [...container.querySelectorAll('button')].filter(button => button.textContent === 'Try again');
+  expect(retry).toHaveLength(1);
+  expect(retry[0].classList.contains('invisible')).toBe(true);
+  expect(retry[0].hasAttribute('inert')).toBe(true);
+  expect(retry[0].getAttribute('aria-hidden')).toBe('true');
+}
+
 async function marketFirstStateRendersStatsSpotPriceAndNeutralEmptyViews() {
   vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
   vi.setSystemTime(Date.parse(candle.start) + 30000);
@@ -321,7 +329,8 @@ async function marketFirstStateRendersStatsSpotPriceAndNeutralEmptyViews() {
     expect(marketCap).not.toBeNull();
     await act(async () => marketCap!.click());
     expect(container.querySelector('[data-headline="price"]')?.textContent).toBe(formatSpotPrice(statsSpotPrice(noTradeStats).value));
-    expect(container.textContent).not.toMatch(/Syncing|Try again|Out of date|Prices may be out of date/);
+    expect(container.textContent).not.toMatch(/Syncing|Out of date|Prices may be out of date/);
+    expectChartRecoveryReserved(container);
     expect(container.querySelector('[role="alert"], .lucide-circle-alert, .lucide-triangle-alert, .text-warning, .bg-danger')).toBeNull();
     expect(httpReads.every(read => read.status === 200)).toBe(true);
     expect(httpReads.some(read => read.path.includes('/snapshots'))).toBe(false);
@@ -333,7 +342,8 @@ async function marketFirstStateRendersStatsSpotPriceAndNeutralEmptyViews() {
       await act(async () => root.render(React.createElement(WagmiProvider, { config }, React.createElement(QueryClientProvider, { client: queries }, React.createElement(MarketClientProvider, { client: client(), children: React.createElement(FirstMarketView, { session: noPriceSession }) })))));
       expect(container.querySelector('[data-headline="price"]')?.textContent).toBe('—');
       expect(container.querySelector('button[aria-label^="Price"]')?.getAttribute('title')).toBe(noTradePriceReason);
-      expect(container.textContent).not.toMatch(/Syncing|Try again/);
+      expect(container.textContent).not.toMatch(/Syncing/);
+      expectChartRecoveryReserved(container);
     } finally { noPriceSession.close(); }
   } finally {
     await act(async () => root.unmount());

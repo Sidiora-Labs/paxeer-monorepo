@@ -149,6 +149,9 @@ describe('TerminalLeftRail against a real HTTP origin', () => {
     expect(rowA.querySelector('a')?.getAttribute('href')).toBe(`/terminal/${poolA}`);
     expect(rowA.textContent).toContain('The Lil Black Bull');
     expect(rowA.className).toContain('bg-surface-1');
+    expect(rowA.classList.contains('sl-hairline')).toBe(true);
+    expect(rowA.querySelector('.rounded-coin')).not.toBeNull();
+    expect(rowA.querySelector('a')?.getAttribute('title')).toBe('The Lil Black Bull');
 
     const rowB = rowOf(trending, poolB);
     expect(rowB.className).toContain('bg-surface-3');

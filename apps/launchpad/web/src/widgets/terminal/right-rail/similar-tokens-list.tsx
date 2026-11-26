@@ -23,12 +23,12 @@ function Figure({ raw, unit, reason }: { raw: string | null; unit: string; reaso
 function Row({ row, liqReason }: { row: SimilarRow; liqReason: string }) {
   row = { ...row, name: displayCoinText(row.name, row.tokenAddress ?? row.poolAddress), symbol: displayCoinText(row.symbol, row.tokenAddress ?? row.poolAddress) };
   return (
-    <li>
-      <Link prefetch={false} href={row.href} className="flex items-center gap-2 rounded-sm bg-surface-2 p-2 transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+    <li className="sl-hairline">
+      <Link prefetch={false} href={row.href} className="flex items-center gap-2 bg-surface-1 p-2 transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
         <Avatar src={row.image} name={row.symbol} size="lg" shape="square" decorative />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex min-w-0 items-baseline gap-1">
-            <span className="truncate text-sm font-bold text-text" title={row.symbol}>{row.symbol}</span>
+            <span className="truncate text-sm font-semibold text-text" title={row.symbol}>{row.symbol}</span>
             <span className="truncate text-xs text-text-muted" title={row.name}>{row.name}</span>
           </span>
           {row.createdAtMs !== null ? <AgeChip iso={row.createdAtMs} compact /> : <span className="text-2xs text-text-faint">—</span>}
@@ -50,7 +50,7 @@ export function SimilarSortMenu({ sort, onChange }: { sort: SimilarSort; onChang
       size="sm"
       align="end"
       trigger={<span className="inline-flex items-center gap-1 text-xs font-bold">{sortLabels[sort]}<ArrowDownUp aria-hidden="true" className="size-3" /></span>}
-      triggerClassName="h-6 rounded-pill bg-surface-2 px-2 text-text hover:bg-surface-hover"
+      triggerClassName="h-6 border border-transparent bg-transparent px-2 text-text-muted hover:border-control-edge hover:bg-surface-hover"
       items={(Object.keys(sortLabels) as SimilarSort[]).map(value => ({ id: value, label: value === 'liq' ? 'Liquidity' : value === 'vol' ? '24h volume' : 'Market cap', selected: value === sort, onSelect: () => onChange(value) }))}
     />
   );
@@ -61,7 +61,7 @@ export function SimilarTokensList({ poolAddress, symbol, sort, symbolPending = f
   if (!symbol?.trim()) {
     if (symbolPending) return <p role="status" className="text-xs text-text-faint">Loading...</p>;
     if (symbolError) return <ErrorState variant="inline" message={`Similar coins can't load right now. ${userFacingMessage(symbolError)}`} onRetry={onRetrySymbol} />;
-    return <><p className="text-xs text-text-faint">Similar coins are not available yet. This coin has no symbol to search for.</p>{onRetrySymbol ? <Button size="sm" variant="secondary" onClick={onRetrySymbol}>Refresh coin</Button> : null}</>;
+    return <><EmptyState variant="inline" title="Similar coins are not available yet." body="This coin has no symbol to search for." />{onRetrySymbol ? <Button size="sm" variant="secondary" onClick={onRetrySymbol}>Refresh coin</Button> : null}</>;
   }
   if (state.search.state === 'loading') return <p role="status" className="text-xs text-text-faint">Loading...</p>;
   if (state.search.state === 'unsupported') return <UnavailableState variant="inline" title="Similar coins" operation={state.search.operation} status={state.search.status} notServed={state.search.notServed} />;
@@ -73,7 +73,7 @@ export function SimilarTokensList({ poolAddress, symbol, sort, symbolPending = f
       ? `Liquidity can't load right now. ${userFacingMessage(state.stats.error)}`
       : state.stats.state === 'loading' ? 'Loading...' : 'Liquidity is not available yet';
   return (
-    <ul aria-busy={state.enrichmentPending || undefined} className="flex flex-col gap-1">
+    <ul aria-busy={state.enrichmentPending || undefined} className="flex flex-col">
       {sortSimilar(state.rows, sort).map(row => <Row key={row.poolAddress} row={row} liqReason={liqReason} />)}
     </ul>
   );

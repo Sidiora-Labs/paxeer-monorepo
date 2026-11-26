@@ -29,7 +29,7 @@ const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
 const loading = await readFile(new URL('loading.js', directory));
-const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community'].map(async part => {
+const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community', 'terminal'].map(async part => {
   return JSON.parse(await readFile(new URL(`./parts/${part}.json`, import.meta.url), 'utf8'));
 }));
 const loadingPaths = new Set(loadingSurfaces.flatMap(surface => surface.views).filter(view => {
