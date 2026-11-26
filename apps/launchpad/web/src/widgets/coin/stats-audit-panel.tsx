@@ -146,7 +146,7 @@ function AuditRows({ risk, now }: { risk: RiskBreakdown; now: number }) {
   const dev: Verdict = details.creatorHoldingsPct === null ? 'unknown' : details.creatorHoldingsPct > 20 ? 'fail' : 'pass';
   const age = details.ageSeconds === null ? null : relativeAge(now - details.ageSeconds * 1000, now);
   return (
-    <dl aria-label="Audit checks" className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-1">
+    <dl aria-label="Audit checks" className="flex flex-col gap-2 rounded-sm bg-surface-2 px-3 py-1">
       <CheckRow label="Risk rating" verdict={levelVerdict} value={`${risk.riskRating} · ${risk.riskLevel}`} />
       <CheckRow label="Top 10 holders" verdict={top10} value={percent(details.top10ConcentrationPct)} />
       <CheckRow label="Creator holdings" verdict={dev} value={percent(details.creatorHoldingsPct)} />
@@ -167,7 +167,7 @@ function ShareCheckRow({ label, share, limit }: { label: string; share: StatValu
 function ServedAuditRows({ audit, now }: { audit: ServedAudit; now: number }) {
   const age = audit.ageSeconds === null ? null : relativeAge(now - audit.ageSeconds * 1000, now);
   return (
-    <dl aria-label="Audit checks" className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-1">
+    <dl aria-label="Audit checks" className="flex flex-col gap-2 rounded-sm bg-surface-2 px-3 py-1">
       <ShareCheckRow label="Top 10 holders" share={audit.top10Share} limit={50} />
       <ShareCheckRow label="Creator holdings" share={audit.creatorShare} limit={20} />
       <CheckRow label="Holders" verdict={audit.holderCount === null ? 'unknown' : audit.holderCount >= 10 ? 'pass' : 'fail'} value={audit.holderCount === null ? null : formatCount(audit.holderCount)} />
@@ -207,7 +207,7 @@ function AuditTab({ poolAddress, now }: { poolAddress: string; now: number }) {
 
 /**
  * Frame of a split bar whose values are not served: the label row with dashes over an empty track, so
- * the card keeps pump.fun's three-bar anatomy instead of turning into prose. The reason stays
+ * the panel keeps its three-bar structure. The reason stays
  * available to assistive tech through the shared unavailable state.
  */
 function SplitBarFrame({ leftLabel, rightLabel, title, operation, loading = false }: { leftLabel: string; rightLabel: string; title: string; operation: string; loading?: boolean }) {

@@ -6,6 +6,33 @@ import (
 	"testing"
 )
 
+func TestWalletCommentsReadIdentityPolicy(t *testing.T) {
+	want := ConnectedRoute{Method: http.MethodGet, Template: "/v2/social/users/{wallet}/comments", Optional: true}
+	count := 0
+	for _, route := range SocialConnectedRoutes() {
+		if route.Template != want.Template {
+			continue
+		}
+		count++
+		if route != want || !allowedConnectedRoute("social", route) {
+			t.Fatalf("wallet comments read policy = %+v, want %+v", route, want)
+		}
+	}
+	if count != 1 {
+		t.Fatalf("wallet comments routes = %d, want 1", count)
+	}
+	for _, route := range []ConnectedRoute{
+		{Method: http.MethodGet, Template: want.Template},
+		{Method: http.MethodGet, Template: want.Template, Authenticate: true},
+		{Method: http.MethodGet, Template: want.Template, Authenticate: true, Optional: true},
+		{Method: http.MethodPost, Template: want.Template, Authenticate: true},
+	} {
+		if allowedConnectedRoute("social", route) {
+			t.Fatalf("wallet comments route admitted with wrong policy: %+v", route)
+		}
+	}
+}
+
 func TestFollowContractRoutesBelongToSocialUpstream(t *testing.T) {
 	for _, route := range SocialContractRoutes() {
 		if !allowedConnectedRoute("social", route) {

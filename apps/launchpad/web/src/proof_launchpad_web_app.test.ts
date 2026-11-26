@@ -11,12 +11,13 @@
  * No RPC or wallet is impersonated: this proves configuration, persistence and
  * calldata admission, without claiming that a transaction has executed on chain.
  */
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { closeSync, fsyncSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { promisify } from 'node:util';
 import { Children, createElement, isValidElement, type ComponentProps, type ReactElement, type ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeAll, expect, test } from 'vitest';
@@ -42,15 +43,15 @@ beforeAll(async () => {
   // Decision 2282: build dist-entry dependencies before importing their consumers.
   // sdk depends on sdk-v2; stats-sdk has no workspace dependencies.
   const root = join(dirname(fileURLToPath(import.meta.url)), '../../../..');
-  for (const name of ['sdk-v2', 'sdk', 'stats-sdk']) {
-    execFileSync('pnpm', ['--dir', join(root, 'sdk/launchpad/packages', name), 'run', 'build'], { stdio: 'pipe' });
-  }
   createRequire(import.meta.url)('next/dist/server/node-environment-baseline');
-  const { NextRequest } = await import('next/server');
-  const { createRequestStoreForAPI } = await import('next/dist/server/async-storage/request-store');
-  const { createWorkStore } = await import('next/dist/server/async-storage/work-store');
-  const { workAsyncStorage } = await import('next/dist/server/app-render/work-async-storage.external');
-  const { workUnitAsyncStorage } = await import('next/dist/server/app-render/work-unit-async-storage.external');
+  const [, { NextRequest }, { createRequestStoreForAPI }, { createWorkStore }, { workAsyncStorage }, { workUnitAsyncStorage }] = await Promise.all([
+    promisify(execFile)('pnpm', ['--dir', join(root, 'apps/launchpad'), '-r', '--filter', '@kindle/sdk...', '--filter', 'stats-sdk...', 'run', 'build', '--incremental', '--tsBuildInfoFile', 'dist/launchpad-proof.tsbuildinfo']),
+    import('next/server'),
+    import('next/dist/server/async-storage/request-store'),
+    import('next/dist/server/async-storage/work-store'),
+    import('next/dist/server/app-render/work-async-storage.external'),
+    import('next/dist/server/app-render/work-unit-async-storage.external'),
+  ]);
   ({ default: RootLayout } = await import('./app/root-layout'));
   ({ default: AppProviders, createPrivateFixtureWagmiConfig } = await import('./ui/providers/app-providers'));
   requestLayout = cookie => {

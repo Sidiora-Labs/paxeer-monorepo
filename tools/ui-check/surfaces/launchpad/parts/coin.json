@@ -55,6 +55,20 @@
               "text": "Be the first to post a callout for this coin."
             }
           ]
+        },
+        {
+          "name": "chart-options",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-chart-toolbar] button[aria-label=\"Chart options\"]"
+            },
+            {
+              "action": "press",
+              "selector": "[role=\"menu\"][aria-label=\"Chart options\"]:has-text(\"USDL\")",
+              "key": "Shift"
+            }
+          ]
         }
       ],
       "ready": [
@@ -170,7 +184,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(section[aria-label=\"Price chart\"] [role=\"status\"]:text-is(\"Waiting for trades\"):not(:has([data-numeric])))",
+          "selector": "section[aria-label=\"Price chart\"] [role=\"status\"]:has(> button.invisible[inert][aria-hidden=\"true\"] > span:text-is(\"Try again\")):not(:has([data-numeric])) > span:text-is(\"Waiting for trades\")",
           "key": "Shift"
         }
       ]

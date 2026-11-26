@@ -52,7 +52,7 @@ export default function CreatorRewardsCard({ poolAddress }: { poolAddress: strin
   return (
     <section aria-labelledby="creator-rewards-title" className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="creator-rewards-title" className="text-sm font-bold text-text">Your creator rewards</h2>
+        <h2 id="creator-rewards-title" className="text-sm font-semibold text-text">Your creator rewards</h2>
         <Button variant="link" size="sm" href="/rewards">View rewards</Button>
       </div>
       {signedOut ? <SignedOutState variant="inline" title="Sign in to see your creator rewards" /> : null}
@@ -61,7 +61,7 @@ export default function CreatorRewardsCard({ poolAddress }: { poolAddress: strin
       {rewards.isError && !marker && !signedOut ? <p role="alert" className="text-sm text-danger">Creator rewards can&apos;t load right now. {userFacingMessage(rewards.error)}</p> : null}
       {rewards.data ? (
         totals.length ? (
-          <dl className="flex flex-col gap-1 rounded-md bg-surface-2 px-3 py-1">
+          <dl className="flex flex-col gap-1 rounded-sm bg-surface-2 px-3 py-1">
             {totals.map(row => (
               <KeyValueRow key={row.programId} label={row.programId} value={amount(row.claimable, row.usdl)} trailing={<span className="text-xs text-text-faint">claimable</span>} />
             ))}

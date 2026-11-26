@@ -1,5 +1,7 @@
 'use client';
 import { displayCoinText } from '@/utils/coin-text';
+import { Coins } from 'lucide-react';
+import { EmptyState, Skeleton } from '@/ui/primitives';
 import {useMemo,useState,type ReactNode} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {useMetadataV2,useMetadataMedia} from '@/hooks/market/use-token-metadata';
@@ -10,7 +12,23 @@ import {createMetadataImageTransport,type CreatorImageAuthority} from './transpo
 export function MetadataView({tokenAddress,tradePanel,data,pending,error,image}:{tokenAddress:string;tradePanel:ReactNode;data:MetadataV2Data|null|undefined;pending:boolean;error:boolean;image?:MetadataMediaImage|null}){
  const safeImage=!error&&!!image&&image.assetId===data?.token.logoAssetId;
  const safeLink=(value:string)=>{try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password}catch{return false}};
- return <section aria-label="Coin details" className="flex min-w-0 flex-col text-md text-text-muted"><div className="flex min-w-0 flex-col"><code className="break-all rounded-md bg-surface-1 font-mono text-xs leading-[var(--sl-leading-md)] text-text-faint">{tokenAddress || <span aria-label="Loading coin address">…</span>}</code>{pending?<p role="status">Loading...</p>:null}{error?<p role="alert">Can't load coin details right now, you can still trade</p>:null}{!pending&&!error&&!data?<p role="status">No coin details yet</p>:null}{data?<><h2 className="min-w-0 [overflow-wrap:anywhere] text-md font-bold text-text">{displayCoinText(data.displayName??data.token.name,tokenAddress)}</h2><p className="[overflow-wrap:anywhere]">Onchain name: {displayCoinText(data.token.name,tokenAddress)}</p><p className="break-words">{data.description}</p>{data.socialLinks.filter(link=>safeLink(link.url)).map(link=><a key={link.url} href={link.url} rel="noopener noreferrer" target="_blank">{link.label}</a>)}{safeImage&&image?<img src={image.variants['512']} srcSet={`${image.variants['256']} 256w, ${image.variants['512']} 512w, ${image.variants['1024']} 1024w`} sizes="(max-width: 512px) 100vw, 512px" width={image.width} height={image.height} style={{maxWidth:'100%',height:'auto'}} alt="Coin image"/>:null}</>:null}</div><div aria-label="Trading" className="min-w-0">{tradePanel}</div></section>
+ return <section aria-label="Coin details" className="flex min-w-0 flex-col gap-3 text-sm text-text-muted">
+  <div aria-label="Trading" className="order-first min-w-0">{tradePanel}</div>
+  <div className="flex min-w-0 flex-col gap-2 rounded-md bg-surface-1 p-3">
+   <code className="break-all font-mono text-xs text-text-faint">{tokenAddress || <span aria-label="Loading coin address">…</span>}</code>
+   {pending ? <Skeleton variant="rows" rows={3} label="coin details" /> : null}
+   {error ? <p role="alert" className="text-xs text-text-muted">Can't load coin details right now, you can still trade</p> : null}
+   {!pending && !error && !data ? <EmptyState variant="inline" icon={Coins} title="No coin details yet" body="Coin information appears here when the creator adds it." /> : null}
+   {data ? <>
+    <h2 className="min-w-0 truncate text-md font-semibold text-text" title={displayCoinText(data.displayName??data.token.name,tokenAddress)}>{displayCoinText(data.displayName??data.token.name,tokenAddress)}</h2>
+    <p className="[overflow-wrap:anywhere] text-xs text-text-faint">Onchain name: {displayCoinText(data.token.name,tokenAddress)}</p>
+    <p className="break-words">{data.description}</p>
+    {data.socialLinks.filter(link=>safeLink(link.url)).map(link=><a key={link.url} href={link.url} rel="noopener noreferrer" target="_blank" className="self-start rounded-sm text-xs text-text-muted underline underline-offset-2">{link.label}</a>)}
+    {safeImage && image ? <img src={image.variants['512']} srcSet={`${image.variants['256']} 256w, ${image.variants['512']} 512w, ${image.variants['1024']} 1024w`} sizes="(max-width: 512px) 100vw, 512px" width={image.width} height={image.height} className="max-w-full rounded-md" style={{maxWidth:'100%',height:'auto'}} alt="Coin image" /> : null}
+   </> : null}
+  </div>
+ </section>
+
 }
 export function MetadataViewer({tokenAddress,tradePanel}:{tokenAddress:string;tradePanel:ReactNode}){
  const query=useMetadataV2(tokenAddress),media=useMetadataMedia(tokenAddress);

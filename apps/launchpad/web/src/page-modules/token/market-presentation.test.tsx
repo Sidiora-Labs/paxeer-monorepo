@@ -121,7 +121,7 @@ describe('schema-bound metric and fill presentation', () => {
     expect(host.textContent).toContain('1.5');
         expect(host.textContent).toContain('Catching up');
     expect(host.textContent).not.toContain('unavailable');
-    expect(host.querySelector('a')?.getAttribute('href')).toBe('https://example.org/tx/' + position.transactionHash);
+    expect(host.querySelector('a[href^="https://example.org/tx/"]')?.getAttribute('href')).toBe('https://example.org/tx/' + position.transactionHash);
     const buttons = host.querySelectorAll('button');
     await act(async () => buttons[1].click());
     expect(host.querySelectorAll('tbody tr')).toHaveLength(1);

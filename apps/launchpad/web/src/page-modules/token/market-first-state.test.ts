@@ -56,6 +56,9 @@ const server = createServer((request, response) => {
   } else if (path.startsWith(`/v2/pools/${pool}/trades`)) {
     httpReads.push({ path, at: Date.now(), status: 200 });
     response.end(JSON.stringify(candleAvailable ? wire.trades.body : { ...wire.trades.body, watermark: null, revision: null, nextCursor: null, data: { items: [] } }));
+  } else if (path === `/v2/pools/${pool}`) {
+    httpReads.push({ path, at: Date.now(), status: 200 });
+    response.end(JSON.stringify(wire.v2Reads.responses.poolDetailReal.body));
   } else {
     httpReads.push({ path, at: Date.now(), status: 404 });
     response.writeHead(404); response.end();

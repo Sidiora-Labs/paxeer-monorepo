@@ -1,4 +1,6 @@
 'use client';
+import '@/widgets/coin/coin-market.css';
+import Link from 'next/link';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, ExternalLink, Filter } from 'lucide-react';
 import { Chip, EmptyState, SortHeader } from '@/ui/primitives';
@@ -66,13 +68,13 @@ export function MarketTradeFeed({ pool, token, rows, watermark, contiguous, expl
     </div>
     {matching.length ? <div data-market-scroller="fills" ref={scroller} role="region" aria-label="Trade history table" tabIndex={0} className="relative min-w-0 max-w-full max-h-[var(--sl-list-max-height)] overflow-auto focus-visible:outline-2 focus-visible:outline-focus" style={{ overflowAnchor: 'none' }} onScroll={event => setStart(Math.min(Math.max(0, matching.length - 1), Math.floor(event.currentTarget.scrollTop / rowHeight)))}>
       <table className="w-full min-w-160 text-sm [&_td]:whitespace-nowrap [&_td]:px-3">
-        <thead className="sticky top-0 z-[1] bg-surface-1"><tr>
-          <SortHeader label="Block" />
+        <thead className="sticky top-0 z-[1] bg-canvas"><tr>
+          <SortHeader label="Account" />
           <SortHeader label="Type" />
           <SortHeader label="USDL" align="right" />
           <SortHeader label="Amount" align="right" />
           <SortHeader label="Price" align="right" />
-          <SortHeader label="Account" />
+          <SortHeader label="Block" />
           <SortHeader label="Transaction" align="right" />
         </tr></thead>
         <tbody>
@@ -81,18 +83,13 @@ export function MarketTradeFeed({ pool, token, rows, watermark, contiguous, expl
             const key = `${row.position.chainId}:${row.position.transactionHash.toLowerCase()}:${row.position.logIndex}`;
             const href = origin && /^0x[0-9a-fA-F]{64}$/.test(row.position.transactionHash) ? `${origin}/tx/${row.position.transactionHash}` : null;
             const recipient = row.recipientAttribution === 'unavailable' || row.recipient === null ? null : shortAddress(row.recipient);
-            return <tr data-market-trade-key={key} style={{ height: rowHeight }} key={key} className="bg-surface-1 transition-colors hover:bg-surface-hover">
-              <td data-numeric className="font-mono text-xs tabular-nums text-text-muted">{row.position.height}</td>
-              <td className={row.side === 'buy' ? 'font-bold capitalize text-success' : 'font-bold capitalize text-danger'}>{row.side}</td>
+            return <tr data-market-trade-key={key} style={{ height: rowHeight }} key={key} className={`border-b border-surface-3 transition-colors hover:bg-surface-hover ${row.side === 'buy' ? 'sl-row-wash-up' : 'sl-row-wash-down'} ${previous.current.length > 0 && !previous.current.includes(key) ? 'coin-trade-arrival' : ''}`}>
+              <td className="min-w-0"><Link prefetch={false} href={`/profile/${row.sender}`} className="inline-flex min-w-0 flex-col rounded-xs font-mono text-xs text-text hover:underline" title={row.sender}>{shortAddress(row.sender)}{recipient ? <span className="text-2xs text-text-faint">to {recipient}</span> : null}</Link></td>
+              <td className={row.side === 'buy' ? 'font-semibold capitalize text-percent-up' : 'font-semibold capitalize text-percent-down'}>{row.side}</td>
               <td data-numeric className="text-right tabular-nums text-text">{formatUsdl(row.usdlAmountRaw, { unit: false })}</td>
               <td data-numeric className="text-right tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.tokenAmountRaw, decimals)}</td>
               <td data-numeric className="text-right tabular-nums text-text-muted">{decimals === null ? <span className="text-text-faint">—</span> : exactRatio((BigInt(row.usdlAmountRaw) * 10n ** BigInt(decimals)).toString(), (BigInt(row.tokenAmountRaw) * 1000000n).toString())}</td>
-              <td className="min-w-0">
-                <span className="flex flex-col leading-tight">
-                  <span className="font-mono text-xs text-text" title={row.sender}>{shortAddress(row.sender)}</span>
-                  {recipient ? <span className="font-mono text-2xs text-text-faint">to {recipient}</span> : null}
-                </span>
-              </td>
+              <td data-numeric className="font-mono text-xs tabular-nums text-text-muted">{row.position.height}</td>
               <td className="text-right">
                 <span className="inline-flex flex-col items-end leading-tight">
                   {href ? <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-xs font-mono text-xs text-accent hover:underline" title={row.position.transactionHash}>{shortAddress(row.position.transactionHash, 6, 4)}<ExternalLink aria-hidden="true" className="size-3" /><span className="sr-only">, opens in a new tab</span></a> : <span className="font-mono text-xs text-text-muted" title={row.position.transactionHash}>{shortAddress(row.position.transactionHash, 6, 4)}</span>}
