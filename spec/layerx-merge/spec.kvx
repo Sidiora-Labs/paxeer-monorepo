@@ -17230,6 +17230,12 @@ value = "One. Measure first. Task 22.39.1213 runs the package with the option -j
 basis = "Gotcha 4944."
 affects = []
 
+[decision.4020]
+title = "Task 22.39.1203 is verified with thirty minutes for a package, and task 22.39.1214 brings the package internal/production/l16 of the pnl module well inside the limit of fifteen minutes"
+value = "One. The change of task 22.39.1203 stays as it is. Its verification hands the runner the option --flags=-timeout=30m, so that the clock of the package no longer decides over a change whose cases pass. Nothing else of the command changes. The task does not shorten, remove or skip a case to gain time. Two. The limit of the workflow stays at fifteen minutes. Until task 22.39.1214 is on the main line the job of the pnl module can end at the limit. That is accepted for this time, because the change of task 22.39.1203 corrects how the pnl module reads the sell and the buy of a routed swap. Three. Measure first. Task 22.39.1214 runs the package with the option -json and lists the time of each case, and measures the time the bootstrap of one database takes. The final message names the ten slowest cases before the change and after it. Four. The target. In the verification the package ends inside ten minutes. Five. The means. A database that the unchanged bootstrap built once in the run of the package may serve as the template of which each case receives a copy of its own, made by the database server. The copy holds what the bootstrap built and nothing more, and a case never shares a database with another case. For this the helper package sdk/launchpad/shared/db/production/coordinatortest may gain a new exported function; the function Bootstrap (sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go line 146) and every other exported name keep their behaviour, because other modules call them. The bootstrap gives each test its own role names (the field Rename, sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go line 81). How the roles of a copy are named is for the task to decide, as long as a case that changes a role or its rights cannot reach another case; the final message says how. Cases that share no state may run in parallel. A case may wait on a condition where it waits a fixed time. Six. What stays. No case is removed, no assertion is weakened, no case gains a skip mark and no case moves to another package: the package keeps 122 cases or more, and the cases of task 22.39.1203 are among them. The rule of the comment of services/launchpad/pnl-tracker/internal/production/l16/coordinator_replay_test.go line 655 stays: no statement and no grant is added to a database beyond what the bootstrap gives it. A file of the package that is no test file does not change. Seven. Order. Task 22.39.1214 requires task 22.39.1203, so that it measures the package with the new cases and changes no file under another hand. Target: the verification of task 22.39.1214 passes. It runs the lint stage of the pnl module and of the shared module, the package inside ten minutes with its count of cases and a case with the name prefix TestRoutedSwapSettlement, and the case TestPlatformRuntimeRolesPassReadiness of the helper package. Tasks 22.39.1203 and 22.39.1214. "
+basis = "Gotcha 4945."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46890,6 +46896,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1214]
+title = "Bring the cases of the package internal/production/l16 of the pnl module well inside the limit of fifteen minutes, with every case and every assertion kept"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "sdk/launchpad/shared/db/production/coordinatortest"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 10m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -list . ./internal/production/l16/ | grep -c ^Test) -ge 122 && GOWORK=off go test -count=1 -list ^TestRoutedSwapSettlement ./internal/production/l16/ | grep -q ^TestRoutedSwapSettlement) && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m -run ^TestPlatformRuntimeRolesPassReadiness ./db/production/coordinatortest/)"
+do_1 = "do_1 Gotcha 4945, decision 4020. Read of services/launchpad/pnl-tracker/internal/production/l16/coordinator_replay_test.go the helper at line 657 with the comment at line 655, of services/launchpad/pnl-tracker/internal/production/l16/recorded_rebuild_test.go the helper at line 18, and sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go whole."
+symbols = []
 
 [capability.22.44.154]
 title = "Let the status line of the chart say that its number is the block of the last update, and show no label where no height is known"
@@ -213337,6 +213352,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1214]
+title = "Bring the cases of the package internal/production/l16 of the pnl module well inside the limit of fifteen minutes, with every case and every assertion kept"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1203"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1214"]
+interfaces = []
+do_1 = "do_1 Gotcha 4945, decision 4020. Read of services/launchpad/pnl-tracker/internal/production/l16/coordinator_replay_test.go the helper at line 657 with the comment at line 655, of services/launchpad/pnl-tracker/internal/production/l16/recorded_rebuild_test.go the helper at line 18, and sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go whole."
+do_2 = "do_2 Measure first, by point three: (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 30m -json ./internal/production/l16/) and list the cases by their time; measure the bootstrap of one database. Then shorten the run by the means of point five, the largest share of the time first, and measure again until the package ends inside ten minutes with room."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point six says what stays. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. The final message names the time of the package before and after, the ten slowest cases before and after, the time of one bootstrap and of one copy, each means that was used, how the roles of a copy are named, the count of the cases, and every changed file of the helper package with its cause. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "sdk/launchpad/shared/db/production/coordinatortest"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./internal/production/l16/...) && (cd sdk/launchpad/shared && GOWORK=off go vet ./db/production/coordinatortest/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 10m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -list . ./internal/production/l16/ | grep -c ^Test) -ge 122 && GOWORK=off go test -count=1 -list ^TestRoutedSwapSettlement ./internal/production/l16/ | grep -q ^TestRoutedSwapSettlement) && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m -run ^TestPlatformRuntimeRolesPassReadiness ./db/production/coordinatortest/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.154]
 title = "Let the status line of the chart say that its number is the block of the last update, and show no label where no height is known"
 status = "pending"
@@ -213684,7 +213729,7 @@ touches = ["services/launchpad/pnl-tracker/internal/production/l16", "services/l
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
-verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestRoutedSwapSettlement ./internal/production/l16/ | grep -q ^TestRoutedSwapSettlement)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . --flags=-timeout=30m && GOWORK=off go test -count=1 -list ^TestRoutedSwapSettlement ./internal/production/l16/ | grep -q ^TestRoutedSwapSettlement)"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
