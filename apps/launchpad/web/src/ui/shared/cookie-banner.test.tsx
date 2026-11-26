@@ -95,7 +95,11 @@ describe('cookie banner placement', () => {
     mount();
     const notice = banner()!;
     expect(notice.classList).toContain('max-w-[calc(var(--sl-space)*90)]');
-    expect(notice.querySelector('p')?.classList).toContain('line-clamp-2');
+    const copy = notice.querySelector('p')!;
+    expect(copy.classList).toContain('whitespace-normal');
+    expect(copy.className).not.toMatch(/line-clamp-|overflow-hidden/);
+    expect(copy.textContent).toBe('We use cookies to improve your experience. See our privacy policy');
+    expect(copy.querySelector('a')?.getAttribute('href')).toBe('/docs/privacy');
     const buttons = [...notice.querySelectorAll('button')];
     expect(buttons.map(button => button.textContent?.trim())).toEqual(['Decline', 'Accept']);
     expect(buttons[0].parentElement?.classList).toContain('flex');

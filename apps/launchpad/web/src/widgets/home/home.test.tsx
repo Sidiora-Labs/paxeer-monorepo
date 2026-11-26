@@ -194,8 +194,8 @@ describe('trending row', () => {
   it('keeps only allowlisted socials and washes rows by direction', () => {
     expect(safeSocials({ twitter: 'https://x.com/sidiora', telegram: 'https://t.me/sidiora', website: 'https://example.com' })).toEqual([{ kind: 'twitter', url: 'https://x.com/sidiora' }, { kind: 'telegram', url: 'https://t.me/sidiora' }]);
     expect(safeSocials(null)).toEqual([]);
-    expect(changeWash(5)).toBe('bg-[var(--sl-tint-accent-row-wash)]');
-    expect(changeWash(-5)).toBe('bg-[var(--sl-tint-danger-row-wash)]');
+    expect(changeWash(5)).toBe('sl-row-wash-up');
+    expect(changeWash(-5)).toBe('sl-row-wash-down');
     expect(changeWash(null)).toBe('');
   });
 
@@ -207,15 +207,15 @@ describe('trending row', () => {
     expect(html).toContain('29.7K MC');
     expect(html).toContain('+12.5%');
     expect(html).toContain('https://x.com/pepe');
-    expect(html).toContain('bg-[var(--sl-tint-accent-row-wash)]');
+    expect(html).toContain('sl-row-wash-up');
     expect(html).toContain('Add Pepe Pax to watchlist');
-    expect(html).toContain('h-list-row-lg');
+    expect(html).toContain('min-h-list-row-lg');
     expect(assertControlEdges(html)).not.toMatch(BORDER);
     const compact = render(<ol><TrendingRow row={{ ...row, change: null, changeReason: 'Not enough trading history for a 1-hour change yet.', price: null, priceReason: 'No trade yet, so there is no price.' }} density="compact" /></ol>);
     expect(compact).toContain('Change: Not enough trading history for a 1-hour change yet.');
     expect(compact).toContain('Price: No trade yet, so there is no price.');
     expect(compact).not.toContain('$0.00');
-    expect(compact).toContain('h-list-row');
+    expect(compact).toContain('min-h-list-row');
   });
 });
 
@@ -308,8 +308,8 @@ describe('dashboard board', () => {
     expect(html).toContain('--board-count:3');
     expect(html).toContain('lg:[--board-visible:3]');
     expect(html).toContain('board-wide:[--board-visible:4]');
-    // Flush columns: no board padding, square edges, a 2 px canvas seam (background contrast, not a stroke).
-    expect(html).toContain('[--sl-dashboard-column-gap:var(--sl-board-seam)]');
+    // Flush columns: no board padding, square edges, a hairline seam between canvas columns.
+    expect(html).toContain('[--sl-dashboard-column-gap:var(--sl-edge-width)]');
     expect(html).toContain('height:calc(100dvh - var(--shell-top))');
     const sections = html.match(/<section [^>]*class="[^"]*"/g) ?? [];
     expect(sections).toHaveLength(3);

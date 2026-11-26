@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Flame } from 'lucide-react';
 import { Button, EmptyState, ErrorState, LoadMore, NoticeBar, SegmentedControl, SelectPill, UnavailableState, type SegmentOption, type SelectOption } from '@/ui/primitives';
 import { useExploreRows, type ExploreRow, type ExploreRowsState } from '@/widgets/explore/use-explore-rows';
@@ -38,7 +39,7 @@ export const timeframeOptions: SelectOption<Timeframe>[] = timeframes.map(value 
   label: servedTimeframes.has(value) ? value : <span className="inline-flex items-baseline gap-1.5">{value}<span className="text-xs font-semibold text-text-faint">soon</span></span>,
 }));
 
-/** Change-window segments for a column wide enough to show all four (pump.fun's 1h / 4h / 12h / 24h group). */
+/** Change-window segments for a column wide enough to show all four of change windows. */
 export const timeframeSegments: SegmentOption<Timeframe>[] = timeframes.map(value => ({
   value,
   label: value,
@@ -47,8 +48,7 @@ export const timeframeSegments: SegmentOption<Timeframe>[] = timeframes.map(valu
 
 /**
  * Column width (px) from which the change window shows as the segmented 1h / 4h / 12h / 24h group
- * beside the ranking tabs; narrower columns keep the compact value pill (pump.fun shows a
- * dropdown at 1024 and the segmented group from 1280). Ranking tabs (~213 px) + gap (8) +
+ * beside the ranking tabs; narrower columns keep the compact value pill (a narrower column shows a dropdown). Ranking tabs (~213 px) + gap (8) +
  * window segments (~130 px) + row padding (16) = 367 px, rounded up.
  */
 export const timeframeSegmentsMinWidth = 376;
@@ -92,6 +92,7 @@ export function toTrendingRow(row: ExploreRow, timeframe: Timeframe, metadata: T
     changeReason: change.reason,
     socials: safeSocials(metadata?.socials),
     stage: row.stage,
+    createdAt: row.createdAtMs,
   };
 }
 
@@ -108,13 +109,14 @@ function readyRecord<T>(source: Loadable<Record<string, T>>): Record<string, T> 
  * 1h/4h/12h/24h selector where only the served timeframes carry data, rows
  * with image, name, price to 7 decimals, socials, market cap and change tint.
  */
-export function TrendingWidget(props: WidgetProps) {
+export function TrendingWidget(props: WidgetProps & { standalone?: boolean }) {
   const [category, setCategory] = useState<TrendingCategory>('trending');
   const explore = useExploreRows(category);
   return <TrendingColumn {...props} category={category} setCategory={setCategory} explore={explore} />;
 }
 
-export function TrendingColumn({ filter, density, category, setCategory, explore }: WidgetProps & {
+export function TrendingColumn({ filter, density, category, setCategory, explore, standalone = false }: WidgetProps & {
+  standalone?: boolean;
   category: TrendingCategory;
   setCategory(category: TrendingCategory): void;
   explore: ExploreRowsState;
@@ -131,7 +133,7 @@ export function TrendingColumn({ filter, density, category, setCategory, explore
   const timeframeServed = servedTimeframes.has(timeframe);
 
   return (
-    <div className="@container flex min-h-0 flex-1 flex-col">
+    <div className={cn('@container flex flex-col [&_button]:focus-visible:bg-text [&_button]:focus-visible:text-canvas [&_button]:focus-visible:transition-none', !standalone && 'min-h-0 flex-1')}>
       <div className={columnToolbarClass}>
         <SegmentedControl label="Ranking" options={trendingCategories} value={category} onChange={setCategory} size="sm" shape="sm" compact />
         {/* One of the two is displayed, by the column's own width (container query), never both. */}
@@ -140,7 +142,7 @@ export function TrendingColumn({ filter, density, category, setCategory, explore
         </div>
         <SelectPill label="Change window" className="ml-auto @min-column-timeframes:hidden" options={timeframeOptions} value={timeframe} onChange={setTimeframe} size="sm" compact />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className={cn('flex flex-col', !standalone && 'min-h-0 flex-1 overflow-y-auto')}>
         {!timeframeServed ? (
           <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title={`${timeframe} change`} operation={`IF_STATS_BATCH (priceChangeBps${timeframe})`} status={null} />
         ) : null}

@@ -1,0 +1,10 @@
+@media (width < 64rem) {
+  [data-shell-route-id='discovery'] [data-shell-main] {
+    height: auto;
+  }
+
+  [data-shell-route-id='discovery'] [data-shell-content],
+  [data-home-view] {
+    min-block-size: calc(100dvh - var(--shell-top));
+  }
+}
