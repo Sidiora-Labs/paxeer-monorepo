@@ -214465,7 +214465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1240]
 title = "Show the all-time high of a coin in the card market cap versus all-time high, from the daily candles of its whole life"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
