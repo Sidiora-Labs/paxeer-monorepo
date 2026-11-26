@@ -214165,7 +214165,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1254]
 title = "Take the newest price observation of a market from each of its two sources by the index of that source in every read of the graphql of the trading data"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214615,7 +214615,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1233]
 title = "Walk an agent of the launchpad through its whole journey on a local chain: the agent kit, a running wallet gateway and the contracts of the launchpad, from creation to launch, buy, sell, refusals, freeze and sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1220", "22.39.1221"]
