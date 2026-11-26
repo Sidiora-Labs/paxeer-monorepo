@@ -214840,7 +214840,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1238]
 title = "Let the chart of a coin in market cap mode read its valuation inside the bound of the charts service, and stay live when its window holds no candle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1223"]
@@ -214870,7 +214870,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1236]
 title = "Walk an agent of the trading workspace through its whole journey on a local chain: the agent kit, a running wallet gateway and the trading venue, from creation to deposit, orders, a filled position, refusals, freeze and sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1220", "22.39.1226", "22.39.1228", "22.39.1235", "22.39.1245"]
