@@ -98,7 +98,7 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
           <span aria-hidden="true" className={cn('size-1.5 rounded-pill', live ? 'bg-success' : !waitingForTrades && freshness.connectionStatus === 'offline' ? 'bg-danger' : 'bg-text-faint')} />
           {waitingForTrades ? 'Waiting for trades' : freshnessLabel(freshness.connectionStatus)}
         </span>
-        {!waitingForTrades || freshness.lastSourceHeight !== null ? <span data-numeric className="hidden tabular-nums sm:inline">Block {freshness.lastSourceHeight ?? '—'}</span> : null}
+        {freshness.lastSourceHeight !== null ? <span data-numeric className="hidden tabular-nums sm:inline">Last update at block {freshness.lastSourceHeight}</span> : null}
         {!waitingForTrades && freshness.lagReason ? <span className="sr-only">{humanErrorText(freshness.lagReason, 'Live updates are paused')}</span> : null}
         <Button variant="ghost" size="sm" onClick={onRetry} inert={!canRetry} aria-hidden={!canRetry} className={cn(!canRetry && 'invisible')}>Try again</Button>
       </div>

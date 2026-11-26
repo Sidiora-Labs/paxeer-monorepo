@@ -213570,7 +213570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1208]
 title = "Name the five packages the inventory of the Go test runner lacks, give the health package of the accounting consumers its cases in the stats, charts and pnl modules, and bring the charts module over its coverage gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
