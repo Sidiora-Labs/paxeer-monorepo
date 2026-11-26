@@ -17362,6 +17362,12 @@ value = "Point one. A market of the built-in list of apps/perps/packages/paxeer-
 basis = "Gotcha 4985."
 affects = []
 
+[decision.4042]
+title = "The social service serves the read of the comments of a wallet to a request without an actor assertion, and cases send the read through the ingress"
+value = "Point one. The rule of the public reads in services/launchpad/social/internal/app/frozen.go also names the read of the comments of a wallet under the social prefix: the method GET and the five parts v2, social, users, a wallet in the address form and comments, in the way it names the comment list of a pool at line 94. Point two. Nothing else under the part users becomes public by this decision. The follower read and the following read of a wallet under the social prefix keep the answer 401 for a request without an assertion: the gateway sends them only with a session. Point three. A request that carries an actor assertion keeps its path: the ingress resolves the actor as today and the read answers the same rows. Point four. The answer is the answer of the routes, the rows, the entity tag and the cursor. The ingress adds nothing and removes nothing, and the peer identity of the gateway stays required. Point five. The gateway is not changed: it already declares the read as needing no session. Point six. The cases of the social service send the read through its ingress, so that a read the gateway passes on without a session is proven where it is answered and not against a stand-in."
+basis = "Gotcha 4986."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47022,6 +47028,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1256]
+title = "Serve the read of the comments of a wallet from the social service of the launchpad to a request without a session, with cases that send the read through the ingress"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal/app"]
+tests = []
+verification_contract = "(cd services/launchpad/social && go test -count=1 -timeout 15m -v -run ^TestFrozenPublicReadsAndErrorsPreserveContract ./internal/app/ | grep -q -e PASS:.TestFrozenPublicReadsAndErrorsPreserveContract && go test -count=1 -timeout 15m -v -run ^TestWalletCommentsReadPassesTheIngressWithoutASession ./internal/app/ | grep -q -e PASS:.TestWalletCommentsReadPassesTheIngressWithoutASession && go test -count=1 -timeout 15m -run ^TestConnectedIngress ./internal/app/ && go test -count=1 -timeout 15m -run ^TestPublicContractRead ./internal/interactions/)"
+do_1 = "do_1 Gotcha 4986, decision 4042. Read the function ingress around line 1005 of services/launchpad/social/internal/app/app.go whole, the rule at line 71 of services/launchpad/social/internal/app/frozen.go whole, the rule at line 31 of services/launchpad/social/internal/interactions/contract.go, the route at line 44 of services/launchpad/social/internal/interactions/http.go with its handler, the case files services/launchpad/social/internal/app/frozen_boundaries_test.go and services/launchpad/social/internal/app/connected_ingress_test.go whole, and lines 543 and 575 of services/launchpad/gateway/internal/proxy/connected.go with the case services/launchpad/gateway/internal/app/wallet_comments_route_test.go to see how the gateway passes the read on."
+symbols = []
 
 [capability.22.39.1255]
 title = "Keep the market list and the header of a market of the trading web filled when the read of the market catalog is late or fails"
@@ -214087,9 +214102,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1256]
+title = "Serve the read of the comments of a wallet from the social service of the launchpad to a request without a session, with cases that send the read through the ingress"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1256"]
+interfaces = []
+do_1 = "do_1 Gotcha 4986, decision 4042. Read the function ingress around line 1005 of services/launchpad/social/internal/app/app.go whole, the rule at line 71 of services/launchpad/social/internal/app/frozen.go whole, the rule at line 31 of services/launchpad/social/internal/interactions/contract.go, the route at line 44 of services/launchpad/social/internal/interactions/http.go with its handler, the case files services/launchpad/social/internal/app/frozen_boundaries_test.go and services/launchpad/social/internal/app/connected_ingress_test.go whole, and lines 543 and 575 of services/launchpad/gateway/internal/proxy/connected.go with the case services/launchpad/gateway/internal/app/wallet_comments_route_test.go to see how the gateway passes the read on."
+do_2 = "do_2 In services/launchpad/social/internal/app/frozen.go the rule of the public reads also names the read of the comments of a wallet under the social prefix, as point one of decision 4042 says. A wallet that is not in the address form, another last part, a longer path and another method stay outside the rule. Change nothing in the ingress itself unless a run by hand shows that the read does not reach the routes with the rule in place; then repair that inside the paths and name it in the final message. Change nothing in the gateway, nothing in the routes of the interactions and nothing in the web."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases. One: the table of the case TestFrozenPublicReadsAndErrorsPreserveContract in services/launchpad/social/internal/app/frozen_boundaries_test.go gains rows. The read of the comments of a wallet under the social prefix is public. The same path with a wallet that is not an address, with the last part followers, with the last part following, with one more part after comments, and with the method POST is not public. Two: new file services/launchpad/social/internal/app/wallet_comments_ingress_test.go with the case TestWalletCommentsReadPassesTheIngressWithoutASession, built the way services/launchpad/social/internal/app/connected_ingress_test.go builds its runtime and its peer certificate. With the peer identity of the gateway, without an assertion and without a session it sends the read of the comments of a wallet and requires that the next handler is reached and sees no actor. In the same way it sends the follower read and the following read of that wallet under the social prefix and a POST of a comment of a pool under the social prefix and requires the status 401 for each. It sends the read of the comments of a wallet without the peer identity of the gateway and requires the status 403. It sends the read once more with the session of a known wallet and requires that the next handler sees that wallet as the actor. Three: the same file holds the case TestWalletCommentsReadAnswersRowsThroughTheIngress. It puts the routes of the interactions behind the ingress the way line 340 of services/launchpad/social/internal/app/app.go mounts them, writes two comments of one wallet on two pools and one comment of another wallet with the store of the harness of the package, and requires from the read without a session the status 200 and exactly the two comments of the first wallet, the newer one first. When the harness of the package cannot put the routes behind the ingress without a change outside the paths, leave case three out, give the reason in the final message, and keep cases one and two. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal/app"]
+tests = []
+planned_paths = ["services/launchpad/social/internal/app/wallet_comments_ingress_test.go"]
+build_cmd = "(cd services/launchpad/social && go build ./... && go vet ./internal/app/)"
+verify_cmd = "(cd services/launchpad/social && go test -count=1 -timeout 15m -v -run ^TestFrozenPublicReadsAndErrorsPreserveContract ./internal/app/ | grep -q -e PASS:.TestFrozenPublicReadsAndErrorsPreserveContract && go test -count=1 -timeout 15m -v -run ^TestWalletCommentsReadPassesTheIngressWithoutASession ./internal/app/ | grep -q -e PASS:.TestWalletCommentsReadPassesTheIngressWithoutASession && go test -count=1 -timeout 15m -run ^TestConnectedIngress ./internal/app/ && go test -count=1 -timeout 15m -run ^TestPublicContractRead ./internal/interactions/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1255]
 title = "Keep the market list and the header of a market of the trading web filled when the read of the market catalog is late or fails"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214150,7 +214195,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1253]
 title = "Add the row of the quoting process of the trading venue to the image table, and a case that keeps the table and the registry of the trading data in step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214180,7 +214225,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1252]
 title = "End an action of an agent whose nonce is spent, with the receipt of a hash it holds or in a terminal state that says so, and prepare no replacement at a spent nonce"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214240,7 +214285,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1250]
 title = "Forward the read of the comments of a wallet through the gateway of the launchpad as a public read, and add a case that keeps the table of the gateway in step with the routes of the social service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214450,7 +214495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1239]
 title = "Let the Trending column of the home view offer the change windows the statistics serve: 5m, 1h, 6h and 24h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214540,7 +214585,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1234]
 title = "Tell an agent how to join the launchpad: a connect section on the agents page and one document for agents the web application serves, built from the agent kit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1221", "22.39.1222"]
@@ -216238,7 +216283,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.142]
 title = "Bring the coin and token views of the launchpad to the visual brief: header, chart frame and toolbar, the first state before a trade, the trade panel and the side column"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138", "22.44.136"]

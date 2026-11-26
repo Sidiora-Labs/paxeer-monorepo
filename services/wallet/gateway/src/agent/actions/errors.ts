@@ -50,6 +50,7 @@ export type ActionErrorCode =
   | 'FORBIDDEN_DESTINATION'
   | 'SIMULATION_REVERTED'
   | 'TRANSACTION_REVERTED'
+  | 'NONCE_CONSUMED'
   // USER_INTERVENTION
   | 'CUSTODY_AUTHORITY_REQUIRED'
   | 'AGENT_REAUTHORIZATION_REQUIRED'
@@ -73,6 +74,7 @@ const STRATEGY: Record<ActionErrorCode, RetryStrategy> = {
   FORBIDDEN_DESTINATION: 'NEVER',
   SIMULATION_REVERTED: 'NEVER',
   TRANSACTION_REVERTED: 'NEVER',
+  NONCE_CONSUMED: 'NEVER',
 
   CUSTODY_AUTHORITY_REQUIRED: 'USER_INTERVENTION',
   AGENT_REAUTHORIZATION_REQUIRED: 'USER_INTERVENTION',
@@ -167,10 +169,10 @@ export function buildErrorEnvelope(args: {
         args.code === 'AGENT_REAUTHORIZATION_REQUIRED'
           ? 'AGENT_REAUTHORIZATION'
           : strategy === 'USER_INTERVENTION'
-          ? 'OWNER_INTERVENTION'
-          : strategy === 'NEVER'
-            ? 'NONE'
-            : 'GET_ACTION',
+            ? 'OWNER_INTERVENTION'
+            : strategy === 'NEVER'
+              ? 'NONE'
+              : 'GET_ACTION',
       endpoint: strategy === 'NEVER' ? null : endpoint,
     },
   };
@@ -189,6 +191,8 @@ export function terminalStatusFor(code: ActionErrorCode): string | null {
       return 'simulation_reverted';
     case 'TRANSACTION_REVERTED':
       return 'transaction_reverted';
+    case 'NONCE_CONSUMED':
+      return 'failed_terminal';
     case 'INSUFFICIENT_BALANCE':
     case 'INSUFFICIENT_GAS':
       return 'insufficient_balance';
