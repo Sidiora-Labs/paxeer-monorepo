@@ -117,7 +117,7 @@ export function makePki(nodeIds: string[]): Pki {
   ]);
   writeFileSync(
     p('leaf.ext'),
-    'subjectAltName=IP:127.0.0.1\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth,clientAuth\n'
+    'subjectAltName=IP:127.0.0.1\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth,clientAuth\n',
   );
   openssl([
     'req',
@@ -256,7 +256,7 @@ function call(
   method: 'GET' | 'POST',
   url: string,
   body: unknown,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const payload = body === null ? null : JSON.stringify(body);
   return new Promise((resolveCall, reject) => {
@@ -285,7 +285,7 @@ function call(
           }
         });
         res.on('error', reject);
-      }
+      },
     );
     req.on('timeout', () => req.destroy(new Error(`${url} timed out after ${timeoutMs} ms`)));
     req.on('error', reject);
@@ -319,7 +319,7 @@ export async function startAttestorNetwork(opts: {
   const approveInventory = (keys: WalletInventoryKey[]): void => {
     const now = Math.floor(Date.now() / 1000);
     const header = Buffer.from(
-      JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })
+      JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' }),
     ).toString('base64url');
     const payload = Buffer.from(
       JSON.stringify({
@@ -334,7 +334,7 @@ export async function startAttestorNetwork(opts: {
         threshold: 3,
         members: ids.map((id) => ({ id, spki_sha256: pki.node(id).pin })),
         keys,
-      })
+      }),
     ).toString('base64url');
     const input = `${header}.${payload}`;
     const signature = sign('sha256', Buffer.from(input), {
@@ -374,7 +374,7 @@ export async function startAttestorNetwork(opts: {
         selectors: { [ADDR]: [BIND_SELECTOR] },
         rate_per_minute: 600,
       },
-    })
+    }),
   );
   const kernelPolicyFile = join(work, 'kernel-policy.json');
   writeFileSync(kernelPolicyFile, JSON.stringify(KERNEL_POLICY));
@@ -413,6 +413,7 @@ export async function startAttestorNetwork(opts: {
               ATTESTOR_NODE_KEY_FILE: nodeKeyFile,
               ATTESTOR_DATA_DIR: dataDir,
               ATTESTOR_CHAIN_ID: String(CHAIN_ID),
+              ATTESTOR_AGENT_PAYMASTER: PAYMASTER,
               ATTESTOR_JWKS_URL: `${opts.identity.issuer}/.well-known/jwks.json`,
               ATTESTOR_JWT_ISSUER: opts.identity.issuer,
               ATTESTOR_JWT_AUDIENCE: 'authenticated',
@@ -450,7 +451,7 @@ export async function startAttestorNetwork(opts: {
             if (answer?.status === 200 && answer.body.ready === true) break;
             if (Date.now() > deadline) {
               throw new Error(
-                `${node.nodeId} never became ready: ${JSON.stringify(answer?.body)} ${node.log.join('')}`
+                `${node.nodeId} never became ready: ${JSON.stringify(answer?.body)} ${node.log.join('')}`,
               );
             }
             await new Promise((r) => setTimeout(r, 250));
@@ -460,7 +461,7 @@ export async function startAttestorNetwork(opts: {
       async () => {
         await Promise.all(nodes.map(stopNode));
         nodes.length = 0;
-      }
+      },
     );
   } catch (error) {
     agent.destroy();
@@ -485,8 +486,8 @@ export async function startAttestorNetwork(opts: {
       const request = { session_id: randomUUID(), key_id: keyId };
       const answers = await Promise.all(
         nodes.map((node) =>
-          call(operator, 'POST', `${node.apiUrl}/v1/keys/describe`, request, 5_000)
-        )
+          call(operator, 'POST', `${node.apiUrl}/v1/keys/describe`, request, 5_000),
+        ),
       );
       const publicKey = answers[0]!.body.public_key;
       if (typeof publicKey !== 'string' || !/^(?:04[0-9a-f]{128}|[0-9a-f]{64})$/.test(publicKey)) {
@@ -499,7 +500,7 @@ export async function startAttestorNetwork(opts: {
           answer.body.public_key !== publicKey
         ) {
           throw new Error(
-            `${nodes[i]!.nodeId} disagrees on ${keyId}: ${answer.status} ${JSON.stringify(answer.body)}`
+            `${nodes[i]!.nodeId} disagrees on ${keyId}: ${answer.status} ${JSON.stringify(answer.body)}`,
           );
         }
       }
@@ -509,12 +510,12 @@ export async function startAttestorNetwork(opts: {
       const sessionId = randomUUID();
       const request = { session_id: sessionId, key_id: keyId, curve: 'secp256k1', owner };
       const answers = await Promise.all(
-        nodes.map((n) => call(agent, 'POST', `${n.apiUrl}/v1/keys/generate`, request, 600_000))
+        nodes.map((n) => call(agent, 'POST', `${n.apiUrl}/v1/keys/generate`, request, 600_000)),
       );
       for (const [i, a] of answers.entries()) {
         if (a.status !== 200)
           throw new Error(
-            `${nodes[i]!.nodeId} refused keys.generate: ${a.status} ${JSON.stringify(a.body)}`
+            `${nodes[i]!.nodeId} refused keys.generate: ${a.status} ${JSON.stringify(a.body)}`,
           );
       }
       const first = answers[0]!.body;
@@ -526,12 +527,12 @@ export async function startAttestorNetwork(opts: {
       if (answers.some((a) => a.body.refreshed !== true)) {
         const refresh = { session_id: randomUUID(), key_id: keyId };
         const refreshed = await Promise.all(
-          nodes.map((n) => call(operator, 'POST', `${n.apiUrl}/v1/keys/refresh`, refresh, 600_000))
+          nodes.map((n) => call(operator, 'POST', `${n.apiUrl}/v1/keys/refresh`, refresh, 600_000)),
         );
         for (const [i, a] of refreshed.entries()) {
           if (a.status !== 200 || a.body.refreshed !== true) {
             throw new Error(
-              `${nodes[i]!.nodeId} refused keys.refresh: ${a.status} ${JSON.stringify(a.body)}`
+              `${nodes[i]!.nodeId} refused keys.refresh: ${a.status} ${JSON.stringify(a.body)}`,
             );
           }
         }

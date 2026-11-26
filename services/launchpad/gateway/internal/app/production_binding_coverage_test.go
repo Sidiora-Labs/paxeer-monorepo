@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/config"
+	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
 )
 
@@ -46,6 +47,65 @@ func TestProductionGatewayChecksRuntimeDocumentsBeforeOpeningListeners(t *testin
 					gateway.Close()
 				}
 				t.Fatalf("production binding: app=%v err=%v, want %q", gateway, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestGatewayExposesAnswerHeadersAcrossOrigins(t *testing.T) {
+	t.Parallel()
+	const origin = "https://kindle.test"
+	const exposed = "X-Schema-Version, Retry-After, X-Request-Id, Etag, X-Csrf-Token, X-Recovery-Receipt"
+	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
+		CORSOrigins:              origin,
+		AdditionalExposedHeaders: []string{"X-CSRF-Token", "X-Recovery-Receipt"},
+	})
+	router.Get("/unavailable", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "7")
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+	server := httptest.NewServer(publicGatewayHandler(router, config.Config{NodeEnv: "production", CORSAllowedOrigins: origin}))
+	t.Cleanup(server.Close)
+	for _, tc := range []struct {
+		name, method, path, origin, exposed, retryAfter string
+		status                                          int
+	}{
+		{"success", http.MethodGet, "/health", origin, exposed, "", http.StatusOK},
+		{"unavailable", http.MethodGet, "/unavailable", origin, exposed, "7", http.StatusServiceUnavailable},
+		{"success without origin", http.MethodGet, "/health", "", "", "", http.StatusOK},
+		{"unavailable without origin", http.MethodGet, "/unavailable", "", "", "7", http.StatusServiceUnavailable},
+		{"disallowed origin", http.MethodGet, "/health", "https://other.test", "", "", http.StatusForbidden},
+		{"preflight", http.MethodOptions, "/unavailable", origin, "X-CSRF-Token, X-Request-ID, ETag, Retry-After, X-Recovery-Receipt, X-Schema-Version", "", http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request, err := http.NewRequestWithContext(context.Background(), tc.method, server.URL+tc.path, http.NoBody)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.origin != "" {
+				request.Header.Set("Origin", tc.origin)
+			}
+			if tc.method == http.MethodOptions {
+				request.Header.Set("Access-Control-Request-Method", http.MethodGet)
+			}
+			response, err := server.Client().Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != tc.status {
+				t.Fatalf("status = %d, want %d", response.StatusCode, tc.status)
+			}
+			values := response.Header.Values("Access-Control-Expose-Headers")
+			if tc.exposed == "" {
+				if len(values) != 0 {
+					t.Errorf("exposed headers = %v, want none", values)
+				}
+			} else if len(values) != 1 || values[0] != tc.exposed {
+				t.Errorf("exposed headers = %v, want [%s]", values, tc.exposed)
+			}
+			if got := response.Header.Get("Retry-After"); got != tc.retryAfter {
+				t.Errorf("Retry-After = %q, want %q", got, tc.retryAfter)
 			}
 		})
 	}

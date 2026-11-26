@@ -27,6 +27,7 @@ import {
   SettingModule,
   FeeTierModule,
   APIManagerModule,
+  AgentsModule,
   HistoryModule,
 } from "@paxeer-network/portfolio";
 import {
@@ -292,6 +293,7 @@ function NativePages() {
     if (path.endsWith("/assets")) page = <AssetsModule.AssetsPage />;
     if (path.endsWith("/feeTier")) page = <FeeTierModule.FeeTierPage />;
     if (path.endsWith("/apiKey")) page = <APIManagerModule.APIManagerPage />;
+    if (path.endsWith("/agents")) page = <AgentsModule.AgentsPage />;
     if (path.endsWith("/history")) page = <HistoryModule.HistoryPage />;
     if (path.endsWith("/setting")) page = <SettingModule.SettingPage />;
     content = (

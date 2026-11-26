@@ -41,6 +41,7 @@ func (h *HTTP) Routes() http.Handler {
 	r.Get("/users/{wallet}/followers", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "followers") })
 	r.Get("/users/{wallet}/following", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, followingResource) })
 	r.Get("/users/{wallet}/follow-stats", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "stats") })
+	r.Get("/users/{wallet}/comments", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, walletCommentsResource) })
 	r.Put("/follow/{followee}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, followAction) })
 	r.Delete("/follow/{followee}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, unfollowAction) })
 	r.Get("/pool/{poolAddress}/comments", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "comments") })
@@ -170,13 +171,20 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 		writeResponse(w, map[string]any{"items": page.Edges}, next)
 		return
 	}
-	if operation == "comments" {
+	if operation == "comments" || operation == walletCommentsResource {
 		limit, e := limitOf(r)
 		if e != nil {
 			httpError(w, e)
 			return
 		}
-		v, next, tag, e := h.commentsSnapshot(r.Context(), chi.URLParam(r, "poolAddress"), limit, r.URL.Query().Get("cursor"))
+		var v []CommentView
+		var next *string
+		var tag string
+		if operation == walletCommentsResource {
+			v, next, tag, e = h.walletCommentsSnapshot(r.Context(), chi.URLParam(r, "wallet"), limit, r.URL.Query().Get("cursor"))
+		} else {
+			v, next, tag, e = h.commentsSnapshot(r.Context(), chi.URLParam(r, "poolAddress"), limit, r.URL.Query().Get("cursor"))
+		}
 		if e != nil {
 			httpError(w, e)
 			return
