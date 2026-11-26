@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import PnlCardLanding from '@/widgets/pnl/pnl-card-landing';
+import { PnlCardState } from '@/widgets/pnl/pnl-card-state';
 import { PublicShareError, readPublicShare } from '@/widgets/pnl/share-transport';
 import { checkedPublicShare } from '@/widgets/pnl/share-disclosure';
 
@@ -35,8 +35,8 @@ export default async function PnlCardPage({ params }: PageProps) {
   } catch (error) {
     if (error instanceof PublicShareError && error.status === 404) notFound();
     if (error instanceof PublicShareError && error.status === 410 || error instanceof Error && error.message === 'Card withdrawn or expired') {
-      return <main className="mx-auto max-w-content-narrow-max-width p-6 text-text"><h1>This card is gone</h1><p>It was removed or has expired</p><Link href="/profile">Go to your profile</Link></main>;
+      return <PnlCardState state="expired" />;
     }
-    return <main className="mx-auto max-w-content-narrow-max-width p-6 text-text"><h1>Can&apos;t load this card right now</h1><p>Try again in a moment</p><a href={`/pnl/${encodeURIComponent(cardId)}`}>Try again</a><Link href="/profile">Go to your profile</Link></main>;
+    return <PnlCardState state="failed" cardId={cardId} />;
   }
 }
