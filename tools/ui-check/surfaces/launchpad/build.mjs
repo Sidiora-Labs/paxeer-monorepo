@@ -33,7 +33,7 @@ const output = 'apps/launchpad/web/.next/BUILD_ID';
 if (existsSync(receipt) && existsSync(output) && readFileSync(receipt, 'utf8') === readFileSync(output, 'utf8')) {
   console.log('Production output matches the application inputs.');
 } else {
-  await run(['--dir', 'apps/launchpad', '-r', '--filter', '@kindle/sdk...', '--filter', '@kindle/sdk-v2...', '--filter', 'stats-sdk...', 'run', 'build']);
+  await run(['--dir', 'apps/launchpad', 'run', 'build:packages']);
   await run(['--dir', 'apps/launchpad/web', 'run', 'build']);
   writeFileSync(receipt, readFileSync(output));
 }

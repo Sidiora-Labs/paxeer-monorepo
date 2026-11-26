@@ -17416,6 +17416,30 @@ value = "Point one. In each of the eight statements of gotcha 4994 the sort name
 basis = "Gotcha 4994."
 affects = []
 
+[decision.4051]
+title = "The build step of the render check builds every package of the launchpad kit through the script of the workspace before it builds the web"
+value = "Point one. The build step tools/ui-check/surfaces/launchpad/build.mjs runs the script build:packages of the workspace apps/launchpad in place of the three packages of line 36, then the web as today. Point two. The build step holds no list of packages. The script of the workspace is the one place that names them, and the image of the web uses the same script. Point three. Nothing else of the file changes: the inputs of the digest, the receipt and the environment stay. Point four. Not changed here: the packages, their exports, the import of line 10 of sdk/launchpad/packages/agent-kit/src/contracts.ts, the surface files and the part files."
+basis = "Gotcha 4995."
+affects = []
+
+[decision.4052]
+title = "The live connection of the chart of a coin comes back by itself after every close, and the data feed never stops trying"
+value = "Point one. After a close from the far side or a start that fails, the data feed of the chart starts the live connection of the same series again without an action of the visitor. The waits grow as line 1670 of apps/launchpad/web/src/widgets/trading/udf-datafeed.ts has them, up to its cap of thirty seconds, and stay at the cap. There is no last try: the rule of line 1666 and the state of line 1667 go. Point two. The next start does not depend on the chart subscribing again after the reset signal. The task reads how the widget apps/launchpad/web/src/widgets/trading/tv-chart.tsx and the chart handle that signal and takes one of two ways: the data feed keeps the series alive across the signal, or the widget asks the chart to load its data again so that it subscribes again. In both ways the bars already drawn stay until newer ones replace them, and no empty chart shows in between. The chart bundle is not part of the tree; the measurement of gotcha 4996 is the description of what it does. Point three. A page that becomes visible again and a browser that is online again start a chart that has no live connection at once, also when the earlier subscription is gone. Point four. While the data feed waits for its next start the state is the one the page words as reconnecting, not one it words as stopped. The texts of the chip and of the notice do not change. Point five. Not changed: the history read and its pace, the connections of the other data of the page and their own budget of tries, the retry control of the toolbar, the transport and the names of the subscriptions."
+basis = "Gotcha 4996."
+affects = []
+
+[decision.4053]
+title = "An upload of bytes a coin already stores is the same picture: the service answers with the stored asset and the web goes on with it"
+value = "Point one. When the pool of the coin already stores the bytes of an upload under another asset identity, the upload handler of the metadata service treats the request as a repeated upload of the stored asset. It answers with the stored asset, its identity, its state and its details, with the status it gives for that state under the stored identity today, takes the stored asset on through its states exactly as a repeated upload under the stored identity does, and stores no second row and no second object. The checks before it stay as they are: the creator, the size, the kind and the decode. The function at line 1214 of services/launchpad/metadata/internal/metadata/connected.go keeps its signature and its answers, the case at line 240 of services/launchpad/metadata/internal/metadata/assets_production_test.go stays, and cases outside the paths call that function. The stored asset of a pool and a content is found by a function of the store of its own, beside that one, so that the rule is proven on the database of the tests alone; the handler goes on under the identity that function answers and takes the lock of that identity the way it takes the lock of the identity of a request. Point two. A stored asset in the rejected or the deleted state answers as an upload under its own identity answers today. Point three. Status 409 stays for a conflict that is one: the identity of the request exists with other bytes, another pool, another kind or other dimensions. Point four. The web takes the answered asset as the picture of its upload when its content hash and its owner equal those of the upload, also when its identity differs from the one asked for. Every later step uses the answered identity: the reads that wait for the check, the metadata operation that names the picture, and what the launch flow keeps with its attempt. An answer with another hash or another owner stays refused as today. Point five. No migration, no index and no grant; the unique rule stays, and the shapes of the answers do not change. Where the change adds or changes a statement, the registry of statements under services/launchpad/metadata/internal/rolecheck is entered again the way its case demands. Point six. Not changed: the text of line 16 of apps/launchpad/web/src/features/metadata-media/transport.ts for a conflict that is one, the path that deletes a picture, and the publication of metadata."
+basis = "Gotcha 4997."
+affects = []
+
+[decision.4054]
+title = "The pill beside Deposit shows the USDL the wallet can spend, read from the chain"
+value = "Point one. The pill shows the USDL balance of the wallet of the session, read from the chain at the latest block through a reader the web already has, in the compact form it uses today. It is read when the session starts, every fifteen seconds while the page is visible, and when the page becomes visible again. No read uses the pending tag. Point two. The hover title and the label for a screen reader say USDL balance and the figure. While the first read is open the pill shows its placeholder as today. When the read fails the pill shows the dash and the title says that the balance cannot be loaded right now. A balance of zero is shown as zero, not as a dash. Point three. The header makes no portfolio read any more. The value of the coins stays where the profile shows it. Point four. Nothing changes for a visitor without a session. The Deposit control, the avatar and the account menu stay as they are. Point five. Not changed: the profile, the portfolio read itself, the balance read of the trade panel and the texts of the account menu."
+basis = "Gotcha 4998."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47076,6 +47100,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1270]
+title = "Show the USDL balance of the wallet in the pill beside Deposit in the header of the launchpad web"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/shell"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/shell/wallet-button.balance.test.tsx && grep -q pillShowsTheUsdlBalanceOfTheWallet apps/launchpad/web/src/shell/wallet-button.balance.test.tsx && grep -q pillSaysUsdlBalanceInTitleAndLabel apps/launchpad/web/src/shell/wallet-button.balance.test.tsx && grep -q pillShowsADashWhenTheReadFails apps/launchpad/web/src/shell/wallet-button.balance.test.tsx"
+do_1 = "do_1 Gotcha 4998, decision 4054. Read apps/launchpad/web/src/shell/wallet-button.tsx whole, the reader at line 93 of apps/launchpad/web/src/widgets/trade/home-chain.ts with the address of USDL it uses, and how the trade panel under apps/launchpad/web/src/widgets/trading reads the balances of a session and drops them when the session ends."
+symbols = []
+
+[capability.22.39.1269]
+title = "Answer an upload of bytes a coin already stores with the stored asset, and let the details page and the launch flow go on with it"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata/internal/metadata", "services/launchpad/metadata/internal/rolecheck", "apps/launchpad/web/src/features/metadata-media", "apps/launchpad/web/src/widgets/create"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestStoredPicture ./internal/metadata/ | grep -c -e ^---.PASS:.TestStoredPicture) -ge 3 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/) && pnpm --dir apps/launchpad/web run test src/features/metadata-media/transport.test.ts src/features/metadata-media/editor.test.tsx src/widgets/create/creation-stored-picture.test.ts && grep -q uploadGoesOnWithTheStoredAssetOfTheSameBytes apps/launchpad/web/src/features/metadata-media/transport.test.ts && grep -q editorAcceptsTheStoredAssetOfTheSameBytes apps/launchpad/web/src/features/metadata-media/editor.test.tsx && grep -q launchFlowKeepsTheStoredAssetOfTheSameBytes apps/launchpad/web/src/widgets/create/creation-stored-picture.test.ts"
+do_1 = "do_1 Gotcha 4997, decision 4053. Read in services/launchpad/metadata/internal/metadata/connected.go the upload handler at line 302 to its end and the function at line 1214, and the table statement at line 169 of services/launchpad/metadata/internal/metadata/production.go. Read the case TestProductionConnectedActualPostgresRestrictionOrdering of services/launchpad/metadata/internal/metadata/connected_production_test.go and the lines around line 240 of services/launchpad/metadata/internal/metadata/assets_production_test.go to see how the package builds a store with its schema and an asset on the database of the tests. Read apps/launchpad/web/src/features/metadata-media/transport.ts and apps/launchpad/web/src/features/metadata-media/editor.tsx whole, the cases of apps/launchpad/web/src/features/metadata-media/transport.test.ts and apps/launchpad/web/src/features/metadata-media/editor.test.tsx, and in apps/launchpad/web/src/widgets/create/creation-controller.ts the step that uploads the picture around line 581 with what it keeps in the attempt. Before the first change run the case TestRuntimeRoleStatements of the directory services/launchpad/metadata/internal/rolecheck by hand and note its result. If it does not pass before your change, the registry is behind the sources: enter every statement the case names again from its source, in the form and at the place the neighbouring entries have, change no source for it, move no statement into a list of exceptions, and name those statements in the final message. "
+symbols = []
+
+[capability.22.39.1268]
+title = "Bring the live connection of the chart of a coin back by itself after a close from the far side"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/trading && grep -q chartReturnsToLiveAfterACloseFromTheFarSide apps/launchpad/web/src/widgets/trading/chart-datafeed-reconnect.test.ts && grep -q chartKeepsTryingPastFiveFailedStarts apps/launchpad/web/src/widgets/trading/chart-datafeed-reconnect.test.ts && grep -q chartStartsAgainWhenThePageIsVisibleAgain apps/launchpad/web/src/widgets/trading/chart-datafeed-reconnect.test.ts"
+do_1 = "do_1 Gotcha 4996, decision 4052. Read in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts the functions at lines 1577, 1586 and 1655, the function that starts the replay below them, the listeners around lines 1947 and 1948 and the entries at lines 2032 and 2078. Read in apps/launchpad/web/src/widgets/trading/tv-chart.tsx where the widget makes the data feed, registers the transport and hands the data feed to the chart. Read the cases of apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts to see how the directory builds a data feed with a transport double and with timers of the test."
+symbols = []
+
+[capability.22.39.1267]
+title = "Build every package of the launchpad kit before the web in the build step of the render check"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/launchpad/build.mjs"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile && rm -rf sdk/launchpad/packages/*/dist apps/launchpad/web/.next && node tools/ui-check/surfaces/launchpad/build.mjs && test -s sdk/launchpad/packages/sidiora-launchpad-v3/dist/abis.js && test -s sdk/launchpad/packages/agent-kit/dist/index.js && test -s apps/launchpad/web/.next/BUILD_ID"
+do_1 = "do_1 Gotcha 4995, decision 4051. Read tools/ui-check/surfaces/launchpad/build.mjs, the scripts of apps/launchpad/package.json and lines 1 to 15 of deploy/launchpad/Dockerfile.web."
+symbols = []
 
 [capability.22.39.1266]
 title = "Sort the revenue epochs of a chain and the claims of a holder by the number of the epoch in the api of the launchpad"
@@ -214240,6 +214300,126 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1270]
+title = "Show the USDL balance of the wallet in the pill beside Deposit in the header of the launchpad web"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1270"]
+interfaces = []
+do_1 = "do_1 Gotcha 4998, decision 4054. Read apps/launchpad/web/src/shell/wallet-button.tsx whole, the reader at line 93 of apps/launchpad/web/src/widgets/trade/home-chain.ts with the address of USDL it uses, and how the trade panel under apps/launchpad/web/src/widgets/trading reads the balances of a session and drops them when the session ends."
+do_2 = "do_2 Change the pill as decision 4054 says. The balance is read and shown only for the wallet of a session, as the trade panel does it, and is dropped at once when the session ends or the wallet changes. Use a reader the web already has; where it lives outside the paths, call it and do not change it. A case of the web that pins the portfolio read of the header follows the new source. Run the cases of the directory apps/launchpad/web/src/shell by hand once and name in the final message any that fail for another cause. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/shell/wallet-button.balance.test.tsx. One: pillShowsTheUsdlBalanceOfTheWallet. The wallet of the session holds 36.357687 USDL on the chain double, and a portfolio read would answer a value of 2.425016. The pill shows the balance in the compact form, and the header makes no portfolio request. Two: pillSaysUsdlBalanceInTitleAndLabel. The hover title and the label for a screen reader say USDL balance with the figure. Three: pillShowsADashWhenTheReadFails. The chain double refuses the read; the pill shows the dash and the title says that the balance cannot be loaded right now. A balance of zero shows as zero. Say in the final message that you saw the first case fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/shell"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/shell/wallet-button.balance.test.tsx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/shell/wallet-button.balance.test.tsx && grep -q pillShowsTheUsdlBalanceOfTheWallet apps/launchpad/web/src/shell/wallet-button.balance.test.tsx && grep -q pillSaysUsdlBalanceInTitleAndLabel apps/launchpad/web/src/shell/wallet-button.balance.test.tsx && grep -q pillShowsADashWhenTheReadFails apps/launchpad/web/src/shell/wallet-button.balance.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1269]
+title = "Answer an upload of bytes a coin already stores with the stored asset, and let the details page and the launch flow go on with it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1269"]
+interfaces = []
+do_1 = "do_1 Gotcha 4997, decision 4053. Read in services/launchpad/metadata/internal/metadata/connected.go the upload handler at line 302 to its end and the function at line 1214, and the table statement at line 169 of services/launchpad/metadata/internal/metadata/production.go. Read the case TestProductionConnectedActualPostgresRestrictionOrdering of services/launchpad/metadata/internal/metadata/connected_production_test.go and the lines around line 240 of services/launchpad/metadata/internal/metadata/assets_production_test.go to see how the package builds a store with its schema and an asset on the database of the tests. Read apps/launchpad/web/src/features/metadata-media/transport.ts and apps/launchpad/web/src/features/metadata-media/editor.tsx whole, the cases of apps/launchpad/web/src/features/metadata-media/transport.test.ts and apps/launchpad/web/src/features/metadata-media/editor.test.tsx, and in apps/launchpad/web/src/widgets/create/creation-controller.ts the step that uploads the picture around line 581 with what it keeps in the attempt. Before the first change run the case TestRuntimeRoleStatements of the directory services/launchpad/metadata/internal/rolecheck by hand and note its result. If it does not pass before your change, the registry is behind the sources: enter every statement the case names again from its source, in the form and at the place the neighbouring entries have, change no source for it, move no statement into a list of exceptions, and name those statements in the final message. "
+do_2 = "do_2 Change the service as points one, two, three and five of decision 4053 say, and the web as point four says: the details page through apps/launchpad/web/src/features/metadata-media/transport.ts and apps/launchpad/web/src/features/metadata-media/editor.tsx, the launch flow through apps/launchpad/web/src/widgets/create/creation-controller.ts. A case of the web that pins the refusal of another identity for the same hash and owner follows the new rule. No case of the service changes its expectation. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases of the service, in the new file services/launchpad/metadata/internal/metadata/stored_picture_test.go, with names that start with TestStoredPicture. They run on the database of the tests alone, built the way the case of services/launchpad/metadata/internal/metadata/connected_production_test.go builds its store, with a schema of their own, and they depend on no variable of the environment, no object store and no scanner, so that none of them is skipped anywhere. One: TestStoredPictureFoundByPoolAndContent. A pool stores an asset under one identity. The new function of the store answers that identity for the pool and the content. The insert of the same content under a second identity still answers the conflict, and the table of assets holds one row for the pool. Two: TestStoredPictureKeepsItsState. The stored asset is answered with its state before approval, when approved and when rejected, and the lookup changes no row. Three: TestStoredPictureOtherPoolOrContent. For another pool and for another content the function answers that nothing is stored, and the same bytes inserted for another pool under a new identity are stored as an asset of that pool. The handler itself is driven by the cases of the directory that send an upload through it; they need an object store, a scanner and a sign-in service of the environment. Where the case TestConnectedCanonicalPatchAndSearch runs in your environment, add to it one upload of the bytes of a stored picture under a second identity that expects status 200 and the stored identity, run it by hand and name the result. Where it does not run, add no step to it and say so in the final message. Run the cases of the package of services/launchpad/metadata/internal/metadata by hand once after the change and name in the final message any that fail and whether it failed before the change. Cases of the web. In apps/launchpad/web/src/features/metadata-media/transport.test.ts: uploadGoesOnWithTheStoredAssetOfTheSameBytes. The service double answers the upload with an approved asset of another identity, the same hash and the same owner; the transport sends the metadata operation with the answered identity and returns an outcome that carries it. In apps/launchpad/web/src/features/metadata-media/editor.test.tsx: editorAcceptsTheStoredAssetOfTheSameBytes. The editor shows the picture as updated and no error. In the new file apps/launchpad/web/src/widgets/create/creation-stored-picture.test.ts: launchFlowKeepsTheStoredAssetOfTheSameBytes. The upload step of the launch flow gets such an answer, keeps the answered identity with the attempt and saves the details with it. Say in the final message which cases you saw fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata/internal/metadata", "services/launchpad/metadata/internal/rolecheck", "apps/launchpad/web/src/features/metadata-media", "apps/launchpad/web/src/widgets/create"]
+tests = []
+planned_paths = ["services/launchpad/metadata/internal/metadata/stored_picture_test.go", "apps/launchpad/web/src/widgets/create/creation-stored-picture.test.ts"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && GOWORK=off go build ./... && GOWORK=off go vet ./internal/metadata/... ./internal/rolecheck/...) && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestStoredPicture ./internal/metadata/ | grep -c -e ^---.PASS:.TestStoredPicture) -ge 3 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/) && pnpm --dir apps/launchpad/web run test src/features/metadata-media/transport.test.ts src/features/metadata-media/editor.test.tsx src/widgets/create/creation-stored-picture.test.ts && grep -q uploadGoesOnWithTheStoredAssetOfTheSameBytes apps/launchpad/web/src/features/metadata-media/transport.test.ts && grep -q editorAcceptsTheStoredAssetOfTheSameBytes apps/launchpad/web/src/features/metadata-media/editor.test.tsx && grep -q launchFlowKeepsTheStoredAssetOfTheSameBytes apps/launchpad/web/src/widgets/create/creation-stored-picture.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1268]
+title = "Bring the live connection of the chart of a coin back by itself after a close from the far side"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1268"]
+interfaces = []
+do_1 = "do_1 Gotcha 4996, decision 4052. Read in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts the functions at lines 1577, 1586 and 1655, the function that starts the replay below them, the listeners around lines 1947 and 1948 and the entries at lines 2032 and 2078. Read in apps/launchpad/web/src/widgets/trading/tv-chart.tsx where the widget makes the data feed, registers the transport and hands the data feed to the chart. Read the cases of apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts to see how the directory builds a data feed with a transport double and with timers of the test."
+do_2 = "do_2 Change the data feed, and the widget where the way you take needs it, as decision 4052 says. Decide between the two ways of point two and name the way and the reason in the final message. A case of the directory that pins the stop after five starts or the stopped state follows the new rule. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/widgets/trading/chart-datafeed-reconnect.test.ts, built the way the cases of apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts are built. One: chartReturnsToLiveAfterACloseFromTheFarSide. A series is subscribed the way the chart does it, with a reset signal that ends the subscription the way the chart of the measurement does and subscribes again only when it is asked to load its data again. The series is live. The transport double closes the connection from the far side. Without any further call from the test the data feed asks for a new connection for the candle topic of the same pool and interval, and the state returns to live. The bars given before the close are not taken back. Two: chartKeepsTryingPastFiveFailedStarts. The transport double refuses seven starts in a row and accepts the eighth. With the timers of the test advanced, the data feed makes all eight starts, no wait between two starts is longer than thirty seconds, no state in between is the stopped one, and the state ends at live. Three: chartStartsAgainWhenThePageIsVisibleAgain. After a close from the far side while the page is hidden, the event of the page becoming visible starts the connection at once, without waiting for the timer. Say in the final message which of the three cases you saw fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/trading/chart-datafeed-reconnect.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/trading && grep -q chartReturnsToLiveAfterACloseFromTheFarSide apps/launchpad/web/src/widgets/trading/chart-datafeed-reconnect.test.ts && grep -q chartKeepsTryingPastFiveFailedStarts apps/launchpad/web/src/widgets/trading/chart-datafeed-reconnect.test.ts && grep -q chartStartsAgainWhenThePageIsVisibleAgain apps/launchpad/web/src/widgets/trading/chart-datafeed-reconnect.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1267]
+title = "Build every package of the launchpad kit before the web in the build step of the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1267"]
+interfaces = []
+do_1 = "do_1 Gotcha 4995, decision 4051. Read tools/ui-check/surfaces/launchpad/build.mjs, the scripts of apps/launchpad/package.json and lines 1 to 15 of deploy/launchpad/Dockerfile.web."
+do_2 = "do_2 Change line 36 of tools/ui-check/surfaces/launchpad/build.mjs as point one of decision 4051 says. Change nothing else of the file and nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The proof is the build step itself and needs no new test file: in a tree where no package of the kit has build output and the web has none, the build step ends with exit 0 and leaves the build output of the contract package, of the agent kit and the build identity of the web. The verification removes the earlier output and runs the build step once; the web build takes several minutes. Say in the final message that you saw the build step fail in such a tree before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/launchpad/build.mjs"]
+tests = []
+planned_paths = []
+build_cmd = "node --check tools/ui-check/surfaces/launchpad/build.mjs"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile && rm -rf sdk/launchpad/packages/*/dist apps/launchpad/web/.next && node tools/ui-check/surfaces/launchpad/build.mjs && test -s sdk/launchpad/packages/sidiora-launchpad-v3/dist/abis.js && test -s sdk/launchpad/packages/agent-kit/dist/index.js && test -s apps/launchpad/web/.next/BUILD_ID"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1266]
 title = "Sort the revenue epochs of a chain and the claims of a holder by the number of the epoch in the api of the launchpad"
 status = "pending"
@@ -214272,7 +214452,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1265]
 title = "Sort holders, logs and transfers by their numbers in the stats service of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214302,7 +214482,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1264]
 title = "Sort the latest portfolio snapshot of a wallet by the number of its revision in the pnl service of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
