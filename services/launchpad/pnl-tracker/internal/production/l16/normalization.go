@@ -42,11 +42,36 @@ func (a *BaselineAuthority) receiptSettlement(ctx context.Context, tx pgx.Tx, fi
 	if err := accounting.ValidateFillV1(fill); err != nil {
 		return result, err
 	}
-	var count int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM indexer.indexer_accounting_fills_v1 WHERE payload->'position'->>'transactionHash'=$1`, fill.Position.TransactionHash).Scan(&count); err != nil {
+	rows, err := tx.Query(ctx, `SELECT payload,source_fact_digest FROM indexer.indexer_accounting_fills_v1 WHERE payload->'position'->>'transactionHash'=$1 ORDER BY (payload->'position'->>'logIndex')::bigint LIMIT 3`, fill.Position.TransactionHash)
+	if err != nil {
 		return result, err
 	}
-	if count != 1 {
+	fills := []accounting.FillV1{}
+	for rows.Next() {
+		var raw []byte
+		var digest string
+		if err = rows.Scan(&raw, &digest); err != nil {
+			rows.Close()
+			return result, err
+		}
+		f, decodeErr := accounting.DecodeFillV1(raw)
+		if decodeErr != nil {
+			rows.Close()
+			return result, decodeErr
+		}
+		actual, digestErr := accounting.FillDigest(f)
+		if digestErr != nil || string(actual) != digest || f.Position.ChainID != fill.Position.ChainID || f.Position.Height != fill.Position.Height || f.Position.TransactionHash != fill.Position.TransactionHash || f.Position.BlockHash != fill.Position.BlockHash || f.Position.TransactionIndex != fill.Position.TransactionIndex || f.Provenance.ReceiptSHA256 != fill.Provenance.ReceiptSHA256 || f.Provenance.HeaderSHA256 != fill.Provenance.HeaderSHA256 {
+			rows.Close()
+			return result, delivery.ErrIntegrity
+		}
+		fills = append(fills, f)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return result, err
+	}
+	if len(fills) == 0 || len(fills) > 2 {
 		return result, ErrCostAllocationUnavailable
 	}
 	receipt, err := a.rpc.TransactionReceipt(ctx, common.HexToHash(fill.Position.TransactionHash))
@@ -76,6 +101,9 @@ func (a *BaselineAuthority) receiptSettlement(ctx context.Context, tx pgx.Tx, fi
 	}
 	if headerDigest != fill.Provenance.HeaderSHA256 {
 		return result, delivery.ErrIntegrity
+	}
+	if len(fills) == 2 {
+		return receiptSettlementForFills(fill, fills, receipt, true)
 	}
 	holder := settlementAssetHolder(fill)
 	var tokenMoves, settlements, quoteMoves []movement
