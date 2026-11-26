@@ -17308,6 +17308,12 @@ value = "Point one. The 503 of the packages discovery and notifications names it
 basis = "Gotchas 4970 to 4972; the answer of task 22.39.1217 stands."
 affects = []
 
+[decision.4033]
+title = "A local chain for a verification starts with sequencing, a list named for a direction holds only that direction, a price prints at its tick, and a repair of the trading workspace keeps its presentation"
+value = "Point one. The verification of a task that needs the local chain starts it with the option --sequencer, the way the cases of the directory tools/qualification/localnode start it and the mode in which the chain itself runs. The plain start stays for the tasks that name it after task 22.39.1228 has repaired it. Point two. A list named for a direction holds only entries of that direction: Top gainers holds markets with a positive change, Top losers holds markets with a negative change, each in its order and at most five. A list without an entry shows the empty state of its card and never an entry of the other direction. Point three. A price is printed at the digits of the tick of its market, rounded by a decimal type and never by binary floating point, wherever the workspace prints a price, a mark or an index. Point four. A repair of the trading workspace keeps its presentation as decision 3705 rules it: it corrects a value, a cut column, a control without content, a covered control or a missing head field, and it changes nothing of the arrangement, the sizes and the colours beyond that. The name of the product and the sections of the portfolio that have no source wait for the word of the owner and are no part of these repairs. Point five. The empty headline of a search never contradicts a row offered below it: when the query is a full address and the wallet row is offered, the headline says so."
+basis = "Gotchas 4973 to 4976, decision 3705, decision 4032 point three."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46968,6 +46974,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1248]
+title = "Let the empty headline of the search of the launchpad agree with the wallet row it offers for a full address"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/page-modules/search", "apps/launchpad/web/src/shell"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/page-modules/search src/shell && grep -rq searchHeadlineAgreesWithTheWalletRow apps/launchpad/web/src/page-modules/search"
+do_1 = "do_1 Gotcha 4976, decision 4033 point five, decision 4032 point three. Read apps/launchpad/web/src/page-modules/search/index.tsx whole, apps/launchpad/web/src/shell/global-search-parts.tsx and apps/launchpad/web/src/shell/global-search.tsx around the lines the gotcha names, and the case file search.test.tsx beside the search view."
+symbols = []
+
+[capability.22.39.1247]
+title = "Keep the cookie notice of the trading web off the bottom navigation and the order form at phone size, make its close mark visible, and give the legal pages a title and the icon and every view a description and a preview title"
+reqs = ["22998.1"]
+touches = ["apps/perps/apps/web/src", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/web-shell.test.ts && grep -q cookieNoticeLeavesTheBottomNavigationFree apps/perps/tests/web-shell.test.ts && grep -q legalPagesCarryATitleAndTheIcon apps/perps/tests/web-shell.test.ts"
+do_1 = "do_1 Gotcha 4975, decision 4033 point four, decision 3705. Read apps/perps/apps/web/src/legal/CookieBanner.tsx whole, the file beside it that stores the answer, apps/perps/apps/web/src/legal/LegalLayout.tsx, the pages terms, privacy and cookies and the catch-all page under apps/perps/apps/web/src/pages, how the bottom navigation of the mobile layout is placed and how high it is, and apps/perps/tests/consent-privacy-native-venue-terms.test.ts. Run apps/perps/tests/consent-privacy-native-venue-terms.test.ts by hand before any change and note which of its cases pass."
+symbols = []
+
+[capability.22.39.1246]
+title = "Repair the lists Top gainers and Top losers, the digits of the prices, the cut column of the market list, the empty control of the header and the empty chart frames of the trading workspace, and say on the agents page how the two ways to connect relate"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages", "apps/perps/tests", "apps/perps/docs/ui-source-baseline.json"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/workspace-figures.test.ts && grep -q topListsHoldOnlyMarketsOfTheirDirection apps/perps/tests/workspace-figures.test.ts && grep -q pricesPrintAtTheTickOfTheirMarket apps/perps/tests/workspace-figures.test.ts"
+do_1 = "do_1 Gotcha 4974, decision 4033 points two to four, decision 3705. Read apps/perps/packages/markets/src/pages/home/marketsHeader/marketsHeader.script.tsx whole with the two views beside it, how a row of the market list of the trade view and a row of the markets view print a price and where the digits come from (the field quote_dp and the tick of a market), how the header of the workspace is composed (the directory components/main of the package ui-scaffold, with the language control, the device link and the wallet button), the overview of the portfolio package for a visitor who is not signed in, the directory apps/perps/packages/portfolio/src/pages/agents, and the cases of apps/perps/tests/agent-connect.test.ts as the model of a case that renders a view of the workspace in this test runner."
+symbols = []
 
 [capability.22.39.1245]
 title = "Build the preset of the trading agent kit from the one list of functions of the trading workspace and write the spender of the approval as a rule, so that the kit and the agents page give an agent the same rules"
@@ -182068,6 +182101,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1247]
+title = "Keep the cookie notice of the trading web off the bottom navigation and the order form at phone size, make its close mark visible, and give the legal pages a title and the icon and every view a description and a preview title"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1247"]
+interfaces = []
+do_1 = "do_1 Gotcha 4975, decision 4033 point four, decision 3705. Read apps/perps/apps/web/src/legal/CookieBanner.tsx whole, the file beside it that stores the answer, apps/perps/apps/web/src/legal/LegalLayout.tsx, the pages terms, privacy and cookies and the catch-all page under apps/perps/apps/web/src/pages, how the bottom navigation of the mobile layout is placed and how high it is, and apps/perps/tests/consent-privacy-native-venue-terms.test.ts. Run apps/perps/tests/consent-privacy-native-venue-terms.test.ts by hand before any change and note which of its cases pass."
+do_2 = "do_2 The presentation of the trading workspace is the reference (decision 3705): change no arrangement, no size and no colour beyond what the repair itself needs. Where a file listed in apps/perps/docs/ui-source-baseline.json changes, bring that file of record in line the way task 22.39.1237 did and name each such file in the final message. One: at a phone size the cookie notice sits above the bottom navigation with the safe area of the device respected, and it leaves the controls of the order form reachable; at a desktop size it stays where it is. Two: the close mark of the notice has the contrast of the other text of the notice. Three: the pages terms, privacy and cookies set a title that names the document, and the icon the catch-all page sets. Four: the catch-all page and the three legal pages carry a description and a preview title and description. Keep the name they use in one constant of the web application, the name the title of the catch-all page carries today, so that the title, the application name, the description and the preview fields read it from one place. Do not change the texts of the cookie notice and of the three legal documents, do not change the key under which the answer of the notice is stored, and do not change any name of the product: these wait for the word of the owner. The cases of apps/perps/tests/consent-privacy-native-venue-terms.test.ts that passed before the change pass after it."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in apps/perps/tests/web-shell.test.ts that render the real components: cookieNoticeLeavesTheBottomNavigationFree asserts for the mobile layout that the notice is placed above the height of the bottom navigation and for the desktop layout that its place is unchanged; legalPagesCarryATitleAndTheIcon renders each of the three pages and asserts a title that is not empty and the icon; viewsCarryADescriptionAndAPreviewTitle asserts the fields of the catch-all page and that they read the one constant. The final message names the cases of apps/perps/tests/consent-privacy-native-venue-terms.test.ts that failed before the change, if any, and what a browser at phone size still has to confirm. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/apps/web/src", "apps/perps/tests"]
+tests = []
+planned_paths = ["apps/perps/tests/web-shell.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/web-shell.test.ts && grep -q cookieNoticeLeavesTheBottomNavigationFree apps/perps/tests/web-shell.test.ts && grep -q legalPagesCarryATitleAndTheIcon apps/perps/tests/web-shell.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1246]
+title = "Repair the lists Top gainers and Top losers, the digits of the prices, the cut column of the market list, the empty control of the header and the empty chart frames of the trading workspace, and say on the agents page how the two ways to connect relate"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1246"]
+interfaces = []
+do_1 = "do_1 Gotcha 4974, decision 4033 points two to four, decision 3705. Read apps/perps/packages/markets/src/pages/home/marketsHeader/marketsHeader.script.tsx whole with the two views beside it, how a row of the market list of the trade view and a row of the markets view print a price and where the digits come from (the field quote_dp and the tick of a market), how the header of the workspace is composed (the directory components/main of the package ui-scaffold, with the language control, the device link and the wallet button), the overview of the portfolio package for a visitor who is not signed in, the directory apps/perps/packages/portfolio/src/pages/agents, and the cases of apps/perps/tests/agent-connect.test.ts as the model of a case that renders a view of the workspace in this test runner."
+do_2 = "do_2 The presentation of the trading workspace is the reference (decision 3705): change no arrangement, no size and no colour beyond what the repair itself needs. Where a file listed in apps/perps/docs/ui-source-baseline.json changes, bring that file of record in line the way task 22.39.1237 did and name each such file in the final message. One: Top gainers holds only markets with a positive change in falling order, Top losers only markets with a negative change in rising order, at most five each, at the desktop view and at the mobile view. A list without an entry shows the empty state its card has for no data. Two: every price, mark and index the workspace prints for a market is rounded to the tick of that market with a decimal type: the header of the trade view, the market list of the trade view, the rows and the cards of the markets view. Find where the six decimals with the residue come from, repair it at that one place where the views share it, and name the place in the final message. Three: at a width of 1440 the last column of the market list of the trade view shows its whole value. Repair the width or the truncation of that column only. Four: find the control that renders as an empty box in the header between the language control and the wallet button. If it has content that fails to load, repair the content; if it has no source in this build, do not render it. Name the control and the cause in the final message. Five: the portfolio view of a visitor who is not signed in shows the state the view has for no data instead of chart frames with axes and no series. Six: the agents page says in one sentence, in the place where it asks for the sign-in, that the agents belong to the embedded wallet and that a wallet connected in the header does not replace this sign-in. Check in the code that this is true before writing it, and write what is true. Do not remove or hide any section of the portfolio and do not change any name of the product in this task."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in apps/perps/tests/workspace-figures.test.ts against the real components and the real formatting function, with market rows as the stream delivers them: topListsHoldOnlyMarketsOfTheirDirection gives 19 rising markets and asserts five gainers and no loser, then gives a mix and asserts each list by sign and order; pricesPrintAtTheTickOfTheirMarket gives the prices 1704.109999, 61.310999 and 6.617999 with their ticks and asserts the printed text of the header, of a row of the market list and of a row of the markets view; headerRendersNoControlWithoutContent; signedOutPortfolioShowsNoEmptyChartFrames. The final message names each cause found, each file of record brought in line, and what it could not prove without a browser. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages", "apps/perps/tests", "apps/perps/docs/ui-source-baseline.json"]
+tests = []
+planned_paths = ["apps/perps/tests/workspace-figures.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/workspace-figures.test.ts && grep -q topListsHoldOnlyMarketsOfTheirDirection apps/perps/tests/workspace-figures.test.ts && grep -q pricesPrintAtTheTickOfTheirMarket apps/perps/tests/workspace-figures.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1245]
 title = "Build the preset of the trading agent kit from the one list of functions of the trading workspace and write the spender of the approval as a rule, so that the kit and the agents page give an agent the same rules"
 status = "done"
@@ -213879,6 +213972,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1248]
+title = "Let the empty headline of the search of the launchpad agree with the wallet row it offers for a full address"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1248"]
+interfaces = []
+do_1 = "do_1 Gotcha 4976, decision 4033 point five, decision 4032 point three. Read apps/launchpad/web/src/page-modules/search/index.tsx whole, apps/launchpad/web/src/shell/global-search-parts.tsx and apps/launchpad/web/src/shell/global-search.tsx around the lines the gotcha names, and the case file search.test.tsx beside the search view."
+do_2 = "do_2 One: when the query is a full address and the wallet row is offered, the search view and the search of the header do not say that no coins or users match. They say that no coin and no named user matches and that the wallet can be opened, in one short headline, and the wallet row stays as it is. Two: for a query that is no address the headlines stay as they are. Three: the count line above the results stays true in both cases. Change nothing else of the search."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Case searchHeadlineAgreesWithTheWalletRow in the case file of the search view, against the same real HTTP origin its other cases use: a full address with no coin and no user shows the wallet row and no headline that denies a match; a word with no result shows the headline as before. A case for the search of the header beside its parts if none covers its empty headline. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/page-modules/search", "apps/launchpad/web/src/shell"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/page-modules/search src/shell && grep -rq searchHeadlineAgreesWithTheWalletRow apps/launchpad/web/src/page-modules/search"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -271376,7 +271499,7 @@ touches = ["services/platform/perps-data/deploy", "services/platform/perps-data/
 tests = []
 planned_paths = ["services/platform/perps-data/cmd/perps-quoter", "services/platform/perps-data/internal/quoter", "docs/perps/quoter.md"]
 build_cmd = "go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/cmd/perps-quoter/ ./services/platform/perps-data/internal/quoter/"
-verify_cmd = "go test -count=1 -timeout 14m ./services/platform/perps-data/internal/quoter/ ./services/platform/perps-data/cmd/perps-quoter/ ./services/platform/perps-data/internal/config/ ./services/platform/perps-data/deploy/ && bash tools/qualification/localnode/v6120-node.sh --env-out /tmp/lx-localnode-quoter.env && set -a && . /tmp/lx-localnode-quoter.env && set +a && go test -count=1 -timeout 14m -v -run ^TestLocalChainMarketOrderFillsAgainstTheQuotes ./services/platform/perps-data/internal/quoter/ | grep -q -e PASS:.TestLocalChainMarketOrderFillsAgainstTheQuotes && test -s docs/perps/quoter.md"
+verify_cmd = "go test -count=1 -timeout 14m ./services/platform/perps-data/internal/quoter/ ./services/platform/perps-data/cmd/perps-quoter/ ./services/platform/perps-data/internal/config/ ./services/platform/perps-data/deploy/ && bash tools/qualification/localnode/v6120-node.sh --sequencer --env-out /tmp/lx-localnode-quoter.env && set -a && . /tmp/lx-localnode-quoter.env && set +a && go test -count=1 -timeout 14m -v -run ^TestLocalChainMarketOrderFillsAgainstTheQuotes ./services/platform/perps-data/internal/quoter/ | grep -q -e PASS:.TestLocalChainMarketOrderFillsAgainstTheQuotes && test -s docs/perps/quoter.md"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
