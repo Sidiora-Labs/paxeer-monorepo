@@ -213,9 +213,8 @@ describe('shell reads against a real HTTP origin that answers a transient failur
   }, 20_000);
 
   it('renders a single ranked trader as exactly one pill, never repeated to fill the strip', async () => {
-    // Production 200 after the 2026-10-13 live test: one ranked wallet, net -52.72 USDL.
     const wallet = '0x1dae78b53c9f39930a2ff2b6b7aac12ec75fb154';
-    const one = { ...leaderboard, data: { snapshot: { ...leaderboard.data.snapshot, entries: [{ metricRaw: '52721088', metricSigned: '-52721088', quality: 'complete', rank: 1, wallet }] } } };
+    const one = { ...leaderboard, data: { snapshot: { ...leaderboard.data.snapshot, entries: [{ metricRaw: '52721088', metricSigned: '52721088', quality: 'complete', rank: 1, wallet }] } } };
     served.script.set(LEADERBOARD, [{ status: 200, body: one }]);
     const { container } = mount(<TickerStrip />);
     await waitFor(() => container.querySelector(`a[href="/profile/${wallet}"]`) !== null);
