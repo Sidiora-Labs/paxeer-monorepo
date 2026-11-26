@@ -3,14 +3,21 @@ import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs
 import { isAbsolute } from 'node:path';
 import type { Pool } from 'pg';
 import { signingSessionClient } from '../db/pool.js';
-import { bytesToHex, getAddress, type Hex } from 'viem';
+import {
+  bytesToHex,
+  getAddress,
+  parseTransaction,
+  recoverTransactionAddress,
+  serializeTransaction,
+  type Hex
+} from 'viem';
 import { NonceConflictError, RpcPool, TransactionRejectedError } from '../rpc/pool.js';
 import { NonceStore, broadcastReserved } from '../nonce/store.js';
 import {
   WalletArchivedError,
   agentWalletUserId,
   findArchivedWallet,
-  type WalletKind,
+  type WalletKind
 } from '../db/wallets.js';
 import {
   AttestorDaemonClient,
@@ -27,17 +34,21 @@ import {
   waitForReceipt,
   sponsoredBindRequest,
   provisioningStationConfig,
+  bindLayerX,
+  bindLayerXCalldata,
+  ADDR_PRECOMPILE,
   type SponsoredBindRequest,
   type SponsoredBindConstruction,
-  type SignBody,
+  type SignBody
 } from './bind.js';
 
 import { CustodyAuthorityError, publishCustodyAuthority } from '../agent/authority.js';
 import type {
   AgentOriginalRequest,
   AgentReauthorization,
-  Authorisation,
+  Authorisation
 } from '../attestor/client.js';
+import { unsignedTransactionBytes } from '../attestor/client.js';
 import { GasStationClient as StationClient, StationAdapterError } from '../sponsor/station.js';
 
 export type GasStationClient = StationClient;
@@ -53,11 +64,12 @@ export type ProvisionState =
   | 'refused';
 
 export type ProvisionSubject =
-  | { kind: 'standard'; userId: string; token: string | null }
+  | { kind: 'standard'; userId: string; token: string | null; funding?: 'self' }
   | {
       kind: 'agent';
       did: string;
       agentSignature?: string | null;
+      funding?: 'self';
       custody?: { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization };
     };
 
@@ -333,7 +345,7 @@ async function recordAudit(
       entry.gas?.toString() ?? null,
       entry.maxFeeWei?.toString() ?? null,
       entry.outcome ?? null,
-      entry.reason ?? null,
+      entry.reason ?? null
     ]
   );
 }
@@ -346,7 +358,7 @@ async function lockSubject(
   const client = await pool.connect();
   try {
     await client.query(`select pg_advisory_lock(hashtextextended($1, 0))`, [
-      `provision:${userId}:${kind}`,
+      `provision:${userId}:${kind}`
     ]);
   } catch (err) {
     client.release();
@@ -355,7 +367,7 @@ async function lockSubject(
   return async () => {
     try {
       await client.query(`select pg_advisory_unlock(hashtextextended($1, 0))`, [
-        `provision:${userId}:${kind}`,
+        `provision:${userId}:${kind}`
       ]);
     } finally {
       client.release();
@@ -372,7 +384,7 @@ function requireAttestors(deps: ProvisionDeps): AttestorDaemonClient {
 async function fees(rpc: RpcPool): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
   const [block, tip] = await Promise.all([
     rpc.request<{ baseFeePerGas?: Hex } | null>('eth_getBlockByNumber', ['latest', false]),
-    rpc.request<Hex>('eth_maxPriorityFeePerGas', []),
+    rpc.request<Hex>('eth_maxPriorityFeePerGas', [])
   ]);
   if (!block?.baseFeePerGas)
     throw new ProvisionError('chain_unavailable', 503, 'latest block carries no base fee');
@@ -393,7 +405,7 @@ function result(
     address: getAddress(wallet.address),
     did: row.did,
     mainAccountId: row.main_account_id,
-    bindMessage: message,
+    bindMessage: message
   };
 }
 
@@ -411,7 +423,7 @@ async function refuse(
     address: wallet.address,
     event: 'refusal',
     reason,
-    outcome: boundDid,
+    outcome: boundDid
   });
   row.state = 'refused';
   row.refusal_reason = reason;
@@ -456,12 +468,12 @@ async function createEvmKey(
   await updateRow(deps.pool, row.id, {
     evm_public_key: key.publicKey,
     evm_key_epoch: key.epoch,
-    evm_key_owner: owner,
+    evm_key_owner: owner
   });
   Object.assign(row, {
     evm_public_key: key.publicKey,
     evm_key_epoch: key.epoch,
-    evm_key_owner: owner,
+    evm_key_owner: owner
   });
   const { rows } = await deps.pool.query<WalletRecord>(
     `insert into wallets (user_id, address, encrypted_private_key, key_version, chain_id, kind, migrated_at, attestor_key_id, binding_state)
@@ -495,7 +507,7 @@ async function storeIdentity(
     ed_key_id: edKeyId,
     ed_public_key: publicKey,
     did,
-    main_account_id: main,
+    main_account_id: main
   };
   if (epoch !== undefined) fields.ed_key_epoch = epoch;
   if (owner !== undefined) fields.ed_key_owner = owner;
@@ -507,7 +519,7 @@ async function storeIdentity(
     did,
     main_account_id: main,
     ...(epoch === undefined ? {} : { ed_key_epoch: epoch }),
-    ...(owner === undefined ? {} : { ed_key_owner: owner }),
+    ...(owner === undefined ? {} : { ed_key_owner: owner })
   });
 }
 
@@ -543,7 +555,7 @@ async function signStationPayload(
     authorisation = {
       scheme: 'agent_request',
       publicKey: principal.public_key,
-      ...subject.custody,
+      ...subject.custody
     };
   }
   return requireAttestors(deps).signAuthorized(wallet.attestor_key_id, payload, authorisation);
@@ -569,7 +581,7 @@ export async function provisionAccount(
   subject: ProvisionSubject,
   stage: 'wallet' | 'identity' = 'identity'
 ): Promise<ProvisionResult> {
-  if (stage === 'identity') requireProvisionStation(deps);
+  if (stage === 'identity' && subject.funding !== 'self') requireProvisionStation(deps);
   let userId: string;
   let kind: WalletKind;
   let principal: AgentPrincipal | null = null;
@@ -598,12 +610,12 @@ export async function provisionAccount(
         await updateRow(deps.pool, row.id, {
           state: 'evm_key',
           wallet_id: existing.id,
-          evm_key_id: existing.attestor_key_id,
+          evm_key_id: existing.attestor_key_id
         });
         Object.assign(row, {
           state: 'evm_key',
           wallet_id: existing.id,
-          evm_key_id: existing.attestor_key_id,
+          evm_key_id: existing.attestor_key_id
         });
       } else {
         if (subject.kind === 'agent' && !subject.custody) {
@@ -625,7 +637,7 @@ export async function provisionAccount(
     if (principal && wallet) {
       await deps.pool.query('update agent_principals set wallet_id = $2 where did = $1', [
         subject.kind === 'agent' ? subject.did : '',
-        wallet.id,
+        wallet.id
       ]);
       await publishCustodyAuthority();
     }
@@ -639,7 +651,7 @@ export async function provisionAccount(
     const address = getAddress(wallet.address);
 
     if (stage === 'wallet') return result(row, wallet);
-    requireProvisionStation(deps);
+    if (subject.funding !== 'self') requireProvisionStation(deps);
 
     if (row.state === 'evm_key') {
       if (principal) {
@@ -714,16 +726,150 @@ export async function provisionAccount(
       await updateRow(deps.pool, row.id, {
         state: 'bind_signed',
         bind_nonce: nonce.toString(),
-        bind_signature: signature,
+        bind_signature: signature
       });
       Object.assign(row, {
         state: 'bind_signed',
         bind_nonce: nonce.toString(),
-        bind_signature: signature,
+        bind_signature: signature
       });
     }
 
+    if (subject.funding === 'self' && (row.state === 'bind_signed' || row.state === 'funded')) {
+      if (row.station_request)
+        throw new ProvisionError(
+          'provisioning_funding_conflict',
+          409,
+          'a sponsored binding is already prepared'
+        );
+      const data = bindLayerXCalldata(row.ed_public_key!, row.bind_signature!);
+      const balance = BigInt(await deps.rpc.request<Hex>('eth_getBalance', [address, 'latest']));
+      if (balance === 0n) return result(row, wallet, 'owner');
+      const f = await fees(deps.rpc);
+      const estimate = BigInt(
+        await deps.rpc.request<Hex>('eth_estimateGas', [
+          { from: address, to: ADDR_PRECOMPILE, data }
+        ])
+      );
+      const gas = (estimate * 120n + 99n) / 100n;
+      if (gas * f.maxFeePerGas > deps.gasCapWei)
+        throw new ProvisionError('setup_gas_over_cap', 503, 'binding exceeds the setup gas cap');
+      if (balance < gas * f.maxFeePerGas) return result(row, wallet, 'owner');
+      if (row.bind_raw_tx) {
+        await rebroadcastSetup(deps, row.bind_raw_tx, async () => {
+          await updateRow(deps.pool, row.id, { bind_raw_tx: null, bind_tx_hash: null });
+        });
+      } else {
+        const sent = await sendSetupTransaction(
+          deps,
+          address,
+          async (nonce) => {
+            let transaction = bindLayerX({
+              chainId: deps.chainId,
+              address,
+              publicKey: row.ed_public_key!,
+              signature: row.bind_signature!,
+              nonce,
+              gas,
+              ...f
+            });
+            if (subject.kind === 'agent' && subject.custody?.reauthorization) {
+              const offered = JSON.parse(subject.custody.reauthorization.body) as {
+                transaction?: string;
+              };
+              if (!offered.transaction || !/^[0-9a-f]+$/.test(offered.transaction))
+                throw new ProvisionError(
+                  'agent_authorization_mismatch',
+                  401,
+                  'binding authorization has no transaction'
+                );
+              const raw: Hex = `0x${offered.transaction}`;
+              const parsed = parseTransaction(raw);
+              const approved = {
+                ...parsed,
+                r: undefined,
+                s: undefined,
+                v: undefined,
+                yParity: undefined
+              };
+              if (
+                approved.type !== 'eip1559' ||
+                approved.chainId !== deps.chainId ||
+                approved.nonce !== nonce ||
+                approved.to?.toLowerCase() !== ADDR_PRECOMPILE ||
+                approved.data !== data ||
+                (approved.value ?? 0n) !== 0n ||
+                (raw !== serializeTransaction(approved) &&
+                  raw !== unsignedTransactionBytes(approved)) ||
+                (approved.accessList?.length ?? 0) !== 0 ||
+                !approved.gas ||
+                !approved.maxFeePerGas ||
+                approved.maxPriorityFeePerGas === undefined ||
+                approved.gas * approved.maxFeePerGas > deps.gasCapWei
+              )
+                throw new ProvisionError(
+                  'agent_authorization_mismatch',
+                  401,
+                  'binding authorization differs from the setup transaction'
+                );
+              transaction = {
+                ...transaction,
+                gas: approved.gas,
+                maxFeePerGas: approved.maxFeePerGas,
+                maxPriorityFeePerGas: approved.maxPriorityFeePerGas
+              };
+            }
+            const signed = await signStationPayload(deps, subject, wallet!, {
+              kind: 'evm_tx',
+              transaction: unsignedTransactionBytes(transaction)
+            });
+            if (
+              signed.signature.length !== 130 ||
+              signed.recoveryId === null ||
+              ![0, 1, 27, 28].includes(signed.recoveryId)
+            )
+              throw new ProvisionError(
+                'binding_signature_invalid',
+                503,
+                'binding transaction signature is malformed'
+              );
+            const signature = `0x${signed.signature}` as Hex;
+            const raw = serializeTransaction(transaction, {
+              r: `0x${signature.slice(2, 66)}`,
+              s: `0x${signature.slice(66, 130)}`,
+              yParity: signed.recoveryId % 27 === 1 ? 1 : 0
+            });
+            if (
+              (await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase() !==
+              address.toLowerCase()
+            )
+              throw new ProvisionError(
+                'binding_signer_mismatch',
+                503,
+                'binding signature belongs to another wallet'
+              );
+            return raw;
+          },
+          async (raw) => {
+            await updateRow(deps.pool, row.id, {
+              bind_raw_tx: raw,
+              bind_tx_hash: raw ? transactionHash(raw) : null,
+              bind_gas: gas.toString(),
+              bind_max_fee_wei: f.maxFeePerGas.toString()
+            });
+          }
+        );
+        if (sent.error !== null) throw sent.error;
+        row.bind_tx_hash = sent.hash;
+        row.bind_raw_tx = sent.raw;
+      }
+      await updateRow(deps.pool, row.id, { state: 'bind_sent' });
+      row.bind_max_fee_wei = f.maxFeePerGas.toString();
+      row.state = 'bind_sent';
+    }
+
     if (row.state === 'bind_signed' || row.state === 'funded') {
+      requireProvisionStation(deps);
       if (subject.kind === 'standard' && !subject.token) return result(row, wallet, 'owner');
       let requoted = false;
       for (;;) {
@@ -759,18 +905,18 @@ export async function provisionAccount(
                 station_quote_nonce: construction.batch.quote.quoteNonce,
                 station_batch_nonce: construction.batch.nonce,
                 bind_gas: gasLimit.toString(),
-                bind_max_fee_wei: f.maxFeePerGas.toString(),
+                bind_max_fee_wei: f.maxFeePerGas.toString()
               };
               await updateRow(deps.pool, row.id, fields);
               Object.assign(row, fields);
-            },
+            }
           });
           const fields = {
             station_request: request,
             station_quote_nonce: request.batch.quote.quoteNonce,
             station_batch_nonce: request.batch.nonce,
             bind_gas: gasLimit.toString(),
-            bind_max_fee_wei: f.maxFeePerGas.toString(),
+            bind_max_fee_wei: f.maxFeePerGas.toString()
           };
           await updateRow(deps.pool, row.id, fields);
           Object.assign(row, fields);
@@ -806,7 +952,7 @@ export async function provisionAccount(
             station_quote_nonce: null,
             station_batch_nonce: null,
             bind_gas: null,
-            bind_max_fee_wei: null,
+            bind_max_fee_wei: null
           };
           await updateRow(deps.pool, row.id, fields);
           Object.assign(row, fields);
@@ -820,7 +966,7 @@ export async function provisionAccount(
           throw new StationAdapterError(502, 'gas_station_invalid_response');
         const fields = {
           state: 'bind_sent' as const,
-          bind_tx_hash: submitted.transactionHash as Hex,
+          bind_tx_hash: submitted.transactionHash as Hex
         };
         await updateRow(deps.pool, row.id, fields);
         Object.assign(row, fields);
@@ -840,7 +986,8 @@ export async function provisionAccount(
         deps.rpc,
         hash,
         deps.receiptTimeoutMs,
-        deps.receiptPollMs
+        deps.receiptPollMs,
+        subject.funding === 'self'
       );
       await recordAudit(deps.pool, {
         walletId: wallet.id,
@@ -849,7 +996,7 @@ export async function provisionAccount(
         txHash: hash,
         gas: receipt.gasUsed,
         maxFeeWei: BigInt(row.bind_max_fee_wei!),
-        outcome: receipt.status,
+        outcome: receipt.status
       });
       const bound = await readUnifiedAccount(deps.rpc, address);
       if (bound.didPublicKey === row.ed_public_key) {
@@ -952,14 +1099,14 @@ export async function produceIdentityBinding(
         iss: config.issuer,
         sub: userId,
         did: provision.did,
-        tenant: config.tenant,
+        tenant: config.tenant
       })
     ).toString('base64url');
     const input = `${header}.${payload}`;
     if (input.length + 87 > 4096) throw new Error('identity binding exceeds protocol bound');
     const signature = sign('sha256', Buffer.from(input, 'ascii'), {
       key,
-      dsaEncoding: 'ieee-p1363',
+      dsaEncoding: 'ieee-p1363'
     });
     if (signature.length !== 64) throw new Error('invalid producer signature');
     return `${input}.${signature.toString('base64url')}`;
