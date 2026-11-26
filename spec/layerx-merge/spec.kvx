@@ -213432,7 +213432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1218]
 title = "Let the web application try a read once more without showing anything when a 503 says retryable true and names no delay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1215"]
