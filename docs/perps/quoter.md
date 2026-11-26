@@ -63,10 +63,13 @@ required variables. Start with `PERPS_QUOTER_MODE=dry` and inspect the logged
 level, round, client id, price, notional and base size. Logged prices, sizes,
 positions and USD notionals use the venue's 18-decimal integer scale.
 
-The shared service image accepts `SERVICE=perps-quoter`. The deployment registry
-makes it an owner-started private manual process with zero default replicas and
-no automatic restart. Start one instance after funding; keep its health port
-private. The key is a mounted file, not an environment value containing the key.
+The shared service image accepts `SERVICE=perps-quoter`. Its image is published
+as `ghcr.io/sidiora-labs/perps-quoter` alongside the indexer, gateway, explorer
+and portal images. The owner pulls the quoter image by its published digest.
+The deployment registry makes it an owner-started private manual process with
+zero default replicas and no automatic restart. Start one instance after
+funding; keep its health port private. The key is a mounted file, not an
+environment value containing the key.
 
 ## Bounds and reconciliation
 
