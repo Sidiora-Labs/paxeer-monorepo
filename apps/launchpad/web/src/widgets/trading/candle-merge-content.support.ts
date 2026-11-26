@@ -196,6 +196,8 @@ export async function assertHistoryAndTopicKeepFeedDrawingNewerRevisions(crossDa
     feed.subscribeBars({}, '1D', bar => ticks.push(bar), 'candle-content');
     await eventually(() => feed.replayStatus()[0]?.replayComplete === true);
     expect(ticks.at(-1)).toEqual(canonicalCandleToDisplayBar(held));
+    nextTimestamp = Number(BigInt(text((await latestBlock()).timestamp))) + 1;
+    expect(new Date(Math.floor(nextTimestamp / 86400) * 86400 * 1000).toISOString()).toBe(held.start);
     const transaction = await buy(nextTimestamp);
     const snapshotUrl = new URL('/v2/snapshots', proxy.origin);
     snapshotUrl.searchParams.set('topics', topic);

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient, type QueryClient, type QueryKey, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
 import { marketRetryPace } from '@/core/retry-pace';
+import { isNetworkClassError, retryHint } from '@/core/transient-retry';
 
 export function useMarketQuery<TQueryFnData = unknown, TError = Error, TData = TQueryFnData, TQueryKey extends QueryKey = QueryKey>(options: UseQueryOptions<TQueryFnData, TError, TData, TQueryKey>, client?: QueryClient): UseQueryResult<TData, TError> {
   const query = useQuery(options, client);
@@ -33,7 +34,8 @@ export function useMarketQuery<TQueryFnData = unknown, TError = Error, TData = T
     document.addEventListener('visibilitychange', visible);
     return () => document.removeEventListener('visibilitychange', visible);
   }, [error, options.enabled, query.refetch]);
-  if (query.data === undefined && error && marketRetryPace.state(error)) {
+  const shortServerRetry = retryHint(error).owner === 'network' && !isNetworkClassError(error);
+  if (query.data === undefined && error && marketRetryPace.state(error) && !shortServerRetry) {
     return { ...query, refetch, status: waiting ? 'pending' : 'error', isPending: waiting > 0, isError: waiting === 0, isSuccess: false, isLoading: waiting > 0 && query.isFetching, isInitialLoading: waiting > 0 && query.isFetching, error: waiting ? null : error } as UseQueryResult<TData, TError>;
   }
   return { ...query, refetch };
