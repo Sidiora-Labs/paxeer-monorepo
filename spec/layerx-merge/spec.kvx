@@ -182019,7 +182019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1235]
 title = "Let the agent kit of the trading workspace compare leverage in the scale of the chain, so that its tools accept the markets a chain lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
