@@ -25,6 +25,8 @@ refuse startup. The indexer, portal, replay and loadtest do not read this input.
 no automatic restart. Start exactly one process for a dedicated account after
 mounting its private key file. Its health listener serves `/healthz`,
 `/healthz/live` and `/healthz/ready` on `PORT` (8081 by default); keep it private.
-The shared Dockerfile accepts `SERVICE=perps-quoter`. The public Railway
-services remain independent of this optional quoting account. Configuration,
-collateral funding and shutdown are described in [the quoter guide](../../../../docs/perps/quoter.md).
+The shared Dockerfile accepts `SERVICE=perps-quoter`. The quoter image is
+published as `ghcr.io/sidiora-labs/perps-quoter` alongside the indexer, gateway,
+explorer and portal images; the owner pulls it by its published digest.
+The public Railway services remain independent of this optional quoting account.
+Configuration, collateral funding and shutdown are described in [the quoter guide](../../../../docs/perps/quoter.md).
