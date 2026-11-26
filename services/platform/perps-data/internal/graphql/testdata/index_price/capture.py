@@ -37,7 +37,7 @@ capture_uid = os.geteuid()
 try:
     if capture_uid == 0:
         os.seteuid(pwd.getpwnam("postgres").pw_uid)
-    conn = pq.PQconnectdb(b"port=25432 dbname=postgres")
+    conn = pq.PQconnectdb(os.environ["PERPS_DATA_TEST_DATABASE_URL"].encode())
 finally:
     os.seteuid(capture_uid)
 assert pq.PQstatus(conn) == 0
@@ -78,6 +78,7 @@ def expression(text, env):
     text = re.sub(r"`([^`]*)`", lambda m: repr(m[1]), text, flags=re.S)
     text = re.sub(r"\bhexSQL\(", "hex_sql(", text)
     text = text.replace('strings.Join(columns, ", ")', "joined")
+    text = text.replace('strings.Join(bounds, ", ")', "bounds_joined")
     return eval(text.replace("\n", " "), {"__builtins__": {}}, env)
 
 
@@ -87,9 +88,31 @@ def constant(text, name, env):
 
 
 env = {"hex_sql": lambda col: "'0x' || encode(" + col + ", 'hex')"}
-for name in ("newest", "orderlySymbolSQL", "indexPriceRowsSQL", "latestIndexSQL", "marketSQL", "marketStateSQL"):
+for name in ("newest", "orderlySymbolSQL", "indexPriceRowsSQL", "indexPriceMarketsSQL", "marketSQL"):
     env[name] = constant(perps, name, env)
+
+
+def function_return(name):
+    body = re.search(r"(?m)^func " + name + r"\(.*?\n}(?=\n)", perps, re.S)[0]
+    return re.search(r"return (.*?)(?=\n})", body, re.S)[1]
+
+
+def newest_mark_observation(market, block_bound):
+    bound = " AND block <= " + block_bound if block_bound else ""
+    return expression(function_return("newestMarkObservationSQL"), {**env, "market": market, "bound": bound})
+
+
+def newest_index_observation(market, mark_block, index_block):
+    bound = " AND block <= " + index_block if index_block else ""
+    return expression(function_return("newestIndexObservationSQL"), {**env, "market": market, "markBlock": mark_block, "bound": bound})
+
+
+env["newestMarkObservationSQL"] = newest_mark_observation
+env["newestIndexObservationSQL"] = newest_index_observation
+env["latestIndexSQL"] = lambda markets: expression(function_return("latestIndexSQL"), {**env, "markets": markets})
+env["marketStateSQL"] = constant(perps, "marketStateSQL", env)
 env["latestSQL"] = lambda table, columns: "(SELECT " + columns + " FROM perps." + table + " x WHERE x.market_id = m.market_id ORDER BY x.block DESC, x.tx_index DESC, x.log_index DESC, x.sub DESC LIMIT 1)"
+env["orderlyTickersSQL"] = constant(perps, "orderlyTickersSQL", env)
 
 
 def collect_query(name, code=perps, values=env):
@@ -97,9 +120,13 @@ def collect_query(name, code=perps, values=env):
     return expression(match[1], values)
 
 
-window_expr = re.search(r"columns\[i\] = (.*?)(?=\n\t})", perps, re.S)[1]
-env["joined"] = ", ".join(expression(window_expr, {**env, "w": w}) for w in
-    ["5 minutes", "30 minutes", "1 hour", "4 hours", "24 hours", "3 days", "7 days", "30 days"])
+window_expr = re.search(r"columns\[i\] = (.*?)(?=\n\s*})", perps, re.S)[1]
+bound_expr = re.search(r"bounds\[i\] = (.*?)(?=\n\s*columns\[i\])", perps, re.S)[1]
+windows = ["5 minutes", "30 minutes", "1 hour", "4 hours", "24 hours", "3 days", "7 days", "30 days"]
+window_envs = [{**env, "w": w, "markBlock": f"mark_{i}", "indexBlock": f"index_{i}"} for i, w in enumerate(windows)]
+env["joined"] = ", ".join(expression(window_expr, values) for values in window_envs)
+env["bounds_joined"] = ", ".join(expression(bound_expr, values) for values in window_envs)
+env["orderlyPriceChangesSQL"] = lambda: expression(function_return("orderlyPriceChangesSQL"), env)
 baseline_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
 
 
@@ -209,12 +236,12 @@ try:
                 vals["account"] = "\\x" + hashlib.sha256(b"perps").digest()[:20].hex()
                 execute("INSERT INTO perps.mark_prices (" + ",".join(vals) + ") VALUES (" + ",".join(quote(v) for v in vals.values()) + ")")
         qs = []
-        qs.append(query("latest", env["latestIndexSQL"]+"ORDER BY market_id, "+env["newest"]))
+        qs.append(query("latest", env["latestIndexSQL"](env["indexPriceMarketsSQL"])+"ORDER BY m.market_id"))
         qs.append(query("markets", env["marketSQL"]+"ORDER BY market_id"))
         qs.append(query("market", env["marketSQL"]+"WHERE market_id = $1::numeric", [1]))
         for ids in ("{1}", "{1,2,3}"):
             qs.append(query("states", env["marketStateSQL"], [ids]))
-        qs.append(query("pool", env["latestIndexSQL"]+"WHERE market_id = $1::numeric ORDER BY market_id, "+env["newest"], [1]))
+        qs.append(query("pool", env["latestIndexSQL"]("SELECT $1::numeric AS market_id"), [1]))
         qs.append(query("tickers", collect_query("orderlyTickers"), [anchor-dt.timedelta(hours=24)]))
         qs.append(query("changes", collect_query("orderlyPriceChanges"), [anchor]))
         for const in ("latestPricesSQL", "latestPriceCursorSQL"):
