@@ -22,10 +22,10 @@ function circulatingRow(stats: PoolStats): string | null {
  * Pool information: quote asset (header chip), on-pool USDL liquidity, indicative TVL when served, and
  * identity. Compact rows, one footnote at most. Values come from IF_POOL_STATS only.
  */
-export default function PoolInfoCard({ poolAddress }: { poolAddress: string }) {
+export default function PoolInfoCard({ poolAddress, liveStats }: { poolAddress: string; liveStats?: PoolStats | null }) {
   const snapshot = usePoolSnapshot(poolAddress);
   const data = snapshot.data ?? null;
-  const stats = data?.stats ?? null;
+  const stats = liveStats ?? data?.stats ?? null;
   const loading = snapshot.isPending;
   const unavailable = data?.unavailable.stats ?? null;
   return (

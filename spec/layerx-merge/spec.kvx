@@ -17458,6 +17458,18 @@ value = "Point one. The line of line 53 of apps/launchpad/web/src/widgets/tradin
 basis = "Gotcha 5001."
 affects = []
 
+[decision.4058]
+title = "The card Pool information follows the live stats of the page like the cards beside it"
+value = "Point one. The card takes the live stats as a property and prefers them over the stats of the snapshot, the way line 23 of apps/launchpad/web/src/widgets/coin/mc-ath-card.tsx does. Point two. The layout passes the live stats to the card at line 202 of apps/launchpad/web/src/widgets/trading/token-market-layout.tsx. Point three. The rows Pool, Coin and Created stay from the snapshot. Without live stats the card behaves as it does today, with its loading state and its two failure states. Point four. Not changed here: the snapshot of the pool with its times, the served stats, and the other cards of the page."
+basis = "Gotcha 5002."
+affects = []
+
+[decision.4059]
+title = "The strip Top earners shows gains only"
+value = "Point one. An entry whose signed figure is zero or below is not shown in the strip. Point two. An entry that carries no signed figure, or whose quality is unavailable, is shown as it is today, since nothing says that it is a loss. Point three. The order of the ranking stays. Point four. When no entry is left, the strip shows the empty text of line 161 of apps/launchpad/web/src/shell/use-ticker.ts with its short form. Point five. Not changed here: the ranking page, where a loss is shown as a loss, the other modes of the strip, and the served ranking."
+basis = "Gotcha 5003."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47118,6 +47130,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1275]
+title = "Show gains only in the strip Top earners"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/shell"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/shell/use-ticker.earners.test.tsx && grep -q stripLeavesOutALoss apps/launchpad/web/src/shell/use-ticker.earners.test.tsx && grep -q stripLeavesOutAZeroFigure apps/launchpad/web/src/shell/use-ticker.earners.test.tsx && grep -q stripKeepsAnEntryWithoutASignedFigure apps/launchpad/web/src/shell/use-ticker.earners.test.tsx && grep -q stripShowsItsEmptyTextWithoutAGain apps/launchpad/web/src/shell/use-ticker.earners.test.tsx"
+do_1 = "do_1 Gotcha 5003, decision 4059. Read the function useEarnersTicker in apps/launchpad/web/src/shell/use-ticker.ts from line 155 to its end, the helper that makes the figure of a chip, and the cases of the strip in apps/launchpad/web/src/shell that use the ranking."
+symbols = []
+
+[capability.22.39.1274]
+title = "Let the card Pool information follow the live stats of the page of a coin"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/widgets/trading"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/coin/pool-info-card.live.test.tsx && grep -q cardShowsTheLiveLiquidity apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx && grep -q cardKeepsTheSnapshotWithoutLiveStats apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx && grep -q cardKeepsItsIdentityRows apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx && grep -q -e PoolInfoCard.*liveStats= apps/launchpad/web/src/widgets/trading/token-market-layout.tsx"
+do_1 = "do_1 Gotcha 5002, decision 4058. Read apps/launchpad/web/src/widgets/coin/pool-info-card.tsx whole, apps/launchpad/web/src/widgets/coin/mc-ath-card.tsx whole as the pattern, and lines 149 to 204 of apps/launchpad/web/src/widgets/trading/token-market-layout.tsx."
+symbols = []
 
 [capability.22.39.1273]
 title = "Take the bookkeeping line out of the description of a coin and the never filled frames out of its stats panel"
@@ -214345,6 +214375,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1275]
+title = "Show gains only in the strip Top earners"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1275"]
+interfaces = []
+do_1 = "do_1 Gotcha 5003, decision 4059. Read the function useEarnersTicker in apps/launchpad/web/src/shell/use-ticker.ts from line 155 to its end, the helper that makes the figure of a chip, and the cases of the strip in apps/launchpad/web/src/shell that use the ranking."
+do_2 = "do_2 Change the function as decision 4059 says. A case of the web inside the paths that pins a loss in the strip follows the change. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/shell/use-ticker.earners.test.tsx. One: stripLeavesOutALoss. A ranking of three entries with the signed figures 5 USDL, minus 2 USDL and 1 USDL gives two chips, for the first and the third wallet, in that order. Two: stripLeavesOutAZeroFigure. An entry with the signed figure zero gives no chip. Three: stripKeepsAnEntryWithoutASignedFigure. An entry that carries no signed figure gives a chip as today. Four: stripShowsItsEmptyTextWithoutAGain. A ranking whose only entry is a loss gives no chip and the empty text of the strip. Say in the final message that you saw the first and the fourth case fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time and never opens a listener or a port: a double answers in the process, and a test file closes its doubles in a step that also runs after a failed case. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/shell"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/shell/use-ticker.earners.test.tsx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/shell/use-ticker.earners.test.tsx && grep -q stripLeavesOutALoss apps/launchpad/web/src/shell/use-ticker.earners.test.tsx && grep -q stripLeavesOutAZeroFigure apps/launchpad/web/src/shell/use-ticker.earners.test.tsx && grep -q stripKeepsAnEntryWithoutASignedFigure apps/launchpad/web/src/shell/use-ticker.earners.test.tsx && grep -q stripShowsItsEmptyTextWithoutAGain apps/launchpad/web/src/shell/use-ticker.earners.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1274]
+title = "Let the card Pool information follow the live stats of the page of a coin"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1274"]
+interfaces = []
+do_1 = "do_1 Gotcha 5002, decision 4058. Read apps/launchpad/web/src/widgets/coin/pool-info-card.tsx whole, apps/launchpad/web/src/widgets/coin/mc-ath-card.tsx whole as the pattern, and lines 149 to 204 of apps/launchpad/web/src/widgets/trading/token-market-layout.tsx."
+do_2 = "do_2 Change the card and line 202 of the layout as decision 4058 says. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx. One: cardShowsTheLiveLiquidity. A card with a snapshot whose liquidity is 100 USDL and live stats whose liquidity is 250 USDL shows 250 USDL in the row Total liquidity. Two: cardKeepsTheSnapshotWithoutLiveStats. The same card without live stats shows 100 USDL. Three: cardKeepsItsIdentityRows. With live stats the rows Pool and Coin show the addresses of the snapshot. Say in the final message that you saw the first case fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time and never opens a listener or a port: a double answers in the process, and a test file closes its doubles in a step that also runs after a failed case. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/widgets/trading"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/coin/pool-info-card.live.test.tsx && grep -q cardShowsTheLiveLiquidity apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx && grep -q cardKeepsTheSnapshotWithoutLiveStats apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx && grep -q cardKeepsItsIdentityRows apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx && grep -q -e PoolInfoCard.*liveStats= apps/launchpad/web/src/widgets/trading/token-market-layout.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1273]
 title = "Take the bookkeeping line out of the description of a coin and the never filled frames out of its stats panel"
 status = "pending"
@@ -214647,7 +214737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1262]
 title = "Let the inventory consumer of the pnl service of the launchpad take a position its broker no longer delivers from the publication records of the indexer, so that no wallet stays without its position for good"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
