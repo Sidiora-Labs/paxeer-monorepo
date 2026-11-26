@@ -213435,7 +213435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.154]
 title = "Let the status line of the chart say that its number is the block of the last update, and show no label where no height is known"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
