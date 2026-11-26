@@ -91,6 +91,8 @@ async function surfaceAuthorityRoundTripsCurrentAttestation() {
   expect(authority.tradeDeployment.spender).toBe(CORE_DEPLOYMENT.launchpadPrecompile);
   expect(authority.tradeDeployment.quoter).toBe(CORE_DEPLOYMENT.quoter);
   expect(authority.tradeDeployment.registry).toBe(CORE_DEPLOYMENT.poolRegistry);
+  expect(authority.tradeDeployment.emitter).toBe(CORE_DEPLOYMENT.eventEmitter);
+  expect(authority.tradeDeployment.swapRecordWriter).toBe(CORE_DEPLOYMENT.launchpadPrecompile);
   for (const [role, field] of [['Router', 'router'], ['Quoter', 'quoter'], ['PoolRegistry', 'poolRegistry']] as const) {
     const identity = emitted.attestation.identities[role];
     expect(identity.verified).toBe(true);

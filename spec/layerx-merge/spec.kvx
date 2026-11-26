@@ -17368,6 +17368,12 @@ value = "Point one. The rule of the public reads in services/launchpad/social/in
 basis = "Gotcha 4986."
 affects = []
 
+[decision.4043]
+title = "The trade deployment record names the writer of the swap record apart from the event emitter role, and in production the writer is the launchpad module address"
+value = "Point one. The record TradeDeployment at line 132 of apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts gains the address that writes the swap record of a trade. One function of that file gives the writer of a deployment record, and both readers take the address from it: the receipt check at line 897 and the call of homeTradeFill at line 80 of apps/launchpad/web/src/widgets/trading/use-trade-panel.ts. Point two. The production record names the launchpad module address of the generated deployment record as the writer, the address that is the spender of approvals. The runtime authority names the same address for every profile that is not the private fixture profile, and for the private fixture profile the address of the role EventEmitter of that profile, in the way it chooses the spender at line 227 of apps/launchpad/web/src/core/runtime-authority.ts. Point three. A deployment record that names no writer keeps its event emitter as the writer, so the records that fixtures and cases outside the paths build stay valid without a change. Point four. The code pins stay as they are: router, quoter, pool registry and event emitter are pinned and verified at the block. The module address has no runtime hash in the deployment record and gets no pin, and the rule of the constructor at line 255 of apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts keeps asking a pin of the four roles and asks none of the writer. Point five. Every other rule of the receipt check stays: exactly one record of the writer with the swap topic, its provenance, pool and sender, the direction, the amount in, the minimum of the amount out and the block number. A record with the swap topic from another address is not counted, and a receipt with two such records of the writer is refused as today. Point six. The generated deployment record apps/launchpad/web/src/core/network/deployment.ts is not changed by hand, the function homeTradeFill keeps its signature, and no text of apps/launchpad/web/src/widgets/trading/trade-copy.ts changes."
+basis = "Gotcha 4987."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47028,6 +47034,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1257]
+title = "Read the swap record of a buy or a sell of the launchpad web from the launchpad module address, so that a trade that went through is shown as confirmed"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/core/runtime-authority.ts", "apps/launchpad/web/src/core/runtime-authority-production.test.ts", "apps/launchpad/web/src/core/runtime-authority-attestation.test.ts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/trading/transaction-controls src/core/runtime-authority-production.test.ts src/core/runtime-authority-attestation.test.ts && grep -q swapRecordIsReadFromTheLaunchpadModule apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q swapRecordFromAnotherAddressIsNotCounted apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q productionRecordNamesTheLaunchpadModule apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts"
+do_1 = "do_1 Gotcha 4987, decision 4043. Read in apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts the record TradeDeployment at line 132 with the production record below it, the constructor around line 255, the function verifyWithClient and the function readReceiptWithClient from line 787 to its end. Read the function check of apps/launchpad/web/src/widgets/trading/transaction-controls/recovery.ts around line 305, line 80 of apps/launchpad/web/src/widgets/trading/use-trade-panel.ts with the function homeTradeFill of apps/launchpad/web/src/widgets/trade/home-chain.ts, line 227 of apps/launchpad/web/src/core/runtime-authority.ts, the roles and the module address in apps/launchpad/web/src/core/network/deployment.ts, and how apps/launchpad/web/src/widgets/trading/transaction-controls/receipt.chain.test.ts and apps/launchpad/web/src/widgets/trading/transaction-controls/trade-journey.integration.test.tsx reach the read of a receipt."
+symbols = []
 
 [capability.22.39.1256]
 title = "Serve the read of the comments of a wallet from the social service of the launchpad to a request without a session, with cases that send the read through the ingress"
@@ -214102,6 +214117,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1257]
+title = "Read the swap record of a buy or a sell of the launchpad web from the launchpad module address, so that a trade that went through is shown as confirmed"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1257"]
+interfaces = []
+do_1 = "do_1 Gotcha 4987, decision 4043. Read in apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts the record TradeDeployment at line 132 with the production record below it, the constructor around line 255, the function verifyWithClient and the function readReceiptWithClient from line 787 to its end. Read the function check of apps/launchpad/web/src/widgets/trading/transaction-controls/recovery.ts around line 305, line 80 of apps/launchpad/web/src/widgets/trading/use-trade-panel.ts with the function homeTradeFill of apps/launchpad/web/src/widgets/trade/home-chain.ts, line 227 of apps/launchpad/web/src/core/runtime-authority.ts, the roles and the module address in apps/launchpad/web/src/core/network/deployment.ts, and how apps/launchpad/web/src/widgets/trading/transaction-controls/receipt.chain.test.ts and apps/launchpad/web/src/widgets/trading/transaction-controls/trade-journey.integration.test.tsx reach the read of a receipt."
+do_2 = "do_2 Decision 4043, points one to four. The record TradeDeployment gains the writer of the swap record as a field that may be absent, and one exported function of apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts gives the writer of a record: the field when it is present, else the event emitter. The receipt check filters the records of a receipt by that function, and the function executeTrade of apps/launchpad/web/src/widgets/trading/use-trade-panel.ts passes its result to homeTradeFill. The production record names the launchpad module address of the deployment record as the writer. In apps/launchpad/web/src/core/runtime-authority.ts the trade deployment names the launchpad module address as the writer for every profile but the private fixture profile and the address of the role EventEmitter for the private fixture profile. The pins and the rule of the constructor stay as point four says. Change nothing in apps/launchpad/web/src/core/network/deployment.ts, in apps/launchpad/web/src/widgets/trade/home-chain.ts, in apps/launchpad/web/src/widgets/trading/trade-copy.ts and in apps/launchpad/web/src/widgets/trading/transaction-controls/recovery.ts."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Before the first run by hand make sure the programs that the preparation of the test command of the web needs are present: apt-get update, then apt-get install -y --no-install-recommends authbind libnss3-tools openssl jq python3-yaml, with sudo only when the user is not the administrator. This is setup of the environment, the same setup the pipeline of the repository does, and it changes no file of the repository. When the preparation stops at its stage of the joined services with a readiness that timed out, make sure no process of an earlier run is alive and run the line once more without removing the build cache: the second run starts from the cache. Never start a run while an earlier one is still cleaning up. New file apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts, run by the test command of the web with its default configuration, with four cases. Each builds a provider with a stand-in of the chain client, or with the local chain the way apps/launchpad/web/src/widgets/trading/transaction-controls/receipt.chain.test.ts does, and a deployment record in the production shape: the writer is an address that is none of the four pinned roles, and the pins of the four roles fit the code the client answers. swapRecordIsReadFromTheLaunchpadModule: a buy mined with the status 1 and seven records in the order of gotcha 4987, the swap record written by the writer and no record from the event emitter, is read as a confirmed fill with the amount in and the amount out of the record; the same holds for a sell. swapRecordFromAnotherAddressIsNotCounted: the same receipt with the swap record written by the event emitter, and once more by the router, is refused with the code swap_evidence_missing_or_duplicate, and so is a receipt with two swap records of the writer. deploymentWithoutAWriterKeepsTheEventEmitter: with a record that names no writer the swap record of the event emitter is read as a confirmed fill. productionRecordNamesTheLaunchpadModule: the writer of the production record is the launchpad module address of the deployment record, its pins hold the four roles and no pin of the module address, and the constructor accepts the record. The case of apps/launchpad/web/src/core/runtime-authority-production.test.ts that builds the authority and reads the pins of its trade deployment also requires that the trade deployment names the launchpad module address as the writer. The cases of apps/launchpad/web/src/core/runtime-authority-attestation.test.ts follow where they name the fields of the trade deployment, and the reason of each change is given in the final message. Every case of apps/launchpad/web/src/widgets/trading/transaction-controls keeps passing without a change of an expectation; where one needs a change, name it with its reason in the final message. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/core/runtime-authority.ts", "apps/launchpad/web/src/core/runtime-authority-production.test.ts", "apps/launchpad/web/src/core/runtime-authority-attestation.test.ts"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/trading/transaction-controls src/core/runtime-authority-production.test.ts src/core/runtime-authority-attestation.test.ts && grep -q swapRecordIsReadFromTheLaunchpadModule apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q swapRecordFromAnotherAddressIsNotCounted apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q productionRecordNamesTheLaunchpadModule apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1256]
 title = "Serve the read of the comments of a wallet from the social service of the launchpad to a request without a session, with cases that send the read through the ingress"
 status = "done"
@@ -214255,7 +214300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1251]
 title = "Draw the footer of the page of the agents once and set the controls of its state cards inside the centered block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1234"]
@@ -214465,7 +214510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1240]
 title = "Show the all-time high of a coin in the card market cap versus all-time high, from the daily candles of its whole life"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214645,7 +214690,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1231]
 title = "Let the chart of a coin load its trade markers when the browser hides the answer headers, and stop repeating a read that cannot pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1223"]
