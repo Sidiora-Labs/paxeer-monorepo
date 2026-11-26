@@ -8,6 +8,8 @@ import { createOwnedAgent, type CreatedAgentKey } from '@/core/wallet-sdk/embedd
 import { type PaxeerWallet, type SigningSession, type AgentClaim, PaxeerWalletError } from '@/core/wallet-sdk/embedded_sdk/embedded/sdk';
 import { AgentEnrollment, AgentKeyNotice, AgentLimitsForm, AgentTransferForm } from './agent-forms';
 import { AgentActivityPanel } from './agent-activity';
+import { AgentConnect } from './agent-connect';
+import type { AgentConnection } from './agent-connection';
 import { agentAmount, agentAsset, agentBalanceText, agentError, loadAgentInventory, readAgentBalances, saveAgentLimits, type AgentAsset, type AgentChainReader, type AgentInventory, type AgentPreset, type AgentRow } from './agents-domain';
 
 export interface AgentsWorkspaceProps {
@@ -16,6 +18,7 @@ export interface AgentsWorkspaceProps {
   userId: string;
   accessToken: string;
   reader: AgentChainReader;
+  connection: AgentConnection;
 }
 interface TransferStatus { hash: Hex; kind: string; amount: string; symbol: string; result: string; error: boolean }
 interface AgentFailure { kind: 'configuration' | 'error'; message: string }
@@ -33,7 +36,7 @@ function AgentFailureState({ failure, title, onRetry }: { failure: AgentFailure;
     : <ErrorState title={title} message={failure.message} onRetry={onRetry} />;
 }
 
-export function AgentsWorkspace({ wallet, owner, userId, accessToken, reader }: AgentsWorkspaceProps) {
+export function AgentsWorkspace({ wallet, owner, userId, accessToken, reader, connection }: AgentsWorkspaceProps) {
   const current = useRef(true);
   const lock = useRef(false);
   const [invalid, setInvalid] = useState(false);
@@ -157,6 +160,7 @@ export function AgentsWorkspace({ wallet, owner, userId, accessToken, reader }: 
         <span className="w-full text-right text-md font-bold tabular-nums">{item.balances ? agentBalanceText(item.balances) : item.detail.wallet ? 'Balances unavailable' : 'No wallet balances'}</span>
       </button>)}
     </Panel>
+    <AgentConnect key={row?.summary.did ?? 'no-agent'} agent={row ? { did: row.summary.did, label: row.summary.label } : null} connection={connection} />
     {inventory?.balanceError ? <ErrorState message={inventory.balanceError} onRetry={reload} /> : null}
     {row ? <section aria-label={`Manage ${row.summary.label}`} className="flex min-w-0 flex-col gap-3">
       <Panel aria-labelledby="agent-management-title" className="flex flex-col gap-3">

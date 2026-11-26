@@ -8,6 +8,8 @@ import { chromium, type Browser } from 'playwright';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { AgentEnrollment, AgentKeyNotice, AgentLimitsForm, AgentTransferForm } from './agent-forms';
 import { AgentsAccess } from './agents-page';
+import { AgentConnectView, type AgentCopyState } from './agent-connect';
+import { agentConnectionConfiguration } from '@/core/agent-interface';
 import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 
 const require = createRequire(import.meta.url);
@@ -18,6 +20,7 @@ const balances = { native: 10000000000000000000n, quote: 25000000n, quoteDecimal
 let browser: Browser;
 let css = '';
 let markup = '';
+let connectMarkup: string[] = [];
 const noop = () => {};
 
 beforeAll(async () => {
@@ -27,10 +30,17 @@ beforeAll(async () => {
     <div className="grid min-w-0 gap-3 lg:grid-cols-2"><AgentTransferForm kind="fund" owner={owner} balances={balances} busy={false} onSend={noop} /><AgentTransferForm kind="sweep" owner={owner} balances={balances} busy={false} onSend={noop} /></div>
     <AgentLimitsForm quoteDecimals={6} busy={false} onSave={noop} />
   </AgentsAccess>);
+  const connection = agentConnectionConfiguration();
+  const agent = { did: `did:matrix:${'agent'.repeat(20)}:${'ab'.repeat(8)}`, label: 'Launchpad agent' };
+  connectMarkup = [
+    renderToStaticMarkup(<AgentConnectView agent={null} connection={connection} copyState="idle" onCopy={noop} />),
+    renderToStaticMarkup(<AgentConnectView agent={agent} connection={{ status: 'unavailable' }} copyState="idle" onCopy={noop} />),
+    ...(['idle', 'copying', 'copied', 'manual'] as AgentCopyState[]).map(copyState => renderToStaticMarkup(<AgentConnectView agent={agent} connection={connection} copyState={copyState} onCopy={noop} />)),
+  ];
   const { compile } = await import(pathToFileURL(tailwind).href) as { compile(source: string, options: { base: string; onDependency: (path: string) => void }): Promise<{ build(candidates: string[]): string }> };
   const base = resolve(process.cwd(), 'src/app');
   const compiler = await compile(readFileSync(resolve(base, 'globals.css'), 'utf8'), { base, onDependency: noop });
-  const classes = Array.from(markup.matchAll(/class="([^"]+)"/g)).flatMap(match => match[1].split(/\s+/));
+  const classes = Array.from([markup, ...connectMarkup].join('').matchAll(/class="([^"]+)"/g)).flatMap(match => match[1].split(/\s+/));
   css = compiler.build(classes);
   browser = await chromium.launch({ headless: true });
 }, 30000);
@@ -84,4 +94,30 @@ async function agentsPageUsesLabelsKeyboardFocusAndThemeControlEdges() {
   } finally { await page.close(); }
 }
 
-for (const check of [agentsPageFitsPhoneAndDesktopInBothColorModes, agentsPageUsesLabelsKeyboardFocusAndThemeControlEdges]) test(check.name, check);
+async function agentConnectStatesFitBothColorModesAndPhoneWidths() {
+  const expected = ['Choose an agent to connect', 'Connection details unavailable', 'Your key stays on the agent’s machine.', 'Copying configuration', 'Configuration copied.', 'Copy is unavailable.'];
+  const page = await browser.newPage();
+  try {
+    for (const [index, markup] of connectMarkup.entries()) {
+      assertControlEdges(markup);
+      await page.setContent(`<style>${css}</style><main class="mx-auto max-w-5xl p-4">${markup}</main>`);
+      expect(await page.locator('main').textContent()).toContain(expected[index]);
+      for (const width of [360, 768, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        for (const mode of ['dark', 'light']) {
+          await page.evaluate(value => document.documentElement.setAttribute('data-color-mode', value), mode);
+          const metrics = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, scheme: getComputedStyle(document.documentElement).colorScheme }));
+          expect(metrics.scheme).toBe(mode);
+          expect(metrics.scroll, `${index}: ${mode} at ${width}`).toBeLessThanOrEqual(metrics.width);
+          const controls = await page.locator('button, textarea, a').evaluateAll(elements => elements.map(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
+          for (const control of controls) {
+            expect(control.width).toBeGreaterThan(0);
+            if (width <= 834) expect(control.height).toBeGreaterThanOrEqual(44);
+          }
+        }
+      }
+    }
+  } finally { await page.close(); }
+}
+
+for (const check of [agentsPageFitsPhoneAndDesktopInBothColorModes, agentsPageUsesLabelsKeyboardFocusAndThemeControlEdges, agentConnectStatesFitBothColorModesAndPhoneWidths]) test(check.name, check);

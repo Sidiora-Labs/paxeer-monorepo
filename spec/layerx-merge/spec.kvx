@@ -214089,7 +214089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1255]
 title = "Keep the market list and the header of a market of the trading web filled when the read of the market catalog is late or fails"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214150,7 +214150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1253]
 title = "Add the row of the quoting process of the trading venue to the image table, and a case that keeps the table and the registry of the trading data in step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214180,7 +214180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1252]
 title = "End an action of an agent whose nonce is spent, with the receipt of a hash it holds or in a terminal state that says so, and prepare no replacement at a spent nonce"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214240,7 +214240,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1250]
 title = "Forward the read of the comments of a wallet through the gateway of the launchpad as a public read, and add a case that keeps the table of the gateway in step with the routes of the social service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214450,7 +214450,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1239]
 title = "Let the Trending column of the home view offer the change windows the statistics serve: 5m, 1h, 6h and 24h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216238,7 +216238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.142]
 title = "Bring the coin and token views of the launchpad to the visual brief: header, chart frame and toolbar, the first state before a trade, the trade panel and the side column"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138", "22.44.136"]

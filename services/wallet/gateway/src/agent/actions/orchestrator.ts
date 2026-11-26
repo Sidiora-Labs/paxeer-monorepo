@@ -7,6 +7,7 @@ import {
 } from 'viem';
 import { env } from '../../env.js';
 import {
+  getReceipt as getReceiptOperation,
   getErc20Allowance as getErc20AllowanceOperation,
   getErc20Balance as getErc20BalanceOperation,
   getNativeBalance as getNativeBalanceOperation,
@@ -14,6 +15,7 @@ import {
   resolveGas as resolveGasOperation,
   simulate as simulateOperation,
   waitForReceipt as waitForReceiptOperation,
+  type ReceiptOutcome,
 } from '../../chainReads.js';
 import {
   findPrincipal as findPrincipalOperation,
@@ -35,7 +37,7 @@ import {
 import { CustodyAuthorityError } from '../authority.js';
 import { withDistributedWalletLock } from './nonceLock.js';
 import { broadcastReserved, type NonceLease } from '../../nonce/store.js';
-import { sharedRpcPool } from '../../rpc/pool.js';
+import { NonceConflictError, sharedRpcPool } from '../../rpc/pool.js';
 import {
   buildErrorEnvelope,
   terminalStatusFor,
@@ -64,6 +66,7 @@ import {
 
 import { actionOperation, assertActionActive } from './execution.js';
 
+const getReceipt = actionOperation(getReceiptOperation);
 const getErc20Allowance = actionOperation(getErc20AllowanceOperation);
 const getErc20Balance = actionOperation(getErc20BalanceOperation);
 const getNativeBalance = actionOperation(getNativeBalanceOperation);
@@ -81,9 +84,15 @@ const getMigrationAwareSigningAccountForRow = actionOperation(
 const getAction = actionOperation(getActionOperation);
 const releaseActionBudget = actionOperation(releaseActionBudgetOperation, false);
 const releaseActionNonce = actionOperation(releaseActionNonceOperation, false);
-const releaseUnsignedActionNonce = actionOperation(releaseUnsignedActionNonceOperation, false);
+const releaseUnsignedActionNonce = actionOperation(
+  releaseUnsignedActionNonceOperation,
+  false,
+);
 const reserveActionBudget = actionOperation(reserveActionBudgetOperation, false);
-const retainActionTransactionDraft = actionOperation(retainActionTransactionDraftOperation, false);
+const retainActionTransactionDraft = actionOperation(
+  retainActionTransactionDraftOperation,
+  false,
+);
 const retainActionSignedTransaction = actionOperation(
   retainActionSignedTransactionOperation,
   false,
@@ -148,6 +157,19 @@ export async function advanceAction(row: ActionRow): Promise<void> {
   } catch (err) {
     assertActionActive();
     if (err instanceof ActionLeaseLostError) throw err;
+    if (err instanceof NonceConflictError && err.consumed) {
+      const current = await getAction(row.id);
+      if (!current || current.terminal_at) return;
+      const leg = current.call_tx_hash ? 'call' : 'approval';
+      try {
+        await resolveConsumedNonce(current, leg);
+        return;
+      } catch (recoveryError) {
+        assertActionActive();
+        if (recoveryError instanceof ActionLeaseLostError) throw recoveryError;
+        err = recoveryError;
+      }
+    }
     if (
       err instanceof AttestorError &&
       (err.code === 'inventory_mismatch' || err.code === 'key_invalid_share')
@@ -218,13 +240,30 @@ export async function advanceAction(row: ActionRow): Promise<void> {
         return;
       }
     }
-    if (err instanceof AttestorError && (err.category === 'token' || err.category === 'policy')) {
-      await fail(row, 'validation', 'POLICY_DENIED', err.message, { detail: err.code }, false);
+    if (
+      err instanceof AttestorError &&
+      (err.category === 'token' || err.category === 'policy')
+    ) {
+      await fail(
+        row,
+        'validation',
+        'POLICY_DENIED',
+        err.message,
+        { detail: err.code },
+        false,
+      );
       return;
     }
     // Any unexpected throw is transient infrastructure — never terminal, never
     // a resend. Surface as RETRY_SAME_ACTION so the worker re-attempts.
-    await fail(row, 'reconciliation', 'RPC_UNAVAILABLE', (err as Error).message, {}, false);
+    await fail(
+      row,
+      'reconciliation',
+      'RPC_UNAVAILABLE',
+      (err as Error).message,
+      {},
+      false,
+    );
   }
 }
 
@@ -241,7 +280,14 @@ async function validate(row: ActionRow): Promise<void> {
     // fresh plan-less row is intake-in-progress; claimNextAction shields those
     // for INTAKE_GRACE_SECONDS. Reaching here means the intake orphaned (route
     // crashed mid-plan) — terminal it.
-    await fail(row, 'validation', 'INVALID_REQUEST', 'action has no execution plan', {}, true);
+    await fail(
+      row,
+      'validation',
+      'INVALID_REQUEST',
+      'action has no execution plan',
+      {},
+      true,
+    );
     return;
   }
 
@@ -251,13 +297,29 @@ async function validate(row: ActionRow): Promise<void> {
     return;
   }
   if (principal.is_frozen) {
-    await fail(row, 'validation', 'AGENT_FROZEN', 'agent is frozen by its owner', {}, true);
+    await fail(
+      row,
+      'validation',
+      'AGENT_FROZEN',
+      'agent is frozen by its owner',
+      {},
+      true,
+    );
     return;
   }
 
-  const wallet = row.wallet_address ? await findWalletByAddress(row.wallet_address) : null;
+  const wallet = row.wallet_address
+    ? await findWalletByAddress(row.wallet_address)
+    : null;
   if (!wallet) {
-    await fail(row, 'validation', 'INVALID_REQUEST', 'agent wallet not provisioned', {}, true);
+    await fail(
+      row,
+      'validation',
+      'INVALID_REQUEST',
+      'agent wallet not provisioned',
+      {},
+      true,
+    );
     return;
   }
 
@@ -287,7 +349,14 @@ async function validate(row: ActionRow): Promise<void> {
     if (!decision.allow) {
       const code: ActionErrorCode =
         decision.code === 'APPROVE_CAP' ? 'APPROVAL_CAP_EXCEEDED' : 'POLICY_DENIED';
-      await fail(row, 'validation', code, decision.message, { policy_code: decision.code }, true);
+      await fail(
+        row,
+        'validation',
+        code,
+        decision.message,
+        { policy_code: decision.code },
+        true,
+      );
       return;
     }
   }
@@ -321,7 +390,8 @@ async function validate(row: ActionRow): Promise<void> {
 
   // Live allowance decides whether the approve leg is needed at all.
   const allowance = await getErc20Allowance(plan.token, wallet.address, plan.spender);
-  const next: ActionStatus = allowance >= amountWei ? 'simulating_call' : 'awaiting_approval';
+  const next: ActionStatus =
+    allowance >= amountWei ? 'simulating_call' : 'awaiting_approval';
   await updateAction(row, {
     status: next,
     phase: next === 'awaiting_approval' ? 'approval_broadcast' : 'call_simulation',
@@ -342,12 +412,19 @@ async function broadcastApproval(row: ActionRow): Promise<void> {
 
   // Re-entrancy: if we already broadcast an approval, don't send another.
   if (row.approval_tx_hash) {
-    await updateAction(row, { status: 'approval_pending', phase: 'approval_confirmation' });
+    await updateAction(row, {
+      status: 'approval_pending',
+      phase: 'approval_confirmation',
+    });
     return;
   }
 
   const data = approvalCalldata(plan);
-  const sent = await broadcastLeg(row, wallet, 'approval', { to: plan.token, data, value: 0n });
+  const sent = await broadcastLeg(row, wallet, 'approval', {
+    to: plan.token,
+    data,
+    value: 0n,
+  });
   await updateAction(row, {
     status: 'approval_pending',
     phase: 'approval_confirmation',
@@ -426,9 +503,12 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
 
 async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<void> {
   const plan = row.plan as unknown as ActionPlan;
-  const hash = (leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash) as Hex | null;
-  const nonce = leg === 'approval' ? row.approval_nonce : row.call_nonce;
-  const phase: ActionPhase = leg === 'approval' ? 'approval_confirmation' : 'call_confirmation';
+  const hash = (
+    leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash
+  ) as Hex | null;
+  const nonce = actionLegNonce(row, leg);
+  const phase: ActionPhase =
+    leg === 'approval' ? 'approval_confirmation' : 'call_confirmation';
 
   if (!hash) {
     // Nothing broadcast for this leg — kick it back to the broadcast step.
@@ -438,36 +518,20 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
     return;
   }
 
+  if (nonce !== null && row.attempts >= REPLACE_AFTER_ATTEMPTS && row.wallet_address) {
+    const latest = await actionOperation(() =>
+      sharedRpcPool().getTransactionCount(row.wallet_address as Hex, 'latest'),
+    )();
+    if (latest > nonce) {
+      await resolveConsumedNonce(row, leg);
+      return;
+    }
+  }
+
   await recoverRetainedBroadcast(row, leg);
   const outcome = await waitForReceipt(hash, { confirmations: CONFIRMATIONS });
 
-  if (outcome.state === 'confirmed') {
-    if (leg === 'approval') {
-      await updateAction(row, {
-        status: 'approval_confirmed',
-        phase: 'call_simulation',
-        error_code: null,
-        error: null,
-      });
-    } else {
-      await finalizeCall(row);
-    }
-    return;
-  }
-
-  if (outcome.state === 'reverted') {
-    // A mined-but-reverted tx DID consume the nonce; never resend. Terminal.
-    const code: ActionErrorCode = 'TRANSACTION_REVERTED';
-    await fail(
-      row,
-      phase,
-      code,
-      `${leg} transaction reverted on-chain`,
-      { tx_hash: hash, nonce },
-      false,
-    );
-    return;
-  }
+  if (await applyLegReceipt(row, leg, hash, nonce, outcome)) return;
 
   // Not yet mined. Decide between "keep polling" and "replace".
   const wallet = await requireWallet(row);
@@ -497,6 +561,76 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
     error_code: code,
     error: envelope,
   });
+}
+
+async function applyLegReceipt(
+  row: ActionRow,
+  leg: ActionLeg,
+  hash: Hex,
+  nonce: number | null,
+  outcome: ReceiptOutcome,
+): Promise<boolean> {
+  const phase: ActionPhase =
+    leg === 'approval' ? 'approval_confirmation' : 'call_confirmation';
+  if (outcome.state === 'confirmed') {
+    if (leg === 'approval') {
+      await updateAction(row, {
+        status: 'approval_confirmed',
+        phase: 'call_simulation',
+        error_code: null,
+        error: null,
+      });
+    } else {
+      await finalizeCall(row);
+    }
+    return true;
+  }
+
+  if (outcome.state === 'reverted') {
+    // A mined-but-reverted tx DID consume the nonce; never resend. Terminal.
+    const code: ActionErrorCode = 'TRANSACTION_REVERTED';
+    await fail(
+      row,
+      phase,
+      code,
+      `${leg} transaction reverted on-chain`,
+      { tx_hash: hash, nonce },
+      false,
+    );
+    return true;
+  }
+
+  return false;
+}
+
+async function resolveConsumedNonce(row: ActionRow, leg: ActionLeg): Promise<void> {
+  const state = actionLegExecution(row, leg);
+  const nonce = actionLegNonce(row, leg);
+  const rowHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
+  const hashes = [
+    ...new Set([
+      ...(rowHash ? [rowHash as Hex] : []),
+      ...(state.current ? [state.current.hash] : []),
+      ...(state.history ?? []).map((signed) => signed.hash),
+    ]),
+  ];
+  const receipts = await Promise.all(hashes.map((hash) => getReceipt(hash)));
+  for (let i = 0; i < hashes.length; i += 1) {
+    if (!receipts[i]) continue;
+    const outcome = await waitForReceipt(hashes[i]!, { confirmations: CONFIRMATIONS });
+    if (nonce !== null) await releaseActionNonce(row.id, nonce, actionLeaseEpoch(row));
+    await applyLegReceipt(row, leg, hashes[i]!, nonce, outcome);
+    return;
+  }
+  if (nonce !== null) await releaseActionNonce(row.id, nonce, actionLeaseEpoch(row));
+  await fail(
+    row,
+    leg === 'approval' ? 'approval_confirmation' : 'call_confirmation',
+    'NONCE_CONSUMED',
+    `the ${leg} nonce was consumed without a receipt for a held transaction`,
+    { leg, nonce, hashes },
+    false,
+  );
 }
 
 /** On-chain call success completes the action. */
@@ -552,11 +686,15 @@ function activeNonceLease(lease: NonceLease): NonceLease {
     peek: actionOperation(() => lease.peek()),
     release: actionOperation((nonce: number) => lease.release(nonce), false),
     track: actionOperation(
-      (nonce: number, hash: Hex, member: string | null) => lease.track(nonce, hash, member),
+      (nonce: number, hash: Hex, member: string | null) =>
+        lease.track(nonce, hash, member),
       false,
     ),
     checkClientNonce: actionOperation((nonce: number) => lease.checkClientNonce(nonce)),
-    reserveClientNonce: actionOperation((nonce: number) => lease.reserveClientNonce(nonce), false),
+    reserveClientNonce: actionOperation(
+      (nonce: number) => lease.reserveClientNonce(nonce),
+      false,
+    ),
   };
 }
 
@@ -576,14 +714,19 @@ export async function submitRetained(
   if (await isTxKnown(signed.hash)) {
     await lease.track(signed.draft.nonce, signed.hash, null);
   } else {
-    const sent = await broadcastReserved(lease, signed.draft.nonce, signed.raw, async (raw) => {
-      const { hash, member } = await actionOperation(() =>
-        sharedRpcPool().sendRawTransactionVia(raw),
-      )();
-      if (hash.toLowerCase() !== signed.hash.toLowerCase())
-        throw new Error('RPC transaction hash differs from retained bytes');
-      return { hash, member };
-    });
+    const sent = await broadcastReserved(
+      lease,
+      signed.draft.nonce,
+      signed.raw,
+      async (raw) => {
+        const { hash, member } = await actionOperation(() =>
+          sharedRpcPool().sendRawTransactionVia(raw),
+        )();
+        if (hash.toLowerCase() !== signed.hash.toLowerCase())
+          throw new Error('RPC transaction hash differs from retained bytes');
+        return { hash, member };
+      },
+    );
     if (sent.error !== null && !(await isTxKnown(signed.hash))) return sent.error;
   }
   await releaseActionNonce(row.id, signed.draft.nonce, actionLeaseEpoch(row));
@@ -626,7 +769,8 @@ async function broadcastLeg(
         assertActionActive();
         const lease = activeNonceLease(unfencedLease);
         const current = await getAction(row.id);
-        if (!current || current.terminal_at) throw new Error('action is no longer advanceable');
+        if (!current || current.terminal_at)
+          throw new Error('action is no longer advanceable');
         if (current.attempts !== row.attempts) throw new ActionLeaseLostError();
         const state = actionLegExecution(current, leg);
         const expectedHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
@@ -635,15 +779,20 @@ async function broadcastLeg(
           return { hash: state.current.hash, nonce: state.current.draft.nonce, error };
         }
         const principal = await findPrincipal(current.did);
-        if (!principal || principal.is_frozen) throw new Error('agent principal is unavailable');
-        const [policy, rules] = await Promise.all([getPolicy(current.did), listRules(current.did)]);
+        if (!principal || principal.is_frozen)
+          throw new Error('agent principal is unavailable');
+        const [policy, rules] = await Promise.all([
+          getPolicy(current.did),
+          listRules(current.did),
+        ]);
         const plan = current.plan as unknown as ActionPlan;
         const decision = await evaluateAgent({
           principal,
           policy,
           rules,
           intent: actionLegIntent(plan, leg, tx),
-          reserveBudget: (args) => reserveActionBudget(current.id, args, actionLeaseEpoch(row)),
+          reserveBudget: (args) =>
+            reserveActionBudget(current.id, args, actionLeaseEpoch(row)),
         });
         if (!decision.allow) {
           await fail(
@@ -774,6 +923,13 @@ async function replaceLeg(
   nonce: number,
   plan: ActionPlan,
 ): Promise<void> {
+  const latest = await actionOperation(() =>
+    sharedRpcPool().getTransactionCount(wallet.address, 'latest'),
+  )();
+  if (latest > nonce) {
+    await resolveConsumedNonce(row, leg);
+    return;
+  }
   const tx: LegTx =
     leg === 'approval'
       ? { to: plan.token, data: approvalCalldata(plan), value: 0n }
@@ -787,8 +943,18 @@ async function replaceLeg(
   await updateAction(
     row,
     leg === 'approval'
-      ? { status: 'approval_pending', approval_tx_hash: sent.hash, error_code: null, error: null }
-      : { status: 'call_pending', call_tx_hash: sent.hash, error_code: null, error: null },
+      ? {
+          status: 'approval_pending',
+          approval_tx_hash: sent.hash,
+          error_code: null,
+          error: null,
+        }
+      : {
+          status: 'call_pending',
+          call_tx_hash: sent.hash,
+          error_code: null,
+          error: null,
+        },
   );
 }
 
@@ -796,8 +962,20 @@ async function replaceLeg(
 // Helpers
 // -----------------------------------------------------------------------------
 
+function actionLegNonce(row: ActionRow, leg: ActionLeg): number | null {
+  const stored = leg === 'approval' ? row.approval_nonce : row.call_nonce;
+  if (stored === null) return null;
+  const nonce = Number(stored);
+  if (!/^\d+$/.test(String(stored)) || !Number.isSafeInteger(nonce) || nonce < 0) {
+    throw new Error('action leg nonce is invalid');
+  }
+  return nonce;
+}
+
 async function requireWallet(row: ActionRow): Promise<WalletRow | null> {
-  const wallet = row.wallet_address ? await findWalletByAddress(row.wallet_address) : null;
+  const wallet = row.wallet_address
+    ? await findWalletByAddress(row.wallet_address)
+    : null;
   if (!wallet) {
     await fail(row, 'validation', 'INVALID_REQUEST', 'agent wallet not found', {}, true);
     return null;
