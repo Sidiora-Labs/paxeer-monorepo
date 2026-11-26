@@ -34,7 +34,7 @@
     "@tanstack/react-query": "^5.62.8",
     "@types/lodash": "^4.17.7",
     "@wagmi/connectors": "5.11.2",
-    "@wagmi/core": "2.21.2",
+    "@wagmi/core": "3.6.9",
     "bs58": "^6.0.0",
     "lodash": "^4.18.1",
     "viem": "^2.29.2",
