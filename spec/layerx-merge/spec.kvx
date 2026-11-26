@@ -214894,7 +214894,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.140]
 title = "Bring the home of the launchpad to the visual brief and let it show coins first at phone widths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138"]
