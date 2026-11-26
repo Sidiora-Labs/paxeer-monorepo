@@ -9,9 +9,8 @@ use std::path::PathBuf;
 
 use layerx_platform_registry::FileDeploymentJournal;
 use layerx_programs::{
-    chain_evidence::programs_state_key,
     chain_proof::{decode::decode_commitment_proof, trust_store::TrustRoot},
-    InterfaceEntryPoint, ProgramId, ProgramInterface, UpgradePolicy, ValueSchema, ValueType,
+    DeploymentProof, ProgramId, ProgramInterface, UpgradePolicy,
 };
 use serde_json::json;
 use sha2::{Digest as _, Sha256};
@@ -24,44 +23,37 @@ impl Drop for Directory {
     }
 }
 
-fn package(commitment: &[u8], code: &[u8], interface: Option<&[u8]>) -> Vec<u8> {
-    serde_json::to_vec(&json!({"commitment": commitment, "code": code, "interface": interface}))
-        .unwrap_or_else(|error| panic!("{error:?}"))
+fn package(admission: &DeploymentProof) -> Vec<u8> {
+    let admission = admission
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    serde_json::to_vec(&json!({"admission": admission})).unwrap_or_else(|error| panic!("{error:?}"))
 }
 
 struct ChainFixtureCase {
     program: ProgramId,
-    key: Vec<u8>,
     code_hash: [u8; 32],
-    pairs: Vec<(Vec<u8>, Vec<u8>)>,
     fixture: chain::ChainFixture,
+    admission: DeploymentProof,
+    interface: ProgramInterface,
 }
 
 fn chain_fixture() -> ChainFixtureCase {
-    let program = ProgramId::new([31; 32]).unwrap_or_else(|error| panic!("{error:?}"));
-    let mut key = b"program\0".to_vec();
-    key.extend_from_slice(&program.bytes());
-    let key = programs_state_key(&key);
-    let code_hash: [u8; 32] = Sha256::digest(support::WASM_V1).into();
-    let mut record = vec![1];
-    record.extend_from_slice(&[32; 32]);
-    record.extend_from_slice(&code_hash);
-    record.extend_from_slice(&1_u16.to_be_bytes());
-    record.extend_from_slice(&7_u32.to_be_bytes());
-    let pairs = vec![(key.clone(), record)];
-    let fixture = chain::ChainFixture::new_in_store(
+    let support::ChainAdmission {
+        chain,
+        proof,
+        interface,
+    } = support::admission_in_store(
         "lxphost",
         "registry-chain-trust",
         &[[1; 32], [2; 32], [3; 32], [4; 32]],
-        pairs.clone(),
-    )
-    .unwrap_or_else(|error| panic!("{error:?}"));
+    );
     ChainFixtureCase {
-        program,
-        key,
-        code_hash,
-        pairs,
-        fixture,
+        program: support::program(),
+        code_hash: support::code_hash(support::WASM_V1),
+        fixture: chain,
+        admission: proof,
+        interface,
     }
 }
 
@@ -76,10 +68,10 @@ fn journal_verifies_deployments_from_chain_trust() {
     let journal_path = root.0.join("journal");
     let ChainFixtureCase {
         program,
-        key,
         code_hash,
-        pairs,
         fixture,
+        admission,
+        interface,
     } = chain_fixture();
     let head = fixture
         .verifier
@@ -93,27 +85,7 @@ fn journal_verifies_deployments_from_chain_trust() {
     fs::write(&trust_path, &trust_bytes).unwrap_or_else(|error| panic!("{error:?}"));
     fs::set_permissions(&trust_path, fs::Permissions::from_mode(0o600))
         .unwrap_or_else(|error| panic!("{error:?}"));
-    let interface = ProgramInterface::bind(
-        support::WASM_V1,
-        1,
-        vec![InterfaceEntryPoint {
-            name: "call".to_owned(),
-            discriminator: [1, 2, 3, 4],
-            calldata: ValueSchema::layerx(ValueType::Bytes { max_len: 64 }),
-            response: ValueSchema::layerx(ValueType::Bytes { max_len: 64 }),
-            capabilities: Vec::new(),
-            event_topics: Vec::new(),
-            failures: Vec::new(),
-        }],
-    )
-    .unwrap_or_else(|error| panic!("{error:?}"));
-    let proof = package(
-        &fixture
-            .encode_key(&key)
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        support::WASM_V1,
-        Some(interface.canonical_encoding()),
-    );
+    let proof = package(&admission);
     let now = u64::try_from(head.time_ms()).unwrap_or_else(|error| panic!("{error:?}"));
     let open = || {
         FileDeploymentJournal::open_from_chain_trust(journal_path.clone(), &trust_path, 1_000)
@@ -124,12 +96,12 @@ fn journal_verifies_deployments_from_chain_trust() {
         .append_chain_deployment(&proof, now)
         .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(evidence.program(), program);
-    assert_eq!(evidence.version(), 7);
+    assert_eq!(evidence.version(), 1);
     assert_eq!(evidence.code_hash(), code_hash);
     assert_eq!(evidence.abi_version(), 1);
     assert_eq!(
         evidence.upgrade_policy(),
-        UpgradePolicy::Authority([32; 32])
+        UpgradePolicy::Authority(support::AUTHORITY)
     );
     assert_eq!(evidence.state_height(), chain::STATE_HEIGHT);
     assert_eq!(evidence.state_root(), head.app_hash());
@@ -153,75 +125,39 @@ fn journal_verifies_deployments_from_chain_trust() {
         .append_chain_deployment(&proof, now + 1_001)
         .is_err());
 
-    assert_invalid_proofs(
-        &journal,
-        &fixture,
-        &key,
-        &interface,
-        &pairs,
-        now,
-        &journal_path,
-    );
+    assert_invalid_proofs(&journal, &admission, now, &journal_path);
     assert_invalid_trust_roots(&journal, &trust, &trust_path, &trust_bytes, &proof, now);
 }
 
 fn assert_invalid_proofs(
     journal: &FileDeploymentJournal,
-    fixture: &chain::ChainFixture,
-    key: &[u8],
-    interface: &ProgramInterface,
-    pairs: &[(Vec<u8>, Vec<u8>)],
+    admission: &DeploymentProof,
     now: u64,
     journal_path: &std::path::Path,
 ) {
-    let bad_code = package(
-        &fixture
-            .encode_key(key)
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        support::WASM_V2,
-        Some(interface.canonical_encoding()),
-    );
-    assert!(journal.append_chain_deployment(&bad_code, now).is_err());
-    let mut commitment = decode_commitment_proof(
-        &fixture
-            .encode_key(key)
-            .unwrap_or_else(|error| panic!("{error:?}")),
-    )
-    .unwrap_or_else(|error| panic!("{error:?}"));
-    commitment.proof_ops[0].data[0] ^= 1;
+    let mut bad_code = admission.clone();
+    bad_code.deployment.code = support::WASM_V2.to_vec();
     assert!(journal
-        .append_chain_deployment(
-            &package(
-                &commitment
-                    .encode()
-                    .unwrap_or_else(|error| panic!("{error:?}")),
-                support::WASM_V1,
-                None
-            ),
-            now
-        )
+        .append_chain_deployment(&package(&bad_code), now)
         .is_err());
-    let mut commitment = decode_commitment_proof(
-        &fixture
-            .encode_key(key)
-            .unwrap_or_else(|error| panic!("{error:?}")),
-    )
-    .unwrap_or_else(|error| panic!("{error:?}"));
-    *commitment
+
+    let mut bad_proof = admission.clone();
+    bad_proof.state.commitment.proof_ops[0].data[0] ^= 1;
+    bad_proof.state.state.ops[0].data[0] ^= 1;
+    bad_proof.deployment.program_state.ops[0].data[0] ^= 1;
+    assert!(journal
+        .append_chain_deployment(&package(&bad_proof), now)
+        .is_err());
+
+    let mut bad_commit = admission.clone();
+    *bad_commit
+        .state
+        .commitment
         .commit
         .last_mut()
         .unwrap_or_else(|| panic!("expected a value")) ^= 1;
     assert!(journal
-        .append_chain_deployment(
-            &package(
-                &commitment
-                    .encode()
-                    .unwrap_or_else(|error| panic!("{error:?}")),
-                support::WASM_V1,
-                None
-            ),
-            now
-        )
+        .append_chain_deployment(&package(&bad_commit), now)
         .is_err());
 
     for (chain_id, seeds) in [
@@ -231,16 +167,8 @@ fn assert_invalid_proofs(
             [[11; 32], [12; 32], [13; 32], [14; 32]],
         ),
     ] {
-        let untrusted =
-            chain::ChainFixture::new_in_store("lxphost", chain_id, &seeds, pairs.to_vec())
-                .unwrap_or_else(|error| panic!("{error:?}"));
-        let untrusted_proof = package(
-            &untrusted
-                .encode_key(key)
-                .unwrap_or_else(|error| panic!("{error:?}")),
-            support::WASM_V1,
-            Some(interface.canonical_encoding()),
-        );
+        let untrusted = support::admission_in_store("lxphost", chain_id, &seeds);
+        let untrusted_proof = package(&untrusted.proof);
         assert!(journal
             .append_chain_deployment(&untrusted_proof, now)
             .is_err());
@@ -319,23 +247,15 @@ fn journal_refuses_deployment_outside_the_lxphost_store() {
     fs::create_dir_all(&root.0).unwrap_or_else(|error| panic!("{error:?}"));
     let trust_path = root.0.join("trust-root");
     let journal_path = root.0.join("journal");
-    let program = ProgramId::new([31; 32]).unwrap_or_else(|error| panic!("{error:?}"));
-    let mut key = b"program\0".to_vec();
-    key.extend_from_slice(&program.bytes());
-    let key = programs_state_key(&key);
-    let code_hash: [u8; 32] = Sha256::digest(support::WASM_V1).into();
-    let mut record = vec![1];
-    record.extend_from_slice(&[32; 32]);
-    record.extend_from_slice(&code_hash);
-    record.extend_from_slice(&1_u16.to_be_bytes());
-    record.extend_from_slice(&7_u32.to_be_bytes());
-    let fixture = chain::ChainFixture::new_in_store(
+    let support::ChainAdmission {
+        chain: fixture,
+        proof: admission,
+        ..
+    } = support::admission_in_store(
         "layerx",
         "registry-chain-trust",
         &[[1; 32], [2; 32], [3; 32], [4; 32]],
-        vec![(key.clone(), record)],
-    )
-    .unwrap_or_else(|error| panic!("{error:?}"));
+    );
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
@@ -351,22 +271,10 @@ fn journal_refuses_deployment_outside_the_lxphost_store() {
     .unwrap_or_else(|error| panic!("{error:?}"));
     fs::set_permissions(&trust_path, fs::Permissions::from_mode(0o600))
         .unwrap_or_else(|error| panic!("{error:?}"));
-    let interface = ProgramInterface::bind(
-        support::WASM_V1,
-        1,
-        vec![InterfaceEntryPoint {
-            name: "call".to_owned(),
-            discriminator: [1, 2, 3, 4],
-            calldata: ValueSchema::layerx(ValueType::Bytes { max_len: 64 }),
-            response: ValueSchema::layerx(ValueType::Bytes { max_len: 64 }),
-            capabilities: Vec::new(),
-            event_topics: Vec::new(),
-            failures: Vec::new(),
-        }],
-    )
-    .unwrap_or_else(|error| panic!("{error:?}"));
-    let commitment = fixture
-        .encode_key(&key)
+    let commitment = admission
+        .state
+        .commitment
+        .encode()
         .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         decode_commitment_proof(&commitment)
@@ -374,12 +282,7 @@ fn journal_refuses_deployment_outside_the_lxphost_store() {
             .store_name,
         "layerx"
     );
-    let proof = serde_json::to_vec(&json!({
-        "commitment": commitment,
-        "code": support::WASM_V1,
-        "interface": interface.canonical_encoding(),
-    }))
-    .unwrap_or_else(|error| panic!("{error:?}"));
+    let proof = package(&admission);
     let journal =
         FileDeploymentJournal::open_from_chain_trust(journal_path.clone(), &trust_path, 1_000)
             .unwrap_or_else(|error| panic!("{error:?}"));

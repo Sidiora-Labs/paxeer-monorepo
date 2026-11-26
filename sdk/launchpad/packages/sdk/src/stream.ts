@@ -21,6 +21,7 @@ export interface SnapshotStreamOptions {
 }
 export class SnapshotStream {
   state: StreamState = 'idle';
+  get waitingTopics(): readonly string[] { return this.topics.filter(topic => !this.positions.has(topic)); }
   private operation: AbortController | undefined;
   private connection: {send(frame: Subscribe): void; close(): void} | undefined;
   private positions = new Map<string,bigint>();
@@ -65,7 +66,7 @@ export class SnapshotStream {
     try {
       const snapshot = decodeContract('TopicSnapshot',await this.options.transport.snapshot(this.topics,controller.signal));
       if (!current()) return;
-      if (snapshot.topics.length !== topics.length || new Set(snapshot.topics.map(t=>t.topic)).size !== topics.length || snapshot.topics.some(t=>!topics.includes(t.topic))) throw new Error('Snapshot topic mismatch');
+      if (snapshot.topics.length === 0 || new Set(snapshot.topics.map(t=>t.topic)).size !== snapshot.topics.length || snapshot.topics.some(t=>!topics.includes(t.topic))) throw new Error('Snapshot topic mismatch');
       for (const entry of snapshot.topics) decodeContract('StreamEvent',{...entry,eventId:'snapshot-validation',occurredAt:snapshot.generatedAt,coalesced:false,sourceSequenceFirst:null,sourceSequenceLast:null});
       if (snapshot.topics.some(t=>t.watermark?.integrity === 'quarantined')) throw new Error('Snapshot integrity quarantined');
       const positions = new Map(snapshot.topics.map(t=>[t.topic,BigInt(t.sequence)]));
@@ -194,6 +195,7 @@ function v2ProjectionIdentity(topic: string, payload: V2StreamEvent['payload'], 
 
 export class SnapshotStreamV2 {
   state: StreamStateV2 = 'idle';
+  get waitingTopics(): readonly string[] { return this.topics.filter(topic => !this.positions.has(topic)); }
   lastError: unknown;
   private readonly stateObservers = new Set<(state: StreamStateV2, reason?: string) => void>();
   observeState(observer: (state: StreamStateV2, reason?: string) => void): () => void { this.stateObservers.add(observer); return () => { this.stateObservers.delete(observer); }; }
@@ -255,7 +257,7 @@ export class SnapshotStreamV2 {
       if (!resume) {
       const snapshot = decodeV2Contract('TopicSnapshot',await this.options.transport.snapshot(this.topics,controller.signal));
       if (!current()) return;
-      if (snapshot.topics.length !== topics.length || new Set(snapshot.topics.map(t=>t.topic)).size !== topics.length || snapshot.topics.some(t=>!topics.includes(t.topic))) throw new Error('Snapshot topic mismatch');
+      if (snapshot.topics.length === 0 || new Set(snapshot.topics.map(t=>t.topic)).size !== snapshot.topics.length || snapshot.topics.some(t=>!topics.includes(t.topic))) throw new Error('Snapshot topic mismatch');
       for (const entry of snapshot.topics) decodeV2Contract('StreamEvent',{...entry,eventId:'snapshot-validation',occurredAt:snapshot.generatedAt,coalesced:false,sourceSequenceFirst:null,sourceSequenceLast:null});
       if (snapshot.topics.some(t=>t.watermark?.integrity === 'quarantined')) throw new Error('Snapshot integrity quarantined');
       const positions = new Map(snapshot.topics.map(t=>[t.topic,BigInt(t.sequence)]));

@@ -399,15 +399,7 @@ func canonicalPublicationFrozenPool(t *testing.T, cutoff time.Time, evidence *st
 	if strings.Contains(universeSQL, "selfv AS") {
 		t.Fatal("round trips still labelled as self-trade evidence")
 	}
-	// Committed canonical read transcript: ordinary buy 500 USDL and partial
-	// sell 130 USDL, at heights 160 and 170 in a complete height-200 history.
-	reads := []canonicalPublicationRead{
-		{SQL: `SELECT w.raw_complete_height,w.typed_complete_height,l.expires_at>clock_timestamp() FROM "indexer"."indexer_ingest_watermarks_v1" w JOIN "indexer"."indexer_ingest_leases_v1" l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`, Args: []string{"canonical"}, Rows: [][]string{{"200", "200", "t"}}},
-		{SQL: `SELECT block_hash,completed_at,fetch_complete AND required_decode_complete FROM "indexer"."indexer_block_completeness_v1" WHERE chain_id=125 AND stream_id=$1 AND height=$2`, Args: []string{"canonical", "200"}, Rows: [][]string{{fmt.Sprintf("0x%064x", 200), cutoff.Add(-time.Second).Format("2006-01-02 15:04:05Z07:00"), "t"}}},
-		{SQL: `SELECT NOT EXISTS(SELECT 1 FROM "stats"."accounting_pool_fences_v2" WHERE frozen) AND NOT EXISTS(SELECT 1 FROM "indexer"."indexer_accounting_fills_v1" f WHERE (f.payload->'position'->>'height')::numeric<=$2 AND NOT EXISTS(SELECT 1 FROM "stats"."accounting_market_commits_v2" c WHERE c.projection_version=$1 AND c.source_fill_id=f.source_fill_id AND c.source_fact_digest=f.source_fact_digest AND c.fill=f.payload)) AND NOT EXISTS(SELECT 1 FROM "stats"."accounting_market_commits_v2" c WHERE c.projection_version=$1 AND (c.fill->'position'->>'height')::numeric<=$2 AND NOT EXISTS(SELECT 1 FROM "indexer"."indexer_accounting_fills_v1" f WHERE f.source_fill_id=c.source_fill_id AND f.source_fact_digest=c.source_fact_digest AND f.payload=c.fill))`, Args: []string{"accounting-v2", "200"}, Rows: [][]string{{"t"}}},
-		{SQL: universeSQL, Args: []string{"accounting-v2", "200", strconv.FormatInt(cutoff.Unix(), 10)}, Rows: [][]string{{address, "100", "0", "0", strconv.FormatInt(cutoff.Unix()-90000, 10), "630000000", "630000000", "130000000", "1", "1", "1", "260000000", "1400000000000000000000", "100000000000000000000", "1485000000", "130000000", "2", "130000000", "100000000000000000000", "18", "1000000000", "1000000000000000000000", "18"}}},
-	}
-	pool := publicationOpenPool(t, filepath.Join(t.TempDir(), "canonical.json"), reads...)
+	pool := store.CanonicalPublicationDatabase(t, cutoff)
 	frozen, err := store.NewFrozenInputs(pool, reader)
 	if err != nil {
 		pool.Close()

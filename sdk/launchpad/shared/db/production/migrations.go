@@ -711,7 +711,7 @@ func validateExpectedSchema(want ExpectedSchema) error {
 		}
 	}
 	for schema, fingerprint := range want.Schemas {
-		if !identifier.MatchString(schema) || schema == "public" || strings.HasPrefix(schema, "pg_") || !validDigest(fingerprint) {
+		if !identifier.MatchString(schema) || schema == publicSchema || strings.HasPrefix(schema, "pg_") || !validDigest(fingerprint) {
 			return fmt.Errorf("invalid expected structural fingerprint")
 		}
 	}

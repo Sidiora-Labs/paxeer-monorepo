@@ -23,7 +23,7 @@ import { usePrivateAccountQuery } from '@/widgets/profile/use-private-account-qu
 import { terminalPoolPath } from '../sub-nav';
 import { userFacingMessage } from '@/core/user-facing-error';
 
-const rowClass = 'flex h-10 items-center gap-2 rounded-sm px-2 text-sm transition-colors duration-fast hover:bg-surface-hover focus-visible:bg-surface-hover';
+const rowClass = 'sl-hairline flex h-10 items-center gap-2 px-2 text-sm transition-colors duration-fast hover:bg-surface-hover focus-visible:bg-surface-hover';
 
 function Loading({ label }: { label: string }) {
   return <Skeleton variant="rows" rows={4} label={label} />;
@@ -31,7 +31,7 @@ function Loading({ label }: { label: string }) {
 
 function LoadableState<T>({ value, title, signedOut }: { value: Exclude<Loadable<T>, { state: 'ready' }>; title: string; signedOut?: string }) {
   if (value.state === 'loading') return <Loading label={title} />;
-  if (value.state === 'unsupported') return <UnavailableState variant="panel" title={title} operation={value.operation} status={value.status} message={value.message} className="p-4" />;
+  if (value.state === 'unsupported') return <UnavailableState variant="panel" title={title} operation={value.operation} status={value.status} notServed={value.notServed} message={value.message} className="p-4" />;
   if (signedOut && isSignedOutError(value.error)) return <SignedOutState title={signedOut} />;
   return <ErrorState variant="panel" title={`${title} can't load right now`} message={userFacingMessage(value.error)} onRetry={value.retry} className="p-4" />;
 }
@@ -41,7 +41,7 @@ function ChipRow({ chip }: { chip: TickerChip }) {
     <li>
       <Link prefetch={false} href={terminalPoolPath(chip.key)} className={rowClass}>
         <Avatar src={chip.image} name={chip.label} size="sm" shape={chip.avatarShape} decorative />
-        <span className="min-w-0 flex-1 truncate font-bold text-text" title={chip.label}>{chip.label}</span>
+        <span className="min-w-0 flex-1 truncate font-semibold text-text" title={chip.label}>{chip.label}</span>
         <span className={cn('text-xs tabular-nums', chip.tone === 'up' ? 'text-percent-up' : chip.tone === 'down' ? 'text-percent-down' : 'text-text-muted')}>{chip.value ?? '-'}</span>
       </Link>
     </li>
@@ -89,7 +89,7 @@ export function TrendingPanel() {
             <Link prefetch={false} href={terminalPoolPath(pool)} className={rowClass}>
               <span className="w-5 shrink-0 text-xs tabular-nums text-text-faint">{item.rank}</span>
               <Avatar src={meta?.images?.logo ?? null} name={label} size="sm" shape="square" decorative />
-              <span className="min-w-0 flex-1 truncate font-bold text-text" title={label}>{label}</span>
+              <span className="min-w-0 flex-1 truncate font-semibold text-text" title={label}>{label}</span>
               <PercentPill value={change} variant="text" />
             </Link>
           </li>

@@ -22,7 +22,7 @@ export function showAllHref(sort: LiveSort): string {
 
 export const rankedRowSize = 4;
 
-/** Grid columns for stream cards: two per row on phones, three from md, four from xl (the reference density). */
+/** Grid columns for stream cards: two per row on phones, three from md, four from xl. */
 export const streamGridClass = 'grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4';
 
 /** A ranked row shows exactly one grid row: card 3 from md, card 4 from xl. */
@@ -50,11 +50,11 @@ export function RankedRow({ sort, entries, creatorLabel, loading = false, placeh
   return (
     <section data-live-row={sort} aria-label={liveSortLabels[sort]} className={cn('flex flex-col gap-4', className)}>
       <SectionHeader
-        title={<span className="text-lg">{liveSortLabels[sort]}</span>}
+        title={<span className="text-md">{liveSortLabels[sort]}</span>}
         level={2}
         loading={loading}
         action={
-          <Link prefetch={false} href={showAllHref(sort)} className="inline-flex min-h-8 items-center gap-1 rounded-sm px-2 text-sm font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text">
+          <Link prefetch={false} href={showAllHref(sort)} className="inline-flex min-h-8 items-center gap-1 rounded-sm px-2 text-sm font-medium text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text">
             Show all
             <span className="sr-only"> {liveSortLabels[sort].toLowerCase()} streams</span>
             <ChevronRight aria-hidden="true" className="size-4" />

@@ -17,9 +17,9 @@ export function profileBlocks({ wallet, isOwner, issueNotice }: { wallet: string
   return {
     placesIssueNotice: true,
     left: <><h2 className="sr-only">Leaderboard</h2><LeaderboardPanel className="rounded-none bg-transparent px-2 pb-4 pt-2" /></>,
+    headerSummary: <PortfolioBlock wallet={wallet} isOwner={isOwner} notice={issueNotice} className="rounded-none bg-transparent p-0" />,
     centerExtra: (
       <>
-        <PortfolioBlock wallet={wallet} isOwner={isOwner} notice={issueNotice} className="rounded-none bg-transparent px-4 pb-2 pt-5 md:px-5" />
         <PnlSummary wallet={wallet} isOwner={isOwner} className="rounded-none bg-transparent px-4 pb-4 pt-2 md:px-5" />
       </>
     ),

@@ -46,9 +46,11 @@ describe('profile layout', () => {
     expect(left.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', '@market-three/profile:block']));
     const right = container.querySelector('aside[aria-label="Top trades"]')!;
     expect(right.className).not.toMatch(/\bhidden\b/);
-    // Columns are told apart by surface contrast only.
+    // Flush rails use neutral surfaces and a hairline at their shared edge.
     expect(left.className).toContain('bg-surface-1');
     expect(right.className).toContain('bg-surface-1');
+    expect(left.className).toContain('before:w-[var(--sl-edge-width)]');
+    expect(right.className).toContain('@market-two/profile:before:bg-surface-3');
     expect(tokens.filter(token => strokeClass.test(token))).toEqual([]);
   });
 
@@ -77,6 +79,8 @@ describe('profile header anatomy', () => {
         links={{}}
         isOwner={false}
         actions={<button type="button">Follow</button>}
+        summary={<section aria-label="Portfolio value">1,843.41 USDL <span>+2% 1D</span></section>}
+        stats={<dl aria-label="Profile counts"><dt>Followers</dt><dd>12</dd></dl>}
       />,
     );
     const banner = container.querySelector('[data-profile-banner]')!;
@@ -93,6 +97,10 @@ describe('profile header anatomy', () => {
     expect(avatar.querySelector('[aria-label]')?.getAttribute('aria-label')).toBe(wallet);
     // The display name falls back to the 0x address on purpose.
     expect(container.querySelector('h1')?.textContent).toMatch(/^0x1dae78/);
+    const head = container.querySelector('header')!;
+    expect(head.querySelector('[aria-label="Portfolio value"]')?.textContent).toBe('1,843.41 USDL +2% 1D');
+    expect(head.querySelector('[aria-label="Profile counts"]')).not.toBeNull();
+    expect(head.textContent!.indexOf('1,843.41')).toBeLessThan(head.textContent!.indexOf('Followers'));
     expect(classTokens(container).filter(token => strokeClass.test(token))).toEqual([]);
   });
 });

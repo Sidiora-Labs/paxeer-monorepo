@@ -29,6 +29,9 @@ func TestCredentialRefreshReplacesValuesAndReportsUnavailability(t *testing.T) {
 	if got, err := credentials.Get("RELEASE_REFRESH_TOKEN"); err != nil || got != "second" {
 		t.Fatalf("refreshed token: %s %v", got, err)
 	}
+	credentials.mu.Lock()
+	credentials.refreshed = time.Now().Add(-61 * time.Second)
+	credentials.mu.Unlock()
 	t.Setenv("RELEASE_REFRESH_TOKEN", "")
 	if err := credentials.Refresh(ctx); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("empty secret accepted: %v", err)

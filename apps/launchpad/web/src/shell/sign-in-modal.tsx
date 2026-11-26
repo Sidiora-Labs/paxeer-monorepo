@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { getAddress } from 'viem';
 import { useAccount, useConnect, useDisconnect, useSwitchChain, type Connector } from 'wagmi';
 import { Button, NoticeBar } from '@/ui/primitives';
-import { ModalFrame } from '@/ui/primitives';
+import { Sheet } from '@/ui/primitives';
 import { shortAddress } from '@/utils/format';
 import { useAuthModal } from './auth-modal-store';
 import { useWalletRuntime } from '@/core/wallet-sdk/runtime';
@@ -205,7 +205,7 @@ function SignInDialog() {
   ) : null;
 
   return (
-    <ModalFrame open={open} onClose={guardedClose} size="sm" title={step === 'sign' ? 'Sign in with your wallet' : step === 'network' ? 'Switch network' : 'Sign in'}
+    <Sheet open={open} onClose={guardedClose} size="sm" title={step === 'sign' ? 'Sign in with your wallet' : step === 'network' ? 'Switch network' : 'Sign in'}
       subtitle={step === 'connect' ? (embeddedWalletConfigured ? 'Connect a wallet or continue with email' : 'Connect a wallet to sign in') : step === 'network' ? 'Your wallet is on another network' : 'Sign one free message to log in. It is not a transaction'}
       closeLabel="Close sign-in">
       <div className="flex flex-col gap-3" aria-busy={busy || undefined}>
@@ -244,7 +244,7 @@ function SignInDialog() {
         {step === 'network' ? (
           <>
             {connectedRow}
-            <Button variant="primary" size="lg" fullWidth loading={pending === 'network'} disabled={busy} onClick={() => { void switchNetwork(); }}>Switch to Paxeer</Button>
+            <Button variant="inverse" size="lg" fullWidth loading={pending === 'network'} disabled={busy} onClick={() => { void switchNetwork(); }}>Switch to Paxeer</Button>
           </>
         ) : null}
 
@@ -252,16 +252,16 @@ function SignInDialog() {
           <>
             {connectedRow}
             {review ? (
-              <div className="flex flex-col gap-2 rounded-md bg-surface-3 p-3">
+              <div className="flex flex-col gap-2 rounded-sm bg-surface-2 p-3">
                 <p className="text-sm text-text">Signing this message logs you in. It is free and not a transaction</p>
                 <pre className="max-h-52 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-surface-1 p-2 font-mono-sl text-xs text-text-muted">{review.message}</pre>
                 <div className="flex gap-2">
-                  <Button variant="primary" fullWidth onClick={() => approve(true)}>Sign message</Button>
+                  <Button variant="inverse" fullWidth onClick={() => approve(true)}>Sign message</Button>
                   <Button variant="secondary" fullWidth onClick={() => approve(false)}>Cancel</Button>
                 </div>
               </div>
             ) : (
-              <Button variant="primary" size="lg" fullWidth loading={pending === 'sign'} disabled={busy} onClick={() => { void signIn(); }}
+              <Button variant="inverse" size="lg" fullWidth loading={pending === 'sign'} disabled={busy} onClick={() => { void signIn(); }}
                 icon={activeConnector ? <WalletMark icon={activeConnector.icon} name={displayName(activeConnector)} size="sm" /> : undefined}>
                 Sign in with {activeConnector ? displayName(activeConnector) : 'wallet'}
               </Button>
@@ -273,6 +273,6 @@ function SignInDialog() {
         {busy && !review ? <p role="status" className="text-xs text-text-muted">Waiting for your wallet</p> : null}
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
       </div>
-    </ModalFrame>
+    </Sheet>
   );
 }

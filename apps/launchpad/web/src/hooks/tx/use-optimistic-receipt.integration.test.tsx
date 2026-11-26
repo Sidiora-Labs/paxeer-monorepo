@@ -116,6 +116,7 @@ test('pending beyond two seconds stays unresolved; only actual success/revert re
   const hash = await nodeRpc<Hex>('eth_sendTransaction', [{ from, to, value: '0x7b', gas: '0x5208' }]);
   await render(hash);
   await act(async () => { await new Promise((r) => setTimeout(r, 2300)); });
+  await waitUntil(() => current?.state === 'checking');
   expect(current?.receipt).toBeUndefined(); expect(current?.isPending).toBe(true); expect(current?.isOptimistic).toBe(false); expect(current?.state).toBe('checking');
   await waitUntil(() => sockets.size > 0); notify(hash);
   await act(async () => { await new Promise((r) => setTimeout(r, 150)); });

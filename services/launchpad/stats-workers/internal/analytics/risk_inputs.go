@@ -12,6 +12,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // CanonicalRiskInputs produces the input row in the projection transaction.
@@ -64,7 +65,7 @@ func (p CanonicalRiskInputs) LoadRiskInputsAt(ctx context.Context, tx pgx.Tx, po
 		return inputs, err
 	}
 	var healthy bool
-	err := tx.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s b JOIN %s w ON w.chain_id=b.chain_id AND w.stream_id=b.stream_id WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2::bigint AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND w.raw_complete_height=w.typed_complete_height AND w.typed_complete_height>=b.height) AND EXISTS(SELECT 1 FROM %s c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.previous_height<$2::bigint AND c.last_complete_height>=$2::bigint)`, p.source("indexer_block_completeness_v1"), p.source("indexer_ingest_watermarks_v1"), p.source("indexer_ingest_commits_v1")), p.SourceStream, wm.Height, wm.BlockHash).Scan(&healthy)
+	err := tx.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s b JOIN %s w ON w.chain_id=b.chain_id AND w.stream_id=b.stream_id WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2::bigint AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND w.raw_complete_height=w.typed_complete_height AND w.typed_complete_height>=b.height) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT $2::bigint height) SELECT 1 FROM %s c WHERE c.chain_id=125 AND c.stream_id=$1 AND c.previous_height<(SELECT height FROM bounds) AND c.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(c.previous_height,c.last_complete_height)::numeric,greatest(c.previous_height,c.last_complete_height)::numeric,'[]') @> $2::numeric)`, p.source("indexer_block_completeness_v1"), p.source("indexer_ingest_watermarks_v1"), p.source("indexer_ingest_commits_v1")), p.SourceStream, wm.Height, wm.BlockHash).Scan(&healthy)
 	if err != nil {
 		return inputs, err
 	}
@@ -270,19 +271,45 @@ func (p *Projector) RefreshTokenInputs(ctx context.Context, token string) error 
 		return err
 	}
 	for _, pool := range pools {
-		tx, e := p.Authority.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
-		if e != nil {
-			return e
-		}
-		e = p.RecomputeExpiryTx(ctx, tx, pool)
-		if e == nil {
-			e = tx.Commit(ctx)
-		} else {
-			rollbackTransaction(context.WithoutCancel(ctx), tx)
-		}
-		if e != nil {
-			return e
+		err = retryTokenInputs(ctx, func() error {
+			tx, e := p.Authority.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+			if e != nil {
+				return e
+			}
+			defer rollbackTransaction(context.WithoutCancel(ctx), tx)
+			if e = p.RecomputeExpiryTx(ctx, tx, pool); e != nil {
+				return e
+			}
+			if p.tokenInputsBeforeCommit != nil {
+				if e = p.tokenInputsBeforeCommit(ctx, tx); e != nil {
+					return e
+				}
+			}
+			return tx.Commit(ctx)
+		})
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func retryTokenInputs(ctx context.Context, run func() error) error {
+	for attempt := 0; ; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := run()
+		var pgerr *pgconn.PgError
+		if !errors.As(err, &pgerr) || (pgerr.Code != "40001" && pgerr.Code != "40P01") || attempt == 3 {
+			return err
+		}
+		timer := time.NewTimer(10 * time.Millisecond << attempt)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }

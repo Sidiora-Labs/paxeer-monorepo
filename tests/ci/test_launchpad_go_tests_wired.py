@@ -813,7 +813,10 @@ def test_launchpad_go_job_provides_remaining_module_fixtures():
         "PNL_TEST_REDIS_URL",
     )
     assert len({job["env"][name] for name in redis_names}) == len(redis_names)
-    assert job["services"]["postgres"]["image"] == "postgres:16"
+    registry = json.loads((ROOT / "migrations/registry.json").read_text())
+    assert job["services"]["postgres"]["image"] == (
+        f"postgres:{registry['server_major_version']}"
+    )
     assert job["services"]["redis"]["image"] == "redis:7"
     assert job["env"]["L13_PHASE3_REDIS_SERVER"] == "/usr/bin/redis-server"
     (install,) = [step for step in job["steps"]
@@ -904,6 +907,7 @@ def test_launchpad_go_job_creates_real_export_bucket_before_tests():
     assert 'echo "$RUNNER_TEMP/launchpad-fixture-bin" >> "$GITHUB_PATH"' in storage["run"]
     assert '--address :9000' in storage["run"]
     assert 'curl --fail --aws-sigv4 "aws:amz:us-east-1:s3"' in storage["run"]
+    assert storage["run"].count("--retry-delay 1") == 2
     assert '--user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY"' in storage["run"]
     assert '--request PUT http://localhost:9000/launchpad-user-test' in storage["run"]
     assert job["env"]["L35_TEST_OBJECT_BUCKET"] == "launchpad-user-test"

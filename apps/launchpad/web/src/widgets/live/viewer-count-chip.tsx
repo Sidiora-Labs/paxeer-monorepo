@@ -22,9 +22,9 @@ export function ViewerCountChip({ count, quality, variant = 'chip', size = 'sm',
       data-quality={quality}
       title={stale ? 'Estimate updating' : undefined}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-pill px-2 tabular-nums',
+        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-2 tabular-nums',
         size === 'md' ? 'h-6 text-sm' : 'h-5 text-xs',
-        variant === 'media' ? 'bg-media-overlay text-on-media' : 'bg-surface-3 text-text-muted',
+        variant === 'media' ? 'bg-media-overlay text-on-media' : 'bg-surface-2 text-text-muted',
         className,
       )}
     >

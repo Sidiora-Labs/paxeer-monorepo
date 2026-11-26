@@ -15,13 +15,15 @@ use layerx_programs::{
     chain_proof::{
         decode::decode_commitment_proof,
         merkle::{hash_from_byte_slices, SimpleProof},
+        results::TxResult,
         validators::TrustedValidator,
         vote::{vote_sign_bytes, Timestamp},
     },
-    interface_state_key, interface_state_value, DeploymentProof, InterfaceEntryPoint,
-    ProgramInterface, ProgramLifecycleProof, ProgramStateProof, ProtocolDeploymentVerifier,
-    StateLeafWitness, ValueSchema, ValueType,
+    interface_state_key, interface_state_value, DeploymentExecutionProof, DeploymentProof,
+    InterfaceEntryPoint, ProgramInterface, ProgramLifecycleProof, ProgramStateProof,
+    ProtocolDeploymentVerifier, StateLeafWitness, ValueSchema, ValueType,
 };
+
 use layerx_programs_runtime::{hash_bytes, HashAlgorithm, ProgramId, UpgradePolicy};
 
 pub const NOW: u64 = 1_700_000_150_000;
@@ -41,6 +43,175 @@ pub const WASM_V2: &[u8] = &[
 ];
 const CHAIN_ID: &str = "paxeer-registry-support";
 const VALIDATOR_SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
+
+pub struct ChainAdmission {
+    pub chain: ChainFixture,
+    pub proof: DeploymentProof,
+    pub interface: ProgramInterface,
+}
+
+pub fn admission_in_store(
+    store_name: &str,
+    chain_id: &str,
+    validator_seeds: &[[u8; 32]],
+) -> ChainAdmission {
+    let transcript = include_str!(
+        "../../../../../../../programs/crates/layerx-programs-registry/src/deployment_transcripts.hex"
+    );
+    assert_eq!(
+        layerx_programs::hex::encode(&code_hash(transcript.as_bytes())),
+        "5798c9304ce5dd774f153da4f4f3208f1205f4cbfd1854732a49636dc9d76c6e"
+    );
+    let producer = transcript
+        .lines()
+        .map(|line| {
+            let (key, value) = line
+                .split_once('=')
+                .unwrap_or_else(|| panic!("expected transcript entry"));
+            (
+                key,
+                layerx_programs::hex::decode(value).unwrap_or_else(|error| panic!("{error:?}")),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(producer["wasm.1"], WASM_V1);
+    let transaction = &producer["deploy"];
+    let interface = ProgramInterface::decode(&producer["interface.1"])
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let program_key = programs_state_key(&program_key());
+    let interface_key = programs_state_key(&interface_state_key(program()));
+    let record = program_record(WASM_V1, UpgradePolicy::Authority(AUTHORITY), 1);
+    let interface_value =
+        interface_state_value(program(), 1, &interface).unwrap_or_else(|error| panic!("{error:?}"));
+    let mut previous = ChainFixture::new_in_store(
+        store_name,
+        chain_id,
+        validator_seeds,
+        vec![(b"unrelated".to_vec(), vec![1])],
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    previous.header.height -= 1;
+    previous.header.time.seconds -= 1;
+    let transaction_root = hash_from_byte_slices(&[&code_hash(transaction)]);
+    previous.header.data_hash = transaction_root.to_vec();
+    previous
+        .resign(validator_seeds)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut chain = ChainFixture::new_in_store(
+        store_name,
+        chain_id,
+        validator_seeds,
+        vec![
+            (program_key.clone(), record.clone()),
+            (interface_key.clone(), interface_value),
+        ],
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    chain
+        .header
+        .last_block_id
+        .hash
+        .clone_from(&previous.commit.block_id.hash);
+    chain.header.last_block_id.part_set_total = previous.commit.block_id.part_set_header.total;
+    chain
+        .header
+        .last_block_id
+        .part_set_hash
+        .clone_from(&previous.commit.block_id.part_set_header.hash);
+    let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
+    assert_eq!(result_root.as_slice(), producer["success.root"]);
+    chain.header.last_results_hash = result_root.to_vec();
+    chain.header.data_hash = hash_from_byte_slices(&[&code_hash(&producer["unrelated"])]).to_vec();
+    chain
+        .resign(validator_seeds)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let commitment = decode_commitment_proof(
+        &chain
+            .encode_key(&program_key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let interface_state = decode_commitment_proof(
+        &chain
+            .encode_key(&interface_key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let program_state = ChainProgramStateProof {
+        program: program(),
+        ops: chain
+            .prove(&program_key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    };
+    let status_ops = chain
+        .prove_absent(&programs_state_key(&status_key()))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut proof = DeploymentProof {
+        state: ProgramStateProof {
+            commitment,
+            state: program_state.clone(),
+            lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
+                program: program(),
+                record: Some(record),
+                record_ops: program_state.ops.clone(),
+                status: None,
+                status_ops: status_ops.clone(),
+            }),
+            wind_down: ChainWindDownProof {
+                program: program(),
+                value: None,
+                ops: status_ops,
+            },
+            transaction: Vec::new(),
+            transaction_proof: SimpleProof {
+                total: 1,
+                index: 0,
+                leaf_hash: transaction_root,
+                aunts: Vec::new(),
+            },
+        },
+        deployment: ChainDeploymentProof::from_state_proofs(
+            program_state,
+            WASM_V1.to_vec(),
+            &interface_state,
+        )
+        .unwrap_or_else(|error| panic!("{error:?}")),
+    };
+    proof
+        .bind_execution(&DeploymentExecutionProof {
+            transaction: transaction.clone(),
+            previous: decode_commitment_proof(
+                &previous
+                    .encode_key(&program_key)
+                    .unwrap_or_else(|error| panic!("{error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}")),
+            result: TxResult {
+                code: 0,
+                data: producer["success"].clone(),
+                gas_wanted: 0,
+                gas_used: 0,
+            },
+            result_proof: SimpleProof {
+                total: 1,
+                index: 0,
+                leaf_hash: result_root,
+                aunts: Vec::new(),
+            },
+            interface_ops: chain
+                .prove(&interface_key)
+                .unwrap_or_else(|error| panic!("{error:?}")),
+            migration: None,
+            migration_ops: Vec::new(),
+            migration_previous_ops: Vec::new(),
+        })
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    ChainAdmission {
+        chain,
+        proof,
+        interface,
+    }
+}
 
 pub struct ProtocolFixture {
     pub chain: ChainFixture,

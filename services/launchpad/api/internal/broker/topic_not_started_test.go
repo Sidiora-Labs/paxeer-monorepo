@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -19,8 +20,13 @@ func TestTopicNotStartedSnapshotAndResume(t *testing.T) {
 		}
 	}
 	commitStreamFrame(t, ctx, stream, first)
-	if raw, err := stream.PublicSnapshot(ctx, []string{first.Topic, missing}); !errors.Is(err, ErrTopicNotStarted) || raw != nil {
+	if raw, err := stream.PublicSnapshot(ctx, []string{first.Topic, missing}); err != nil || interfaces.ValidateJSON("TopicSnapshot", raw) != nil {
 		t.Fatalf("mixed snapshot: %s %v", raw, err)
+	} else {
+		var snapshot struct{ Topics []struct{ Topic string } }
+		if err := json.Unmarshal(raw, &snapshot); err != nil || len(snapshot.Topics) != 1 || snapshot.Topics[0].Topic != first.Topic {
+			t.Fatalf("mixed snapshot topics: %s %v", raw, err)
+		}
 	}
 	if _, err := stream.pool.Exec(ctx, "INSERT INTO "+stream.table("stream_projection")+"(topic,sequence) VALUES($1,0)", missing); err != nil {
 		t.Fatal(err)

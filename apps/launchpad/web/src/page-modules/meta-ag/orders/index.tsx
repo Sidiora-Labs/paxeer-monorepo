@@ -41,19 +41,19 @@ export default function MetaAgOrdersPage() {
 
 function KeeperHealthHint() {
   return (
-    <div className="mt-3 px-3 py-2.5 rounded-xl bg-surface-2 text-2xs text-text-faint space-y-1">
-      <div className="font-bold uppercase tracking-wider text-text mb-1">How it works</div>
+    <div className="mt-3 px-3 py-2.5 rounded-md bg-surface-1 text-2xs text-text-faint space-y-1">
+      <div className="font-semibold uppercase tracking-wider text-text mb-1">How it works</div>
       <p>
         When orders become available, funds will stay locked until the order
         trades, expires or is cancelled. A trigger does not guarantee execution.
       </p>
       <div className="pt-1.5 mt-1.5 flex justify-between">
         <span>Order bot</span>
-        <span className="font-mono text-text">Not available yet</span>
+        <span className="font-mono tabular-nums text-right text-text">Not available yet</span>
       </div>
       <div className="flex justify-between">
         <span>Orders contract</span>
-        <span className="font-mono text-text">Not available yet</span>
+        <span className="font-mono tabular-nums text-right text-text">Not available yet</span>
       </div>
     </div>
   );

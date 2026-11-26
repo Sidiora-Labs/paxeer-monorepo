@@ -4,7 +4,7 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { isRawErrorText, plainCopy } from '@/core/user-facing-error';
 import { rewardProgramView, rewardPrograms } from './reward-disclosure';
-import { RewardProgramList } from './rewards-view';
+import { RewardAmountsTable, RewardProgramList } from './rewards-view';
 
 /** Backend jargon the rewards disclosure used to print as body text. */
 const JARGON = /FeesRouter|IF_[A-Z_]+|\/v2\/|authority|settlement|ledger|nftId|USDL6|chain125|qualified|Blocker|Entitlement API|wallet lane/;
@@ -31,6 +31,21 @@ describe('reward program disclosure', () => {
     const cup = rewardPrograms.find(program => program.type === 'cup')!;
     expect(rewardProgramView(cup, 'development').technical).toBeNull();
     expect(rewardProgramView(cup, 'production').technical).toBeNull();
+  });
+
+  it('renders exact reward amounts in right-aligned columns with hairline rows', () => {
+    const markup = renderToString(<RewardAmountsTable claimable="12345678901234567890" claimed="42" />);
+    expect(markup).toContain('<table');
+    expect(markup).toContain('text-right');
+    expect(markup).toContain('Reward amounts in the coin&#x27;s smallest unit');
+    expect(markup).toContain('>Claimable</th>');
+    expect(markup).toContain('>Claimed</th>');
+    expect(markup).toContain('>12345678901234567890</td>');
+    expect(markup).toContain('>42</td>');
+    expect(markup).toContain('text-2xs font-semibold uppercase');
+    expect(markup).toContain('sl-hairline');
+    expect(markup.match(/tabular-nums/g)).toHaveLength(2);
+    expect(assertControlEdges(markup)).not.toMatch(BORDER);
   });
 
   it('renders the real list with plain body text, no technical attribute and no border strokes', () => {

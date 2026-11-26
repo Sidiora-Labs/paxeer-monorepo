@@ -37,7 +37,14 @@ func assertNotificationFrozenError(t *testing.T, w *httptest.ResponseRecorder, s
 	if len(fields) != 7 {
 		t.Errorf("envelope has %d fields, want 7", len(fields))
 	}
-	for name, want := range map[string]string{"retryAfterMs": "null", "fieldErrors": "[]", "details": "null"} {
+	delay, retryAfter := "null", ""
+	if status == http.StatusServiceUnavailable {
+		delay, retryAfter = "1000", "1"
+	}
+	if got := w.Header().Get("Retry-After"); got != retryAfter {
+		t.Errorf("Retry-After = %q, want %q", got, retryAfter)
+	}
+	for name, want := range map[string]string{"retryAfterMs": delay, "fieldErrors": "[]", "details": "null"} {
 		if got := string(fields[name]); got != want {
 			t.Errorf("%s = %s, want %s", name, got, want)
 		}
@@ -174,4 +181,13 @@ func TestNotificationErrorsUseFrozenEnvelope(t *testing.T) {
 			t.Fatalf("success response = %d %s", w.Code, w.Body.String())
 		}
 	})
+}
+
+func TestUnavailableRetryDelay(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/v2/discovery/notifications", nil)
+	r.Header.Set("X-Request-Id", notificationErrorRequestID)
+	w := httptest.NewRecorder()
+	status, code := errorStatus(fmt.Errorf("read projection: %w", ErrUnavailable))
+	writeError(w, r, status, code)
+	assertNotificationFrozenError(t, w, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE", notificationErrorRequestID)
 }

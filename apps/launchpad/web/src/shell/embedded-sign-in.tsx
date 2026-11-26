@@ -192,7 +192,7 @@ export default function EmbeddedSignIn({ disabled = false }: EmbeddedSignInProps
       className="flex flex-col gap-3 rounded-md bg-surface-2 p-3"
     >
       <div className="flex flex-col gap-0.5">
-        <h3 className="text-sm font-bold text-text">Continue with email or a social account</h3>
+        <h3 className="text-sm font-semibold text-text">Continue with email or a social account</h3>
         <p className="text-xs text-text-muted">We make a wallet for you, no extension needed</p>
       </div>
       {sent ? (

@@ -53,10 +53,11 @@ def native_test(name):
 
 
 def test_nonclaim_market_preserves_history_and_eligible_reward_source_contract():
+    assert re.search(r'\beventClaim\s*=\s*"CLAIM"', go_source(HERE / 'constants.go'))
     body = go_body(HERE / 'journeys.go', 'func (s *JourneyService) Rewards(')
     assert 'claimableRaw := "0"' in body
     strategy = body[body.index('switch p.Capability.Strategy'):body.index('earned, _ :=')]
-    assert 'case "CLAIM":' in strategy
+    assert 'case eventClaim:' in strategy
     assert 'if !p.Capability.Available' in strategy
     assert 'claimableRaw = p.ClaimableRaw' in strategy
     alternatives = strategy.split('case "BURN", "AIRDROP", "LP_REWARDS":', 1)[1].split('default:', 1)
@@ -70,7 +71,7 @@ def test_nonclaim_market_preserves_history_and_eligible_reward_source_contract()
     entitlement = go_body(HERE / 'journeys.go', 'func (s *JourneyService) HolderEntitlement(')
     assert 's.ledger.EpochEntitlement(ctx, s.creator, m.Pool, epoch, who)' in entitlement
     preparation = go_body(HERE / 'creator.go', 'func (c *Creator) PrepareClaim(')
-    assert 'p.Capability.Strategy != "CLAIM"' in preparation
+    assert 'p.Capability.Strategy != eventClaim' in preparation
     proof = native_test('TestMixedStrategyRewards')
     for criterion in ('[]uint8{1, 2, 3}', 'readRewardHistory(', 'f.handler(f.chain.Alice)',
                       '"11000000"', '"10000000"', '*page.NextCursor',

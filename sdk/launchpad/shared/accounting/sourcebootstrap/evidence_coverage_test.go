@@ -103,7 +103,7 @@ CREATE TABLE indexer.indexer_block_completeness_v1(chain_id integer,stream_id te
 		t.Fatal(err)
 	}
 	stats, err := sourcebootstrap.LoadStats(ctx, pool, schema, "canonical", "market-v1", fill.PoolAddress)
-	if err != nil || stats.FirstCommitID != "fill" || stats.InitialPreviousHeight != 98 || stats.PayloadDigest != digest || stats.Checkpoint() == "" {
+	if err != nil || stats.FirstCommitID != "fill" || stats.ReplayFromHeight != 98 || stats.CreationTransactionHash != fill.Position.TransactionHash || stats.CreationLogIndex != 2 || stats.PayloadDigest != digest || stats.Checkpoint() == "" {
 		t.Fatalf("stats source bootstrap: %+v, %v", stats, err)
 	}
 	charts, err := sourcebootstrap.LoadCharts(ctx, pool, schema, "canonical", "market-v1", fill.PoolAddress)

@@ -1,0 +1,48 @@
+.panel {
+  color: var(--sl-text);
+  font-size: var(--sl-text-sm);
+  line-height: var(--sl-leading-sm);
+}
+
+.panel h2 {
+  font-weight: var(--sl-weight-semibold);
+}
+
+.panel label {
+  color: var(--sl-text-muted);
+  font-weight: var(--sl-weight-semibold);
+}
+
+.panel input:not([type='checkbox']),
+.panel select {
+  border: var(--sl-edge-width) solid var(--sl-control-edge);
+  border-radius: var(--sl-radius-sm);
+  color: var(--sl-text);
+  font-weight: var(--sl-weight-medium);
+  padding: calc(var(--sl-space-3) - var(--sl-edge-width));
+}
+
+.panel input[inputmode='decimal'] {
+  font-size: var(--sl-text-base);
+  font-weight: var(--sl-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary p {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sl-space-2);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  color: var(--sl-text-muted);
+}
+
+.summary p > span:last-child {
+  text-align: end;
+  color: var(--sl-text);
+  font-weight: var(--sl-weight-semibold);
+}
+
+.order {
+  border-block-end: var(--sl-edge-width) solid var(--sl-surface-3);
+}

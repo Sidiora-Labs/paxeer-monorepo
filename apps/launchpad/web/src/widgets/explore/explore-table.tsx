@@ -56,7 +56,7 @@ function SkeletonRows({
           aria-hidden="true"
           className={cn(
             densityRowClass[density],
-            index % 2 === 0 ? 'bg-surface-1' : 'bg-surface-2',
+            'border-b border-surface-3',
           )}
         >
           {columnSpecs.map((spec) => {
@@ -66,7 +66,7 @@ function SkeletonRows({
                 {spec.id === 'coin' ? (
                   <span className="flex min-h-[calc(var(--sl-leading-sm)+var(--sl-leading-xs))] [@media(max-width:834px)]:min-h-[calc(var(--sl-touch-target-min)+var(--sl-leading-xs))] w-36 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
                     <span className="sl-skeleton h-3 w-5 shrink-0" />
-                    <span className="sl-skeleton size-avatar-md shrink-0 rounded-pill" />
+                    <span className="sl-skeleton size-avatar-md shrink-0 rounded-coin" />
                     <span className="flex flex-1 flex-col gap-1.5">
                       <span className="sl-skeleton h-3 w-2/3" />
                       <span className="sl-skeleton h-2.5 w-1/3" />
@@ -128,7 +128,7 @@ export function ExploreTable({
   );
 
   return (
-    <div aria-label="Coin rankings" className="min-w-0 rounded-md bg-surface-1">
+    <div aria-label="Coin rankings" className="min-w-0">
       <div className="relative">
         {/* relative clips the sr-only header text; inline-size containment keeps the table's width out of the page's intrinsic size, so it scrolls here instead of widening the page */}
         <div
@@ -140,7 +140,7 @@ export function ExploreTable({
           <table className="w-full table-auto [&_svg]:max-w-none">
             <caption className="sr-only">{caption}</caption>
             <thead>
-              <tr className="bg-surface-1">
+              <tr className="bg-canvas">
                 {columnSpecs.map((spec) => {
                   if (spec.id in columns && !columns[spec.id as OptionalColumn]) return null;
                   const label =
@@ -177,6 +177,7 @@ export function ExploreTable({
                       onSort={spec.sortKey ? () => onSort(spec.sortKey as SortKey) : undefined}
                       className={cn(
                         'whitespace-nowrap font-medium',
+                        spec.sortKey && sort?.key !== spec.sortKey && '[&_button_svg]:invisible',
                         spec.id === 'coin' && coinHeaderMinWidth,
                         spec.responsive,
                       )}
@@ -193,7 +194,7 @@ export function ExploreTable({
                   density={density}
                 />
               ) : rows.length === 0 ? null : (
-                rows.map((row, index) => (
+                rows.map((row) => (
                   <ExploreRow
                     key={row.poolAddress}
                     row={row}
@@ -201,7 +202,6 @@ export function ExploreTable({
                     density={density}
                     starred={isStarred(row.poolAddress)}
                     onToggleStar={onToggleStar}
-                    tone={index % 2 === 0 ? 'a' : 'b'}
                   />
                 ))
               )}
@@ -210,7 +210,7 @@ export function ExploreTable({
         </div>
         {/* The notice stays below the headers and outside the horizontal scroller. */}
         {!loading && rows.length === 0 ? (
-          <div data-explore-empty>
+          <div data-explore-empty className="border-b border-surface-3">
             {empty}
           </div>
         ) : null}

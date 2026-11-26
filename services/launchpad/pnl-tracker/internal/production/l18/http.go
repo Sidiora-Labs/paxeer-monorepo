@@ -21,6 +21,7 @@ var requestUUID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 
 type HTTP struct {
 	Service      *JourneyService
+	Timeout      time.Duration
 	Authenticate func(*http.Request) (Actor, error)
 }
 
@@ -33,6 +34,13 @@ func (h HTTP) actor(w http.ResponseWriter, r *http.Request) (Actor, bool) {
 	}
 	actor, e := h.Authenticate(r)
 	if e != nil {
+		if r.Context().Err() != nil {
+			if p, ok := r.Context().Value(rewardProgressKey{}).(*rewardProgress); ok {
+				logRewardTimeout(r.Context(), p, r.Context().Err())
+			}
+			writeJourneyError(w, r.Context().Err())
+			return Actor{}, false
+		}
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]any{"code": "AUTHENTICATION_REQUIRED", "message": "Authentication required", "requestId": uuid.NewString(), "retryable": false, "retryAfterMs": nil, "details": nil, "fieldErrors": []any{}})
 		return Actor{}, false
@@ -48,8 +56,14 @@ func (h HTTP) Rewards(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+	if err := validateRewardTimeout(h.requestTimeout()); err != nil {
+		writeJourneyError(w, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), h.requestTimeout())
 	defer cancel()
+	progress := &rewardProgress{group: "authentication"}
+	ctx = context.WithValue(ctx, rewardProgressKey{}, progress)
 	r = r.WithContext(ctx)
 	actor, ok := h.actor(w, r)
 	if !ok {
@@ -77,6 +91,7 @@ func (h HTTP) Rewards(w http.ResponseWriter, r *http.Request) {
 	}
 	page, e := h.Service.Rewards(r.Context(), actor, q.Get("programId"), q.Get("cursor"), limit)
 	if e != nil {
+		logRewardTimeout(ctx, progress, e)
 		writeJourneyError(w, e)
 		return
 	}
@@ -85,7 +100,11 @@ func (h HTTP) Rewards(w http.ResponseWriter, r *http.Request) {
 	if e == nil {
 		e = iface.ValidateJSON("RewardsResponse", raw)
 	}
+	if e == nil {
+		e = ctx.Err()
+	}
 	if e != nil {
+		logRewardTimeout(ctx, progress, e)
 		writeJourneyError(w, e)
 		return
 	}
@@ -97,8 +116,14 @@ func (h HTTP) PrepareClaim(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+	if err := validateRewardTimeout(h.requestTimeout()); err != nil {
+		writeJourneyError(w, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), h.requestTimeout())
 	defer cancel()
+	progress := &rewardProgress{group: "authentication"}
+	ctx = context.WithValue(ctx, rewardProgressKey{}, progress)
 	r = r.WithContext(ctx)
 	actor, ok := h.actor(w, r)
 	if !ok {
@@ -123,8 +148,13 @@ func (h HTTP) PrepareClaim(w http.ResponseWriter, r *http.Request) {
 		writeJourneyError(w, ErrInvalid)
 		return
 	}
+	rewardStage(ctx, 1, "claim")
 	response, e := h.Service.Prepare(r.Context(), actor, r.Header.Get("Idempotency-Key"), request, uuid.NewString())
+	if e == nil {
+		e = ctx.Err()
+	}
 	if e != nil {
+		logRewardTimeout(ctx, progress, e)
 		writeJourneyError(w, e)
 		return
 	}
@@ -163,4 +193,11 @@ func writeJourneyError(w http.ResponseWriter, e error) {
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "message": message, "requestId": uuid.NewString(), "retryable": status == 503, "retryAfterMs": nil, "details": detail, "fieldErrors": []any{}, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
+}
+
+func (h HTTP) requestTimeout() time.Duration {
+	if h.Timeout == 0 {
+		return 5 * time.Second
+	}
+	return h.Timeout
 }

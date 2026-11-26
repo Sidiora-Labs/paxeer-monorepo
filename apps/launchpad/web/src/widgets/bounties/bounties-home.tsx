@@ -93,14 +93,14 @@ export default function BountiesHome({ requestedTab }: { requestedTab: string | 
   let content: React.ReactNode;
   if (availability.loadable.state === 'loading') content = <SkeletonGrid />;
   else if (availability.loadable.state === 'unsupported') {
-    content = <div className="rounded-lg bg-surface-1"><UnavailableState title="Bounties" plural operation={availability.loadable.operation} status={availability.loadable.status} message="Check back soon" onRetry={availability.retry} /></div>;
+    content = <div className="rounded-lg bg-surface-1"><UnavailableState title="Bounties" plural operation={availability.loadable.operation} status={availability.loadable.status} notServed={availability.loadable.notServed} error={availability.loadable.error} message="Check back soon" onRetry={availability.retry} /></div>;
   } else if (availability.loadable.state === 'error') {
     content = <div className="rounded-lg bg-surface-1"><ErrorState title="Bounties can't load right now" message="Something went wrong, try again" onRetry={availability.retry} /></div>;
   } else if (tab === 'mine' && !address) {
-    content = <div className="rounded-lg bg-surface-1"><EmptyState icon={Wallet} title="Connect wallet to see your bounties" body="Bounties you create show up here" action={<Button variant="primary" size="md" onClick={() => openModal('Connect wallet to see your bounties')}>Connect wallet</Button>} /></div>;
+    content = <div className="rounded-lg bg-surface-1"><EmptyState icon={Wallet} title="Connect wallet to see your bounties" body="Bounties you create show up here" action={<Button variant="inverse" size="md" onClick={() => openModal('Connect wallet to see your bounties')}>Connect wallet</Button>} /></div>;
   } else if (activeList.loadable.state === 'loading') content = <SkeletonGrid />;
   else if (activeList.loadable.state === 'unsupported') {
-    content = <div className="rounded-lg bg-surface-1"><UnavailableState title="Bounties" plural operation={activeList.loadable.operation} status={activeList.loadable.status} onRetry={activeList.refetch} /></div>;
+    content = <div className="rounded-lg bg-surface-1"><UnavailableState title="Bounties" plural operation={activeList.loadable.operation} status={activeList.loadable.status} notServed={activeList.loadable.notServed} error={activeList.loadable.error} onRetry={activeList.refetch} /></div>;
   } else if (activeList.loadable.state === 'error') {
     content = <div className="rounded-lg bg-surface-1"><ErrorState title="Bounties can't load right now" message="Something went wrong, try again" onRetry={activeList.loadable.retry} /></div>;
   } else if (items.length === 0 && !activeList.hasMore) {
@@ -110,7 +110,7 @@ export default function BountiesHome({ requestedTab }: { requestedTab: string | 
           icon={emptyIcon[tab]}
           title={copy.empty}
           body={emptyBody[tab]}
-          action={tab === 'open' || tab === 'mine' ? <CreateBountyButton gate={gate} label="Create bounty" /> : undefined}
+          action={tab === 'open' || tab === 'mine' ? <CreateBountyButton gate={gate} label="Create bounty" variant="secondary" /> : undefined}
           announce
         />
       </div>

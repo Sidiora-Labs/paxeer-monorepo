@@ -303,6 +303,9 @@ func TestProofLaunchpadDiscovery(t *testing.T) {
 		if resp.StatusCode != status || resp.Header.Get("Cache-Control") != "private, no-store" {
 			t.Fatalf("%s %s: status=%d headers=%v body=%s", method, path, resp.StatusCode, resp.Header, raw)
 		}
+		if status == http.StatusServiceUnavailable && resp.Header.Get("Retry-After") != "1" {
+			t.Fatalf("consumer retry delay: %v", resp.Header)
+		}
 		if schema == "" {
 			if len(raw) != 0 {
 				t.Fatalf("expected empty response: %s", raw)
@@ -333,7 +336,14 @@ func TestProofLaunchpadDiscovery(t *testing.T) {
 		t.Helper()
 		var observed v2.Error
 		request(actor, method, path, body, status, "Error", &observed)
-		if observed.Code != code || observed.Message != http.StatusText(status) || observed.Retryable != (status == 503) || observed.RetryAfterMs != nil || observed.FieldErrors == nil || len(observed.FieldErrors) != 0 || observed.Details != nil {
+		if status == http.StatusServiceUnavailable {
+			if observed.RetryAfterMs == nil || *observed.RetryAfterMs != 1000 {
+				t.Fatalf("consumer retry delay: %+v", observed)
+			}
+		} else if observed.RetryAfterMs != nil {
+			t.Fatalf("consumer non-retryable delay: %+v", observed)
+		}
+		if observed.Code != code || observed.Message != http.StatusText(status) || observed.Retryable != (status == 503) || observed.FieldErrors == nil || len(observed.FieldErrors) != 0 || observed.Details != nil {
 			t.Fatalf("consumer error branch: %+v", observed)
 		}
 	}

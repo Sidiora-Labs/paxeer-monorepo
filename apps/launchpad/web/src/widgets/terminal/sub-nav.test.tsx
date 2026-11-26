@@ -12,7 +12,7 @@ function render(active: TerminalView) {
   const root = createRoot(container);
   act(() => root.render(<TerminalSubNav active={active} />));
   const links = Array.from(container.querySelectorAll('a'));
-  const result = links.map(link => ({ text: link.textContent, href: link.getAttribute('href'), current: link.getAttribute('aria-current'), indicator: link.querySelector('[data-indicator]') !== null }));
+  const result = links.map(link => ({ text: link.textContent, href: link.getAttribute('href'), current: link.getAttribute('aria-current'), indicator: link.querySelector('[data-indicator]') !== null, indicatorClass: link.querySelector('[data-indicator]')?.className ?? '', className: link.className }));
   act(() => root.unmount());
   container.remove();
   return result;
@@ -25,6 +25,8 @@ describe('TerminalSubNav', () => {
     expect(links.map(link => link.href)).toEqual(['/terminal', '/terminal/portfolio', '/terminal/track', '/terminal/rewards', '/terminal/trenches']);
     expect(links.filter(link => link.current === 'page').map(link => link.text)).toEqual(['Track']);
     expect(links.filter(link => link.indicator).map(link => link.text)).toEqual(['Track']);
+    expect(links.find(link => link.current === 'page')?.indicatorClass).toContain('bg-text');
+    expect(links.every(link => link.className.includes('font-medium'))).toBe(true);
   });
   it('marks no tab while a pair is open', () => {
     const links = render('coin');

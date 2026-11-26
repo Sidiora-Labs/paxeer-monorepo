@@ -8,6 +8,7 @@ import (
 )
 
 func TestOrdinaryReplaySettlesRecordedBuyAndSale(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	first, err := s.Rebuild(ctx, realMarketCreator, realMarketToken, 33963733)

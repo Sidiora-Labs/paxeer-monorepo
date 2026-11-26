@@ -1,0 +1,65 @@
+.frame > header {
+  background: var(--sl-canvas);
+}
+
+.frame > div > aside[aria-label='Pair discovery'] {
+  border-inline-end: var(--sl-edge-width) solid var(--sl-surface-3);
+}
+
+.frame > div > aside[aria-label='Position and trading'] {
+  border-inline-start: var(--sl-edge-width) solid var(--sl-surface-3);
+}
+
+.frame table thead,
+.frame table thead tr {
+  background: var(--sl-canvas);
+}
+
+.frame table tbody tr {
+  border-block-end: var(--sl-edge-width) solid var(--sl-surface-3);
+}
+
+.frame table [data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
+.market [aria-label='Coin rankings'] {
+  border-radius: 0;
+  background: var(--sl-canvas);
+}
+
+.market table tbody tr {
+  background-color: var(--sl-canvas);
+}
+
+.market table tbody tr:hover {
+  background-color: var(--sl-surface-1);
+}
+
+.market table td:first-child [class~='size-full'] {
+  border-radius: var(--sl-radius-coin);
+}
+
+.market table td[data-numeric] {
+  font-weight: var(--sl-weight-semibold);
+}
+
+.market table td:nth-child(3) [data-numeric] {
+  font-weight: var(--sl-weight-bold);
+}
+
+.market button[aria-label^='Filter'],
+.market button[aria-label='Column settings'] {
+  background: transparent;
+  border-color: transparent;
+}
+
+.market button[aria-label^='Filter']:hover,
+.market button[aria-label='Column settings']:hover {
+  background: var(--sl-surface-hover);
+  border-color: var(--sl-control-edge);
+}
+
+.market [role='radiogroup'][aria-label='Layout'] {
+  background: var(--sl-surface-2);
+}

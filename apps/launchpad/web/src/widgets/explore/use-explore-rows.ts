@@ -23,7 +23,7 @@ export interface ExploreRow {
   symbol: string;
   image: string | null;
   href: string;
-  /** Market cap in raw USDL (6 decimals): PoolStats.totalSupplyValuationUsdlRaw (price x total supply, pump.fun's market cap). */
+  /** Market cap in raw USDL (6 decimals): PoolStats.totalSupplyValuationUsdlRaw (price x total supply). */
   mcapRaw: string | null;
   mcap: number | null;
   /** Why the market cap is a dash (no trade yet, unverified supply, no stats); null with a value. */
@@ -54,6 +54,8 @@ export interface ExploreRow {
   devShare: number | null;
   sharesReason: string | null;
   stage: Stage | null;
+  creator: string | null;
+  description: string | null;
 }
 
 const dayMs = 86_400_000;
@@ -124,6 +126,8 @@ export function buildExploreRow({ poolAddress, rank, stats, listing = null, meta
     devShare: dev.value,
     sharesReason: top10.reason ?? dev.reason,
     stage: stageFor(ageMs),
+    creator: metadata?.creator ?? null,
+    description: metadata?.description ?? null,
   };
 }
 

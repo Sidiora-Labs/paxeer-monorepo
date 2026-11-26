@@ -62,6 +62,8 @@
           "name": "settings",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -79,6 +81,8 @@
           "name": "coin-selector",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -127,6 +131,8 @@
           "name": "layout-menu",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -144,6 +150,8 @@
           "name": "settings-menu",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -238,6 +246,60 @@
           "action": "press",
           "selector": "html:has(section[aria-label=\"Price chart\"]):not(:has(section[aria-label=\"Price chart\"] [role=\"status\"]:text-is(\"Loading chart...\")))",
           "key": "Shift"
+        }
+      ],
+      "states": [
+        {
+          "name": "positions",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [role=\"tab\"][id=\"terminal-activity-tab-positions\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Sign in to see your position"
+            }
+          ]
+        },
+        {
+          "name": "orders",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [role=\"tab\"][id=\"terminal-activity-tab-orders\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Sign in to see your orders"
+            }
+          ]
+        },
+        {
+          "name": "top-traders",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [role=\"tab\"][id=\"terminal-activity-tab-top-traders\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Top traders are coming soon"
+            }
+          ]
+        },
+        {
+          "name": "creator-coins",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [role=\"tab\"][id=\"terminal-activity-tab-dev-tokens\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Other coins by this creator are coming soon"
+            }
+          ]
         }
       ]
     },
@@ -367,6 +429,84 @@
           "key": "Shift"
         }
       ]
+    },
+    {
+      "name": "terminal-empty",
+      "path": "/terminal?render=empty",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-explore-empty])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "No coins trending yet"
+        }
+      ]
+    },
+    {
+      "name": "terminal-error",
+      "path": "/terminal?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/v2/*",
+          "status": 503
+        }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Workspace\"] [role=\"alert\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Trending can't load right now"
+        }
+      ]
+    },
+    {
+      "name": "terminal-loading",
+      "path": "/terminal?render=loading",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Workspace\"] .sl-skeleton)",
+          "key": "Shift"
+        }
+      ]
     }
   ],
   "answers": [
@@ -422,5 +562,5 @@
       "max": 28
     }
   ],
-  "buildMs": 600000
+  "buildMs": 1800000
 }

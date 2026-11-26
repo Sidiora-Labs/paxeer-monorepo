@@ -18,7 +18,7 @@ import { ShellFooter } from '@/shell/platform-metrics';
 import { defaultSettings, type Density } from './column-settings';
 import { ExploreTable } from './explore-table';
 import { ExploreView } from './explore-view';
-import { PresetTabs } from './preset-tabs';
+import { defaultPreset, PresetTabs } from './preset-tabs';
 import { buildExploreRow } from './use-explore-rows';
 
 const signedOut = createConfig({
@@ -99,12 +99,12 @@ async function waitingFormsReserveLoadedBlockSizes() {
         moreError={null}
         onLoadMore={() => undefined}
         onRetryMore={() => undefined}
-        defaultSort={null}
-        sortResetKey="movers"
+        defaultSort={defaultPreset.defaultSort}
+        sortResetKey={defaultPreset.id}
         sourceLabel="coins"
-        leading={<PresetTabs active="movers" />}
+        leading={<PresetTabs active={defaultPreset.id} />}
         empty={null}
-        caption="Movers coins"
+        caption={`${defaultPreset.label} coins`}
       />
     </div>
   );

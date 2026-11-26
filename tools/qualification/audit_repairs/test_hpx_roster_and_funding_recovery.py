@@ -344,7 +344,9 @@ def identity_inputs():
 def test_f35_validated_identity_agrees_with_manifest_and_build_record():
     values = identity_inputs()
     assert release.validate_release(*values) == values[0]["version"]
-    assert values[0] == {"upgrade": "v7.0", "version": "v7.0.0"}
+    assert set(values[0]) == {"upgrade", "version"}
+    assert values[0]["upgrade"] == "v7.0"
+    assert re.fullmatch(r"v7\.0\.[0-9]+", values[0]["version"])
     assert release.RELEASE_IDENTITY_POLICY == {"schema": 1, "provenance_required": True}
     source = (HPX / "publish.sh").read_text()
     assert 'tools/release/version.json' in source

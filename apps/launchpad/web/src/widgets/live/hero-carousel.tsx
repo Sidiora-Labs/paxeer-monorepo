@@ -221,18 +221,18 @@ export function HeroFramePlaceholder({ children, className }: HeroFramePlacehold
         </div>
         <div aria-hidden="true" className="hidden flex-col gap-4 p-5 lg:flex">
           <span className="flex gap-2">
-            <span className="h-6 w-12 rounded-sm bg-surface-2" />
-            <span className="h-6 w-20 rounded-sm bg-surface-2" />
+            <span className="h-6 w-12 rounded-sm bg-surface-3" />
+            <span className="h-6 w-20 rounded-sm bg-surface-3" />
           </span>
-          <span className="h-6 w-4/5 rounded-xs bg-surface-2" />
+          <span className="h-6 w-4/5 rounded-xs bg-surface-3" />
           <span className="flex items-center gap-3">
-            <span className="size-10 shrink-0 rounded-pill bg-surface-2" />
+            <span className="size-10 shrink-0 rounded-coin bg-surface-3" />
             <span className="flex flex-1 flex-col gap-2">
-              <span className="h-3 w-3/5 rounded-xs bg-surface-2" />
-              <span className="h-3 w-2/5 rounded-xs bg-surface-2" />
+              <span className="h-3 w-3/5 rounded-xs bg-surface-3" />
+              <span className="h-3 w-2/5 rounded-xs bg-surface-3" />
             </span>
           </span>
-          <span className="mt-auto h-16 w-full rounded-md bg-surface-2" />
+          <span className="mt-auto h-16 w-full rounded-md bg-surface-3" />
         </div>
       </div>
     </section>

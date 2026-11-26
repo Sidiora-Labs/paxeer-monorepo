@@ -1,6 +1,7 @@
 'use client';
 import { cn } from '@/lib/utils';
-import { UnavailableState } from '@/ui/primitives';
+import { Users } from 'lucide-react';
+import { EmptyState } from '@/ui/primitives';
 
 export interface SquadsTabProps { className?: string }
 
@@ -13,12 +14,10 @@ export interface SquadsTabProps { className?: string }
 export function SquadsTab({ className }: SquadsTabProps) {
   return (
     <section aria-label="Squads" className={cn('rounded-lg bg-surface-1', className)}>
-      <UnavailableState
-        title="Squad rankings"
-        plural="auto"
-        operation="squad ranking read model (no contract operation)"
-        status={null}
-        message="Check back soon"
+      <EmptyState
+        icon={Users}
+        title="Squad rankings are not available yet"
+        body="Check back soon"
       />
     </section>
   );

@@ -3,7 +3,9 @@
 import { displayCoinText } from '@/utils/coin-text';
 import { launchpadChartRoles } from '@/app/presentation-tokens';
 import { surfaceColor } from '@/core/app-foundation/surface-color';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getColorScheme } from '@/core/app-foundation/color-mode';
+import { useColorMode } from '@/core/app-foundation/use-color-mode';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ChartingLibraryWidgetConstructor, ChartingLibraryWidgetOptions, IBasicDataFeed, IChartingLibraryWidget, ResolutionString, TimeFrameItem } from '../../../public/charting_library/charting_library';
 import { CandlestickChart } from 'lucide-react';
 import { Button, EmptyState, ErrorState, StateNotice, UnavailableState } from '@/ui/primitives';
@@ -19,11 +21,12 @@ import { ChartSplit } from '@/widgets/coin/chart-split';
 import { CHART_DEFAULT_HEIGHT, CHART_MAX_HEIGHT, CHART_MIN_HEIGHT, isChartInterval, useChartSettings, type ChartInterval } from '@/widgets/coin/use-chart-settings';
 import { browserStreamTransportV2 } from '@kindle/sdk';
 import { useMarketClient } from '@/core/market/client';
-import { createReplayUdfDatafeed, registerChartReplayTransport, type CanonicalSupply, type ChartMode, type ChartFreshness, type ChartAccessibleView, type ChartMarkPalette, type ChartMarkPresentation, type ValuationState, resolutionToSeconds, resolutionToWsTimeframe, VALUATION_HISTORY_OPERATION } from './udf-datafeed';
+import { createReplayUdfDatafeed, registerChartReplayTransport, type CanonicalSupply, type ChartMode, type ChartFreshness, type ChartAccessibleView, type ChartMarkPalette, type ChartMarkPresentation, type ChartMarketSource, type ValuationState, resolutionToSeconds, resolutionToWsTimeframe, VALUATION_HISTORY_OPERATION } from './udf-datafeed';
 
 export interface TvChartProps {
   poolAddress: string;
   symbol?: string;
+  market?: ChartMarketSource;
   /** Controlled chart height; when omitted the persisted height from chart settings is used. */
   height?: number;
   onHeightChange?: (height: number) => void;
@@ -85,6 +88,8 @@ type FeedAnswer = 'waiting' | 'answered' | 'stalled';
 
 const initialFreshness: ChartFreshness = { sourceObservedAt: null, lastReceivedAt: null, lastSourceHeight: null, connectionStatus: 'connecting', lagReason: null };
 const initialView: ChartAccessibleView = { rows: [], markers: [], annotationState: 'unavailable', annotationReason: 'Confirmed fill annotations have not loaded' };
+const subscribeWithoutMarket = () => () => {};
+const noMarketTrades = () => false;
 
 type Palette = Partial<Record<'canvas' | 'surface' | 'text' | 'textFaint' | 'grid' | 'crosshair' | 'up' | 'down' | 'volumeUp' | 'volumeDown' | 'accent' | 'onAccent', string>>;
 
@@ -123,7 +128,8 @@ function verifiedSupplyKey(token: { supplyQuality: string; totalSupplyRaw: strin
   return `${token.totalSupplyRaw}:${token.decimals}`;
 }
 
-export default function TvChart({ poolAddress, symbol, height: heightProp, onHeightChange }: TvChartProps) {
+export default function TvChart({ poolAddress, symbol, market, height: heightProp, onHeightChange }: TvChartProps) {
+  const noTradesYet = useSyncExternalStore(market?.subscribe ?? subscribeWithoutMarket, () => market?.getSnapshot().noTradesYet ?? false, noMarketTrades);
   const containerRef = useRef<HTMLDivElement>(null);
   const symbolRef = useRef(symbol);
   const widgetRef = useRef<IChartingLibraryWidget | null>(null);
@@ -136,15 +142,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
   const accessibleIntervalRef = useRef<ChartInterval | null>(null);
   const presentationRef = useRef<ChartMarkPresentation>({ enabled: true });
 
-  const [darkScheme, setDarkScheme] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const syncScheme = () => setDarkScheme(media.matches);
-    syncScheme();
-    media.addEventListener('change', syncScheme);
-    return () => media.removeEventListener('change', syncScheme);
-  }, []);
+  const { scheme } = useColorMode();
 
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -264,6 +262,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
       },
       value => { if (active) setValuation(value); },
       reason => { if (active) { setError(reason); if (reason) setAnswer('answered'); } },
+      market,
     );
     datafeedRef.current = datafeed;
     datafeed.setMarkPresentation(presentationRef.current);
@@ -296,7 +295,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
       accessibleIntervalRef.current = null;
       datafeed.dispose();
     };
-  }, [poolAddress, mode, feedSupply, retryGeneration]);
+  }, [poolAddress, mode, feedSupply, retryGeneration, market]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -334,7 +333,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         locale: 'en',
         fullscreen: false,
         autosize: true,
-        theme: darkScheme ? 'dark' : 'light',
+        theme: getColorScheme(),
         custom_font_family: getComputedStyle(document.documentElement).getPropertyValue('--sl-font-sans').trim(),
         time_frames: TIME_FRAMES,
         toolbar_bg: palette.canvas,
@@ -421,7 +420,26 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
       container.removeAttribute('data-chart-focus');
       restoreContainer();
     };
-  }, [loaded, poolAddress, mode, feedSupply, retryGeneration, update, darkScheme]);
+  }, [loaded, poolAddress, mode, feedSupply, retryGeneration, update]);
+
+  useEffect(() => {
+    const widget = widgetRef.current;
+    if (!widget || !chartReadyRef.current) return;
+    let current = true;
+    void widget.changeTheme(scheme).then(() => {
+      if (!current || widgetRef.current !== widget) return;
+      const palette = readPalette();
+      widget.applyOverrides(widgetOverrides(palette) ?? {});
+      widget.applyStudiesOverrides(studiesOverrides(palette) ?? {});
+      for (const [property, role] of Object.entries(launchpadChartRoles)) {
+        const color = surfaceColor(role);
+        if (color) widget.setCSSCustomProperty(property, color);
+      }
+    }).catch((reason: unknown) => {
+      if (current) setError(reportUserFacingError(reason, "Chart colours can't update right now", 'chart theme'));
+    });
+    return () => { current = false; };
+  }, [scheme, accessibleGeneration]);
 
   useEffect(() => {
     const widget = widgetRef.current;
@@ -457,13 +475,13 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
     if (!widget || !chartReadyRef.current) return;
     if (settings.markers) widget.activeChart().refreshMarks();
     else widget.activeChart().clearMarks();
-  }, [settings.markers, markerActors, accessibleGeneration]);
+  }, [settings.markers, markerActors, accessibleGeneration, scheme]);
 
   const timeframe = resolutionToWsTimeframe(interval);
   // A pool with no recorded fill has no candles: its newest trade page is empty with no older cursor
   // and no candle has arrived. That is an empty chart, not a failure.
   const firstTrades = useMarketTrades(poolAddress);
-  const noTrades = (emptyCandles || (firstTrades.data !== undefined && firstTrades.data.data.items.length === 0 && firstTrades.data.nextCursor === null)) && view.rows.length === 0;
+  const noTrades = (noTradesYet || emptyCandles || (firstTrades.data !== undefined && firstTrades.data.data.items.length === 0 && firstTrades.data.nextCursor === null)) && view.rows.length === 0;
   const valuationBlocked = mode === 'mcap' && valuation !== null && valuation.state !== 'ready';
   const stalled = answer === 'stalled' && !error && !noTrades && !valuationBlocked;
   const retryChart = useCallback(() => { setError(null); setLoaded(false); setRetryGeneration(value => value + 1); }, []);
@@ -481,6 +499,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         markerActors={markerActors}
         freshness={freshness}
         noTrades={noTrades}
+        waitingForFirstTrade={noTradesYet}
         onRetry={() => retryRef.current?.()}
       />
       <ChartSplit height={height} onHeightChange={setHeight} min={CHART_MIN_HEIGHT} max={CHART_MAX_HEIGHT} defaultHeight={CHART_DEFAULT_HEIGHT}>

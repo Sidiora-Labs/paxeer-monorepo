@@ -5,7 +5,7 @@ import { formatMarketCap, marketCapUnavailableLabel } from './format';
 export interface MarketCapChipProps {
   /** Raw USDL (6 decimals) circulating market cap; null when the stats projection has none. */
   raw: string | null | undefined;
-  /** `chip`: surface-2 pill with an "MC" label (hero meta, footers). `media`: media-overlay pill with the value in success colour. */
+  /** `chip`: surface-2 pill with an "MC" label (hero meta, footers). `media`: media-overlay chip with a neutral market value. */
   variant?: 'chip' | 'media';
   size?: 'sm' | 'md';
   className?: string;
@@ -17,7 +17,7 @@ export function MarketCapChip({ raw, variant = 'chip', size = 'sm', className }:
     <span
       title={value === null ? marketCapUnavailableLabel : undefined}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-pill px-2 tabular-nums',
+        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-2 tabular-nums',
         size === 'md' ? 'h-6 text-sm' : 'h-5 text-xs',
         variant === 'media' ? 'bg-media-overlay' : 'bg-surface-2',
         className,
@@ -31,7 +31,7 @@ export function MarketCapChip({ raw, variant = 'chip', size = 'sm', className }:
           <span className="sr-only">not available yet</span>
         </>
       ) : (
-        <span className={cn('font-bold', variant === 'media' ? 'text-on-media-success' : 'text-text')}>{value}</span>
+        <span className={cn('font-bold', variant === 'media' ? 'text-on-media' : 'text-text')}>{value}</span>
       )}
     </span>
   );

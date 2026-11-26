@@ -124,7 +124,7 @@ export default function PlatformRulesModal() {
           <p className="text-sm font-bold text-text-muted">
             Launch, earn, <span className="text-accent">enjoy</span>
           </p>
-          <p className="mt-1 text-2xl font-extrabold leading-[var(--sl-leading-none)] tracking-tight text-text">
+          <p className="mt-1 text-2xl font-bold leading-[var(--sl-leading-none)] tracking-tight text-text">
             Sidiora
           </p>
         </header>
@@ -146,7 +146,7 @@ export default function PlatformRulesModal() {
               </svg>
             </div>
             <div>
-              <h2 id="platform-rules-title" className="font-bold text-md text-text leading-tight">
+              <h2 id="platform-rules-title" className="font-semibold text-md text-text leading-tight">
                 Platform rules
               </h2>
               <p id="platform-rules-summary" className="text-2xs text-text-faint mt-0.5">

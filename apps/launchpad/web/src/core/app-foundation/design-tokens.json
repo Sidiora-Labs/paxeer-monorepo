@@ -22,11 +22,11 @@
     "heading": "var(--sl-text-xl)"
   },
   "radius": {
-    "control": "var(--sl-radius-md)",
+    "control": "var(--sl-radius-sm)",
     "panel": "var(--sl-radius-lg)"
   },
   "elevation": {
-    "panel": "var(--sl-shadow-pop)"
+    "panel": "var(--sl-shadow-none)"
   },
   "focus": {
     "width": "var(--sl-focus-width)",

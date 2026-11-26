@@ -1,4 +1,5 @@
 'use client';
+import '@/widgets/rewards/rewards-presentation.css';
 import { launchpadMedia } from '@/app/presentation-tokens';
 import {
   useCallback,
@@ -22,7 +23,7 @@ export type LeaderboardTab = 'traders' | 'squads' | 'rewards' | 'callouts';
 
 const tabIdPrefix = 'leaderboard';
 
-/** Tabs sit flush with the title, labels unpadded with a 20px gap and the underline spanning the label (pump.fun anatomy). */
+/** Text tabs sit on the full-width hairline below the title. */
 const tabStripClass =
   '[&_[role=tablist]]:gap-5 [&_[role=tab]]:px-0 [&_[role=tab]>span[aria-hidden=true]]:inset-x-0';
 
@@ -31,8 +32,8 @@ const tabStripClass =
  * rail's own heading is lifted to the H1 scale and centred on the 56px title row.
  */
 const railColumnClass =
-  'hidden min-w-0 self-start xl:block pt-3 xl:sticky xl:top-[calc(var(--shell-top)+var(--sl-space-4))] [&>aside>div:first-child_h2]:text-xl';
-/** pump.fun keeps Best callouts as its own column only on wide desktops; below xl it is a fourth tab. */
+  'hidden min-w-0 self-start xl:block pt-3 xl:sticky xl:top-[calc(var(--shell-top)+var(--sl-space-4))] [&>aside>div:first-child_h2]:text-md';
+/** Best callouts has its own column on wide desktops and a tab below that width. */
 const railQuery = launchpadMedia.extraLarge;
 
 export function isLeaderboardTab(value: string | null | undefined): value is LeaderboardTab {
@@ -158,7 +159,7 @@ export function LeaderboardView({
   return (
     <div
       className={cn(
-        '@container/leaderboard mx-auto w-full max-w-content-narrow-max-width px-4 pb-16 pt-4 sm:px-6',
+        'rewards-presentation @container/leaderboard mx-auto w-full max-w-content-narrow-max-width px-4 pb-16 pt-4 sm:px-6',
         className
       )}
     >
@@ -169,7 +170,7 @@ export function LeaderboardView({
         )}
       >
         <div className="min-w-0">
-          <h1 className="flex min-h-14 items-center text-[22px] leading-[56px] sm:text-xl sm:leading-[56px] font-bold text-text">
+          <h1 className="flex min-h-14 items-center text-lg font-bold text-text">
             Leaderboard
           </h1>
           <UnderlineTabs

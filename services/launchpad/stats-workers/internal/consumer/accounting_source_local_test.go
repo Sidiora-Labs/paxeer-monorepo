@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
@@ -77,12 +78,18 @@ func localAccountingChain(t *testing.T) (*ethclient.Client, types.Log, int64) {
 	for _, value := range words {
 		data = append(data, big.NewInt(value).FillBytes(make([]byte, 32))...)
 	}
-	code := []byte{0x61, 0, byte(len(data)), 0x61, 0, 82, 0x60, 0, 0x39, 0x7f}
+	creationTopic := crypto.Keccak256Hash([]byte("MarketCreated(address,address)"))
+	code := []byte{0x7f}
+	code = append(code, common.BytesToHash(pool.Bytes()).Bytes()...)
+	code = append(code, 0x7f)
+	code = append(code, creationTopic.Bytes()...)
+	code = append(code, 0x60, 0, 0x60, 0, 0xa2)
+	code = append(code, 0x61, 0, byte(len(data)), 0x61, 0, 153, 0x60, 0, 0x39, 0x7f)
 	code = append(code, common.BytesToHash(pool.Bytes()).Bytes()...)
 	code = append(code, 0x7f)
 	code = append(code, signature.Bytes()...)
 	code = append(code, 0x61, 0, byte(len(data)), 0x60, 0, 0xa2, 0x00)
-	if len(code) != 82 {
+	if len(code) != 153 {
 		t.Fatalf("event program length=%d", len(code))
 	}
 	code = append(code, data...)
@@ -105,10 +112,10 @@ func localAccountingChain(t *testing.T) (*ethclient.Client, types.Log, int64) {
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	if err != nil || receipt == nil || receipt.Status != types.ReceiptStatusSuccessful || len(receipt.Logs) != 1 {
+	if err != nil || receipt == nil || receipt.Status != types.ReceiptStatusSuccessful || len(receipt.Logs) != 2 {
 		t.Fatalf("event receipt: %+v %v", receipt, err)
 	}
-	log := *receipt.Logs[0]
+	log := *receipt.Logs[1]
 	if log.Address != emitter || len(log.Topics) != 2 || log.Topics[0] != signature || log.Topics[1] != common.BytesToHash(pool.Bytes()) || !bytes.Equal(log.Data, data) {
 		t.Fatalf("chain event: %+v", log)
 	}
@@ -210,16 +217,26 @@ func localAccountingDatabase(t *testing.T, log types.Log) (*pgxpool.Pool, *deliv
 	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES(125,$1,$2,$3,$4,$5,$6,$7,$8)`, strings.ToLower(log.TxHash.Hex()), log.Index, height, log.TxIndex, strings.ToLower(log.BlockHash.Hex()), strings.ToLower(log.Address.Hex()), encoded, log.Data); err != nil {
 		t.Fatal(err)
 	}
+	creationTopics, err := json.Marshal([]string{crypto.Keccak256Hash([]byte("MarketCreated(address,address)")).Hex(), common.BytesToHash(common.HexToAddress("0x0000000000000000000000000000000000000098").Bytes()).Hex()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES(125,$1,$2,$3,$4,$5,$6,$7,$8)`, strings.ToLower(log.TxHash.Hex()), log.Index-1, height, log.TxIndex, strings.ToLower(log.BlockHash.Hex()), strings.ToLower(log.Address.Hex()), creationTopics, []byte{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) VALUES($1,$2,$3,$4,$3,1,$5,$6,$7,$8,$9,1700000000,'{}','{}')`, "0x0000000000000000000000000000000000000097", "0x0000000000000000000000000000000000000098", "0x0000000000000000000000000000000000000095", strings.ToLower(log.Address.Hex()), height, strings.ToLower(log.BlockHash.Hex()), strings.ToLower(log.TxHash.Hex()), log.TxIndex, log.Index-1); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_ingest_leases(chain_id,stream_id,owner_instance,fence_token,expires_at) VALUES(125,'canonical','indexer',1,clock_timestamp()+interval '1 hour')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_ingest_watermarks(chain_id,stream_id,raw_complete_height,typed_complete_height) VALUES(125,'canonical',1,1)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_block_completeness(chain_id,stream_id,height,block_hash,raw_count,fetch_complete,required_decode_complete) VALUES(125,'canonical',1,$1,1,true,true)`, strings.ToLower(log.BlockHash.Hex())); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_block_completeness(chain_id,stream_id,height,block_hash,raw_count,fetch_complete,required_decode_complete) VALUES(125,'canonical',1,$1,2,true,true)`, strings.ToLower(log.BlockHash.Hex())); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_ingest_commits(chain_id,stream_id,batch_id,previous_height,last_complete_height,block_hash,record_count,outbox_count) VALUES(125,'canonical','first',0,1,$1,1,1)`, strings.ToLower(log.BlockHash.Hex())); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_ingest_commits(chain_id,stream_id,batch_id,previous_height,last_complete_height,block_hash,record_count,outbox_count) VALUES(125,'canonical','first',0,1,$1,2,1)`, strings.ToLower(log.BlockHash.Hex())); err != nil {
 		t.Fatal(err)
 	}
 	return pool, store, partitions, repo, authority
@@ -290,6 +307,7 @@ func TestSourceVerifiedAccountingFromLocalChainAndBroker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	consumer.Progress = consumerhealth.New("accounting_consumer", 5*time.Minute, nil, time.Now)
 	brokerURL := os.Getenv("L20_NATS_URL")
 	if brokerURL == "" {
 		t.Fatal("L20_NATS_URL required")
@@ -376,6 +394,9 @@ func TestSourceVerifiedAccountingFromLocalChainAndBroker(t *testing.T) {
 	if err := consumer.ConsumeBatch(ctx, messages); err != nil {
 		t.Fatal(err)
 	}
+	if snapshot := consumer.Progress.Snapshot(); snapshot.LastSuccess.IsZero() || snapshot.ConsecutiveFailures != 0 || snapshot.RetryPartitions != 0 {
+		t.Fatalf("committed delivery progress: %+v", snapshot)
+	}
 	if err := consumer.Consume(ctx, nil); err == nil {
 		t.Fatal("missing broker message accepted")
 	}
@@ -410,7 +431,7 @@ func TestSourceVerifiedBootstrapRejectsChangedCanonicalEvidence(t *testing.T) {
 		{"incomplete source watermark", `UPDATE indexer.indexer_ingest_watermarks SET raw_complete_height=0`, ErrAccountingSourceUnavailable},
 		{"missing market position", `DELETE FROM indexer.delivery_partition_positions`, ErrAccountingSourceUnavailable},
 		{"incomplete source block", `UPDATE indexer.indexer_block_completeness SET required_decode_complete=false`, projectionstats.ErrIntegrity},
-		{"incorrect commit count", `UPDATE indexer.indexer_ingest_commits SET record_count=2`, projectionstats.ErrIntegrity},
+		{"incorrect commit count", `UPDATE indexer.indexer_ingest_commits SET record_count=3`, projectionstats.ErrIntegrity},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			pool, deliveries, partitions, repo, authority := localAccountingDatabase(t, log)

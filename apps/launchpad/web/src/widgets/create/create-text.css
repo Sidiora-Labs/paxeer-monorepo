@@ -1,0 +1,34 @@
+[data-create-text] {
+  line-height: calc(var(--sl-leading-md) / var(--sl-text-md));
+
+  & .text-2xs {
+    line-height: var(--tw-leading, calc(var(--sl-leading-2xs) / var(--sl-text-2xs)));
+  }
+  & .text-xs {
+    line-height: var(--tw-leading, calc(var(--sl-leading-xs) / var(--sl-text-xs)));
+  }
+  & .text-sm {
+    line-height: var(--tw-leading, calc(var(--sl-leading-sm) / var(--sl-text-sm)));
+  }
+  & .text-base {
+    line-height: var(--tw-leading, calc(var(--sl-leading-base) / var(--sl-text-base)));
+  }
+  & textarea.text-base {
+    line-height: calc(var(--sl-leading-base) / var(--sl-text-base));
+  }
+  & .text-md {
+    line-height: var(--tw-leading, calc(var(--sl-leading-md) / var(--sl-text-md)));
+  }
+  & .text-lg {
+    line-height: var(--tw-leading, calc(var(--sl-leading-lg) / var(--sl-text-lg)));
+  }
+  & .text-xl {
+    line-height: var(--tw-leading, calc(var(--sl-leading-xl) / var(--sl-text-xl)));
+  }
+  & .text-num-sm {
+    line-height: var(--tw-leading, calc(var(--sl-leading-num-sm) / var(--sl-text-num-sm)));
+  }
+  & .text-num-md {
+    line-height: var(--tw-leading, calc(var(--sl-leading-num-md) / var(--sl-text-num-md)));
+  }
+}

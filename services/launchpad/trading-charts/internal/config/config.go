@@ -35,6 +35,7 @@ import (
 
 // Config is the parsed candles environment.
 type Config struct {
+	ConsumerReadinessTimeout  string `env:"CHART_CONSUMER_READINESS_TIMEOUT" envDefault:"5m"`
 	FeaturesConfigFile        string `env:"CHART_FEATURES_CONFIG_FILE"`
 	FeaturesConfigDocument    string `env:"CHART_FEATURES_CONFIG_DOCUMENT"`
 	FeaturesConfigSHA256      string `env:"CHART_FEATURES_CONFIG_SHA256"`
@@ -84,6 +85,9 @@ func Load() (Config, error) {
 	cfg, err := env.ParseAs[Config]()
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
+	}
+	if _, err := cfg.ConsumerReadinessBound(); err != nil {
+		return Config{}, err
 	}
 	if err = cfg.registerInlineDocuments(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)

@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { JSDOM } from 'jsdom';
+import React, { act, useState } from 'react';
+import { CreateFormFields } from './create-form-fields';
 import {
   createPublicClient,
   createWalletClient,
@@ -33,6 +35,7 @@ import {
 
 const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+const previousDialog = Object.getOwnPropertyDescriptor(globalThis, 'HTMLDialogElement');
 const originalFetch = globalThis.fetch;
 let browser: JSDOM | undefined;
 beforeAll(() => {
@@ -47,6 +50,10 @@ beforeAll(() => {
     configurable: true,
     value: browser.window.document,
   });
+  Object.defineProperty(globalThis, 'HTMLDialogElement', {
+    configurable: true,
+    value: browser.window.HTMLDialogElement,
+  });
   globalThis.fetch = (input, init) =>
     originalFetch(
       typeof input === 'string' ? new URL(input, profile.applicationOrigin) : input,
@@ -60,7 +67,49 @@ afterAll(() => {
   else Reflect.deleteProperty(globalThis, 'window');
   if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument);
   else Reflect.deleteProperty(globalThis, 'document');
+  if (previousDialog) Object.defineProperty(globalThis, 'HTMLDialogElement', previousDialog);
+  else Reflect.deleteProperty(globalThis, 'HTMLDialogElement');
 });
+
+async function createFormSubmitsTheSameDraftWithClosedAndOpenOptions(initial: CreationDraftV2): Promise<CreationDraftV2> {
+  const { createRoot } = await import('react-dom/client');
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  const submitted: CreationDraftV2[] = [];
+  function Form() {
+    const [value, setValue] = useState(initial);
+    return <form onSubmit={event => { event.preventDefault(); submitted.push(value); }}>
+      <CreateFormFields draft={value} errors={validateCreationDraft(value)} locked={false}
+        onEdit={(key, next) => setValue(current => ({ ...current, [key]: next }))}
+        registeredOpticals={[]} registry={{ state: 'ready' }} opticalReason={() => null} />
+      <button type="submit">Create coin</button>
+    </form>;
+  }
+  const previousActEnvironment = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  try {
+    await act(async () => root.render(<Form />));
+    const rows = [...host.querySelectorAll<HTMLElement>('summary')];
+    expect(rows).toHaveLength(4);
+    expect(rows.map(row => row.getAttribute('aria-expanded'))).toEqual(['false', 'false', 'false', 'false']);
+    await act(async () => host.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
+    for (const row of rows) await act(async () => row.click());
+    expect(rows.map(row => row.getAttribute('aria-expanded'))).toEqual(['true', 'true', 'true', 'true']);
+    await act(async () => host.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
+    for (const row of rows) await act(async () => row.click());
+    await act(async () => host.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
+    expect(submitted).toEqual([initial, initial, initial]);
+    expect(submitted[0].socialLinks).toEqual([]);
+    expect(submitted[0].feeStrategy).toBe(0);
+    expect(submitted[0].opticalSelection).toBe('standard');
+    return submitted[0];
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  }
+}
 
 it('executes creation fee, exact approval, native hash resolution and protected first purchase against real compiled chain125 contracts', async () => {
   const file = process.env.L27_PHASE2_FIXTURE;
@@ -124,7 +173,7 @@ it('executes creation fee, exact approval, native hash resolution and protected 
     () => scope,
     runtimeCreationAdmission(authority, fixture.deployment)
   );
-  const draft: CreationDraftV2 = {
+  const draft = await createFormSubmitsTheSameDraftWithClosedAndOpenOptions({
     draftId: crypto.randomUUID(),
     version: 2,
     creator: fixture.creator.toLowerCase(),
@@ -139,7 +188,7 @@ it('executes creation fee, exact approval, native hash resolution and protected 
     opticalSelection: 'standard',
     updatedAt: Date.now(),
     feeStrategy: 0,
-  };
+  });
   expect(validateCreationDraft(draft)).toEqual({});
   const first = await adapter.readFunding(draft, scope);
   expect(first.cost.protocolFeeRaw).toBe('1000000');

@@ -1,7 +1,86 @@
+export const launchpadColors = {
+  dark: {
+    'surface-inverse': '#f5f5f7',
+    'text': '#f5f5f7',
+    'canvas': '#0b0b0e',
+    'surface-1': '#121216',
+    'surface-2': '#19191f',
+    'surface-3': '#23232b',
+    'surface-hover': '#2a2a33',
+    'surface-active': '#34343f',
+    'text-muted': '#a6a6b0',
+    'text-faint': '#9f9faa',
+    'text-disabled': '#5c5c66',
+    'accent': '#44e8c8',
+    'accent-hover': '#6bedd5',
+    'accent-active': '#2bb89e',
+    'on-accent': '#06201b',
+    'accent-soft': '#11302b',
+    'accent-soft-strong': '#1a4a42',
+    'danger': '#ff6f73',
+    'danger-strong': '#ff8d90',
+    'on-danger': '#240708',
+    'danger-soft': '#381a1d',
+    'warning': '#ffd24a',
+    'warning-strong': '#ffb25b',
+    'on-warning': '#201a00',
+    'warning-soft': '#2e2a18',
+    'info': '#a6baff',
+    'on-info': '#0b1030',
+    'info-soft': '#1f2438',
+    'focus': '#8bffc5',
+    'volume-up': '#44e8c8',
+    'volume-down': '#ff6f73',
+    'rank-2': '#c9d1e0',
+    'rank-3': '#ffa861',
+    'rank-1-soft': '#282820',
+    'text-inverse': '#0b0b0e',
+    'control-edge': '#81818e',
+  },
+  light: {
+    'surface-inverse': '#101c29',
+    'text': '#101c29',
+    'canvas': '#f7f9fc',
+    'surface-1': '#ffffff',
+    'surface-2': '#eaf0f5',
+    'surface-3': '#dfe7ee',
+    'surface-hover': '#d3dee8',
+    'surface-active': '#c7d6e2',
+    'text-muted': '#34495e',
+    'text-faint': '#435568',
+    'text-disabled': '#657587',
+    'accent': '#006852',
+    'accent-hover': '#005844',
+    'accent-active': '#004735',
+    'on-accent': '#ffffff',
+    'accent-soft': '#d7f4e9',
+    'accent-soft-strong': '#b9e7d8',
+    'danger': '#ac1826',
+    'danger-strong': '#a11422',
+    'on-danger': '#ffffff',
+    'danger-soft': '#ffe5e7',
+    'warning': '#795400',
+    'warning-strong': '#794800',
+    'on-warning': '#ffffff',
+    'warning-soft': '#fff0c2',
+    'info': '#2d49a9',
+    'on-info': '#ffffff',
+    'info-soft': '#e6ebff',
+    'focus': '#005a48',
+    'volume-up': '#006852',
+    'volume-down': '#ac1826',
+    'rank-2': '#435568',
+    'rank-3': '#884500',
+    'rank-1-soft': '#fff0c2',
+    'text-inverse': '#ffffff',
+    'control-edge': '#657587',
+  },
+} as const;
+
 /** Canvas roles for browser chrome, which does not resolve CSS custom properties. */
 export const launchpadCanvasColors = {
-  light: '#f7f9fc',
-  dark: '#07090d',
+  light: launchpadColors.light.canvas,
+  dark: launchpadColors.dark.canvas,
 } as const;
 
 /** Pixel values for resizable workspaces and chart APIs. */
@@ -31,7 +110,10 @@ export const launchpadGeometry = {
 } as const;
 
 export const launchpadMotion = {
+  fast: 120,
+  base: 180,
   slow: 260,
+  value: 600,
   toastLifetime: 6000,
   copyConfirmation: 1500,
 } as const;
@@ -46,9 +128,9 @@ export const launchpadMedia = {
 
 /** Default chart marker roles; mounted charts supply the active scheme palette. */
 export const launchpadMarkColors = {
-  buy: '#006852',
-  sell: '#ac1826',
-  label: '#ffffff',
+  buy: launchpadColors.dark.accent,
+  sell: launchpadColors.dark.danger,
+  label: launchpadColors.dark['on-accent'],
 } as const;
 
 /** A dimension expressed in steps of the surface spacing scale. */

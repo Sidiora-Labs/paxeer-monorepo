@@ -1,36 +1,18 @@
-import Link from 'next/link';
+'use client';
+
+import { Search } from 'lucide-react';
+import { Button, EmptyState } from '@/ui/primitives';
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-[var(--sl-page-min-height)] flex-col items-center justify-center gap-6 p-8">
-      <div className="relative">
-        <div className="text-display font-extrabold leading-none text-surface-3 select-none">
-          404
-        </div>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-surface-2 flex items-center justify-center">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="text-text-faint">
-              <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M18 18L24 24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M9 12H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div className="text-center space-y-2">
-        <h1 className="text-md font-bold text-text">Page not found</h1>
-        <p className="text-xs text-text-faint max-w-xs">
-          We couldn't find that page
-        </p>
-      </div>
-
-      <Link prefetch={false}
-        href="/"
-        className="inline-flex min-h-touch-target-min items-center px-6 py-2.5 rounded-xl bg-accent-soft text-accent font-bold text-sm hover:bg-accent-soft-strong transition-all active:scale-[0.97]"
-      >
-        Go home
-      </Link>
+    <div className="mx-auto w-full max-w-120 px-4 py-4">
+      <EmptyState
+        icon={Search}
+        headingLevel={1}
+        title="Page not found"
+        body="We couldn't find that page"
+        action={<Button variant="secondary" href="/">Go home</Button>}
+      />
     </div>
   );
 }

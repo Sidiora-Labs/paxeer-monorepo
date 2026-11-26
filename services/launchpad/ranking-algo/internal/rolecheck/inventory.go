@@ -56,7 +56,7 @@ var Statements = []Statement{
 		relation("stats.accounting_pool_fences_v2", "frozen", selectRight),
 		relation("indexer.indexer_accounting_fills_v1", "payload source_fill_id source_fact_digest", selectRight),
 		relation("stats.accounting_market_commits_v2", "projection_version source_fill_id source_fact_digest fill", selectRight),
-	}, ""),
+	}, "pg_catalog.min pg_catalog.jsonb_object_agg"),
 	statement("input.universe", storePath+"frozen_inputs.go", "ReadRankingUniverseTxDetailed", 4, selectRight, []Object{
 		relation("stats.accounting_market_commits_v2", "pool fill projection_version", selectRight),
 		relation("indexer.indexer_canonical_creations_v1", "pool height transaction_index log_index block_timestamp", selectRight),

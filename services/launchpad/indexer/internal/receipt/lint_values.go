@@ -1,6 +1,8 @@
 package receipt
 
 const (
+	valueBuy                 = "buy"
+	valueSell                = "sell"
 	valueUnknown             = "unknown"
 	valueEventEmitter        = "EventEmitter"
 	valueMarketCreated       = "MarketCreated"

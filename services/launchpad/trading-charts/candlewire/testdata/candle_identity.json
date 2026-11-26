@@ -1,0 +1,758 @@
+[
+  {
+    "storedBar": {
+      "poolAddress": "0x1111111111111111111111111111111111111111",
+      "interval": "1m",
+      "start": 1699999980,
+      "open": {
+        "numerator": "1",
+        "denominator": "1"
+      },
+      "high": {
+        "numerator": "1",
+        "denominator": "1"
+      },
+      "low": {
+        "numerator": "1",
+        "denominator": "1"
+      },
+      "close": {
+        "numerator": "1",
+        "denominator": "1"
+      },
+      "firstPosition": {
+        "height": 110,
+        "transactionIndex": 0,
+        "logIndex": 0
+      },
+      "lastPosition": {
+        "height": 110,
+        "transactionIndex": 0,
+        "logIndex": 0
+      },
+      "volumeUsdlRaw": "1000000",
+      "volumeTokenRaw": "1000000000000000000",
+      "buyVolumeUsdlRaw": "1000000",
+      "sellVolumeUsdlRaw": "0",
+      "trades": 1,
+      "revision": 1,
+      "uniqueTraderCount": 0,
+      "token": {
+        "address": "0x3333333333333333333333333333333333333333",
+        "decimals": 18
+      },
+      "settlement": {
+        "address": "0x4444444444444444444444444444444444444444",
+        "decimals": 6
+      },
+      "openSource": {
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "highSource": {
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "lowSource": {
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "closeSource": {
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "unknownActorTradeCount": 1,
+      "actorSemantics": "canonical_swap_actor_v1",
+      "algorithmVersion": "qualified-exact-v2",
+      "sourceWatermarkHeight": 110,
+      "sourceWatermarkTimestamp": 1700000600,
+      "intervalEnd": 1700000040,
+      "completenessStatus": "complete_through_watermark",
+      "synthetic": false,
+      "provenance": "actual_trade",
+      "displayRevision": 1,
+      "correctionReason": "delayed_ingestion"
+    },
+    "fills": {
+      "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475": {
+        "version": "accounting-fill-v1",
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "poolAddress": "0x1111111111111111111111111111111111111111",
+        "token": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "decimals": 18
+        },
+        "settlement": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "decimals": 6
+        },
+        "side": "buy",
+        "tokenAmountRaw": "1000000000000000000",
+        "usdlAmountRaw": "1000000",
+        "paidInputRaw": "1000000",
+        "feeRaw": "3000",
+        "pricedInputRaw": null,
+        "ammInputAfterFeeRaw": null,
+        "inputDerivationQuality": "receipt_incomplete",
+        "feeDisposition": "distributed_usdl",
+        "attribution": {
+          "transactionSender": "0x5555555555555555555555555555555555555555",
+          "routerCaller": null,
+          "trader": null,
+          "payer": null,
+          "recipient": null,
+          "quality": "unavailable",
+          "evidence": []
+        },
+        "execution": {
+          "quality": "unavailable",
+          "feeBPS": null,
+          "configDigest": null,
+          "preTransactionStateDigest": null,
+          "replayEvidenceDigest": null,
+          "opticalImplementation": null,
+          "evidence": []
+        },
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "blockTimestampSeconds": "1700000000"
+      }
+    },
+    "publicCandle": {
+      "buyVolumeUsdlRaw": "1000000",
+      "close": {
+        "baseAsset": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 18,
+          "kind": "erc20"
+        },
+        "denominator": "1",
+        "numerator": "1",
+        "quoteAsset": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 6,
+          "kind": "erc20"
+        },
+        "source": {
+          "amountBasis": "paid_input",
+          "kind": "gross_execution",
+          "observedAt": "2023-11-14T22:13:20.000Z",
+          "position": {
+            "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+            "chainId": "125",
+            "height": "110",
+            "logIndex": "0",
+            "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+            "transactionIndex": "0"
+          },
+          "providerId": null,
+          "sourceEventId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+          "sourceReference": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "coverage": "complete",
+      "firstPosition": {
+        "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+        "chainId": "125",
+        "height": "110",
+        "logIndex": "0",
+        "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+        "transactionIndex": "0"
+      },
+      "high": {
+        "baseAsset": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 18,
+          "kind": "erc20"
+        },
+        "denominator": "1",
+        "numerator": "1",
+        "quoteAsset": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 6,
+          "kind": "erc20"
+        },
+        "source": {
+          "amountBasis": "paid_input",
+          "kind": "gross_execution",
+          "observedAt": "2023-11-14T22:13:20.000Z",
+          "position": {
+            "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+            "chainId": "125",
+            "height": "110",
+            "logIndex": "0",
+            "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+            "transactionIndex": "0"
+          },
+          "providerId": null,
+          "sourceEventId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+          "sourceReference": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "interval": "1m",
+      "largeTradeCount": null,
+      "largeTradePolicyId": null,
+      "largeTradeThresholdUsdlRaw": null,
+      "lastPosition": {
+        "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+        "chainId": "125",
+        "height": "110",
+        "logIndex": "0",
+        "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+        "transactionIndex": "0"
+      },
+      "low": {
+        "baseAsset": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 18,
+          "kind": "erc20"
+        },
+        "denominator": "1",
+        "numerator": "1",
+        "quoteAsset": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 6,
+          "kind": "erc20"
+        },
+        "source": {
+          "amountBasis": "paid_input",
+          "kind": "gross_execution",
+          "observedAt": "2023-11-14T22:13:20.000Z",
+          "position": {
+            "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+            "chainId": "125",
+            "height": "110",
+            "logIndex": "0",
+            "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+            "transactionIndex": "0"
+          },
+          "providerId": null,
+          "sourceEventId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+          "sourceReference": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "open": {
+        "baseAsset": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 18,
+          "kind": "erc20"
+        },
+        "denominator": "1",
+        "numerator": "1",
+        "quoteAsset": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 6,
+          "kind": "erc20"
+        },
+        "source": {
+          "amountBasis": "paid_input",
+          "kind": "gross_execution",
+          "observedAt": "2023-11-14T22:13:20.000Z",
+          "position": {
+            "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+            "chainId": "125",
+            "height": "110",
+            "logIndex": "0",
+            "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+            "transactionIndex": "0"
+          },
+          "providerId": null,
+          "sourceEventId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+          "sourceReference": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "poolAddress": "0x1111111111111111111111111111111111111111",
+      "revision": "1",
+      "sellVolumeUsdlRaw": "0",
+      "seriesModelVersion": "qualified-exact-v2",
+      "snapshotId": "12a6a5a7-2c69-55f2-9270-836558106252",
+      "start": "2023-11-14T22:13:00.000Z",
+      "synthetic": false,
+      "trades": "1",
+      "uniqueTraderCount": "0",
+      "volumeTokenRaw": "1000000000000000000",
+      "volumeUsdlRaw": "1000000",
+      "algorithmVersion": "qualified-exact-v2",
+      "sourceWatermarkHeight": "110",
+      "intervalEnd": "2023-11-14T22:14:00.000Z",
+      "completenessStatus": "complete_through_watermark",
+      "provenance": "actual_trade",
+      "displayRevision": "1",
+      "correctionReason": "delayed_ingestion",
+      "unknownActorTradeCount": "1",
+      "actorSemantics": "canonical_swap_actor_v1"
+    }
+  },
+  {
+    "storedBar": {
+      "poolAddress": "0x1111111111111111111111111111111111111111",
+      "interval": "5m",
+      "start": 1699999800,
+      "open": {
+        "numerator": "1",
+        "denominator": "1"
+      },
+      "high": {
+        "numerator": "1",
+        "denominator": "1"
+      },
+      "low": {
+        "numerator": "1",
+        "denominator": "1"
+      },
+      "close": {
+        "numerator": "1",
+        "denominator": "1"
+      },
+      "firstPosition": {
+        "height": 110,
+        "transactionIndex": 0,
+        "logIndex": 0
+      },
+      "lastPosition": {
+        "height": 110,
+        "transactionIndex": 0,
+        "logIndex": 0
+      },
+      "volumeUsdlRaw": "1000000",
+      "volumeTokenRaw": "1000000000000000000",
+      "buyVolumeUsdlRaw": "1000000",
+      "sellVolumeUsdlRaw": "0",
+      "trades": 1,
+      "revision": 1,
+      "uniqueTraderCount": 0,
+      "token": {
+        "address": "0x3333333333333333333333333333333333333333",
+        "decimals": 18
+      },
+      "settlement": {
+        "address": "0x4444444444444444444444444444444444444444",
+        "decimals": 6
+      },
+      "openSource": {
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "highSource": {
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "lowSource": {
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "closeSource": {
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "unknownActorTradeCount": 1,
+      "actorSemantics": "canonical_swap_actor_v1",
+      "algorithmVersion": "qualified-exact-v2",
+      "sourceWatermarkHeight": 110,
+      "sourceWatermarkTimestamp": 1700000600,
+      "intervalEnd": 1700000100,
+      "completenessStatus": "live_interval",
+      "synthetic": false,
+      "provenance": "actual_trade",
+      "displayRevision": 1
+    },
+    "fills": {
+      "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475": {
+        "version": "accounting-fill-v1",
+        "sourceFillId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+        "position": {
+          "chainId": "125",
+          "height": "110",
+          "transactionIndex": "0",
+          "logIndex": "0",
+          "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+          "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e"
+        },
+        "actualEmitter": "0x1111111111111111111111111111111111111111",
+        "poolAddress": "0x1111111111111111111111111111111111111111",
+        "token": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "decimals": 18
+        },
+        "settlement": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "decimals": 6
+        },
+        "side": "buy",
+        "tokenAmountRaw": "1000000000000000000",
+        "usdlAmountRaw": "1000000",
+        "paidInputRaw": "1000000",
+        "feeRaw": "3000",
+        "pricedInputRaw": null,
+        "ammInputAfterFeeRaw": null,
+        "inputDerivationQuality": "receipt_incomplete",
+        "feeDisposition": "distributed_usdl",
+        "attribution": {
+          "transactionSender": "0x5555555555555555555555555555555555555555",
+          "routerCaller": null,
+          "trader": null,
+          "payer": null,
+          "recipient": null,
+          "quality": "unavailable",
+          "evidence": []
+        },
+        "execution": {
+          "quality": "unavailable",
+          "feeBPS": null,
+          "configDigest": null,
+          "preTransactionStateDigest": null,
+          "replayEvidenceDigest": null,
+          "opticalImplementation": null,
+          "evidence": []
+        },
+        "provenance": {
+          "deploymentId": "fixture125",
+          "abiRevision": "sidiora-v1",
+          "emitterCodeEpoch": "epoch1",
+          "poolCodeEpoch": "epoch1",
+          "receiptSHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headerSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "blockTimestampSeconds": "1700000000"
+      }
+    },
+    "publicCandle": {
+      "buyVolumeUsdlRaw": "1000000",
+      "close": {
+        "baseAsset": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 18,
+          "kind": "erc20"
+        },
+        "denominator": "1",
+        "numerator": "1",
+        "quoteAsset": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 6,
+          "kind": "erc20"
+        },
+        "source": {
+          "amountBasis": "paid_input",
+          "kind": "gross_execution",
+          "observedAt": "2023-11-14T22:13:20.000Z",
+          "position": {
+            "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+            "chainId": "125",
+            "height": "110",
+            "logIndex": "0",
+            "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+            "transactionIndex": "0"
+          },
+          "providerId": null,
+          "sourceEventId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+          "sourceReference": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "coverage": "partial",
+      "firstPosition": {
+        "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+        "chainId": "125",
+        "height": "110",
+        "logIndex": "0",
+        "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+        "transactionIndex": "0"
+      },
+      "high": {
+        "baseAsset": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 18,
+          "kind": "erc20"
+        },
+        "denominator": "1",
+        "numerator": "1",
+        "quoteAsset": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 6,
+          "kind": "erc20"
+        },
+        "source": {
+          "amountBasis": "paid_input",
+          "kind": "gross_execution",
+          "observedAt": "2023-11-14T22:13:20.000Z",
+          "position": {
+            "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+            "chainId": "125",
+            "height": "110",
+            "logIndex": "0",
+            "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+            "transactionIndex": "0"
+          },
+          "providerId": null,
+          "sourceEventId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+          "sourceReference": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "interval": "5m",
+      "largeTradeCount": null,
+      "largeTradePolicyId": null,
+      "largeTradeThresholdUsdlRaw": null,
+      "lastPosition": {
+        "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+        "chainId": "125",
+        "height": "110",
+        "logIndex": "0",
+        "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+        "transactionIndex": "0"
+      },
+      "low": {
+        "baseAsset": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 18,
+          "kind": "erc20"
+        },
+        "denominator": "1",
+        "numerator": "1",
+        "quoteAsset": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 6,
+          "kind": "erc20"
+        },
+        "source": {
+          "amountBasis": "paid_input",
+          "kind": "gross_execution",
+          "observedAt": "2023-11-14T22:13:20.000Z",
+          "position": {
+            "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+            "chainId": "125",
+            "height": "110",
+            "logIndex": "0",
+            "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+            "transactionIndex": "0"
+          },
+          "providerId": null,
+          "sourceEventId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+          "sourceReference": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "open": {
+        "baseAsset": {
+          "address": "0x3333333333333333333333333333333333333333",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 18,
+          "kind": "erc20"
+        },
+        "denominator": "1",
+        "numerator": "1",
+        "quoteAsset": {
+          "address": "0x4444444444444444444444444444444444444444",
+          "chainId": "125",
+          "currencyCode": null,
+          "decimals": 6,
+          "kind": "erc20"
+        },
+        "source": {
+          "amountBasis": "paid_input",
+          "kind": "gross_execution",
+          "observedAt": "2023-11-14T22:13:20.000Z",
+          "position": {
+            "blockHash": "0x00000000000000000000000000000000000000000000000000000000b10c006e",
+            "chainId": "125",
+            "height": "110",
+            "logIndex": "0",
+            "transactionHash": "0x0000000000000000000000011111111111111111111111111111111111111111",
+            "transactionIndex": "0"
+          },
+          "providerId": null,
+          "sourceEventId": "acd290f8fd48b17c5dcc548db13e9566977165b83f1af4b01ba247c8a8fca475",
+          "sourceReference": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "poolAddress": "0x1111111111111111111111111111111111111111",
+      "revision": "1",
+      "sellVolumeUsdlRaw": "0",
+      "seriesModelVersion": "qualified-exact-v2",
+      "snapshotId": "68769574-7bc7-5920-b2a3-cf85169257a5",
+      "start": "2023-11-14T22:10:00.000Z",
+      "synthetic": false,
+      "trades": "1",
+      "uniqueTraderCount": "0",
+      "volumeTokenRaw": "1000000000000000000",
+      "volumeUsdlRaw": "1000000",
+      "algorithmVersion": "qualified-exact-v2",
+      "sourceWatermarkHeight": "110",
+      "intervalEnd": "2023-11-14T22:15:00.000Z",
+      "completenessStatus": "live_interval",
+      "provenance": "actual_trade",
+      "displayRevision": "1",
+      "unknownActorTradeCount": "1",
+      "actorSemantics": "canonical_swap_actor_v1"
+    }
+  }
+]

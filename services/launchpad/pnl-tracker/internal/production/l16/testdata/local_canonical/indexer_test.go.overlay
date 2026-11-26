@@ -75,6 +75,12 @@ func TestPnlCanonicalFixture(t *testing.T) {
 	case "gift":
 		n.transact(t, "Router", "buy", poolAddress, big.NewInt(100), big.NewInt(10), deadline)
 		transact(n.auth, token, "transfer", owner.From, big.NewInt(5))
+	case "incremental":
+		n.transact(t, "USDL", "transfer", owner.From, big.NewInt(10000))
+		transact(owner, n.contracts["USDL"], "approve", common.HexToAddress(n.roles["Router"].Address), big.NewInt(10000))
+		for i := 0; i < 3; i++ {
+			transact(owner, n.contracts["Router"], "buy", poolAddress, big.NewInt(100), big.NewInt(1), deadline)
+		}
 	case "mixed":
 		n.transact(t, "USDL", "transfer", owner.From, big.NewInt(100))
 		transact(owner, n.contracts["USDL"], "approve", common.HexToAddress(n.roles["Router"].Address), big.NewInt(100))

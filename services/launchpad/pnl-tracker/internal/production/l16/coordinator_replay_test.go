@@ -656,7 +656,9 @@ func coordinatorReplayCurrentFillRows(t *testing.T, ctx context.Context, raw jso
 // GRANTs may conceal a missing coordinator migration or runtime permission.
 func coordinatorReplayDatabase(t *testing.T, ctx context.Context) (coordinatortest.Database, *pgxpool.Pool) {
 	t.Helper()
+	started := time.Now()
 	db := coordinatortest.Bootstrap(t, realMarketEnv(t, "PNL_TEST_POSTGRES_DSN"), "pnl_runtime")
+	t.Logf("coordinator bootstrap: %s", time.Since(started))
 	admin, err := pgxpool.New(ctx, db.AdminDSN)
 	if err != nil {
 		t.Fatal(err)
@@ -794,6 +796,7 @@ func coordinatorReplayActive(t *testing.T, ctx context.Context, service *Service
 }
 
 func TestCoordinatorReplayActiveSnapshotUpdateGrant(t *testing.T) {
+	parallelDatabaseTest(t)
 	_, role := coordinatorReplayMigrationInputs(t)
 	statements, err := role.GrantSQL()
 	if err != nil {
@@ -845,6 +848,7 @@ func TestCoordinatorReplayActiveSnapshotUpdateGrant(t *testing.T) {
 }
 
 func TestCoordinatorReplayWalletRangeSchemaMigrated(t *testing.T) {
+	parallelDatabaseTest(t)
 	inputs, role := coordinatorReplayMigrationInputs(t)
 	statements, err := role.GrantSQL()
 	if err != nil {

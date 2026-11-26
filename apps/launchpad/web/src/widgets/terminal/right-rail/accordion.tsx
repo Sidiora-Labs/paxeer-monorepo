@@ -58,7 +58,7 @@ export function AccordionCard({ id, title, trailing, children }: { id: Accordion
   const buttonId = `terminal-accordion-${id}`;
   const panelId = `${buttonId}-panel`;
   return (
-    <section aria-labelledby={buttonId} className="flex flex-col rounded-md bg-surface-1">
+    <section aria-labelledby={buttonId} className="sl-hairline flex flex-col bg-surface-1">
       <div className="flex min-h-9 flex-wrap items-center gap-1 px-2">
         <button
           type="button"
@@ -66,7 +66,7 @@ export function AccordionCard({ id, title, trailing, children }: { id: Accordion
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen(!open)}
-          className="flex min-h-7 min-w-0 flex-1 items-center gap-1 rounded-sm px-1 text-left text-sm font-bold text-text transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          className="flex min-h-7 min-w-0 flex-1 items-center gap-1 rounded-sm px-1 text-left text-sm font-semibold text-text transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           <span className="min-w-0 flex-1 truncate">{title}</span>
         </button>

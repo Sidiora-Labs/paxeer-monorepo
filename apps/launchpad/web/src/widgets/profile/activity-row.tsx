@@ -47,7 +47,7 @@ export function ActivityRow({ event, identity, now }: { event: ActivityEvent; id
     <>
       <Avatar src={identity.logo} name={subtitle} size="lg" shape="square" decorative />
       <span className="min-w-0">
-        <span className="block truncate text-sm font-bold text-text" title={title}>{title}</span>
+        <span className="block truncate text-sm font-semibold text-text" title={title}>{title}</span>
         <span className={cn('block truncate text-xs text-text-faint', !known || !identity.symbol ? 'font-mono' : null)} title={subtitle}>{subtitle}</span>
       </span>
     </>

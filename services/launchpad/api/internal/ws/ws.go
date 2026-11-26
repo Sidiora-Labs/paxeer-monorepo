@@ -499,19 +499,18 @@ func (h *Hub) snapshotHandle(w http.ResponseWriter, r *http.Request) {
 	binding := h.streamBinding(r, topics)
 	binding.Origin = origin
 	snapshot, err := h.privateStream.Snapshot(r.Context(), principal, binding)
-	if err != nil {
-		// Unknown resources take precedence over topics awaiting a first frame.
-		if errors.Is(err, broker.ErrStreamUnavailable) && h.topicRegistry != nil {
-			unknown, registryErr := h.topicRegistry.UnknownTopics(r.Context(), topics)
-			if registryErr != nil {
-				broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
-				return
-			}
-			if len(unknown) > 0 {
-				broker.WriteStreamHTTPError(w, r, 404, "NOT_FOUND")
-				return
-			}
+	if (err == nil || errors.Is(err, broker.ErrStreamUnavailable)) && h.topicRegistry != nil {
+		unknown, registryErr := h.topicRegistry.UnknownTopics(r.Context(), topics)
+		if registryErr != nil {
+			broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			return
 		}
+		if len(unknown) > 0 {
+			broker.WriteStreamHTTPError(w, r, 404, "NOT_FOUND")
+			return
+		}
+	}
+	if err != nil {
 		if errors.Is(err, broker.ErrTopicNotStarted) {
 			broker.WriteStreamHTTPError(w, r, 404, "TOPIC_NOT_STARTED")
 			return

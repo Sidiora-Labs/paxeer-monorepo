@@ -31,13 +31,13 @@ export function filterMenuItems(filters: HolderRewardsFilters, onChange: (filter
 export default function HolderRewardsControls({ order, onSortChange, view, onViewChange, filters, onFiltersChange, onExport }: HolderRewardsControlsProps) {
   const active = activeFilterCount(filters);
   return (
-    <div role="toolbar" aria-label="List controls" className="flex flex-wrap items-center gap-2">
-      <SelectPill label="Sort by" showLabel options={sortOptions.map(option => ({ value: option.value, label: option.label }))} value={order.key} onChange={onSortChange} />
-      <span className="inline-flex h-control-height-sm items-center gap-1.5 rounded-pill bg-surface-1 px-3 text-sm font-semibold text-text">
+    <div role="toolbar" aria-label="List controls" className="relative flex min-w-0 items-center gap-2 overflow-x-auto">
+      <SelectPill className="w-max max-w-none shrink-0 whitespace-nowrap" label="Sort by" showLabel options={sortOptions.map(option => ({ value: option.value, label: option.label }))} value={order.key} onChange={onSortChange} />
+      <span className="inline-flex shrink-0 whitespace-nowrap h-control-height-sm items-center gap-1.5 rounded-pill bg-surface-1 px-3 text-sm font-semibold text-text">
         <span className="text-text-faint">Paired with</span>
         <UsdlBadge />
       </span>
-      <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
+      <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
         <SegmentedControl
           label="View"
           value={view}

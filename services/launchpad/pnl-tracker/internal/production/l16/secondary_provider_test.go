@@ -10,6 +10,7 @@ import (
 )
 
 func TestInventoryRequiresIndependentArchiveAgreement(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	service, pool := recordedRebuildService(t, ctx)
 	origin := coordinatorReplayRecordedRPC(t)

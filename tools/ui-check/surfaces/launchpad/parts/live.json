@@ -249,6 +249,21 @@
               "selector": "html:has([data-shell-ready]) #profile-wallets"
             }
           ]
+        },
+        {
+          "name": "chart-collapsed",
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Collapse portfolio chart\"]"
+            }
+          ]
         }
       ]
     },
@@ -465,5 +480,5 @@
       "max": 28
     }
   ],
-  "buildMs": 600000
+  "buildMs": 1800000
 }

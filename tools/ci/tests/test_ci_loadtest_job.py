@@ -94,8 +94,8 @@ class CiLoadtestJobTest(unittest.TestCase):
                         self.assertEqual(count, 1)
                     elif mutation == "conditional-runtime":
                         changed = original.replace(
-                            "      - name: Install and verify the container runtime\n",
-                            "      - name: Install and verify the container runtime\n        if: false\n",
+                            "      - name: Ensure the container runtime is available\n",
+                            "      - name: Ensure the container runtime is available\n        if: false\n",
                         )
                     else:
                         changed = original.replace(

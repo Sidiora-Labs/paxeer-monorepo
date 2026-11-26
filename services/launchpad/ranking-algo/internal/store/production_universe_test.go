@@ -559,8 +559,8 @@ func mustJSON(t *testing.T, v any) json.RawMessage {
 	return raw
 }
 
-// TestProductionUniverseRejectsIncoherentProjection keeps the fail-closed
-// gates: a fill the indexer holds but stats has not committed blocks the run.
+// TestProductionUniverseRejectsIncoherentProjection admits an uncommitted
+// source fill and ages its pool's observation to one second before the fill.
 func TestProductionUniverseRejectsIncoherentProjection(t *testing.T) {
 	pool := productionUniverseDatabase(t)
 	ctx := context.Background()
@@ -589,8 +589,13 @@ func TestProductionUniverseRejectsIncoherentProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = frozen.Freeze(ctx, uuid.NewString(), cutoff); err != ranker.ErrUnavailable {
-		t.Fatalf("incoherent projection accepted: %v", err)
+	in, err := frozen.Freeze(ctx, uuid.NewString(), cutoff)
+	if err != nil || !in.Complete || len(in.Candidates) != 1 || in.OpenFillPools != 1 {
+		t.Fatalf("open fill freeze: %+v, %v", in, err)
+	}
+	candidate := in.Candidates[0]
+	if candidate.Pool.PoolAddress != poolA || candidate.SourceObservedAt != cutoff.Unix()-61 || candidate.SourceRevision != universeProjection+":200" || candidate.Pool.Volume24h != "0.000000" {
+		t.Fatalf("open fill observation: %+v", candidate)
 	}
 }
 
