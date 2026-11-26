@@ -2521,6 +2521,11 @@
       "path": "packages/portfolio/src/pages/agents/agents.connect.ui.tsx",
       "sourceSha256": "ee992cf18e0bb9833c6dbb017c0aa3a1c4f730173365c746b4835357367a2057",
       "runtimeSha256": "60b837bedba6a265787f59dba81715d886fe44700d81c275864cec2ec6432845"
+    },
+    {
+      "path": "packages/hooks/src/native/NativeRuntime.tsx",
+      "sourceSha256": "b440ae5ce721bc31d5253a2875305e721091cb913f1bed3b2a34711acf6b1f7d",
+      "runtimeSha256": "3d4a0ed7f71828ea30be7f26cbc4c40dffe8db69b09387a7cfcda9a3e34bbfa8"
     }
   ],
   "nativeBrandArtwork": ["packages/ui/src/icon/paxeer-network.tsx"]
