@@ -1,7 +1,7 @@
 'use client';
-import { useId } from 'react';
-import { Info } from 'lucide-react';
-import { AvatarStack, Button, DropdownMenu, humanErrorText, SegmentedControl, Toggle, Tooltip } from '@/ui/primitives';
+import './coin-market.css';
+import { Info, SlidersHorizontal } from 'lucide-react';
+import { AvatarStack, Button, DropdownMenu, humanErrorText, SegmentedControl, Tooltip } from '@/ui/primitives';
 import type { ChartFreshness, ChartMode } from '@/widgets/trading/udf-datafeed';
 import { cn } from '@/lib/utils';
 import { CHART_INTERVALS, type ChartInterval } from './use-chart-settings';
@@ -38,7 +38,6 @@ export function freshnessLabel(status: ChartFreshness['connectionStatus']): stri
 }
 
 export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, mcapDisabledReason, markers, onMarkersChange, markerActors, freshness, noTrades, waitingForFirstTrade, onRetry, className }: ChartToolbarProps) {
-  const markersId = useId();
   const primary = CHART_INTERVALS.filter(option => option.primary);
   const secondary = CHART_INTERVALS.filter(option => !option.primary);
   const activeSecondary = secondary.find(option => option.value === interval);
@@ -49,18 +48,12 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
   const canRetry = !waitingForTrades && !live && freshness.connectionStatus !== 'closed';
 
   return (
-    <div className={cn('flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 bg-surface-1 px-3 py-2', className)}>
-      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+    <div data-chart-toolbar className={cn('coin-chart-toolbar relative flex min-h-11 min-w-0 flex-nowrap items-center gap-3 overflow-x-auto whitespace-nowrap bg-canvas px-3 py-2', className)}>
+      <div className="flex shrink-0 flex-nowrap items-center gap-1">
         <SegmentedControl label="Candle interval" options={segments} value={interval} onChange={onIntervalChange} shape="sm" />
-        <DropdownMenu
-          label="More intervals"
-          size="sm"
-          align="start"
-          items={secondary.map(option => ({ id: option.value, label: `${option.label} (${option.description})`, selected: option.value === interval, onSelect: () => onIntervalChange(option.value) }))}
-        />
       </div>
 
-      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1">
         <SegmentedControl<ChartMode>
           label="Chart value"
           options={[{ value: 'price', label: 'Price' }, { value: 'mcap', label: 'MCap', disabled: mcapDisabled }]}
@@ -77,23 +70,21 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
         ) : null}
       </div>
 
-      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-        <span id={markersId} className="text-sm font-bold text-text-muted">Trade markers</span>
-        <Toggle checked={markers} onChange={onMarkersChange} labelledBy={markersId} size="sm" />
-        {markers && markerActors.length > 0 ? (
-          <AvatarStack
-            items={markerActors.map(actor => ({ src: actor.avatarUrl, name: actor.name }))}
-            size="xs"
-            max={5}
-            surface={1}
-            label={`${markerActors.length} ${markerActors.length === 1 ? 'trader' : 'traders'} marked on the chart`}
-          />
-        ) : null}
-      </div>
+      <DropdownMenu
+        label="Chart options"
+        trigger={<SlidersHorizontal aria-hidden="true" className="size-icon-md" />}
+        size="sm"
+        align="end"
+        className="shrink-0"
+        items={[
+          ...secondary.map(option => ({ id: option.value, group: 'More intervals', label: `${option.label} (${option.description})`, selected: option.value === interval, onSelect: () => onIntervalChange(option.value) })),
+          { id: 'markers', group: 'Trade markers', label: markers ? 'Hide trade markers' : 'Show trade markers', selected: markers, onSelect: () => onMarkersChange(!markers) },
+          { id: 'currency', group: 'Currency', label: 'USDL', selected: true },
+        ]}
+      />
+      {markers && markerActors.length > 0 ? <AvatarStack items={markerActors.map(actor => ({ src: actor.avatarUrl, name: actor.name }))} size="xs" max={5} surface={1} label={`${markerActors.length} ${markerActors.length === 1 ? 'trader' : 'traders'} marked on the chart`} /> : null}
 
-      <span title="Prices are shown in USDL" className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold uppercase tracking-wider text-text-muted">USDL</span>
-
-      <div role="status" aria-live="polite" className="ml-auto flex items-center gap-2 text-xs text-text-faint">
+      <div role="status" aria-live="polite" className="ml-auto flex shrink-0 items-center gap-2 text-xs text-text-faint">
         <span className={cn('inline-flex items-center gap-1.5', live && 'text-success')}>
           <span aria-hidden="true" className={cn('size-1.5 rounded-pill', live ? 'bg-success' : !waitingForTrades && freshness.connectionStatus === 'offline' ? 'bg-danger' : 'bg-text-faint')} />
           {waitingForTrades ? 'Waiting for trades' : freshnessLabel(freshness.connectionStatus)}

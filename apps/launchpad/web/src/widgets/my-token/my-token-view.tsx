@@ -124,9 +124,9 @@ function CreatorPoolButton({
       type="button"
       onClick={onSelect}
       title={symbol}
-      className={`min-h-touch-target-min min-w-0 max-w-48 truncate rounded-lg px-3 py-2 text-2xs font-bold transition ${
+      className={`min-h-touch-target-min min-w-0 max-w-48 truncate rounded-lg px-3 py-2 text-2xs font-semibold transition ${
         selected
-          ? 'bg-info-soft text-info'
+          ? 'bg-surface-3 text-text'
           : 'bg-surface-2 text-text-faint hover:bg-surface-hover hover:text-text'
       }`}
     >
@@ -144,10 +144,10 @@ export function CreatorPoolInfo({ creator, poolAddress }: {
   const symbol = metadata.data ? displayCoinText(metadata.data.symbol, metadata.data.tokenAddress) : '—';
   return (
     <div className="rounded-lg bg-surface-2 p-4">
-      <h3 className="text-sm font-bold mb-2">Coin info</h3>
+      <h3 className="text-sm font-semibold mb-2">Coin info</h3>
       {metadata.isError ? <p role="alert">Coin info unavailable</p> : null}
       {metadata.isError ? <Button variant="link" size="sm" onClick={() => void metadata.retry()}>Try again</Button> : metadata.isPending ? <p role="status">Loading coin info...</p> : null}
-      <div className="grid grid-cols-2 gap-2 text-2xs">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-2xs [&>span:nth-child(even)]:text-right [&>span:nth-child(even)]:tabular-nums">
         <span className="text-text-faint">Pool address</span>
         <span className="truncate">{poolAddress}</span>
         <span className="text-text-faint">Token address</span>
@@ -207,7 +207,7 @@ function CreatorPools({ creator }: { creator: Address }) {
           onRetry={() => {
             void refetch();
           }}
-          className="rounded-lg bg-surface-1"
+          className="bg-canvas"
         />
       ) : poolList.length === 0 ? (
         <EmptyState
@@ -219,7 +219,7 @@ function CreatorPools({ creator }: { creator: Address }) {
               Create coin
             </Button>
           }
-          className="rounded-lg bg-surface-1"
+          className="bg-canvas"
         />
       ) : (
         <>
@@ -254,7 +254,7 @@ export default function MyTokenView() {
   const { address } = useAccount();
   return (
     <div className="p-6 text-text space-y-4">
-      <h1 className="text-md font-bold">My coins</h1>
+      <h1 className="text-md font-semibold">My coins</h1>
       {address ? (
         <CreatorPools key={address.toLowerCase()} creator={address} />
       ) : (
@@ -262,7 +262,7 @@ export default function MyTokenView() {
           icon={Coins}
           title="Sign in to see your coins"
           body="Coins you launch with your wallet show up here with their holders and trades."
-          className="rounded-lg bg-surface-1"
+          className="bg-canvas"
         />
       )}
     </div>

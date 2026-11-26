@@ -1,13 +1,17 @@
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React, { act } from 'react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot, type Root } from 'react-dom/client';
 import type { ChartFreshness } from '@/widgets/trading/udf-datafeed';
 import { ChartToolbar, freshnessLabel, type ChartToolbarProps } from './chart-toolbar';
 import { ChartSplit } from './chart-split';
 import { CHART_DEFAULT_HEIGHT, CHART_MAX_HEIGHT, CHART_MIN_HEIGHT } from './use-chart-settings';
+
+const closeBrowserSurface = applyBrowserSurface();
+afterAll(closeBrowserSurface);
 
 beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 
@@ -55,16 +59,16 @@ function chart_retry_keeps_its_element_when_updates_resume() {
 
 describe('ChartToolbar', () => {
   it(chart_retry_keeps_its_element_when_updates_resume);
-  it('shows the five inline intervals, a caret for the rest, Price/MCap, markers and a USDL unit without a SOL toggle', () => {
+  it('shows inline intervals and valuation with secondary controls in one menu', () => {
     const html = renderToStaticMarkup(<ChartToolbar {...props()} />);
     const group = html.match(/aria-label="Candle interval".*?<\/div>/s)?.[0] ?? '';
     for (const label of ['1m', '5m', '1h', '4h', 'D']) expect(group).toContain(`>${label}<`);
     expect(group).not.toContain('>15m<');
-    expect(html).toContain('aria-label="More intervals"');
+    expect(html).toContain('aria-label="Chart options"');
     expect(html).toContain('>Price<');
     expect(html).toContain('>MCap<');
-    expect(html).toContain('role="switch"');
-    expect(html).toContain('>USDL<');
+    expect(html).not.toContain('role="switch"');
+    expect(html).not.toContain('>USDL<');
     expect(html).not.toMatch(/\bSOL\b/);
     expect(html).toContain('Live');
     expect(html).toContain('Last update at block 4242');
@@ -91,18 +95,43 @@ describe('ChartToolbar', () => {
     expect(renderToStaticMarkup(<ChartToolbar {...props({ markerActors: actors, markers: false })} />)).not.toContain('traders marked');
   });
 
-  it('offers a retry while updates are not live and routes interval and mode changes', () => {
+  it('offers a retry beside failed updates and routes interval, value and marker choices', () => {
     const calls: string[] = [];
     const { root, container } = mount(<ChartToolbar {...props({ freshness: { ...live, connectionStatus: 'degraded', lagReason: 'No source observation within 1000 ms' }, onRetry: () => calls.push('retry'), onIntervalChange: value => calls.push(`interval:${value}`), onModeChange: value => calls.push(`mode:${value}`), onMarkersChange: value => calls.push(`markers:${value}`) })} />);
     const buttons = Array.from(container.querySelectorAll('button'));
+    expectRetryVisibility(container.querySelector('[role="status"]')!, true);
     act(() => { buttons.find(button => button.textContent === 'Try again')?.click(); });
     act(() => { buttons.find(button => button.textContent === '4h')?.click(); });
     act(() => { buttons.find(button => button.textContent === 'MCap')?.click(); });
-    act(() => { container.querySelector<HTMLButtonElement>('[role="switch"]')?.click(); });
+    act(() => { container.querySelector<HTMLButtonElement>('[aria-label="Chart options"]')?.click(); });
+    act(() => { Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')).find(button => button.textContent?.includes('Hide trade markers'))?.click(); });
     expect(calls).toEqual(['retry', 'interval:240', 'mode:mcap', 'markers:false']);
     expect(container.textContent).toContain('May be out of date');
     unmount(root, container);
   });
+
+  async function chartOptionsExposeIntervalsMarkersAndCurrency() {
+    const calls: string[] = [];
+    const { root, container } = mount(<ChartToolbar {...props({ onIntervalChange: value => calls.push(value) })} />);
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Chart options"]')!;
+    act(() => trigger.click());
+    const menu = document.querySelector<HTMLElement>('[role="menu"][aria-label="Chart options"]')!;
+    expect(menu).not.toBeNull();
+    expect(menu.textContent).toContain('More intervals');
+    expect(menu.textContent).toContain('Trade markers');
+    expect(menu.textContent).toContain('Currency');
+    expect(menu.querySelector('[role="menuitemradio"][aria-checked="true"]')?.textContent).toContain('Hide trade markers');
+    expect(menu.textContent).toContain('USDL');
+    act(() => Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent?.includes('15m'))!.click());
+    expect(calls).toEqual(['15']);
+    expect(document.querySelector('[role="menu"][aria-label="Chart options"]')).toBeNull();
+    act(() => trigger.click());
+    act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+    unmount(root, container);
+  }
+  it(chartOptionsExposeIntervalsMarkersAndCurrency, chartOptionsExposeIntervalsMarkersAndCurrency);
 
   it('labels every stream state honestly', () => {
     expect(freshnessLabel('live')).toBe('Live');
@@ -168,7 +197,7 @@ describe('ChartToolbar', () => {
     ['closed', 'Chart closed', 'bg-text-faint', false],
   ] as const)('keeps the %s status for a coin without trades', function noTradesKeepsOtherFeedStatuses(connectionStatus, label, mark, retry) {
     const view = document.createElement('div');
-    view.innerHTML = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus, lastSourceHeight: null } })} />);
+    view.innerHTML = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus, lastSourceHeight: null, lagReason: retry ? 'Updates interrupted' : null } })} />);
     const status = view.querySelector('[role="status"]')!;
     expect(status.textContent).toContain(label);
     expect(status.textContent).not.toContain('Waiting for trades');
@@ -183,7 +212,9 @@ describe('ChartToolbar', () => {
     expect(html).toContain('Syncing...');
     expect(html).toContain('bg-text-faint');
     expect(html).not.toMatch(/data-numeric|Last update at block|—/);
-    expect(html).toContain('Try again');
+    const view = document.createElement('div');
+    view.innerHTML = html;
+    expectRetryVisibility(view.querySelector('[role="status"]')!, true);
     expect(html).not.toContain('Waiting for trades');
   });
 });
