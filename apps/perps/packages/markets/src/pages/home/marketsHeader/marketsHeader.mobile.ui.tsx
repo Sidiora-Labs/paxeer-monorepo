@@ -1,6 +1,14 @@
 import { FC, ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Box, cn, Flex, TabPanel, Tabs, Text } from "@paxeer-network/ui";
+import {
+  Box,
+  cn,
+  EmptyDataState,
+  Flex,
+  TabPanel,
+  Tabs,
+  Text,
+} from "@paxeer-network/ui";
 import { Decimal } from "@paxeer-network/utils";
 import { useMarketsContext } from "../../../components/marketsProvider";
 import { SymbolDisplay } from "../../../components/symbolDisplay";
@@ -177,14 +185,18 @@ type CardItemProps = {
 const CardItem: React.FC<CardItemProps> = (props) => {
   return (
     <Flex direction="column" itemAlign="start" mt={3}>
-      {props.data?.map((item) => (
-        <ListItem
-          key={item.symbol}
-          item={item}
-          onSymbol={props.onSymbol}
-          className="oui-px-0"
-        />
-      ))}
+      {props.data?.length ? (
+        props.data.map((item) => (
+          <ListItem
+            key={item.symbol}
+            item={item}
+            onSymbol={props.onSymbol}
+            className="oui-px-0"
+          />
+        ))
+      ) : (
+        <EmptyDataState className="oui-w-full oui-py-4" />
+      )}
     </Flex>
   );
 };
@@ -230,6 +242,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
           size="xs"
           weight="semibold"
           dp={item.quote_dp}
+          tick={item.quote_tick}
           className="oui-tabular-nums oui-text-end"
         >
           {item["24h_close"]}

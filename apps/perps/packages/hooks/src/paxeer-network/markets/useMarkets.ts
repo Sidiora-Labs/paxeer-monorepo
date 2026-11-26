@@ -92,6 +92,7 @@ export type MarketsItem = {
   change: number;
   "8h_funding": number;
   quote_dp: number;
+  quote_tick: number;
   created_time: number;
   openInterest: number;
   isFavorite: boolean;
@@ -355,6 +356,7 @@ const addFieldToMarkets = (
         info("display_symbol_name"),
       ),
       quote_dp: info("quote_dp"),
+      quote_tick: info("quote_tick"),
       created_time: info("created_time"),
       leverage: getLeverage(info("base_imr")),
       openInterest: getOpenInterest(item.open_interest, item.index_price),

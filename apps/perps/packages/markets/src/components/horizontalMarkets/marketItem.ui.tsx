@@ -9,6 +9,7 @@ export interface MarketItemProps {
     "24h_close": number;
     change: number;
     quote_dp: number;
+    quote_tick: number;
   };
   isActive: boolean;
   onSymbolClick: (symbol: string) => void;
@@ -45,7 +46,8 @@ const MarketItemComponent: React.FC<MarketItemProps> = (props) => {
       {/* Price */}
       <Flex gapX={1} className="oui-me-[6px]">
         <Text.numeral
-          dp={tickerData.quote_dp || 2}
+          dp={tickerData.quote_dp ?? 2}
+          tick={tickerData.quote_tick}
           size="xs"
           className="oui-text-base-contrast-80"
         >
@@ -82,6 +84,7 @@ export const MarketItem = React.memo<MarketItemProps>(
       prevProps.tickerData["24h_close"] === nextProps.tickerData["24h_close"] &&
       prevProps.tickerData.change === nextProps.tickerData.change &&
       prevProps.tickerData.quote_dp === nextProps.tickerData.quote_dp &&
+      prevProps.tickerData.quote_tick === nextProps.tickerData.quote_tick &&
       prevProps.onSymbolClick === nextProps.onSymbolClick
     );
   },

@@ -3,7 +3,13 @@ import React, { useId } from "react";
 import { Area, AreaChart, ResponsiveContainer } from "@paxeer-network/chart";
 import { useTranslation } from "@paxeer-network/i18n";
 import { EMPTY_LIST } from "@paxeer-network/types";
-import { ChevronRightIcon, cn, Flex, Text } from "@paxeer-network/ui";
+import {
+  ChevronRightIcon,
+  cn,
+  EmptyDataState,
+  Flex,
+  Text,
+} from "@paxeer-network/ui";
 import { usePortfolioChartsState } from ".";
 
 export const PortfolioChartsMobileUI: React.FC<
@@ -77,37 +83,41 @@ export const PortfolioChartsMobileUI: React.FC<
         mb={3}
         className="oui-px-1"
       >
-        <ResponsiveContainer width="100%" height={52}>
-          <AreaChart data={data || EMPTY_LIST}>
-            {!invisible && (
-              <>
-                <defs>
-                  <linearGradient id={colorId} x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      stopColor="rgb(var(--oui-color-success))"
-                      offset="0%"
-                      stopOpacity={0.5}
-                    />
-                    <stop
-                      stopColor="rgb(var(--oui-color-success))"
-                      offset="100%"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="natural"
-                  dataKey="account_value"
-                  stroke="rgb(var(--oui-color-trading-profit))"
-                  strokeWidth={1.5}
-                  dot={false}
-                  isAnimationActive={false}
-                  fill={`url(#${colorId})`}
-                />
-              </>
-            )}
-          </AreaChart>
-        </ResponsiveContainer>
+        {invisible || !data.length ? (
+          <EmptyDataState className="oui-h-[52px] oui-w-full oui-justify-center oui-gap-y-1 [&_svg]:oui-size-6" />
+        ) : (
+          <ResponsiveContainer width="100%" height={52}>
+            <AreaChart data={data || EMPTY_LIST}>
+              {!invisible && (
+                <>
+                  <defs>
+                    <linearGradient id={colorId} x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        stopColor="rgb(var(--oui-color-success))"
+                        offset="0%"
+                        stopOpacity={0.5}
+                      />
+                      <stop
+                        stopColor="rgb(var(--oui-color-success))"
+                        offset="100%"
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    type="natural"
+                    dataKey="account_value"
+                    stroke="rgb(var(--oui-color-trading-profit))"
+                    strokeWidth={1.5}
+                    dot={false}
+                    isAnimationActive={false}
+                    fill={`url(#${colorId})`}
+                  />
+                </>
+              )}
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </Flex>
 
       <Flex width={"100%"} justify={"start"} itemAlign={"center"} mt={1}>
