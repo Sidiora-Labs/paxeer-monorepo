@@ -213414,7 +213414,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1213]
 title = "Bring the cases of the consumer package of the charts module well inside the limit of fifteen minutes, with every case and every assertion kept"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213474,7 +213474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1211]
 title = "Let the chart case of history and topic hold when its run crosses a change of the day"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213534,7 +213534,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1209]
 title = "Let the proof of the client library end with its consumer part and let the retry pace of the web hold no process open"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
