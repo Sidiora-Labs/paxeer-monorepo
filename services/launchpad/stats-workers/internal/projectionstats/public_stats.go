@@ -571,7 +571,7 @@ func (p *PublicStatsProjector) syncEventsTx(ctx context.Context, tx pgx.Tx, anch
 			word = new(big.Int).SetInt64(cutoff).FillBytes(make([]byte, 32))
 		}
 		var r syncRecord
-		err = tx.QueryRow(ctx, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM "+p.reads.source("indexer_raw_logs_v1")+" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1", emitters, poolStateUpdatedTopic, poolTopic(pool), anchor.Height, anchor.TransactionIndex, anchor.LogIndex, word).Scan(&r.Height, &r.TransactionIndex, &r.LogIndex, &r.Topics, &r.Data)
+		err = tx.QueryRow(ctx, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM "+p.reads.source("indexer_raw_logs_v1")+" r WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY r.height DESC,r.transaction_index DESC,r.log_index DESC LIMIT 1", emitters, poolStateUpdatedTopic, poolTopic(pool), anchor.Height, anchor.TransactionIndex, anchor.LogIndex, word).Scan(&r.Height, &r.TransactionIndex, &r.LogIndex, &r.Topics, &r.Data)
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue
 		}
@@ -854,7 +854,7 @@ func (p *PublicStatsProjector) holdingsAtAnchorTx(ctx context.Context, tx pgx.Tx
 			candidates = append(candidates, v)
 		}
 	}
-	top, err := tx.Query(ctx, "SELECT address,balance::text FROM "+p.table(p.holders, "balances")+" WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY balance DESC,address ASC LIMIT $3", token, pool, 10+len(historical))
+	top, err := tx.Query(ctx, "SELECT address,balance::text FROM "+p.table(p.holders, "balances")+" b WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY b.balance DESC,address ASC LIMIT $3", token, pool, 10+len(historical))
 	if err != nil {
 		return nil, err
 	}

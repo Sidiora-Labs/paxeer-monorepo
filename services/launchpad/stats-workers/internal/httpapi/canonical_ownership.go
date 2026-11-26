@@ -201,7 +201,7 @@ func readOwnership(ctx context.Context, st *store.Store, schema, pool string, re
 		balance, address = cursor.Balance, cursor.Address
 		rank = cursor.Rank
 	}
-	rows, e := tx.Query(ctx, "SELECT address,balance::text FROM "+schema+".balances WHERE token=$1 AND balance>=$2::numeric AND ($5 OR balance<$3::numeric OR (balance=$3::numeric AND address>$4)) ORDER BY balance DESC,address ASC LIMIT $6 OFFSET $7", row.TokenAddress, threshold, balance, address, cursor == nil, page.Limit+1, page.Offset)
+	rows, e := tx.Query(ctx, "SELECT address,balance::text FROM "+schema+".balances b WHERE token=$1 AND balance>=$2::numeric AND ($5 OR balance<$3::numeric OR (balance=$3::numeric AND address>$4)) ORDER BY b.balance DESC,address ASC LIMIT $6 OFFSET $7", row.TokenAddress, threshold, balance, address, cursor == nil, page.Limit+1, page.Offset)
 	if e != nil {
 		return out, status, e
 	}

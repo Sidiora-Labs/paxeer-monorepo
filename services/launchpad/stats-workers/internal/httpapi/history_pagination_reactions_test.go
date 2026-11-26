@@ -573,8 +573,8 @@ func (d *historyPaginationDB) query(sql string, a []string) historyPaginationRes
 		}
 		return historyPaginationRows()
 	}
-	if strings.Contains(q, `.balances WHERE token=$1`) {
-		if !strings.Contains(q, "ORDER BY balance DESC,address ASC LIMIT $6 OFFSET $7") || !strings.Contains(q, "balance>=$2::numeric") {
+	if strings.Contains(q, `.balances b WHERE token=$1`) {
+		if !strings.Contains(q, "ORDER BY b.balance DESC,address ASC LIMIT $6 OFFSET $7") || !strings.Contains(q, "balance>=$2::numeric") {
 			return historyPaginationResult{err: "indexed wallet query missing"}
 		}
 		limit, offset := int(historyPaginationInt(a[5])), int(historyPaginationInt(a[6]))
