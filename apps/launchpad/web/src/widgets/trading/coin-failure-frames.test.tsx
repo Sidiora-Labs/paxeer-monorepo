@@ -140,8 +140,7 @@ describe('coin page when the snapshot fails', () => {
     // Separation by surface contrast only: no strokes on the page frames.
     for (const node of Array.from(page.querySelectorAll('section, header, aside, [data-tab-unavailable], [data-state]'))) expect(node.className).not.toMatch(BORDER);
 
-    // Stats keep three split-bar frames instead of prose.
-    expect(rail.querySelectorAll('[data-split-frame]')).toHaveLength(3);
+    expect(Array.from(rail.querySelectorAll('[data-split-frame]')).map(frame => frame.getAttribute('data-split-frame'))).toEqual(['buy vol']);
 
     // The frames mount snapshot observers; that must not turn into a refetch loop of the IF_POOL_DETAIL snapshot read.
     const snapshotReads = () => seen.filter(url => url === `/v2/pools/${pool}`).length;
