@@ -84,6 +84,12 @@ export function AgentsAccess(props: {
         {props.state === "signed_out" && (
           <p>Sign in to the embedded wallet to manage your agents.</p>
         )}
+        {(props.state === "signed_out" || props.state === "external") && (
+          <Text as="p" size="sm" intensity={54}>
+            Agents belong to your embedded wallet, and a wallet connected in the
+            header does not replace this sign-in.
+          </Text>
+        )}
         {props.children}
       </div>
     </Card>

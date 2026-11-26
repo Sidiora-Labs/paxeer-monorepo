@@ -1684,3 +1684,68 @@ def test_stats_social_policy_subscription(tmp_path: Path) -> None:
     path.write_text(json.dumps(document))
     optional = _run(values, tmp_path / "optional", "stats")
     assert optional.returncode == 0, optional.stderr
+
+
+def test_stats_account_profile_subscriptions(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    result = _run(values, out, "stats")
+    assert result.returncode == 0, result.stderr
+    environment = json.loads((out / "stats.json").read_bytes())
+    raw = base64.b64decode(environment["DELIVERY_CONFIG_DOCUMENT"])
+    assert hashlib.sha256(raw).hexdigest() == environment["DELIVERY_CONFIG_SHA256"]
+    document = json.loads(raw)
+    subjects = json.loads((values / "user.example.json").read_bytes())["subjects"]
+    subscriptions = document["phase2"]["searchConsumers"]
+    profiles = [sub for sub in subscriptions if sub["kind"] == "account_profile"]
+    expected = {
+        "profile.updated": "stats_search_profile_updated",
+        "account.deletion.requested": "stats_search_account_deletion_requested",
+        "account.backfill.completed": "stats_search_account_backfill_completed",
+    }
+    assert len(profiles) == len(expected)
+    assert {sub["eventType"] for sub in profiles} == set(expected)
+    assert len({(sub["consumer"]["Stream"], sub["consumer"]["Durable"])
+                for sub in subscriptions}) == len(subscriptions)
+    broker = json.loads((ROOT / "values/broker.example.json").read_bytes())
+    streams = {stream["name"]: stream for stream in broker["streams"]}
+    for sub in profiles:
+        event, consumer = sub["eventType"], sub["consumer"]
+        assert consumer["Stream"] == "USERS"
+        assert consumer["Durable"] == expected[event]
+        assert consumer["Subject"] == subjects[event]
+        assert subjects[event] in streams["USERS"]["subjects"]
+        assert document["policy"]["Subjects"][subjects[event]] is True
+        assert document["policy"]["EventTypes"][event] is True
+        assert [durable for durable in broker["durables"]
+                if (durable["Stream"], durable["Durable"]) ==
+                (consumer["Stream"], consumer["Durable"])] == [consumer]
+
+
+def test_stats_account_profile_rejects_other_event_type(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    path = values / "stats.example.json"
+    document = json.loads(path.read_bytes())
+    index, profile = next((index, sub) for index, sub in
+                          enumerate(document["phase2"]["searchConsumers"])
+                          if sub["kind"] == "account_profile")
+    profile["eventType"] = "preferences.updated"
+    document["policy"]["EventTypes"]["preferences.updated"] = True
+    path.write_text(json.dumps(document))
+    refused = _run(values, tmp_path / "wrong-event", "stats")
+    assert refused.returncode == 2
+    assert f"phase2.searchConsumers.{index}.eventType" in refused.stderr
+
+
+@pytest.mark.parametrize("policy_member", ["Subjects", "EventTypes"])
+def test_stats_account_profile_requires_policy(tmp_path: Path, policy_member: str) -> None:
+    values = _values(tmp_path)
+    path = values / "stats.example.json"
+    document = json.loads(path.read_bytes())
+    profile = next(sub for sub in document["phase2"]["searchConsumers"]
+                   if sub["kind"] == "account_profile")
+    member = profile["consumer"]["Subject"] if policy_member == "Subjects" else profile["eventType"]
+    del document["policy"][policy_member][member]
+    path.write_text(json.dumps(document))
+    refused = _run(values, tmp_path / "missing-policy", "stats")
+    assert refused.returncode == 2
+    assert "phase2.searchConsumers" in refused.stderr

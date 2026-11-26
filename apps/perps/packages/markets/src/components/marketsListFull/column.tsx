@@ -88,7 +88,11 @@ export const useMarketsListFullColumns = (
         onSort: true,
         render: (value, record) => {
           return (
-            <Text.numeral dp={record.quote_dp || 2} currency="$">
+            <Text.numeral
+              dp={record.quote_dp ?? 2}
+              tick={record.quote_tick}
+              currency="$"
+            >
               {value}
             </Text.numeral>
           );

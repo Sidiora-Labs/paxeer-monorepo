@@ -2,7 +2,7 @@
 import React from "react";
 import { AssetAreaChart } from "@paxeer-network/chart";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Card } from "@paxeer-network/ui";
+import { Card, EmptyDataState } from "@paxeer-network/ui";
 import { useAssetsChartScriptReturn } from "./assetsChart.script";
 
 import { PeriodTitle } from "../shared/periodHeader";
@@ -28,7 +28,11 @@ export const AssetsChart: React.FC<AssetsLineChartProps> = (props) => {
       classNames={{ content: "oui-h-[168px] oui-pb-0" }}
     >
       <React.Suspense fallback={null}>
-        <AssetAreaChart data={data as any} invisible={props.invisible} />
+        {props.invisible || !data.length ? (
+          <EmptyDataState className="oui-h-full oui-justify-center" />
+        ) : (
+          <AssetAreaChart data={data as any} />
+        )}
       </React.Suspense>
     </Card>
   );

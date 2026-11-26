@@ -1797,30 +1797,6 @@
       ]
     },
     {
-      "name": "leaderboard-squads",
-      "path": "/leaderboard?tab=squads",
-      "ready": [
-        {
-          "action": "wait",
-          "text": "Squad rankings are not available yet"
-        },
-        {
-          "action": "press",
-          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
-          "key": "Shift"
-        },
-        {
-          "action": "press",
-          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "wait",
-          "text": "2.00 USDL"
-        }
-      ]
-    },
-    {
       "name": "leaderboard-week",
       "path": "/leaderboard?period=1w",
       "ready": [

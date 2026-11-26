@@ -9,7 +9,9 @@ export type ChainIconProps = {
 
 export const ChainIcon: FC<ChainIconProps> = (props) => {
   const url = useMemo(() => {
-    return `/assets/static/network_logo/${props.chainId}.png`;
+    return String(props.chainId) === "125"
+      ? "/paxeer-network-symbol.svg"
+      : `/assets/static/network_logo/${props.chainId}.png`;
   }, [props.chainId]);
   return (
     <Avatar

@@ -198,17 +198,23 @@ func TestComposerExamplesMatchBrokerDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 	searchIdentity, ok := inventory.Access["stats-search"]
-	if !ok || len(searchIdentity.Consumers) != 3 || !reflect.DeepEqual(searchIdentity.PublishSubjects, []string{"search.invalidation.v2"}) {
-		t.Fatal("stats search requires its three consumers and invalidation publication only")
+	if !ok || len(searchIdentity.Consumers) != 6 || !reflect.DeepEqual(searchIdentity.PublishSubjects, []string{"search.invalidation.v2"}) {
+		t.Fatal("stats search requires its six consumers and invalidation publication only")
 	}
-	policyConsumer := false
+	expectedAccess := map[string]string{
+		"KINDLE_INDEXER_V1/stats_search_creation":       "canonical.creation.v1",
+		"STATS_V2/stats_search_invalidation":            "search.invalidation.v2",
+		"SOCIAL_EVENTS/stats_search_social_policy":      "social.policy",
+		"USERS/stats_search_profile_updated":            "paxeer.125.users.profile.updated",
+		"USERS/stats_search_account_deletion_requested": "paxeer.125.users.account.deletion.requested",
+		"USERS/stats_search_account_backfill_completed": "paxeer.125.users.account.backfill.completed",
+	}
+	actualAccess := map[string]string{}
 	for _, consumer := range searchIdentity.Consumers {
-		if consumer.Subject == "social.policy" {
-			policyConsumer = consumer.Stream == "SOCIAL_EVENTS" && consumer.Durable == "stats_search_social_policy"
-		}
+		actualAccess[consumer.Stream+"/"+consumer.Durable] = consumer.Subject
 	}
-	if !policyConsumer {
-		t.Fatal("stats search identity is missing its social policy consumer")
+	if !reflect.DeepEqual(actualAccess, expectedAccess) {
+		t.Fatalf("stats search consumer permissions: got %v, want %v", actualAccess, expectedAccess)
 	}
 	d := example(t)
 	if len(inventory.Streams) != len(d.Streams) {
@@ -387,5 +393,48 @@ func TestStatsSearchSocialPolicyDurable(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("stats search policy durable is missing from broker provisioning")
+	}
+}
+
+func TestStatsSearchAccountProfileDurables(t *testing.T) {
+	root := repositoryRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/documents/values/user.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var user struct {
+		Subjects map[string]string `json:"subjects"`
+	}
+	if err := json.Unmarshal(raw, &user); err != nil {
+		t.Fatal(err)
+	}
+	d := example(t)
+	for event, name := range map[string]string{
+		"profile.updated":            "stats_search_profile_updated",
+		"account.deletion.requested": "stats_search_account_deletion_requested",
+		"account.backfill.completed": "stats_search_account_backfill_completed",
+	} {
+		t.Run(event, func(t *testing.T) {
+			found := 0
+			for _, consumer := range d.Durables {
+				if consumer.Durable != name {
+					continue
+				}
+				found++
+				if consumer.Stream != "USERS" || consumer.Subject != user.Subjects[event] || consumer.Subject != "paxeer.125.users."+event {
+					t.Fatalf("account profile durable: %+v", consumer)
+				}
+				config, err := consumer.BrokerConsumerConfig()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if config.FilterSubject != user.Subjects[event] || config.AckPolicy != jetstream.AckExplicitPolicy || config.DeliverPolicy != jetstream.DeliverAllPolicy {
+					t.Fatalf("account profile delivery: %+v", config)
+				}
+			}
+			if found != 1 {
+				t.Fatalf("account profile durable count: got %d, want 1", found)
+			}
+		})
 	}
 }

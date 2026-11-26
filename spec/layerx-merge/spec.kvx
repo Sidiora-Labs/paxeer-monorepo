@@ -17320,6 +17320,18 @@ value = "Point one. When a ruling puts a repair into a task, the list of paths o
 basis = "Gotchas 4967, 4969 and 4977, decision 4028 point three."
 affects = []
 
+[decision.4035]
+title = "The paths of three tasks follow the repairs ruled into them, and a ruling is checked against the paths before it goes out"
+value = "Point one. Decision 4034 point one is applied to three more tasks. The paths of task 22.39.1239 and of task 22.39.1244 gain apps/launchpad/web/src: each replaces cases and fixtures of the web application that pin the behaviour it changes, wherever under that directory they lie. Point two. The paths of task 22.39.1242 gain deploy/launchpad: the names its subscriptions read are entries of the variables contract of the deployment, and the readers of that contract lie under the same directory. Point three. Before a ruling goes to a task, every file it names for a change is compared with the list of paths of the task, and a file outside the list enters the list first."
+basis = "Gotchas 4977 and 4978, decision 4034."
+affects = []
+
+[decision.4036]
+title = "The image of a web holds every file its build reads, and a case keeps the imports of the web and the copies of the image in step"
+value = "Point one. A file of the launchpad web that the build checks may take code from outside the trees the image copies only by a relative path to a single file, and the build stage of deploy/launchpad/Dockerfile.web copies that file to the same path by a line of its own, the way it copies services/launchpad/security/control/cap-admission.ts. A whole directory of a service is never copied for one file. Point two. The definition of the build of the web in the deployment under deploy/launchpad lists the same file among the paths it watches, so that a change of the file builds the web again. Point three. A case under tools/deploy/tests reads the files of the web the build checks, resolves every relative import that leaves the tree of the launchpad, and ends with file and import when the image file copies neither the file nor a directory above it. It leaves out the files the build reports no type error of, which are the files named as cases, and it runs without an installed package and without a container. Point four. The fixture of the agents page keeps the function of the wallet gateway source: a case that checks the signature of an agent with the code of the gateway itself is worth more than a second copy of that code in the web. Point five. A fixture is named so that the build checks it, and so it follows the rule of point one; a case file may read a file of record outside the image because the build does not report on it."
+basis = "Gotcha 4979, decision 4035 point three."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46980,6 +46992,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1249]
+title = "Copy the file of the wallet gateway source that a fixture of the launchpad web takes into the image of the web, watch it for a build, and add a case that keeps the imports of the web and the copies of the image in step"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "tools/deploy/tests"]
+tests = []
+verification_contract = "bash tools/deploy/tests/dockerfile-web-args.test.sh && bash tools/deploy/tests/dockerfile-web-copies.test.sh && grep -q services/wallet/gateway/src/auth/did.ts deploy/launchpad/Dockerfile.web"
+do_1 = "do_1 Gotcha 4979, decision 4036. Read deploy/launchpad/Dockerfile.web whole and the ignore file beside it, the definition of the build of the web in the deployment under deploy/launchpad (the file that names Dockerfile.web as its image file and lists the paths it watches), apps/launchpad/web/src/widgets/agents/agents-gateway.fixture.ts down to line 11, services/wallet/gateway/src/auth/did.ts, tools/deploy/tests/dockerfile-web-args.test.sh, and the places of deploy/launchpad/README.md that say what the image of the web copies."
+symbols = []
 
 [capability.22.39.1248]
 title = "Let the empty headline of the search of the launchpad agree with the wallet row it offers for a full address"
@@ -182109,7 +182130,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1247]
 title = "Keep the cookie notice of the trading web off the bottom navigation and the order form at phone size, make its close mark visible, and give the legal pages a title and the icon and every view a description and a preview title"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213982,9 +214003,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1249]
+title = "Copy the file of the wallet gateway source that a fixture of the launchpad web takes into the image of the web, watch it for a build, and add a case that keeps the imports of the web and the copies of the image in step"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1249"]
+interfaces = []
+do_1 = "do_1 Gotcha 4979, decision 4036. Read deploy/launchpad/Dockerfile.web whole and the ignore file beside it, the definition of the build of the web in the deployment under deploy/launchpad (the file that names Dockerfile.web as its image file and lists the paths it watches), apps/launchpad/web/src/widgets/agents/agents-gateway.fixture.ts down to line 11, services/wallet/gateway/src/auth/did.ts, tools/deploy/tests/dockerfile-web-args.test.sh, and the places of deploy/launchpad/README.md that say what the image of the web copies."
+do_2 = "do_2 One: the build stage of deploy/launchpad/Dockerfile.web copies services/wallet/gateway/src/auth/did.ts to the same path under /src by a line of its own, directly after the line that copies services/launchpad/security/control/cap-admission.ts. Two: the definition of the build of the web lists the path of services/wallet/gateway/src/auth/did.ts among the paths it watches, directly after the path of services/launchpad/security/control/cap-admission.ts and in the same form. Three: if the ignore file of the image keeps that file out of the build context, let it in by one line; if it does not, leave the ignore file as it is. Four: where deploy/launchpad/README.md lists the files the image takes from outside the launchpad, add the file there; if it has no such list, leave it as it is. Change no other line of the image file, and change nothing under apps/launchpad and nothing under services/wallet."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. New case file tools/deploy/tests/dockerfile-web-copies.test.sh in the style of tools/deploy/tests/dockerfile-web-args.test.sh, with bash and the tools that file already uses or python3 with its standard library only, no installed package and no container. It lists the files under apps/launchpad/web that end in ts or tsx, outside node_modules, outside the output directories of the build and outside what the ignore file of the image keeps out of the context. It leaves out the files the build of the web reports no type error of: read that rule in the type check of the installed package next once (files named test or spec before their ending, and files in a directory named __tests__ or __mocks__), write the rule into the case as its own pattern and name in the final message the file of the package you read it in. For each remaining file it takes every relative specifier of an import, of an export from and of an import call with a literal path, resolves it against the directory of the file, and for each one that lands outside apps/launchpad it requires that a COPY line of the build stage of deploy/launchpad/Dockerfile.web names the resolved file or a directory above it, trying the endings ts, tsx, d.ts and json and the index file of a directory the way the compile tries them. For each miss it prints file and specifier, and it ends with a status other than zero when there is one. Prove it both ways inside the case file: against the image file of the tree it passes, and against a temporary copy of the image file without the new line it reports apps/launchpad/web/src/widgets/agents/agents-gateway.fixture.ts and the specifier of line 11 and nothing else. The five case files that import tests/vectors/chains/abi-vectors.json and the one that imports services/platform/hosted/indexer/tests/fixtures/chains_blocks.json are no miss, because the build does not report on them; a case of the new file says so by name for apps/launchpad/web/src/widgets/create-chain/chain-launch-recovery.test.ts. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "tools/deploy/tests"]
+tests = []
+planned_paths = ["tools/deploy/tests/dockerfile-web-copies.test.sh"]
+build_cmd = "bash -n tools/deploy/tests/dockerfile-web-args.test.sh && test -f deploy/launchpad/Dockerfile.web"
+verify_cmd = "bash tools/deploy/tests/dockerfile-web-args.test.sh && bash tools/deploy/tests/dockerfile-web-copies.test.sh && grep -q services/wallet/gateway/src/auth/did.ts deploy/launchpad/Dockerfile.web"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1248]
 title = "Let the empty headline of the search of the launchpad agree with the wallet row it offers for a full address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214014,7 +214065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1244]
 title = "Do not render the tab Squads of the leaderboard and the tab Top rewards in the rail of a profile until a service ranks them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214025,7 +214076,7 @@ do_1 = "do_1 Gotcha 4966, decision 4030 point five, decision 4027. Read apps/lau
 do_2 = "do_2 One: the leaderboard lists no tab Squads. An address that names the tab squads opens the first tab without an error, and the description of the page no longer promises squads. The file apps/launchpad/web/src/widgets/leaderboard/squads-tab.tsx and its case go with the tab. Two: the rail of a profile shows the board of the top traders without a strip of tabs, since it has one board only, with its heading as the accessible name. The panel for Top rewards and its notice go. Three: the cases that pin the removed tabs assert the new lists. Add the case tabsWithoutASourceAreNotRendered to the case file of the leaderboard view: for both views no tab, no panel and no hidden text of the removed parts is in the document, and the address with the removed tab opens the first tab. The tab Rewards of the leaderboard and every other tab stay as they are. Leave the pages of a squad and the squad client of the web untouched: only the ranking has no source."
 do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the anvil program, and the environment brings the browser: do not install one. Run the formatter over the files you changed only. If a surface file of the render check under tools/ui-check names one of the two tabs, remove only those entries. The final message lists the tabs both views show now. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/launchpad/web/src/widgets/leaderboard", "apps/launchpad/web/src/widgets/profile/leaderboard-panel.tsx", "apps/launchpad/web/src/app/leaderboard", "tools/ui-check/surfaces"]
+touches = ["apps/launchpad/web/src/widgets/leaderboard", "apps/launchpad/web/src/widgets/profile/leaderboard-panel.tsx", "apps/launchpad/web/src/app/leaderboard", "tools/ui-check/surfaces", "apps/launchpad/web/src"]
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
@@ -214085,7 +214136,7 @@ do_1 = "do_1 Gotcha 4964, decision 4030 point three. Read deploy/launchpad/docum
 do_2 = "do_2 One: the example values of the stats service declare one subscription of the kind account_profile for each of the three account events profile.updated, account.deletion.requested and account.backfill.completed, each with a durable of its own on the stream of the account events and the subject the example values of the account service publish it on. The policy of the stats service admits the three event types and subjects. Two: the example values of the broker carry the three durables for the stats service, declared the way the durable of its subscription to the social policy is declared, so that the provisioning creates them and the permissions of the stats service let it consume them and nothing more. Three: the composer accepts the result and its cases cover it. A case composes the document of the stats service from the example values and asserts the three subscriptions; a case asserts that a subscription of the kind with another event type is refused. The service accepts the composed document: a case of the package app loads a document with the three subscriptions and finds ConsumeAccountProfile bound for each. Four: the variables document names the three subscriptions where it names the others. A fixture or test data outside the paths that pins the list of the subscriptions is changed with them and named in the final message. Change no consumer code of the search and nothing in the account service. If the account service does not publish one of the three events on the stream of the example values, say so with the place and declare only what is published."
 do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The final message lists the three subscriptions with stream, durable and subject as the values of a deployment must declare them, and every file of example values or test data that changed. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["deploy/launchpad/documents", "services/launchpad/stats-workers/internal/app", "sdk/launchpad/shared/brokerprovision", "docs/release/variables/service-launchpad.md"]
+touches = ["deploy/launchpad/documents", "services/launchpad/stats-workers/internal/app", "sdk/launchpad/shared/brokerprovision", "docs/release/variables/service-launchpad.md", "deploy/launchpad"]
 tests = []
 planned_paths = []
 build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/stats.py && (cd services/launchpad/stats-* && GOWORK=off go vet ./internal/app/...) && (cd sdk/launchpad/shared && GOWORK=off go vet ./brokerprovision/...)"
@@ -214145,7 +214196,7 @@ do_1 = "do_1 Gotcha 4962, decision 4030 point one. Read apps/launchpad/web/src/w
 do_2 = "do_2 One: the windows of the column become 5m, 1h, 6h and 24h, taken from the one list of windows beside the mapping in apps/launchpad/web/src/core/market/pool-stats-display.ts (export the list there if it is not exported; the column keeps no second list). The window the column opens with stays the one of today. Two: changeFor gives the change of the row for each of the four windows, with the reason the statistics give when a value is missing. The words coming soon, the set of served windows, the label soon in the menu and the titles of the segments that announce a later window all go. Three: the four segments still share one line with the ranking tabs from the width the column switches at: measure the four labels and set timeframeSegmentsMinWidth from the measure, and keep the compact pill below that width. If the column stores the choice of a visitor, a stored 4h or 12h of an earlier visit falls back to the opening window. Four: change the cases that pin the old windows so that they assert the new ones, and add the case trendingOffersTheServedChangeWindows to home.test.tsx: the four windows in order, each giving the value of its member for a row that carries all four, and the reason for a row that lacks one. Change nothing in the ranking tabs, in the rows and in the other columns."
 do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the anvil program, and the environment brings the browser: do not install one. Run the formatter over the files you changed only. The final message names every place outside the home directory that used the type of the windows and what it does now. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/launchpad/web/src/widgets/home", "apps/launchpad/web/src/core/market"]
+touches = ["apps/launchpad/web/src/widgets/home", "apps/launchpad/web/src/core/market", "apps/launchpad/web/src"]
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
@@ -271490,7 +271541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1232]
 title = "Add a quoting process for the trading venue: bounded limit orders on both sides of each market around the price of the chain, with a dry mode, a cap on the position and a full stop"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
