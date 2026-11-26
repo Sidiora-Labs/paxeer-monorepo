@@ -1543,9 +1543,9 @@
     "sha256": "a65b9a5bdf9705808b5ef839e4e5cf6f2c97cb1545018ee9dd9d342efbe1d0d9"
   },
   {
-    "id": "internal/production/l16/consumer.go:AccountingConsumer.Consume:1",
+    "id": "internal/production/l16/consumer.go:AccountingConsumer.consumeOrdered:1",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/consumer.go",
-    "function": "AccountingConsumer.Consume",
+    "function": "AccountingConsumer.consumeOrdered",
     "call": 1,
     "role": "pnl_runtime",
     "kind": "SET",
@@ -1559,9 +1559,9 @@
     "sha256": "7e4312136720a82796344fe97a863e5ad7df299f7db66c4dc9b6631a95a4f749"
   },
   {
-    "id": "internal/production/l16/consumer.go:AccountingConsumer.Consume:2",
+    "id": "internal/production/l16/consumer.go:AccountingConsumer.consumeOrdered:2",
     "file": "services/launchpad/pnl-tracker/internal/production/l16/consumer.go",
-    "function": "AccountingConsumer.Consume",
+    "function": "AccountingConsumer.consumeOrdered",
     "call": 2,
     "role": "pnl_runtime",
     "kind": "SELECT",
@@ -7022,5 +7022,75 @@
     "file": "services/launchpad/pnl-tracker/internal/production/l16/mark_price.go",
     "function": "BaselineAuthority.priceTx",
     "call": 2
+  },
+  {
+    "id": "internal/production/l16/catchup.go:AccountingConsumer.catchUpBefore:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/catchup.go",
+    "function": "AccountingConsumer.catchUpBefore",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "bindings": {
+      "c.schema": "{{identifier:pnl}}"
+    },
+    "tables": [
+      "pnl.delivery_partition_offsets"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "next_sequence",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "b87b3d0b301b0747aa2b4babc4f22fbfb82622d84212b12892fb98a7b911fb35"
+  },
+  {
+    "id": "internal/production/l16/catchup.go:AccountingConsumer.catchUpBefore:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/catchup.go",
+    "function": "AccountingConsumer.catchUpBefore",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_publications_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload"
+    ],
+    "sha256": "784e5f97790661b88c88bdecd18b514e93ffebbbefaa0ea7119048e03fbb503f"
+  },
+  {
+    "id": "internal/production/l16/catchup.go:InventoryCatchUp.RunOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/catchup.go",
+    "function": "InventoryCatchUp.RunOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "bindings": {
+      "c.schema": "{{identifier:pnl}}"
+    },
+    "tables": [
+      "indexer.indexer_accounting_publications_v1",
+      "indexer.indexer_accounting_fills_v1",
+      "pnl.delivery_partition_offsets"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "next_sequence",
+      "partition_key",
+      "partition_kind",
+      "payload",
+      "projection_generation",
+      "publication_id",
+      "source_fill_id"
+    ],
+    "sha256": "d5c4074f14dba4158814856d2164f5bab8b706d5a07f2198550742a5fd3f4aef"
   }
 ]
