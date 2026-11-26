@@ -213234,7 +213234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1207]
 title = "Renew the transcript of the reward history of the pnl module with its recorder for migration 60009 and the changed source of the migration control"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214238,7 +214238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.143]
 title = "Bring the create views of the launchpad to the visual brief with closed option rows for every group that has a default"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138"]
