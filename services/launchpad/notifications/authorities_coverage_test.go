@@ -71,10 +71,10 @@ func TestCanonicalPoolAuthorityRejectsUnboundCanonicalRows(t *testing.T) {
 	log.SetOutput(&diagnostics)
 	defer log.SetOutput(previousOutput)
 	runtime := HTTPRuntime{DB: db, Config: RuntimeConfig{Pools: canonical}}
-	if err := runtime.maintain(canceled); !errors.Is(err, context.Canceled) {
+	if err := runtime.maintain(canceled); !errors.Is(err, context.Canceled) || !strings.Contains(err.Error(), "refresh sources") {
 		t.Fatalf("canceled source maintenance: %v", err)
 	}
-	if !strings.Contains(diagnostics.String(), "notification maintenance failed:") || !strings.Contains(diagnostics.String(), "context canceled") {
+	if diagnostics.Len() != 0 {
 		t.Fatalf("source maintenance diagnostics: %s", diagnostics.String())
 	}
 }

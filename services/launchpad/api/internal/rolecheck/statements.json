@@ -4704,6 +4704,36 @@
     "ctes": []
   },
   {
+    "id": "discovery/source_refresh.Store.RenewSources.1",
+    "file": "services/launchpad/discovery/source_refresh.go",
+    "function": "Store.RenewSources",
+    "line": 25,
+    "expression": "`UPDATE narrative_discovery.sources AS s SET observed_at=$2 FROM jsonb_array_elements($1::jsonb) AS renewal(document) WHERE s.id=renewal.document->>'ID' AND s.document=renewal.document`",
+    "sql": "UPDATE narrative_discovery.sources AS s SET observed_at=$2 FROM jsonb_array_elements($1::jsonb) AS renewal(document) WHERE s.id=renewal.document->>'ID' AND s.document=renewal.document",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_array_elements"
+    ],
+    "columns": [
+      "observed_at",
+      "renewal.document",
+      "s.document",
+      "s.id"
+    ],
+    "ctes": []
+  },
+  {
     "id": "discovery/store.lock.1",
     "file": "services/launchpad/discovery/store.go",
     "function": "lock",
@@ -5290,7 +5320,7 @@
     "id": "notifications/runtime.HTTPRuntime.Ready.1",
     "file": "services/launchpad/notifications/runtime.go",
     "function": "HTTPRuntime.Ready",
-    "line": 324,
+    "line": 327,
     "expression": "`SELECT to_regclass('narrative_discovery.sources') IS NOT NULL AND to_regclass('discovery_notifications.inbox') IS NOT NULL`",
     "sql": "SELECT to_regclass('narrative_discovery.sources') IS NOT NULL AND to_regclass('discovery_notifications.inbox') IS NOT NULL",
     "bindings": {},
@@ -5313,7 +5343,7 @@
     "id": "notifications/runtime.HTTPRuntime.refreshSources.1",
     "file": "services/launchpad/notifications/runtime.go",
     "function": "HTTPRuntime.refreshSources",
-    "line": 394,
+    "line": 402,
     "expression": "`SELECT document FROM narrative_discovery.sources ORDER BY published_at DESC,event_id LIMIT 2000`",
     "sql": "SELECT document FROM narrative_discovery.sources ORDER BY published_at DESC,event_id LIMIT 2000",
     "bindings": {},

@@ -72,6 +72,7 @@ export default function ProfileTabs({ isOwner, panels, idPrefix = 'profile-tabs'
       <div className="px-2 md:px-3">
         <TabStrip
           label="Profile sections"
+          variant="underline"
           idPrefix={idPrefix}
           tabs={PRIMARY_TABS.map(id => ({ id, label: profileTabLabel[id] }))}
           active={active}
@@ -95,7 +96,7 @@ export default function ProfileTabs({ isOwner, panels, idPrefix = 'profile-tabs'
         aria-labelledby={inMore ? undefined : `${idPrefix}-tab-${active}`}
         aria-label={inMore ? profileTabLabel[active] : undefined}
         tabIndex={0}
-        className="min-h-34 px-4 py-3 sm:min-h-[calc(var(--sl-space-6)+var(--sl-leading-2xs)+var(--sl-space-2)+var(--sl-table-row-comfortable))] md:px-5"
+        className="min-w-0 px-4 py-3 md:px-5"
       >
         {panels[active] ?? null}
       </div>

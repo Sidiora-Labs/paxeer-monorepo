@@ -52,7 +52,7 @@ export function CreatorConsoleView({ poolAddress, stream, className }: CreatorCo
           surface={2}
           title="Sign in to go live"
           action={
-            <Button variant="primary" loading={stream.authenticating} onClick={() => void stream.authenticate()}>
+            <Button variant="inverse" loading={stream.authenticating} onClick={() => void stream.authenticate()}>
               Sign in with your wallet
             </Button>
           }
@@ -95,9 +95,9 @@ export function CreatorConsoleView({ poolAddress, stream, className }: CreatorCo
           }}
         />
         {operation && submitAction === 'edit' ? (
-          <div className="flex items-center justify-between gap-3 rounded-sm bg-surface-3 px-3 py-2">
+          <div className="flex items-center justify-between gap-3 rounded-md bg-surface-2 px-3 py-2">
             <div className="flex flex-col">
-              <span id="creator-stream-private" className="text-sm font-bold text-text">Private stream</span>
+              <span id="creator-stream-private" className="text-sm font-semibold text-text">Private stream</span>
               <span id="creator-stream-private-help" className="text-xs text-text-faint">Only you can watch</span>
             </div>
             <Toggle checked={stream.privatePlayback} onChange={stream.setPrivatePlayback} labelledBy="creator-stream-private" describedBy="creator-stream-private-help" disabled={pending !== null || !availability.edit} />
@@ -135,7 +135,7 @@ export function CreatorConsoleView({ poolAddress, stream, className }: CreatorCo
             muted
             autoplay
             statusLine
-            className="aspect-video w-full overflow-hidden rounded-md bg-surface-3"
+            className="aspect-video w-full overflow-hidden rounded-md bg-surface-2"
           />
           {operation.status === 'live' || operation.status === 'ending' ? <LiveStats stream={stream} /> : null}
         </div>
@@ -195,9 +195,9 @@ function LiveStats({ stream }: { stream: CreatorStream }) {
   const elapsed = liveElapsedMs(stream.publicStream, stream.liveSince, now);
   const viewers = stream.publicStream?.viewerCount;
   return (
-    <dl className="grid grid-cols-2 gap-x-6 rounded-md bg-surface-3 px-4 py-1">
+    <dl className="grid grid-cols-2 gap-x-6 rounded-md bg-surface-2 px-4 py-1">
       <KeyValueRow label="Viewers" value={viewers === null || viewers === undefined ? null : viewers.toLocaleString()} loading={stream.publicStream === null} />
-      <KeyValueRow label="Live for" value={elapsed === null ? null : <time>{clockLabel(elapsed)}</time>} />
+      <KeyValueRow label="Live for" value={elapsed === null ? null : <time className="tabular-nums">{clockLabel(elapsed)}</time>} />
     </dl>
   );
 }
@@ -227,10 +227,10 @@ function CredentialPanel({ credential, onHide }: { credential: PrivateIngestKey;
   };
   const masked = '•'.repeat(Math.min(24, credential.streamKey.length));
   return (
-    <section aria-label="Stream key" className="flex flex-col gap-3 rounded-md bg-surface-3 p-4">
+    <section aria-label="Stream key" className="flex flex-col gap-3 rounded-md bg-surface-2 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex flex-col">
-          <h3 className="text-sm font-bold text-text">Stream key</h3>
+          <h3 className="text-sm font-semibold text-text">Stream key</h3>
           <p className="text-xs text-text-muted">Paste both into OBS or your streaming app. Keep the key private and reset it if it leaks</p>
         </div>
         <p role="status" className="text-xs tabular-nums text-text-faint">Hides in {clockLabel(remaining)}</p>

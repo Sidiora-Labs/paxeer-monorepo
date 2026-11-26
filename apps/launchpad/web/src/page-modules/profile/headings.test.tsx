@@ -16,6 +16,8 @@ afterAll(close);
 function profile_signed_out_has_one_visible_heading() {
   const view = mount(<ProfileModule />, '/profile');
   expectHeading(view.container, 'Sign in to see your profile');
+  expect(view.container.querySelector('[data-profile-route]')?.className).not.toContain('min-h-');
+  expect(view.container.querySelector('button')?.className).toContain('bg-surface-inverse');
   expect(view.container.querySelector('h1')?.className).toBe('text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-semibold text-text');
 }
 
@@ -36,6 +38,15 @@ async function profile_connected_loading_empty_and_error_keep_one_heading() {
   await act(async () => { await new Promise<void>(resolve => setTimeout(resolve, 0)); });
   expectHeading(view.container, 'Paxeer builder');
   expect(view.container.querySelector('h1')?.className).toBe('truncate text-lg font-bold text-text');
+  const tabs = view.container.querySelector('[role="tablist"][aria-label="Profile sections"]')!;
+  expect([...tabs.querySelectorAll('[role="tab"]')].map(tab => tab.textContent)).toEqual(['Open', 'Closed', 'Replies', 'Activity']);
+  expect(tabs.className).toContain('overflow-x-auto');
+  const current = tabs.querySelector('[aria-selected="true"]')!;
+  expect(current.querySelector('.bg-text')).not.toBeNull();
+  expect(current.className).not.toContain('bg-surface-3');
+  const counts = view.container.querySelector('header dl:not([aria-hidden])')!;
+  expect(counts.className).toContain('flex-nowrap');
+  expect(counts.className).toContain('whitespace-nowrap');
 }
 
 async function profile_rewards_tab_keeps_the_profile_heading() {

@@ -2115,6 +2115,21 @@
               "selector": "html:has([data-shell-ready]) #profile-wallets"
             }
           ]
+        },
+        {
+          "name": "chart-collapsed",
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Collapse portfolio chart\"]"
+            }
+          ]
         }
       ]
     },

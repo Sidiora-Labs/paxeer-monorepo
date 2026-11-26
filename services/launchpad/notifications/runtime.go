@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -207,6 +208,8 @@ type RuntimeConfig struct {
 	Push                                                                                                                         RuntimeOptions
 	Pools                                                                                                                        discovery.SourceAuthority
 	Intervals                                                                                                                    discovery.IntervalAuthority
+
+	Logger *slog.Logger
 }
 type HTTPRuntime struct {
 	runtimeJobs
@@ -262,7 +265,7 @@ func NewHTTPRuntime(ctx context.Context, db *sql.DB, auth func(*http.Request) (s
 	owned := discovery.OwnedSources{External: external, Callouts: callouts}
 	intervals := config.Intervals
 	policy := InternalPolicy{Credentials: credentials, TokenRef: config.InternalTokenRef, DeletePeerDNS: config.DeletePeerDNS, ChatPeerDNS: config.ChatPeerDNS}
-	r := &HTTPRuntime{DB: db, Credentials: credentials, Accounts: accounts, Config: config}
+	r := &HTTPRuntime{runtimeJobs: runtimeJobs{logger: config.Logger}, DB: db, Credentials: credentials, Accounts: accounts, Config: config}
 	r.Discovery = discovery.HTTP{Store: ds, Callouts: callouts, Authenticate: discovery.Authenticate(auth), Wallet: func(req *http.Request) (string, error) { p, err := config.Principal(req); return p.Wallet, err }, Intervals: intervals, Feed: discovery.Feed{Store: ds, Sources: owned, Preferences: accounts, Graph: social, Signer: discovery.CursorSigner{Key: []byte(key)}}}
 	r.Notifications = HTTP{Store: ns, Discovery: ds, Authenticate: Authenticate(auth), Principal: config.Principal, Recipient: RecipientConsumer{Store: ns, Authority: accounts}, InternalAuthorize: policy.Authorize}
 	r.Events = discovery.Runtime{Store: ds, Publisher: eventPublisher{triggers: TriggerConsumer{Store: ns, Authority: accounts}, social: social}}
@@ -362,17 +365,16 @@ func (r *HTTPRuntime) eventsOnce(ctx context.Context) error {
 	return err
 }
 func (r *HTTPRuntime) maintain(ctx context.Context) error {
-	e := r.refreshSources(ctx)
-	if e == nil {
-		_, e = r.Notifications.Store.Retain(ctx, time.Now().UTC(), 90, 1000)
+	if err := r.refreshSources(ctx); err != nil {
+		return fmt.Errorf("refresh sources: %w", err)
 	}
-	if e == nil {
-		e = r.Discovery.Store.ExpireSnapshots(ctx, time.Now().UTC())
+	if _, err := r.Notifications.Store.Retain(ctx, time.Now().UTC(), 90, 1000); err != nil {
+		return fmt.Errorf("retain notifications: %w", err)
 	}
-	if e != nil {
-		log.Printf("notification maintenance failed: %v", e)
+	if err := r.Discovery.Store.ExpireSnapshots(ctx, time.Now().UTC()); err != nil {
+		return fmt.Errorf("expire snapshots: %w", err)
 	}
-	return e
+	return nil
 }
 
 type publicSourceLister interface {
@@ -380,23 +382,37 @@ type publicSourceLister interface {
 }
 
 func (r *HTTPRuntime) refreshSources(ctx context.Context) error {
-	refs := []discovery.SourceRef{}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	current := []discovery.SourceRef{}
 	if provider, ok := r.Config.Pools.(publicSourceLister); ok {
-		current, e := provider.PublicSources(ctx)
-		if e != nil {
-			return e
+		var err error
+		current, err = provider.PublicSources(ctx)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
+			return err
 		}
 		if len(current) > 2000 {
 			return ErrInvalid
 		}
-		refs = append(refs, current...)
 	}
 	rows, e := r.DB.QueryContext(ctx, `SELECT document FROM narrative_discovery.sources ORDER BY published_at DESC,event_id LIMIT 2000`)
 	if e != nil {
 		return e
 	}
+	stored := map[string]storedRefreshSource{}
+	remaining := []discovery.SourceRef{}
+	listed := map[string]bool{}
+	for _, ref := range current {
+		if ref.Kind == resourcePool {
+			listed[ref.ID] = true
+		}
+	}
 	for rows.Next() {
-		var raw []byte
+		var raw json.RawMessage
 		var ref discovery.SourceRef
 		if e = rows.Scan(&raw); e == nil {
 			e = json.Unmarshal(raw, &ref)
@@ -404,29 +420,26 @@ func (r *HTTPRuntime) refreshSources(ctx context.Context) error {
 		if e != nil {
 			return errors.Join(e, rows.Close())
 		}
-		refs = append(refs, ref)
+		stored[ref.ID] = storedRefreshSource{ref: ref, document: raw}
+		if !listed[ref.ID] {
+			remaining = append(remaining, ref)
+		}
 	}
-	e = errors.Join(rows.Err(), rows.Close())
-	if e != nil {
+	if e = errors.Join(rows.Err(), rows.Close()); e != nil {
 		return e
 	}
-	seen := map[string]bool{}
-	for _, ref := range refs {
-		if seen[ref.ID] {
-			continue
-		}
-		seen[ref.ID] = true
-		if ref.Tombstone {
-			continue
-		}
-		resource, e := r.Discovery.Feed.Sources.ResolvePublic(ctx, ref.Kind, ref.ID)
-		if e != nil {
-			return e
-		}
-		event := discovery.PublicEvent{Consumer: "authority-refresh-v2", EventID: resource.Ref.EventID + ":" + time.Now().UTC().Format(time.RFC3339Nano), Source: resource.Ref, ObservedAt: time.Now().UTC()}
-		if e = r.Discovery.Store.Consume(ctx, r.Discovery.Feed.Sources, event); e != nil {
-			return e
-		}
+	pass := sourceRefreshPass{runtime: r, stored: stored, listed: listed, seen: map[string]bool{}}
+	if err := pass.group(ctx, current, true); err != nil {
+		return err
+	}
+	if err := pass.group(ctx, remaining, false); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if pass.failures != 0 {
+		return fmt.Errorf("%d failed sources; first %s %s: %s", pass.failures, pass.firstKind, pass.firstID, pass.firstCause)
 	}
 	return nil
 }

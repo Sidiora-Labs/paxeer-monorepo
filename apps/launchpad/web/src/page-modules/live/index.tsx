@@ -32,7 +32,7 @@ export function degradedSources(data: LiveDirectoryData): string[] {
   return out;
 }
 
-/** The page names itself for assistive tech only: like the reference, the hero starts directly under the ticker. */
+/** The page name is available to assistive technology above the hero. */
 export function LiveHeading() {
   return <h1 className="sr-only">Live streams</h1>;
 }
@@ -56,14 +56,13 @@ export function DirectoryNotices({ directory }: { directory: LiveDirectory }) {
   );
 }
 
-export function NobodyLive({ sizing = false }: { sizing?: boolean } = {}) {
+export function NobodyLive() {
   return (
     <EmptyState
       icon={Radio}
       title="No live streams right now"
       body="Streams show up here as soon as a creator goes live from their coin page"
-      action={<Button href="/create" variant={sizing ? 'primary' : 'secondary'} size="sm">Create coin</Button>}
-      secondaryAction={<Button href="/explore" variant={sizing ? 'primary' : 'secondary'} size="sm" className="bg-surface-3">Browse coins</Button>}
+      action={<Button href="/create" variant="secondary" size="sm">Create coin</Button>}
       headingLevel={2}
       announce
       className="p-4 sm:p-8"
@@ -76,7 +75,7 @@ function LiveDirectoryHero({ loading = false, failure, refresh }: { loading?: bo
     <HeroFramePlaceholder>
       <div className="grid w-full min-w-0">
         <div aria-hidden="true" inert className="invisible col-start-1 row-start-1 pointer-events-none">
-          <NobodyLive sizing />
+          <NobodyLive />
         </div>
         <div className="col-start-1 row-start-1 flex min-w-0 items-center justify-center">
           {loading ? <Skeleton variant="block" className="size-full" /> : failure ? (
