@@ -345,7 +345,7 @@ func TestPublicStatsCheckpointStreamSchemaSplit(t *testing.T) {
 	publicStatsSyncCommit(t, repo, pub)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result, err := p.RefreshOnce(ctx, time.Unix(1800000000, 0))
+	result, err := p.RefreshOnce(ctx, time.Unix(publicStatsSyncInt64(t, pub.Fill.BlockTimestampSeconds)+1, 0))
 	if err != nil || result.Appended != 1 || result.Prices != 1 || result.Pools != 1 {
 		t.Fatal(result, err)
 	}
@@ -378,7 +378,7 @@ func TestPublicStatsCheckpointSyncLifetimeCapRestart(t *testing.T) {
 	publicStatsSyncCommit(t, repo, pub)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	result, err := p.RefreshOnce(ctx, time.Unix(1800000000, 0))
+	result, err := p.RefreshOnce(ctx, time.Unix(publicStatsSyncInt64(t, pub.Fill.BlockTimestampSeconds)+1, 0))
 	if err != nil || result.Appended != 1 || result.Pools != 1 {
 		t.Fatal(result, err)
 	}
@@ -431,7 +431,7 @@ func TestPublicStatsCheckpointSyncLifetimeCapRestart(t *testing.T) {
 	d.close()
 	reopened := publicStatsSyncOpen(t, path, nil)
 	_, p = publicStatsSyncProjector(t, reopened, 2)
-	result, err = p.RefreshOnce(ctx, time.Unix(1800000060, 0))
+	result, err = p.RefreshOnce(ctx, time.Unix(publicStatsSyncInt64(t, pub.Fill.BlockTimestampSeconds)+2, 0))
 	if err != nil || result.Pools != 1 || result.Appended != 0 || result.Prices != 0 {
 		t.Fatal(result, err)
 	}
@@ -459,7 +459,7 @@ func TestPublicStatsCheckpointFailedPoolReadinessAndLaterPage(t *testing.T) {
 			publicStatsSyncCommit(t, repo, pub)
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			result, err := p.RefreshOnce(ctx, time.Unix(1800000000, 0))
+			result, err := p.RefreshOnce(ctx, time.Unix(publicStatsSyncInt64(t, pub.Fill.BlockTimestampSeconds)+1, 0))
 			if !errors.Is(err, ErrIntegrity) || len(result.FailedPools) != 1 || result.FailedPools[0] != bad || result.Pools != 1 || result.Appended != 1 {
 				t.Fatal(result, err)
 			}
