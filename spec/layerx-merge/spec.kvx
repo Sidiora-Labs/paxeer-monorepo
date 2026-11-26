@@ -213324,7 +213324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1204]
 title = "Give a transient publication failure of the shared outbox relay a hundred attempts and a delay that grows to five seconds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
