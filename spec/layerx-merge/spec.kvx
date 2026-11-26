@@ -214074,7 +214074,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1221]
 title = "Add the agent kit of the launchpad: tools for reading, launching, buying and selling through the agent layer of the wallet gateway, with an entry for the Model Context Protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
