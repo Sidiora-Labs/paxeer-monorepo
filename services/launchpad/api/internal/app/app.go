@@ -726,7 +726,7 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 			}
 			a.privateHandler = runtime.InternalHandler()
 			a.privateTLS = privateTLS
-			handler := rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(runtime.Handler()))
+			handler := rest.ResponseMetadataWithBudget(admission.Middleware(rest.AdmissionAggregate)(runtime.Handler()), 3*time.Second)
 			router.Handle("/v2/discovery/*", handler)
 			router.Handle("/v2/discovery/notifications", handler)
 			router.Handle("/v2/squads", handler)
