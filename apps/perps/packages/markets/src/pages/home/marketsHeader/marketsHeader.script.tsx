@@ -28,13 +28,23 @@ export function useDataSource() {
 
   const gainers = useMemo(
     () =>
-      sortList(markets, { sortKey: "change", sortOrder: "desc" }).slice(0, 5),
+      sortList(
+        markets.filter(
+          (market) => Number.isFinite(market.change) && market.change > 0,
+        ),
+        { sortKey: "change", sortOrder: "desc" },
+      ).slice(0, 5),
     [markets],
   );
 
   const losers = useMemo(
     () =>
-      sortList(markets, { sortKey: "change", sortOrder: "asc" }).slice(0, 5),
+      sortList(
+        markets.filter(
+          (market) => Number.isFinite(market.change) && market.change < 0,
+        ),
+        { sortKey: "change", sortOrder: "asc" },
+      ).slice(0, 5),
     [markets],
   );
 

@@ -16,10 +16,9 @@ import { CupResultsList } from './cups/cup-results-list';
 import { useCupRetry, useCurrentCup } from './cups/use-cup';
 import { parsePeriod, PeriodControl, type LeaderboardPeriod } from './period-control';
 import { RewardsTab } from './rewards-tab';
-import { SquadsTab } from './squads-tab';
 import { TradersBoard } from './traders-board';
 
-export type LeaderboardTab = 'traders' | 'squads' | 'rewards' | 'callouts';
+export type LeaderboardTab = 'traders' | 'rewards' | 'callouts';
 
 const tabIdPrefix = 'leaderboard';
 
@@ -37,7 +36,7 @@ const railColumnClass =
 const railQuery = launchpadMedia.extraLarge;
 
 export function isLeaderboardTab(value: string | null | undefined): value is LeaderboardTab {
-  return value === 'traders' || value === 'squads' || value === 'rewards' || value === 'callouts';
+  return value === 'traders' || value === 'rewards' || value === 'callouts';
 }
 
 export function parseTab(value: string | null | undefined, wideViewport: boolean): LeaderboardTab {
@@ -79,9 +78,9 @@ export interface LeaderboardViewProps {
 }
 
 /**
- * /leaderboard (layout.md S06): title, underline tabs Traders / Squads /
- * Rewards (+ Best callouts below xl), then the cup hero with the period
- * control inside it, then the board for the chosen period. At xl the callouts
+ * /leaderboard (layout.md S06): title, underline tabs Traders / Rewards
+ * (+ Best callouts below xl), then the cup hero with the period control
+ * inside it, then the board for the chosen period. At xl the callouts
  * rail is a second column whose heading shares the title row.
  * Tab and period are mirrored into ?tab= and ?period=.
  */
@@ -137,7 +136,6 @@ export function LeaderboardView({
   const tabs = useMemo(
     () => [
       { id: 'traders' as const, label: 'Traders' },
-      { id: 'squads' as const, label: 'Squads' },
       { id: 'rewards' as const, label: 'Rewards' },
       ...(wide || !rail ? [] : [{ id: 'callouts' as const, label: 'Best callouts' }]),
     ],
@@ -206,11 +204,6 @@ export function LeaderboardView({
                 ) : (
                   <TradersBoard key={shownPeriod} period={shownPeriod} />
                 )}
-              </div>
-            ) : null}
-            {tab === 'squads' ? (
-              <div {...panelProps('squads')}>
-                <SquadsTab />
               </div>
             ) : null}
             {tab === 'rewards' ? (

@@ -45,6 +45,7 @@ type accountUser struct {
 type accountBalance struct {
 	Token          *string
 	Balance        *accountAmount
+	Locked         *accountAmount
 	TotalDeposited *accountAmount
 	TotalWithdrawn *accountAmount
 	DepositCount   *int32
@@ -140,7 +141,7 @@ func (r *Resolver) UserBalances(ctx context.Context, args struct{ Address string
 	if err != nil {
 		return nil, err
 	}
-	rows, err := r.DB.QueryContext(ctx, `SELECT '0x' || encode(m.token, 'hex'), trunc(m.balance)::text,
+	rows, err := r.DB.QueryContext(ctx, `SELECT '0x' || encode(m.token, 'hex'), trunc(m.balance)::text, trunc(m.locked)::text,
         trunc(COALESCE(e.deposited, 0))::text, trunc(COALESCE(e.withdrawn, 0))::text,
         COALESCE(e.deposits, 0), COALESCE(e.withdrawals, 0)
         FROM perps.account_margin m LEFT JOIN LATERAL (
@@ -161,7 +162,7 @@ func (r *Resolver) UserBalances(ctx context.Context, args struct{ Address string
 	out := []*accountBalance{}
 	for rows.Next() {
 		row := new(accountBalance)
-		if err := rows.Scan(&row.Token, &row.Balance, &row.TotalDeposited, &row.TotalWithdrawn, &row.DepositCount, &row.WithdrawCount); err != nil {
+		if err := rows.Scan(&row.Token, &row.Balance, &row.Locked, &row.TotalDeposited, &row.TotalWithdrawn, &row.DepositCount, &row.WithdrawCount); err != nil {
 			return nil, err
 		}
 		out = append(out, row)

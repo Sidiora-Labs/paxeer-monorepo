@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, test } from 'vitest';
 
 interface BrowserDom { window: Window & typeof globalThis }
 type JsdomModule = { JSDOM: new (html: string, options: { url: string; pretendToBeVisual: boolean }) => BrowserDom };
@@ -45,19 +45,20 @@ const { injected } = await import('wagmi/connectors');
 const { defineChain } = await import('viem');
 const { LeaderboardView } = await import('./leaderboard-view');
 const { CalloutsRail } = await import('@/widgets/social/callouts-rail');
+const { LeaderboardPanel } = await import('@/widgets/profile/leaderboard-panel');
 
 const chain = defineChain({ id: 125, name: 'Paxeer', nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 }, rpcUrls: { default: { http: ['http://127.0.0.1:1'] } } });
 const wagmiConfig = createConfig({ chains: [chain], connectors: [injected()], transports: { 125: http('http://127.0.0.1:1', { retryCount: 0, timeout: 500 }) }, ssr: false, multiInjectedProviderDiscovery: false });
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
 
-function mount(width: number, search = '') {
+function mount(width: number, search = '', initialTab?: string, profile = false) {
   viewportWidth = width;
   window.history.replaceState(null, '', `/leaderboard${search}`);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root: Root = createRoot(container);
-  act(() => { root.render(<WagmiProvider config={wagmiConfig}><QueryClientProvider client={queryClient}><LeaderboardView rail={<CalloutsRail />} /></QueryClientProvider></WagmiProvider>); });
+  act(() => { root.render(<WagmiProvider config={wagmiConfig}><QueryClientProvider client={queryClient}><LeaderboardView rail={<CalloutsRail />} initialTab={initialTab} />{profile ? <LeaderboardPanel /> : null}</QueryClientProvider></WagmiProvider>); });
   return { root, container, queryClient };
 }
 function unmount(view: ReturnType<typeof mount>) {
@@ -107,9 +108,9 @@ describe('leaderboard view without a backend', () => {
     unmount(view);
   });
 
-  it('puts Best callouts in its own column at xl with three tabs', async () => {
+  it('puts Best callouts in its own column at xl with two tabs', async () => {
     const view = mount(1440);
-    expect(tabNames(view.container)).toEqual(['Traders', 'Squads', 'Rewards']);
+    expect(tabNames(view.container)).toEqual(['Traders', 'Rewards']);
     const rail = view.container.querySelector('aside[aria-label="Best callouts"]');
     expect(rail).not.toBeNull();
     expect(rail!.closest('[role=tabpanel]')).toBeNull();
@@ -117,9 +118,9 @@ describe('leaderboard view without a backend', () => {
     unmount(view);
   });
 
-  it('folds Best callouts into a fourth tab below xl', async () => {
+  it('folds Best callouts into a third tab below xl', async () => {
     const view = mount(1024);
-    expect(tabNames(view.container)).toEqual(['Traders', 'Squads', 'Rewards', 'Best callouts']);
+    expect(tabNames(view.container)).toEqual(['Traders', 'Rewards', 'Best callouts']);
     expect(view.container.querySelector('aside[aria-label="Best callouts"]')).toBeNull();
     const tab = Array.from(view.container.querySelectorAll<HTMLButtonElement>('[role=tab]')).find(node => node.textContent === 'Best callouts')!;
     act(() => { tab.click(); });
@@ -133,7 +134,7 @@ describe('leaderboard view without a backend', () => {
 
   it('keeps the period control and one neutral empty form first on a phone', async () => {
     const view = mount(390);
-    expect(tabNames(view.container)).toEqual(['Traders', 'Squads', 'Rewards', 'Best callouts']);
+    expect(tabNames(view.container)).toEqual(['Traders', 'Rewards', 'Best callouts']);
     await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
     const frame = hero(view.container)!;
     const panel = view.container.querySelector('#leaderboard-panel-traders')!;
@@ -157,3 +158,48 @@ describe('leaderboard view without a backend', () => {
     unmount(view);
   });
 });
+
+async function tabsWithoutASourceAreNotRendered() {
+  for (const width of [390, 1024, 1440]) {
+    const view = mount(width, '?tab=squads', 'squads', true);
+    try {
+      await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
+      expect(tabNames(view.container)).toEqual(width >= 1280
+        ? ['Traders', 'Rewards']
+        : ['Traders', 'Rewards', 'Best callouts']);
+      expect(view.container.querySelector('#leaderboard-tab-traders')?.getAttribute('aria-selected')).toBe('true');
+      expect(view.container.querySelector('#leaderboard-panel-traders')).not.toBeNull();
+      expect(view.container.querySelector('#leaderboard-tab-squads, #leaderboard-panel-squads, section[aria-label="Squads"]')).toBeNull();
+      expect(document.body.textContent).not.toMatch(/squads|squad rankings|top rewards|check back soon/i);
+
+      const profile = view.container.querySelector('select[aria-label="Metric"]')!.closest('section')!;
+      const heading = Array.from(profile.querySelectorAll('h2')).find(node => node.textContent === 'Top traders');
+      expect(heading).toBeDefined();
+      expect(heading!.id).not.toBe('');
+      expect(profile.getAttribute('aria-labelledby')).toBe(heading!.id);
+      expect(Array.from(document.querySelectorAll('[id]')).filter(node => node.id === heading!.id)).toEqual([heading]);
+      expect(document.getElementById(heading!.id)).toBe(heading);
+      expect(profile.querySelector('[role="tablist"], [role="tab"], [role="tabpanel"]')).toBeNull();
+      expect(profile.querySelector('select[aria-label="Metric"]')).not.toBeNull();
+      expect(profile.querySelector('select[aria-label="Window"]')).not.toBeNull();
+      await waitFor(() => profile.textContent?.includes('Leaderboard is not available yet') === true);
+      expect(profile.textContent).not.toMatch(/top rewards|check back soon/i);
+
+      const rewards = view.container.querySelector<HTMLButtonElement>('#leaderboard-tab-rewards')!;
+      act(() => rewards.click());
+      expect(rewards.getAttribute('aria-selected')).toBe('true');
+      expect(view.container.querySelector('#leaderboard-panel-rewards')).not.toBeNull();
+      act(() => {
+        window.history.replaceState(null, '', '/leaderboard?tab=squads');
+        window.dispatchEvent(new window.PopStateEvent('popstate'));
+      });
+      expect(view.container.querySelector('#leaderboard-tab-traders')?.getAttribute('aria-selected')).toBe('true');
+      expect(view.container.querySelector('#leaderboard-panel-traders')).not.toBeNull();
+      expect(document.body.textContent).not.toMatch(/squads|squad rankings|top rewards|check back soon/i);
+    } finally {
+      unmount(view);
+    }
+  }
+}
+
+test(tabsWithoutASourceAreNotRendered, tabsWithoutASourceAreNotRendered);

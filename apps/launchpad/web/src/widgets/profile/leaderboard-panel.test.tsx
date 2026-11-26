@@ -242,18 +242,43 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     unmount(root, container, queryClient);
   });
 
-  it('explains the missing rewards category on the Top rewards tab without issuing a request', async () => {
+  it('shows Top traders without tabs and requests only trader and volume rankings through its selects', async () => {
     const before = served.paths.length;
     const { root, container, queryClient } = mount(served.origin, <LeaderboardPanel />);
-    const rewardsTab = buttonNamed(container, 'Top rewards');
-    expect(rewardsTab?.getAttribute('role')).toBe('tab');
-    act(() => rewardsTab?.click());
-    expect(container.textContent).toContain('Top rewards are not available yet');
-    expect(container.querySelector('[data-operation]')).toBeNull();
-    expect(container.textContent).not.toContain('no response');
-    expect(container.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toBe(rewardsTab?.id);
-    expect(served.paths.slice(before).some(path => path.includes('rewards'))).toBe(false);
-    unmount(root, container, queryClient);
+    try {
+      const heading = container.querySelector('h2');
+      expect(heading?.textContent).toBe('Top traders');
+      expect(heading?.id).toBeTruthy();
+      expect(container.querySelector('section')?.getAttribute('aria-labelledby')).toBe(heading?.id);
+      expect(buttonNamed(container, 'Top rewards')).toBeUndefined();
+      expect(container.querySelector('[role="tablist"], [role="tab"], [role="tabpanel"]')).toBeNull();
+      const metricSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Metric"]')!;
+      const windowSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Window"]')!;
+      expect(metricSelect).not.toBeNull();
+      expect(windowSelect).not.toBeNull();
+
+      await waitFor(() => container.querySelectorAll('ol li').length === 3);
+      expect(served.paths.slice(before)).toEqual(['/v2/leaderboards/trader?window=7d&limit=25']);
+      act(() => { windowSelect.value = '24h'; windowSelect.dispatchEvent(new window.Event('change', { bubbles: true })); });
+      await waitFor(() => served.paths.slice(before).includes('/v2/leaderboards/trader?window=24h&limit=25'));
+      await waitFor(() => container.querySelectorAll('ol li').length === 3);
+      act(() => { metricSelect.value = 'volume'; metricSelect.dispatchEvent(new window.Event('change', { bubbles: true })); });
+      await waitFor(() => served.paths.slice(before).includes('/v2/leaderboards/volume?window=24h&limit=25'));
+      await waitFor(() => container.querySelectorAll('ol li').length === 3);
+
+      expect(served.paths.slice(before)).toEqual([
+        '/v2/leaderboards/trader?window=7d&limit=25',
+        '/v2/leaderboards/trader?window=24h&limit=25',
+        '/v2/leaderboards/volume?window=24h&limit=25',
+      ]);
+      expect(served.paths.slice(before).some(path => path.includes('rewards'))).toBe(false);
+      expect(buttonNamed(container, 'Top rewards')).toBeUndefined();
+      expect(container.querySelector('[aria-label="Top rewards"], [title="Top rewards"]')).toBeNull();
+      expect(container.querySelector('[role="tablist"], [role="tab"], [role="tabpanel"]')).toBeNull();
+      expect(container.textContent).not.toMatch(/top rewards|check back soon/i);
+    } finally {
+      unmount(root, container, queryClient);
+    }
   });
 
   it('formats metric values exactly from the raw USDL integer', () => {

@@ -1,8 +1,10 @@
+import type { GatewayCatalogEntry } from "./hooks/perps/usePerpsMarkets";
 import type { FeeTierView } from "./core/perps/feeTier";
 
 export interface NativeSnapshot {
   address: `0x${string}` | null;
   chainId: number | null;
+  marketCatalog: readonly GatewayCatalogEntry[];
   markets: any[];
   positions: any[];
   totalVaultUsd: number | null;
@@ -18,6 +20,7 @@ export interface NativeSnapshot {
 let snapshot: NativeSnapshot = {
   address: null,
   chainId: null,
+  marketCatalog: [],
   markets: [],
   positions: [],
   totalVaultUsd: null,

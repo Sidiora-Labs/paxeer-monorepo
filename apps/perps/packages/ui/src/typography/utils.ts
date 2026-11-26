@@ -25,7 +25,7 @@ export const parseNumber = (
     rule,
     dp,
     tick,
-    rm = Decimal.ROUND_DOWN,
+    rm = rule === "price" ? Decimal.ROUND_HALF_UP : Decimal.ROUND_DOWN,
     padding = true,
     abs,
   } = options;
@@ -53,6 +53,11 @@ export const parseNumber = (
   if (rule === "percentages") {
     // return `${d.mul(100).toFixed(2)}%`;
     return rounding(d.mul(100), { dp, rm, padding }) + "%";
+  }
+  if (rule === "price" && tick != null) {
+    if (!Number.isFinite(tick) || tick <= 0)
+      throw new RangeError("Price tick must be positive");
+    if (rm !== "truncate") d = d.div(tick).toDecimalPlaces(0, rm).mul(tick);
   }
   const truncatedNum = rounding(d, { dp, rm, padding });
 

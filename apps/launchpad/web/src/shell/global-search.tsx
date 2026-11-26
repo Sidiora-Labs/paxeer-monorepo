@@ -420,6 +420,7 @@ function SearchPalette({
                 userCount={userCount}
                 onRetry={refetch}
                 query={query}
+                walletAvailable={Boolean(addressQuery)}
               />
               <ResultGroup label="Coins">
                 {coins.length ? (
