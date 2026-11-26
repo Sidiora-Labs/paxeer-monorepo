@@ -86,6 +86,91 @@ func TestCORSHeader(t *testing.T) {
 	}
 }
 
+func TestRouterExposesAnswerHeadersAcrossOrigins(t *testing.T) {
+	t.Parallel()
+	const origin = "https://sidiora.fun"
+	const exposed = "X-Schema-Version, Retry-After, X-Request-Id, Etag"
+	router := NewRouter(ServerOptions{CORSOrigins: origin})
+	router.Get("/unavailable", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "7")
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+	server := httptest.NewServer(router)
+	t.Cleanup(server.Close)
+	for _, tc := range []struct {
+		name, method, path, origin, exposed, retryAfter string
+		status                                          int
+	}{
+		{"success", http.MethodGet, "/health", origin, exposed, "", http.StatusOK},
+		{"unavailable", http.MethodGet, "/unavailable", origin, exposed, "7", http.StatusServiceUnavailable},
+		{"success without origin", http.MethodGet, "/health", "", "", "", http.StatusOK},
+		{"unavailable without origin", http.MethodGet, "/unavailable", "", "", "7", http.StatusServiceUnavailable},
+		{"disallowed origin", http.MethodGet, "/health", "https://other.example", "", "", http.StatusOK},
+		{"preflight", http.MethodOptions, "/unavailable", origin, "", "", http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request, err := http.NewRequestWithContext(context.Background(), tc.method, server.URL+tc.path, http.NoBody)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.origin != "" {
+				request.Header.Set("Origin", tc.origin)
+			}
+			if tc.method == http.MethodOptions {
+				request.Header.Set("Access-Control-Request-Method", http.MethodPatch)
+				request.Header.Set("Access-Control-Request-Headers", "Authorization, X-Client-Header")
+			}
+			response, err := server.Client().Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != tc.status {
+				t.Fatalf("status = %d, want %d", response.StatusCode, tc.status)
+			}
+			values := response.Header.Values("Access-Control-Expose-Headers")
+			if tc.exposed == "" {
+				if len(values) != 0 {
+					t.Errorf("exposed headers = %v, want none", values)
+				}
+			} else if len(values) != 1 || values[0] != tc.exposed {
+				t.Errorf("exposed headers = %v, want [%s]", values, tc.exposed)
+			}
+			if got := response.Header.Get("Retry-After"); got != tc.retryAfter {
+				t.Errorf("Retry-After = %q, want %q", got, tc.retryAfter)
+			}
+			wantOrigin, wantCredentials := "", ""
+			if tc.origin == origin {
+				wantOrigin, wantCredentials = origin, "true"
+			}
+			if got := response.Header.Get("Access-Control-Allow-Origin"); got != wantOrigin {
+				t.Errorf("allow origin = %q, want %q", got, wantOrigin)
+			}
+			if got := response.Header.Get("Access-Control-Allow-Credentials"); got != wantCredentials {
+				t.Errorf("allow credentials = %q, want %q", got, wantCredentials)
+			}
+			if tc.method == http.MethodOptions {
+				for header, want := range map[string]string{
+					"Access-Control-Allow-Methods": http.MethodPatch,
+					"Access-Control-Allow-Headers": "Authorization, X-Client-Header",
+					"Access-Control-Max-Age":       "300",
+				} {
+					if got := response.Header.Get(header); got != want {
+						t.Errorf("%s = %q, want %q", header, got, want)
+					}
+				}
+				body, err := io.ReadAll(response.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(body) != 0 {
+					t.Errorf("preflight body = %q, want empty", body)
+				}
+			}
+		})
+	}
+}
+
 func TestResolveOrigins(t *testing.T) {
 	t.Parallel()
 	if got := resolveOrigins(""); len(got) != 1 || got[0] != "*" {
