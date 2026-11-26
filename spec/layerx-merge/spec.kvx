@@ -213552,7 +213552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1214]
 title = "Bring the cases of the package internal/production/l16 of the pnl module well inside the limit of fifteen minutes, with every case and every assertion kept"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1203"]
