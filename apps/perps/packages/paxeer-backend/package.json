@@ -94,6 +94,8 @@
     "./core/viem/clients": "./src/core/viem/clients.ts",
     "./core/wagmi": "./src/core/wagmi.ts",
     "./core/wallet/embedded/PaxeerProvider": "./src/core/wallet/embedded/PaxeerProvider.tsx",
+    "./core/wallet/embedded/agentPreset": "./src/core/wallet/embedded/agentPreset.ts",
+    "./core/wallet/embedded/sdk/agents": "./src/core/wallet/embedded/sdk/agents.ts",
     "./core/wallet/embedded/client": "./src/core/wallet/embedded/client.ts",
     "./core/wallet/embedded/eip1193": "./src/core/wallet/embedded/eip1193.ts",
     "./core/wallet/embedded/index": "./src/core/wallet/embedded/index.ts",
