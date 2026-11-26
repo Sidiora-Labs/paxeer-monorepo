@@ -181932,7 +181932,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1226]
 title = "Add the agent kit of the trading workspace: tools for reading, depositing, opening, closing, cancelling and withdrawing through the agent layer of the wallet gateway, with an entry for the Model Context Protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
