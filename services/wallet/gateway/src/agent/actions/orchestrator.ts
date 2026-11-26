@@ -3,7 +3,7 @@ import {
   parseTransaction,
   recoverTransactionAddress,
   serializeTransaction,
-  type Hex,
+  type Hex
 } from 'viem';
 import { env } from '../../env.js';
 import {
@@ -15,24 +15,24 @@ import {
   resolveGas as resolveGasOperation,
   simulate as simulateOperation,
   waitForReceipt as waitForReceiptOperation,
-  type ReceiptOutcome,
+  type ReceiptOutcome
 } from '../../chainReads.js';
 import {
   findPrincipal as findPrincipalOperation,
   getPolicy as getPolicyOperation,
-  listRules as listRulesOperation,
+  listRules as listRulesOperation
 } from '../../db/agents.js';
-import { evaluateAgent } from '../../policy/agent.js';
+import { evaluateAgent, PERPS_ADDRESS, PERPS_DEPOSIT_SELECTOR } from '../../policy/agent.js';
 import {
   findWalletByAddress as findWalletByAddressOperation,
   getMigrationAwareSigningAccountForRow as getMigrationAwareSigningAccountForRowOperation,
-  type WalletRow,
+  type WalletRow
 } from '../../db/wallets.js';
 import {
   AttestorError,
   AttestorReauthorizationRequired,
   type AgentOriginalRequest,
-  type AgentReauthorization,
+  type AgentReauthorization
 } from '../../attestor/client.js';
 import { CustodyAuthorityError } from '../authority.js';
 import { withDistributedWalletLock } from './nonceLock.js';
@@ -42,7 +42,7 @@ import {
   buildErrorEnvelope,
   terminalStatusFor,
   type ActionErrorCode,
-  type ActionPhase,
+  type ActionPhase
 } from './errors.js';
 import { actionLegIntent, approvalCalldata, type ActionPlan } from './plan.js';
 import {
@@ -61,7 +61,7 @@ import {
   type ActionLeg,
   type ActionSignedTransaction,
   type ActionRow,
-  type ActionStatus,
+  type ActionStatus
 } from '../../db/actions.js';
 
 import { actionOperation, assertActionActive } from './execution.js';
@@ -79,28 +79,22 @@ const getPolicy = actionOperation(getPolicyOperation);
 const listRules = actionOperation(listRulesOperation);
 const findWalletByAddress = actionOperation(findWalletByAddressOperation);
 const getMigrationAwareSigningAccountForRow = actionOperation(
-  getMigrationAwareSigningAccountForRowOperation,
+  getMigrationAwareSigningAccountForRowOperation
 );
 const getAction = actionOperation(getActionOperation);
 const releaseActionBudget = actionOperation(releaseActionBudgetOperation, false);
 const releaseActionNonce = actionOperation(releaseActionNonceOperation, false);
-const releaseUnsignedActionNonce = actionOperation(
-  releaseUnsignedActionNonceOperation,
-  false,
-);
+const releaseUnsignedActionNonce = actionOperation(releaseUnsignedActionNonceOperation, false);
 const reserveActionBudget = actionOperation(reserveActionBudgetOperation, false);
-const retainActionTransactionDraft = actionOperation(
-  retainActionTransactionDraftOperation,
-  false,
-);
+const retainActionTransactionDraft = actionOperation(retainActionTransactionDraftOperation, false);
 const retainActionSignedTransaction = actionOperation(
   retainActionSignedTransactionOperation,
-  false,
+  false
 );
 const updateAction = actionOperation(
   (row: ActionRow, patch: ActionPatch) =>
     updateActionOperation(row.id, patch, actionLeaseEpoch(row)),
-  false,
+  false
 );
 
 /**
@@ -180,7 +174,7 @@ export async function advanceAction(row: ActionRow): Promise<void> {
         'CUSTODY_AUTHORITY_REQUIRED',
         err.message,
         { detail: err.code },
-        false,
+        false
       );
       return;
     }
@@ -191,7 +185,7 @@ export async function advanceAction(row: ActionRow): Promise<void> {
         'CUSTODY_AUTHORITY_REQUIRED',
         err.message,
         { detail: err.code, replication_pending: err.replicationPending },
-        false,
+        false
       );
       return;
     }
@@ -208,9 +202,9 @@ export async function advanceAction(row: ActionRow): Promise<void> {
           digest_domain: 'PXW:AGENT-REQUEST:v1',
           authorization_header: 'x-agent-attestor-authorization',
           authorization_endpoint: '/v1/agent/signing-authorizations',
-          authorization_id_header: 'x-agent-attestor-authorization-id',
+          authorization_id_header: 'x-agent-attestor-authorization-id'
         },
-        false,
+        false
       );
       return;
     }
@@ -220,7 +214,9 @@ export async function advanceAction(row: ActionRow): Promise<void> {
         | { reauthorization?: AgentReauthorization }
         | undefined;
       if (custody?.reauthorization) {
-        const wire = JSON.parse(custody.reauthorization.body) as { key_id?: string };
+        const wire = JSON.parse(custody.reauthorization.body) as {
+          key_id?: string;
+        };
         await fail(
           current!,
           (current!.phase ?? 'reconciliation') as ActionPhase,
@@ -233,37 +229,20 @@ export async function advanceAction(row: ActionRow): Promise<void> {
             digest_domain: 'PXW:AGENT-REQUEST:v1',
             authorization_header: 'x-agent-attestor-authorization',
             authorization_endpoint: '/v1/agent/signing-authorizations',
-            authorization_id_header: 'x-agent-attestor-authorization-id',
+            authorization_id_header: 'x-agent-attestor-authorization-id'
           },
-          false,
+          false
         );
         return;
       }
     }
-    if (
-      err instanceof AttestorError &&
-      (err.category === 'token' || err.category === 'policy')
-    ) {
-      await fail(
-        row,
-        'validation',
-        'POLICY_DENIED',
-        err.message,
-        { detail: err.code },
-        false,
-      );
+    if (err instanceof AttestorError && (err.category === 'token' || err.category === 'policy')) {
+      await fail(row, 'validation', 'POLICY_DENIED', err.message, { detail: err.code }, false);
       return;
     }
     // Any unexpected throw is transient infrastructure — never terminal, never
     // a resend. Surface as RETRY_SAME_ACTION so the worker re-attempts.
-    await fail(
-      row,
-      'reconciliation',
-      'RPC_UNAVAILABLE',
-      (err as Error).message,
-      {},
-      false,
-    );
+    await fail(row, 'reconciliation', 'RPC_UNAVAILABLE', (err as Error).message, {}, false);
   }
 }
 
@@ -280,14 +259,7 @@ async function validate(row: ActionRow): Promise<void> {
     // fresh plan-less row is intake-in-progress; claimNextAction shields those
     // for INTAKE_GRACE_SECONDS. Reaching here means the intake orphaned (route
     // crashed mid-plan) — terminal it.
-    await fail(
-      row,
-      'validation',
-      'INVALID_REQUEST',
-      'action has no execution plan',
-      {},
-      true,
-    );
+    await fail(row, 'validation', 'INVALID_REQUEST', 'action has no execution plan', {}, true);
     return;
   }
 
@@ -297,29 +269,13 @@ async function validate(row: ActionRow): Promise<void> {
     return;
   }
   if (principal.is_frozen) {
-    await fail(
-      row,
-      'validation',
-      'AGENT_FROZEN',
-      'agent is frozen by its owner',
-      {},
-      true,
-    );
+    await fail(row, 'validation', 'AGENT_FROZEN', 'agent is frozen by its owner', {}, true);
     return;
   }
 
-  const wallet = row.wallet_address
-    ? await findWalletByAddress(row.wallet_address)
-    : null;
+  const wallet = row.wallet_address ? await findWalletByAddress(row.wallet_address) : null;
   if (!wallet) {
-    await fail(
-      row,
-      'validation',
-      'INVALID_REQUEST',
-      'agent wallet not provisioned',
-      {},
-      true,
-    );
+    await fail(row, 'validation', 'INVALID_REQUEST', 'agent wallet not provisioned', {}, true);
     return;
   }
 
@@ -330,12 +286,12 @@ async function validate(row: ActionRow): Promise<void> {
   const approveIntent = actionLegIntent(plan, 'approval', {
     to: plan.token,
     value: 0n,
-    data: approvalCalldata(plan),
+    data: approvalCalldata(plan)
   });
   const callIntent = actionLegIntent(plan, 'call', {
     to: plan.contract,
     value: BigInt(plan.callValueWei),
-    data: plan.callData,
+    data: plan.callData
   });
 
   for (const intent of [approveIntent, callIntent]) {
@@ -344,19 +300,12 @@ async function validate(row: ActionRow): Promise<void> {
       policy,
       rules,
       intent,
-      reserveBudget: (args) => reserveActionBudget(row.id, args, actionLeaseEpoch(row)),
+      reserveBudget: (args) => reserveActionBudget(row.id, args, actionLeaseEpoch(row))
     });
     if (!decision.allow) {
       const code: ActionErrorCode =
         decision.code === 'APPROVE_CAP' ? 'APPROVAL_CAP_EXCEEDED' : 'POLICY_DENIED';
-      await fail(
-        row,
-        'validation',
-        code,
-        decision.message,
-        { policy_code: decision.code },
-        true,
-      );
+      await fail(row, 'validation', code, decision.message, { policy_code: decision.code }, true);
       return;
     }
   }
@@ -369,8 +318,12 @@ async function validate(row: ActionRow): Promise<void> {
       'balance_check',
       'INSUFFICIENT_BALANCE',
       'token balance is below the requested amount',
-      { balance: balance.toString(), required: amountWei.toString(), token: plan.token },
-      true,
+      {
+        balance: balance.toString(),
+        required: amountWei.toString(),
+        token: plan.token
+      },
+      true
     );
     return;
   }
@@ -383,21 +336,20 @@ async function validate(row: ActionRow): Promise<void> {
       'INSUFFICIENT_GAS',
       'wallet holds no native PAX for gas',
       {},
-      true,
+      true
     );
     return;
   }
 
   // Live allowance decides whether the approve leg is needed at all.
   const allowance = await getErc20Allowance(plan.token, wallet.address, plan.spender);
-  const next: ActionStatus =
-    allowance >= amountWei ? 'simulating_call' : 'awaiting_approval';
+  const next: ActionStatus = allowance >= amountWei ? 'simulating_call' : 'awaiting_approval';
   await updateAction(row, {
     status: next,
     phase: next === 'awaiting_approval' ? 'approval_broadcast' : 'call_simulation',
     error_code: null,
     error: null,
-    wallet_id: wallet.id,
+    wallet_id: wallet.id
   });
 }
 
@@ -414,7 +366,7 @@ async function broadcastApproval(row: ActionRow): Promise<void> {
   if (row.approval_tx_hash) {
     await updateAction(row, {
       status: 'approval_pending',
-      phase: 'approval_confirmation',
+      phase: 'approval_confirmation'
     });
     return;
   }
@@ -423,7 +375,7 @@ async function broadcastApproval(row: ActionRow): Promise<void> {
   const sent = await broadcastLeg(row, wallet, 'approval', {
     to: plan.token,
     data,
-    value: 0n,
+    value: 0n
   });
   await updateAction(row, {
     status: 'approval_pending',
@@ -431,7 +383,7 @@ async function broadcastApproval(row: ActionRow): Promise<void> {
     approval_tx_hash: sent.hash,
     approval_nonce: sent.nonce,
     error_code: null,
-    error: null,
+    error: null
   });
 }
 
@@ -446,11 +398,17 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
 
   // Re-entrancy: a resumed action that already broadcast the call just waits.
   if (row.call_tx_hash) {
-    await updateAction(row, { status: 'call_pending', phase: 'call_confirmation' });
+    await updateAction(row, {
+      status: 'call_pending',
+      phase: 'call_confirmation'
+    });
     return;
   }
 
-  await updateAction(row, { status: 'simulating_call', phase: 'call_simulation' });
+  await updateAction(row, {
+    status: 'simulating_call',
+    phase: 'call_simulation'
+  });
 
   // Confirmation-before-dependent-call: re-check the live allowance now covers
   // the spend (the approval must have actually taken effect on-chain).
@@ -459,7 +417,10 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
   if (allowance < amountWei) {
     // Approval isn't effective yet — go back and (re)establish it rather than
     // broadcasting a call that will revert.
-    await updateAction(row, { status: 'awaiting_approval', phase: 'approval_broadcast' });
+    await updateAction(row, {
+      status: 'awaiting_approval',
+      phase: 'approval_broadcast'
+    });
     return;
   }
 
@@ -468,7 +429,7 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
     from: wallet.address,
     to: plan.contract,
     data: plan.callData,
-    value: BigInt(plan.callValueWei),
+    value: BigInt(plan.callValueWei)
   });
   if (!sim.ok) {
     await fail(
@@ -477,7 +438,7 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
       'SIMULATION_REVERTED',
       sim.error ?? 'call reverted in simulation',
       { detail: sim.error },
-      true,
+      true
     );
     return;
   }
@@ -485,7 +446,7 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
   const sent = await broadcastLeg(row, wallet, 'call', {
     to: plan.contract,
     data: plan.callData,
-    value: BigInt(plan.callValueWei),
+    value: BigInt(plan.callValueWei)
   });
   await updateAction(row, {
     status: 'call_pending',
@@ -493,7 +454,7 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
     call_tx_hash: sent.hash,
     call_nonce: sent.nonce,
     error_code: null,
-    error: null,
+    error: null
   });
 }
 
@@ -501,26 +462,28 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
 // Confirmation (shared by approval + call legs) with fee-bump replacement.
 // -----------------------------------------------------------------------------
 
+function requiresCommittedState(row: ActionRow): boolean {
+  const plan = row.plan as unknown as ActionPlan;
+  return plan.contract.toLowerCase() === PERPS_ADDRESS && plan.selector === PERPS_DEPOSIT_SELECTOR;
+}
+
 async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<void> {
   const plan = row.plan as unknown as ActionPlan;
-  const hash = (
-    leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash
-  ) as Hex | null;
+  const hash = (leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash) as Hex | null;
   const nonce = actionLegNonce(row, leg);
-  const phase: ActionPhase =
-    leg === 'approval' ? 'approval_confirmation' : 'call_confirmation';
+  const phase: ActionPhase = leg === 'approval' ? 'approval_confirmation' : 'call_confirmation';
 
   if (!hash) {
     // Nothing broadcast for this leg — kick it back to the broadcast step.
     await updateAction(row, {
-      status: leg === 'approval' ? 'awaiting_approval' : 'simulating_call',
+      status: leg === 'approval' ? 'awaiting_approval' : 'simulating_call'
     });
     return;
   }
 
   if (nonce !== null && row.attempts >= REPLACE_AFTER_ATTEMPTS && row.wallet_address) {
     const latest = await actionOperation(() =>
-      sharedRpcPool().getTransactionCount(row.wallet_address as Hex, 'latest'),
+      sharedRpcPool().getTransactionCount(row.wallet_address as Hex, 'latest')
     )();
     if (latest > nonce) {
       await resolveConsumedNonce(row, leg);
@@ -528,8 +491,23 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
     }
   }
 
-  await recoverRetainedBroadcast(row, leg);
-  const outcome = await waitForReceipt(hash, { confirmations: CONFIRMATIONS });
+  if (env.CHAIN_RECEIPT_SOURCE === 'evm') {
+    await recoverRetainedBroadcast(row, leg);
+  } else {
+    const accepted = await actionOperation(() => sharedRpcPool().sequencerReceipt(hash))();
+    if (accepted === null) {
+      await recoverRetainedBroadcast(row, leg);
+    } else if (
+      accepted.txHash?.toLowerCase() !== hash.toLowerCase() ||
+      !['submitted', 'receipted', 'committed'].includes(accepted.rung)
+    ) {
+      throw new Error('sequencer receipt differs from the retained transaction');
+    }
+  }
+  const outcome = await waitForReceipt(hash, {
+    confirmations: CONFIRMATIONS,
+    committed: requiresCommittedState(row)
+  });
 
   if (await applyLegReceipt(row, leg, hash, nonce, outcome)) return;
 
@@ -553,13 +531,13 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
     phase,
     code,
     message: `the ${leg} was broadcast but is not confirmed yet`,
-    cause: { tx_hash: hash, nonce, still_in_mempool: known },
+    cause: { tx_hash: hash, nonce, still_in_mempool: known }
   });
   await updateAction(row, {
     status: known ? row.status : 'reconciling',
     phase,
     error_code: code,
-    error: envelope,
+    error: envelope
   });
 }
 
@@ -568,17 +546,16 @@ async function applyLegReceipt(
   leg: ActionLeg,
   hash: Hex,
   nonce: number | null,
-  outcome: ReceiptOutcome,
+  outcome: ReceiptOutcome
 ): Promise<boolean> {
-  const phase: ActionPhase =
-    leg === 'approval' ? 'approval_confirmation' : 'call_confirmation';
+  const phase: ActionPhase = leg === 'approval' ? 'approval_confirmation' : 'call_confirmation';
   if (outcome.state === 'confirmed') {
     if (leg === 'approval') {
       await updateAction(row, {
         status: 'approval_confirmed',
         phase: 'call_simulation',
         error_code: null,
-        error: null,
+        error: null
       });
     } else {
       await finalizeCall(row);
@@ -595,7 +572,7 @@ async function applyLegReceipt(
       code,
       `${leg} transaction reverted on-chain`,
       { tx_hash: hash, nonce },
-      false,
+      false
     );
     return true;
   }
@@ -611,13 +588,16 @@ async function resolveConsumedNonce(row: ActionRow, leg: ActionLeg): Promise<voi
     ...new Set([
       ...(rowHash ? [rowHash as Hex] : []),
       ...(state.current ? [state.current.hash] : []),
-      ...(state.history ?? []).map((signed) => signed.hash),
-    ]),
+      ...(state.history ?? []).map((signed) => signed.hash)
+    ])
   ];
   const receipts = await Promise.all(hashes.map((hash) => getReceipt(hash)));
   for (let i = 0; i < hashes.length; i += 1) {
     if (!receipts[i]) continue;
-    const outcome = await waitForReceipt(hashes[i]!, { confirmations: CONFIRMATIONS });
+    const outcome = await waitForReceipt(hashes[i]!, {
+      confirmations: CONFIRMATIONS,
+      committed: requiresCommittedState(row)
+    });
     if (nonce !== null) await releaseActionNonce(row.id, nonce, actionLeaseEpoch(row));
     await applyLegReceipt(row, leg, hashes[i]!, nonce, outcome);
     return;
@@ -629,7 +609,7 @@ async function resolveConsumedNonce(row: ActionRow, leg: ActionLeg): Promise<voi
     'NONCE_CONSUMED',
     `the ${leg} nonce was consumed without a receipt for a held transaction`,
     { leg, nonce, hashes },
-    false,
+    false
   );
 }
 
@@ -640,7 +620,7 @@ async function finalizeCall(row: ActionRow): Promise<void> {
     phase: 'call_confirmation',
     credit_verified: true,
     error_code: null,
-    error: null,
+    error: null
   });
 }
 
@@ -686,15 +666,11 @@ function activeNonceLease(lease: NonceLease): NonceLease {
     peek: actionOperation(() => lease.peek()),
     release: actionOperation((nonce: number) => lease.release(nonce), false),
     track: actionOperation(
-      (nonce: number, hash: Hex, member: string | null) =>
-        lease.track(nonce, hash, member),
-      false,
+      (nonce: number, hash: Hex, member: string | null) => lease.track(nonce, hash, member),
+      false
     ),
     checkClientNonce: actionOperation((nonce: number) => lease.checkClientNonce(nonce)),
-    reserveClientNonce: actionOperation(
-      (nonce: number) => lease.reserveClientNonce(nonce),
-      false,
-    ),
+    reserveClientNonce: actionOperation((nonce: number) => lease.reserveClientNonce(nonce), false)
   };
 }
 
@@ -705,7 +681,7 @@ function activeNonceLease(lease: NonceLease): NonceLease {
 export async function submitRetained(
   row: ActionRow,
   signed: ActionSignedTransaction,
-  lease: NonceLease,
+  lease: NonceLease
 ): Promise<unknown> {
   assertActionActive();
   lease = activeNonceLease(lease);
@@ -714,19 +690,14 @@ export async function submitRetained(
   if (await isTxKnown(signed.hash)) {
     await lease.track(signed.draft.nonce, signed.hash, null);
   } else {
-    const sent = await broadcastReserved(
-      lease,
-      signed.draft.nonce,
-      signed.raw,
-      async (raw) => {
-        const { hash, member } = await actionOperation(() =>
-          sharedRpcPool().sendRawTransactionVia(raw),
-        )();
-        if (hash.toLowerCase() !== signed.hash.toLowerCase())
-          throw new Error('RPC transaction hash differs from retained bytes');
-        return { hash, member };
-      },
-    );
+    const sent = await broadcastReserved(lease, signed.draft.nonce, signed.raw, async (raw) => {
+      const { hash, member } = await actionOperation(() =>
+        sharedRpcPool().sendRawTransactionVia(raw)
+      )();
+      if (hash.toLowerCase() !== signed.hash.toLowerCase())
+        throw new Error('RPC transaction hash differs from retained bytes');
+      return { hash, member };
+    });
     if (sent.error !== null && !(await isTxKnown(signed.hash))) return sent.error;
   }
   await releaseActionNonce(row.id, signed.draft.nonce, actionLeaseEpoch(row));
@@ -749,8 +720,8 @@ async function recoverRetainedBroadcast(row: ActionRow, leg: ActionLeg): Promise
         return signed ? submitRetained(current, signed, lease) : null;
       },
       undefined,
-      row.id,
-    ),
+      row.id
+    )
   )();
   if (failure !== null) throw failure;
 }
@@ -760,7 +731,7 @@ async function broadcastLeg(
   wallet: WalletRow,
   leg: ActionLeg,
   tx: LegTx,
-  opts?: { nonce?: number; feeBumpPercent?: number },
+  opts?: { nonce?: number; feeBumpPercent?: number }
 ): Promise<{ hash: Hex; nonce: number }> {
   const sent = await actionOperation(() =>
     withDistributedWalletLock(
@@ -769,30 +740,28 @@ async function broadcastLeg(
         assertActionActive();
         const lease = activeNonceLease(unfencedLease);
         const current = await getAction(row.id);
-        if (!current || current.terminal_at)
-          throw new Error('action is no longer advanceable');
+        if (!current || current.terminal_at) throw new Error('action is no longer advanceable');
         if (current.attempts !== row.attempts) throw new ActionLeaseLostError();
         const state = actionLegExecution(current, leg);
         const expectedHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
         if (state.current && (!opts || state.current.hash !== expectedHash)) {
           const error = await submitRetained(current, state.current, lease);
-          return { hash: state.current.hash, nonce: state.current.draft.nonce, error };
+          return {
+            hash: state.current.hash,
+            nonce: state.current.draft.nonce,
+            error
+          };
         }
         const principal = await findPrincipal(current.did);
-        if (!principal || principal.is_frozen)
-          throw new Error('agent principal is unavailable');
-        const [policy, rules] = await Promise.all([
-          getPolicy(current.did),
-          listRules(current.did),
-        ]);
+        if (!principal || principal.is_frozen) throw new Error('agent principal is unavailable');
+        const [policy, rules] = await Promise.all([getPolicy(current.did), listRules(current.did)]);
         const plan = current.plan as unknown as ActionPlan;
         const decision = await evaluateAgent({
           principal,
           policy,
           rules,
           intent: actionLegIntent(plan, leg, tx),
-          reserveBudget: (args) =>
-            reserveActionBudget(current.id, args, actionLeaseEpoch(row)),
+          reserveBudget: (args) => reserveActionBudget(current.id, args, actionLeaseEpoch(row))
         });
         if (!decision.allow) {
           await fail(
@@ -801,7 +770,7 @@ async function broadcastLeg(
             'POLICY_DENIED',
             decision.message,
             { policy_code: decision.code },
-            true,
+            true
           );
           throw new AttestorError('policy', 'policy_denied', decision.message);
         }
@@ -812,7 +781,7 @@ async function broadcastLeg(
             from: wallet.address,
             to: tx.to,
             data: tx.data,
-            value: tx.value,
+            value: tx.value
           });
           let { maxFeePerGas, maxPriorityFeePerGas } = gas;
           if (opts?.feeBumpPercent) {
@@ -845,9 +814,9 @@ async function broadcastLeg(
               gas: gas.gas.toString(),
               maxFeePerGas: maxFeePerGas.toString(),
               maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
-              replaces: expectedHash as Hex | null,
+              replaces: expectedHash as Hex | null
             },
-            actionLeaseEpoch(row),
+            actionLeaseEpoch(row)
           );
         }
         if (
@@ -860,7 +829,10 @@ async function broadcastLeg(
           throw new Error('retained transaction differs from the action plan');
         }
         const custody = current.request._custody as
-          | { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization }
+          | {
+              origin: AgentOriginalRequest;
+              reauthorization?: AgentReauthorization;
+            }
           | undefined;
         if (custody && custody.origin.did !== current.did)
           throw new Error('durable request authority differs');
@@ -873,7 +845,7 @@ async function broadcastLeg(
           nonce: draft.nonce,
           gas: BigInt(draft.gas),
           maxFeePerGas: BigInt(draft.maxFeePerGas),
-          maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas),
+          maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas)
         };
         const account = await getMigrationAwareSigningAccountForRow(
           wallet,
@@ -881,7 +853,7 @@ async function broadcastLeg(
             ? {
                 scheme: 'agent_request',
                 publicKey: principal.public_key,
-                ...custody,
+                ...custody
               }
             : undefined,
           undefined,
@@ -889,8 +861,8 @@ async function broadcastLeg(
           {
             subject: current.did,
             route: '/v1/agent/actions',
-            requestHash: `action:${current.id}:${leg}:${keccak256(serializeTransaction(transaction))}`,
-          },
+            requestHash: `action:${current.id}:${leg}:${keccak256(serializeTransaction(transaction))}`
+          }
         );
         const raw = await actionOperation(() => account.signTransaction(transaction))();
         await assertSignedActionTransaction(raw, wallet.address, draft);
@@ -900,16 +872,16 @@ async function broadcastLeg(
           {
             draft,
             raw,
-            hash: keccak256(raw),
+            hash: keccak256(raw)
           },
-          actionLeaseEpoch(row),
+          actionLeaseEpoch(row)
         );
         const error = await submitRetained(current, retained, lease);
         return { hash: retained.hash, nonce: retained.draft.nonce, error };
       },
       undefined,
-      row.id,
-    ),
+      row.id
+    )
   )();
   if (sent.error !== null) throw sent.error;
   return { hash: sent.hash, nonce: sent.nonce };
@@ -921,10 +893,10 @@ async function replaceLeg(
   wallet: WalletRow,
   leg: 'approval' | 'call',
   nonce: number,
-  plan: ActionPlan,
+  plan: ActionPlan
 ): Promise<void> {
   const latest = await actionOperation(() =>
-    sharedRpcPool().getTransactionCount(wallet.address, 'latest'),
+    sharedRpcPool().getTransactionCount(wallet.address, 'latest')
   )();
   if (latest > nonce) {
     await resolveConsumedNonce(row, leg);
@@ -933,11 +905,15 @@ async function replaceLeg(
   const tx: LegTx =
     leg === 'approval'
       ? { to: plan.token, data: approvalCalldata(plan), value: 0n }
-      : { to: plan.contract, data: plan.callData, value: BigInt(plan.callValueWei) };
+      : {
+          to: plan.contract,
+          data: plan.callData,
+          value: BigInt(plan.callValueWei)
+        };
 
   const sent = await broadcastLeg(row, wallet, leg, tx, {
     nonce,
-    feeBumpPercent: env.ACTION_FEE_BUMP_PERCENT,
+    feeBumpPercent: env.ACTION_FEE_BUMP_PERCENT
   });
   // Point the action at the replacement hash and keep waiting on the same leg.
   await updateAction(
@@ -947,14 +923,14 @@ async function replaceLeg(
           status: 'approval_pending',
           approval_tx_hash: sent.hash,
           error_code: null,
-          error: null,
+          error: null
         }
       : {
           status: 'call_pending',
           call_tx_hash: sent.hash,
           error_code: null,
-          error: null,
-        },
+          error: null
+        }
   );
 }
 
@@ -973,9 +949,7 @@ function actionLegNonce(row: ActionRow, leg: ActionLeg): number | null {
 }
 
 async function requireWallet(row: ActionRow): Promise<WalletRow | null> {
-  const wallet = row.wallet_address
-    ? await findWalletByAddress(row.wallet_address)
-    : null;
+  const wallet = row.wallet_address ? await findWalletByAddress(row.wallet_address) : null;
   if (!wallet) {
     await fail(row, 'validation', 'INVALID_REQUEST', 'agent wallet not found', {}, true);
     return null;
@@ -995,9 +969,15 @@ async function fail(
   code: ActionErrorCode,
   message: string,
   cause: Record<string, unknown>,
-  mayReleaseBudget: boolean,
+  mayReleaseBudget: boolean
 ): Promise<void> {
-  const envelope = buildErrorEnvelope({ actionId: row.id, phase, code, message, cause });
+  const envelope = buildErrorEnvelope({
+    actionId: row.id,
+    phase,
+    code,
+    message,
+    cause
+  });
   const terminal = terminalStatusFor(code) as ActionStatus | null;
 
   const nothingBroadcast = !row.approval_tx_hash && !row.call_tx_hash;
@@ -1010,7 +990,7 @@ async function fail(
     status: terminal ?? row.status,
     phase,
     error_code: code,
-    error: envelope,
+    error: envelope
   });
 }
 
@@ -1044,7 +1024,7 @@ export async function assertSignedActionTransaction(
     gas: string;
     maxFeePerGas: string;
     maxPriorityFeePerGas: string;
-  },
+  }
 ): Promise<void> {
   if (!isSerializedEip1559(raw))
     throw new Error('signer returned a non-EIP1559 serialized transaction');
