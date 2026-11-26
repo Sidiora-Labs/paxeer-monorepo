@@ -213867,7 +213867,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1217]
 title = "Give the routes of the discovery runtime a budget of three seconds in the api, name the delay in the 503 of the packages discovery and notifications, and record the cause of a 503 of the candles and trades"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
