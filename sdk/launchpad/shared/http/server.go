@@ -22,6 +22,8 @@ type ServerOptions struct {
 	// CORSOrigins is a comma-separated allowlist, or "*"/empty for all (dev).
 	// Defaults to the value passed; callers typically pass CORS_ALLOWED_ORIGINS.
 	CORSOrigins string
+	// AdditionalExposedHeaders adds service response headers to the shared CORS list.
+	AdditionalExposedHeaders []string
 	// Health wires readiness dependency checks.
 	Health HealthDeps
 	// TrustedProxies lists CIDR ranges of L7 proxies in front of this service.
@@ -42,6 +44,7 @@ func NewRouter(opts ServerOptions) *chi.Mux {
 		AllowedOrigins:   resolveOrigins(opts.CORSOrigins),
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
+		ExposedHeaders:   append([]string{"X-Schema-Version", "Retry-After", "X-Request-ID", "ETag"}, opts.AdditionalExposedHeaders...),
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))

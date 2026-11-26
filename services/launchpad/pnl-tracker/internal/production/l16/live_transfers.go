@@ -359,6 +359,17 @@ func (s *Service) liveRebuildTx(ctx context.Context, tx pgx.Tx, wallet, token st
 }
 
 func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token string, target int64, seed *RebuildSnapshot, history ...*liveReplayHistory) (RebuildSnapshot, error) {
+	snapshot, err := s.liveContinueObservedTx(ctx, tx, wallet, token, target, seed, history...)
+	if err != nil && !errors.Is(err, errLiveEnrollmentPending) {
+		return snapshot, err
+	}
+	if fenceErr := s.authority.fenceSourceLease(ctx, tx, snapshot.SourceOwner, snapshot.SourceEpoch); fenceErr != nil {
+		return snapshot, fenceErr
+	}
+	return snapshot, err
+}
+
+func (s *Service) liveContinueObservedTx(ctx context.Context, tx pgx.Tx, wallet, token string, target int64, seed *RebuildSnapshot, history ...*liveReplayHistory) (RebuildSnapshot, error) {
 	started := time.Now()
 	end := target
 	paged := true
@@ -380,7 +391,7 @@ func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token s
 	if _, err = tx.Exec(bounded, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, partition); err != nil {
 		return snapshot, err
 	}
-	owner, epoch, err := a.sourceLease(bounded, tx)
+	owner, epoch, err := a.observeSourceLease(bounded, tx)
 	if err != nil {
 		return snapshot, err
 	}
@@ -663,7 +674,7 @@ func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token s
 		return snapshot, err
 	}
 	if end < target {
-		finalOwner, finalEpoch, e := a.sourceLease(bounded, tx)
+		finalOwner, finalEpoch, e := a.observeSourceLease(bounded, tx)
 		if e != nil {
 			return snapshot, e
 		}
@@ -719,7 +730,7 @@ func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token s
 	if err = s.writeLiveProgressTx(bounded, tx, progressPartition, progress); err != nil {
 		return snapshot, err
 	}
-	finalOwner, finalEpoch, err := a.sourceLease(bounded, tx)
+	finalOwner, finalEpoch, err := a.observeSourceLease(bounded, tx)
 	if err != nil {
 		return snapshot, err
 	}
@@ -1274,7 +1285,7 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 		}
 		return true, tx.Commit(bounded)
 	}
-	owner, epoch, e := a.sourceLease(bounded, tx)
+	owner, epoch, e := a.observeSourceLease(bounded, tx)
 	if e != nil {
 		return false, e
 	}
@@ -1309,7 +1320,7 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 				seed = &prior
 			}
 			var history liveReplayHistory
-			snapshot, e := w.service.liveContinueTx(bounded, tx, p.Wallet, token, head, seed, &history)
+			snapshot, e := w.service.liveContinueObservedTx(bounded, tx, p.Wallet, token, head, seed, &history)
 			if errors.Is(e, errLiveEnrollmentPending) {
 				pending = true
 				if _, e = tx.Exec(bounded, `UPDATE inventory_l16_live_owners_v1 SET last_attempt_at=clock_timestamp() WHERE wallet=$1`, p.Wallet); e != nil {
@@ -1319,6 +1330,12 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 					return false, e
 				}
 				if e = a.epochGuard(bounded, tx); e != nil {
+					return false, e
+				}
+				if snapshot.SourceOwner != owner || snapshot.SourceEpoch != epoch {
+					return false, delivery.ErrLease
+				}
+				if e = a.fenceSourceLease(bounded, tx, owner, epoch); e != nil {
 					return false, e
 				}
 				return true, tx.Commit(bounded)
@@ -1384,12 +1401,8 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 	if !accepted {
 		return false, delivery.ErrIntegrity
 	}
-	finalOwner, finalEpoch, e := a.sourceLease(bounded, tx)
-	if e != nil {
+	if e = a.fenceSourceLease(bounded, tx, owner, epoch); e != nil {
 		return false, e
-	}
-	if finalOwner != owner || finalEpoch != epoch {
-		return false, delivery.ErrLease
 	}
 	if _, e = tx.Exec(bounded, `INSERT INTO inventory_l16_live_commits_v1 (generation,wallet,source_stream,height,block_hash,source_owner,source_epoch,release_digest,input_digest,snapshot_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, a.generation, p.Wallet, a.sourceStream, head, headHash, owner, epoch, w.service.release, source, summary.SnapshotID); e != nil {
 		return false, e

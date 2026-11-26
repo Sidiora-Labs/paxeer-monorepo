@@ -103,6 +103,16 @@ func NewBaselineAuthorityWithEpochGuard(pool *pgxpool.Pool, rpc *ethclient.Clien
 
 func (a *BaselineAuthority) table(name string) string { return a.schema + "." + name }
 
+func (a *BaselineAuthority) observeSourceLease(ctx context.Context, tx pgx.Tx) (string, int64, error) {
+	var owner string
+	var epoch int64
+	err := tx.QueryRow(ctx, `SELECT owner_instance,fence_token FROM indexer.indexer_ingest_leases_v1 WHERE chain_id=125 AND stream_id=$1 AND expires_at>clock_timestamp()`, a.sourceStream).Scan(&owner, &epoch)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", 0, delivery.ErrLease
+	}
+	return owner, epoch, err
+}
+
 func (a *BaselineAuthority) sourceLease(ctx context.Context, tx pgx.Tx) (string, int64, error) {
 	var owner string
 	var epoch int64
@@ -111,6 +121,17 @@ func (a *BaselineAuthority) sourceLease(ctx context.Context, tx pgx.Tx) (string,
 		return "", 0, delivery.ErrLease
 	}
 	return owner, epoch, err
+}
+
+func (a *BaselineAuthority) fenceSourceLease(ctx context.Context, tx pgx.Tx, owner string, epoch int64) error {
+	currentOwner, currentEpoch, err := a.sourceLease(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if currentOwner != owner || currentEpoch != epoch {
+		return delivery.ErrLease
+	}
+	return nil
 }
 
 func decodeTransfer(log types.Log) (movement, error) {
