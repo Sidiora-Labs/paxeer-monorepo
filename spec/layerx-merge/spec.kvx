@@ -214377,7 +214377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1268]
 title = "Bring the live connection of the chart of a coin back by itself after a close from the far side"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214617,7 +214617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1260]
 title = "State the price of a coin in the header, in the price tile of the terminal and in the values of the holders from the spot price of the stats, with the live quote as the fallback"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
