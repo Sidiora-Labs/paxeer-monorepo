@@ -29,7 +29,7 @@ export function ExploreLoading() {
 export function ExplorePageLoading() {
   return (
     <div className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
-      <h1 className="text-lg font-medium text-text">Explore coins</h1>
+      <h1 className="text-lg font-bold text-text">Explore coins</h1>
       <ExploreLoading />
     </div>
   );

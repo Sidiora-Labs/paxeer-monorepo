@@ -50,7 +50,7 @@ export function FilterPanel({ id, filters, onChange, loadedCount, matchCount, on
     <section id={id} aria-labelledby={headingId} className="flex flex-col gap-4 rounded-md bg-surface-2 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-40">
-          <h2 id={headingId} className="text-md font-bold text-text">Filter</h2>
+          <h2 id={headingId} className="text-md font-semibold text-text">Filter</h2>
           <p role="status" className="text-xs text-text-faint">
             {active === 0
               ? `Filters apply to the ${loadedCount} coins shown`

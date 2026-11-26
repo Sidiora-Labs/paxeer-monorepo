@@ -46,7 +46,7 @@ const column: ColumnConfig = { id: 'trending-1', type: 'trending', filter: '', d
 describe('layout store', () => {
   beforeEach(() => { window.localStorage.clear(); resetLayoutStore(); });
 
-  it('defaults to pump.fun\'s three board columns in order, with no watchlist column', () => {
+  it('defaults to three board columns in order, with no watchlist column', () => {
     expect(defaultLayout().columns.map(c => c.type)).toEqual(['trending', 'hot-callouts', 'leaderboard']);
     expect(defaultLayout().columns.map(c => c.id)).toEqual(['trending-1', 'hot-callouts-2', 'leaderboard-3']);
     expect(defaultColumnTypes).not.toContain('watchlist');
@@ -231,7 +231,7 @@ describe('widget helpers', () => {
   });
 
   it('marks fees unavailable on screener cards and signs leaderboard metrics', () => {
-    const stats = screenerStats({ poolAddress: '0x1', tokenAddress: null, rank: 1, name: 'A', symbol: 'A', image: null, href: '/token/0x1', mcapRaw: null, mcap: null, mcapReason: null, circulatingMcapRaw: null, volume24hRaw: '5000000', volume24h: 5, createdAtMs: null, ageMs: null, txns: 1234, traders: null, holders: null, price: null, priceReason: null, change5m: null, change1h: null, change6h: null, change24h: null, changes: statsChanges(null), top10Share: null, devShare: null, sharesReason: null, stage: null });
+    const stats = screenerStats({ poolAddress: '0x1', tokenAddress: null, rank: 1, name: 'A', symbol: 'A', image: null, href: '/token/0x1', mcapRaw: null, mcap: null, mcapReason: null, circulatingMcapRaw: null, volume24hRaw: '5000000', volume24h: 5, createdAtMs: null, ageMs: null, txns: 1234, traders: null, holders: null, price: null, priceReason: null, change5m: null, change1h: null, change6h: null, change24h: null, changes: statsChanges(null), top10Share: null, devShare: null, sharesReason: null, stage: null, creator: null, description: null });
     expect(stats.map(s => s.label)).toEqual(['V', 'TX', 'F']);
     expect(stats[0].value).toBe('5.00');
     expect(stats[1].value).toBe('1.2K');

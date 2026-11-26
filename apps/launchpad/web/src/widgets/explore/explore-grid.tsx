@@ -33,6 +33,8 @@ function GridCard({ row, starred, onToggleStar }: GridCardProps) {
         href={row.href}
         rank={row.rank}
         stage={row.stage}
+        creator={row.creator ?? undefined}
+        description={row.description ?? undefined}
         starred={starred}
         onToggleStar={() => onToggleStar(row.poolAddress)}
         sparkline={sparkline.data?.closes ?? null}
@@ -74,7 +76,7 @@ export function ExploreGrid({ rows, isStarred, onToggleStar, loading, hasMore, l
       </div>
     );
   }
-  if (rows.length === 0) return <div className="rounded-md bg-surface-1">{empty}</div>;
+  if (rows.length === 0) return <div className="border-b border-surface-3">{empty}</div>;
   return (
     <section aria-label={label} className="flex flex-col gap-2">
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,var(--spacing-token-card-min-width)),1fr))] gap-4">

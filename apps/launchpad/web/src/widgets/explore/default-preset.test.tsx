@@ -182,8 +182,9 @@ async function emptyPresetsExplainTheirListsAndOfferTheNextAction() {
           expect(empty.querySelector('p')?.textContent).toBe(body);
           expect(empty.querySelector('a[href="/create"]')?.textContent).toBe('Create coin');
           const browse = empty.querySelector('a[href="/explore?preset=new"]');
-          if (id === 'new') expect(browse).toBeNull();
-          else expect(browse?.textContent).toBe('Browse new coins');
+          expect(browse).toBeNull();
+          expect(empty.querySelectorAll('a')).toHaveLength(1);
+          expect(empty.querySelector('a')?.className).toContain('bg-surface-2');
         }
       }
     } finally {

@@ -15,7 +15,7 @@ const { WebSocketServer } = require('ws');
 const directory = new URL('./answers/', import.meta.url);
 const answerNames = [
   'pool', 'coin-pool', 'pools', 'terminal-pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
-  'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
+  'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-search', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
   'profile-empty', 'follow-stats', 'follow-stats-empty', 'portfolio', 'portfolio-empty', 'bounties', 'bounty', 'bounties-stats', 'unavailable',
   'rpc-unavailable', 'chart-config', 'chart-symbol', 'chart-time', 'chart-history-empty', 'not-found', 'explorer-empty', 'snapshot', 'stream-control', 'search', 'search-token', 'authority', 'public-share', 'cup-current-empty', 'comments-empty',
   ...['trending', 'new', 'volume', 'marketcap', 'gainers', 'losers', 'graduating', 'graduated', 'movers', 'breakout', 'unusual']
@@ -96,7 +96,7 @@ function answerFor(url, state, pagePath) {
   if (path === '/v2/bounties') return { name: empty || url.searchParams.has('state') && url.searchParams.get('state') !== 'open' ? 'items-empty' : 'bounties' };
   if (path === '/v2/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0') return { name: 'bounty' };
   if (path === '/v2/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0/submissions') return { name: 'items-empty' };
-  if (path === '/metadata/batch') return { name: empty ? 'metadata-batch-empty' : 'metadata-batch' };
+  if (path === '/metadata/batch') return { name: empty ? 'metadata-batch-empty' : url.searchParams.get('addresses')?.split(',').includes('0x2222222222222222222222222222222222222222') ? 'metadata-batch-search' : 'metadata-batch' };
   if (path === '/metadata/0x3333333333333333333333333333333333333333') return { name: 'metadata' };
   if (/^\/v2\/profiles\/0x[0-9a-f]{40}\/follow-stats$/.test(path)) return { name: empty ? 'follow-stats-empty' : 'follow-stats' };
   if (/^\/v3\/wallets\/0x[0-9a-f]{40}\/portfolio$/.test(path)) return { name: empty ? 'portfolio-empty' : 'portfolio' };

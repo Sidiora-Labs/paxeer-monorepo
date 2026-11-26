@@ -135,16 +135,17 @@ describe('preset tiers', () => {
 });
 
 describe('PresetTabs', () => {
-  it('renders one segmented container whose active segment is the only accent fill', () => {
+  it('renders one row of neutral preset chips with one selected chip', () => {
     const html = renderToStaticMarkup(<PresetTabs active="trending" />);
     const doc = new dom.window.DOMParser().parseFromString(html, 'text/html');
     const nav = doc.querySelector('nav[aria-label="Explore presets"]')!;
     expect(nav.children).toHaveLength(1);
-    expect(nav.firstElementChild!.className).toContain('bg-surface-1');
+    expect(nav.firstElementChild!.className).toContain('flex-nowrap');
+    expect(nav.className).toContain('overflow-x-auto');
     const links = [...nav.querySelectorAll('a')];
     expect(links.map((link) => link.textContent)).toEqual(presets.map((preset) => preset.label));
     expect(
-      links.filter((link) => link.className.includes('bg-accent')).map((link) => link.textContent),
+      links.filter((link) => link.className.includes('bg-surface-3')).map((link) => link.textContent),
     ).toEqual(['Trending']);
     expect(links[0].getAttribute('aria-current')).toBe('page');
     expect(links[0].getAttribute('href')).toBe('/explore');
@@ -171,7 +172,7 @@ describe('PresetTabs', () => {
     const doc = new dom.window.DOMParser().parseFromString(html, 'text/html');
     const more = doc.querySelector('button[aria-label="More presets"]')!;
     expect(more.textContent).toContain('Volume');
-    expect(more.className).toContain('bg-accent');
+    expect(more.className).toContain('bg-surface-3');
     expect(more.className).toContain('xl:bg-transparent');
   });
 
@@ -247,7 +248,7 @@ describe('ExploreToolbar', () => {
     );
   }
 
-  it('wraps presets and keeps Filter, Grid/Table with text labels and settings together', async () => {
+  it('keeps presets and quiet icon controls in one row', async () => {
     let toggled = 0;
     let picked: string | null = null;
     const node = await mount(
@@ -262,7 +263,7 @@ describe('ExploreToolbar', () => {
       ),
     );
     const row = node.firstElementChild!;
-    expect(row.className).toContain('flex-wrap');
+    expect(row.className).toContain('flex-nowrap');
     expect(row.lastElementChild!.className).toContain('shrink-0');
     expect(row.firstElementChild!.querySelector('[data-testid="leading"]')).not.toBeNull();
     const filter = node.querySelector<HTMLButtonElement>('button[aria-label="Filter"]')!;
@@ -273,9 +274,12 @@ describe('ExploreToolbar', () => {
     expect(toggled).toBe(1);
     const layout = node.querySelector('[role="radiogroup"][aria-label="Layout"]')!;
     expect(
-      [...layout.querySelectorAll('[role="radio"]')].map((radio) => radio.textContent),
+      [...layout.querySelectorAll('[role="radio"]')].map((radio) => radio.getAttribute('aria-label')),
     ).toEqual(['Grid', 'Table']);
     expect(layout.className).toContain('md:inline-flex');
+    expect([...layout.querySelectorAll('[role="radio"]')].every(radio => radio.textContent === '')).toBe(true);
+    expect(filter.className).toContain('border-transparent');
+    expect(filter.className).not.toContain('bg-surface-1');
     await act(async () => {
       layout.querySelector<HTMLButtonElement>('[aria-label="Grid"]')!.click();
     });
@@ -403,7 +407,7 @@ describe('Explore frame when the ranking fails', () => {
       expect(notice).not.toBeNull();
       // The notice sits in the card but outside the horizontal scroller, so it stays centred in the visible width.
       expect(notice.closest('.overflow-x-auto')).toBeNull();
-      expect(notice.closest('.bg-surface-1')).not.toBeNull();
+      expect(notice.closest('[aria-label="Coin rankings"]')).not.toBeNull();
       expect(notice.className).toContain('bg-surface-2');
       expect(node.textContent).not.toContain('Failed to fetch');
       // The coin header keeps the coin cell width when no rows render.
@@ -432,15 +436,53 @@ describe('Explore frame when the ranking fails', () => {
     expect(node.querySelectorAll('thead th').length).toBe(columnSpecs.length);
   });
 
-  it('uses control edges without decorative borders, rings, dividers or shadows in the frame', async () => {
+  it('uses row hairlines without an outer frame or shadow', async () => {
     const node = await mount(view(<StateNotice kind="error" error={failure} />));
+    const line = node.querySelector('[data-explore-empty]')!;
+    expect(line.className).toBe('border-b border-surface-3');
     const doc = new dom.window.DOMParser().parseFromString(
-      assertControlEdges(node.innerHTML),
+      assertControlEdges(node.innerHTML.replaceAll('border-b border-surface-3', '')),
       'text/html',
     );
     const classes = [...doc.querySelectorAll('[class]')]
-      .map((el) => el.getAttribute('class') ?? '')
+      .map((el) => (el.getAttribute('class') ?? '').split(' ').filter(value => !['border-b', 'border-surface-3'].includes(value)).join(' '))
       .join(' ');
     expect(classes).not.toMatch(/(^|\s)(border|ring|divide|shadow)(-|\s|$)/);
   });
 });
+
+async function coinIdentityUsesSquareImagesAndInitials() {
+  const { CoinIdentity } = await import('./coin-identity');
+  const node = await mount(<CoinIdentity image="/coin.png" name="Science Coin" symbol="SCI" />);
+  const image = node.querySelector('img')!;
+  expect(image.getAttribute('src')).toBe('/coin.png');
+  expect(image.className).toContain('rounded-coin');
+  expect(node.textContent).toBe('Science Coin$SCI');
+  await act(async () => { image.dispatchEvent(new dom.window.Event('error')); });
+  const initials = [...node.querySelectorAll('span[aria-hidden="true"]')].find(element => element.textContent === 'SC')!;
+  expect(initials.className).toContain('rounded-coin');
+  expect(initials.className).toContain('bg-surface-3');
+  expect(node.querySelector('img')).toBeNull();
+}
+
+async function layoutIconsKeepKeyboardSelection() {
+  let selected = 'table';
+  const node = await mount(<ExploreToolbar filterOpen={false} filterCount={0} filterPanelId="filters"
+    onToggleFilter={() => undefined} view="table" onViewChange={value => { selected = value; }}
+    settingsOpen={false} settingsPanelId="settings" onToggleSettings={() => undefined} />);
+  const table = node.querySelector<HTMLButtonElement>('[role="radio"][aria-label="Table"]')!;
+  const grid = node.querySelector<HTMLButtonElement>('[role="radio"][aria-label="Grid"]')!;
+  expect(table.getAttribute('aria-checked')).toBe('true');
+  expect(table.tabIndex).toBe(0);
+  expect(grid.tabIndex).toBe(-1);
+  await act(async () => { table.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })); });
+  expect(selected).toBe('grid');
+  expect(document.activeElement).toBe(grid);
+}
+
+function test(testFunction: () => void | Promise<void>) {
+  it(testFunction, testFunction);
+}
+
+test(coinIdentityUsesSquareImagesAndInitials);
+test(layoutIconsKeepKeyboardSelection);
