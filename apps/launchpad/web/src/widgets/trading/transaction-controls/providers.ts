@@ -136,6 +136,7 @@ export interface TradeDeployment {
   quoter: Address;
   registry: Address;
   emitter: Address;
+  swapRecordWriter?: Address;
   usdl: Address;
   pins: readonly CodePin[];
 }
@@ -146,6 +147,7 @@ export const productionTradeDeployment: TradeDeployment = {
   quoter: CORE_DEPLOYMENT.quoter,
   registry: CORE_DEPLOYMENT.poolRegistry,
   emitter: CORE_DEPLOYMENT.eventEmitter,
+  swapRecordWriter: CORE_DEPLOYMENT.launchpadPrecompile,
   usdl: CORE_DEPLOYMENT.usdl,
   pins: CORE_TRADE_EXECUTION_ROLES.map((role) => {
     const identity = CORE_DEPLOYMENT.roleIdentity[role];
@@ -161,6 +163,9 @@ export const productionTradeDeployment: TradeDeployment = {
     };
   }),
 };
+export function swapRecordWriter(deployment: TradeDeployment): Address {
+  return deployment.swapRecordWriter ?? deployment.emitter;
+}
 const TradeExecutionContext = createContext<TradeDeployment | undefined>(
   undefined,
 );
@@ -894,7 +899,7 @@ export class ChainTradeProvider {
     );
     const swapLogs = receipt.logs.filter(
       (log) =>
-        same(log.address, this.deployment.emitter) &&
+        same(log.address, swapRecordWriter(this.deployment)) &&
         log.topics[0]?.toLowerCase() === swapTopic,
     );
     if (swapLogs.length !== 1)
