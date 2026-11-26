@@ -107,7 +107,7 @@ describe('coin page when the snapshot fails', () => {
     // Rail order: trade panel, holders, stats, pool information, creator, market cap vs ATH, description.
     const rail = container.querySelector('aside[aria-label="Trade and coin details"]') as HTMLElement;
     const order = Array.from(rail.querySelectorAll('form[aria-label="Trade"], section[aria-label="Stats and audit"], h2')).map(node => node.getAttribute('aria-label') ?? node.textContent);
-    expect(order.slice(0, 7)).toEqual(['Trade', 'Holders', 'Stats and audit', 'Pool information', 'Creator', 'Market cap vs ATH', 'Description']);
+    expect(order.slice(0, 7)).toEqual(['Trade', 'Holders', 'Stats and audit', 'Pool information', 'Creator', 'Market cap', 'Description']);
 
     // Freshness: a chip inside the header, never a page-wide notice bar above the columns.
     await waitFor(() => container.querySelector('[data-freshness-chip]') !== null);
