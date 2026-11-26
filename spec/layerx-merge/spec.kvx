@@ -214508,7 +214508,7 @@ do_6 = "do_6 One more named check before the runs of do_5, found on 2026-11-25 i
 
 [task.22.44.146]
 title = "Bring the terminal, swap and order views of the launchpad to the visual brief"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138"]
