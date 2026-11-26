@@ -143,3 +143,30 @@ code {
   max-height: 100dvh;
   overflow-y: auto;
 }
+
+.cookie-consent-banner {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+@media (min-width: 1024px) {
+  .cookie-consent-banner-at-top {
+    top: 24px;
+    bottom: auto;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .cookie-consent-banner {
+    position: sticky;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 12px);
+    left: auto;
+    transform: none;
+    margin: 12px auto;
+    margin-bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 12px);
+    max-height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px) - 24px);
+    overflow-y: auto;
+  }
+}
