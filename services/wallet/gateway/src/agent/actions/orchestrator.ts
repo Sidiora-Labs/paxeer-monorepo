@@ -1,4 +1,10 @@
-import { keccak256, parseTransaction, recoverTransactionAddress, type Hex } from 'viem';
+import {
+  keccak256,
+  parseTransaction,
+  recoverTransactionAddress,
+  serializeTransaction,
+  type Hex,
+} from 'viem';
 import { env } from '../../env.js';
 import {
   getErc20Allowance as getErc20AllowanceOperation,
@@ -70,7 +76,7 @@ const getPolicy = actionOperation(getPolicyOperation);
 const listRules = actionOperation(listRulesOperation);
 const findWalletByAddress = actionOperation(findWalletByAddressOperation);
 const getMigrationAwareSigningAccountForRow = actionOperation(
-  getMigrationAwareSigningAccountForRowOperation
+  getMigrationAwareSigningAccountForRowOperation,
 );
 const getAction = actionOperation(getActionOperation);
 const releaseActionBudget = actionOperation(releaseActionBudgetOperation, false);
@@ -80,12 +86,12 @@ const reserveActionBudget = actionOperation(reserveActionBudgetOperation, false)
 const retainActionTransactionDraft = actionOperation(retainActionTransactionDraftOperation, false);
 const retainActionSignedTransaction = actionOperation(
   retainActionSignedTransactionOperation,
-  false
+  false,
 );
 const updateAction = actionOperation(
   (row: ActionRow, patch: ActionPatch) =>
     updateActionOperation(row.id, patch, actionLeaseEpoch(row)),
-  false
+  false,
 );
 
 /**
@@ -152,7 +158,7 @@ export async function advanceAction(row: ActionRow): Promise<void> {
         'CUSTODY_AUTHORITY_REQUIRED',
         err.message,
         { detail: err.code },
-        false
+        false,
       );
       return;
     }
@@ -163,7 +169,7 @@ export async function advanceAction(row: ActionRow): Promise<void> {
         'CUSTODY_AUTHORITY_REQUIRED',
         err.message,
         { detail: err.code, replication_pending: err.replicationPending },
-        false
+        false,
       );
       return;
     }
@@ -182,7 +188,7 @@ export async function advanceAction(row: ActionRow): Promise<void> {
           authorization_endpoint: '/v1/agent/signing-authorizations',
           authorization_id_header: 'x-agent-attestor-authorization-id',
         },
-        false
+        false,
       );
       return;
     }
@@ -207,7 +213,7 @@ export async function advanceAction(row: ActionRow): Promise<void> {
             authorization_endpoint: '/v1/agent/signing-authorizations',
             authorization_id_header: 'x-agent-attestor-authorization-id',
           },
-          false
+          false,
         );
         return;
       }
@@ -295,7 +301,7 @@ async function validate(row: ActionRow): Promise<void> {
       'INSUFFICIENT_BALANCE',
       'token balance is below the requested amount',
       { balance: balance.toString(), required: amountWei.toString(), token: plan.token },
-      true
+      true,
     );
     return;
   }
@@ -308,7 +314,7 @@ async function validate(row: ActionRow): Promise<void> {
       'INSUFFICIENT_GAS',
       'wallet holds no native PAX for gas',
       {},
-      true
+      true,
     );
     return;
   }
@@ -394,7 +400,7 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
       'SIMULATION_REVERTED',
       sim.error ?? 'call reverted in simulation',
       { detail: sim.error },
-      true
+      true,
     );
     return;
   }
@@ -458,7 +464,7 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
       code,
       `${leg} transaction reverted on-chain`,
       { tx_hash: hash, nonce },
-      false
+      false,
     );
     return;
   }
@@ -547,7 +553,7 @@ function activeNonceLease(lease: NonceLease): NonceLease {
     release: actionOperation((nonce: number) => lease.release(nonce), false),
     track: actionOperation(
       (nonce: number, hash: Hex, member: string | null) => lease.track(nonce, hash, member),
-      false
+      false,
     ),
     checkClientNonce: actionOperation((nonce: number) => lease.checkClientNonce(nonce)),
     reserveClientNonce: actionOperation((nonce: number) => lease.reserveClientNonce(nonce), false),
@@ -561,7 +567,7 @@ function activeNonceLease(lease: NonceLease): NonceLease {
 export async function submitRetained(
   row: ActionRow,
   signed: ActionSignedTransaction,
-  lease: NonceLease
+  lease: NonceLease,
 ): Promise<unknown> {
   assertActionActive();
   lease = activeNonceLease(lease);
@@ -572,7 +578,7 @@ export async function submitRetained(
   } else {
     const sent = await broadcastReserved(lease, signed.draft.nonce, signed.raw, async (raw) => {
       const { hash, member } = await actionOperation(() =>
-        sharedRpcPool().sendRawTransactionVia(raw)
+        sharedRpcPool().sendRawTransactionVia(raw),
       )();
       if (hash.toLowerCase() !== signed.hash.toLowerCase())
         throw new Error('RPC transaction hash differs from retained bytes');
@@ -600,8 +606,8 @@ async function recoverRetainedBroadcast(row: ActionRow, leg: ActionLeg): Promise
         return signed ? submitRetained(current, signed, lease) : null;
       },
       undefined,
-      row.id
-    )
+      row.id,
+    ),
   )();
   if (failure !== null) throw failure;
 }
@@ -611,7 +617,7 @@ async function broadcastLeg(
   wallet: WalletRow,
   leg: ActionLeg,
   tx: LegTx,
-  opts?: { nonce?: number; feeBumpPercent?: number }
+  opts?: { nonce?: number; feeBumpPercent?: number },
 ): Promise<{ hash: Hex; nonce: number }> {
   const sent = await actionOperation(() =>
     withDistributedWalletLock(
@@ -646,7 +652,7 @@ async function broadcastLeg(
             'POLICY_DENIED',
             decision.message,
             { policy_code: decision.code },
-            true
+            true,
           );
           throw new AttestorError('policy', 'policy_denied', decision.message);
         }
@@ -692,7 +698,7 @@ async function broadcastLeg(
               maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
               replaces: expectedHash as Hex | null,
             },
-            actionLeaseEpoch(row)
+            actionLeaseEpoch(row),
           );
         }
         if (
@@ -709,6 +715,17 @@ async function broadcastLeg(
           | undefined;
         if (custody && custody.origin.did !== current.did)
           throw new Error('durable request authority differs');
+        const transaction = {
+          type: 'eip1559' as const,
+          chainId: draft.chainId,
+          to: draft.to,
+          data: draft.data,
+          value: BigInt(draft.value),
+          nonce: draft.nonce,
+          gas: BigInt(draft.gas),
+          maxFeePerGas: BigInt(draft.maxFeePerGas),
+          maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas),
+        };
         const account = await getMigrationAwareSigningAccountForRow(
           wallet,
           custody
@@ -720,21 +737,13 @@ async function broadcastLeg(
             : undefined,
           undefined,
           undefined,
-          { subject: current.did, route: '/v1/agent/actions', requestHash: `action:${current.id}` }
+          {
+            subject: current.did,
+            route: '/v1/agent/actions',
+            requestHash: `action:${current.id}:${leg}:${keccak256(serializeTransaction(transaction))}`,
+          },
         );
-        const raw = await actionOperation(() =>
-          account.signTransaction({
-            type: 'eip1559',
-            chainId: draft.chainId,
-            to: draft.to,
-            data: draft.data,
-            value: BigInt(draft.value),
-            nonce: draft.nonce,
-            gas: BigInt(draft.gas),
-            maxFeePerGas: BigInt(draft.maxFeePerGas),
-            maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas),
-          })
-        )();
+        const raw = await actionOperation(() => account.signTransaction(transaction))();
         await assertSignedActionTransaction(raw, wallet.address, draft);
         const retained = await retainActionSignedTransaction(
           current.id,
@@ -744,14 +753,14 @@ async function broadcastLeg(
             raw,
             hash: keccak256(raw),
           },
-          actionLeaseEpoch(row)
+          actionLeaseEpoch(row),
         );
         const error = await submitRetained(current, retained, lease);
         return { hash: retained.hash, nonce: retained.draft.nonce, error };
       },
       undefined,
-      row.id
-    )
+      row.id,
+    ),
   )();
   if (sent.error !== null) throw sent.error;
   return { hash: sent.hash, nonce: sent.nonce };
@@ -763,7 +772,7 @@ async function replaceLeg(
   wallet: WalletRow,
   leg: 'approval' | 'call',
   nonce: number,
-  plan: ActionPlan
+  plan: ActionPlan,
 ): Promise<void> {
   const tx: LegTx =
     leg === 'approval'
@@ -779,7 +788,7 @@ async function replaceLeg(
     row,
     leg === 'approval'
       ? { status: 'approval_pending', approval_tx_hash: sent.hash, error_code: null, error: null }
-      : { status: 'call_pending', call_tx_hash: sent.hash, error_code: null, error: null }
+      : { status: 'call_pending', call_tx_hash: sent.hash, error_code: null, error: null },
   );
 }
 
@@ -808,7 +817,7 @@ async function fail(
   code: ActionErrorCode,
   message: string,
   cause: Record<string, unknown>,
-  mayReleaseBudget: boolean
+  mayReleaseBudget: boolean,
 ): Promise<void> {
   const envelope = buildErrorEnvelope({ actionId: row.id, phase, code, message, cause });
   const terminal = terminalStatusFor(code) as ActionStatus | null;
@@ -857,7 +866,7 @@ export async function assertSignedActionTransaction(
     gas: string;
     maxFeePerGas: string;
     maxPriorityFeePerGas: string;
-  }
+  },
 ): Promise<void> {
   if (!isSerializedEip1559(raw))
     throw new Error('signer returned a non-EIP1559 serialized transaction');
