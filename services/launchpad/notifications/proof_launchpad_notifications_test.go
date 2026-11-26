@@ -171,6 +171,9 @@ func TestProofLaunchpadNotifications(t *testing.T) {
 		if response.Header.Get("Cache-Control") != "private, no-store" || response.Header.Get("Content-Type") != "application/json" {
 			t.Fatalf("consumer headers: %v", response.Header)
 		}
+		if response.StatusCode == http.StatusServiceUnavailable && response.Header.Get("Retry-After") != "1" {
+			t.Fatalf("consumer retry delay: %v", response.Header)
+		}
 		return response.StatusCode, raw
 	}
 	list := func(path string) v2.NotificationsResponse {
@@ -343,7 +346,7 @@ func TestProofLaunchpadNotifications(t *testing.T) {
 	}
 	open()
 	unavailable, err := v2.DecodeError(unavailableRaw)
-	if err != nil || status != http.StatusServiceUnavailable || unavailable.Code != "DEPENDENCY_UNAVAILABLE" || unavailable.Message != http.StatusText(status) || unavailable.RequestId != requestID || !unavailable.Retryable || unavailable.RetryAfterMs != nil || unavailable.Details != nil || unavailable.FieldErrors == nil || len(unavailable.FieldErrors) != 0 {
+	if err != nil || status != http.StatusServiceUnavailable || unavailable.Code != "DEPENDENCY_UNAVAILABLE" || unavailable.Message != http.StatusText(status) || unavailable.RequestId != requestID || !unavailable.Retryable || unavailable.RetryAfterMs == nil || *unavailable.RetryAfterMs != 1000 || unavailable.Details != nil || unavailable.FieldErrors == nil || len(unavailable.FieldErrors) != 0 {
 		t.Fatalf("consumer dependency refusal: status=%d body=%s err=%v", status, unavailableRaw, err)
 	}
 }
