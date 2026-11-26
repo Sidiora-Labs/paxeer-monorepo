@@ -198,7 +198,7 @@ async function assertConfirmed(provider: ChainTradeProvider, trade: Awaited<Retu
   const evidence = await provider.readReceipt(trade.attempt);
   expect(evidence).toEqual({ transactionHash: trade.receipt.transactionHash, status: 'success', blockNumber: trade.receipt.blockNumber });
   expect(attemptState(trade.attempt, Date.now(), evidence)).toBe('confirmed_success');
-  expect(provider.fills.get(trade.attempt.txHash.toLowerCase())).toEqual({ inputRaw: trade.amount, outputRaw: trade.output, feeRaw: 1n, blockHeight: trade.receipt.blockNumber, isBuy: trade.isBuy, pool, token, tokenDecimals: 6 });
+  expect(provider.fills.get(trade.attempt.txHash.toLowerCase())).toEqual({ inputRaw: trade.amount, outputRaw: trade.output, feeRaw: 1n, feeAsset: { address: trade.isBuy ? deployment.usdl : token, decimals: 6 }, blockHeight: trade.receipt.blockNumber, isBuy: trade.isBuy, pool, token, tokenDecimals: 6 });
   const fill = homeTradeFill(trade.receipt, { emitter: swapRecordWriter(provider.deployment), pool, account, isBuy: trade.isBuy, amount: trade.amount, minimum: trade.minimum });
   expect(fill.amountIn).toBe(trade.amount);
   expect(fill.amountOut).toBe(trade.output);
