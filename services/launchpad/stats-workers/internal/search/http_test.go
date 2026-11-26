@@ -32,7 +32,7 @@ func TestSearchHTTPValidationAndDependencyErrors(t *testing.T) {
 		{"/v2/search?q=coin&type=pool&graduation=true", 400},
 		{"/v2/search?q=coin&type=pool&limit=26", 422},
 		{"/v2/search?q=coin&type=pool&limit=01", 422},
-		{"/v2/search?q=coin&type=profile", 412},
+		{"/v2/search?q=coin&type=profile", 503},
 		{"/v2/search?q=coin&type=pool", 503},
 		{"/v2/search?q=coin&type=pool&filter=" + url.QueryEscape(`{"poolStatus":"graduated"}`), 422},
 	}

@@ -14,6 +14,7 @@ import {
   LifeBuoy,
   Scale,
   Plus,
+  Bot,
 } from 'lucide-react';
 
 export type NavSection = 'main' | 'signed-in' | 'bottom';
@@ -46,6 +47,7 @@ export const navItems: readonly NavItem[] = [
   { id: 'live', group: 'primary', href: '/live', label: 'Live', icon: Radio, section: 'main', requires: 'public' },
   { id: 'bounties', group: 'secondary', href: '/bounties', label: 'Bounties', icon: Target, section: 'main', requires: 'public' },
   { id: 'holder-rewards', group: 'secondary', href: '/holder-rewards', label: 'Holder rewards', icon: Coins, section: 'main', requires: 'public' },
+  { id: 'agents', group: 'secondary', href: '/agents', label: 'Agents', icon: Bot, section: 'main', requires: 'public' },
   { id: 'terminal', group: 'secondary', href: '/terminal', label: 'Terminal', icon: Terminal, section: 'main', requires: 'public' },
   { id: 'rewards', href: '/rewards', label: 'Rewards', icon: Gift, section: 'signed-in', requires: 'wallet', badge: 'rewards' },
   { id: 'watchlist', href: '/watchlist', label: 'Watchlist', icon: Star, section: 'signed-in', requires: 'wallet' },
