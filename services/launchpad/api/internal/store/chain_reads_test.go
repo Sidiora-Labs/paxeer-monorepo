@@ -5,15 +5,23 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 )
 
-func TestChainRegistryAndRevenuePages(t *testing.T) {
+func chainRegistryAndRevenueStore(t *testing.T) (*store.Store, *pgxpool.Pool) {
+	t.Helper()
 	st, db, _ := newStore(t)
-	ctx := context.Background()
 	internaltest.ApplyIndexerTables(t, db, "swaps")
 	internaltest.ApplyReadMigrations(t, db, "60000", "60003", "150006")
+	return st, db
+}
+
+func TestChainRegistryAndRevenuePages(t *testing.T) {
+	st, db := chainRegistryAndRevenueStore(t)
+	ctx := context.Background()
 	const pool = "0x1111111111111111111111111111111111111111"
 	const token = "0x2222222222222222222222222222222222222222"
 	const creator = "0x3333333333333333333333333333333333333333"
@@ -154,5 +162,94 @@ func TestChainRegistryAndRevenuePages(t *testing.T) {
 	}
 	if _, err := st.LaunchedChain(ctx, 7); err == nil {
 		t.Fatal("chain detail ignored unavailable registry")
+	}
+}
+
+func chainRevenueOrderStore(t *testing.T) (*store.Store, string) {
+	t.Helper()
+	st, db := chainRegistryAndRevenueStore(t)
+	ctx := context.Background()
+	const holder = "0x4444444444444444444444444444444444444444"
+	const txHash = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.chain_revenue_epochs(chain,epoch,amount,snapshot_block,eligible_supply,opened_block)
+		VALUES(7,9,'90',42,'1000',42),(7,10,'100',42,'1000',42),(7,11,'110',42,'1000',42),
+		(8,12,'120',42,'1000',42)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.chain_revenue_claims(chain,epoch,holder,amount,block_number,tx_hash)
+		VALUES(7,9,$1,'9',43,$2),(7,10,$1,'10',43,$2),(7,11,$1,'11',43,$2),
+		(8,12,$1,'12',43,$2),(7,10,'0x5555555555555555555555555555555555555555','50',43,$2)`, holder, txHash); err != nil {
+		t.Fatal(err)
+	}
+	return st, holder
+}
+
+func TestChainRevenueOrderPassesTen(t *testing.T) {
+	st, _ := chainRevenueOrderStore(t)
+	ctx := context.Background()
+	page, err := st.ChainRevenue(ctx, 7, "", 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 3 || page.SnapshotID != "11:3" || len(page.Epochs) != 3 || len(page.Claims) != 0 {
+		t.Fatalf("revenue page: %+v", page)
+	}
+	for offset, epoch := range []string{"11", "10", "9"} {
+		if page.Epochs[offset].Epoch != epoch {
+			t.Fatalf("epoch %d = %s, want %s", offset, page.Epochs[offset].Epoch, epoch)
+		}
+		single, err := st.ChainRevenue(ctx, 7, "", 1, offset)
+		if err != nil || single.Total != 3 || single.SnapshotID != page.SnapshotID || len(single.Epochs) != 1 || single.Epochs[0].Epoch != epoch {
+			t.Fatalf("epoch offset %d: %+v, %v", offset, single, err)
+		}
+	}
+}
+
+func TestChainRevenueOrderOfClaims(t *testing.T) {
+	st, holder := chainRevenueOrderStore(t)
+	ctx := context.Background()
+	page, err := st.ChainRevenue(ctx, 7, holder, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Epochs) != 3 || len(page.Claims) != 3 {
+		t.Fatalf("holder revenue page: %+v", page)
+	}
+	for offset, epoch := range []string{"11", "10", "9"} {
+		claim := page.Claims[offset]
+		if claim.Epoch != epoch || claim.Amount != epoch || claim.Holder != holder || page.Epochs[offset].Epoch != epoch {
+			t.Fatalf("claim %d: %+v, want epoch %s for %s", offset, claim, epoch, holder)
+		}
+		single, err := st.ChainRevenue(ctx, 7, holder, 1, offset)
+		if err != nil || len(single.Epochs) != 1 || single.Epochs[0].Epoch != epoch || len(single.Claims) != 1 || single.Claims[0] != claim {
+			t.Fatalf("claim offset %d: %+v, %v", offset, single, err)
+		}
+	}
+}
+
+func TestChainRegistryOrderPassesTen(t *testing.T) {
+	st, db := chainRegistryAndRevenueStore(t)
+	ctx := context.Background()
+	if _, err := db.Exec(ctx, `INSERT INTO indexer.launched_chains(chain,chain_id,pool,token,fee_right,creator,block_number,tx_hash,status)
+		SELECT chain,125,pool,'0x2222222222222222222222222222222222222222','9','0x3333333333333333333333333333333333333333',block_number,
+		'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','active'
+		FROM (VALUES (9,10,'0x1111111111111111111111111111111111111111'),
+		(10,10,'0x2222222222222222222222222222222222222222'),
+		(11,9,'0x3333333333333333333333333333333333333333'),
+		(12,11,'0x4444444444444444444444444444444444444444')) AS chains(chain,block_number,pool)`); err != nil {
+		t.Fatal(err)
+	}
+	page, err := st.LaunchedChains(ctx, 10, 0)
+	if err != nil || page.Total != 4 || len(page.Items) != 4 {
+		t.Fatalf("chain registry page: %+v, %v", page, err)
+	}
+	for offset, chain := range []string{"12", "10", "9", "11"} {
+		if page.Items[offset].Chain != chain {
+			t.Fatalf("chain %d = %s, want %s", offset, page.Items[offset].Chain, chain)
+		}
+		single, err := st.LaunchedChains(ctx, 1, offset)
+		if err != nil || len(single.Items) != 1 || single.Items[0].Chain != chain {
+			t.Fatalf("chain offset %d: %+v, %v", offset, single, err)
+		}
 	}
 }
