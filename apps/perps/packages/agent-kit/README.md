@@ -54,6 +54,25 @@ Tool monetary inputs are exact decimal strings, without units or exponent notati
 
 Every tool has a strict input schema and a description available through MCP `tools/list`. Read tools are marked read-only; write tools are marked destructive and non-idempotent. A withdrawal goes from the trading account into the agent wallet. The owner uses the owner sweep route to collect those funds.
 
+## Connect from the workspace
+
+Select an agent on the portfolio Agents page to copy its MCP client configuration
+and follow the three connection steps. Replace `<path-to-agent-key-file>` with the
+path of that agent's seed file on the client machine; the page does not read the
+file or receive its contents. Keep the selected DID's label and key together.
+
+The web application serves `/agents/interface.json` as public JSON containing the
+package name and version, launch command, environment names, tool descriptions
+and JSON input schemas, completed with the workspace's public wallet gateway,
+node, data gateway, chain and venue contract configuration. It needs no session
+cookie. The address-free package description is available without configuring a
+gateway or loading a key:
+
+```ts
+import { describeAgentInterface } from "@paxeer-network/agent-kit/interface";
+const description = describeAgentInterface();
+```
+
 Orders use deposited trading collateral. Limits and stop limits require a nonzero bytes16 `clientOrderId` and support `GTC`, `IOC`, `FOK` and `POST_ONLY`. Market orders use a fresh on-chain quote, IOC, and the backend's 0.5% slippage bound and 60-second deadline. TP/SL prices default to zero for new orders; zero clears a side in `set_tpsl`. Partial closes use `fractionBps` strictly between 0 and 10000, where 2500 closes a quarter.
 
 Before a trading request is signed, chain configuration checks enforce lot size, tick size, market and notional-tier leverage, enabled markets for new orders, and the configured open-interest ceiling for individual order notional. Bound refusals name the bound and carry its raw value. Position and order actions check wallet ownership. The gateway also simulates calls and applies its owner policy and margin checks.
