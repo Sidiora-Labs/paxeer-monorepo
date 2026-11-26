@@ -214540,7 +214540,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1234]
 title = "Tell an agent how to join the launchpad: a connect section on the agents page and one document for agents the web application serves, built from the agent kit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1221", "22.39.1222"]
