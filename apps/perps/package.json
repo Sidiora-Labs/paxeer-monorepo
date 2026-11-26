@@ -10,7 +10,8 @@
     "typecheck": "pnpm --filter @sidioralabs/chainflow-data-gateway build && tsc --noEmit -p apps/web/tsconfig.json",
     "check:ui": "node scripts/check-ui-source.mjs",
     "test": "node --test --import tsx tests/*.test.ts",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "start:agent": "pnpm --filter @paxeer-network/agent-kit start:mcp"
   },
   "devDependencies": {
     "@babel/core": "7.29.6",
@@ -61,7 +62,8 @@
     "viem": "^2.26.3",
     "vitest": "4.1.0",
     "ws": "8.21.0",
-    "yaml": "2.9.0"
+    "yaml": "2.9.0",
+    "@paxeer-network/agent-kit": "workspace:*"
   },
   "overrides": {
     "@types/minimatch": "5.1.2",
