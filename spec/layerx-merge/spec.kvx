@@ -182199,7 +182199,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1246]
 title = "Repair the lists Top gainers and Top losers, the digits of the prices, the cut column of the market list, the empty control of the header and the empty chart frames of the trading workspace, and say on the agents page how the two ways to connect relate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
