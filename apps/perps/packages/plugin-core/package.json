@@ -21,7 +21,7 @@
     "@paxeer-network/core": "workspace:*",
     "@paxeer-network/types": "workspace:*",
     "@paxeer-network/utils": "workspace:*",
-    "react-error-boundary": "^4.0.13"
+    "react-error-boundary": "^6.1.6"
   },
   "devDependencies": {
     "@types/react": "^18.2.38",
