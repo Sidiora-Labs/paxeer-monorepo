@@ -160,6 +160,7 @@ func (f nativeSettlementFixture) bind(t *testing.T, ctx context.Context, tx pgx.
 }
 
 func TestNativeSettlementHolderLookups(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	fixture := newNativeSettlementFixture(t, ctx)
 	for _, tc := range []struct {
@@ -243,6 +244,7 @@ func TestNativeSettlementHolderLookups(t *testing.T) {
 }
 
 func TestNativeSettlementHolderLiveRebuild(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	fixture := newNativeSettlementFixture(t, ctx)
 	fill, receipt := fixture.nativeBuy(t)

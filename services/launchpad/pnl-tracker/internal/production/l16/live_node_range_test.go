@@ -94,6 +94,7 @@ func liveNodeFilter(t *testing.T, request liveNodeRequest) (int64, int64) {
 }
 
 func TestLiveNodeRangeRPC(t *testing.T) {
+	parallelDatabaseTest(t)
 	fixture := newLocalCanonicalFixture(t, "incremental")
 	ctx, a := fixture.ctx, fixture.authority
 	admin, err := pgxpool.New(ctx, fixture.db.AdminDSN)
@@ -378,6 +379,7 @@ func TestLiveNodeRangeRPC(t *testing.T) {
 }
 
 func TestLiveNodeRangeContinuation(t *testing.T) {
+	parallelDatabaseTest(t)
 	fixture := newLocalCanonicalFixture(t, "incremental")
 	ctx, a := fixture.ctx, fixture.authority
 	admin, err := pgxpool.New(ctx, fixture.db.AdminDSN)

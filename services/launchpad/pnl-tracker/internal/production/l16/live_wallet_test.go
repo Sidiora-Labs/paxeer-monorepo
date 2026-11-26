@@ -53,6 +53,7 @@ func inventoryIdentityFixture(t *testing.T, wallet string) (auth.HTTPIdentityAut
 }
 
 func TestLiveWalletEnrollmentReplayAndCancellation(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	service, pool := recordedRebuildService(t, ctx)

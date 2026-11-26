@@ -3,7 +3,6 @@ package l16
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"strconv"
 	"testing"
 
@@ -12,27 +11,30 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 )
 
-func liveRequired(t *testing.T, name string) string {
+type liveFixtureValues map[string]string
+
+func (values liveFixtureValues) required(t *testing.T, name string) string {
 	t.Helper()
-	value := os.Getenv(name)
+	value := values[name]
 	if value == "" {
 		t.Fatalf("%s required for real PostgreSQL/committed Anvil/identity provider qualification", name)
 	}
 	return value
 }
 
-func liveProductionFixture(t *testing.T, prefix string) (context.Context, *LiveTransferWorker, auth.IdentityPrincipal) {
+func liveProductionFixture(t *testing.T, prefix string) (context.Context, *LiveTransferWorker, auth.IdentityPrincipal, liveFixtureValues) {
 	t.Helper()
 	return localCanonicalWorker(t, prefix)
 }
 
 func TestLiveCanonicalExternalGiftPublishesAtomicUnknownBasis(t *testing.T) {
-	ctx, worker, p := liveProductionFixture(t, "L16_GIFT_")
+	parallelDatabaseTest(t)
+	ctx, worker, p, values := liveProductionFixture(t, "L16_GIFT_")
 	summary, e := worker.RebuildOwned(ctx, p)
 	if e != nil {
 		t.Fatal(e)
 	}
-	token := liveRequired(t, "L16_GIFT_TOKEN")
+	token := values.required(t, "L16_GIFT_TOKEN")
 	a := worker.service.authority
 	var positionRaw []byte
 	if e = a.pool.QueryRow(ctx, `SELECT payload FROM `+a.table("portfolio_snapshot_rows")+` WHERE snapshot_id=$1 AND payload->>'tokenAddress'=$2`, summary.SnapshotID, token).Scan(&positionRaw); e != nil {
@@ -81,12 +83,13 @@ func TestLiveCanonicalExternalGiftPublishesAtomicUnknownBasis(t *testing.T) {
 }
 
 func TestLiveDenseCanonicalTransfersUseCommittedReceiptPages(t *testing.T) {
-	ctx, worker, p := liveProductionFixture(t, "L16_DENSE_")
+	parallelDatabaseTest(t)
+	ctx, worker, p, values := liveProductionFixture(t, "L16_DENSE_")
 	summary, e := worker.RebuildOwned(ctx, p)
 	if e != nil {
 		t.Fatal(e)
 	}
-	expected, e := strconv.Atoi(liveRequired(t, "L16_DENSE_EXPECTED_HISTORY_COUNT"))
+	expected, e := strconv.Atoi(values.required(t, "L16_DENSE_EXPECTED_HISTORY_COUNT"))
 	if e != nil || expected <= 10000 {
 		t.Fatal("dense fixture must contain more than10000 genuine canonical token movements", e)
 	}
@@ -96,7 +99,7 @@ func TestLiveDenseCanonicalTransfersUseCommittedReceiptPages(t *testing.T) {
 		t.Fatal(count, expected, e)
 	}
 	var checkpointRaw []byte
-	if e = a.pool.QueryRow(ctx, `SELECT c.payload FROM `+a.table("inventory_l16_checkpoints_v2")+` c JOIN `+a.table("inventory_l16_active_v2")+` active USING(generation,partition,snapshot_digest) WHERE active.partition=$1 ORDER BY c.day DESC LIMIT 1`, "125:"+p.Wallet+":"+liveRequired(t, "L16_DENSE_TOKEN")).Scan(&checkpointRaw); e != nil {
+	if e = a.pool.QueryRow(ctx, `SELECT c.payload FROM `+a.table("inventory_l16_checkpoints_v2")+` c JOIN `+a.table("inventory_l16_active_v2")+` active USING(generation,partition,snapshot_digest) WHERE active.partition=$1 ORDER BY c.day DESC LIMIT 1`, "125:"+p.Wallet+":"+values.required(t, "L16_DENSE_TOKEN")).Scan(&checkpointRaw); e != nil {
 		t.Fatal(e)
 	}
 	var payload struct {
@@ -108,12 +111,13 @@ func TestLiveDenseCanonicalTransfersUseCommittedReceiptPages(t *testing.T) {
 }
 
 func TestLiveCanonicalMixedBasisSaleDoesNotDoubleCountTransfer(t *testing.T) {
-	ctx, worker, p := liveProductionFixture(t, "L16_MIXED_")
+	parallelDatabaseTest(t)
+	ctx, worker, p, values := liveProductionFixture(t, "L16_MIXED_")
 	summary, e := worker.RebuildOwned(ctx, p)
 	if e != nil {
 		t.Fatal(e)
 	}
-	active, e := worker.service.Active(ctx, p.Wallet, liveRequired(t, "L16_MIXED_TOKEN"))
+	active, e := worker.service.Active(ctx, p.Wallet, values.required(t, "L16_MIXED_TOKEN"))
 	if e != nil {
 		t.Fatal(e)
 	}

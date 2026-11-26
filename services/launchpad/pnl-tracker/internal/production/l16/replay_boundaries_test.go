@@ -195,6 +195,7 @@ func inventoryDisagreeingNode(t *testing.T) *ethclient.Client {
 }
 
 func TestInventoryQuarantinesCommittedNodeDisagreement(t *testing.T) {
+	parallelDatabaseTest(t)
 	for _, live := range []bool{false, true} {
 		t.Run(map[bool]string{false: "archive", true: "enrolled wallet"}[live], func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

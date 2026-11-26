@@ -14,6 +14,7 @@ import (
 )
 
 func TestRebuiltHistoryCancellationPreservesPublishedSnapshot(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	snapshot, err := s.Rebuild(ctx, realMarketCreator, realMarketToken, 33963733)
@@ -120,6 +121,7 @@ func TestRebuiltHistoryCancellationPreservesPublishedSnapshot(t *testing.T) {
 }
 
 func TestParityQuarantineCancellationDoesNotPublish(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, tracer := inventoryCancelableService(t)
 	pool := s.authority.pool
