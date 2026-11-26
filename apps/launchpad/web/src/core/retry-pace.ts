@@ -94,7 +94,7 @@ export class ResourceRetryPace {
         signal?.removeEventListener('abort', abort);
         if (--references.count === 0 && this.references.get(key) === references) {
           this.references.delete(key);
-          if (queries.getQueryState(queryKey)?.fetchStatus === 'fetching') void queries.cancelQueries({ queryKey, exact: true });
+          queries.removeQueries({ queryKey, exact: true });
         }
         return true;
       };
