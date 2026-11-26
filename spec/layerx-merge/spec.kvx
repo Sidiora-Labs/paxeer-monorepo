@@ -214302,7 +214302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1264]
 title = "Sort the latest portfolio snapshot of a wallet by the number of its revision in the pnl service of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
