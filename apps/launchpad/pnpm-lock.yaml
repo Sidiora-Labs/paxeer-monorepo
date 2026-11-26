@@ -289,6 +289,9 @@ importers:
 
   web:
     dependencies:
+      '@kindle/agent-kit':
+        specifier: workspace:*
+        version: link:../../../sdk/launchpad/packages/agent-kit
       '@kindle/sdk':
         specifier: workspace:*
         version: link:../../../sdk/launchpad/packages/sdk

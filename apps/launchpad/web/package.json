@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@kindle/agent-kit": "workspace:*",
     "@kindle/sdk": "workspace:*",
     "@kindle/sdk-v2": "workspace:*",
     "@react-native-async-storage/async-storage": "^3.1.1",

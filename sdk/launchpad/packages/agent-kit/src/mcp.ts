@@ -2,14 +2,25 @@
 import { readFile, stat } from 'node:fs/promises';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { LaunchpadAgentKit } from './kit.js';
 import { requireThat } from './errors.js';
-import { TOOL_NAMES, TOOL_SCHEMAS, TOOL_DESCRIPTIONS, invokeTool } from './tools.js';
+import { TOOL_NAMES, TOOL_SCHEMAS, TOOL_DESCRIPTIONS, invokeTool, type ToolName } from './tools.js';
+import { AGENT_KIT_PACKAGE, AGENT_KIT_ENVIRONMENT, agentInterfaceDescription } from './interface.js';
+
+function toolAnnotations(name: ToolName) {
+  return {
+    readOnlyHint: !['buy', 'sell', 'launch', 'provision_agent'].includes(name),
+    destructiveHint: ['buy', 'sell', 'launch'].includes(name),
+    idempotentHint: !['buy', 'sell', 'launch', 'provision_agent'].includes(name),
+    openWorldHint: true,
+  };
+}
 
 async function main(): Promise<void> {
-  const gatewayUrl = process.env.KINDLE_GATEWAY_URL;
-  const dataUrl = process.env.KINDLE_DATA_URL;
-  const keyFile = process.env.KINDLE_AGENT_KEY_FILE;
+  const gatewayUrl = process.env[AGENT_KIT_ENVIRONMENT.gatewayUrl];
+  const dataUrl = process.env[AGENT_KIT_ENVIRONMENT.dataUrl];
+  const keyFile = process.env[AGENT_KIT_ENVIRONMENT.keyFile];
   requireThat(gatewayUrl && dataUrl && keyFile, 'missing_configuration');
   const info = await stat(keyFile);
   requireThat(
@@ -32,19 +43,14 @@ async function main(): Promise<void> {
     privateKey: Buffer.from(config.seedHex, 'hex'),
     ...(typeof config.label === 'string' ? { label: config.label } : {}),
   });
-  const server = new McpServer({ name: 'kindle-agent-kit', version: '0.1.0' });
+  const server = new McpServer(AGENT_KIT_PACKAGE);
   for (const name of TOOL_NAMES) {
     server.registerTool(
       name,
       {
         description: TOOL_DESCRIPTIONS[name],
         inputSchema: TOOL_SCHEMAS[name],
-        annotations: {
-          readOnlyHint: !['buy', 'sell', 'launch', 'provision_agent'].includes(name),
-          destructiveHint: ['buy', 'sell', 'launch'].includes(name),
-          idempotentHint: !['buy', 'sell', 'launch', 'provision_agent'].includes(name),
-          openWorldHint: true,
-        },
+        annotations: toolAnnotations(name),
       },
       async (args: unknown) => {
         const result = await invokeTool(kit, name, args);
@@ -55,6 +61,9 @@ async function main(): Promise<void> {
       },
     );
   }
+  server.server.setRequestHandler(ListToolsRequestSchema, () => ({
+    tools: agentInterfaceDescription().tools.map(tool => ({ ...tool, annotations: toolAnnotations(tool.name) })),
+  }));
   await server.connect(new StdioServerTransport());
 }
 
