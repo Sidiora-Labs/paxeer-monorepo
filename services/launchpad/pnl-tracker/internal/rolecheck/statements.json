@@ -2594,13 +2594,12 @@
       "indexer.indexer_accounting_fills_v1"
     ],
     "sequences": [],
-    "functions": [
-      "pg_catalog.count"
-    ],
+    "functions": [],
     "columns": [
-      "payload"
+      "payload",
+      "source_fact_digest"
     ],
-    "sha256": "80c93000d4eabc2323fc294fa3dfc80eed1cc476657be6649dc7114f108d6062"
+    "sha256": "6db0c1805268d38990c3d66e6dba14e316448eb295cd145ac2a1b61d4540d44a"
   },
   {
     "id": "internal/production/l16/service.go:Service.commitRebuiltHistoryTx:1",
