@@ -1,12 +1,5 @@
 import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
-/**
- * The real LeaderboardView against a real local HTTP origin that serves none
- * of the cup, ranking or feed routes (404 everywhere, as on a box with no
- * backend). Checks the parity structure survives: the cup hero frame always
- * renders with the period control inside it and no prize figure, the cup
- * segment is disabled and ?period=cup falls back to the day board, and Best
- * callouts is a column at xl but a fourth tab below it.
- */
+/** Ranking periods and responsive callouts stay available beside the compact competition state. */
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -86,7 +79,7 @@ const classesOf = (root: ParentNode) => Array.from(root.querySelectorAll('[class
 afterAll(() => new Promise<void>(resolve => server.close(() => resolve())));
 
 describe('leaderboard view without a backend', () => {
-  it('keeps the cup hero frame with the period control inside it while loading and after the cup route 404s', async () => {
+  it('keeps the period control above a compact competition state while loading and after an absent cup', async () => {
     const view = mount(1440);
     const loading = hero(view.container);
     expect(loading).not.toBeNull();
@@ -96,13 +89,14 @@ describe('leaderboard view without a backend', () => {
     await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
     expect(seen.some(url => url.startsWith('/v2/cups/current'))).toBe(true);
     const frame = hero(view.container)!;
-    expect(frame.className).toContain('md:before:aspect-[16/7]');
+    expect(frame.className).toBe('flex min-w-0 flex-col gap-3');
     const control = frame.querySelector('[role=radiogroup][aria-label="Ranking period"]')!;
     expect(control.querySelectorAll('[role=radio]')).toHaveLength(4);
     expect(control.querySelector<HTMLButtonElement>('[aria-label="Competition"]')!.disabled).toBe(true);
     expect(control.querySelector('[aria-checked="true"]')!.textContent).toBe('1D');
     expect(frame.textContent).toContain('No competition scheduled');
-    expect(frame.textContent).toContain('No prize pool announced');
+    expect(frame.querySelectorAll('h2')).toHaveLength(1);
+    expect(frame.querySelector('details, [role=alert], [data-state=unavailable]')).toBeNull();
     // Nothing fabricated: no USDL figure and no digits in the unavailable frame beyond the segment labels.
     expect(frame.textContent).not.toContain('USDL');
     expect(frame.textContent!.replace(/1[DWM]/g, '')).not.toMatch(/\d/);
@@ -119,7 +113,7 @@ describe('leaderboard view without a backend', () => {
     const rail = view.container.querySelector('aside[aria-label="Best callouts"]');
     expect(rail).not.toBeNull();
     expect(rail!.closest('[role=tabpanel]')).toBeNull();
-    expect(rail!.parentElement!.className).toContain('[&>aside>div:first-child_h2]:text-xl');
+    expect(rail!.parentElement!.className).toContain('[&>aside>div:first-child_h2]:text-md');
     unmount(view);
   });
 
@@ -137,7 +131,7 @@ describe('leaderboard view without a backend', () => {
     unmount(view);
   });
 
-  it('keeps the hero first on a phone, with the control, the unavailable chip and the rules row inside it', async () => {
+  it('keeps the period control and one neutral empty form first on a phone', async () => {
     const view = mount(390);
     expect(tabNames(view.container)).toEqual(['Traders', 'Squads', 'Rewards', 'Best callouts']);
     await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
@@ -145,8 +139,10 @@ describe('leaderboard view without a backend', () => {
     const panel = view.container.querySelector('#leaderboard-panel-traders')!;
     expect(panel.firstElementChild).toBe(frame);
     expect(frame.querySelector('[role=radiogroup][aria-label="Ranking period"]')).not.toBeNull();
-    expect(frame.querySelector('[data-state="unavailable"]')).not.toBeNull();
-    expect(frame.textContent).toContain('Schedule, scoring, eligibility and rules');
+    expect(frame.querySelector('[data-state="unavailable"], [role="alert"], details')).toBeNull();
+    expect(frame.textContent).toContain('Prizes and results show up here once cups start');
+    expect(frame.querySelectorAll('h2')).toHaveLength(1);
+    expect(frame.querySelector('button:not([role=radio])')).toBeNull();
     expect(frame.className).not.toContain('overflow-hidden');
     expect(view.container.querySelector('aside[aria-label="Best callouts"]')).toBeNull();
     unmount(view);

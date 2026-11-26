@@ -44,7 +44,7 @@ export function CupRulesDisclosure({ cup, className }: CupRulesDisclosureProps) 
           </thead>
           <tbody>
             {[...cup.prizeLadder].sort((a, b) => a.rank - b.rank).map(tier => (
-              <tr key={tier.rank} className="odd:bg-surface-3">
+              <tr key={tier.rank} className="sl-hairline">
                 <th scope="row" className="h-9 px-2 text-left font-semibold text-text-muted">#{tier.rank}</th>
                 <td className="h-9 px-2 text-right font-bold tabular-nums text-text" data-numeric>{formatUsdl(tier.amountRaw, { fractionDigits: 0 })}</td>
               </tr>

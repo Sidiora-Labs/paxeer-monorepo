@@ -280,9 +280,10 @@ async function leadersWithoutCompetitionsShowTheirTextWithoutRetry() {
   await advance(0);
   const hero = view.container.querySelector('[data-cup-state="unsupported"]');
   expect(hero).not.toBeNull();
-  expect(hero!.textContent).toContain('Competitions are not available yet');
+  expect(hero!.textContent).toContain('Prizes and results show up here once cups start');
   expect(hero!.textContent).toContain('No competition scheduled');
   expect(hero!.textContent).not.toContain('Try again');
+  expect(hero!.querySelector('button:not([role="radio"])')).toBeNull();
 }
 test(leadersWithoutCompetitionsShowTheirTextWithoutRetry.name, leadersWithoutCompetitionsShowTheirTextWithoutRetry);
 

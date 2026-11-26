@@ -1537,7 +1537,7 @@
       "ready": [
         {
           "action": "press",
-          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders table tbody tr[data-rank=\"1\"])",
           "key": "Shift"
         },
         {
@@ -1658,7 +1658,7 @@
       "ready": [
         {
           "action": "press",
-          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders table tbody tr[data-rank=\"1\"])",
           "key": "Shift"
         },
         {
@@ -1731,7 +1731,7 @@
       "ready": [
         {
           "action": "press",
-          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders table tbody tr[data-rank=\"1\"])",
           "key": "Shift"
         },
         {
@@ -2267,7 +2267,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
           "key": "Shift"
         },
         {

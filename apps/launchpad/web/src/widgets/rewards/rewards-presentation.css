@@ -1,0 +1,55 @@
+.rewards-presentation {
+  line-height: calc(var(--sl-leading-base) / var(--sl-text-base));
+}
+
+.rewards-presentation :where(*) {
+  line-height: inherit;
+}
+
+.rewards-presentation :is(.text-2xs) {
+  line-height: calc(var(--sl-leading-2xs) / var(--sl-text-2xs));
+}
+
+.rewards-presentation :is(.text-xs) {
+  line-height: calc(var(--sl-leading-xs) / var(--sl-text-xs));
+}
+
+.rewards-presentation :is(.text-sm) {
+  line-height: calc(var(--sl-leading-sm) / var(--sl-text-sm));
+}
+
+.rewards-presentation :is(.text-base) {
+  line-height: calc(var(--sl-leading-base) / var(--sl-text-base));
+}
+
+.rewards-presentation :is(.text-md) {
+  line-height: calc(var(--sl-leading-md) / var(--sl-text-md));
+}
+
+.rewards-presentation :is(.text-lg) {
+  line-height: calc(var(--sl-leading-lg) / var(--sl-text-lg));
+}
+
+.rewards-presentation :is(.text-xl) {
+  line-height: calc(var(--sl-leading-xl) / var(--sl-text-xl));
+}
+
+.rewards-presentation :is(.text-2xl) {
+  line-height: calc(var(--sl-leading-2xl) / var(--sl-text-2xl));
+}
+
+.rewards-presentation :is(.text-display) {
+  line-height: calc(var(--sl-leading-display) / var(--sl-text-display));
+}
+
+.rewards-presentation :is(.text-num-sm) {
+  line-height: calc(var(--sl-leading-num-sm) / var(--sl-text-num-sm));
+}
+
+.rewards-presentation :is(.text-num-md) {
+  line-height: calc(var(--sl-leading-num-md) / var(--sl-text-num-md));
+}
+
+.rewards-presentation [class~='text-[length:var(--sl-text-card-title)]'] {
+  line-height: calc(var(--sl-leading-md) / var(--sl-text-md));
+}

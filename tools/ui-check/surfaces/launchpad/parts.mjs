@@ -61,6 +61,7 @@ function checkRoutes(name, roots, surface) {
 
 checkRoutes('coin', ['coin', 'token', 'tokens'], parts.find((part) => part.name === 'coin').surface);
 checkRoutes('create', ['create'], parts.find((part) => part.name === 'create').surface);
+checkRoutes('rewards', ['leaderboard', 'rewards', 'holder-rewards', 'r'], parts.find((part) => part.name === 'rewards').surface);
 
 const seen = new Map();
 const sharedKeys = ['build', 'buildMs', 'start', 'address', 'readyPath', 'typeScale'];

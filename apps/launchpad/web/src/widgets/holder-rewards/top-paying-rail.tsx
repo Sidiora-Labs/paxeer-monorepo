@@ -19,7 +19,7 @@ export default function TopPayingRail({ rows, loading = false }: TopPayingRailPr
   return (
     <section aria-labelledby="top-paying-title" className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5 px-2">
-        <h2 id="top-paying-title" className="text-lg leading-[calc(var(--sl-leading-lg)/var(--sl-text-lg))] font-medium text-text">Top paying coins</h2>
+        <h2 id="top-paying-title" className="text-md font-semibold text-text">Top paying coins</h2>
         <p className="text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] text-text-muted">The coins that have paid their holders the most USDL</p>
       </div>
       {loading && top.length === 0 ? (
