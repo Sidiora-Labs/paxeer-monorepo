@@ -1661,13 +1661,10 @@ export function createReplayUdfDatafeed(
     sub.pending = [];
     sub.pendingBytes = 0;
     notify(sub, 'resync_required', reason);
-    sub.reset();
+    notify(sub, 'replaying', reason);
     schedulePoll(sub, true);
-    if (sub.retries >= 5) {
-      notify(sub, 'degraded', 'Live updates stopped, try again');
-      return;
-    }
-    const delay = Math.min(30000, 1000 * 2 ** sub.retries++);
+    const delay = Math.min(30000, 1000 * 2 ** sub.retries);
+    sub.retries = Math.min(sub.retries + 1, 5);
     sub.retryTimer = setTimeout(() => {
       sub.retryTimer = undefined;
       void recover(sub, false);
