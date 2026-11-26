@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @sidiora/web dev",
     "build": "pnpm --filter @sidiora/web build",
     "build:packages": "pnpm -r --filter '../../sdk/launchpad/packages/*' build",
+    "agent-kit": "pnpm --filter @kindle/agent-kit exec node dist/mcp.js",
     "lint": "pnpm --filter @sidiora/web lint"
   },
   "packageManager": "pnpm@9.15.0",
