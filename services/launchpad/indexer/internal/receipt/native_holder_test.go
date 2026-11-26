@@ -93,14 +93,14 @@ func TestNativeHolderAttributionRecordedSwaps(t *testing.T) {
 	}
 }
 
-func nativeHolderAttribute(t *testing.T, b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1) accounting.Attribution {
+func nativeHolderAttribute(t *testing.T, b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1, fills ...accounting.FillV1) accounting.Attribution {
 	t.Helper()
 	f.Attribution = accounting.Attribution{TransactionSender: f.Attribution.TransactionSender, Quality: "unavailable", Evidence: []accounting.EvidenceRef{}}
 	hash, err := digest(b.Receipt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return attribute(b, decoded, f, f.Attribution.TransactionSender, hash)
+	return attribute(b, decoded, f, f.Attribution.TransactionSender, hash, fills...)
 }
 
 func nativeHolderTransaction(b *Bundle, data []byte) {

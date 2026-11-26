@@ -361,11 +361,16 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 			}
 			f.Provenance.EmitterCodeEpoch = proof.EmitterCodeEpoch
 		}
-		f.Attribution = attribute(owned, decoded, f, sender, receiptDigest)
 		if err = accounting.ValidateFillV1(f); err != nil {
 			return nil, fmt.Errorf("%w: fill: %v", ErrQualification, err)
 		}
 		q.fills = append(q.fills, f)
+	}
+	for i := range q.fills {
+		q.fills[i].Attribution = attribute(owned, decoded, q.fills[i], sender, receiptDigest, q.fills...)
+		if err = accounting.ValidateFillV1(q.fills[i]); err != nil {
+			return nil, fmt.Errorf("%w: attributed fill: %v", ErrQualification, err)
+		}
 	}
 	markets := make([]decode.ActorMarketBinding, 0, len(q.fills))
 	byPool := map[common.Address]decode.ActorMarketBinding{}
@@ -477,12 +482,12 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 	}
 	f = accounting.FillV1{Version: accounting.FillVersion, Position: accounting.SourcePosition{ChainID: "125", Height: b.Header.Number.String(), TransactionIndex: strconv.FormatUint(lTxIndexUint64, 10), LogIndex: strconv.FormatUint(lIndexUint64, 10), TransactionHash: strings.ToLower(l.TxHash.Hex()), BlockHash: strings.ToLower(l.BlockHash.Hex())}, ActualEmitter: strings.ToLower(l.Address.Hex()), PoolAddress: strings.ToLower(pool.Hex()), Token: accounting.Asset{Address: strings.ToLower(meta.Token.Hex()), Decimals: meta.TokenDecimals}, Settlement: accounting.Asset{Address: strings.ToLower(meta.Settlement.Hex()), Decimals: meta.SettlementDecimals}, PaidInputRaw: input, FeeRaw: fee, InputDerivationQuality: "receipt_incomplete", Attribution: accounting.Attribution{TransactionSender: sender, Quality: valueUnavailable, Evidence: []accounting.EvidenceRef{}}, Execution: execution, Provenance: accounting.Provenance{DeploymentID: meta.DeploymentID, ABIRevision: meta.ABIRevision, EmitterCodeEpoch: meta.EmitterCodeEpoch, PoolCodeEpoch: meta.PoolCodeEpoch, ReceiptSHA256: hex.EncodeToString(receiptHash[:]), HeaderSHA256: hex.EncodeToString(headerHash[:])}, BlockTimestampSeconds: strconv.FormatUint(b.Header.Time, 10)}
 	if isBuy {
-		f.Side = "buy"
+		f.Side = valueBuy
 		f.TokenAmountRaw = output
 		f.USDLAmountRaw = input
 		f.FeeDisposition = "distributed_usdl"
 	} else {
-		f.Side = "sell"
+		f.Side = valueSell
 		f.TokenAmountRaw = input
 		f.USDLAmountRaw = output
 		f.FeeDisposition = "retained_token_reserve"
@@ -502,7 +507,10 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 	f.SourceFillID = accounting.SourceFillIdentity(f.Position, meta.DeploymentID)
 	return f, nil
 }
-func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1, sender string, receiptHash [32]byte) accounting.Attribution {
+func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1, sender string, receiptHash [32]byte, fills ...accounting.FillV1) accounting.Attribution {
+	if len(b.Transaction.Data()) == 164 {
+		return attributeRoutedSwap(b, decoded, f, sender, receiptHash, fills)
+	}
 	unavailable := f.Attribution
 	data := b.Transaction.Data()
 	to := b.Transaction.To()
@@ -519,7 +527,7 @@ func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1,
 		settlementHolder = decode.LaunchpadModuleAddress
 	}
 	inputHolder, outputHolder := settlementHolder, pool
-	if f.Side == "sell" {
+	if f.Side == valueSell {
 		name, actor, inKey, outKey = "Sell", "seller", "tokensIn", "usdlOut"
 		sig = "sell(address,uint256,uint256,uint256)"
 		inputAsset, outputAsset = outputAsset, inputAsset
