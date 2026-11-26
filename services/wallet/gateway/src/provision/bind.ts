@@ -11,7 +11,7 @@ import {
   serializeSignature,
   serializeTransaction,
   type Hex,
-  type TransactionSerializableEIP1559,
+  type TransactionSerializableEIP1559
 } from 'viem';
 import { publicKeyToAddress } from 'viem/accounts';
 import { GasStationClient, StationAdapterError } from '../sponsor/station.js';
@@ -22,7 +22,7 @@ import {
   sponsorQuoteDigest,
   type Authorisation,
   type SignPayload,
-  type ConstructionWire,
+  type ConstructionWire
 } from '../attestor/client.js';
 import { RpcPool, RpcResponseError } from '../rpc/pool.js';
 import { transactionHash } from '../chain.js';
@@ -43,7 +43,7 @@ import {
   verifyEd25519,
   bindLayerXCalldata,
   SIDIORA_TOKEN,
-  sponsoredBindAbi,
+  sponsoredBindAbi
 } from './protocol.js';
 export {
   ADDR_PRECOMPILE,
@@ -59,7 +59,7 @@ export {
   verifyEd25519,
   bindLayerXCalldata,
   SIDIORA_TOKEN,
-  sponsoredBindAbi,
+  sponsoredBindAbi
 } from './protocol.js';
 
 const ZERO32 = `0x${'00'.repeat(32)}` as Hex;
@@ -82,19 +82,19 @@ export async function readUnifiedAccount(
   const data = encodeFunctionData({
     abi: addrAbi,
     functionName: 'getUnifiedAccount',
-    args: [address],
+    args: [address]
   });
   const out = await rpc.request<Hex>('eth_call', [{ to: ADDR_PRECOMPILE, data }, 'latest']);
   const [evm, paxAddr, did, main] = decodeFunctionResult({
     abi: addrAbi,
     functionName: 'getUnifiedAccount',
-    data: out,
+    data: out
   });
   return {
     evm,
     paxAddr,
     didPublicKey: did === ZERO32 ? null : strip(did).toLowerCase(),
-    mainAccountId: main === ZERO32 ? null : strip(main).toLowerCase(),
+    mainAccountId: main === ZERO32 ? null : strip(main).toLowerCase()
   };
 }
 
@@ -102,13 +102,13 @@ export async function readBindNonce(rpc: RpcPool, address: `0x${string}`): Promi
   const data = encodeFunctionData({
     abi: addrAbi,
     functionName: 'layerXBindNonce',
-    args: [address],
+    args: [address]
   });
   const out = await rpc.request<Hex>('eth_call', [{ to: ADDR_PRECOMPILE, data }, 'latest']);
   return decodeFunctionResult({
     abi: addrAbi,
     functionName: 'layerXBindNonce',
-    data: out,
+    data: out
   });
 }
 
@@ -121,7 +121,7 @@ export async function readKernelAvailability(rpc: RpcPool): Promise<KernelAvaila
   } catch (err) {
     return {
       state: 'unavailable',
-      reason: `kernel bind nonce could not be read: ${(err as Error).message}`,
+      reason: `kernel bind nonce could not be read: ${(err as Error).message}`
     };
   }
 }
@@ -185,7 +185,7 @@ export class AttestorDaemonClient {
       tls: { cert: opts.cert, key: opts.key, ca: opts.ca },
       quorum: opts.quorum,
       timeoutMs: opts.timeoutMs,
-      healthIntervalMs: 5_000,
+      healthIntervalMs: 5_000
     });
   }
   close(): void {
@@ -203,7 +203,7 @@ export class AttestorDaemonClient {
       url: node.endpoint,
       nodeId: node.nodeId,
       ready: node.healthy,
-      lastError: node.lastError,
+      lastError: node.lastError
     }));
   }
   async generate(
@@ -216,7 +216,7 @@ export class AttestorDaemonClient {
       keyId,
       curve,
       owner,
-      ...(account ? { account } : {}),
+      ...(account ? { account } : {})
     });
     const pub = strip(generated.publicKey).toLowerCase();
     if (curve === 'secp256k1') {
@@ -235,7 +235,7 @@ export class AttestorDaemonClient {
   async sign(keyId: string, body: SignBody, bearerToken: string): Promise<SignedPayload> {
     return this.signAuthorized(keyId, body, {
       scheme: 'supabase_jwt',
-      token: bearerToken,
+      token: bearerToken
     });
   }
   async signAuthorized(
@@ -247,7 +247,7 @@ export class AttestorDaemonClient {
     return {
       signature: strip(result.signature),
       recoveryId: result.recoveryId,
-      signers: result.participants,
+      signers: result.participants
     };
   }
 }
@@ -267,7 +267,7 @@ export function attestorDaemonFromConfig(cfg: {
     key: readFileSync(cfg.ATTESTOR_CLIENT_KEY_FILE!),
     ca: readFileSync(cfg.ATTESTOR_CA_FILE!),
     quorum: cfg.ATTESTOR_QUORUM,
-    timeoutMs: cfg.ATTESTOR_TIMEOUT_MS,
+    timeoutMs: cfg.ATTESTOR_TIMEOUT_MS
   });
 }
 
@@ -306,10 +306,10 @@ export async function signTransactionWithAttestors(
   const signed = serializeTransaction(tx, {
     r: bytesToHex(raw.slice(0, 32)),
     s: bytesToHex(raw.slice(32, 64)),
-    yParity: out.recoveryId & 1,
+    yParity: out.recoveryId & 1
   });
   const recovered = await recoverTransactionAddress({
-    serializedTransaction: signed as `0x02${string}`,
+    serializedTransaction: signed as `0x02${string}`
   });
   if (getAddress(recovered) !== getAddress(address)) {
     throw new AttestorUnavailable('attestor transaction signature recovers another address');
@@ -323,13 +323,17 @@ export interface ChainReceipt {
   blockNumber: bigint;
 }
 
-export async function readReceipt(rpc: RpcPool, hash: Hex): Promise<ChainReceipt | null> {
+export async function readReceipt(
+  rpc: RpcPool,
+  hash: Hex,
+  committed = false
+): Promise<ChainReceipt | null> {
   const r = await rpc.sequencerReceipt(hash);
-  if (!r || r.rung === 'submitted') return null;
+  if (!r || r.rung === 'submitted' || (committed && r.rung !== 'committed')) return null;
   return {
     status: BigInt(r.status) === 1n ? 'success' : 'reverted',
     gasUsed: BigInt(r.gasUsed),
-    blockNumber: BigInt(r.rung === 'committed' ? r.blockNumber : r.height),
+    blockNumber: BigInt(r.rung === 'committed' ? r.blockNumber : r.height)
   };
 }
 
@@ -350,11 +354,12 @@ export async function waitForReceipt(
   rpc: RpcPool,
   hash: Hex,
   timeoutMs: number,
-  pollMs: number
+  pollMs: number,
+  committed = false
 ): Promise<ChainReceipt> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const r = await readReceipt(rpc, hash);
+    const r = await readReceipt(rpc, hash, committed);
     if (r) return r;
     if (Date.now() >= deadline)
       throw new Error(`transaction ${hash} has no receipt after ${timeoutMs} ms`);
@@ -385,7 +390,7 @@ export function bindLayerX(input: BindTransactionInput): TransactionSerializable
     data: bindLayerXCalldata(input.publicKey, input.signature),
     gas: input.gas,
     maxFeePerGas: input.maxFeePerGas,
-    maxPriorityFeePerGas: input.maxPriorityFeePerGas,
+    maxPriorityFeePerGas: input.maxPriorityFeePerGas
   };
 }
 
@@ -406,10 +411,10 @@ const stationQuote = z
         deadline: stationUint,
         quoteNonce: stationUint,
         gasCost: stationUint,
-        decimals: z.literal(6),
+        decimals: z.literal(6)
       })
       .strict(),
-    relayerSignature: z.string().regex(/^0x[0-9a-fA-F]{130}$/),
+    relayerSignature: z.string().regex(/^0x[0-9a-fA-F]{130}$/)
   })
   .strict();
 
@@ -435,7 +440,7 @@ export function provisioningStationConfig(): {
   return {
     paymaster: getAddress(paymaster.data),
     gasLimit: BigInt(gasLimit.data),
-    maxTokenAmount: BigInt(maximum.data),
+    maxTokenAmount: BigInt(maximum.data)
   };
 }
 
@@ -479,7 +484,7 @@ export async function sponsoredBindRequest(input: {
       encoded = await rpc.request<Hex>('eth_call', [
         { to: address, data },
         'pending',
-        { [address]: { code: delegateCode } },
+        { [address]: { code: delegateCode } }
       ]);
     } else {
       if (code.toLowerCase() !== `0xef0100${paymaster.slice(2).toLowerCase()}`)
@@ -491,14 +496,14 @@ export async function sponsoredBindRequest(input: {
     const nonce = decodeFunctionResult({
       abi: sponsoredBindAbi,
       functionName: 'nonce',
-      data: encoded,
+      data: encoded
     }).toString();
     const calls: SponsoredBindConstruction['batch']['calls'] = [
       {
         to: ADDR_PRECOMPILE,
         value: '0',
-        data: bindLayerXCalldata(input.publicKey, input.signature),
-      },
+        data: bindLayerXCalldata(input.publicKey, input.signature)
+      }
     ];
     const chainId = input.chainId.toString();
     const quoted = stationQuote.safeParse(
@@ -510,7 +515,7 @@ export async function sponsoredBindRequest(input: {
         gasCost: input.gasCost.toString(),
         chainId,
         token: SIDIORA_TOKEN,
-        decimals: 6,
+        decimals: 6
       })
     );
     if (!quoted.success) throw new StationAdapterError(502, 'gas_station_invalid_response');
@@ -537,14 +542,14 @@ export async function sponsoredBindRequest(input: {
         tokenAmount: quote.tokenAmount,
         deadline: quote.deadline,
         quoteNonce: quote.quoteNonce,
-        gasCost: quote.gasCost,
-      },
+        gasCost: quote.gasCost
+      }
     };
     if (
       getAddress(
         await recoverAddress({
           hash: sponsorQuoteDigest(construction),
-          signature: relayerSignature as Hex,
+          signature: relayerSignature as Hex
         })
       ) !== getAddress(quote.sponsor)
     )
@@ -557,7 +562,7 @@ export async function sponsoredBindRequest(input: {
     retained = {
       batch: { chainId, account: address, nonce, calls, quote },
       relayerSignature: relayerSignature as Hex,
-      authorization: { chainId, address: paymaster, nonce: accountNonce.toString() },
+      authorization: { chainId, address: paymaster, nonce: accountNonce.toString() }
     };
     await input.persist(retained);
   }
@@ -576,14 +581,14 @@ export async function sponsoredBindRequest(input: {
       tokenAmount: quote.tokenAmount,
       deadline: quote.deadline,
       quoteNonce: quote.quoteNonce,
-      gasCost: quote.gasCost,
-    },
+      gasCost: quote.gasCost
+    }
   };
   const authConstruction: ConstructionWire = {
     kind: 'eip7702_authorization',
     chainId: retained.authorization.chainId,
     address: retained.authorization.address,
-    nonce: retained.authorization.nonce,
+    nonce: retained.authorization.nonce
   };
   const signDigest = async (payload: SignBody, digest: Hex): Promise<Hex> => {
     const signed = await input.sign(payload);
@@ -593,7 +598,7 @@ export async function sponsoredBindRequest(input: {
     const signature = serializeSignature({
       r: bytesToHex(raw.slice(0, 32)),
       s: bytesToHex(raw.slice(32, 64)),
-      yParity: signed.recoveryId & 1,
+      yParity: signed.recoveryId & 1
     });
     if (getAddress(await recoverAddress({ hash: digest, signature })) !== getAddress(address))
       throw new AttestorUnavailable('attestor signature recovers another account');
@@ -616,7 +621,7 @@ export async function sponsoredBindRequest(input: {
     ...retained.authorization,
     yParity: auth.yParity!,
     r: auth.r,
-    s: auth.s,
+    s: auth.s
   };
   const call = {
     to: address,
@@ -628,7 +633,7 @@ export async function sponsoredBindRequest(input: {
         calls.map((call) => ({
           to: call.to,
           value: BigInt(call.value),
-          data: call.data,
+          data: call.data
         })),
         {
           sponsor: getAddress(quote.sponsor),
@@ -637,19 +642,19 @@ export async function sponsoredBindRequest(input: {
           tokenAmount: BigInt(quote.tokenAmount),
           deadline: BigInt(quote.deadline),
           quoteNonce: BigInt(quote.quoteNonce),
-          gasCost: BigInt(quote.gasCost),
+          gasCost: BigInt(quote.gasCost)
         },
         accountSignature,
-        relayerSignature as Hex,
-      ],
-    }),
+        relayerSignature as Hex
+      ]
+    })
   };
   return {
     call,
     authorization,
     batch: { chainId, account: address, nonce, calls, quote },
     accountSignature,
-    relayerSignature,
+    relayerSignature
   };
 }
 

@@ -7,7 +7,7 @@ import {
   formatTransactionReceipt,
   type AbiFunction,
   type Hex,
-  type PublicClient,
+  type PublicClient
 } from 'viem';
 import { z } from 'zod';
 import { hyperPaxeer } from './chain.js';
@@ -28,7 +28,7 @@ export function publicClient(): PublicClient {
   if (cached) return cached;
   cached = createPublicClient({
     chain: hyperPaxeer,
-    transport: http(env.HYPERPAXEER_RPC_URL),
+    transport: http(env.HYPERPAXEER_RPC_URL)
   });
   return cached;
 }
@@ -40,7 +40,7 @@ export const ERC20_ABI = [
     name: 'balanceOf',
     stateMutability: 'view',
     inputs: [{ name: 'owner', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }]
   },
   {
     type: 'function',
@@ -48,23 +48,23 @@ export const ERC20_ABI = [
     stateMutability: 'view',
     inputs: [
       { name: 'owner', type: 'address' },
-      { name: 'spender', type: 'address' },
+      { name: 'spender', type: 'address' }
     ],
-    outputs: [{ name: '', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }]
   },
   {
     type: 'function',
     name: 'decimals',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ name: '', type: 'uint8' }],
+    outputs: [{ name: '', type: 'uint8' }]
   },
   {
     type: 'function',
     name: 'symbol',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ name: '', type: 'string' }],
+    outputs: [{ name: '', type: 'string' }]
   },
   {
     type: 'function',
@@ -72,9 +72,9 @@ export const ERC20_ABI = [
     stateMutability: 'nonpayable',
     inputs: [
       { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
+      { name: 'amount', type: 'uint256' }
     ],
-    outputs: [{ name: '', type: 'bool' }],
+    outputs: [{ name: '', type: 'bool' }]
   },
   {
     type: 'function',
@@ -82,10 +82,10 @@ export const ERC20_ABI = [
     stateMutability: 'nonpayable',
     inputs: [
       { name: 'spender', type: 'address' },
-      { name: 'amount', type: 'uint256' },
+      { name: 'amount', type: 'uint256' }
     ],
-    outputs: [{ name: '', type: 'bool' }],
-  },
+    outputs: [{ name: '', type: 'bool' }]
+  }
 ] as const;
 
 /** Encode `transfer(to, amount)` calldata. */
@@ -109,7 +109,7 @@ export async function getErc20Balance(token: `0x${string}`, owner: `0x${string}`
     address: token,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: [owner],
+    args: [owner]
   }) as Promise<bigint>;
 }
 
@@ -123,7 +123,7 @@ export async function getErc20Allowance(
     address: token,
     abi: ERC20_ABI,
     functionName: 'allowance',
-    args: [owner, spender],
+    args: [owner, spender]
   }) as Promise<bigint>;
 }
 
@@ -143,7 +143,7 @@ export async function getErc20Metadata(token: `0x${string}`): Promise<Erc20Metad
     pc
       .readContract({ address: token, abi: ERC20_ABI, functionName: 'symbol' })
       .then((s) => String(s))
-      .catch(() => null),
+      .catch(() => null)
   ]);
   return { decimals, symbol };
 }
@@ -200,13 +200,13 @@ export async function resolveGas(req: ResolveGasRequest): Promise<ResolvedGas> {
       ? Promise.resolve(req.gas)
       : pc
           .estimateGas({ account: req.from, to: req.to, data: req.data, value: req.value })
-          .then(withGasHeadroom),
+          .then(withGasHeadroom)
   ]);
 
   return {
     gas: gasLimit,
     maxFeePerGas: req.maxFeePerGas ?? fees!.maxFeePerGas,
-    maxPriorityFeePerGas: req.maxPriorityFeePerGas ?? fees!.maxPriorityFeePerGas,
+    maxPriorityFeePerGas: req.maxPriorityFeePerGas ?? fees!.maxPriorityFeePerGas
   };
 }
 
@@ -241,7 +241,7 @@ export async function simulate(req: SimRequest): Promise<SimResult> {
       account: req.from,
       to: req.to,
       data: req.data,
-      value: req.value,
+      value: req.value
     });
     let gas: bigint | null = null;
     try {
@@ -249,7 +249,7 @@ export async function simulate(req: SimRequest): Promise<SimResult> {
         account: req.from,
         to: req.to,
         data: req.data,
-        value: req.value,
+        value: req.value
       });
     } catch {
       // Call succeeded but estimateGas hiccuped — still a "would succeed".
@@ -261,7 +261,7 @@ export async function simulate(req: SimRequest): Promise<SimResult> {
       ok: false,
       gas: null,
       returnData: null,
-      error: err instanceof Error ? err.message : 'call_failed',
+      error: err instanceof Error ? err.message : 'call_failed'
     };
   }
 }
@@ -279,11 +279,11 @@ const receiptObservation = z.object({
   status: z.enum(['0x0', '0x1']),
   blockNumber: observationQuantity,
   gasUsed: observationQuantity,
-  transactionHash: observationHash,
+  transactionHash: observationHash
 });
 const transactionObservation = z.object({
   hash: observationHash,
-  blockNumber: observationQuantity.nullable(),
+  blockNumber: observationQuantity.nullable()
 });
 
 export class ChainReadUnavailableError extends RpcUnavailableError {
@@ -307,7 +307,7 @@ export async function getReceipt(hash: Hex): Promise<TxReceiptSummary | null> {
     // the wire result first so a missing/invalid result cannot become absence.
     const raw = await publicClient().request({
       method: 'eth_getTransactionReceipt',
-      params: [hash],
+      params: [hash]
     });
     if (raw === null) return null;
     const observation = receiptObservation.parse(raw);
@@ -319,7 +319,7 @@ export async function getReceipt(hash: Hex): Promise<TxReceiptSummary | null> {
       status: r.status,
       block_number: r.blockNumber.toString(),
       gas_used: r.gasUsed.toString(),
-      tx_hash: r.transactionHash,
+      tx_hash: r.transactionHash
     };
   } catch (cause) {
     throw new ChainReadUnavailableError('eth_getTransactionReceipt', cause);
@@ -348,7 +348,7 @@ export type ReceiptOutcome =
  */
 export async function waitForReceipt(
   hash: Hex,
-  opts?: { confirmations?: number; timeoutMs?: number; pollMs?: number }
+  opts?: { confirmations?: number; timeoutMs?: number; pollMs?: number; committed?: boolean }
 ): Promise<ReceiptOutcome> {
   const confirmations = Math.max(1, opts?.confirmations ?? env.ACTION_CONFIRMATIONS);
   const timeoutMs = opts?.timeoutMs ?? env.ACTION_RECEIPT_TIMEOUT_MS;
@@ -377,10 +377,12 @@ export async function waitForReceipt(
               result.rung === 'committed' ? result.blockNumber : result.height
             ).toString(),
             gas_used: BigInt(result.gasUsed).toString(),
-            tx_hash: result.txHash,
+            tx_hash: result.txHash
           };
           if (receipt.status === 'reverted') return { state: 'reverted', receipt };
-          if (confirmations <= 1) return { state: 'confirmed', receipt };
+          if (confirmations <= 1 && (!opts?.committed || result.rung === 'committed')) {
+            return { state: 'confirmed', receipt };
+          }
           if (result.rung === 'committed') {
             const head = BigInt(await rpc.request<Hex>('eth_blockNumber'));
             if (head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations)) {
@@ -404,7 +406,7 @@ export async function isTxKnown(hash: Hex): Promise<boolean> {
   try {
     const raw = await publicClient().request({
       method: 'eth_getTransactionByHash',
-      params: [hash],
+      params: [hash]
     });
     if (raw !== null) {
       const observation = transactionObservation.parse(raw);

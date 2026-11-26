@@ -263,6 +263,7 @@ export function createAgentTools(
         collateralAmount,
         lev,
         input.isLong,
+        await gateway.walletAddress(),
       );
       if (
         quote.leverage !== lev ||
@@ -376,7 +377,10 @@ export function createAgentTools(
     tool(AGENT_TOOLS.close_position, async (input) => {
       const positionId = BigInt(input.positionId);
       const position = await ownedPosition(positionId);
-      const quote = await data.quoteClose(positionId);
+      const quote = await data.quoteClose(
+        positionId,
+        await gateway.walletAddress(),
+      );
       return executePlan(
         gateway,
         planClose({
@@ -397,6 +401,7 @@ export function createAgentTools(
       const [exitPrice] = await data.quotePartialClose(
         positionId,
         closeSizeUsd,
+        await gateway.walletAddress(),
       );
       return executePlan(
         gateway,
