@@ -214302,7 +214302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1270]
 title = "Show the USDL balance of the wallet in the pill beside Deposit in the header of the launchpad web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
