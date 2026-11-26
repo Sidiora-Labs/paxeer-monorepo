@@ -214255,7 +214255,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1251]
 title = "Draw the footer of the page of the agents once and set the controls of its state cards inside the centered block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1234"]
