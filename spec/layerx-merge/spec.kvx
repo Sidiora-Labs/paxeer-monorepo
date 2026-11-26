@@ -214089,7 +214089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1255]
 title = "Keep the market list and the header of a market of the trading web filled when the read of the market catalog is late or fails"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
