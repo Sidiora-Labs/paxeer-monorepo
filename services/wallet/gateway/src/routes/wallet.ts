@@ -94,14 +94,14 @@ interface UnifiedColumns {
 async function unifiedColumns(walletId: string): Promise<UnifiedColumns> {
   const { rows } = await getPool().query<UnifiedColumns>(
     `select did, main_account_id, binding_state from wallets where id = $1`,
-    [walletId],
+    [walletId]
   );
   return rows[0] ?? { did: null, main_account_id: null, binding_state: 'unbound' };
 }
 
 export async function walletRoutes(
   app: FastifyInstance,
-  opts: WalletRoutesOptions = {},
+  opts: WalletRoutesOptions = {}
 ): Promise<void> {
   const deps = (): ProvisionDeps | null =>
     opts.provision !== undefined ? opts.provision : provisionDepsFromEnv();
@@ -109,6 +109,12 @@ export async function walletRoutes(
   app.post('/v1/wallet/provision', { preHandler: requireAuth }, async (req, reply) => {
     reply.header('Cache-Control', 'no-store');
     const userId = req.user!.id;
+    const stage = z
+      .object({ stage: z.enum(['wallet', 'identity']).optional() })
+      .strict()
+      .safeParse(req.body ?? {});
+    if (!stage.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: stage.error.issues });
     try {
       const provision = deps();
       if (!provision) {
@@ -116,17 +122,21 @@ export async function walletRoutes(
           throw new ProvisionError(
             'attestors_unconfigured',
             503,
-            'identity provisioning requires configured attestors',
+            'identity provisioning requires configured attestors'
           );
         }
         const { wallet } = await provisionWalletForUser(userId, 'standard');
         return reply.send({ wallet, identityBinding: null });
       }
-      const out = await provisionAccount(provision, {
-        kind: 'standard',
-        userId,
-        token: bearerToken(req),
-      });
+      const out = await provisionAccount(
+        provision,
+        {
+          kind: 'standard',
+          userId,
+          token: bearerToken(req),
+        },
+        stage.data.stage
+      );
       const wallet = await findWalletByUserId(userId);
       const identityBinding = await produceIdentityBinding(provision, userId, out);
       return reply.send({
@@ -328,7 +338,7 @@ export interface WalletSponsorRoutesOptions {
 }
 export async function walletSponsorRoutes(
   app: FastifyInstance,
-  opts: WalletSponsorRoutesOptions = {},
+  opts: WalletSponsorRoutesOptions = {}
 ): Promise<void> {
   const station = new GasStationClient(opts.stationUrl);
   async function sequencerReceipt(hash: string | null) {

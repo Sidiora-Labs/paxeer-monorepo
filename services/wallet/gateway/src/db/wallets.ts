@@ -350,7 +350,7 @@ export interface CustodySigningAccount extends SigningAccount {
   lastAttestorResult(): SignResult | null;
 }
 
-export interface CustodyAuditContext {
+export interface CustodyAuditContext extends SignatureAccountingContext {
   subject: string;
   route: string;
   requestHash: string;

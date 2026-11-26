@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { LaunchpadAgentKit } from './kit.js';
-import { launchpadPreset } from './preset.js';
 import { AgentKitError, toolResult } from './errors.js';
 
 const address = z
@@ -97,6 +96,7 @@ export const TOOL_SCHEMAS = {
   agent_identity: z.object({}).strict(),
   provision_agent: z
     .object({
+      stage: z.enum(['wallet', 'identity']).optional(),
       bindSignature: z
         .string()
         .regex(/^(0x)?[0-9a-fA-F]{128}$/)
@@ -194,11 +194,13 @@ export async function invokeTool(kit: LaunchpadAgentKit, name: ToolName, input: 
       case 'action':
         return kit.gateway.action(TOOL_SCHEMAS.action.parse(input).actionId);
       case 'preset':
-        return launchpadPreset(defined(TOOL_SCHEMAS.preset.parse(input)));
+        return kit.preset(defined(TOOL_SCHEMAS.preset.parse(input)));
       case 'agent_identity':
         return kit.gateway.identity();
-      case 'provision_agent':
-        return kit.gateway.provision(TOOL_SCHEMAS.provision_agent.parse(input).bindSignature);
+      case 'provision_agent': {
+        const { bindSignature, stage } = TOOL_SCHEMAS.provision_agent.parse(input);
+        return kit.gateway.provision(bindSignature, stage);
+      }
       case 'claim_agent':
         return kit.gateway.claim(TOOL_SCHEMAS.claim_agent.parse(input).ownerUserId);
     }

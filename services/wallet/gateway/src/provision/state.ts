@@ -566,9 +566,10 @@ export function requireProvisionStation<T extends Pick<ProvisionDeps, 'station'>
 
 export async function provisionAccount(
   deps: ProvisionDeps,
-  subject: ProvisionSubject
+  subject: ProvisionSubject,
+  stage: 'wallet' | 'identity' = 'identity'
 ): Promise<ProvisionResult> {
-  requireProvisionStation(deps);
+  if (stage === 'identity') requireProvisionStation(deps);
   let userId: string;
   let kind: WalletKind;
   let principal: AgentPrincipal | null = null;
@@ -636,6 +637,9 @@ export async function provisionAccount(
         wallet.disabled_reason ?? 'wallet is disabled'
       );
     const address = getAddress(wallet.address);
+
+    if (stage === 'wallet') return result(row, wallet);
+    requireProvisionStation(deps);
 
     if (row.state === 'evm_key') {
       if (principal) {
