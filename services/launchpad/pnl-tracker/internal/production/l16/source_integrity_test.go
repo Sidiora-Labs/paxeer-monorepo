@@ -11,6 +11,7 @@ import (
 )
 
 func TestRecordedInventoryRejectsInconsistentIndexedSources(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	tests := []struct {
 		name, sql string
@@ -87,6 +88,7 @@ func TestRecordedInventoryRejectsInconsistentIndexedSources(t *testing.T) {
 }
 
 func TestRecordedReceiptRequiresCommittedFill(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	service, pool := recordedRebuildService(t, ctx)
 	var raw []byte

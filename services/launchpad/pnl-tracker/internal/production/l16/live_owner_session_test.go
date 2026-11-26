@@ -68,6 +68,7 @@ func (f liveOwnerSessionFixture) principalWithProofAge(t *testing.T, age time.Du
 }
 
 func TestLiveOwnerSessionEnrollmentPreservesProofTime(t *testing.T) {
+	parallelDatabaseTest(t)
 	f := newLiveOwnerSessionFixture(t)
 	for _, age := range []time.Duration{16 * time.Minute, 48 * time.Hour} {
 		t.Run(age.String(), func(t *testing.T) {
@@ -85,6 +86,7 @@ func TestLiveOwnerSessionEnrollmentPreservesProofTime(t *testing.T) {
 }
 
 func TestLiveOwnerSessionCommitsAgedProof(t *testing.T) {
+	parallelDatabaseTest(t)
 	f := newLiveOwnerSessionFixture(t)
 	p := f.principalWithProofAge(t, 48*time.Hour)
 	if err := f.worker.EnqueueOwned(f.ctx, p); err != nil {
@@ -105,6 +107,7 @@ func TestLiveOwnerSessionCommitsAgedProof(t *testing.T) {
 }
 
 func TestLiveOwnerSessionExpiryAndRevocation(t *testing.T) {
+	parallelDatabaseTest(t)
 	f := newLiveOwnerSessionFixture(t)
 	p := f.principalWithProofAge(t, time.Minute)
 	if err := f.worker.EnqueueOwned(f.ctx, p); err != nil {
@@ -137,6 +140,7 @@ func TestLiveOwnerSessionExpiryAndRevocation(t *testing.T) {
 }
 
 func TestLiveOwnerSessionMiddlewareRequiresRecentProofForWrites(t *testing.T) {
+	parallelDatabaseTest(t)
 	f := newLiveOwnerSessionFixture(t)
 	p := f.principalWithProofAge(t, 16*time.Minute)
 	calls := 0

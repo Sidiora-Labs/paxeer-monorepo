@@ -11,6 +11,7 @@ import (
 )
 
 func TestInventoryProviderReadAvailability(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	origin := coordinatorReplayRecordedRPC(t)
 	for _, action := range []string{"ordinary", "archive", "live", "baseline", "receipt", "live receipt", "mark"} {

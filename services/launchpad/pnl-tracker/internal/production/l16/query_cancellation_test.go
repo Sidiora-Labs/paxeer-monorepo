@@ -34,6 +34,7 @@ func inventoryCancelableService(t *testing.T) (*Service, *internaltest.QueryCanc
 }
 
 func TestInventoryDatabaseCancellationIsAtomic(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	for _, mode := range []string{"baseline", "ordinary", "archive", "live", "publish", "worker", "enroll", "cancel", "interval", "measurement"} {
 		t.Run(mode, func(t *testing.T) {
