@@ -181962,7 +181962,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1219]
 title = "Give sdk/wallet a typed client for the owner routes of an agent and a typed client for the agent routes of the wallet gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
