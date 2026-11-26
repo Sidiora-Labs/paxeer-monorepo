@@ -102,7 +102,7 @@ func TestPublicStatsOpeningPriceWindowBaseline(t *testing.T) {
 		quality string
 	}{
 		{"creation inside window", 5, "insufficient_history"},
-		{"creation at start", 299, "insufficient_history"},
+		{"creation at start", 276, "insufficient_history"},
 		{"creation before window", 86400, "complete"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestPublicStatsOpeningPriceWindowBaseline(t *testing.T) {
 			for i, change := range []*string{doc.PriceChangeBps24h, doc.PriceChangeBps5m, doc.PriceChangeBps1h, doc.PriceChangeBps6h} {
 				quality := []string{doc.ChangeBaselineQuality, doc.ChangeBaselineQuality5m, doc.ChangeBaselineQuality1h, doc.ChangeBaselineQuality6h}[i]
 				wantQuality := "insufficient_history"
-				if stamp-tc.age < stamp+1-[]int64{86400, 300, 3600, 21600}[i] {
+				if stamp-tc.age < time.Unix(stamp+60, 0).Truncate(publicStatsClockStep).Unix()-[]int64{86400, 300, 3600, 21600}[i] {
 					wantQuality = "complete"
 				}
 				if change == nil || *change != "98" || quality != wantQuality {

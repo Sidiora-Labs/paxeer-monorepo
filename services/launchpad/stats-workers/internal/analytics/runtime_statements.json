@@ -4106,7 +4106,7 @@
       "function": "PublicStatsProjector.refreshPage",
       "call": 1,
       "expression": "\"SELECT pg_advisory_xact_lock(hashtextextended($1,0))\"",
-      "line": 151,
+      "line": 152,
       "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       "kind": "SELECT",
       "tables": [],
@@ -4117,14 +4117,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.refreshPage",
       "call": 2,
       "expression": "\"SELECT clock_timestamp()\"",
-      "line": 164,
+      "line": 165,
       "sql": "SELECT clock_timestamp()",
       "kind": "SELECT",
       "tables": [],
@@ -4134,14 +4134,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_2",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.refreshPage",
       "call": 3,
       "expression": "\"SELECT pool,token,lower(creator),block_timestamp FROM \"+p.reads.source(\"indexer_canonical_creations_v1\")+\" WHERE height<=$1 AND pool>$2 ORDER BY pool LIMIT $3\"",
-      "line": 167,
+      "line": 168,
       "sql": "SELECT pool,token,lower(creator),block_timestamp FROM \"indexer\".\"indexer_canonical_creations_v1\" WHERE height<=$1 AND pool>$2 ORDER BY pool LIMIT $3",
       "kind": "SELECT",
       "tables": [
@@ -4159,14 +4159,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_3",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.anchorTx",
       "call": 1,
       "expression": "fmt.Sprintf(`SELECT height::text,transaction_index::text,log_index::text,transaction_hash,block_hash,block_timestamp FROM (\n SELECT t.height,t.transaction_index,t.log_index,t.payload->'position'->>'transactionHash' AS transaction_hash,t.payload->'position'->>'blockHash' AS block_hash,t.block_timestamp\n  FROM %[1]s.trade_facts t JOIN %[1]s.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index\n  WHERE t.projection_version=$1 AND t.height<=$2::numeric\n UNION ALL\n SELECT k.height::numeric,k.transaction_index::numeric,k.log_index::numeric,k.transaction_hash,k.block_hash,k.block_timestamp FROM %[2]s k WHERE k.height<=$2::bigint\n) a ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1`, schema, p.reads.source(\"indexer_canonical_creations_v1\"))",
-      "line": 259,
+      "line": 286,
       "sql": "SELECT height::text,transaction_index::text,log_index::text,transaction_hash,block_hash,block_timestamp FROM (\n SELECT t.height,t.transaction_index,t.log_index,t.payload->'position'->>'transactionHash' AS transaction_hash,t.payload->'position'->>'blockHash' AS block_hash,t.block_timestamp\n  FROM stats.trade_facts t JOIN stats.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index\n  WHERE t.projection_version=$1 AND t.height<=$2::numeric\n UNION ALL\n SELECT k.height::numeric,k.transaction_index::numeric,k.log_index::numeric,k.transaction_hash,k.block_hash,k.block_timestamp FROM \"indexer\".\"indexer_canonical_creations_v1\" k WHERE k.height<=$2::bigint\n) a ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1",
       "kind": "SELECT",
       "tables": [
@@ -4201,14 +4201,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.anchorTx",
       "call": 2,
       "expression": "\"SELECT EXISTS(SELECT 1 FROM \"+p.reads.source(\"indexer_block_completeness_v1\")+\" WHERE chain_id=125 AND stream_id=$1 AND height=$2::bigint AND block_hash=$3 AND fetch_complete AND required_decode_complete)\"",
-      "line": 278,
+      "line": 305,
       "sql": "SELECT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_block_completeness_v1\" WHERE chain_id=125 AND stream_id=$1 AND height=$2::bigint AND block_hash=$3 AND fetch_complete AND required_decode_complete)",
       "kind": "SELECT",
       "tables": [
@@ -4225,14 +4225,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_2",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.emittersTx",
       "call": 1,
       "expression": "\"SELECT DISTINCT fill->>'actualEmitter' FROM \"+p.reads.repository.schema+\".accounting_market_commits WHERE projection_version=$1 ORDER BY 1\"",
-      "line": 290,
+      "line": 317,
       "sql": "SELECT DISTINCT fill->>'actualEmitter' FROM stats.accounting_market_commits WHERE projection_version=$1 ORDER BY 1",
       "kind": "SELECT",
       "tables": [
@@ -4245,14 +4245,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.emittersTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.swapPriceTx",
       "call": 1,
       "expression": "\"SELECT emitter,block_hash,topics,data FROM \"+p.reads.source(\"indexer_raw_logs_v1\")+\" WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2::bigint AND height=$3::bigint AND transaction_index=$4::bigint\"",
-      "line": 420,
+      "line": 447,
       "sql": "SELECT emitter,block_hash,topics,data FROM \"indexer\".\"indexer_raw_logs_v1\" WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2::bigint AND height=$3::bigint AND transaction_index=$4::bigint",
       "kind": "SELECT",
       "tables": [
@@ -4272,14 +4272,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.swapPriceTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.syncEventsTx",
       "call": 1,
       "expression": "\"SELECT checkpoint_key,events FROM \"+table+\" WHERE projection_version=$1 AND pool=$2\"",
-      "line": 520,
+      "line": 547,
       "sql": "SELECT checkpoint_key,events FROM stats.public_stats_sync_baselines WHERE projection_version=$1 AND pool=$2",
       "kind": "SELECT",
       "tables": [
@@ -4294,14 +4294,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.syncEventsTx",
       "call": 2,
       "expression": "\"SELECT height::text,transaction_index::text,log_index::text,topics,data FROM \"+p.reads.source(\"indexer_raw_logs_v1\")+\" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1\"",
-      "line": 547,
+      "line": 574,
       "sql": "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM \"indexer\".\"indexer_raw_logs_v1\" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1",
       "kind": "SELECT",
       "tables": [
@@ -4322,14 +4322,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_2",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.syncEventsTx",
       "call": 3,
       "expression": "\"INSERT INTO \"+table+\"(projection_version,pool,checkpoint_key,events) VALUES($1,$2,$3,$4) ON CONFLICT(projection_version,pool) DO UPDATE SET checkpoint_key=excluded.checkpoint_key,events=excluded.events\"",
-      "line": 564,
+      "line": 591,
       "sql": "INSERT INTO stats.public_stats_sync_baselines(projection_version,pool,checkpoint_key,events) VALUES($1,$2,$3,$4) ON CONFLICT(projection_version,pool) DO UPDATE SET checkpoint_key=excluded.checkpoint_key,events=excluded.events",
       "kind": "INSERT",
       "tables": [
@@ -4342,14 +4342,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_3",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.latestFillTx",
       "call": 1,
       "expression": "fmt.Sprintf(`SELECT c.fill,t.block_timestamp,c.sequence,c.source_fact_digest FROM %[1]s.trade_facts t JOIN %[1]s.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND ($6::bigint<0 OR t.block_timestamp<$6::bigint) ORDER BY t.height DESC,t.transaction_index DESC,t.log_index DESC LIMIT 1`, schema)",
-      "line": 612,
+      "line": 639,
       "sql": "SELECT c.fill,t.block_timestamp,c.sequence,c.source_fact_digest FROM stats.trade_facts t JOIN stats.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND ($6::bigint<0 OR t.block_timestamp<$6::bigint) ORDER BY t.height DESC,t.transaction_index DESC,t.log_index DESC LIMIT 1",
       "kind": "SELECT",
       "tables": [
@@ -4373,14 +4373,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.latestFillTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.realUsdlTx",
       "call": 1,
       "expression": "\"SELECT COALESCE(SUM(CASE WHEN fill->>'side'='buy' THEN (fill->>'paidInputRaw')::numeric-(fill->>'feeRaw')::numeric WHEN fill->>'side'='sell' THEN -(fill->>'usdlAmountRaw')::numeric END),0)::text,bool_and(fill->>'side' IN ('buy','sell')) FROM \"+p.reads.repository.schema+\".accounting_market_commits WHERE projection_version=$1 AND pool=$2 AND ((fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric)>($3::numeric,$4::numeric,$5::numeric) AND ((fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric)<=($6::numeric,$7::numeric,$8::numeric)\"",
-      "line": 642,
+      "line": 669,
       "sql": "SELECT COALESCE(SUM(CASE WHEN fill->>'side'='buy' THEN (fill->>'paidInputRaw')::numeric-(fill->>'feeRaw')::numeric WHEN fill->>'side'='sell' THEN -(fill->>'usdlAmountRaw')::numeric END),0)::text,bool_and(fill->>'side' IN ('buy','sell')) FROM stats.accounting_market_commits WHERE projection_version=$1 AND pool=$2 AND ((fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric)>($3::numeric,$4::numeric,$5::numeric) AND ((fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric)<=($6::numeric,$7::numeric,$8::numeric)",
       "kind": "SELECT",
       "tables": [
@@ -4397,14 +4397,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.realUsdlTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 1,
       "expression": "\"SELECT coverage,last_event,supply::text,decimals FROM \"+p.table(p.holders, \"tokens\")+\" WHERE token=$1\"",
-      "line": 680,
+      "line": 707,
       "sql": "SELECT coverage,last_event,supply::text,decimals FROM stats_transfer_holdings.tokens WHERE token=$1",
       "kind": "SELECT",
       "tables": [
@@ -4420,14 +4420,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 2,
       "expression": "\"SELECT EXISTS(SELECT 1 FROM \"+transfers+\" WHERE chain_id=125 AND token=$1 AND (height,transaction_index,log_index)>($2::bigint,$3::bigint,$4::bigint) AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint))\"",
-      "line": 711,
+      "line": 738,
       "sql": "SELECT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_token_transfers_v1\" WHERE chain_id=125 AND token=$1 AND (height,transaction_index,log_index)>($2::bigint,$3::bigint,$4::bigint) AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint))",
       "kind": "SELECT",
       "tables": [
@@ -4443,14 +4443,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_2",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 3,
       "expression": "\"SELECT from_address,to_address,amount_raw::text FROM \"+transfers+\" WHERE chain_id=125 AND token=$1 AND (height,transaction_index,log_index)>($2::bigint,$3::bigint,$4::bigint) AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint) LIMIT $8\"",
-      "line": 717,
+      "line": 744,
       "sql": "SELECT from_address,to_address,amount_raw::text FROM \"indexer\".\"indexer_token_transfers_v1\" WHERE chain_id=125 AND token=$1 AND (height,transaction_index,log_index)>($2::bigint,$3::bigint,$4::bigint) AND (height,transaction_index,log_index)<=($5::bigint,$6::bigint,$7::bigint) LIMIT $8",
       "kind": "SELECT",
       "tables": [
@@ -4469,14 +4469,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_3",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 4,
       "expression": "\"SELECT count(*) FROM \"+p.table(p.holders, \"balances\")+\" WHERE token=$1 AND balance>0\"",
-      "line": 767,
+      "line": 794,
       "sql": "SELECT count(*) FROM stats_transfer_holdings.balances WHERE token=$1 AND balance>0",
       "kind": "SELECT",
       "tables": [
@@ -4491,14 +4491,14 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_4",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 5,
       "expression": "\"SELECT balance::text FROM \"+p.table(p.holders, \"balances\")+\" WHERE token=$1 AND address=$2\"",
-      "line": 772,
+      "line": 799,
       "sql": "SELECT balance::text FROM stats_transfer_holdings.balances WHERE token=$1 AND address=$2",
       "kind": "SELECT",
       "tables": [
@@ -4512,14 +4512,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_5",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.holdingsAtAnchorTx",
       "call": 6,
       "expression": "\"SELECT address,balance::text FROM \"+p.table(p.holders, \"balances\")+\" WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY balance DESC,address ASC LIMIT $3\"",
-      "line": 830,
+      "line": 857,
       "sql": "SELECT address,balance::text FROM stats_transfer_holdings.balances WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY balance DESC,address ASC LIMIT $3",
       "kind": "SELECT",
       "tables": [
@@ -4533,14 +4533,14 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_6",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
       "function": "PublicStatsProjector.poolStatsTx",
       "call": 1,
       "expression": "fmt.Sprintf(`SELECT COALESCE(SUM(t.volume),0)::text,COUNT(*) FILTER(WHERE t.side='buy')::text,COUNT(*) FILTER(WHERE t.side='sell')::text,COUNT(DISTINCT t.actor)::text,COUNT(*)::text FROM %[1]s.trade_facts t JOIN %[1]s.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND t.block_timestamp>=$6 AND t.block_timestamp<$7`, schema)",
-      "line": 972,
+      "line": 998,
       "sql": "SELECT COALESCE(SUM(t.volume),0)::text,COUNT(*) FILTER(WHERE t.side='buy')::text,COUNT(*) FILTER(WHERE t.side='sell')::text,COUNT(DISTINCT t.actor)::text,COUNT(*)::text FROM stats.trade_facts t JOIN stats.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND t.block_timestamp>=$6 AND t.block_timestamp<$7",
       "kind": "SELECT",
       "tables": [
@@ -4568,7 +4568,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.poolStatsTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
@@ -9110,7 +9110,7 @@
       "function": "PublicStatsProjector.openingPriceTx",
       "call": 1,
       "expression": "\"SELECT st.virtual_reserve,st.real_reserve,st.token_reserve FROM \"+p.reads.source(\"pool_state_snapshots_v1\")+\" st JOIN \"+p.reads.source(\"pools_read_v1\")+\" p ON p.pool_id=st.pool_id JOIN \"+p.reads.source(\"indexer_canonical_creations_v1\")+\" c ON c.pool=lower(p.pool_address) AND c.height=st.block_number AND c.log_index=st.log_index WHERE c.pool=$1\"",
-      "line": 570,
+      "line": 597,
       "sql": "SELECT st.virtual_reserve,st.real_reserve,st.token_reserve FROM \"indexer\".\"pool_state_snapshots_v1\" st JOIN \"indexer\".\"pools_read_v1\" p ON p.pool_id=st.pool_id JOIN \"indexer\".\"indexer_canonical_creations_v1\" c ON c.pool=lower(p.pool_address) AND c.height=st.block_number AND c.log_index=st.log_index WHERE c.pool=$1",
       "kind": "SELECT",
       "tables": [
@@ -9136,7 +9136,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.openingPriceTx_1",
-      "source_sha256": "5810143b7975d27868b01303a0e411550afbbcb27ba044b53538ebb9f201516a"
+      "source_sha256": "d2f3dc1eab9dcc9ae2218ed063b45f533b0da7413a4e30e23ec9b32acedfc314"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
