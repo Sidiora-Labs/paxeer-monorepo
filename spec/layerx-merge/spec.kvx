@@ -17344,6 +17344,12 @@ value = "Point one. When the pool reports for a leg of an action that its nonce 
 basis = "Gotcha 4982."
 affects = []
 
+[decision.4039]
+title = "A process of the registry of the trading data that an owner starts from an image has its row in the image table, and a case keeps the table and the registry in step"
+value = "Point one. The quoting process gets a row of the same form as the four rows of the loop of tools/deploy/offchain-images.sh: the image name is the name of the registry, perps-quoter, the service argument is perps-quoter, and the context, the image file, the target, the base image arguments and the required mark are those of the four rows. Point two. The row is about the image only. The registry keeps the quoting process as a process started by hand with no replica and without a restart, the project definition of the hosting platform gains no service, and the count of four long-running image services in the cases under services/platform/perps-data/deploy stays. Point three. The replay process keeps no row: no deployment starts it from a published image today, and a row costs one build with every publication. The case of point four names it as the one exception, with this reason. Point four. A case in tools/deploy/tests/offchain-images.test.sh reads the registry and the rows of the table: every service of the registry whose build names services/platform/perps-data/deploy/Dockerfile has a row under its name with its build service as the service argument, except the exception of point three, and the table holds no row of that image file for a service the registry does not hold. Point five. The guide of the quoting process says under which name the image is published and that an owner takes it by its digest; it keeps every rule of the start: one instance, started by hand, the key as a mounted file, the health port private."
+basis = "Gotcha 4983."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47004,6 +47010,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1253]
+title = "Add the row of the quoting process of the trading venue to the image table, and a case that keeps the table and the registry of the trading data in step"
+reqs = ["22998.1"]
+touches = ["tools/deploy", "services/platform/perps-data/deploy/README.md", "docs/perps/quoter.md"]
+tests = []
+verification_contract = "bash tools/deploy/tests/offchain-images.test.sh && bash tools/deploy/offchain-images.sh --matrix | grep -q perps-quoter && python3 -m pytest -q tests/ci/test_image_copy_sources_in_context.py && go test -count=1 ./services/platform/perps-data/deploy/ && grep -q imageTableCoversTheRegistryOfTheTradingData tools/deploy/tests/offchain-images.test.sh"
+do_1 = "do_1 Gotcha 4983, decision 4039. Read tools/deploy/offchain-images.sh whole, tools/deploy/tests/offchain-images.test.sh whole, the six entries of services/platform/perps-data/deploy/services.json whose build names services/platform/perps-data/deploy/Dockerfile, line 12 of the image file, the paragraph of services/platform/perps-data/deploy/README.md about the quoting process and the section of docs/perps/quoter.md around line 66. Read tests/ci/test_image_copy_sources_in_context.py far enough to see how it takes the rows of the table."
+symbols = []
 
 [capability.22.39.1252]
 title = "End an action of an agent whose nonce is spent, with the receipt of a hash it holds or in a terminal state that says so, and prepare no replacement at a spent nonce"
@@ -214038,6 +214053,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1253]
+title = "Add the row of the quoting process of the trading venue to the image table, and a case that keeps the table and the registry of the trading data in step"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1253"]
+interfaces = []
+do_1 = "do_1 Gotcha 4983, decision 4039. Read tools/deploy/offchain-images.sh whole, tools/deploy/tests/offchain-images.test.sh whole, the six entries of services/platform/perps-data/deploy/services.json whose build names services/platform/perps-data/deploy/Dockerfile, line 12 of the image file, the paragraph of services/platform/perps-data/deploy/README.md about the quoting process and the section of docs/perps/quoter.md around line 66. Read tests/ci/test_image_copy_sources_in_context.py far enough to see how it takes the rows of the table."
+do_2 = "do_2 One: the loop at line 78 of tools/deploy/offchain-images.sh also makes the row of the quoting process, with the image name perps-quoter and the service argument perps-quoter, in the same form as its four rows. The comment above the loop says which processes of the registry have a row and that the replay process has none. Change no other row and no mode of the table. Two: services/platform/perps-data/deploy/README.md and docs/perps/quoter.md say that the image of the quoting process is published under the name perps-quoter beside the images of the four services, and that an owner takes it by its digest. Both keep what they say about the start by hand, the one instance, the mounted key file and the private health port. Change nothing in services/platform/perps-data/deploy/services.json, nothing in the project definition of the hosting platform and no case file under services/platform/perps-data/deploy."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. New case in tools/deploy/tests/offchain-images.test.sh, in the style of the cases of that file and with the tools it already uses. Its comment line and its failure messages carry the name imageTableCoversTheRegistryOfTheTradingData. It takes from services/platform/perps-data/deploy/services.json every service whose build names services/platform/perps-data/deploy/Dockerfile, with its name and its build service, and it takes the rows of the matrix of the table that name that image file. It requires for each such service of the registry, except perps-replay, exactly one row under the name of the registry whose first build argument is SERVICE followed by the build service; it requires that perps-replay has no row; and it requires that no row of that image file carries a service argument the registry does not hold. Prove it both ways inside the case file, the way the existing cases run the table against a prepared tree: against the tree it passes, and against a copy of the table without the pair of the quoting process it reports perps-quoter and nothing else. Where an existing case of the file counts the rows of the matrix or lists their names, move the number or the list and say so in the final message; change no other expectation of an existing case. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy", "services/platform/perps-data/deploy/README.md", "docs/perps/quoter.md"]
+tests = []
+planned_paths = []
+build_cmd = "bash -n tools/deploy/offchain-images.sh && bash -n tools/deploy/tests/offchain-images.test.sh && go vet ./services/platform/perps-data/deploy/"
+verify_cmd = "bash tools/deploy/tests/offchain-images.test.sh && bash tools/deploy/offchain-images.sh --matrix | grep -q perps-quoter && python3 -m pytest -q tests/ci/test_image_copy_sources_in_context.py && go test -count=1 ./services/platform/perps-data/deploy/ && grep -q imageTableCoversTheRegistryOfTheTradingData tools/deploy/tests/offchain-images.test.sh"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 75
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
