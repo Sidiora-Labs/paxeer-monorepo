@@ -70,7 +70,7 @@ def test_registered_sql_paths_digests_and_application_order():
     assert registry["schema_version"] == 2
     assert registry["path_base"] == "monorepo-root"
     entries = registry["registrations"]
-    assert len(entries) == 101
+    assert len(entries) == 102
     by_id = {entry["migration_id"]: entry for entry in entries}
     assert len(by_id) == len(entries)
     assert len(registry["application_order"]) == len(entries)
@@ -93,7 +93,7 @@ def test_registered_sql_paths_digests_and_application_order():
     } | {"0001_genesis_sections.sql", "0001_projection.sql", "0007_history_index.sql"}
     assert inventory_digest(
         [(entry["migration_id"], entry["sha256"]) for entry in entries]
-    ) == "bdaf91af5e721dae9db0a793c1f9f638bcada89f99087c0535c3c984adc1cfc2"
+    ) == "354f8c52edacad53064379567eeb8bef1a91c4399cdbbfcf3fc3aa788a1b4251"
 
 
 def test_source_inputs_relocated_without_reapproving_drift():

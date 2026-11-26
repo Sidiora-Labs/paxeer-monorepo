@@ -55,6 +55,14 @@ func TestRepositoryRegistryRequiresApproval(t *testing.T) {
 		t.Fatal(err)
 	}
 	if validDigest(registry.ApprovalDigest) {
+		if registry.ServerMajorVersion != 18 {
+			t.Fatalf("registry server major version = %d, want 18", registry.ServerMajorVersion)
+		}
+		for _, migration := range registry.Registrations {
+			if migration.ApprovalManifestDigest != registry.ApprovalDigest {
+				t.Fatalf("migration %d approval differs from the registry", migration.MigrationID)
+			}
+		}
 		if _, err := loadBundle(filepath.Join(root, "migrations")); err != nil {
 			t.Fatal(err)
 		}
