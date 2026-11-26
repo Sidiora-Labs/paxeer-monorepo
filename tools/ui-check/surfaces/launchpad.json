@@ -628,6 +628,11 @@
         {
           "action": "wait",
           "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] [role=\"status\"]:text-is(\"Waiting for trades\"):not(:has([data-numeric])))",
+          "key": "Shift"
         }
       ]
     },

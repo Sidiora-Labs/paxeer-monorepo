@@ -67,7 +67,7 @@ describe('ChartToolbar', () => {
     expect(html).toContain('>USDL<');
     expect(html).not.toMatch(/\bSOL\b/);
     expect(html).toContain('Live');
-    expect(html).toContain('Block 4242');
+    expect(html).toContain('Last update at block 4242');
     expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
 
@@ -111,6 +111,33 @@ describe('ChartToolbar', () => {
     expect(freshnessLabel('resync_required')).toBe('May be out of date');
   });
 
+  it.each([
+    ['connecting', 'Syncing...'],
+    ['snapshotting', 'Syncing...'],
+    ['replaying', 'Syncing...'],
+    ['live', 'Live'],
+    ['degraded', 'May be out of date'],
+    ['offline', 'Updates paused'],
+    ['resync_required', 'May be out of date'],
+    ['closed', 'Chart closed'],
+  ] as const)('shows the last update block only when known while %s', function lastUpdateBlockRequiresHeight(connectionStatus, label) {
+    for (const lastSourceHeight of ['4242', '0', null]) {
+      const view = document.createElement('div');
+      view.innerHTML = renderToStaticMarkup(<ChartToolbar {...props({ freshness: { ...live, connectionStatus, lastSourceHeight } })} />);
+      const status = view.querySelector('[role="status"]')!;
+      expect(status.textContent).toContain(label);
+      const numeric = status.querySelector('[data-numeric]');
+      if (lastSourceHeight === null) {
+        expect(numeric).toBeNull();
+        expect(status.textContent).not.toContain('Last update at block');
+        expect(status.textContent).not.toContain('—');
+      } else {
+        expect(numeric?.textContent).toBe(`Last update at block ${lastSourceHeight}`);
+        expect(numeric?.className).toBe('hidden tabular-nums sm:inline');
+      }
+    }
+  });
+
   it.each(['connecting', 'snapshotting', 'replaying'] as const)('waits for trades with a neutral mark while %s', function waitsForTrades(connectionStatus) {
     const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus, lastSourceHeight: null } })} />);
     const view = document.createElement('div');
@@ -120,13 +147,14 @@ describe('ChartToolbar', () => {
     expect(status.querySelector('[aria-hidden="true"]')?.className).toContain('bg-text-faint');
     expect(status.querySelector('[data-numeric]')).toBeNull();
     expectRetryVisibility(status, false);
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
     expect(freshnessLabel(connectionStatus)).toBe('Syncing...');
   });
 
   it('keeps a known source block while waiting for trades', function waitingForTradesKeepsSourceHeight() {
     const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades: true, freshness: { ...live, connectionStatus: 'snapshotting' } })} />);
     expect(html).toContain('Waiting for trades');
-    expect(html).toContain('Block 4242');
+    expect(html).toContain('Last update at block 4242');
     const view = document.createElement('div');
     view.innerHTML = html;
     expectRetryVisibility(view.querySelector('[role="status"]')!, false);
@@ -145,7 +173,8 @@ describe('ChartToolbar', () => {
     expect(status.textContent).toContain(label);
     expect(status.textContent).not.toContain('Waiting for trades');
     expect(status.querySelector('[aria-hidden="true"]')?.className).toContain(mark);
-    expect(status.querySelector('[data-numeric]')?.textContent).toBe('Block —');
+    expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
     expectRetryVisibility(status, retry);
   });
 
@@ -153,7 +182,7 @@ describe('ChartToolbar', () => {
     const html = renderToStaticMarkup(<ChartToolbar {...props({ noTrades, freshness: { ...live, connectionStatus: 'connecting', lastSourceHeight: null } })} />);
     expect(html).toContain('Syncing...');
     expect(html).toContain('bg-text-faint');
-    expect(html).toContain('Block —');
+    expect(html).not.toMatch(/data-numeric|Last update at block|—/);
     expect(html).toContain('Try again');
     expect(html).not.toContain('Waiting for trades');
   });

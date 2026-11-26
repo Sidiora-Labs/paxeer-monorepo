@@ -171,6 +171,7 @@ describe('TvChart degraded canvas', () => {
     expect(retry?.hasAttribute('inert')).toBe(true);
     expect(retry?.getAttribute('aria-hidden')).toBe('true');
     expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
     expect(view.textContent).not.toMatch(/TOPIC_NOT_STARTED|Loading chart|Updates paused|May be out of date/);
     expect(view.querySelector('[role="alert"], [data-state="unavailable"]')).toBeNull();
     act(() => root!.unmount());
@@ -192,7 +193,8 @@ describe('TvChart degraded canvas', () => {
     const status = view.querySelector('section[aria-label="Price chart"] [role="status"]')!;
     expect(status.textContent).toContain('Syncing...');
     expect(status.querySelector('button')?.textContent).toBe('Try again');
-    expect(status.querySelector('[data-numeric]')?.textContent).toBe('Block —');
+    expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
     expect(view.textContent).not.toContain('Waiting for trades');
     expect(view.textContent).not.toContain('No trades yet');
     const prices = view.querySelector<HTMLButtonElement>('button[aria-controls="canonical-chart-table"]')!;
