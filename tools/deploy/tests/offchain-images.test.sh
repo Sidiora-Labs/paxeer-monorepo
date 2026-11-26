@@ -33,6 +33,44 @@ sha=0123456789ab
 run() { env -u REVIEWED_BUILD_IMAGE -u REVIEWED_RUNTIME_IMAGE -u PERPS_BUILD_IMAGE -u PERPS_RUNTIME_IMAGE BUILD_SHA=$sha "$@"; }
 args_of() { jq -r --arg n "$2" '.[] | select(.name == $n) | .build_args' <<<"$1"; }
 
+# imageTableCoversTheRegistryOfTheTradingData: every shared-Dockerfile service except replay has exactly one matching image.
+imageTableCoversTheRegistryOfTheTradingData() {
+	local matrix problems
+	matrix=$(run bash "$1" --matrix) || fail "imageTableCoversTheRegistryOfTheTradingData: matrix must succeed"
+	problems=$(jq -r --arg dockerfile services/platform/perps-data/deploy/Dockerfile \
+		--slurpfile registry "$repo/services/platform/perps-data/deploy/services.json" '
+		[$registry[0].services[] | select(.build.dockerfile == $dockerfile)] as $services |
+		[.[] | select(.dockerfile == $dockerfile)] as $images |
+		([
+			$services[] as $service |
+			[$images[] | select(.name == $service.name)] as $matches |
+			if $service.name == "perps-replay" then
+				select(($matches | length) != 0 or
+					any($images[]; (.build_args | split("\n") | index("SERVICE=" + $service.build.service)) != null))
+			else
+				select(($matches | length) != 1 or
+					any($matches[]; (.build_args | split("\n") | .[0]) != "SERVICE=" + $service.build.service))
+			end | $service.name
+		] + [
+			$images[] |
+			[.build_args | split("\n")[] | select(startswith("SERVICE=")) | ltrimstr("SERVICE=")] as $args |
+			select(($args | length) != 1 or
+				any($args[]; . as $arg | all($services[]; .build.service != $arg))) | .name
+		]) | unique[]' <<<"$matrix") || fail "imageTableCoversTheRegistryOfTheTradingData: registry comparison must succeed"
+	if [ -n "$problems" ]; then
+		printf 'imageTableCoversTheRegistryOfTheTradingData: %s\n' "$problems" >&2
+		return 1
+	fi
+}
+imageTableCoversTheRegistryOfTheTradingData "$script" ||
+	fail "imageTableCoversTheRegistryOfTheTradingData: registry images must match"
+sed 's/ perps-quoter:perps-quoter//g' "$script" > "$work/tools/deploy/without-quoter.sh"
+if out=$(imageTableCoversTheRegistryOfTheTradingData "$work/tools/deploy/without-quoter.sh" 2>&1); then
+	fail "imageTableCoversTheRegistryOfTheTradingData: a missing quoter row must fail"
+fi
+[ "$out" = 'imageTableCoversTheRegistryOfTheTradingData: perps-quoter' ] ||
+	fail "imageTableCoversTheRegistryOfTheTradingData: missing quoter row must name only perps-quoter: $out"
+
 # The repository inputs plan the trading workspace image with its production gateway.
 repository_plan=$(run bash "$repo/tools/deploy/offchain-images.sh" --plan 2> "$work/repository-plan.err") ||
 	fail "--plan must pass on repository inputs: $(cat "$work/repository-plan.err")"

@@ -1,3 +1,4 @@
+import { CustodyAuthorityError } from '../agent/authority.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { createHash } from 'node:crypto';
 import { verifyAccessToken } from '../auth/jwt.js';
@@ -93,14 +94,14 @@ interface UnifiedColumns {
 async function unifiedColumns(walletId: string): Promise<UnifiedColumns> {
   const { rows } = await getPool().query<UnifiedColumns>(
     `select did, main_account_id, binding_state from wallets where id = $1`,
-    [walletId]
+    [walletId],
   );
   return rows[0] ?? { did: null, main_account_id: null, binding_state: 'unbound' };
 }
 
 export async function walletRoutes(
   app: FastifyInstance,
-  opts: WalletRoutesOptions = {}
+  opts: WalletRoutesOptions = {},
 ): Promise<void> {
   const deps = (): ProvisionDeps | null =>
     opts.provision !== undefined ? opts.provision : provisionDepsFromEnv();
@@ -115,7 +116,7 @@ export async function walletRoutes(
           throw new ProvisionError(
             'attestors_unconfigured',
             503,
-            'identity provisioning requires configured attestors'
+            'identity provisioning requires configured attestors',
           );
         }
         const { wallet } = await provisionWalletForUser(userId, 'standard');
@@ -144,6 +145,8 @@ export async function walletRoutes(
         provisioning: { state: out.state, awaiting: out.awaiting },
       });
     } catch (err) {
+      if (err instanceof CustodyAuthorityError)
+        return reply.code(503).send({ error: err.code, replication_pending: true });
       if (err instanceof WalletArchivedError)
         return reply.code(err.refusal.status).send(err.refusal.body);
       if (err instanceof ProvisionRefusedError) {
@@ -325,7 +328,7 @@ export interface WalletSponsorRoutesOptions {
 }
 export async function walletSponsorRoutes(
   app: FastifyInstance,
-  opts: WalletSponsorRoutesOptions = {}
+  opts: WalletSponsorRoutesOptions = {},
 ): Promise<void> {
   const station = new GasStationClient(opts.stationUrl);
   async function sequencerReceipt(hash: string | null) {

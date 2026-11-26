@@ -42,7 +42,7 @@ import type { SequencerReceiptResult } from '../src/rpc/pool.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const attestorDir = resolve(here, '../../attestor');
 const bindVectors = JSON.parse(
-  readFileSync(join(repoRoot, 'layerxproof/testdata/paxeer_bind_vectors.json'), 'utf8')
+  readFileSync(join(repoRoot, 'layerxproof/testdata/paxeer_bind_vectors.json'), 'utf8'),
 ) as {
   public_key: string;
   did: string;
@@ -114,7 +114,7 @@ function issueCertificates(dir: string, names: string[]): void {
   ]);
   writeFileSync(
     p('leaf.ext'),
-    'subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth,clientAuth\n'
+    'subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth,clientAuth\n',
   );
   for (const name of names) {
     ossl([
@@ -169,7 +169,7 @@ function health(url: string): Promise<{ ready: boolean }> {
             resolveHealth({ ready: false });
           }
         });
-      }
+      },
     );
     req.on('error', () => resolveHealth({ ready: false }));
     req.on('timeout', () => req.destroy());
@@ -228,7 +228,7 @@ beforeAll(async () => {
                 jsonrpc: '2.0',
                 id: body.id,
                 error: { code: -32000, message: 'injected pax_sequencerReceipt failure' },
-              })
+              }),
             );
             return;
           }
@@ -282,7 +282,7 @@ beforeAll(async () => {
             jsonrpc: '2.0',
             id,
             error: { code: -32603, message: String(error) },
-          })
+          }),
         );
       });
     });
@@ -298,11 +298,11 @@ beforeAll(async () => {
   writeFileSync(
     authorityPrivateKeyFile,
     authority.privateKey.export({ type: 'pkcs8', format: 'pem' }),
-    { mode: 0o600 }
+    { mode: 0o600 },
   );
   writeFileSync(
     authorityPublicKeyFile,
-    authority.publicKey.export({ type: 'spki', format: 'pem' })
+    authority.publicKey.export({ type: 'spki', format: 'pem' }),
   );
 
   const nodes = ['node-1', 'node-2', 'node-3', 'node-4', 'node-5'];
@@ -331,7 +331,7 @@ beforeAll(async () => {
         },
         selectors: { [ADDR]: [BIND_SELECTOR] },
       },
-    })
+    }),
   );
   const kernelPolicyFile = join(workDir, 'kernel-policy.json');
   writeFileSync(kernelPolicyFile, JSON.stringify(KERNEL_POLICY));
@@ -339,7 +339,7 @@ beforeAll(async () => {
   const inventoryFile = join(workDir, 'inventory.jwt');
   const issuedAt = Math.floor(Date.now() / 1000);
   const inventoryHeader = Buffer.from(
-    JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })
+    JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' }),
   ).toString('base64url');
   const inventoryPayload = Buffer.from(
     JSON.stringify({
@@ -354,7 +354,7 @@ beforeAll(async () => {
       threshold: 3,
       members: nodes.map((id, i) => ({ id, spki_sha256: pins[i]! })),
       keys: [],
-    })
+    }),
   ).toString('base64url');
   const inventoryInput = `${inventoryHeader}.${inventoryPayload}`;
   const inventorySignature = sign('sha256', Buffer.from(inventoryInput), {
@@ -453,7 +453,7 @@ beforeAll(async () => {
       daemons.length = 0;
       endpoints.length = 0;
       startupError = undefined;
-    }
+    },
   );
 
   const relayer = privateKeyToAccount(generatePrivateKey());
@@ -465,8 +465,9 @@ beforeAll(async () => {
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
     req.on('end', async () => {
       try {
-        const { constructionDigest, sponsorQuoteDigest } =
-          await import('../src/attestor/client.js');
+        const { constructionDigest, sponsorQuoteDigest } = await import(
+          '../src/attestor/client.js'
+        );
         expect(req.method).toBe('POST');
         expect(req.headers['content-type']).toBe('application/json');
         if (req.url === '/quote') {
@@ -536,13 +537,13 @@ beforeAll(async () => {
           await recoverAddress({
             hash: constructionDigest(construction),
             signature: request.accountSignature,
-          })
+          }),
         ).toBe(request.batch.account);
         expect(
           await recoverAddress({
             hash: sponsorQuoteDigest(construction),
             signature: request.relayerSignature as Hex,
-          })
+          }),
         ).toBe(relayer.address);
         const authorization = request.authorization;
         expect(authorization).toMatchObject({
@@ -559,7 +560,7 @@ beforeAll(async () => {
               nonce: authorization.nonce,
             }),
             signature: serializeSignature(authorization),
-          })
+          }),
         ).toBe(request.batch.account);
         const decoded = decodeFunctionData({
           abi: bindModule.sponsoredBindAbi,
@@ -567,7 +568,7 @@ beforeAll(async () => {
         });
         expect(decoded.functionName).toBe('executeSponsored');
         expect(decoded.args![0]).toEqual(
-          request.batch.calls.map((call) => ({ ...call, value: BigInt(call.value) }))
+          request.batch.calls.map((call) => ({ ...call, value: BigInt(call.value) })),
         );
         expect(decoded.args![2]).toBe(request.accountSignature);
         expect(decoded.args![3]).toBe(request.relayerSignature);
@@ -577,7 +578,7 @@ beforeAll(async () => {
           .getPool()
           .query(
             'select p.station_request from account_provisioning p join wallets w on w.id = p.wallet_id where lower(w.address) = $1',
-            [account]
+            [account],
           );
         expect(persisted.rows).toEqual([{ station_request: request }]);
         let submitted = submissions.get(account);
@@ -668,11 +669,11 @@ afterAll(async () => {
   for (const d of daemons) d.kill('SIGTERM');
   if (sequencer)
     await new Promise<void>((resolveSequencer, reject) =>
-      sequencer.close((err) => (err ? reject(err) : resolveSequencer()))
+      sequencer.close((err) => (err ? reject(err) : resolveSequencer())),
     );
   if (station)
     await new Promise<void>((resolveStation, reject) =>
-      station.close((err) => (err ? reject(err) : resolveStation()))
+      station.close((err) => (err ? reject(err) : resolveStation())),
     );
   await chain?.stop();
   await idp?.stop();
@@ -749,7 +750,7 @@ async function approveStandardSigning(userId: string, kind = 'standard'): Promis
                   try {
                     expect(response.statusCode).toBe(200);
                     const key = JSON.parse(
-                      Buffer.concat(chunks).toString('utf8')
+                      Buffer.concat(chunks).toString('utf8'),
                     ) as WalletInventoryKey;
                     expect(key).toMatchObject({
                       key_id: admitted.key_id,
@@ -762,17 +763,17 @@ async function approveStandardSigning(userId: string, kind = 'standard'): Promis
                     reject(error);
                   }
                 });
-              }
+              },
             );
             request.on('error', reject);
             request.on('timeout', () => request.destroy(new Error('key description timed out')));
             request.end(JSON.stringify({ session_id: randomUUID(), key_id: admitted.key_id }));
-          })
-      )
+          }),
+      ),
     );
     expect(new Set(held.map((key) => key.public_key)).size).toBe(1);
     expect(publicKeyToAddress(`0x${held[0]!.public_key}`).toLowerCase()).toBe(
-      wallet.address.toLowerCase()
+      wallet.address.toLowerCase(),
     );
     inventoryKeys.set(admitted.key_id, {
       ...admitted,
@@ -813,7 +814,7 @@ async function signedBindTransaction() {
       gas: 100_000n,
       maxFeePerGas: 2_000_000_000n,
       maxPriorityFeePerGas: chain.tip,
-    })
+    }),
   );
   rawTransactions.set(bindModule.transactionHash(raw), raw);
   return {
@@ -832,7 +833,7 @@ async function bindReadsSequencerReceipt(): Promise<void> {
   try {
     expect(await bindModule.readReceipt(rpc, hash)).toBeNull();
     await expect(bindModule.waitForReceipt(rpc, hash, 30, 5)).rejects.toThrow(
-      `transaction ${hash} has no receipt after 30 ms`
+      `transaction ${hash} has no receipt after 30 ms`,
     );
     const [receipt, sentHash] = await Promise.all([
       bindModule.waitForReceipt(rpc, hash, 5_000, 10),
@@ -853,8 +854,8 @@ async function bindReadsSequencerReceipt(): Promise<void> {
     expect(await bindModule.waitForReceipt(rpc, hash, 5_000, 10)).toEqual(receipt);
     expect(
       sequencerRequests.filter(
-        (request) => request.method === 'pax_sequencerReceipt' && request.params[0] === hash
-      ).length
+        (request) => request.method === 'pax_sequencerReceipt' && request.params[0] === hash,
+      ).length,
     ).toBeGreaterThan(2);
     expect(chain.bindings.get(address)).toBe(identity.publicKeyHex);
     expect(chain.bindNonces.get(address)).toBe(1n);
@@ -872,8 +873,8 @@ async function bindBroadcastIsIdempotent(): Promise<void> {
   expect(sentFrom(address)).toHaveLength(1);
   expect(
     sequencerRequests.filter(
-      (request) => request.method === 'eth_sendRawTransaction' && request.params[0] === raw
-    )
+      (request) => request.method === 'eth_sendRawTransaction' && request.params[0] === raw,
+    ),
   ).toHaveLength(1);
   expect(chain.bindings.get(address)).toBe(identity.publicKeyHex);
   chain.fail('eth_sendRawTransaction');
@@ -885,8 +886,8 @@ async function bindBroadcastIsIdempotent(): Promise<void> {
     expect(sentFrom(address)).toHaveLength(1);
     expect(
       sequencerRequests.filter(
-        (request) => request.method === 'eth_sendRawTransaction' && request.params[0] === raw
-      )
+        (request) => request.method === 'eth_sendRawTransaction' && request.params[0] === raw,
+      ),
     ).toHaveLength(1);
     expect(chain.bindNonces.get(address)).toBe(1n);
   } finally {
@@ -906,14 +907,14 @@ describe('provisioning derivations', () => {
       const message = bindModule.bindMessage(
         BigInt(v.chain_id),
         `0x${v.evm_address}`,
-        BigInt(v.nonce)
+        BigInt(v.nonce),
       );
       expect(bindModule.verifyEd25519(bindVectors.public_key, message, v.signature)).toBe(v.valid);
       if (v.valid) expect(message.toString('hex')).toBe(v.message);
     }
     const calldata = bindModule.bindLayerXCalldata(
       bindVectors.public_key,
-      bindVectors.binds[1]!.signature
+      bindVectors.binds[1]!.signature,
     );
     const decoded = decodeFunctionData({ abi: addrAbiJson, data: calldata });
     expect(decoded.functionName).toBe('bindLayerX');
@@ -930,10 +931,10 @@ const provisioningFlowTests = {
     const user = randomUUID();
     admitStandardKeys(user);
     const first = await asUser(user, 'POST', '/v1/wallet/provision');
-    expect(first.statusCode, first.body).toBe(500);
+    expect(first.statusCode, first.body).toBe(503);
     expect(first.json()).toEqual({
-      error: 'wallet_provision_failed',
-      detail: `owner-approved wallet inventory does not admit sign for account:${user}:standard:ed25519:0`,
+      error: 'custody_authority_unavailable',
+      replication_pending: true,
     });
     const pending = await provisionRow(user);
     expect(pending.state).toBe('identity');
@@ -969,10 +970,10 @@ const provisioningFlowTests = {
     expect(stationErrors).toEqual([]);
     const submitted = submissions.get(address)!;
     expect(
-      quoteRequests.filter((request) => request.account.toLowerCase() === address)
+      quoteRequests.filter((request) => request.account.toLowerCase() === address),
     ).toHaveLength(1);
     expect(
-      submitRequests.filter((request) => request.batch.account.toLowerCase() === address)
+      submitRequests.filter((request) => request.batch.account.toLowerCase() === address),
     ).toEqual([submitted.request]);
     expect(row.station_request).toEqual(submitted.request);
     expect(row.bind_tx_hash).toBe(submitted.hash);
@@ -994,7 +995,7 @@ const provisioningFlowTests = {
       .getPool()
       .query(
         `select migrated_at, attestor_key_id, encrypted_private_key, did, main_account_id, layerx_key_id, binding_state from wallets where id = $1`,
-        [body.wallet.id]
+        [body.wallet.id],
       );
     expect(wallet.rows[0]).toMatchObject({
       attestor_key_id: row.evm_key_id,
@@ -1009,7 +1010,7 @@ const provisioningFlowTests = {
       .getPool()
       .query(
         `select event, tx_hash, value_wei::text from account_setup_audit where address = $1 order by id`,
-        [address]
+        [address],
       );
     expect(audit.rows.map((r) => r.event)).toEqual(['bind']);
     expect(audit.rows[0].tx_hash).toBe(submitted.hash);
@@ -1038,7 +1039,7 @@ const provisioningFlowTests = {
     });
     expect(chain.sent.length).toBe(sentBefore);
     expect(
-      submitRequests.filter((request) => request.batch.account.toLowerCase() === address)
+      submitRequests.filter((request) => request.batch.account.toLowerCase() === address),
     ).toHaveLength(1);
   },
 
@@ -1050,7 +1051,7 @@ const provisioningFlowTests = {
 
     chain.fail('getUnifiedAccount');
     await expect(
-      stateModule.provisionAccount(d, { kind: 'standard', userId: user, token: await token() })
+      stateModule.provisionAccount(d, { kind: 'standard', userId: user, token: await token() }),
     ).rejects.toThrow(/getUnifiedAccount/);
     let row = await provisionRow(user);
     expect(row.state).toBe('identity');
@@ -1060,7 +1061,7 @@ const provisioningFlowTests = {
 
     chain.fail('eth_estimateGas');
     await expect(
-      stateModule.provisionAccount(d, { kind: 'standard', userId: user, token: await token() })
+      stateModule.provisionAccount(d, { kind: 'standard', userId: user, token: await token() }),
     ).rejects.toThrow(/eth_estimateGas/);
     row = await provisionRow(user);
     expect(row.state).toBe('bind_signed');
@@ -1070,7 +1071,7 @@ const provisioningFlowTests = {
 
     failAfterSubmit = true;
     await expect(
-      stateModule.provisionAccount(d, { kind: 'standard', userId: user, token: await token() })
+      stateModule.provisionAccount(d, { kind: 'standard', userId: user, token: await token() }),
     ).rejects.toMatchObject({ code: 'gas_station_unavailable' });
     row = await provisionRow(user);
     expect(stationErrors).toEqual([]);
@@ -1085,24 +1086,24 @@ const provisioningFlowTests = {
     expect(String(row.station_quote_nonce)).toBe(submitted.request.batch.quote.quoteNonce);
     expect(String(row.station_batch_nonce)).toBe(submitted.request.batch.nonce);
     expect(
-      submitRequests.filter((request) => request.batch.account.toLowerCase() === address)
+      submitRequests.filter((request) => request.batch.account.toLowerCase() === address),
     ).toEqual([persistedRequest]);
     expect(sentTo(address)).toHaveLength(1);
     expect(chain.bindNonces.get(address)).toBe(1n);
 
     failReceipt = true;
     await expect(
-      stateModule.provisionAccount(d, { kind: 'standard', userId: user, token: await token() })
+      stateModule.provisionAccount(d, { kind: 'standard', userId: user, token: await token() }),
     ).rejects.toThrow(/pax_sequencerReceipt/);
     row = await provisionRow(user);
     expect(row.state).toBe('bind_sent');
     expect(row.station_request).toEqual(persistedRequest);
     expect(row.bind_tx_hash).toBe(submitted.hash);
     expect(
-      submitRequests.filter((request) => request.batch.account.toLowerCase() === address)
+      submitRequests.filter((request) => request.batch.account.toLowerCase() === address),
     ).toEqual([persistedRequest, persistedRequest]);
     expect(
-      quoteRequests.filter((request) => request.account.toLowerCase() === address)
+      quoteRequests.filter((request) => request.account.toLowerCase() === address),
     ).toHaveLength(1);
     expect(sentTo(address)).toHaveLength(1);
     expect(sentFrom(address)).toHaveLength(0);
@@ -1132,7 +1133,7 @@ const provisioningFlowTests = {
       .getPool()
       .query(
         `select count(*)::int as n from account_setup_audit where address = $1 and event = 'topup'`,
-        [address]
+        [address],
       );
     expect(topups.rows[0].n).toBe(0);
     const binds = await poolModule
@@ -1154,10 +1155,10 @@ const provisioningFlowTests = {
     expect(again.state).toBe('active');
     expect(stationErrors).toEqual([]);
     expect(
-      submitRequests.filter((request) => request.batch.account.toLowerCase() === address)
+      submitRequests.filter((request) => request.batch.account.toLowerCase() === address),
     ).toEqual([persistedRequest, persistedRequest]);
     expect(
-      quoteRequests.filter((request) => request.account.toLowerCase() === address)
+      quoteRequests.filter((request) => request.account.toLowerCase() === address),
     ).toHaveLength(1);
     expect(sentTo(address)).toHaveLength(1);
     expect(chain.bindNonces.get(address)).toBe(1n);
@@ -1173,7 +1174,7 @@ describe('provisioning flow', () => {
     provisioningFlowTests[
       'provisioning creates both keys, has the gas station sponsor the binding and confirms it before active'
     ],
-    LONG
+    LONG,
   );
   test(
     provisioningFlowTests[
@@ -1182,7 +1183,7 @@ describe('provisioning flow', () => {
     provisioningFlowTests[
       'provisioning resumes after a failure at each step without a second key, station request or binding'
     ],
-    LONG
+    LONG,
   );
 
   it(
@@ -1227,7 +1228,7 @@ describe('provisioning flow', () => {
       expect(again.statusCode).toBe(409);
       expect(chain.bindings.get(address)).toBe(foreign);
     },
-    LONG
+    LONG,
   );
 
   async function provisioningSponsorsAgentBindThroughTwoReauthorizationChallengesAndConfirmsItBeforeActive() {
@@ -1241,7 +1242,7 @@ describe('provisioning flow', () => {
     const migrated = await pool.query(
       `insert into wallets (user_id, address, encrypted_private_key, key_version, chain_id, kind, migrated_at, attestor_key_id)
        values ($1, $2, null, 1, $3, 'standard', now(), $4) returning id::text`,
-      [owner, key.address, CHAIN_ID, evmKeyId]
+      [owner, key.address, CHAIN_ID, evmKeyId],
     );
     const migratedId = migrated.rows[0].id as string;
 
@@ -1271,7 +1272,7 @@ describe('provisioning flow', () => {
         }>(
           `insert into wallets (user_id, address, encrypted_private_key, key_version, chain_id, kind, migrated_at, attestor_key_id)
        values ($1, $2, null, 1, $3, 'agent', now(), $4) returning id::text, address, encrypted_private_key`,
-          [agentUserId, agentKey.address, CHAIN_ID, agentEvmKeyId]
+          [agentUserId, agentKey.address, CHAIN_ID, agentEvmKeyId],
         )
       ).rows[0]!,
     };
@@ -1291,7 +1292,7 @@ describe('provisioning flow', () => {
         max_tx_value_wei: 1_000_000n,
         max_daily_value_wei: 100n,
       },
-      null
+      null,
     );
     expect(agentPolicy.max_tx_value_wei).toBe(1_000_000n);
     expect(agentPolicy.max_daily_value_wei).toBe(100n);
@@ -1303,7 +1304,7 @@ describe('provisioning flow', () => {
     expect(rest.done).toBe(true);
     const outcomes = [...first.outcomes, ...rest.outcomes];
     expect(outcomes.map((o) => o.wallet_id).sort()).toEqual(
-      [migratedId, agentWallet.row.id].sort()
+      [migratedId, agentWallet.row.id].sort(),
     );
     const byId = new Map(outcomes.map((o) => [o.wallet_id, o]));
     expect(byId.get(migratedId), JSON.stringify(byId.get(migratedId))).toMatchObject({
@@ -1335,7 +1336,7 @@ describe('provisioning flow', () => {
     const legacyRow = await pool.query(`select did from wallets where id = $1`, [legacy.row.id]);
     expect(legacyRow.rows[0].did).toBeNull();
     const cursor = await pool.query(
-      `select last_wallet_id::text from account_backfill_cursor where name = 'unified_account'`
+      `select last_wallet_id::text from account_backfill_cursor where name = 'unified_account'`,
     );
     expect(cursor.rows[0].last_wallet_id).toBe(rest.cursor);
     const sentBefore = chain.sent.length;
@@ -1354,10 +1355,10 @@ describe('provisioning flow', () => {
     });
     expect(
       (await pool.query(`select layerx_key_id from wallets where id = $1`, [migratedId])).rows[0]
-        .layerx_key_id
+        .layerx_key_id,
     ).toBe(layerxKey);
     expect(chain.bindings.get(key.address!.toLowerCase())).toBe(
-      byId.get(migratedId)!.did!.slice('did:layerx:'.length)
+      byId.get(migratedId)!.did!.slice('did:layerx:'.length),
     );
 
     const pending = await stateModule.provisionAccount(d, { kind: 'agent', did: agent.did });
@@ -1369,7 +1370,7 @@ describe('provisioning flow', () => {
         kind: 'agent',
         did: agent.did,
         agentSignature: impostor.sign(message),
-      })
+      }),
     ).rejects.toMatchObject({ code: 'agent_signature_invalid' });
     const agentAddress = agentWallet.row.address.toLowerCase();
     expect(chain.bindings.has(agentAddress)).toBe(false);
@@ -1394,7 +1395,7 @@ describe('provisioning flow', () => {
           nonce,
           expiry: BigInt(expiry),
           body: requestBody,
-        })
+        }),
       ),
     };
     const { AttestorReauthorizationRequired } = await import('../src/attestor/client.js');
@@ -1411,11 +1412,11 @@ describe('provisioning flow', () => {
         },
         (error: unknown) => {
           expect(error, error instanceof Error ? error.message : String(error)).toBeInstanceOf(
-            AttestorReauthorizationRequired
+            AttestorReauthorizationRequired,
           );
           if (!(error instanceof AttestorReauthorizationRequired)) throw error;
           return error;
-        }
+        },
       );
     expect(challenge.code).toBe('agent_reauthorization_required');
     expect(challenge.keyId).toBe(agentEvmKeyId);
@@ -1443,7 +1444,7 @@ describe('provisioning flow', () => {
       kind: 'sponsored_batch',
       ...retained.batch,
       quote: Object.fromEntries(
-        Object.entries(retained.batch.quote).filter(([key]) => key !== 'decimals')
+        Object.entries(retained.batch.quote).filter(([key]) => key !== 'decimals'),
       ),
     });
     expect(retained.accountSignature).toBeUndefined();
@@ -1451,17 +1452,17 @@ describe('provisioning flow', () => {
     expect(String(agentProvision.station_batch_nonce)).toBe(retained.batch.nonce);
     expect(stationErrors).toEqual([]);
     expect(
-      quoteRequests.filter((request) => request.account.toLowerCase() === agentAddress)
+      quoteRequests.filter((request) => request.account.toLowerCase() === agentAddress),
     ).toHaveLength(1);
     expect(
-      submitRequests.filter((request) => request.batch.account.toLowerCase() === agentAddress)
+      submitRequests.filter((request) => request.batch.account.toLowerCase() === agentAddress),
     ).toHaveLength(0);
     expect(chain.bindings.has(agentAddress)).toBe(false);
     expect(sentTo(agentAddress)).toHaveLength(0);
     expect(sentFrom(agentAddress)).toHaveLength(0);
     const agentRow = await pool.query(
       `select binding_state, layerx_key_id, did from wallets where id = $1`,
-      [agentWallet.row.id]
+      [agentWallet.row.id],
     );
     expect(agentRow.rows[0]).toEqual({
       binding_state: 'pending',
@@ -1484,7 +1485,7 @@ describe('provisioning flow', () => {
             nonce,
             expiry: BigInt(expiry),
             body: Buffer.from(body),
-          })
+          }),
         ),
       };
     };
@@ -1502,11 +1503,11 @@ describe('provisioning flow', () => {
         },
         (error: unknown) => {
           expect(error, error instanceof Error ? error.message : String(error)).toBeInstanceOf(
-            AttestorReauthorizationRequired
+            AttestorReauthorizationRequired,
           );
           if (!(error instanceof AttestorReauthorizationRequired)) throw error;
           return error;
-        }
+        },
       );
     expect(authorizationChallenge.code).toBe('agent_reauthorization_required');
     expect(authorizationChallenge.keyId).toBe(agentEvmKeyId);
@@ -1526,15 +1527,15 @@ describe('provisioning flow', () => {
     expect(signedBatch.relayerSignature).toBe(retained.relayerSignature);
     expect(signedBatch.accountSignature).toMatch(/^0x[0-9a-f]{130}$/);
     expect(
-      quoteRequests.filter((request) => request.account.toLowerCase() === agentAddress)
+      quoteRequests.filter((request) => request.account.toLowerCase() === agentAddress),
     ).toHaveLength(1);
     expect(
-      submitRequests.filter((request) => request.batch.account.toLowerCase() === agentAddress)
+      submitRequests.filter((request) => request.batch.account.toLowerCase() === agentAddress),
     ).toHaveLength(0);
     expect(chain.bindings.has(agentAddress)).toBe(false);
     expect(
       (await pool.query('select binding_state from wallets where id = $1', [agentWallet.row.id]))
-        .rows[0].binding_state
+        .rows[0].binding_state,
     ).toBe('pending');
 
     const active = await stateModule.provisionAccount(d, {
@@ -1552,7 +1553,7 @@ describe('provisioning flow', () => {
     const boundWallet = (
       await pool.query(
         'select binding_state, layerx_key_id, attestor_key_id, did from wallets where id = $1',
-        [agentWallet.row.id]
+        [agentWallet.row.id],
       )
     ).rows[0];
     expect(boundWallet).toEqual({
@@ -1563,7 +1564,7 @@ describe('provisioning flow', () => {
     });
     const finalRow = await provisionRow(agentUserId, 'agent');
     const submitted = submitRequests.filter(
-      (request) => request.batch.account.toLowerCase() === agentAddress
+      (request) => request.batch.account.toLowerCase() === agentAddress,
     );
     expect(submitted).toHaveLength(1);
     expect(finalRow.station_request).toEqual(submitted[0]);
@@ -1571,7 +1572,7 @@ describe('provisioning flow', () => {
     expect(submitted[0]!.accountSignature).toBe(signedBatch.accountSignature);
     expect(submitted[0]!.relayerSignature).toBe(retained.relayerSignature);
     expect(
-      quoteRequests.filter((request) => request.account.toLowerCase() === agentAddress)
+      quoteRequests.filter((request) => request.account.toLowerCase() === agentAddress),
     ).toHaveLength(1);
     expect(chain.bindings.has(agentAddress)).toBe(true);
     expect(chain.bindings.get(agentAddress)).toBe(agent.publicKeyHex);
@@ -1583,6 +1584,6 @@ describe('provisioning flow', () => {
   test(
     'provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active',
     provisioningSponsorsAgentBindThroughTwoReauthorizationChallengesAndConfirmsItBeforeActive,
-    LONG
+    LONG,
   );
 });

@@ -1,5 +1,11 @@
 import type { FastifyRequest } from 'fastify';
-import { keccak256, parseTransaction, type Hex, type TransactionSerializable } from 'viem';
+import {
+  keccak256,
+  parseTransaction,
+  serializeTransaction,
+  type Hex,
+  type TransactionSerializable,
+} from 'viem';
 import { env } from '../env.js';
 import { CustodyAuthorityError } from '../agent/authority.js';
 import { withWalletLock } from '../util/walletLock.js';
@@ -16,6 +22,7 @@ import {
   listRules,
   releaseBudget,
   releaseCustodyBudgetReservation,
+  type PendingAgentSignature,
 } from '../db/agents.js';
 import { evaluateAgent, type AgentTxIntent } from '../policy/agent.js';
 import {
@@ -24,6 +31,7 @@ import {
   AttestorReauthorizationRequired,
   attestorErrorBody,
   attestorErrorStatus,
+  unsignedTransactionBytes,
 } from '../attestor/client.js';
 import { resolveGas } from '../chainReads.js';
 import {
@@ -176,18 +184,45 @@ function viemTxParams(tx: AgentTxInput): {
   return out;
 }
 
+function parseUnsignedAgentTransaction(encoded: string): ReturnType<typeof parseTransaction> {
+  try {
+    const raw = `0x${encoded}` as Hex;
+    const offered = parseTransaction(raw);
+    if (offered.type !== 'eip1559') throw new Error('EIP-1559 transaction required');
+    const transaction = {
+      ...offered,
+      r: undefined,
+      s: undefined,
+      v: undefined,
+      yParity: undefined,
+    };
+    if (
+      raw !== serializeTransaction(transaction) &&
+      raw !== unsignedTransactionBytes(transaction)
+    ) {
+      throw new Error('unsigned transaction required');
+    }
+    return transaction;
+  } catch {
+    throw new AttestorTokenError(
+      'agent_authorization_mismatch',
+      'the approved envelope is not an unsigned EIP-1559 transaction',
+    );
+  }
+}
+
 async function transactionForRequest(
   ctx: AgentCtx,
   wallet: WalletRow,
   tx: AgentTxInput,
-  lease: NonceLease
+  lease: NonceLease,
 ): Promise<TransactionSerializable> {
   const params = viemTxParams(tx);
   const chainId = tx.chainId ?? env.HYPERPAXEER_CHAIN_ID;
   if (chainId !== wallet.chain_id || chainId !== env.HYPERPAXEER_CHAIN_ID) {
     throw new AttestorTokenError(
       'agent_authorization_mismatch',
-      'transaction chain differs from the wallet'
+      'transaction chain differs from the wallet',
     );
   }
   let expectedNonce: number;
@@ -208,11 +243,11 @@ async function transactionForRequest(
         !/^[0-9a-f]+$/.test(wire.transaction)
       )
         throw new Error();
-      offered = parseTransaction(`0x${wire.transaction}`);
+      offered = parseUnsignedAgentTransaction(wire.transaction);
     } catch {
       throw new AttestorTokenError(
         'agent_authorization_mismatch',
-        'the approved envelope is not an unsigned EIP-1559 transaction'
+        'the approved envelope is not an unsigned EIP-1559 transaction',
       );
     }
     if (
@@ -235,7 +270,7 @@ async function transactionForRequest(
     ) {
       throw new AttestorTokenError(
         'agent_authorization_mismatch',
-        'the approved transaction differs from the requested operation or current nonce'
+        'the approved transaction differs from the requested operation or current nonce',
       );
     }
     return {
@@ -314,10 +349,43 @@ export async function executeAgentTransaction(args: {
   let custodyBudgetReservationId: string | null = null;
   const broadcastDeadline = new Date(Date.now() + BROADCAST_GRACE_MS).toISOString();
   try {
+    let pendingSignature: PendingAgentSignature | undefined;
+    if (ctx.custody?.reauthorization) {
+      const wire = JSON.parse(ctx.custody.reauthorization.body) as {
+        kind?: unknown;
+        transaction?: unknown;
+      };
+      if (
+        wire.kind === 'evm_tx' &&
+        typeof wire.transaction === 'string' &&
+        /^[0-9a-f]+$/.test(wire.transaction)
+      ) {
+        const transaction = parseUnsignedAgentTransaction(wire.transaction);
+        if (
+          transaction.type === 'eip1559' &&
+          transaction.chainId === (tx.chainId ?? wallet.chain_id) &&
+          (transaction.to?.toLowerCase() ?? null) === (tx.to?.toLowerCase() ?? null) &&
+          (transaction.value ?? 0n) === (tx.value ?? 0n) &&
+          (transaction.data?.toLowerCase() ?? '0x') === (tx.data?.toLowerCase() ?? '0x')
+        ) {
+          pendingSignature = {
+            requestHash: audit.request_hash,
+            operationHash: keccak256(serializeTransaction(transaction)),
+          };
+        }
+      }
+    }
+
     const signed = await withWalletLock<
       ExecResult | { raw: Hex; hash: Hex | null; error: unknown }
     >(wallet.address, async (lease) => {
-      const decision = await evaluateAgent({ principal: ctx.principal, policy, rules, intent });
+      const decision = await evaluateAgent({
+        principal: ctx.principal,
+        policy,
+        rules,
+        intent,
+        pendingSignature,
+      });
       if (!decision.allow) {
         return {
           status: 403,
@@ -341,7 +409,7 @@ export async function executeAgentTransaction(args: {
           subject: ctx.did,
           route: ctx.custody?.origin.method ?? '/v1/agent',
           requestHash: audit.request_hash,
-        }
+        },
       );
       const transaction = await transactionForRequest(ctx, wallet, tx, lease);
       if (decision.reservedBudgetId && ctx.custody) {
@@ -362,7 +430,7 @@ export async function executeAgentTransaction(args: {
       }
       txHash = keccak256(raw);
       const sent = await broadcastReserved(lease, transaction.nonce!, raw, (r) =>
-        sharedRpcPool().sendRawTransactionVia(r)
+        sharedRpcPool().sendRawTransactionVia(r),
       );
       if (
         sent.error instanceof TransactionRejectedError ||
@@ -452,7 +520,7 @@ export async function executeAgentMessage(args: {
         subject: ctx.did,
         route: ctx.custody?.origin.method ?? '/v1/agent',
         requestHash: audit.request_hash,
-      }
+      },
     );
     signature = await account.signMessage({ message });
   } catch (err) {
@@ -507,11 +575,11 @@ export async function executeAgentTypedData(args: {
         subject: ctx.did,
         route: ctx.custody?.origin.method ?? '/v1/agent',
         requestHash: audit.request_hash,
-      }
+      },
     );
     // viem validates the typed-data shape; a malformed payload throws here.
     signature = await account.signTypedData(
-      typedData as Parameters<typeof account.signTypedData>[0]
+      typedData as Parameters<typeof account.signTypedData>[0],
     );
   } catch (err) {
     const refused = custodyRefusal(err);

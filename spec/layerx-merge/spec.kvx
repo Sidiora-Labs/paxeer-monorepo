@@ -17332,6 +17332,24 @@ value = "Point one. A file of the launchpad web that the build checks may take c
 basis = "Gotcha 4979, decision 4035 point three."
 affects = []
 
+[decision.4037]
+title = "A read the web makes through the gateway has its line in the table of the gateway in the same change, and a case keeps the table and the routes of the social service in step"
+value = "Point one. The gateway forwards the read of the comments of a wallet under the prefix /v2/social to the social service with the path unchanged, as a public read that knows its viewer: a request without a session is forwarded without an actor, a request with a valid session carries the wallet of the session as the actor, and an actor header of the caller never reaches the social service. Point two. The table marks such a read the way the contract routes of the follow graph mark theirs: no session required, a session used when present. The paths of the table that need a session keep their mark, and no path that needs a session is marked public for the convenience of the change. Point three. A case of the gateway reads the source file of the social service as text, takes every GET it registers under the wallet segment, and requires each one in the table of the gateway under the prefix /v2/social; it ends with the missing path, and it fails when it finds no registration at all. Point four. Whether a page of the web reads one of the three reads beside it under the same prefix (followers, following, follow figures) without a session is read in the callers of the web by the task: one that is read without a session gets the same mark in the same change, the others stay as they are. Point five. A task that adds a route to a service the web reaches through the gateway lists the table of the gateway among its paths and names the route in its text."
+basis = "Gotcha 4980."
+affects = []
+
+[decision.4038]
+title = "An action whose nonce is spent ends: with the receipt of a hash it holds, or in a terminal state that says the nonce was spent"
+value = "Point one. When the pool reports for a leg of an action that its nonce is spent (NonceConflictError with the mark consumed), at the resend of retained bytes or at a replacement, the action sends nothing more for that leg. Point two. It then looks for the receipt of every hash it holds for the leg: the hash of the row and every hash in the record of the execution of the leg. A receipt that is found is handled as the confirmation step handles one today: confirmed moves the action on, reverted ends it with TRANSACTION_REVERTED. Point three. With no receipt of a held hash the action ends with a new code NONCE_CONSUMED, strategy NEVER, terminal status failed_terminal. The envelope names the leg, the nonce and the hashes that were looked for. The budget of the action stays held, as for every leg that was sent, and the bookkeeping of its nonce is released as for every terminal end. Point four. Before a replacement is prepared at a stored nonce the step reads the count of the account at the latest block through the pool. A count above the stored nonce takes the path of points one to three without a signature and without a send. A read that gives no answer ends the round as it ends today. Point five. A conflict without the mark consumed (another transaction pooled at the nonce, a replacement priced too low) and an unknown outcome of a send stay as they are today and end no action. Point six. The new code joins the list of codes of the client package in sdk/wallet/src/agent-client.ts. No existing code changes its strategy or its status. Point seven. This change adds no bound on the age of an action and changes no interval of the loop."
+basis = "Gotcha 4982."
+affects = []
+
+[decision.4039]
+title = "A process of the registry of the trading data that an owner starts from an image has its row in the image table, and a case keeps the table and the registry in step"
+value = "Point one. The quoting process gets a row of the same form as the four rows of the loop of tools/deploy/offchain-images.sh: the image name is the name of the registry, perps-quoter, the service argument is perps-quoter, and the context, the image file, the target, the base image arguments and the required mark are those of the four rows. Point two. The row is about the image only. The registry keeps the quoting process as a process started by hand with no replica and without a restart, the project definition of the hosting platform gains no service, and the count of four long-running image services in the cases under services/platform/perps-data/deploy stays. Point three. The replay process keeps no row: no deployment starts it from a published image today, and a row costs one build with every publication. The case of point four names it as the one exception, with this reason. Point four. A case in tools/deploy/tests/offchain-images.test.sh reads the registry and the rows of the table: every service of the registry whose build names services/platform/perps-data/deploy/Dockerfile has a row under its name with its build service as the service argument, except the exception of point three, and the table holds no row of that image file for a service the registry does not hold. Point five. The guide of the quoting process says under which name the image is published and that an owner takes it by its digest; it keeps every rule of the start: one instance, started by hand, the key as a mounted file, the health port private."
+basis = "Gotcha 4983."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46992,6 +47010,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1253]
+title = "Add the row of the quoting process of the trading venue to the image table, and a case that keeps the table and the registry of the trading data in step"
+reqs = ["22998.1"]
+touches = ["tools/deploy", "services/platform/perps-data/deploy/README.md", "docs/perps/quoter.md"]
+tests = []
+verification_contract = "bash tools/deploy/tests/offchain-images.test.sh && bash tools/deploy/offchain-images.sh --matrix | grep -q perps-quoter && python3 -m pytest -q tests/ci/test_image_copy_sources_in_context.py && go test -count=1 ./services/platform/perps-data/deploy/ && grep -q imageTableCoversTheRegistryOfTheTradingData tools/deploy/tests/offchain-images.test.sh"
+do_1 = "do_1 Gotcha 4983, decision 4039. Read tools/deploy/offchain-images.sh whole, tools/deploy/tests/offchain-images.test.sh whole, the six entries of services/platform/perps-data/deploy/services.json whose build names services/platform/perps-data/deploy/Dockerfile, line 12 of the image file, the paragraph of services/platform/perps-data/deploy/README.md about the quoting process and the section of docs/perps/quoter.md around line 66. Read tests/ci/test_image_copy_sources_in_context.py far enough to see how it takes the rows of the table."
+symbols = []
+
+[capability.22.39.1252]
+title = "End an action of an agent whose nonce is spent, with the receipt of a hash it holds or in a terminal state that says so, and prepare no replacement at a spent nonce"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/src", "services/wallet/gateway/test", "sdk/wallet/src/agent-client.ts"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/agent-action-spent-nonce.test.ts test/agent.actions.errors.test.ts test/agent-actions-sequencer.test.ts && grep -q agentActionEndsWhenItsNonceIsSpent services/wallet/gateway/test/agent-action-spent-nonce.test.ts"
+do_1 = "do_1 Gotcha 4982, decision 4038. Read services/wallet/gateway/src/agent/actions/orchestrator.ts whole: the transition with its catch, confirmLeg, reconcile, submitRetained, recoverRetainedBroadcast, broadcastLeg, replaceLeg and the function that records a failure. Read services/wallet/gateway/src/agent/actions/errors.ts whole, the errors of services/wallet/gateway/src/rpc/pool.ts and its send with the sorting of a refused nonce, services/wallet/gateway/src/nonce/store.ts, the record of the execution of a leg and the list of statuses in services/wallet/gateway/src/db/actions.ts, the list of codes in sdk/wallet/src/agent-client.ts, services/wallet/gateway/test/agent.actions.errors.test.ts and services/wallet/gateway/test/agent-actions-sequencer.test.ts."
+symbols = []
+
+[capability.22.39.1251]
+title = "Draw the footer of the page of the agents once and set the controls of its state cards inside the centered block"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/agents"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/agents && grep -q agentsPageLeavesTheFooterToTheShell apps/launchpad/web/src/widgets/agents/agents-page.test.tsx && grep -q agentsStateControlsSitInsideTheEmptyState apps/launchpad/web/src/widgets/agents/agents-page.test.tsx"
+do_1 = "do_1 Gotcha 4981. Read apps/launchpad/web/src/widgets/agents/agents-page.tsx whole, the function PageWithFooter and the footer of the shell in apps/launchpad/web/src/shell/platform-metrics.tsx, the line of apps/launchpad/web/src/shell/app-shell.tsx that draws the footer, the primitive of the empty state in apps/launchpad/web/src/ui/primitives/states.tsx with its action, and apps/launchpad/web/src/widgets/agents/agents-page.test.tsx."
+symbols = []
+
+[capability.22.39.1250]
+title = "Forward the read of the comments of a wallet through the gateway of the launchpad as a public read, and add a case that keeps the table of the gateway in step with the routes of the social service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway/internal/proxy", "services/launchpad/gateway/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=gateway && (cd services/launchpad/gateway && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 10m -v -run ^TestWalletCommentsReadReachesSocial ./internal/app/ | grep -q -e PASS:.TestWalletCommentsReadReachesSocial && GOWORK=off go test -count=1 -timeout 10m -v -run ^TestSocialWalletReadsAreInTheGatewayTable ./internal/app/ | grep -q -e PASS:.TestSocialWalletReadsAreInTheGatewayTable)"
+do_1 = "do_1 Gotcha 4980, decision 4037. Read services/launchpad/gateway/internal/proxy/connected.go around the functions SocialConnectedRoutes, SocialContractRoutes and allowedConnectedRoute, the case files of services/launchpad/gateway/internal/proxy that name the reads of the followers (among them services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go with the list of templates of its case TestConnectedTablesForwardOnlyCatalogTemplates), the binding of the social routes in services/launchpad/gateway/internal/app with services/launchpad/gateway/internal/app/follow_routes_test.go and the other cases there that name those reads, services/launchpad/social/internal/interactions/http.go around line 44 with the function that decides which routes need a session, and apps/launchpad/web/src/widgets/social/wallet-comments.ts with apps/launchpad/web/src/widgets/profile/replies-tab.tsx."
+symbols = []
 
 [capability.22.39.1249]
 title = "Copy the file of the wallet gateway source that a fixture of the launchpad web takes into the image of the web, watch it for a build, and add a case that keeps the imports of the web and the copies of the image in step"
@@ -182160,7 +182214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1246]
 title = "Repair the lists Top gainers and Top losers, the digits of the prices, the cut column of the market list, the empty control of the header and the empty chart frames of the trading workspace, and say on the agents page how the two ways to connect relate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214003,9 +214057,129 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1253]
+title = "Add the row of the quoting process of the trading venue to the image table, and a case that keeps the table and the registry of the trading data in step"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1253"]
+interfaces = []
+do_1 = "do_1 Gotcha 4983, decision 4039. Read tools/deploy/offchain-images.sh whole, tools/deploy/tests/offchain-images.test.sh whole, the six entries of services/platform/perps-data/deploy/services.json whose build names services/platform/perps-data/deploy/Dockerfile, line 12 of the image file, the paragraph of services/platform/perps-data/deploy/README.md about the quoting process and the section of docs/perps/quoter.md around line 66. Read tests/ci/test_image_copy_sources_in_context.py far enough to see how it takes the rows of the table."
+do_2 = "do_2 One: the loop at line 78 of tools/deploy/offchain-images.sh also makes the row of the quoting process, with the image name perps-quoter and the service argument perps-quoter, in the same form as its four rows. The comment above the loop says which processes of the registry have a row and that the replay process has none. Change no other row and no mode of the table. Two: services/platform/perps-data/deploy/README.md and docs/perps/quoter.md say that the image of the quoting process is published under the name perps-quoter beside the images of the four services, and that an owner takes it by its digest. Both keep what they say about the start by hand, the one instance, the mounted key file and the private health port. Change nothing in services/platform/perps-data/deploy/services.json, nothing in the project definition of the hosting platform and no case file under services/platform/perps-data/deploy."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. New case in tools/deploy/tests/offchain-images.test.sh, in the style of the cases of that file and with the tools it already uses. Its comment line and its failure messages carry the name imageTableCoversTheRegistryOfTheTradingData. It takes from services/platform/perps-data/deploy/services.json every service whose build names services/platform/perps-data/deploy/Dockerfile, with its name and its build service, and it takes the rows of the matrix of the table that name that image file. It requires for each such service of the registry, except perps-replay, exactly one row under the name of the registry whose first build argument is SERVICE followed by the build service; it requires that perps-replay has no row; and it requires that no row of that image file carries a service argument the registry does not hold. Prove it both ways inside the case file, the way the existing cases run the table against a prepared tree: against the tree it passes, and against a copy of the table without the pair of the quoting process it reports perps-quoter and nothing else. Where an existing case of the file counts the rows of the matrix or lists their names, move the number or the list and say so in the final message; change no other expectation of an existing case. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy", "services/platform/perps-data/deploy/README.md", "docs/perps/quoter.md"]
+tests = []
+planned_paths = []
+build_cmd = "bash -n tools/deploy/offchain-images.sh && bash -n tools/deploy/tests/offchain-images.test.sh && go vet ./services/platform/perps-data/deploy/"
+verify_cmd = "bash tools/deploy/tests/offchain-images.test.sh && bash tools/deploy/offchain-images.sh --matrix | grep -q perps-quoter && python3 -m pytest -q tests/ci/test_image_copy_sources_in_context.py && go test -count=1 ./services/platform/perps-data/deploy/ && grep -q imageTableCoversTheRegistryOfTheTradingData tools/deploy/tests/offchain-images.test.sh"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 75
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1252]
+title = "End an action of an agent whose nonce is spent, with the receipt of a hash it holds or in a terminal state that says so, and prepare no replacement at a spent nonce"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1252"]
+interfaces = []
+do_1 = "do_1 Gotcha 4982, decision 4038. Read services/wallet/gateway/src/agent/actions/orchestrator.ts whole: the transition with its catch, confirmLeg, reconcile, submitRetained, recoverRetainedBroadcast, broadcastLeg, replaceLeg and the function that records a failure. Read services/wallet/gateway/src/agent/actions/errors.ts whole, the errors of services/wallet/gateway/src/rpc/pool.ts and its send with the sorting of a refused nonce, services/wallet/gateway/src/nonce/store.ts, the record of the execution of a leg and the list of statuses in services/wallet/gateway/src/db/actions.ts, the list of codes in sdk/wallet/src/agent-client.ts, services/wallet/gateway/test/agent.actions.errors.test.ts and services/wallet/gateway/test/agent-actions-sequencer.test.ts."
+do_2 = "do_2 One: per decision 4038 points one to three. The orchestrator tells NonceConflictError with the mark consumed apart from every other throw, at the resend of retained bytes and at a replacement: it sends nothing more for the leg, looks for the receipt of every hash it holds for the leg, handles a receipt that is found as the confirmation step does today, and with none ends the action with the new code NONCE_CONSUMED: strategy NEVER, terminal status failed_terminal, the envelope with the leg, the nonce and the hashes looked for, the budget not released, the bookkeeping of the nonce released as for every terminal end. Two: per point four. Before a replacement at a stored nonce the step reads the count of the account at the latest block through the pool; a count above the stored nonce takes the same path without a signature and without a send. A read that gives no answer changes nothing: the round ends as it ends today. Three: the new code joins the type and the tables of services/wallet/gateway/src/agent/actions/errors.ts and the list of codes of sdk/wallet/src/agent-client.ts, and services/wallet/gateway/test/agent.actions.errors.test.ts gets its lines for the new code. No existing code changes its strategy or its status. Four: per point five, a conflict without the mark consumed and an unknown outcome of a send stay as they are today. Add no bound on the age of an action and change no interval of the loop."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. New case file services/wallet/gateway/test/agent-action-spent-nonce.test.ts with the support the cases of services/wallet/gateway/test/agent-actions-sequencer.test.ts use: the local chain and the temporary database of the test directory. Case agentActionEndsWhenItsNonceIsSpent: an action whose approval was sent and never mined, and whose nonce was then spent by another transaction of the same account, is advanced. It ends with the code NONCE_CONSUMED and the status failed_terminal, no further transaction was sent for it, no signature was asked for after the count was read, and a second advance changes nothing. Case agentActionFollowsTheReceiptOfAHeldHash: the same start, but the nonce was spent by a transaction whose hash the action holds; the action moves on as confirmed. Case agentActionWaitsOnAPooledConflict: a conflict without the mark consumed leaves the action open with the code it has today. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/src", "services/wallet/gateway/test", "sdk/wallet/src/agent-client.ts"]
+tests = []
+planned_paths = ["services/wallet/gateway/test/agent-action-spent-nonce.test.ts"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/agent-action-spent-nonce.test.ts test/agent.actions.errors.test.ts test/agent-actions-sequencer.test.ts && grep -q agentActionEndsWhenItsNonceIsSpent services/wallet/gateway/test/agent-action-spent-nonce.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1251]
+title = "Draw the footer of the page of the agents once and set the controls of its state cards inside the centered block"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1234"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1251"]
+interfaces = []
+do_1 = "do_1 Gotcha 4981. Read apps/launchpad/web/src/widgets/agents/agents-page.tsx whole, the function PageWithFooter and the footer of the shell in apps/launchpad/web/src/shell/platform-metrics.tsx, the line of apps/launchpad/web/src/shell/app-shell.tsx that draws the footer, the primitive of the empty state in apps/launchpad/web/src/ui/primitives/states.tsx with its action, and apps/launchpad/web/src/widgets/agents/agents-page.test.tsx."
+do_2 = "do_2 One: the page of the agents no longer wraps its content in PageWithFooter; the shell draws the footer of this route, as it does for every route outside its three exceptions. The two other users of the wrapper and the line of the shell stay as they are. Two: in every state of the page whose card holds a control after the empty state, the control becomes the action of the empty state, so that it stands inside the centered block below the text. Label, variant and handler of each control stay. Change no text of the page and no file outside apps/launchpad/web/src/widgets/agents."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Two cases in apps/launchpad/web/src/widgets/agents/agents-page.test.tsx, in the style of that file. agentsPageLeavesTheFooterToTheShell: the page rendered in each of its states holds no footer element of its own, and the case reads the line of apps/launchpad/web/src/shell/app-shell.tsx that draws the footer and requires that the route of the agents is not among its exceptions. agentsStateControlsSitInsideTheEmptyState: in the signed-out state the button of the sign-in is a descendant of the block of the empty state and a click calls the handler of the sign-in once; the same holds for each other state that has a control. The cases the file already has keep passing; where one of them looked for a control as a child of the panel, move its query and keep its meaning. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/agents"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad -r --filter @kindle/agent-kit... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/agents && grep -q agentsPageLeavesTheFooterToTheShell apps/launchpad/web/src/widgets/agents/agents-page.test.tsx && grep -q agentsStateControlsSitInsideTheEmptyState apps/launchpad/web/src/widgets/agents/agents-page.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1250]
+title = "Forward the read of the comments of a wallet through the gateway of the launchpad as a public read, and add a case that keeps the table of the gateway in step with the routes of the social service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1250"]
+interfaces = []
+do_1 = "do_1 Gotcha 4980, decision 4037. Read services/launchpad/gateway/internal/proxy/connected.go around the functions SocialConnectedRoutes, SocialContractRoutes and allowedConnectedRoute, the case files of services/launchpad/gateway/internal/proxy that name the reads of the followers (among them services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go with the list of templates of its case TestConnectedTablesForwardOnlyCatalogTemplates), the binding of the social routes in services/launchpad/gateway/internal/app with services/launchpad/gateway/internal/app/follow_routes_test.go and the other cases there that name those reads, services/launchpad/social/internal/interactions/http.go around line 44 with the function that decides which routes need a session, and apps/launchpad/web/src/widgets/social/wallet-comments.ts with apps/launchpad/web/src/widgets/profile/replies-tab.tsx."
+do_2 = "do_2 One: the gateway forwards GET of the comments of a wallet under the prefix /v2/social to the social service, per decision 4037 points one and two. The function SocialConnectedRoutes keeps one place per kind of mark: the paths that need a session stay in its map, and the public reads get a list of their own beside it with the mark the contract routes of the follow graph carry. Two: add the template to every list of the cases that pins the templates of the table: the list in the case TestConnectedTablesForwardOnlyCatalogTemplates, and each other list that fails for the new path. Three: read in the web how the reads of the followers, of the following and of the follow figures under the same prefix are called. If a page reads one of them without a session, give it the same mark in this change; otherwise leave the three as they are. Say in the final message what you found for each of the three. Change nothing under services/launchpad/social and nothing under apps."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. New case file services/launchpad/gateway/internal/app/wallet_comments_route_test.go in the package and in the style of services/launchpad/gateway/internal/app/follow_routes_test.go, with two cases. TestWalletCommentsReadReachesSocial: with the gateway started as the cases of that file start it, a GET of the comments of a wallet under the prefix /v2/social without a session is answered with status 200 and reaches the stand-in of the social service with the path unchanged and without an actor; the same read with a session carries the wallet of the session as the actor, and an actor header set by the caller does not reach the stand-in; a path under the same wallet segment that the table does not name is still answered with status 404. TestSocialWalletReadsAreInTheGatewayTable: it reads services/launchpad/social/internal/interactions/http.go as text by a path relative to the package, takes every GET the file registers under the wallet segment, and requires each one under the prefix /v2/social with the method GET in the routes SocialConnectedRoutes returns; it ends with the missing path, and it fails when it finds no registration at all, so that a move of the file does not let it pass empty. Prove the second case once by hand: without your line in the table it names the path of the comments. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway/internal/proxy", "services/launchpad/gateway/internal/app"]
+tests = []
+planned_paths = ["services/launchpad/gateway/internal/app/wallet_comments_route_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && GOWORK=off go build ./... && GOWORK=off go vet ./internal/proxy/... ./internal/app/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=gateway && (cd services/launchpad/gateway && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -timeout 10m -v -run ^TestWalletCommentsReadReachesSocial ./internal/app/ | grep -q -e PASS:.TestWalletCommentsReadReachesSocial && GOWORK=off go test -count=1 -timeout 10m -v -run ^TestSocialWalletReadsAreInTheGatewayTable ./internal/app/ | grep -q -e PASS:.TestSocialWalletReadsAreInTheGatewayTable)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1249]
 title = "Copy the file of the wallet gateway source that a fixture of the launchpad web takes into the image of the web, watch it for a build, and add a case that keeps the imports of the web and the copies of the image in step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214125,7 +214299,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1242]
 title = "Declare the subscription of the stats service to the account events its search of profiles is fed by"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214365,7 +214539,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1228]
 title = "Walk the journey of a trader on a local chain with the builders of the trading workspace: deposit, market order, position, part close, close and withdraw, with the reads through the local data gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214545,7 +214719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1220]
 title = "Walk one agent through the delegated path of the wallet gateway in one case: claim, limits, funding, calls inside the limits, the refusals, freeze and sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
