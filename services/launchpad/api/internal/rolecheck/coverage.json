@@ -98,6 +98,9 @@
       "file": "services/launchpad/discovery/squads.go"
     },
     {
+      "file": "services/launchpad/discovery/source_refresh.go"
+    },
+    {
       "file": "services/launchpad/discovery/store.go"
     },
     {

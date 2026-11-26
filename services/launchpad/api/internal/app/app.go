@@ -712,7 +712,7 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 			return errors.New("discovery identity transport unavailable")
 		}
 		var err error
-		runtimeConfig := notifications.RuntimeConfig{Principal: principal, Secrets: sharedsecrets.Options{Provider: sharedsecrets.ProviderType(a.cfg.SecretsProvider), CacheTTL: 0}, Client: concrete.Client, D11Base: document.D11Base, D11TokenRef: document.D11TokenRef, D12Base: document.D12Base, D12TokenRef: document.D12TokenRef, CursorKeyRef: document.CursorKeyRef, InternalTokenRef: document.InternalTokenRef, DeletePeerDNS: document.DeletePeerDNS, ChatPeerDNS: document.ChatPeerDNS, Push: document.Push}
+		runtimeConfig := notifications.RuntimeConfig{Logger: a.logger, Principal: principal, Secrets: sharedsecrets.Options{Provider: sharedsecrets.ProviderType(a.cfg.SecretsProvider), CacheTTL: 0}, Client: concrete.Client, D11Base: document.D11Base, D11TokenRef: document.D11TokenRef, D12Base: document.D12Base, D12TokenRef: document.D12TokenRef, CursorKeyRef: document.CursorKeyRef, InternalTokenRef: document.InternalTokenRef, DeletePeerDNS: document.DeletePeerDNS, ChatPeerDNS: document.ChatPeerDNS, Push: document.Push}
 		runtimeConfig.Pools, runtimeConfig.Intervals, err = notifications.NewRuntimeAuthorities(ctx, a.sqlDB, runtimeConfig, document.QuoteTokenAddress)
 		if err != nil {
 			return err

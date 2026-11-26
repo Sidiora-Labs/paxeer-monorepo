@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -43,6 +43,7 @@ type runtimePass struct {
 }
 
 type runtimeJobs struct {
+	logger  *slog.Logger
 	mu      sync.RWMutex
 	running bool
 	failure error
@@ -98,7 +99,12 @@ func (r *runtimeJobs) runJob(ctx context.Context, job runtimeJob) error {
 	if wait == nil {
 		wait = waitRuntime
 	}
+	logger := r.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	backoff := time.Second
+	failures := 0
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -114,14 +120,21 @@ func (r *runtimeJobs) runJob(ctx context.Context, job runtimeJob) error {
 		}
 		delay := job.interval
 		if err != nil {
-			log.Printf("notification runtime job %s failed: %v", job.name, err)
-			if errors.Is(err, ErrInvalid) || errors.Is(err, discovery.ErrInvalid) {
+			failures++
+			terminal := errors.Is(err, ErrInvalid) || errors.Is(err, discovery.ErrInvalid)
+			level := slog.LevelWarn
+			if failures > 1 || terminal {
+				level = slog.LevelError
+			}
+			logger.Log(ctx, level, "notification runtime job failed", "job", job.name, "error", err, "failures", failures)
+			if terminal {
 				return fmt.Errorf("%s: %w", job.name, err)
 			}
 			delay = backoff
 			backoff = nextRuntimeBackoff(backoff)
 		} else {
 			backoff = time.Second
+			failures = 0
 		}
 		if err := wait(ctx, delay); err != nil {
 			return err
