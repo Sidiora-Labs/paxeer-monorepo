@@ -2,7 +2,7 @@
 import React, { act } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import CookieBanner, { COOKIE_BANNER_PHONE_BOTTOM_CLASS } from './cookie-banner';
+import CookieBanner, { COOKIE_BANNER_PHONE_BOTTOM_CLASS, COOKIE_BANNER_WIDE_BOTTOM_CLASS } from './cookie-banner';
 import { RULES_AGREED_KEY } from './platform-rules-modal';
 import { BOTTOM_NAV_BREAKPOINT_PX } from '@/shell/mobile-bottom-nav';
 
@@ -75,16 +75,35 @@ describe('cookie banner placement', () => {
     expect(banner()!.dataset.placement).toBe('above-bottom-nav');
   });
 
-  it('stays flush with the viewport bottom from the breakpoint up', () => {
+  it('floats at the lower left from the breakpoint up', () => {
     for (const width of [BOTTOM_NAV_BREAKPOINT_PX, 1440]) {
       setViewportWidth(width);
       mount();
       const el = banner()!;
       expect(el.dataset.placement).toBe('viewport-bottom');
       expect(el.classList).toContain('fixed');
-      expect(el.classList).toContain('bottom-0');
+      expect(el.classList).toContain(COOKIE_BANNER_WIDE_BOTTOM_CLASS);
+      expect(el.classList).toContain('left-3');
+      expect(el.classList).toContain('md:right-auto');
       expect(el.className).not.toContain('safe-area');
       act(() => mounted.pop()!.root.unmount());
     }
   });
+
+  function compactCookieNoticeRetainsBothChoices() {
+    setViewportWidth(390);
+    mount();
+    const notice = banner()!;
+    expect(notice.classList).toContain('max-w-[calc(var(--sl-space)*90)]');
+    expect(notice.querySelector('p')?.classList).toContain('line-clamp-2');
+    const buttons = [...notice.querySelectorAll('button')];
+    expect(buttons.map(button => button.textContent?.trim())).toEqual(['Decline', 'Accept']);
+    expect(buttons[0].parentElement?.classList).toContain('flex');
+    expect(buttons[0].parentElement?.classList).not.toContain('flex-col');
+    act(() => buttons[0].click());
+    expect(window.localStorage.getItem('sidiora_cookie_consent')).toBe('declined');
+    expect(banner()).toBeNull();
+  }
+
+  it(compactCookieNoticeRetainsBothChoices.name, compactCookieNoticeRetainsBothChoices);
 });

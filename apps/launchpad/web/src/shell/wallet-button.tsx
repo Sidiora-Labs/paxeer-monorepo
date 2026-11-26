@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert, UserRound } from 'lucide-react';
 import { useAccount } from 'wagmi';
-import { Avatar, Button, Skeleton } from '@/ui/primitives';
+import { Avatar, Button, ColorModeControl, IconButton, Sheet, Skeleton } from '@/ui/primitives';
 import { formatUsdl, shortAddress } from '@/utils/format';
 import { useProfile } from '@/core/market/use-profile';
 import { readPortfolio, signOutAccount } from '@/widgets/profile/account-transport';
@@ -61,9 +61,38 @@ export default function WalletButton() {
             Wrong network
           </Button>
         ) : null}
-        <Button variant="primary" size="sm" className="py-0" onClick={() => openModal()}>
+        <Button variant="inverse" size="sm" className="py-0" onClick={() => openModal()}>
           Sign in
         </Button>
+        <IconButton
+          label="Open account menu"
+          icon={<UserRound />}
+          variant="ghost"
+          size="sm"
+          aria-haspopup="dialog"
+          aria-expanded={menu !== null}
+          onClick={() => openAccountMenu('account')}
+        />
+        <Sheet
+          open={menu !== null}
+          onClose={closeAccountMenu}
+          title="Account"
+          size="sm"
+          closeLabel="Close account menu"
+        >
+          <div className="flex flex-col gap-4">
+            <ColorModeControl />
+            <Button
+              variant="inverse"
+              onClick={() => {
+                closeAccountMenu();
+                openModal();
+              }}
+            >
+              Sign in
+            </Button>
+          </div>
+        </Sheet>
         <SignInModal />
       </div>
     );
@@ -85,7 +114,7 @@ export default function WalletButton() {
   return (
     <div className="inline-flex max-w-full flex-wrap items-center gap-2">
       <Button
-        variant="secondary"
+        variant="inverse"
         size="sm"
         className="py-0"
         onClick={() => openAccountMenu('receive')}

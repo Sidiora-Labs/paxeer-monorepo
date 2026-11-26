@@ -24,7 +24,7 @@ function Evidence({ urls }: { urls: readonly string[] }) {
   if (safe.length === 0) return null;
   const extra = safe.length - 1;
   return (
-    <div className="relative overflow-hidden rounded-md bg-surface-2">
+    <div className="relative overflow-hidden rounded-sm bg-surface-2">
       {failed ? (
         <div className="flex aspect-[4/3] items-center justify-center text-text-faint"><ImageOff aria-hidden="true" className="size-icon-lg" /><span className="sr-only">Image didn't load</span></div>
       ) : (
@@ -63,7 +63,7 @@ export interface SubmissionCardProps {
   className?: string;
 }
 
-/** Submission card: author, state, quoted proof text with an accent bar, evidence images and the award once accepted. */
+/** Submission card with author, state, proof, evidence and the accepted award. */
 export function SubmissionCard({ submission, asset, own = false, actions, className }: SubmissionCardProps) {
   const titleId = useId();
   const badge = badgeOf(submission.state);
@@ -78,7 +78,7 @@ export function SubmissionCard({ submission, asset, own = false, actions, classN
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Avatar src={null} name={submission.authorWallet} size="sm" decorative />
-          <h3 id={titleId} className="truncate text-sm font-bold text-text">
+          <h3 id={titleId} className="truncate text-sm font-semibold text-text">
             <Link prefetch={false} href={`/profile/${submission.authorWallet.toLowerCase()}`} className="hover:underline focus-visible:outline-2 focus-visible:outline-focus">{author}</Link>
             {own ? <span className="ml-1 font-normal text-text-faint">(you)</span> : null}
           </h3>
@@ -90,7 +90,7 @@ export function SubmissionCard({ submission, asset, own = false, actions, classN
       </header>
       <Evidence urls={submission.evidenceUrls} />
       <blockquote className={cn('flex gap-3 rounded-sm bg-surface-2 p-3 text-sm', muted ? 'text-text-faint' : 'text-text')}>
-        <span aria-hidden="true" className="w-1 shrink-0 rounded-pill bg-accent" />
+        <span aria-hidden="true" className="w-1 shrink-0 rounded-pill bg-surface-3" />
         <p className="min-w-0 whitespace-pre-wrap break-words">{submission.body}</p>
       </blockquote>
       {award ? (

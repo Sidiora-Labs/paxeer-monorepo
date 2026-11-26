@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, Gift, LogOut, RefreshCw, Star, User } from 'lucide-react';
-import { Avatar, Button, ModalFrame, TabStrip } from '@/ui/primitives';
+import { Avatar, Button, ColorModeControl, Sheet, TabStrip } from '@/ui/primitives';
 import CopyAddress from '@/ui/shared/copy-address';
 import { shortAddress } from '@/utils/format';
 import FundingPanel from '@/widgets/funding/funding-panel';
@@ -51,12 +51,12 @@ export default function WalletModal({ open, tab, onTabChange, onClose, address, 
   const idPrefix = 'account-menu';
 
   return (
-    <ModalFrame open={open} onClose={onClose} size="sm" title={titles[tab]} hideTitle closeLabel="Close account menu">
+    <Sheet open={open} onClose={onClose} size="sm" title={titles[tab]} hideTitle closeLabel="Close account menu">
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <Avatar src={avatarUrl} name={name} size="lg" badge={connectorIcon || connectorName ? <WalletMark icon={connectorIcon} name={connectorName ?? 'Wallet'} size="sm" className="rounded-pill bg-surface-2" /> : undefined} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-bold text-text">{name}</p>
+            <p className="truncate text-base font-semibold text-text">{name}</p>
             <p className="flex items-center gap-1 text-xs text-text-muted">
               <span className="font-mono-sl">{shortAddress(address, 6, 4)}</span>
               <CopyAddress address={address} variant="icon" />
@@ -81,6 +81,7 @@ export default function WalletModal({ open, tab, onTabChange, onClose, address, 
                 <Button variant="ghost" fullWidth icon={<ArrowUpFromLine />} className="justify-start" onClick={() => onTabChange('send')}>Send</Button>
                 <Button variant="ghost" fullWidth icon={<RefreshCw />} className="justify-start" onClick={() => onTabChange('reconnect')}>Reconnect wallet</Button>
               </nav>
+              <ColorModeControl />
               <div className="pt-2">
                 <Button variant="danger-text" fullWidth icon={<LogOut />} loading={loggingOut} onClick={() => { void logOut(); }} className="justify-start">Log out</Button>
               </div>
@@ -89,6 +90,6 @@ export default function WalletModal({ open, tab, onTabChange, onClose, address, 
           {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
         </div>
       </div>
-    </ModalFrame>
+    </Sheet>
   );
 }

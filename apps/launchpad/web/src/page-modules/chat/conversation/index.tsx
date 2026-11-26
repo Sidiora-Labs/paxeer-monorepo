@@ -7,7 +7,7 @@ import { MessageCircle, SearchX } from 'lucide-react';
 import DmThread from '@/widgets/chat/dm-thread';
 import { getDmConversations, type DmConversation } from '@/core/clients/chat-api';
 import { isSignedOutError } from '@/core/market/unsupported';
-import { Button, EmptyState, ErrorState } from '@/ui/primitives';
+import { Button, EmptyState, ErrorState, Skeleton } from '@/ui/primitives';
 import { SignedOutState } from '@/ui/shared/signed-out-state';
 
 import { accountEpoch, accountSession, subscribeAccount } from '@/widgets/profile/account-transport';
@@ -29,6 +29,6 @@ export default function ConversationModule(){
    ?<EmptyState icon={SearchX} title="Conversation not found" body="It may have been deleted, or it belongs to another wallet" action={<Button variant="secondary" size="sm" href="/chat">Back to messages</Button>}/>
    :failure?.kind==='error'
     ?<ErrorState title="Can't load this chat right now" message={failure.message} onRetry={()=>setAttempt(value=>value+1)}/>
-    :value&&value.wallet===address&&value.epoch===sessionEpoch?<DmThread key={`${address}:${id}:${sessionEpoch}`} conversationId={id} peerAddress={value.conversation.peer}/>:<p role="status" className="p-4 text-sm text-text-faint">Loading...</p>;
+    :value&&value.wallet===address&&value.epoch===sessionEpoch?<DmThread key={`${address}:${id}:${sessionEpoch}`} conversationId={id} peerAddress={value.conversation.peer}/>:<Skeleton variant="rows" rows={3} label="conversation" />;
  return <div className="mx-auto flex min-h-[calc(100vh-var(--sl-space)*15)] max-w-2xl flex-col text-text"><Link prefetch={false} href="/chat" className="inline-flex items-center text-md text-text-muted underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-focus">Back to messages</Link>{body}</div>;
 }

@@ -1,0 +1,9 @@
+.sl-documents .prose-legal h1 {
+  font-size: var(--sl-text-lg);
+  line-height: var(--sl-leading-lg);
+  font-weight: var(--sl-weight-bold);
+}
+
+.sl-documents .prose-legal :is(h2, h3, strong) {
+  font-weight: var(--sl-weight-semibold);
+}

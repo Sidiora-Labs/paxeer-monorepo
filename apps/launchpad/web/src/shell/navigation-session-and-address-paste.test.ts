@@ -65,18 +65,18 @@ async function mobile_test_session_shape() {
   expect(more.getAttribute('aria-expanded')).toBe('true');
   expect(accountSession()).toBeNull();
   expect(accountDestinations(sheet)).toEqual([]);
-  expect(more.className).not.toContain('text-accent');
+  expect(more.classList).toContain('text-text-muted');
 
   await act(async () => { await connect(config, { connector: config.connectors[0] }); });
   expect(accountSession()).toBeNull();
   expect(accountDestinations(sheet)).toEqual(['/rewards', '/watchlist', '/profile']);
-  expect(more.className).not.toContain('text-accent');
+  expect(more.classList).toContain('text-text-muted');
 
   await act(async () => { installNavigationSession(); });
   expect(accountSession()?.session.wallet).toBe(config.state.connections.get(config.state.current!)?.accounts[0].toLowerCase());
   expect(accountDestinations(sheet)).toEqual(['/rewards', '/watchlist', '/profile', '/chat']);
   expect(sheet.querySelector('a[href="/chat"]')?.getAttribute('aria-current')).toBe('page');
-  expect(more.className).toContain('text-accent');
+  expect(more.classList).toContain('text-text');
 }
 
 async function mobile_session_gate() {

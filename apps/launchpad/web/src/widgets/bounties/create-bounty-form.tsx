@@ -60,7 +60,7 @@ function PoolPicker({ value, onChange }: PoolPickerProps) {
   if (value) {
     return (
       <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-bold text-text">Linked coin</span>
+        <span className="text-sm font-semibold text-text">Linked coin</span>
         <div className="flex items-center gap-2 rounded-sm bg-surface-2 px-3 py-2">
           <BountyTokenChip poolAddress={value} />
           <span className="truncate font-mono text-xs text-text-faint">{shortAddress(value, 6, 4)}</span>
@@ -174,7 +174,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
 
   return (
     <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-5 rounded-lg bg-surface-1 p-4 md:p-6 [&_.sl-field]:py-[calc(var(--sl-space-2)-var(--sl-edge-width))] [&_[role=radio]]:min-h-6 [&_[role=radio]]:py-0 [&_input:not([type=file])]:text-base [&_input:not([type=file])]:leading-[calc(var(--sl-leading-base)/var(--sl-text-base))] [&_textarea]:text-base [&_textarea]:leading-[calc(var(--sl-leading-base)/var(--sl-text-base))]', className)}>
-      <h2 id={`${id}-heading`} className="text-lg font-bold text-text">Bounty details</h2>
+      <h2 id={`${id}-heading`} className="text-md font-semibold text-text">Bounty details</h2>
       <FormField
         id={`${id}-title`}
         label="Title"
@@ -193,7 +193,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
       />
       <PoolPicker value={pool} onChange={next => { setPool(next); if (!next) setAsset('usdl'); }} />
       <div className="flex flex-col gap-1.5">
-        <span id={`${id}-asset-label`} className="text-sm font-bold text-text">Reward asset</span>
+        <span id={`${id}-asset-label`} className="text-sm font-semibold text-text">Reward asset</span>
         <SegmentedControl<AssetChoice>
           label="Reward asset"
           value={effectiveAsset}
@@ -213,7 +213,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
         mono
         error={attempted ? errors.budget : null}
         helper="Locked when you fund the bounty. Network fee is paid separately"
-        trailing={<span className="text-sm font-bold text-text-muted">{symbol}</span>}
+        trailing={<span className="text-sm font-semibold text-text-muted">{symbol}</span>}
         inputProps={{ value: budget, onChange: event => setBudget(event.target.value.replace(',', '.')), inputMode: 'decimal', placeholder: '0.00', autoComplete: 'off' }}
       />
 
@@ -228,7 +228,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
       {failure && failure.state === 'error' ? <NoticeBar tone="danger" announce title="Couldn't create bounty">{failureText(failure)}</NoticeBar> : null}
 
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
-        <Button type="submit" variant="primary" size="lg" icon={<Plus />} loading={mutation.isPending} className="w-full md:w-auto">
+        <Button type="submit" variant={signedIn ? 'primary' : 'inverse'} size="lg" icon={<Plus />} loading={mutation.isPending} className="w-full md:w-auto">
           {signedIn ? 'Create bounty' : 'Sign in to create'}
         </Button>
       </div>
