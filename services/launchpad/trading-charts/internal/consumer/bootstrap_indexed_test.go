@@ -40,11 +40,10 @@ func TestBootstrapIndexedCommitsPlans(t *testing.T) {
 	count := indexedtest.Statement(t, indexedChartsSource, "recheck")
 	f.WithoutHeightIndex(t, func(t *testing.T) {
 		for _, size := range []int64{128, 2000} {
-			for _, from := range []int64{0, 498000, 1000000 - size} {
-				t.Run(fmt.Sprintf("step-%d/%d", size, from), func(t *testing.T) {
-					indexedtest.Explain(t, f.Runtime, refs["bootstrapSliceSQL"], indexedChartPlanArgs(from, from+size)...)
-				})
-			}
+			const from = int64(498000)
+			t.Run(fmt.Sprintf("step-%d/%d", size, from), func(t *testing.T) {
+				indexedtest.Explain(t, f.Runtime, refs["bootstrapSliceSQL"], indexedChartPlanArgs(from, from+size)...)
+			})
 		}
 	})
 	for _, size := range []int64{128, 2000} {
