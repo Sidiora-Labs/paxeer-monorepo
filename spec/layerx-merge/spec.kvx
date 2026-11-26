@@ -17278,6 +17278,12 @@ value = "One. The rule. A frame, a bar or a line whose value no source of today 
 basis = "Gotcha 4952."
 affects = []
 
+[decision.4028]
+title = "The interface of an application for agents: a tool set, the agent layer of the wallet gateway, a preset of limits and a view for the owner"
+value = "One. Each of the two applications gets a package with a tool set for agents: reads through the public data interface of the application, writes as the calls the web application itself sends, an entry for the Model Context Protocol over standard input and output, and a README. Two. Every signature of an agent on a transaction is made by the agent layer of the wallet gateway. The package signs its requests to the gateway with the key of the agent (ed25519) and holds no key of a user; no key of a user reaches an agent at any point. Three. Safety comes from a preset of limits that the owner sets through the owner routes: mode trade_only, allow rules only for the contracts and functions of the application, approvals only to the spender of the application, native transfer off, withdrawal only to listed addresses with the wallet of the owner as the only entry, a cap for one transaction and a cap for one day chosen by the owner, budgets with an end, freeze and sweep. Four. The view of the owner lives in the web application behind the embedded sign-in. It creates an agent or accepts the claim of an agent that holds its own key, shows the wallet of the agent with its balances, funds it from the embedded wallet through the fund route, sets the preset, freezes, sweeps and shows the activity. A key that the view creates in the browser is shown once and kept nowhere. Five. The typed clients of the owner routes and of the agent routes live in sdk/wallet. Each application package carries its own small client for signed requests, as each application carries its own copy of the embedded wallet client, because the image of the launchpad web application is built from apps/launchpad and sdk/launchpad/packages only. A case in each package compares digest and signature with the values of sdk/wallet/src/agent.ts for fixed inputs. Six. Proof is a case that runs the gateway: claim, preset, fund, a call inside the limits, a refusal above the cap, a refusal outside the rules, freeze, unfreeze, sweep, activity. Seven. The view of the launchpad follows the visual brief under spec/layerx-merge/programme/docs/launchpad-ui in dark, in light and at phone width. The view of the trading workspace uses the components and tokens that exist; nothing that exists changes size, place or colour (decision 3705), and an entry of docs/ui-source-baseline.json is renewed only for a file the task changes."
+basis = "Gotcha 4953."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46938,6 +46944,105 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1229]
+title = "Prove on a local chain with a follower that the transactions of the trading application are applied by the follower as the leader applied them"
+reqs = ["22998.1"]
+touches = ["tools/qualification/localnode"]
+tests = []
+verification_contract = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-follower.env && set -a && . /tmp/lx-localnode-follower.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run ^TestLocalNodeV6120FollowerPerps"
+do_1 = "do_1 Gotcha 4956 part two. Read tools/qualification/localnode/v6120_follower_code_test.go and v6120_follower_test.go whole as the model, v6120-node.sh with its modes for the leader and the follower, and apps/perps/packages/paxeer-backend/src/core/perps/calls.ts for the calls the application sends (deposit, open, add size, close, part close, take profit and stop loss, add and remove collateral, limit order, stop limit order, cancel, withdraw) with contract and function."
+symbols = []
+
+[capability.22.39.1228]
+title = "Walk the journey of a trader on a local chain with the builders of the trading workspace: deposit, market order, position, part close, close and withdraw, with the reads through the local data gateway"
+reqs = ["22998.1"]
+touches = ["apps/perps/tests", "tools/qualification/localnode"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && bash tools/qualification/localnode/perps-gateway.sh --env ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && pnpm --dir apps/perps exec node --test --test-concurrency=1 --import tsx tests/local-journey.test.ts"
+do_1 = "do_1 Gotcha 4956 part one. Read apps/perps/tests/local-order-tick.test.ts, local-market-config.test.ts, local-fee-tier.test.ts and local-spot-token-state.test.ts as the models (names of the environment, clients, receipts), tools/qualification/localnode/v6120-node.sh and perps-gateway.sh for what the local chain and the local data gateway hold (markets, prices, tokens, the funded key), and apps/perps/packages/paxeer-backend/src/core/perps (calls.ts, positionWrites.ts, orderPlan.ts, positionActions.ts, config.ts)."
+symbols = []
+
+[capability.22.39.1227]
+title = "Add the agents page of the trading workspace beside the API key page: create or claim an agent, fund it from the embedded wallet, set its limits, freeze, sweep and see its activity"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages", "apps/perps/apps/web/src", "apps/perps/tests", "apps/perps/docs/ui-source-baseline.json"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/agent-owner.test.ts"
+do_1 = "do_1 Gotcha 4953, decision 4028 points three, four and seven, decision 3705. Read apps/perps/apps/web/src/native/PaxeerNetwork.tsx (the routes of the portfolio), apps/perps/packages/portfolio/src/layout/layout.script.tsx (the side menu), the API key page under apps/perps/packages/portfolio/src/pages/api as the model for a sub page, apps/perps/packages/paxeer-backend/src/core/wallet/embedded whole (how the signed-in user reaches the gateway), apps/perps/packages/paxeer-backend/src/core/perps/calls.ts and config.ts, apps/perps/scripts/check-ui-source.mjs with docs/ui-source-baseline.json, and services/wallet/gateway/src/routes/owner.ts, routes/agents.ts, routes/agentAuth.ts and src/schemas/agent.ts for the exact requests and answers."
+symbols = []
+
+[capability.22.39.1226]
+title = "Add the agent kit of the trading workspace: tools for reading, depositing, opening, closing, cancelling and withdrawing through the agent layer of the wallet gateway, with an entry for the Model Context Protocol"
+reqs = ["22998.1"]
+touches = ["apps/perps/pnpm-lock.yaml", "apps/perps/package.json", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps/packages/agent-kit run typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/agent-kit.test.ts && test -s apps/perps/packages/agent-kit/README.md"
+do_1 = "do_1 Gotcha 4953, decision 4028 points one, two, three and five. Read apps/perps/packages/paxeer-backend/src/core/perps (calls.ts, positionWrites.ts, orderPlan.ts, positionActions.ts, config.ts) and how the web application reads markets, account, positions and orders, the cases apps/perps/tests/perps-calls.test.ts and native-order.test.ts, the entry apps/perps/packages/sdk-docs/src/mcp-cli.ts as the model for an entry of the protocol, sdk/wallet/src/agent.ts, and services/wallet/gateway/src/routes/agent.ts, routes/agentAuth.ts, routes/agentActions.ts and src/schemas/agent.ts."
+symbols = []
+
+[capability.22.39.1225]
+title = "Find and repair why the sub case same of TestProvisionApplyBoundDurableCreation ends in its deadline of 30 seconds"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/brokerprovision"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 20m ./brokerprovision/... && GOWORK=off go test -count=10 -timeout 20m -run ^TestProvisionApplyBoundDurableCreation ./brokerprovision/)"
+do_1 = "do_1 Gotcha 4955 part three. Read sdk/launchpad/shared/brokerprovision/provision_apply_bound_test.go whole (testBoundCreation, boundBroker with holdCreate and change, shortenRequestWait), realBroker in provision_test.go beside it, and the path of Provision the case holds."
+symbols = []
+
+[capability.22.39.1224]
+title = "Find and repair why the case TestLiveDenseCanonicalTransfersUseCommittedReceiptPages of the pnl package l16 loses its delivery lease"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "sdk/launchpad/shared/delivery"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 10m ./internal/production/l16/ && GOWORK=off go test -count=2 -timeout 10m -run ^TestLiveDenseCanonicalTransfersUseCommittedReceiptPages ./internal/production/l16/) && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 20m ./delivery/...)"
+do_1 = "do_1 Gotcha 4955 parts one and two. Read services/launchpad/pnl-tracker/internal/production/l16/live_transfers_production_test.go whole with liveProductionFixture and parallelDatabaseTest, local_canonical_test.go beside it with the single build of the two programs, the path of RebuildOwned down to where it takes and renews its lease, and sdk/launchpad/shared/delivery where ErrLease is returned."
+symbols = []
+
+[capability.22.39.1223]
+title = "Stop the coin page from reading the list of trades again with every published view of the chart"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test && grep -rq chartReadsTradesOnceWhileNothingChanges apps/launchpad/web/src/widgets/trading"
+do_1 = "do_1 Gotcha 4954. Read apps/launchpad/web/src/widgets/trading/tv-chart.tsx and apps/launchpad/web/src/widgets/trading/udf-datafeed.ts whole with their cases tv-chart.render.test.tsx and udf-datafeed.test.ts."
+symbols = []
+
+[capability.22.39.1222]
+title = "Add the agents page of the launchpad web application: create or claim an agent, fund it from the embedded wallet, set its limits, freeze, sweep and see its activity"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test && grep -rq agentsPageFundsAnAgentFromTheEmbeddedWallet apps/launchpad/web/src/widgets/agents && grep -rq agentsPageShowsACreatedKeyOnceAndKeepsNoCopy apps/launchpad/web/src/widgets/agents"
+do_1 = "do_1 Gotcha 4953, decision 4028 points three, four and seven. Read apps/launchpad/web/src/core/wallet-sdk/embedded_sdk whole (how the signed-in user reaches the gateway and where its bearer comes from), apps/launchpad/web/src/shell/nav-config.ts, one existing page of the application with its widget and its cases as the model, apps/launchpad/web/src/core/network/contracts.ts, the brief under spec/layerx-merge/programme/docs/launchpad-ui, and services/wallet/gateway/src/routes/owner.ts, routes/agents.ts, routes/agentAuth.ts and src/schemas/agent.ts for the exact requests and answers."
+symbols = []
+
+[capability.22.39.1221]
+title = "Add the agent kit of the launchpad: tools for reading, launching, buying and selling through the agent layer of the wallet gateway, with an entry for the Model Context Protocol"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/pnpm-lock.yaml", "apps/launchpad/package.json"]
+tests = []
+verification_contract = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/agent-kit... run build && pnpm --dir sdk/launchpad/packages/agent-kit run test && test -s sdk/launchpad/packages/agent-kit/README.md"
+do_1 = "do_1 Gotcha 4953, decision 4028 points one, two, three and five. Read sdk/launchpad/packages/sdk (package.json, src/index.ts, src/operations.ts and src/served-routes.ts), the packages production-contracts-v2 and sidiora-launchpad-v3 beside it, apps/launchpad/web/src/core/network/contracts.ts, apps/launchpad/web/src/widgets/trade/home-chain.ts, the router ABI reviewedRouterAbi in apps/launchpad/web/src/widgets/trading/transaction-controls/domain.ts, the creation adapters under apps/launchpad/web/src/widgets/create, sdk/wallet/src/agent.ts, and services/wallet/gateway/src/routes/agent.ts, routes/agentAuth.ts, routes/agentActions.ts and src/schemas/agent.ts."
+symbols = []
+
+[capability.22.39.1220]
+title = "Walk one agent through the delegated path of the wallet gateway in one case: claim, limits, funding, calls inside the limits, the refusals, freeze and sweep"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/test", "services/wallet/gateway/src"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/agent-delegated-path.test.ts"
+do_1 = "do_1 Gotcha 4953 part four, decision 4028 points three and six. Read services/wallet/gateway/src/routes/owner.ts, routes/agents.ts, routes/agent.ts, routes/agentAuth.ts, routes/agentActions.ts, src/policy/agent.ts and src/schemas/agent.ts whole, and under services/wallet/gateway/test the support files with the stand-in for the chain and the cases that already register an agent."
+symbols = []
+
+[capability.22.39.1219]
+title = "Give sdk/wallet a typed client for the owner routes of an agent and a typed client for the agent routes of the wallet gateway"
+reqs = ["22998.1"]
+touches = ["sdk/wallet/src", "sdk/wallet/test", "sdk/wallet/package.json", "sdk/wallet/README.md"]
+tests = []
+verification_contract = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile && ./node_modules/.bin/tsc -p tsconfig.json --noEmit && ./node_modules/.bin/vitest run test/owner-client.test.ts test/agent-client.test.ts)"
+do_1 = "do_1 Gotcha 4953 parts one and two, decision 4028 point five. Read sdk/wallet/src/agent.ts whole, services/wallet/gateway/src/routes/owner.ts, routes/agents.ts, routes/agent.ts, routes/agentAuth.ts, routes/agentActions.ts and src/schemas/agent.ts, and the fixtures under sdk/wallet/test/fixtures/gateway."
+symbols = []
 
 [capability.22.39.1218]
 title = "Let the web application try a read once more without showing anything when a 503 says retryable true and names no delay"
@@ -181795,6 +181900,96 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1227]
+title = "Add the agents page of the trading workspace beside the API key page: create or claim an agent, fund it from the embedded wallet, set its limits, freeze, sweep and see its activity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1227"]
+interfaces = []
+do_1 = "do_1 Gotcha 4953, decision 4028 points three, four and seven, decision 3705. Read apps/perps/apps/web/src/native/PaxeerNetwork.tsx (the routes of the portfolio), apps/perps/packages/portfolio/src/layout/layout.script.tsx (the side menu), the API key page under apps/perps/packages/portfolio/src/pages/api as the model for a sub page, apps/perps/packages/paxeer-backend/src/core/wallet/embedded whole (how the signed-in user reaches the gateway), apps/perps/packages/paxeer-backend/src/core/perps/calls.ts and config.ts, apps/perps/scripts/check-ui-source.mjs with docs/ui-source-baseline.json, and services/wallet/gateway/src/routes/owner.ts, routes/agents.ts, routes/agentAuth.ts and src/schemas/agent.ts for the exact requests and answers."
+do_2 = "do_2 Write the page /portfolio/agents with one entry in the side menu after the API key entry, and the owner calls in the embedded wallet client of the backend package. The page. One: signed out, it says what the wallet of an agent is and offers the embedded sign-in; a wallet that is not the embedded one is told that agents need the embedded wallet. Two: the list of the agents of the user with address, mode, frozen state and balances. Three: create an agent: the page makes an ed25519 key in the browser, runs challenge and verify, provision and the claim, shows the key once with a copy control and a plain warning, and keeps it nowhere. Claim an agent that holds its own key: the page shows what the agent must sign and takes the claim back as pasted text. Add no dependency: use the Web Crypto interface for the key and say plainly on the page when the browser lacks it. Four: fund with the collateral token or native coin from the embedded wallet through the fund route, with the balance of the wallet, the amount checked before sending and the transaction shown when it is in. Five: limits: the preset of decision 4028 point three for the contracts and functions the builders of core/perps address, with a cap for one transaction and a cap for one day the user types, shown as plain sentences before saving and saved through policy, rules and budgets. Six: freeze and unfreeze, sweep back to the wallet of the user, and the activity with time, kind, amount and result. Seven: every state has its view: loading, empty, an error with a retry, and a gateway that is not configured. Use the components, tokens and layout parts the portfolio pages already use; nothing that exists changes size, place or colour. A file listed in docs/ui-source-baseline.json that this task changes gets its entry renewed, and no other entry changes."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in apps/perps/tests/agent-owner.test.ts with node test and a stand-in for the gateway for every step of do_2: the requests of create, claim, fund, limits, freeze, unfreeze and sweep with route and body, the key shown once and kept nowhere, and the preset with only the contracts and selectors of the builders. The final message names each step with its route, each renewed entry of the baseline with the reason, and what the page does when the gateway is not configured. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages", "apps/perps/apps/web/src", "apps/perps/tests", "apps/perps/docs/ui-source-baseline.json"]
+tests = []
+planned_paths = ["apps/perps/tests/agent-owner.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/agent-owner.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 420
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1226]
+title = "Add the agent kit of the trading workspace: tools for reading, depositing, opening, closing, cancelling and withdrawing through the agent layer of the wallet gateway, with an entry for the Model Context Protocol"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1226"]
+interfaces = []
+do_1 = "do_1 Gotcha 4953, decision 4028 points one, two, three and five. Read apps/perps/packages/paxeer-backend/src/core/perps (calls.ts, positionWrites.ts, orderPlan.ts, positionActions.ts, config.ts) and how the web application reads markets, account, positions and orders, the cases apps/perps/tests/perps-calls.test.ts and native-order.test.ts, the entry apps/perps/packages/sdk-docs/src/mcp-cli.ts as the model for an entry of the protocol, sdk/wallet/src/agent.ts, and services/wallet/gateway/src/routes/agent.ts, routes/agentAuth.ts, routes/agentActions.ts and src/schemas/agent.ts."
+do_2 = "do_2 Write the package apps/perps/packages/agent-kit as a member of the workspace, with a script typecheck of its own. Its parts. One: a client for the agent routes of the gateway with signed requests (ed25519, the digest of sdk/wallet/src/agent.ts) and a case that compares digest and signature with values taken from that file for fixed inputs. Two: read tools: the markets with configuration, mark price and funding, the account with collateral and margin, positions, open orders and the history. They use the reads the web application uses. Three: write tools deposit, withdraw, open a position at market, place a limit order and a stop limit order, cancel an order, set take profit and stop loss, add and remove collateral, close and close a part. Each builds its call with the builders and plans of the backend package and encodes nothing a second time by hand, simulates through the gateway and sends through send or allowance-and-call. Size, price and leverage are checked against the configuration of the market before anything is signed, and a refusal says which bound was passed. Four: the preset of decision 4028 point three as a function that returns policy, rules and budget for given caps, with addresses and selectors taken from the builders. Five: an entry for the Model Context Protocol over standard input and output that offers every tool with a schema and a description an agent can act on, reads the address of the gateway, the address of the node and the path of the key file from the environment, and never prints the key. Six: a README with the tools, the environment and the steps from a new key to the first position. Refresh apps/perps/pnpm-lock.yaml with the package manager and change nothing else in it by hand. Change no file of the web application and no file listed in docs/ui-source-baseline.json."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in apps/perps/tests/agent-kit.test.ts with node test, without a network: every write tool against a stand-in for the gateway asserts the exact request (route, contract, selector, and arguments equal to what the builder of the backend package returns), every refusal of the gateway comes back to the agent as a result with the error code, the preset holds only the contracts and selectors the write tools use, and a case starts the entry as a child process and lists every tool over the protocol. The final message lists the tools with their routes and the calls with contract and function. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/pnpm-lock.yaml", "apps/perps/package.json", "apps/perps/tests"]
+tests = []
+planned_paths = ["apps/perps/packages/agent-kit", "apps/perps/tests/agent-kit.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps/packages/agent-kit run typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps/packages/agent-kit run typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/agent-kit.test.ts && test -s apps/perps/packages/agent-kit/README.md"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1219]
+title = "Give sdk/wallet a typed client for the owner routes of an agent and a typed client for the agent routes of the wallet gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1219"]
+interfaces = []
+do_1 = "do_1 Gotcha 4953 parts one and two, decision 4028 point five. Read sdk/wallet/src/agent.ts whole, services/wallet/gateway/src/routes/owner.ts, routes/agents.ts, routes/agent.ts, routes/agentAuth.ts, routes/agentActions.ts and src/schemas/agent.ts, and the fixtures under sdk/wallet/test/fixtures/gateway."
+do_2 = "do_2 Write sdk/wallet/src/owner.ts: one function for each owner route (list, read, claim, policy, freeze, unfreeze, rules list, add and remove, budgets list, add and remove, fund, sweep, activity) with request and answer types that follow the schemas of the gateway, a typed error that carries status and error code, and the bearer of the signed-in user passed in by the caller. Write sdk/wallet/src/agent-client.ts: challenge, verify and refresh, whoami, provision, me, balances, nonce, simulate, allowance, transaction by hash, activity, sign, send, sign-message, sign-typed-data, transfer, approve, allowance-and-call and the read of an action, with the headers of a signed request made by signAgentRequest where the route asks for a signed request and the token of the agent where it asks for the token. Export both from the entry of the package and name them in the README. Add no dependency, so the lock file stays as it is."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in sdk/wallet/test/owner-client.test.ts and sdk/wallet/test/agent-client.test.ts with a local stand-in for fetch: every function sends method, path, headers and body as the route of the gateway reads them and maps an error answer to the typed error. One case signs a request and checks the signature with the public key the way the gateway does. Run the whole suite of the package once by hand and name any case that fails with its message. The final message lists every function with its route. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/wallet/src", "sdk/wallet/test", "sdk/wallet/package.json", "sdk/wallet/README.md"]
+tests = []
+planned_paths = ["sdk/wallet/src/owner.ts", "sdk/wallet/src/agent-client.ts", "sdk/wallet/test/owner-client.test.ts", "sdk/wallet/test/agent-client.test.ts"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile && ./node_modules/.bin/tsc -p tsconfig.json --noEmit)"
+verify_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile && ./node_modules/.bin/tsc -p tsconfig.json --noEmit && ./node_modules/.bin/vitest run test/owner-client.test.ts test/agent-client.test.ts)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1078]
 title = "Show the settled hourly rate and a countdown to the next funding time of the market record in the funding line of the trade view"
 status = "done"
@@ -213426,6 +213621,216 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1228]
+title = "Walk the journey of a trader on a local chain with the builders of the trading workspace: deposit, market order, position, part close, close and withdraw, with the reads through the local data gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1228"]
+interfaces = []
+do_1 = "do_1 Gotcha 4956 part one. Read apps/perps/tests/local-order-tick.test.ts, local-market-config.test.ts, local-fee-tier.test.ts and local-spot-token-state.test.ts as the models (names of the environment, clients, receipts), tools/qualification/localnode/v6120-node.sh and perps-gateway.sh for what the local chain and the local data gateway hold (markets, prices, tokens, the funded key), and apps/perps/packages/paxeer-backend/src/core/perps (calls.ts, positionWrites.ts, orderPlan.ts, positionActions.ts, config.ts)."
+do_2 = "do_2 Write apps/perps/tests/local-journey.test.ts with node test. One account from LOCAL_NODE_KEY walks, each step built by the builders and plans of the backend package and sent to the local chain: approval and deposit of collateral; a market order that opens a long position; the position read from the chain and through the local data gateway with size, entry price, margin and leverage that agree; take profit and stop loss set and read back; collateral added and removed; a part close; a limit order placed, read among the open orders and cancelled; the full close; a short position opened and closed; withdraw of all collateral with the balance of the token before and after compared to the fees and to the profit or loss. After each step the case asserts the receipt, the event and the reads. If the local chain lacks a market, a price or a token the journey needs, prepare it in the test through what the chain offers, or extend the two scripts under tools/qualification/localnode and name the change. A step the chain refuses although the application offers it is a defect: describe it in the final message with call, arguments and revert reason, and keep its case in the file marked as todo with that reason, so the rest of the journey still proves itself."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The two scripts start a local chain and a local data gateway and take some minutes. The final message lists every step with its transaction, the gas, and the values read from chain and gateway, and every step that could not run with the reason. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/tests", "tools/qualification/localnode"]
+tests = []
+planned_paths = ["apps/perps/tests/local-journey.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && bash tools/qualification/localnode/perps-gateway.sh --env ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && pnpm --dir apps/perps exec node --test --test-concurrency=1 --import tsx tests/local-journey.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1225]
+title = "Find and repair why the sub case same of TestProvisionApplyBoundDurableCreation ends in its deadline of 30 seconds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1225"]
+interfaces = []
+do_1 = "do_1 Gotcha 4955 part three. Read sdk/launchpad/shared/brokerprovision/provision_apply_bound_test.go whole (testBoundCreation, boundBroker with holdCreate and change, shortenRequestWait), realBroker in provision_test.go beside it, and the path of Provision the case holds."
+do_2 = "do_2 Make the failure appear: run the case with -count=20 and with -race, alone and beside the rest of the package, and while the machine is busy with another build. Then name the cause: which call of the sub case same waits for what, and why the wait can last the whole 30 seconds. Repair it where it lies, in the stand-in of the case or in Provision. A longer deadline is no repair, and no assertion is weakened. If Provision itself can wait without end on a creation that another writer completes, that is a defect of the product: repair it with a case of its own."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The final message names the cause with file and line, the repair, and how many runs of the case passed after it out of how many. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/brokerprovision"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./brokerprovision/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 20m ./brokerprovision/... && GOWORK=off go test -count=10 -timeout 20m -run ^TestProvisionApplyBoundDurableCreation ./brokerprovision/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1224]
+title = "Find and repair why the case TestLiveDenseCanonicalTransfersUseCommittedReceiptPages of the pnl package l16 loses its delivery lease"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1224"]
+interfaces = []
+do_1 = "do_1 Gotcha 4955 parts one and two. Read services/launchpad/pnl-tracker/internal/production/l16/live_transfers_production_test.go whole with liveProductionFixture and parallelDatabaseTest, local_canonical_test.go beside it with the single build of the two programs, the path of RebuildOwned down to where it takes and renews its lease, and sdk/launchpad/shared/delivery where ErrLease is returned."
+do_2 = "do_2 First answer by reading and by a run of the case alone with -v: when is the lease taken, how long does it live, who renews it, and what stands between taking it and its first use (the wait for the canonical producer took 1 minute 56 seconds in the public record). Then repair the cause where it lies. A lease taken before a long wait is taken after it, or renewed through it by the code that owns it. A lifetime of the product is not widened to make a case pass, and no assertion of the case is weakened. If the cause lies in the path of the product and not in the fixture, repair it there with a case of its own."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Run the case alone three times and the package once by hand before the counted runs, and keep the times. The final message names the cause with file and line, the repair, and the times of the case and of the package before and after. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "sdk/launchpad/shared/delivery"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./internal/production/l16/...) && (cd sdk/launchpad/shared && GOWORK=off go vet ./delivery/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 10m ./internal/production/l16/ && GOWORK=off go test -count=2 -timeout 10m -run ^TestLiveDenseCanonicalTransfersUseCommittedReceiptPages ./internal/production/l16/) && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 20m ./delivery/...)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1223]
+title = "Stop the coin page from reading the list of trades again with every published view of the chart"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1223"]
+interfaces = []
+do_1 = "do_1 Gotcha 4954. Read apps/launchpad/web/src/widgets/trading/tv-chart.tsx and apps/launchpad/web/src/widgets/trading/udf-datafeed.ts whole with their cases tv-chart.render.test.tsx and udf-datafeed.test.ts."
+do_2 = "do_2 Break the loop at three places. One: in tv-chart.tsx the list actors keeps its identity while the set of wallets is the same (key the memo on the sorted and joined list, or keep the array before when it is equal), so the presentation effect runs only when the wallets, the identities, the setting, the generation or the scheme change. Two: in udf-datafeed.ts getMarks answers from the reconciled markers when a reconcile has ended and no candle was applied since; a read of the trades stays tied to the read of history, an applied candle, the return of visibility and the retry. Three: publishView publishes nothing when rows, markers, state and reason equal the view published before. The abort of a read that a newer one replaces stays."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the anvil program, and the environment brings the browser: do not install one. The suite runs its files one after another and takes about half an hour. Run the formatter over the files you changed only. Cases: chartReadsTradesOnceWhileNothingChanges holds a ready chart with one trade and the marks on for ten seconds of a fake clock and asserts that the count of requests to the trades route does not grow; one applied candle causes exactly one further read; marks off and on again cause exactly one. The final message names the three changes with file and line and the counts the cases assert. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test && grep -rq chartReadsTradesOnceWhileNothingChanges apps/launchpad/web/src/widgets/trading"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1222]
+title = "Add the agents page of the launchpad web application: create or claim an agent, fund it from the embedded wallet, set its limits, freeze, sweep and see its activity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1222"]
+interfaces = []
+do_1 = "do_1 Gotcha 4953, decision 4028 points three, four and seven. Read apps/launchpad/web/src/core/wallet-sdk/embedded_sdk whole (how the signed-in user reaches the gateway and where its bearer comes from), apps/launchpad/web/src/shell/nav-config.ts, one existing page of the application with its widget and its cases as the model, apps/launchpad/web/src/core/network/contracts.ts, the brief under spec/layerx-merge/programme/docs/launchpad-ui, and services/wallet/gateway/src/routes/owner.ts, routes/agents.ts, routes/agentAuth.ts and src/schemas/agent.ts for the exact requests and answers."
+do_2 = "do_2 Write the page /agents with its widget under apps/launchpad/web/src/widgets/agents and the owner calls in the copy of the embedded wallet client. The page. One: signed out, it says what the wallet of an agent is and offers the embedded sign-in; a wallet that is not the embedded one is told that agents need the embedded wallet. Two: the list of the agents of the user with address, mode, frozen state and balances. Three: create an agent: the page makes an ed25519 key in the browser, runs challenge and verify, provision and the claim, shows the key once with a copy control and a plain warning, and keeps it nowhere. Claim an agent that holds its own key: the page shows what the agent must sign and takes the claim back as pasted text. Add no dependency: use the Web Crypto interface for the key and say plainly on the page when the browser lacks it; the claim by pasted text works without it. Four: fund with native coin or the quote token from the embedded wallet through the fund route, with the balance of the wallet, the amount checked before sending and the transaction shown when it is in. Five: limits: the preset of decision 4028 point three for the contracts of core/network/contracts.ts and the functions the trade and create widgets call, with a cap for one transaction and a cap for one day the user types, shown as plain sentences before saving and saved through policy, rules and budgets. Six: freeze and unfreeze, sweep back to the wallet of the user, and the activity with time, kind, amount and result. Seven: every state has its view: loading, empty, an error with a retry, and a gateway that is not configured. Add the entry to the navigation. Follow the brief in dark, in light and at phone width, and use the components the application has."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. The cases need the anvil program, and the environment brings the browser: do not install one. The suite runs its files one after another and takes about half an hour. Run the formatter over the files you changed only. Cases beside the widget with a stand-in for the gateway for every step of do_2, among them agentsPageFundsAnAgentFromTheEmbeddedWallet and agentsPageShowsACreatedKeyOnceAndKeepsNoCopy, and the checks the application runs over every page (routes, navigation, accessibility) brought in step. The final message names each step with its route, each case with its file, and what the page does when the gateway is not configured. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/app/agents", "apps/launchpad/web/src/widgets/agents"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test && grep -rq agentsPageFundsAnAgentFromTheEmbeddedWallet apps/launchpad/web/src/widgets/agents && grep -rq agentsPageShowsACreatedKeyOnceAndKeepsNoCopy apps/launchpad/web/src/widgets/agents"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1221]
+title = "Add the agent kit of the launchpad: tools for reading, launching, buying and selling through the agent layer of the wallet gateway, with an entry for the Model Context Protocol"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1221"]
+interfaces = []
+do_1 = "do_1 Gotcha 4953, decision 4028 points one, two, three and five. Read sdk/launchpad/packages/sdk (package.json, src/index.ts, src/operations.ts and src/served-routes.ts), the packages production-contracts-v2 and sidiora-launchpad-v3 beside it, apps/launchpad/web/src/core/network/contracts.ts, apps/launchpad/web/src/widgets/trade/home-chain.ts, the router ABI reviewedRouterAbi in apps/launchpad/web/src/widgets/trading/transaction-controls/domain.ts, the creation adapters under apps/launchpad/web/src/widgets/create, sdk/wallet/src/agent.ts, and services/wallet/gateway/src/routes/agent.ts, routes/agentAuth.ts, routes/agentActions.ts and src/schemas/agent.ts."
+do_2 = "do_2 Write the package sdk/launchpad/packages/agent-kit with the name @kindle/agent-kit as a member of the workspace of apps/launchpad, with the scripts build and test like its neighbours. Its parts. One: a client for the agent routes of the gateway with signed requests (ed25519, the digest of sdk/wallet/src/agent.ts) and a case that compares digest and signature with values taken from that file for fixed inputs. Two: read tools over the public data interface through the package of the launchpad SDK: list and search of coins, one coin with price, market value and progress, trades, candles, holders, and the balances and positions of the wallet of the agent. Three: write tools quote, buy, sell and launch a coin. Each builds the same call the web application sends (same contract, function, order of arguments, slippage bound and deadline), simulates through the gateway and sends through send or allowance-and-call. Where a package already holds the ABI of a contract, import it; where only the web application holds it, keep a fragment in the kit and a case that reads the source file of the web application and fails when a function the kit uses differs. A buy and a sell take a maximum slippage and refuse without a fresh quote. A pool whose home chain is not the chain of the gateway is refused by name before anything is signed. Four: the preset of decision 4028 point three as a function that returns policy, rules and budget for given caps, with addresses and selectors from the same source as the calls. Five: an entry for the Model Context Protocol over standard input and output that offers every tool with a schema and a description an agent can act on, reads the address of the gateway, the address of the data interface and the path of the key file from the environment, and never prints the key. Six: a README with the tools, the environment and the steps from a new key to the first buy. Refresh apps/launchpad/pnpm-lock.yaml with the package manager and change nothing else in it by hand."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases inside the package, without a network: every write tool against a stand-in for the gateway asserts the exact request (route, body, contract, selector, decoded arguments), every refusal of the gateway comes back to the agent as a result with the error code, the preset holds only the contracts and selectors the write tools use, and a case starts the entry as a child process and lists every tool over the protocol. The image of the web application installs with a frozen lock and builds every package under sdk/launchpad/packages, so the install and the build of the new package must pass there too. The final message lists the tools with their routes and the calls with contract and function. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/pnpm-lock.yaml", "apps/launchpad/package.json"]
+tests = []
+planned_paths = ["sdk/launchpad/packages/agent-kit"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/agent-kit... run build"
+verify_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/agent-kit... run build && pnpm --dir sdk/launchpad/packages/agent-kit run test && test -s sdk/launchpad/packages/agent-kit/README.md"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1220]
+title = "Walk one agent through the delegated path of the wallet gateway in one case: claim, limits, funding, calls inside the limits, the refusals, freeze and sweep"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1220"]
+interfaces = []
+do_1 = "do_1 Gotcha 4953 part four, decision 4028 points three and six. Read services/wallet/gateway/src/routes/owner.ts, routes/agents.ts, routes/agent.ts, routes/agentAuth.ts, routes/agentActions.ts, src/policy/agent.ts and src/schemas/agent.ts whole, and under services/wallet/gateway/test the support files with the stand-in for the chain and the cases that already register an agent."
+do_2 = "do_2 Write services/wallet/gateway/test/agent-delegated-path.test.ts. One agent with its own ed25519 key and one signed-in user, everything over the HTTP routes of the application: challenge and verify, provision, the claim signed by the agent, the policy of decision 4028 point three with a rule for a contract, a rule for a selector and a budget, fund with native coin and with a token from the standard wallet of the user, a call inside the limits by send and one by allowance-and-call, a refusal above the cap for one transaction, a refusal above the cap for one day, a refusal for a contract outside the rules, a refusal for an approval to another spender, a refusal of a native transfer, freeze with a refused call and unfreeze with an accepted one, sweep back to the wallet of the user, and the activity that lists what happened. Each refusal is asserted by status and error code, and nothing reaches the stand-in for the chain for a refused call. A step that the gateway does not do as its routes and schemas say is a defect: repair it under services/wallet/gateway/src with a case of its own and name it."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. When a file under src changed, run the whole suite of the gateway once by hand and name any case whose result changed. The final message names every step with route, status and error code, and each defect with file and line. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/test", "services/wallet/gateway/src"]
+tests = []
+planned_paths = ["services/wallet/gateway/test/agent-delegated-path.test.ts"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/agent-delegated-path.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -270365,6 +270770,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.1229]
+title = "Prove on a local chain with a follower that the transactions of the trading application are applied by the follower as the leader applied them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1229"]
+interfaces = []
+do_1 = "do_1 Gotcha 4956 part two. Read tools/qualification/localnode/v6120_follower_code_test.go and v6120_follower_test.go whole as the model, v6120-node.sh with its modes for the leader and the follower, and apps/perps/packages/paxeer-backend/src/core/perps/calls.ts for the calls the application sends (deposit, open, add size, close, part close, take profit and stop loss, add and remove collateral, limit order, stop limit order, cancel, withdraw) with contract and function."
+do_2 = "do_2 Write tools/qualification/localnode/v6120_follower_perps_test.go with cases whose names begin with TestLocalNodeV6120FollowerPerps. Each sends one kind through the leader with the encoding the application uses, waits until the follower holds the block, and compares on both nodes the receipt, the logs, the state the call reads back (position, order, collateral, balance) and the application hash of the block. A kind the local chain cannot run for lack of a market, a price or a token is prepared by the test through what the chain offers; a kind that still cannot run is named with the reason and is not passed over in silence."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A difference between the two nodes is a finding of the first rank: describe it with block and transaction, and do not make it pass by changing the comparison. The final message lists every kind with its result on the leader and on the follower, and each difference found. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/localnode"]
+tests = []
+planned_paths = ["tools/qualification/localnode/v6120_follower_perps_test.go"]
+build_cmd = "make -f chain.mk install"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-follower.env && set -a && . /tmp/lx-localnode-follower.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run ^TestLocalNodeV6120FollowerPerps"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1009]
 title = "Let the standalone form of the expired lease admission case of the node require one or more records of a late renewal"
