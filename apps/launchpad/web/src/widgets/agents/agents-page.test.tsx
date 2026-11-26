@@ -7,6 +7,7 @@ import { erc20Abi, hexToBytes, parseEther, toFunctionSelector } from 'viem';
 import { AgentsGatewayFixture } from './agents-gateway.fixture';
 import { AgentsWorkspace } from './agents-workspace';
 import { AgentsAccess } from './agents-page';
+import { agentConnectionConfiguration } from '@/core/agent-interface';
 import { agentAmount, agentPresetRules } from './agents-domain';
 import { agentClaimDigest, parseAgentClaim, prepareAgentClaim } from '@/core/wallet-sdk/embedded_sdk/embedded/sdk/agent-crypto';
 import { LAUNCHPAD_ADDRESS, ROUTER_ADDRESS, USDL_ADDRESS } from '@/core/network/contracts';
@@ -31,7 +32,7 @@ afterAll(async () => { await gateway.stop(); if (previousCrypto) Object.definePr
 
 async function render(node?: ReactNode) {
   root = createRoot(host);
-  await act(async () => root!.render(node ?? <AgentsWorkspace wallet={gateway.wallet} owner={gateway.owner} userId={gateway.session.user.id} accessToken={gateway.session.access_token} reader={gateway.reader} />));
+  await act(async () => root!.render(node ?? <AgentsWorkspace wallet={gateway.wallet} owner={gateway.owner} userId={gateway.session.user.id} accessToken={gateway.session.access_token} reader={gateway.reader} connection={agentConnectionConfiguration()} />));
 }
 async function settle(check: () => void) {
   await expect.poll(async () => { await act(async () => { await new Promise(done => setTimeout(done, 10)); }); check(); return true; }, { timeout: 4000 }).toBe(true);
