@@ -444,8 +444,12 @@ func (r *StreamOutboxRelay) claim(ctx context.Context) (*streamPublicationLease,
 	return lease, err
 }
 func (r *StreamOutboxRelay) fail(ctx context.Context, l *streamPublicationLease, class FailureClass) error {
+	var attemptBound any
+	if class != Transient {
+		attemptBound = r.config.MaxAttempts
+	}
 	return r.mutate(ctx, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `UPDATE api_stream.stream_delivery_publications SET state=CASE WHEN attempts>=$5 OR $6<>'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$6,available_at=clock_timestamp()+$7::bigint*interval '1 millisecond',owner=NULL,expires_at=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'`, l.partition, l.sequence, l.epoch, r.config.Owner, r.config.MaxAttempts, string(class), r.config.RetryDelay.Milliseconds())
+		tag, err := tx.Exec(ctx, `UPDATE api_stream.stream_delivery_publications SET state=CASE WHEN attempts>=$5 OR $6<>'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$6,available_at=clock_timestamp()+$7::bigint*interval '1 millisecond',owner=NULL,expires_at=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'`, l.partition, l.sequence, l.epoch, r.config.Owner, attemptBound, string(class), streamRetryDelay(r.config.RetryDelay, l.attempts).Milliseconds())
 		if err != nil {
 			return err
 		}
@@ -487,7 +491,16 @@ func (r *StreamOutboxRelay) markPublished(ctx context.Context, l *streamPublicat
 		return nil
 	})
 }
-func (r *StreamOutboxRelay) RunOnce(ctx context.Context) error {
+func (r *StreamOutboxRelay) RunOnce(ctx context.Context) (result error) {
+	pass := &StreamRetryPassError{}
+	onlyRetries := true
+	defer func() {
+		if result != nil {
+			pass.RetriedOnly = onlyRetries && !pass.Quarantined && pass.Attempts > 0
+			pass.cause = result
+			result = pass
+		}
+	}()
 	release, err := r.budget.acquire(ctx)
 	if err != nil {
 		return err
@@ -496,20 +509,16 @@ func (r *StreamOutboxRelay) RunOnce(ctx context.Context) error {
 	var failures error
 	for i := 0; i < r.config.Batch; i++ {
 		if err = r.budget.limiter.Wait(ctx); err != nil {
+			onlyRetries = false
 			return errors.Join(failures, err)
 		}
 		l, err := r.claim(ctx)
 		if err != nil {
+			onlyRetries = false
 			return errors.Join(failures, err)
 		}
 		if l == nil {
 			return failures
-		}
-		if l.attempts > r.config.MaxAttempts {
-			if err = r.fail(ctx, l, Transient); err != nil {
-				return errors.Join(failures, err)
-			}
-			continue
 		}
 		metadata, decodeErr := ParseCommittedStreamFrame(l.frame)
 		if decodeErr != nil || metadata.EventID != l.eventID || metadata.Topic != l.topic || metadata.Sequence != strconv.FormatInt(l.sequence, 10) || Hash(l.frame) != l.frameHash {
@@ -517,18 +526,23 @@ func (r *StreamOutboxRelay) RunOnce(ctx context.Context) error {
 			if errors.Is(decodeErr, ErrSchema) {
 				class = SchemaViolation
 			}
+			onlyRetries = false
 			if err = r.fail(ctx, l, class); err != nil {
 				return errors.Join(failures, err)
 			}
+			pass.Quarantined = true
 			failures = errors.Join(failures, errors.New("stream: invalid committed publication"))
 			continue
 		}
 		stream, routed := streamFor(r.config.Routes, r.config.Stream, l.topic)
 		if !routed {
-			// A committed topic no route captures is a deployment gap, not a
-			// frame defect: retry (bounded) and surface the error.
 			retryErr := r.fail(ctx, l, Transient)
-			failures = errors.Join(failures, errors.New("stream: no JetStream route for committed topic"), retryErr)
+			if retryErr != nil {
+				onlyRetries = false
+			} else {
+				pass.Attempts = max(pass.Attempts, l.attempts)
+			}
+			failures = errors.Join(failures, streamRetryPublicationError(l, "stream: no JetStream route for committed topic", nil), retryErr)
 			continue
 		}
 		publishCtx, cancel := context.WithTimeout(ctx, r.config.PublishTimeout)
@@ -539,7 +553,12 @@ func (r *StreamOutboxRelay) RunOnce(ctx context.Context) error {
 		}
 		if publishErr != nil {
 			retryErr := r.fail(ctx, l, Transient)
-			failures = errors.Join(failures, errors.New("stream: persistence publication unavailable"), retryErr)
+			if retryErr != nil {
+				onlyRetries = false
+			} else {
+				pass.Attempts = max(pass.Attempts, l.attempts)
+			}
+			failures = errors.Join(failures, streamRetryPublicationError(l, "stream: persistence publication unavailable", publishErr), retryErr)
 		}
 	}
 	return failures

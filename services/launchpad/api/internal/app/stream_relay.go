@@ -218,7 +218,12 @@ func (s *streamRelay) Run(ctx context.Context, logger *slog.Logger) {
 		wait := s.doc.IdleInterval
 		if err != nil || statsErr != nil {
 			if logger != nil {
-				logger.Error("stream relay pass failed", slog.Any("err", errors.Join(statsErr, err)))
+				var pass *delivery.StreamRetryPassError
+				if statsErr == nil && pruneErr == nil && errors.As(err, &pass) && pass.RetriedOnly && pass.Attempts <= s.doc.MaxAttempts {
+					logger.Warn("stream relay publication retried", slog.Any("err", err))
+				} else {
+					logger.Error("stream relay pass failed", slog.Any("err", errors.Join(statsErr, err)))
+				}
 			}
 			wait = backoff
 			if backoff *= 2; backoff > 30*time.Second {
