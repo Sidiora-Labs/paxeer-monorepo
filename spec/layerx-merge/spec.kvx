@@ -182109,7 +182109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1227]
 title = "Add the agents page of the trading workspace beside the API key page: create or claim an agent, fund it from the embedded wallet, set its limits, freeze, sweep and see its activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
