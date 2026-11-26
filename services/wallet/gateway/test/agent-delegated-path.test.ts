@@ -68,7 +68,7 @@ async function request(
   method: string,
   path: string,
   payload?: unknown,
-  headers: Record<string, string> = {},
+  headers: Record<string, string> = {}
 ): Promise<Response> {
   const offsets = network.nodes.map((node) => node.log.length);
   const response = await fetch(baseUrl + path, {
@@ -111,7 +111,7 @@ function authorization(body: string) {
         nonce,
         expiry: BigInt(expiry),
         body: Buffer.from(body),
-      }),
+      })
     ),
   };
 }
@@ -119,7 +119,7 @@ function authorization(body: string) {
 function signed(
   path: string,
   payload: unknown,
-  approved?: ReturnType<typeof authorization>,
+  approved?: ReturnType<typeof authorization>
 ): Promise<Response> {
   const body = JSON.stringify(payload);
   const nonce = randomBytes(16);
@@ -135,7 +135,7 @@ function signed(
         nonce,
         expiry,
         body: Buffer.from(body),
-      }),
+      })
     ),
   };
   if (approved) headers['x-agent-attestor-authorization'] = JSON.stringify(approved);
@@ -168,7 +168,7 @@ async function publishInventory(): Promise<void> {
     {
       token: readFileSync(network.authority.inventoryFile, 'utf8'),
     },
-    { authorization: `Bearer ${process.env.GATEWAY_ADMIN_TOKEN}` },
+    { authorization: `Bearer ${process.env.GATEWAY_ADMIN_TOKEN}` }
   );
   accepted(response);
 }
@@ -208,7 +208,7 @@ beforeAll(async () => {
                   ? '0x60005460005260206000f3'
                   : '0x'
                 : `0x${'00'.repeat(32)}`,
-          }),
+          })
         );
         return;
       }
@@ -273,11 +273,11 @@ afterAll(async () => {
   await network?.stop();
   if (station)
     await new Promise<void>((resolve, reject) =>
-      station.server.close((err) => (err ? reject(err) : resolve())),
+      station.server.close((err) => (err ? reject(err) : resolve()))
     );
   if (proxy)
     await new Promise<void>((resolve, reject) =>
-      proxy.close((err) => (err ? reject(err) : resolve())),
+      proxy.close((err) => (err ? reject(err) : resolve()))
     );
   await chain.stop();
   await identity?.close();
@@ -287,14 +287,14 @@ async function refuse(
   path: string,
   payload: unknown,
   code: string,
-  approved?: ReturnType<typeof authorization>,
+  approved?: ReturnType<typeof authorization>
 ): Promise<void> {
   const before = chain.requests.length;
   const sent = chain.sent.length;
   const response = await signed(path, payload, approved);
   expect(response.status, `${JSON.stringify(response.body)}\n${response.diagnostics}`).toBe(403);
   expect(response.body.error, `${JSON.stringify(response.body)}\n${response.diagnostics}`).toBe(
-    code,
+    code
   );
   expect(chain.sent).toHaveLength(sent);
   expect(
@@ -306,8 +306,8 @@ async function refuse(
           'eth_estimateGas',
           'eth_getTransactionCount',
           'eth_sendRawTransaction',
-        ].includes(entry.method),
-      ),
+        ].includes(entry.method)
+      )
   ).toEqual([]);
 }
 
@@ -330,7 +330,7 @@ async function provisionStandardWallet(): Promise<void> {
     'POST',
     '/v1/wallet/provision',
     {},
-    { authorization: `Bearer ${ownerToken}` },
+    { authorization: `Bearer ${ownerToken}` }
   );
   expect(pendingOwner.status, JSON.stringify(pendingOwner.body)).toBe(503);
   expect(pendingOwner.body.error).toBe('custody_authority_unavailable');
@@ -339,14 +339,14 @@ async function provisionStandardWallet(): Promise<void> {
     'POST',
     '/v1/wallet/provision',
     {},
-    { authorization: `Bearer ${ownerToken}` },
+    { authorization: `Bearer ${ownerToken}` }
   );
   accepted(provisionedOwner);
   ownerAddress = provisionedOwner.body.wallet.address.toLowerCase();
   expect(provisionedOwner.body.wallet.binding_state).toBe('bound');
 }
 
-async function prepareDelegatedAgent(label: string): Promise<void> {
+async function prepareDelegatedAgent(label: string, walletOnly = false): Promise<void> {
   agent = newAgentKey(label);
   ownerId = randomUUID();
   ownerToken = await identity.mint(ownerId);
@@ -372,11 +372,11 @@ async function prepareDelegatedAgent(label: string): Promise<void> {
     await owner('POST', '/claim', {
       expires: expires.toString(),
       signature: agent.sign(claims.agentClaimDigest(agent.did, ownerId, expires)),
-    }),
+    })
   );
   accepted(await owner('POST', '/unfreeze'));
 
-  await provisionStandardWallet();
+  if (!walletOnly) await provisionStandardWallet();
 
   const { agentWalletUserId } = await import('../src/db/wallets.js');
   const agentKeyId = `wallet:${agentWalletUserId(agent.did)}:agent:secp256k1:0`;
@@ -389,8 +389,18 @@ async function prepareDelegatedAgent(label: string): Promise<void> {
     operations: ['generate'],
   });
   await publishInventory();
-  const pending = await signed('/v1/agent/provision', {});
+  const pending = await signed('/v1/agent/provision', walletOnly ? { stage: 'wallet' } : {});
   accepted(pending, 202);
+  if (walletOnly) {
+    expect(pending.body.provision).toMatchObject({
+      state: 'evm_key',
+      did: null,
+      bindMessage: null,
+    });
+    agentAddress = pending.body.wallet.address.toLowerCase();
+    await admitGeneratedKeys(`agent:${agent.publicKeyHex}`);
+    return;
+  }
   expect(pending.body.provision).toMatchObject({
     state: 'identity',
     awaiting: 'agent_signature',
@@ -403,7 +413,7 @@ async function prepareDelegatedAgent(label: string): Promise<void> {
       mode: 'full',
       max_tx_value_wei: '1000000',
       max_daily_value_wei: '1000000',
-    }),
+    })
   );
   const provisioned = await authorizedPost('/v1/agent/provision', {
     bind_signature: agent.sign(Buffer.from(pending.body.provision.bindMessage.slice(2), 'hex')),
@@ -447,7 +457,7 @@ async function saveDelegatedPolicy(): Promise<void> {
   expect(budget.body.budget).toMatchObject({ target_contract: application, cap_wei: '25' });
   expect(new Date(budget.body.budget.expires_at).getTime()).toBeGreaterThan(Date.now());
   expect(new Date(budget.body.budget.expires_at).getTime()).toBeLessThanOrEqual(
-    Date.now() + 600_000,
+    Date.now() + 600_000
   );
 }
 
@@ -480,7 +490,7 @@ async function performAllowanceAndCall(): Promise<Response> {
       approvedRequests.add(signingRequest);
       const replay = await signed(actionPath, actionRequest, authorization(signingRequest));
       expect(replay.status, `${JSON.stringify(replay.body)}\n${attestorDiagnostics(offsets)}`).toBe(
-        200,
+        200
       );
       expect(replay.body.error).toBeNull();
       expect(replay.body.action_id).toBe(submitted.body.action_id);
@@ -491,13 +501,13 @@ async function performAllowanceAndCall(): Promise<Response> {
     if (action.body.error !== null) {
       expect(
         action.body.error.code,
-        `${JSON.stringify(action.body)}\n${attestorDiagnostics(offsets)}`,
+        `${JSON.stringify(action.body)}\n${attestorDiagnostics(offsets)}`
       ).toBe('AGENT_REAUTHORIZATION_REQUIRED');
     }
   }
   expect(
     action.body,
-    `${JSON.stringify(action.body)}\n${attestorDiagnostics(offsets)}`,
+    `${JSON.stringify(action.body)}\n${attestorDiagnostics(offsets)}`
   ).toMatchObject({
     ok: true,
     status: 'confirmed',
@@ -527,6 +537,12 @@ async function delegatedAgentPath(): Promise<void> {
   await saveDelegatedPolicy();
   chain.balances.set(ownerAddress, 10n ** 18n);
   chain.tokens.set(token, { balances: new Map([[ownerAddress, 1000n]]), allowances: new Map() });
+  const agentAccounting = await import('../src/db/agents.js');
+  const spentBeforeFunding = await agentAccounting.sumAgentDailyValue(
+    agent.did,
+    new Date(0).toISOString()
+  );
+  const requestsBeforeFunding = await agentAccounting.countAgentSignaturesLastMinute(agent.did);
   const nativeFund = await owner('POST', '/fund', { amount: '500000000000000000' });
   accepted(nativeFund);
   expect(nativeFund.body).toMatchObject({
@@ -550,6 +566,12 @@ async function delegatedAgentPath(): Promise<void> {
       args: [agentAddress, 200n],
     }),
   });
+  expect(await agentAccounting.sumAgentDailyValue(agent.did, new Date(0).toISOString())).toBe(
+    spentBeforeFunding
+  );
+  expect(await agentAccounting.countAgentSignaturesLastMinute(agent.did)).toBe(
+    requestsBeforeFunding
+  );
   const balances = await reader(`/v1/agent/balances?tokens=${token}`);
   accepted(balances);
   expect(balances.body).toMatchObject({
@@ -571,22 +593,22 @@ async function delegatedAgentPath(): Promise<void> {
   await refuse(
     '/v1/agent/send',
     { tx: { to: application, data: tradeData, value: '101' } },
-    'TX_VALUE_CAP',
+    'TX_VALUE_CAP'
   );
   await refuse(
     '/v1/agent/send',
     { tx: { to: application, data: tradeData, value: '60' } },
-    'DAILY_VALUE_CAP',
+    'DAILY_VALUE_CAP'
   );
   await refuse(
     '/v1/agent/send',
     { tx: { to: outsider, data: tradeData, value: '0' } },
-    'CONTRACT_NOT_ALLOWLISTED',
+    'CONTRACT_NOT_ALLOWLISTED'
   );
   await refuse(
     '/v1/agent/approve',
     { token, spender: outsider, amount: '20' },
-    'SPENDER_NOT_ALLOWLISTED',
+    'SPENDER_NOT_ALLOWLISTED'
   );
   await refuse('/v1/agent/transfer', { to: ownerAddress, amount: '1' }, 'NATIVE_TRANSFER_BLOCKED');
 
@@ -596,7 +618,7 @@ async function delegatedAgentPath(): Promise<void> {
   await refuse(
     '/v1/agent/send',
     { tx: { to: application, data: tradeData, value: '0' } },
-    'agent_frozen',
+    'agent_frozen'
   );
   const unfreeze = await owner('POST', '/unfreeze');
   accepted(unfreeze);
@@ -625,13 +647,15 @@ async function delegatedAgentPath(): Promise<void> {
   const hashes = activity.body.events.map((event: { tx_hash: string }) => event.tx_hash);
   expect(hashes).toEqual(
     expect.arrayContaining([
+      nativeFund.body.tx_hash,
+      tokenFund.body.tx_hash,
       sent.body.tx_hash,
       unfrozen.body.tx_hash,
       action.body.approval.tx_hash,
       action.body.call.tx_hash,
       sweptToken.body.tx_hash,
       sweptNative.body.tx_hash,
-    ]),
+    ])
   );
   expect(new Set(hashes).size).toBe(hashes.length);
   const agentActivity = await reader('/v1/agent/activity');
@@ -646,7 +670,7 @@ async function selectorAllowRulesRestrictContractFunctions(): Promise<void> {
   await refuse(
     '/v1/agent/send',
     { tx: { to: application, data: toFunctionSelector('withdraw(uint256)'), value: '0' } },
-    'SELECTOR_NOT_ALLOWLISTED',
+    'SELECTOR_NOT_ALLOWLISTED'
   );
 }
 
@@ -656,7 +680,7 @@ async function approvalSpendersDoNotBecomeWithdrawalDestinations(): Promise<void
   await refuse(
     '/v1/agent/approve',
     { token, spender: outsider, amount: '20' },
-    'SPENDER_NOT_ALLOWLISTED',
+    'SPENDER_NOT_ALLOWLISTED'
   );
   const transfer = encodeFunctionData({
     abi: erc20Abi,
@@ -672,7 +696,7 @@ async function approvalSpendersDoNotBecomeWithdrawalDestinations(): Promise<void
   await refuse(
     '/v1/agent/send',
     { tx: { to: token, data: transfer, value: '0' } },
-    'WITHDRAWAL_NOT_ALLOWLISTED',
+    'WITHDRAWAL_NOT_ALLOWLISTED'
   );
   accepted(await owner('DELETE', `/rules/${rule.body.rule.id}`));
 }
@@ -708,8 +732,8 @@ async function agentReauthorizationCountsTransactionOnce(): Promise<void> {
       JSON.stringify({
         ...wire,
         transaction: alreadySigned.slice(2),
-      }),
-    ),
+      })
+    )
   );
   expect(invalid.status, JSON.stringify(invalid.body)).toBe(401);
   expect(invalid.body).toMatchObject({
@@ -722,7 +746,7 @@ async function agentReauthorizationCountsTransactionOnce(): Promise<void> {
     path,
     { tx: { to: application, data: tradeData, value: '41' } },
     'DAILY_VALUE_CAP',
-    approved,
+    approved
   );
   const sent = await signed(path, payload, approved);
   accepted(sent);
@@ -755,7 +779,7 @@ async function allowanceAndCallAccountsForEachLegOnce(): Promise<void> {
   const hashes = activity.body.events.map((event: { tx_hash: string }) => event.tx_hash);
   expect(hashes).toHaveLength(2);
   expect(hashes).toEqual(
-    expect.arrayContaining([action.body.approval.tx_hash, action.body.call.tx_hash]),
+    expect.arrayContaining([action.body.approval.tx_hash, action.body.call.tx_hash])
   );
   expect(new Set(hashes).size).toBe(2);
 }
@@ -869,7 +893,7 @@ async function approvalSpenderPolicyMatchesAttestor(): Promise<void> {
         effect: AgentPolicyRuleRow['effect'],
         subject: AgentPolicyRuleRow['subject'],
         value: string,
-        cap: bigint | null = null,
+        cap: bigint | null = null
       ): void {
         rules.push({
           id: String(rules.length + 1),
@@ -921,24 +945,77 @@ test(approvalSpenderPolicyMatchesAttestor, approvalSpenderPolicyMatchesAttestor,
 test(
   selectorAllowRulesRestrictContractFunctions,
   selectorAllowRulesRestrictContractFunctions,
-  60_000,
+  60_000
 );
 test(
   approvalSpendersDoNotBecomeWithdrawalDestinations,
   approvalSpendersDoNotBecomeWithdrawalDestinations,
-  60_000,
+  60_000
 );
 
 test(agentReauthorizationCountsTransactionOnce, agentReauthorizationCountsTransactionOnce, 60_000);
 test(
   standardProvisioningRequiresSigningInventory,
   standardProvisioningRequiresSigningInventory,
-  60_000,
+  60_000
 );
 test(
   nativeTransferSwitchRestrictsBareTransfers,
   nativeTransferSwitchRestrictsBareTransfers,
-  60_000,
+  60_000
 );
 
 test(allowanceAndCallAccountsForEachLegOnce, allowanceAndCallAccountsForEachLegOnce, 120_000);
+
+async function walletOnlyProvisioningLeavesIdentityPending(): Promise<void> {
+  const before = chain.sent.length;
+  await prepareDelegatedAgent('wallet-only', true);
+  expect(chain.sent).toHaveLength(before);
+  expect(chain.bindings.has(agentAddress)).toBe(false);
+  const again = await signed('/v1/agent/provision', { stage: 'wallet' });
+  accepted(again, 202);
+  expect(again.body.wallet.address.toLowerCase()).toBe(agentAddress);
+  expect(again.body.provision).toMatchObject({ state: 'evm_key', did: null, bindMessage: null });
+  const identity = await reader('/v1/agent/me');
+  accepted(identity);
+  expect(identity.body.wallet.address.toLowerCase()).toBe(agentAddress);
+  expect(chain.sent).toHaveLength(before);
+  const full = await signed('/v1/agent/provision', { stage: 'wallet', unexpected: true });
+  expect(full.status).toBe(400);
+  expect(full.body.error).toBe('invalid_body');
+}
+
+async function launchpadBuyDecodesOnlyCanonicalSignedOperands(): Promise<void> {
+  const { decodeLaunchpadBuy, LAUNCHPAD_BUY_ABI } = await import('../src/policy/launchpad.js');
+  const encoded = encodeFunctionData({
+    abi: LAUNCHPAD_BUY_ABI,
+    functionName: 'buy',
+    args: [application, 10000001n, 1n, 2000000000n],
+  });
+  expect(decodeLaunchpadBuy(encoded)).toEqual({ pool: application, amount: 10000001n });
+  expect(() => decodeLaunchpadBuy(`${encoded}00`)).toThrow();
+  expect(() => decodeLaunchpadBuy(encoded.slice(0, -2) as Hex)).toThrow();
+  expect(() => decodeLaunchpadBuy(tradeData)).toThrow();
+}
+
+async function receiptSourceSelectionIsExplicit(): Promise<void> {
+  const { EnvSchema } = await import('../src/env.js');
+  expect(
+    EnvSchema.parse({ ...process.env, CHAIN_RECEIPT_SOURCE: undefined }).CHAIN_RECEIPT_SOURCE
+  ).toBe('sequencer');
+  expect(
+    EnvSchema.parse({ ...process.env, CHAIN_RECEIPT_SOURCE: 'evm' }).CHAIN_RECEIPT_SOURCE
+  ).toBe('evm');
+  expect(() => EnvSchema.parse({ ...process.env, CHAIN_RECEIPT_SOURCE: 'automatic' })).toThrow();
+}
+
+test(
+  walletOnlyProvisioningLeavesIdentityPending,
+  walletOnlyProvisioningLeavesIdentityPending,
+  120_000
+);
+test(
+  launchpadBuyDecodesOnlyCanonicalSignedOperands,
+  launchpadBuyDecodesOnlyCanonicalSignedOperands
+);
+test(receiptSourceSelectionIsExplicit, receiptSourceSelectionIsExplicit);

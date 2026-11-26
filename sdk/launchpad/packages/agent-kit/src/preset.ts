@@ -1,5 +1,5 @@
 import { getAddress } from 'viem';
-import { DEPLOYMENT, EXECUTION_CALLS } from './contracts.js';
+import { DEPLOYMENT, executionCalls, type LaunchpadDeployment } from './contracts.js';
 import { requireThat } from './errors.js';
 
 export interface PresetCaps {
@@ -23,7 +23,7 @@ export function rawAmount(value: string, positive = true): bigint {
   return amount;
 }
 
-export function launchpadPreset(caps: PresetCaps) {
+export function launchpadPreset(caps: PresetCaps, deployment: LaunchpadDeployment = DEPLOYMENT) {
   const owner = getAddress(caps.ownerWallet);
   requireThat(BigInt(owner) !== 0n, 'invalid_owner_wallet');
   const perTx = rawAmount(caps.maxTxValueWei, false);
@@ -41,16 +41,18 @@ export function launchpadPreset(caps: PresetCaps) {
   requireThat(Number.isInteger(rate) && rate >= 1 && rate <= 10000, 'invalid_rate_limit');
   const tokens = [
     ...new Set(
-      [DEPLOYMENT.usdl, ...(caps.sellTokens ?? [])].map((value) => getAddress(value).toLowerCase()),
+      [deployment.usdl, ...(caps.sellTokens ?? [])].map((value) => getAddress(value).toLowerCase()),
     ),
   ];
   requireThat(
     tokens.length <= 101 &&
-      tokens.every((value) => BigInt(value) !== 0n && value !== DEPLOYMENT.router.toLowerCase()),
+      tokens.every((value) => BigInt(value) !== 0n && value !== deployment.router.toLowerCase()),
     'invalid_sell_tokens',
   );
-  const contracts = [DEPLOYMENT.router.toLowerCase(), ...tokens];
-  const selectors = [...new Set(Object.values(EXECUTION_CALLS).map((call) => call.selector))];
+  const contracts = [deployment.router.toLowerCase(), ...tokens];
+  const selectors = [
+    ...new Set(Object.values(executionCalls(deployment)).map((call) => call.selector)),
+  ];
   return {
     policy: {
       mode: 'trade_only' as const,
@@ -62,6 +64,12 @@ export function launchpadPreset(caps: PresetCaps) {
       withdrawal_allowlist_only: true,
     },
     rules: [
+      {
+        effect: 'allow' as const,
+        subject: 'token' as const,
+        value: deployment.usdl.toLowerCase(),
+        max_value_wei: caps.maxTxValueWei,
+      },
       ...contracts.map((value) => ({
         effect: 'allow' as const,
         subject: 'contract' as const,
@@ -75,13 +83,13 @@ export function launchpadPreset(caps: PresetCaps) {
       {
         effect: 'allow' as const,
         subject: 'address' as const,
-        value: DEPLOYMENT.spender.toLowerCase(),
+        value: deployment.spender.toLowerCase(),
       },
       { effect: 'allow' as const, subject: 'withdrawal' as const, value: owner.toLowerCase() },
     ],
     budget: {
-      target_contract: DEPLOYMENT.router,
-      token: DEPLOYMENT.usdl,
+      target_contract: deployment.router,
+      token: deployment.usdl,
       cap_wei: caps.budgetCapWei,
       expires_in_seconds: caps.expiresInSeconds,
     },

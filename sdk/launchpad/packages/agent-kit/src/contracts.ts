@@ -1,4 +1,12 @@
-import { getAbiItem, parseAbi, toFunctionSelector, toFunctionSignature, type Address } from 'viem';
+import {
+  getAddress,
+  getAbiItem,
+  parseAbi,
+  toFunctionSelector,
+  toFunctionSignature,
+  type Address,
+} from 'viem';
+import { requireThat } from './errors.js';
 import { routerAbi, quoterAbi, protocolConfigAbi } from '../../sidiora-launchpad-v3/dist/abis.js';
 
 export { routerAbi, quoterAbi, protocolConfigAbi };
@@ -13,6 +21,39 @@ export const DEPLOYMENT = Object.freeze({
   creationFeeRaw: '1000000',
 });
 
+export interface LaunchpadDeployment {
+  chainId: number;
+  router: Address;
+  quoter: Address;
+  protocolConfig: Address;
+  usdl: Address;
+  spender: Address;
+  creationFeeRaw: string;
+}
+
+export interface EvmDeployment extends LaunchpadDeployment {
+  poolRegistry: Address;
+}
+
+export function checkedDeployment(value: LaunchpadDeployment): Readonly<LaunchpadDeployment> {
+  requireThat(Number.isSafeInteger(value.chainId) && value.chainId > 0, 'invalid_deployment_chain');
+  requireThat(/^[1-9][0-9]{0,77}$/.test(value.creationFeeRaw), 'invalid_creation_fee');
+  for (const address of [
+    value.router,
+    value.quoter,
+    value.protocolConfig,
+    value.usdl,
+    value.spender,
+  ])
+    requireThat(BigInt(getAddress(address)) !== 0n, 'invalid_deployment_address');
+  return Object.freeze({ ...value });
+}
+
+export const EVM_POOL_ABI = parseAbi([
+  'function isRegisteredPool(address pool) view returns (bool)',
+  'function tokenAddress() view returns (address)',
+]);
+
 export const HOME_CHAIN_ABI = parseAbi([
   'function homeChainOf(address pool) view returns (uint64)',
 ]);
@@ -21,22 +62,29 @@ export const QUOTE_TTL_MS = 30000;
 export const SIMULATION_TTL_MS = 10000;
 export const TRADE_DEADLINE_SECONDS = 120;
 
-function routerCall(name: 'buy' | 'sell' | 'createMarket') {
+function routerCall(
+  name: 'buy' | 'sell' | 'createMarket',
+  deployment: LaunchpadDeployment = DEPLOYMENT,
+) {
   const item = getAbiItem({ abi: routerAbi, name });
   return Object.freeze({
-    contract: DEPLOYMENT.router,
+    contract: deployment.router,
     method: toFunctionSignature(item),
     selector: toFunctionSelector(item),
   });
 }
 
-export const EXECUTION_CALLS = Object.freeze({
-  buy: routerCall('buy'),
-  sell: routerCall('sell'),
-  launch: routerCall('createMarket'),
-  approve: Object.freeze({
-    method: 'approve(address,uint256)',
-    selector: toFunctionSelector('approve(address,uint256)'),
-    spender: DEPLOYMENT.spender,
-  }),
-});
+export function executionCalls(deployment: LaunchpadDeployment = DEPLOYMENT) {
+  return Object.freeze({
+    buy: routerCall('buy', deployment),
+    sell: routerCall('sell', deployment),
+    launch: routerCall('createMarket', deployment),
+    approve: Object.freeze({
+      method: 'approve(address,uint256)',
+      selector: toFunctionSelector('approve(address,uint256)'),
+      spender: deployment.spender,
+    }),
+  });
+}
+
+export const EXECUTION_CALLS = executionCalls();
