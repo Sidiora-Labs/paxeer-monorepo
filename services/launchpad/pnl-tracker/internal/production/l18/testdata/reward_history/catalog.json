@@ -67,10 +67,11 @@
     "60006": "a054038d166fa9415af094d69b1bca1b21e5985d6ab8140874a003fe29d894e1",
     "60007": "c8c6a29551071c8a46ceddcfc77c00dbcf8a9ebf02a198fa50353076c60f5a55",
     "60008": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a",
-    "150010": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7"
+    "150010": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7",
+    "60009": "86d442245dffb03eb894d1a4d287080b358a5840922283d624d6ec79748941fc"
   },
   "sources": {
-    "sdk/launchpad/shared/db/production/migrations.go": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5",
+    "sdk/launchpad/shared/db/production/migrations.go": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786",
     "services/launchpad/indexer/migrations/00001_init.sql": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
     "services/launchpad/indexer/migrations/00002_airdrop_claims.sql": "c1564eedaf42b200012365d15fd3013608d9cde146fb03e53ca8e514dec7f683",
     "services/launchpad/trading-charts/migrations/00001_init.sql": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",
@@ -146,7 +147,8 @@
     "migrations/60006.sql": "a054038d166fa9415af094d69b1bca1b21e5985d6ab8140874a003fe29d894e1",
     "migrations/60007.sql": "c8c6a29551071c8a46ceddcfc77c00dbcf8a9ebf02a198fa50353076c60f5a55",
     "migrations/60008.sql": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a",
-    "migrations/150010.sql": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7"
+    "migrations/150010.sql": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7",
+    "migrations/60009.sql": "86d442245dffb03eb894d1a4d287080b358a5840922283d624d6ec79748941fc"
   },
   "objects": {
     "api_stream.append_candle": {
