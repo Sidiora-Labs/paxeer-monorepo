@@ -78,7 +78,7 @@ const { Column } = await import('./column');
 const { DashboardBoard, columnSlotStyle, boardVisibleClass, compactHomeQuery } = await import(
   './dashboard-board'
 );
-const { timeframes, timeframeSegmentsMinWidth, servedTimeframes } = await import(
+const { timeframes, timeframeSegmentsMinWidth } = await import(
   './trending-widget'
 );
 const { HomeFeed, homeFeedTabs } = await import('./home-feed');
@@ -526,17 +526,20 @@ describe('column tab rows never clip a control', () => {
       segments
         .filter((segment) => segment.getAttribute('aria-label')?.endsWith('coming soon'))
         .map((segment) => segment.textContent)
-    ).toEqual(['4h', '12h']);
+    ).toEqual([]);
     const trigger = toolbar.querySelector<HTMLSelectElement>('select[aria-label="Change window"]')!;
     expect(trigger.parentElement?.parentElement?.className.split(/\s+/)).toContain(
       '@min-column-timeframes:hidden'
     );
-    // Both forms drive one window: a segment pick shows in the pill, and the unserved notice follows it.
-    act(() => {
-      segments[1].click();
-    });
-    expect(trigger.value).toBe('4h');
-    expect(container.textContent).toContain('4h change');
+    // Both forms drive the same statistics window.
+    for (const [index, window] of timeframes.entries()) {
+      act(() => {
+        segments[index].click();
+      });
+      expect(trigger.value).toBe(window);
+      expect(segments[index].getAttribute('aria-checked')).toBe('true');
+    }
+    expect(container.textContent).not.toMatch(/coming soon|soon|4h change|12h change/);
     act(() => {
       segments[3].click();
     });
@@ -545,16 +548,13 @@ describe('column tab rows never clip a control', () => {
     expect(trigger.value).toBe('24h');
     const options = Array.from(trigger.options).filter((option) => option.value !== '');
     expect(options.map((option) => option.textContent)).toEqual(timeframes);
-    expect(
-      options
-        .filter((option) => !servedTimeframes.has(option.value as (typeof timeframes)[number]))
-        .map((option) => option.value)
-    ).toEqual(['4h', '12h']);
+    expect(options.map((option) => option.value)).toEqual(['5m', '1h', '6h', '24h']);
     act(() => {
       trigger.value = options[0].value;
       trigger.dispatchEvent(new window.Event('change', { bubbles: true }));
     });
-    expect(trigger.value).toBe('1h');
+    expect(trigger.value).toBe('5m');
+    expect(segments[0].getAttribute('aria-checked')).toBe('true');
     expect(assertControlEdges(toolbar.outerHTML)).not.toMatch(BORDER);
     unmount(root, container, queryClient);
   });
@@ -600,17 +600,17 @@ describe('column tab rows never clip a control', () => {
     );
     expect(trigger.getAttribute('title')).toBe('Change window: 24h');
     expect(trigger.parentElement?.parentElement?.className.split(/\s+/)).toContain('ml-auto');
-    // Width budget at the 288 px minimum: 272 px inside the row's 8 px side padding. Text widths are bold 13 px
+    // Width budget at the 288 px minimum: 272 px inside the row's 8 px side padding. Text widths are 13 px
     // Manrope as measured in Chromium (canvas measureText); a label missing here must be measured before it ships.
     const measured: Record<string, number> = {
-      Trend: 38.2,
-      Unusual: 53.9,
-      Movers: 48.4,
-      Vol: 20,
-      '1h': 14.4,
-      '4h': 16.7,
-      '12h': 22.5,
-      '24h': 24.6,
+      Trend: 37,
+      Unusual: 52,
+      Movers: 48,
+      Vol: 19,
+      '5m': 20,
+      '1h': 14,
+      '6h': 16,
+      '24h': 24,
     };
     const width = (text: string | null) => {
       expect(measured).toHaveProperty([text ?? '']);

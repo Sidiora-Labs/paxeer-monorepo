@@ -203,6 +203,72 @@ func TestEvaluateAdmitsPaymasterAuthorizationForAgent(t *testing.T) {
 	}
 }
 
+func TestApprovalSpenderPolicy(t *testing.T) {
+	const owner = "0x5555555555555555555555555555555555555555"
+	const spender = "0x2222222222222222222222222222222222222222"
+	const other = "0x4444444444444444444444444444444444444444"
+	const token = "0x3333333333333333333333333333333333333333"
+	for _, mode := range []string{"trade_only", "full"} {
+		for _, scenario := range []struct {
+			name          string
+			selector      string
+			recipient     string
+			amount        int64
+			noAddressRule bool
+			withdrawal    string
+			denySpender   bool
+			tokenCap      string
+			omitToken     bool
+			allow         bool
+		}{
+			{name: "listed spender", selector: "0x095ea7b3", recipient: spender, amount: 20, allow: true},
+			{name: "other spender", selector: "0x095ea7b3", recipient: other, amount: 20},
+			{name: "other spender on withdrawal list", selector: "0x095ea7b3", recipient: other, amount: 20, withdrawal: other},
+			{name: "no address rule outside withdrawal list", selector: "0x095ea7b3", recipient: spender, amount: 20, noAddressRule: true},
+			{name: "no address rule on withdrawal list", selector: "0x095ea7b3", recipient: spender, amount: 20, noAddressRule: true, withdrawal: spender, allow: true},
+			{name: "transfer to spender", selector: "0xa9059cbb", recipient: spender, amount: 20},
+			{name: "transferFrom to spender", selector: "0x23b872dd", recipient: spender, amount: 20},
+			{name: "denied spender", selector: "0x095ea7b3", recipient: spender, amount: 20, denySpender: true},
+			{name: "approve cap", selector: "0x095ea7b3", recipient: spender, amount: 51},
+			{name: "token cap", selector: "0x095ea7b3", recipient: spender, amount: 20, tokenCap: "19"},
+			{name: "token contract rule", selector: "0x095ea7b3", recipient: spender, amount: 20, omitToken: true, allow: mode == "full"},
+		} {
+			t.Run(mode+"/"+scenario.name, func(t *testing.T) {
+				p := AuthorityPrincipal{
+					Policy: AgentPolicy{Mode: mode, MaxTx: "100", MaxDaily: "100", MaxApprove: "50", Rate: 100, WithdrawalOnly: true},
+					Rules: []AgentRule{
+						{Effect: "allow", Subject: "contract", Value: spender},
+						{Effect: "allow", Subject: "withdrawal", Value: owner},
+					},
+				}
+				if !scenario.omitToken {
+					p.Rules = append(p.Rules, AgentRule{Effect: "allow", Subject: "contract", Value: token})
+				}
+				if !scenario.noAddressRule {
+					p.Rules = append(p.Rules, AgentRule{Effect: "allow", Subject: "address", Value: spender})
+				}
+				if scenario.withdrawal != "" {
+					p.Rules = append(p.Rules, AgentRule{Effect: "allow", Subject: "withdrawal", Value: scenario.withdrawal})
+				}
+				if scenario.denySpender {
+					p.Rules = append(p.Rules, AgentRule{Effect: "deny", Subject: "address", Value: spender})
+				}
+				if scenario.tokenCap != "" {
+					p.Rules = append(p.Rules, AgentRule{Effect: "allow", Subject: "token", Value: token, MaxValue: &scenario.tokenCap})
+				}
+				err := checkAgentSpend(p, token, scenario.selector, token, scenario.recipient, big.NewInt(0), big.NewInt(scenario.amount), scenario.selector == "0x095ea7b3", false)
+				if scenario.allow {
+					if err != nil {
+						t.Fatalf("approval matching policy refused: %v", err)
+					}
+				} else if !errors.Is(err, ErrAuthority) {
+					t.Fatalf("got %v, want authority refusal", err)
+				}
+			})
+		}
+	}
+}
+
 func TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile(t *testing.T) {
 	for name, mutate := range map[string]func(*evm.SponsoredBatch){
 		"other target":              func(b *evm.SponsoredBatch) { b.Calls[0].To = b.Quote.Sponsor },

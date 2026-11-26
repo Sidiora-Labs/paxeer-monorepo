@@ -3,7 +3,7 @@ import {
   createPrivateKey,
   createPublicKey,
   sign as edSign,
-  verify as edVerify
+  verify as edVerify,
 } from 'node:crypto';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -11,6 +11,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   decodeFunctionData,
+  erc20Abi,
   encodeAbiParameters,
   encodeFunctionResult,
   getAddress,
@@ -22,7 +23,7 @@ import {
   toFunctionSelector,
   toHex,
   type Abi,
-  type Hex
+  type Hex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sponsoredBindAbi } from '../../src/provision/protocol.js';
@@ -31,16 +32,16 @@ import { encodeSequencerReceipt } from '../../../../agent/sdk/typescript/src/seq
 import { encodeSequencerLogEffect } from '../../../../agent/sdk/typescript/src/sequencer-log.js';
 import {
   verifySequencerReceipt,
-  type SequencerReceipt
+  type SequencerReceipt,
 } from '../../../../agent/sdk/typescript/src/verifier.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '../../../../..');
 export const addrAbiJson = JSON.parse(
-  readFileSync(join(repoRoot, 'precompiles/addr/abi.json'), 'utf8')
+  readFileSync(join(repoRoot, 'precompiles/addr/abi.json'), 'utf8'),
 ) as Abi;
 export const anchorAbiJson = JSON.parse(
-  readFileSync(join(repoRoot, 'precompiles/layerxanchor/abi.json'), 'utf8')
+  readFileSync(join(repoRoot, 'precompiles/layerxanchor/abi.json'), 'utf8'),
 ) as Abi;
 
 export const ADDR = '0x0000000000000000000000000000000000001004';
@@ -75,8 +76,8 @@ export interface NodeReceiptVector {
 export const nodeReceiptVectors = JSON.parse(
   readFileSync(
     join(repoRoot, 'sdk/platform/conformance/fixtures/sequencer-receipt-v1.json'),
-    'utf8'
-  )
+    'utf8',
+  ),
 ) as { provenance: { generator: string }; cases: NodeReceiptVector[] };
 
 function receiptBytes(value: unknown): Buffer {
@@ -124,7 +125,7 @@ function receiptSummary(view: SignedChainReceipt): Buffer {
   if (typeof view.vmError !== 'string') throw new TypeError('malformed receipt vmError');
   return Buffer.concat([
     ...[view.gasUsed, view.cumulativeGasUsed, view.effectiveGasPrice].map((v) =>
-      receiptUint(receiptQuantity(v), 8)
+      receiptUint(receiptQuantity(v), 8),
     ),
     receiptUint(receiptQuantity(view.index), 4),
     receiptAddress(view.contractAddress).subarray(12),
@@ -133,14 +134,14 @@ function receiptSummary(view: SignedChainReceipt): Buffer {
     receiptUint(BigInt(receiptBytes(view.returnData).length), 4),
     receiptUint(BigInt(view.logs.length), 4),
     Buffer.from([Buffer.byteLength(view.feeDenom)]),
-    Buffer.from(view.feeDenom)
+    Buffer.from(view.feeDenom),
   ]);
 }
 
 export async function verifyChainSequencerReceipt(
   view: SignedChainReceipt,
   raw: Hex,
-  pins: readonly ChainReceiptKeyPin[]
+  pins: readonly ChainReceiptKeyPin[],
 ): Promise<SignedChainReceipt> {
   const canonical = receiptBytes(view.receipt);
   const verified = await verifySequencerReceipt(
@@ -150,13 +151,13 @@ export async function verifyChainSequencerReceipt(
       keyId: receiptBytes(pin.keyId),
       publicKey: receiptBytes(pin.publicKey),
       first_height: BigInt(pin.firstHeight),
-      last_height: BigInt(pin.lastHeight)
-    }))
+      last_height: BigInt(pin.lastHeight),
+    })),
   );
   const r = verified.receipt;
   const tx = parseTransaction(raw);
   const from = await recoverTransactionAddress({
-    serializedTransaction: raw as `0x02${string}`
+    serializedTransaction: raw as `0x02${string}`,
   });
   if (view.rung !== 'receipted' && view.rung !== 'committed')
     throw new TypeError('malformed receipt rung');
@@ -181,7 +182,7 @@ export async function verifyChainSequencerReceipt(
     'PAXEER/v1/sequence\0',
     r.previousStateRoot,
     receiptUint(r.globalSequence, 8),
-    r.activityId
+    r.activityId,
   );
   if (
     verified.height === 0n ||
@@ -194,9 +195,7 @@ export async function verifyChainSequencerReceipt(
     !receiptAddress(from).equals(r.from) ||
     !receiptAddress(tx.to ?? ZERO_ADDRESS).equals(r.to) ||
     r.operation !==
-      (Number.parseInt(raw.slice(2, 4), 16) < 128
-        ? Number.parseInt(raw.slice(2, 4), 16)
-        : 0) ||
+      (Number.parseInt(raw.slice(2, 4), 16) < 128 ? Number.parseInt(raw.slice(2, 4), 16) : 0) ||
     toHex(verified.receiptKey.publicKey) !== view.signingKey ||
     (view.status !== '0x0' && view.status !== '0x1')
   ) {
@@ -225,7 +224,7 @@ export async function verifyChainSequencerReceipt(
         kind: 1,
         monetary: false,
         transferSetRoot: zero,
-        body: receiptSummary(view)
+        body: receiptSummary(view),
       },
       ...view.logs.map((log, index) => {
         if (receiptQuantity(log.logIndex) !== BigInt(index))
@@ -240,11 +239,11 @@ export async function verifyChainSequencerReceipt(
           body: encodeSequencerLogEffect(
             receiptBytes(log.address),
             log.topics.map(receiptBytes),
-            receiptBytes(log.data)
-          )
+            receiptBytes(log.data),
+          ),
         };
-      })
-    ]
+      }),
+    ],
   };
   if (!canonical.equals(encodeSequencerReceipt(projected)))
     throw new TypeError('signed receipt view mismatch');
@@ -299,19 +298,24 @@ export class TestChain {
   private readonly sequencerKey = createPrivateKey({
     key: Buffer.concat([
       Buffer.from('302e020100300506032b657004220420', 'hex'),
-      Buffer.alloc(32, 0x5e)
+      Buffer.alloc(32, 0x5e),
     ]),
     type: 'pkcs8',
-    format: 'der'
+    format: 'der',
   });
   readonly sequencerPublicKey = createPublicKey(this.sequencerKey);
   readonly receiptKeyPins: readonly ChainReceiptKeyPin[] = Object.freeze([
-    Object.freeze({ ...nodeReceiptVectors.cases[0]!.pinnedKey })
+    Object.freeze({ ...nodeReceiptVectors.cases[0]!.pinnedKey }),
   ]);
   readonly sequencerReceipts = new Map<string, SignedChainReceipt>();
   readonly rawTransactions = new Map<string, Hex>();
   private sequenceHash = Buffer.alloc(32);
   readonly balances = new Map<string, bigint>();
+  readonly tokens = new Map<
+    string,
+    { balances: Map<string, bigint>; allowances: Map<string, bigint> }
+  >();
+  readonly requests: Array<{ method: string; params: unknown[] }> = [];
   readonly nonces = new Map<string, number>();
   readonly bindNonces = new Map<string, bigint>();
   readonly bindings = new Map<string, string>();
@@ -327,7 +331,7 @@ export class TestChain {
 
   constructor(
     chainId: number,
-    readonly mode: 'paxeer' | 'evm' = 'paxeer'
+    readonly mode: 'paxeer' | 'evm' = 'paxeer',
   ) {
     this.chainId = chainId;
     if (mode === 'evm') {
@@ -350,9 +354,9 @@ export class TestChain {
           keyId: receiptBytes(pin.keyId),
           publicKey: receiptBytes(pin.publicKey),
           first_height: BigInt(pin.firstHeight),
-          last_height: BigInt(pin.lastHeight)
-        }
-      ]
+          last_height: BigInt(pin.lastHeight),
+        },
+      ],
     );
     if (!receiptBytes(recording.prevSeqHash).equals(verified.receipt.previousStateRoot)) {
       throw new TypeError('node recording prevSeqHash mismatch');
@@ -367,7 +371,7 @@ export class TestChain {
       status: view.status,
       gasUsed: view.gasUsed,
       blockNumber: view.height,
-      logs: structuredClone(view.logs)
+      logs: structuredClone(view.logs),
     });
   }
 
@@ -376,7 +380,7 @@ export class TestChain {
     tx: SentTx,
     receipt: Receipt,
     fromBefore: bigint,
-    toBefore: bigint
+    toBefore: bigint,
   ): Promise<void> {
     const pin = this.receiptKeyPins[0]!;
     const view: SignedChainReceipt = {
@@ -403,17 +407,15 @@ export class TestChain {
       vmError: '',
       keyId: pin.keyId,
       signingKey: toHex(
-        this.sequencerPublicKey
-          .export({ type: 'spki', format: 'der' })
-          .subarray(ED_SPKI.length)
+        this.sequencerPublicKey.export({ type: 'spki', format: 'der' }).subarray(ED_SPKI.length),
       ),
-      receipt: '0x'
+      receipt: '0x',
     };
     const resultingStateRoot = receiptHash(
       'PAXEER/v1/sequence\0',
       this.sequenceHash,
       receiptUint(tx.seq, 8),
-      receiptBytes(tx.hash)
+      receiptBytes(tx.hash),
     );
     const zero = new Uint8Array(32);
     const canonical: SequencerReceipt = {
@@ -432,7 +434,7 @@ export class TestChain {
           kind: 1,
           monetary: false,
           transferSetRoot: zero,
-          body: receiptSummary(view)
+          body: receiptSummary(view),
         },
         ...view.logs.map((log, index) => ({
           moduleId: 12,
@@ -444,9 +446,9 @@ export class TestChain {
           body: encodeSequencerLogEffect(
             receiptBytes(log.address),
             log.topics.map(receiptBytes),
-            receiptBytes(log.data)
-          )
-        }))
+            receiptBytes(log.data),
+          ),
+        })),
       ],
       feeCharged: BigInt(view.feeAmount),
       batchId: receiptUint(BigInt(receipt.blockNumber), 32),
@@ -472,14 +474,14 @@ export class TestChain {
       authorizationHash: zero,
       contextHash: receiptBytes(pin.keyId),
       timestamp: tx.timestamp,
-      sequencerSignature: new Uint8Array()
+      sequencerSignature: new Uint8Array(),
     };
     const digest = receiptHash('LXP/v1/receipt\0', encodeSequencerReceipt(canonical, false));
     view.receipt = toHex(
       encodeSequencerReceipt({
         ...canonical,
-        sequencerSignature: edSign(null, digest, this.sequencerKey)
-      })
+        sequencerSignature: edSign(null, digest, this.sequencerKey),
+      }),
     );
     await verifyChainSequencerReceipt(view, raw, this.receiptKeyPins);
     this.sequencerReceipts.set(tx.hash, view);
@@ -511,18 +513,39 @@ export class TestChain {
     return this.balances.get(a.toLowerCase()) ?? 0n;
   }
 
-  private call(
-    c: { from?: string; to: string; data?: Hex; value?: Hex },
-    method: string
-  ): Hex {
+  private call(c: { from?: string; to: string; data?: Hex; value?: Hex }, method: string): Hex {
     const to = c.to.toLowerCase();
     const data = c.data ?? '0x';
     const value = c.value ? BigInt(c.value) : 0n;
-    if (
-      value > 0n &&
-      this.bal(c.from ?? '0x0000000000000000000000000000000000000000') < value
-    ) {
+    if (value > 0n && this.bal(c.from ?? '0x0000000000000000000000000000000000000000') < value) {
       throw new Error('insufficient funds for transfer');
+    }
+    const token = this.tokens.get(to);
+    if (token) {
+      const call = decodeFunctionData({ abi: erc20Abi, data });
+      if (call.functionName === 'balanceOf')
+        return toHex(token.balances.get(call.args[0].toLowerCase()) ?? 0n, { size: 32 });
+      if (call.functionName === 'allowance')
+        return toHex(
+          token.allowances.get(`${call.args[0].toLowerCase()}:${call.args[1].toLowerCase()}`) ?? 0n,
+          { size: 32 },
+        );
+      if (call.functionName === 'decimals') return toHex(6, { size: 32 });
+      if (call.functionName === 'symbol')
+        return encodeFunctionResult({ abi: erc20Abi, functionName: 'symbol', result: 'TEST' });
+      if (call.functionName === 'name')
+        return encodeFunctionResult({
+          abi: erc20Abi,
+          functionName: 'name',
+          result: 'Delegated token',
+        });
+      if (call.functionName === 'approve') return toHex(1, { size: 32 });
+      if (call.functionName === 'transfer') {
+        if ((token.balances.get(c.from?.toLowerCase() ?? '') ?? 0n) < call.args[1])
+          throw new Error('ERC20: insufficient balance');
+        return toHex(1, { size: 32 });
+      }
+      throw new Error(`unsupported token method ${call.functionName}`);
     }
     if (this.mode === 'evm') return '0x';
     if (to === ADDR) {
@@ -539,8 +562,8 @@ export class TestChain {
             getAddress(evm),
             '',
             did ? `0x${did}` : `0x${'00'.repeat(32)}`,
-            did ? `0x${chainMainAccountId(did)}` : `0x${'00'.repeat(32)}`
-          ]
+            did ? `0x${chainMainAccountId(did)}` : `0x${'00'.repeat(32)}`,
+          ],
         });
       }
       if (decoded.functionName === 'layerXBindNonce') {
@@ -548,7 +571,7 @@ export class TestChain {
         return encodeFunctionResult({
           abi: addrAbiJson,
           functionName: 'layerXBindNonce',
-          result: this.bindNonces.get(evm) ?? 0n
+          result: this.bindNonces.get(evm) ?? 0n,
         });
       }
       throw new Error(`addr method ${decoded.functionName} is not served`);
@@ -559,8 +582,7 @@ export class TestChain {
         return encodeAbiParameters([{ type: 'uint64' }, { type: 'bool' }], [0n, false]);
       throw new Error(`anchor method ${decoded.functionName} is not served`);
     }
-    if (PRECOMPILE_RANGE.test(to))
-      throw new Error(`${method}: precompile ${to} is not served`);
+    if (PRECOMPILE_RANGE.test(to)) throw new Error(`${method}: precompile ${to} is not served`);
     return '0x';
   }
 
@@ -581,14 +603,14 @@ export class TestChain {
       Buffer.from('LX:PAXEER-BIND:v1'),
       chain,
       Buffer.from(from.slice(2), 'hex'),
-      n
+      n,
     ]);
     let ok = false;
     try {
       const key = createPublicKey({
         key: Buffer.concat([ED_SPKI, Buffer.from(pub, 'hex')]),
         format: 'der',
-        type: 'spki'
+        type: 'spki',
       });
       ok = edVerify(null, message, key, sig);
     } catch {
@@ -610,8 +632,7 @@ export class TestChain {
     ).toLowerCase();
     if (tx.chainId !== this.chainId) throw new Error('wrong chain id');
     const expected = this.nonces.get(from) ?? 0;
-    if (tx.nonce !== expected)
-      throw new Error(`nonce ${tx.nonce} but account is at ${expected}`);
+    if (tx.nonce !== expected) throw new Error(`nonce ${tx.nonce} but account is at ${expected}`);
     const gas = tx.gas!;
     const maxFee = tx.maxFeePerGas!;
     const value = tx.value ?? 0n;
@@ -636,8 +657,9 @@ export class TestChain {
     } else if (to === ADDR && this.mode === 'paxeer') {
       if (value !== 0n || !tx.data || !this.applyBind(from, tx.data)) status = 0n;
     } else if (tx.type === 'eip7702' && this.mode === 'paxeer') {
-      const { constructionDigest, sponsorQuoteDigest } =
-        await import('../../src/attestor/client.js');
+      const { constructionDigest, sponsorQuoteDigest } = await import(
+        '../../src/attestor/client.js'
+      );
       if (value !== 0n || !tx.data || tx.authorizationList.length !== 1)
         throw new Error('invalid sponsored binding envelope');
       const auth = tx.authorizationList[0]!;
@@ -646,9 +668,9 @@ export class TestChain {
           kind: 'eip7702_authorization',
           chainId: String(auth.chainId),
           address: auth.address,
-          nonce: String(auth.nonce)
+          nonce: String(auth.nonce),
         }),
-        signature: serializeSignature(auth)
+        signature: serializeSignature(auth),
       });
       if (
         owner.toLowerCase() !== to ||
@@ -673,8 +695,8 @@ export class TestChain {
           deadline: String(quote.deadline),
           quoteNonce: String(quote.quoteNonce),
           gasCost: String(quote.gasCost),
-          decimals: 6
-        }
+          decimals: 6,
+        },
       };
       if (
         calls.length !== 1 ||
@@ -689,13 +711,13 @@ export class TestChain {
         (
           await recoverAddress({
             hash: constructionDigest(construction),
-            signature: accountSignature
+            signature: accountSignature,
           })
         ).toLowerCase() !== to ||
         (
           await recoverAddress({
             hash: sponsorQuoteDigest(construction),
-            signature: relayerSignature
+            signature: relayerSignature,
           })
         ).toLowerCase() !== from
       )
@@ -704,6 +726,22 @@ export class TestChain {
       this.nonces.set(to, auth.nonce + 1);
       this.balances.set(to, this.bal(to));
     } else {
+      const token = this.tokens.get(to);
+      if (token && tx.data) {
+        const call = decodeFunctionData({ abi: erc20Abi, data: tx.data });
+        if (call.functionName === 'approve') {
+          token.allowances.set(`${from}:${call.args[0].toLowerCase()}`, call.args[1]);
+        } else if (call.functionName === 'transfer') {
+          const amount = call.args[1];
+          const balance = token.balances.get(from) ?? 0n;
+          if (balance < amount) status = 0n;
+          else {
+            const recipient = call.args[0].toLowerCase();
+            token.balances.set(from, balance - amount);
+            token.balances.set(recipient, (token.balances.get(recipient) ?? 0n) + amount);
+          }
+        } else throw new Error(`unsupported token transaction ${call.functionName}`);
+      }
       this.balances.set(to, this.bal(to) + value);
       this.balances.set(from, this.bal(from) - value);
     }
@@ -718,7 +756,7 @@ export class TestChain {
       nonce: expected,
       effectiveGasPrice: price,
       seq: BigInt(this.sent.length + 1),
-      timestamp: BigInt(Date.now())
+      timestamp: BigInt(Date.now()),
     });
     const receipt: Receipt = {
       transactionHash: hash,
@@ -733,13 +771,13 @@ export class TestChain {
                 topics: [
                   keccak256(Buffer.from('LayerXBound(address,bytes32,uint64)')),
                   `0x${to.slice(2).padStart(64, '0')}`,
-                  `0x${this.bindings.get(to)!}`
+                  `0x${this.bindings.get(to)!}`,
                 ],
                 data: toHex((this.bindNonces.get(to) ?? 1n) - 1n, { size: 32 }),
-                logIndex: '0x0'
-              }
+                logIndex: '0x0',
+              },
             ]
-          : []
+          : [],
     };
     if (this.mode === 'paxeer')
       await this.signSequencerReceipt(
@@ -747,13 +785,14 @@ export class TestChain {
         this.sent[this.sent.length - 1]!,
         receipt,
         fromBefore,
-        toBefore
+        toBefore,
       );
     this.receipts.set(hash, receipt);
     return hash;
   }
 
   private async handle(method: string, params: unknown[]): Promise<unknown> {
+    this.requests.push({ method, params });
     const fault = this.takeFault(method);
     if (fault && fault.mode === 'error') throw new Error(`injected ${method} failure`);
     switch (method) {
@@ -761,8 +800,7 @@ export class TestChain {
         if (this.mode !== 'evm') throw new ChainRpcError(-32601, 'eth_accounts not served');
         return [this.faucet.address];
       case 'eth_sendTransaction': {
-        if (this.mode !== 'evm')
-          throw new ChainRpcError(-32601, 'eth_sendTransaction not served');
+        if (this.mode !== 'evm') throw new ChainRpcError(-32601, 'eth_sendTransaction not served');
         const tx = params[0] as { from: Hex; to: Hex; value: Hex };
         if (tx.from.toLowerCase() !== this.faucet.address.toLowerCase())
           throw new Error('unlocked account required');
@@ -775,8 +813,8 @@ export class TestChain {
             nonce: this.nonces.get(tx.from.toLowerCase()) ?? 0,
             gas: 21_000n,
             maxFeePerGas: 2_000_000_000n,
-            maxPriorityFeePerGas: 1_000_000_000n
-          })
+            maxPriorityFeePerGas: 1_000_000_000n,
+          }),
         );
       }
       case 'eth_getCode':
@@ -790,7 +828,7 @@ export class TestChain {
         return {
           number: `0x${this.block.toString(16)}`,
           baseFeePerGas: `0x${this.baseFee.toString(16)}`,
-          transactions: []
+          transactions: [],
         };
       case 'eth_maxPriorityFeePerGas':
         return `0x${this.tip.toString(16)}`;
@@ -807,7 +845,7 @@ export class TestChain {
       case 'eth_call':
         return this.call(
           params[0] as { from?: string; to: string; data?: Hex; value?: Hex },
-          method
+          method,
         );
       case 'eth_sendRawTransaction': {
         const hash = await this.sendRaw(params[0] as Hex);
@@ -818,8 +856,7 @@ export class TestChain {
       case 'eth_getTransactionByHash': {
         const r = this.receipts.get(params[0] as string);
         if (!r) return null;
-        if (this.mode === 'paxeer')
-          return { hash: r.transactionHash, blockNumber: r.blockNumber };
+        if (this.mode === 'paxeer') return { hash: r.transactionHash, blockNumber: r.blockNumber };
         const raw = this.rawTransactions.get(params[0] as string)!;
         const tx = parseTransaction(raw);
         const sent = this.sent.find((entry) => entry.hash === r.transactionHash)!;
@@ -840,7 +877,7 @@ export class TestChain {
           maxPriorityFeePerGas: toHex(tx.maxPriorityFeePerGas!),
           v: tx.v === undefined ? '0x0' : toHex(tx.v),
           r: tx.r,
-          s: tx.s
+          s: tx.s,
         };
       }
       case 'eth_getTransactionReceipt':
@@ -853,7 +890,7 @@ export class TestChain {
         if (this.mode === 'evm')
           throw new ChainRpcError(
             -32601,
-            'the method pax_sequencerReceipt does not exist/is not available'
+            'the method pax_sequencerReceipt does not exist/is not available',
           );
         const hash = params[0] as Hex;
         const receipt = this.sequencerReceipts.get(hash);
@@ -863,15 +900,11 @@ export class TestChain {
           return null;
         }
         const raw = this.rawTransactions.get(hash);
-        if (!raw || receipt.txHash !== hash)
-          throw new TypeError('receipt transaction mismatch');
+        if (!raw || receipt.txHash !== hash) throw new TypeError('receipt transaction mismatch');
         return verifyChainSequencerReceipt(receipt, raw, this.receiptKeyPins);
       }
       default:
-        throw new ChainRpcError(
-          -32601,
-          `the method ${method} does not exist/is not available`
-        );
+        throw new ChainRpcError(-32601, `the method ${method} does not exist/is not available`);
     }
   }
 
@@ -897,10 +930,10 @@ export class TestChain {
               JSON.stringify({
                 jsonrpc: '2.0',
                 id: body.id,
-                error: { code, message: err.message }
-              })
+                error: { code, message: err.message },
+              }),
             );
-          }
+          },
         );
       });
     });

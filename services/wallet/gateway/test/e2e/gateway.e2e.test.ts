@@ -1,3 +1,4 @@
+import { startBindingStation } from '../support/binding-station.js';
 import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
@@ -15,7 +16,7 @@ import {
   serializeTransaction,
   toHex,
   type Hex,
-  type TypedDataDefinition
+  type TypedDataDefinition,
 } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { startPostgres, type EphemeralPostgres } from '../support/postgres.js';
@@ -30,7 +31,7 @@ import {
   startAttestorNetwork,
   startIdentity,
   type AttestorNetwork,
-  type Identity
+  type Identity,
 } from './attestors.js';
 
 import { assertRetainedSigningAuthentication } from './wallet-signing-adapters.production.js';
@@ -42,7 +43,7 @@ const typedData = {
     name: 'Paxeer permit fixture',
     version: '1',
     chainId: CHAIN_ID,
-    verifyingContract: '0x21f7b20a555199fa73A238B1a91FD0f549068fEe'
+    verifyingContract: '0x21f7b20a555199fa73A238B1a91FD0f549068fEe',
   },
   types: {
     Permit: [
@@ -50,8 +51,8 @@ const typedData = {
       { name: 'spender', type: 'address' },
       { name: 'value', type: 'uint256' },
       { name: 'nonce', type: 'uint256' },
-      { name: 'deadline', type: 'uint256' }
-    ]
+      { name: 'deadline', type: 'uint256' },
+    ],
   },
   primaryType: 'Permit',
   message: {
@@ -59,8 +60,8 @@ const typedData = {
     spender: RECIPIENT,
     value: '1',
     nonce: '0',
-    deadline: '2000000000'
-  }
+    deadline: '2000000000',
+  },
 } as const;
 
 let identity: Identity;
@@ -86,8 +87,8 @@ const txBody = (value: bigint) => ({
     gas: '21000',
     maxFeePerGas: '2000000000',
     maxPriorityFeePerGas: '1000000000',
-    chainId: CHAIN_ID
-  }
+    chainId: CHAIN_ID,
+  },
 });
 
 beforeAll(async () => {
@@ -109,8 +110,7 @@ beforeAll(async () => {
         };
         if (
           rpc.method === 'eth_getCode' ||
-          (rpc.method === 'eth_call' &&
-            (rpc.params[0] as { data?: Hex }).data === '0xaffed0e0')
+          (rpc.method === 'eth_call' && (rpc.params[0] as { data?: Hex }).data === '0xaffed0e0')
         ) {
           const result =
             rpc.method === 'eth_getCode'
@@ -126,7 +126,7 @@ beforeAll(async () => {
         const upstream = await fetch(chainUpstream, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body
+          body,
         });
         const answer = await upstream.text();
         if (rpc.method === 'pax_sequencerReceipt') {
@@ -136,7 +136,7 @@ beforeAll(async () => {
           if ('result' in envelope)
             sequencerReceipts.push({
               hash: rpc.params[0] as Hex,
-              result: envelope.result!
+              result: envelope.result!,
             });
         }
         res.writeHead(upstream.status, { 'content-type': 'application/json' });
@@ -157,156 +157,9 @@ beforeAll(async () => {
   chain.url = `http://127.0.0.1:${sequencerAddress.port}`;
   network = await startAttestorNetwork({ identity, rpcUrl: chain.url });
 
-  const sponsor = privateKeyToAccount(generatePrivateKey());
-  sponsorAddress = sponsor.address.toLowerCase();
-  chain.balances.set(sponsorAddress, 10n ** 21n);
-  type QuoteRequest = Omit<SponsoredBindRequest['batch'], 'quote'> & {
-    token: Hex;
-    maxTokenAmount: string;
-    gasCost: string;
-    decimals: 6;
-  };
-  let issued: SponsoredBindRequest['batch'] | undefined;
-  station = createServer((req, res) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => {
-      void (async () => {
-        const { constructionDigest, sponsorQuoteDigest } =
-          await import('../../src/attestor/client.js');
-        const { sponsoredBindAbi, SIDIORA_TOKEN } =
-          await import('../../src/provision/bind.js');
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        expect(req.method).toBe('POST');
-        expect(req.headers['content-type']).toBe('application/json');
-        if (req.url === '/quote') {
-          const request: QuoteRequest = body;
-          expect(request).toMatchObject({
-            chainId: String(CHAIN_ID),
-            nonce: '0',
-            token: SIDIORA_TOKEN,
-            decimals: 6,
-            maxTokenAmount: '1000000'
-          });
-          expect(request.calls).toHaveLength(1);
-          expect(request.calls[0]!.to).toBe(ADDR);
-          expect(request.calls[0]!.value).toBe('0');
-          const quote: SponsoredBindRequest['batch']['quote'] = {
-            sponsor: sponsor.address,
-            token: request.token,
-            maxTokenAmount: request.maxTokenAmount,
-            tokenAmount: '100',
-            deadline: String(Math.floor(Date.now() / 1000) + 300),
-            quoteNonce: '1',
-            gasCost: request.gasCost,
-            decimals: 6
-          };
-          issued = {
-            chainId: request.chainId,
-            account: request.account,
-            nonce: request.nonce,
-            calls: request.calls,
-            quote
-          };
-          const relayerSignature = await sponsor.sign({
-            hash: sponsorQuoteDigest({ kind: 'sponsored_batch', ...issued })
-          });
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ quote, relayerSignature }));
-          return;
-        }
-        expect(req.url).toBe('/submit');
-        const request: SponsoredBindRequest = body;
-        expect(issued).toBeDefined();
-        expect(request.batch).toEqual(issued);
-        expect(
-          await recoverAddress({
-            hash: constructionDigest({ kind: 'sponsored_batch', ...request.batch }),
-            signature: request.accountSignature
-          })
-        ).toBe(request.batch.account);
-        expect(
-          await recoverAddress({
-            hash: sponsorQuoteDigest({ kind: 'sponsored_batch', ...request.batch }),
-            signature: request.relayerSignature as Hex
-          })
-        ).toBe(sponsor.address);
-        const authorization = request.authorization;
-        expect(authorization).toMatchObject({
-          chainId: String(CHAIN_ID),
-          address: PAYMASTER,
-          nonce: '0'
-        });
-        expect(
-          await recoverAddress({
-            hash: constructionDigest({
-              kind: 'eip7702_authorization',
-              chainId: authorization.chainId,
-              address: authorization.address,
-              nonce: authorization.nonce
-            }),
-            signature: serializeSignature(authorization)
-          })
-        ).toBe(request.batch.account);
-        const decoded = decodeFunctionData({
-          abi: sponsoredBindAbi,
-          data: request.call.data
-        });
-        expect(decoded.functionName).toBe('executeSponsored');
-        expect(decoded.args![0]).toEqual(
-          request.batch.calls.map((call) => ({ ...call, value: BigInt(call.value) }))
-        );
-        expect(decoded.args![2]).toBe(request.accountSignature);
-        expect(decoded.args![3]).toBe(request.relayerSignature);
-        expect(request.call.to).toBe(request.batch.account);
-        expect(request.call.value).toBe('0');
-        const { sharedRpcPool } = await import('../../src/rpc/pool.js');
-        const rpc = sharedRpcPool();
-        const raw = await sponsor.signTransaction({
-          type: 'eip7702',
-          chainId: CHAIN_ID,
-          nonce: await rpc.getTransactionCount(sponsor.address, 'latest'),
-          to: request.call.to,
-          value: 0n,
-          data: request.call.data,
-          gas: 200_000n,
-          maxFeePerGas: BigInt(request.batch.quote.gasCost) / 200_000n,
-          maxPriorityFeePerGas: chain.tip,
-          authorizationList: [
-            {
-              ...authorization,
-              chainId: Number(authorization.chainId),
-              nonce: Number(authorization.nonce)
-            }
-          ]
-        });
-        const transactionHash = await rpc.sendRawTransaction(raw);
-        const binding = decodeFunctionData({
-          abi: addrAbiJson,
-          data: request.batch.calls[0]!.data
-        });
-        expect(binding.functionName).toBe('bindLayerX');
-        expect(chain.bindings.get(request.batch.account.toLowerCase())).toBe(
-          (binding.args![0] as Hex).slice(2)
-        );
-        expect(chain.bindNonces.get(request.batch.account.toLowerCase())).toBe(1n);
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ transactionHash }));
-      })().catch((error: Error) => {
-        res.writeHead(500, { 'content-type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: 'station_contract_violation', message: error.message })
-        );
-      });
-    });
-  });
-  await new Promise<void>((resolve, reject) => {
-    station.once('error', reject);
-    station.listen(0, '127.0.0.1', resolve);
-  });
-  const stationAddress = station.address();
-  if (!stationAddress || typeof stationAddress === 'string')
-    throw new Error('station did not bind');
+  const bindingStation = await startBindingStation(chain);
+  station = bindingStation.server;
+  sponsorAddress = bindingStation.sponsorAddress;
 
   process.env.SUPABASE_URL = identity.url;
   process.env.GATEWAY_ADMIN_TOKEN = randomBytes(32).toString('hex');
@@ -314,15 +167,14 @@ beforeAll(async () => {
   process.env.HYPERPAXEER_CHAIN_ID = String(CHAIN_ID);
   process.env.RPC_URLS = chain.url;
   process.env.SEQUENCER_RPC_URL = `http://127.0.0.1:${sequencerAddress.port}`;
-  process.env.WALLET_GAS_STATION_URL = `http://127.0.0.1:${stationAddress.port}`;
+  process.env.WALLET_GAS_STATION_URL = bindingStation.url;
   process.env.PAXEER_GAS_STATION_PAYMASTER = PAYMASTER;
   process.env.PAXEER_GAS_STATION_GAS_LIMIT = '200000';
   process.env.PAXEER_GAS_STATION_MAX_TOKEN_AMOUNT = '1000000';
   process.env.WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE = network.authority.producerKeyFile;
   process.env.WALLET_IDENTITY_BINDING_TENANT = network.authority.tenant;
   process.env.WALLET_CUSTODY_INVENTORY_FILE = network.authority.inventoryFile;
-  process.env.WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE =
-    network.authority.inventoryPublicKeyFile;
+  process.env.WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE = network.authority.inventoryPublicKeyFile;
   process.env.ATTESTOR_ENDPOINTS = network.nodes.map((n) => n.apiUrl).join(',');
   process.env.ATTESTOR_CLIENT_CERT_FILE = network.pki.clientCert;
   process.env.ATTESTOR_CLIENT_KEY_FILE = network.pki.clientKey;
@@ -348,7 +200,7 @@ beforeAll(async () => {
       epoch: 0,
       curve: 'secp256k1',
       public_key: '',
-      operations: ['generate']
+      operations: ['generate'],
     },
     {
       key_id: `account:${userId}:standard:ed25519:0`,
@@ -356,8 +208,8 @@ beforeAll(async () => {
       epoch: 0,
       curve: 'ed25519',
       public_key: '',
-      operations: ['generate']
-    }
+      operations: ['generate'],
+    },
   ];
   network.authority.approveInventory(inventoryKeys);
   const { provisionAccount } = await import('../../src/provision/state.js');
@@ -367,7 +219,7 @@ beforeAll(async () => {
   const generated = await provisionAccount(deps, {
     kind: 'standard',
     userId,
-    token: null
+    token: null,
   });
   expect(generated.awaiting).toBe('owner');
   network.authority.approveInventory(
@@ -376,15 +228,15 @@ beforeAll(async () => {
         async (entry): Promise<WalletInventoryKey> => ({
           ...entry,
           public_key: await network.publicKey(entry.key_id),
-          operations: ['generate', 'sign']
-        })
-      )
-    )
+          operations: ['generate', 'sign'],
+        }),
+      ),
+    ),
   );
   const provisioned = await app.inject({
     method: 'POST',
     url: '/v1/wallet/provision',
-    headers: auth(token)
+    headers: auth(token),
   });
   expect(provisioned.statusCode, provisioned.body).toBe(200);
   const body = provisioned.json() as {
@@ -411,7 +263,7 @@ beforeAll(async () => {
   const { sponsoredBindAbi } = await import('../../src/provision/bind.js');
   const decodedBind = decodeFunctionData({
     abi: sponsoredBindAbi,
-    data: binds[0]!.data!
+    data: binds[0]!.data!,
   });
   expect(decodedBind.functionName).toBe('executeSponsored');
   expect(decodedBind.args![0]).toHaveLength(1);
@@ -421,7 +273,7 @@ beforeAll(async () => {
     station_request: SponsoredBindRequest;
   }>(
     `select bind_tx_hash, station_request from account_provisioning where user_id = $1 and kind = 'standard'`,
-    [userId]
+    [userId],
   );
   expect(provisioning.rows).toHaveLength(1);
   const binding = provisioning.rows[0]!;
@@ -430,8 +282,8 @@ beforeAll(async () => {
   expect(decodedBind.args![0]).toEqual(
     binding.station_request.batch.calls.map((call) => ({
       ...call,
-      value: BigInt(call.value)
-    }))
+      value: BigInt(call.value),
+    })),
   );
   const rawBind = broadcasts.find((raw) => keccak256(raw) === binds[0]!.hash);
   expect(rawBind).toBeDefined();
@@ -442,9 +294,9 @@ beforeAll(async () => {
         ...binding.station_request.authorization,
         chainId: CHAIN_ID,
         address: PAYMASTER,
-        nonce: 0
-      }
-    ]
+        nonce: 0,
+      },
+    ],
   });
   expect(chain.receipts.get(binds[0]!.hash)!.status).toBe('0x1');
   expect(binds[0]!.hash).toBe(binding.bind_tx_hash);
@@ -456,17 +308,14 @@ beforeAll(async () => {
     encrypted_private_key: string | null;
   }>(
     `select attestor_key_id, migrated_at, encrypted_private_key from wallets where user_id = $1 and kind = 'standard'`,
-    [userId]
+    [userId],
   );
   expect(rows).toHaveLength(1);
   expect(rows[0]!.attestor_key_id).toBe(`wallet:${userId}:standard:secp256k1:0`);
   expect(rows[0]!.migrated_at).not.toBeNull();
   expect(rows[0]!.encrypted_private_key).toBeNull();
   key = { keyId: rows[0]!.attestor_key_id, address: body.wallet.address };
-  chain.balances.set(
-    address,
-    (chain.balances.get(address) ?? 0n) + NATIVE_PER_TX_CAP_WEI * 2n
-  );
+  chain.balances.set(address, (chain.balances.get(address) ?? 0n) + NATIVE_PER_TX_CAP_WEI * 2n);
 }, 900_000);
 
 afterAll(async () => {
@@ -497,8 +346,8 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
       jsonrpc: '2.0',
       id: 1,
       method: 'pax_sequencerReceipt',
-      params: [`0x${'00'.repeat(32)}`]
-    })
+      params: [`0x${'00'.repeat(32)}`],
+    }),
   });
   expect(await unknown.json()).toEqual({ jsonrpc: '2.0', id: 1, result: null });
   const { sharedRpcPool } = await import('../../src/rpc/pool.js');
@@ -511,14 +360,14 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
     value: 100_000_000_000_000_000n,
     gas: 21_000n,
     maxFeePerGas: 2_000_000_000n,
-    maxPriorityFeePerGas: 1_000_000_000n
+    maxPriorityFeePerGas: 1_000_000_000n,
   } as const;
   const unsigned = serializeTransaction(transfer);
   const reviewed = await app.inject({
     method: 'POST',
     url: '/v1/wallet/evm/review',
     headers,
-    payload: { transaction: unsigned }
+    payload: { transaction: unsigned },
   });
   expect(reviewed.statusCode, reviewed.body).toBe(200);
   const review = reviewed.json();
@@ -530,7 +379,7 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
     data: '0x',
     signing_hash: keccak256(unsigned),
     key_id: key.keyId,
-    principal: userId
+    principal: userId,
   });
   expect(review.id).toMatch(/^[0-9a-f-]{36}$/);
   expect(review.participants).toHaveLength(3);
@@ -543,8 +392,8 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
     payload: {
       review_id: review.id,
       signing_hash: review.signing_hash,
-      decision: 'approve'
-    }
+      decision: 'approve',
+    },
   });
   expect(approved.statusCode, approved.body).toBe(200);
   expect(approved.json()).toMatchObject({
@@ -556,8 +405,8 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
       key_id: key.keyId,
       session_id: review.session_id,
       signing_hash: keccak256(unsigned),
-      expires_at: review.expires_at
-    }
+      expires_at: review.expires_at,
+    },
   });
 
   broadcasts.length = 0;
@@ -566,39 +415,39 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
     method: 'POST',
     url: '/v1/wallet/evm/sign',
     headers,
-    payload: { approval_id: review.id }
+    payload: { approval_id: review.id },
   });
   expect(signed.statusCode, signed.body).toBe(200);
   const answer = signed.json();
   expect(answer).toMatchObject({
     id: review.id,
     state: 'signed',
-    signing_hash: review.signing_hash
+    signing_hash: review.signing_hash,
   });
   expect(broadcasts).toHaveLength(1);
   const raw = broadcasts[0]!;
   expect(answer.tx_hash).toBe(keccak256(raw));
   expect(parseTransaction(raw)).toMatchObject(transfer);
   expect((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase()).toBe(
-    key.address.toLowerCase()
+    key.address.toLowerCase(),
   );
   expect(['receipted', 'committed']).toContain(answer.rung);
   expect(answer.receipt).toMatchObject({
     txHash: answer.tx_hash,
     rung: answer.rung,
-    status: '0x1'
+    status: '0x1',
   });
   expect(answer.receipt.receipt).toMatch(/^0x(?:[0-9a-fA-F]{2})+$/);
   expect(sequencerReceipts).toEqual([
     { hash: answer.tx_hash, result: null },
-    { hash: answer.tx_hash, result: answer.receipt }
+    { hash: answer.tx_hash, result: answer.receipt },
   ]);
   expect(answer.receipt).toMatchObject({
     rung: 'receipted',
     nonce: toHex(transfer.nonce),
     from: key.address.toLowerCase(),
     to: RECIPIENT,
-    keyId: expect.stringMatching(/^0x[0-9a-f]{64}$/)
+    keyId: expect.stringMatching(/^0x[0-9a-f]{64}$/),
   });
 }
 
@@ -614,20 +463,20 @@ describe('gateway against five real attestor daemons', () => {
     const admin = await app.inject({
       method: 'GET',
       url: '/v1/admin/readiness',
-      headers: auth(process.env.GATEWAY_ADMIN_TOKEN!)
+      headers: auth(process.env.GATEWAY_ADMIN_TOKEN!),
     });
     expect(admin.statusCode).toBe(200);
     const details = admin.json();
     expect(details.components.attestors).toMatchObject({
       state: 'up',
       required: 3,
-      healthy: 5
+      healthy: 5,
     });
     expect(body.components.nonce_store.state).toBe('up');
     expect(body.components.rpc_pool).toEqual({ state: 'up', reason: null });
     expect(details.components.rpc_pool).toMatchObject({ state: 'up', healthy: 1 });
     expect(details.components.rpc_pool.endpoints).toEqual([
-      expect.objectContaining({ url: chain.url, state: 'healthy' })
+      expect.objectContaining({ url: chain.url, state: 'healthy' }),
     ]);
     expect(body.components.identity_provider).toEqual({ state: 'up', reason: null });
     expect(details.components.identity_provider).toMatchObject({ state: 'up', keys: 1 });
@@ -637,7 +486,7 @@ describe('gateway against five real attestor daemons', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/v1/wallet/me',
-      headers: auth(token)
+      headers: auth(token),
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().wallet.address.toLowerCase()).toBe(key.address.toLowerCase());
@@ -648,7 +497,7 @@ describe('gateway against five real attestor daemons', () => {
       method: 'POST',
       url: '/v1/wallet/sign',
       headers: auth(await identity.mint(userId)),
-      payload: txBody(1000n)
+      payload: txBody(1000n),
     });
     const body = res.json();
     expect(res.statusCode, JSON.stringify(body)).toBe(200);
@@ -658,7 +507,7 @@ describe('gateway against five real attestor daemons', () => {
     expect(tx.to?.toLowerCase()).toBe(RECIPIENT);
     expect(tx.value).toBe(1000n);
     const recovered = await recoverTransactionAddress({
-      serializedTransaction: signed as never
+      serializedTransaction: signed as never,
     });
     expect(recovered.toLowerCase()).toBe(key.address.toLowerCase());
 
@@ -669,7 +518,7 @@ describe('gateway against five real attestor daemons', () => {
       attestor_audit: Array<{ node_id: string; audit_sequence: number }>;
     }>(
       `select path, decision, attestor_audit from signing_audit where client_subject = $1 and route = '/v1/wallet/sign' order by id desc limit 1`,
-      [userId]
+      [userId],
     );
     expect(rows[0]).toMatchObject({ path: 'attestor', decision: 'signed' });
     expect(rows[0]!.attestor_audit).toHaveLength(3);
@@ -685,13 +534,13 @@ describe('gateway against five real attestor daemons', () => {
       method: 'POST',
       url: '/v1/wallet/sign-message',
       headers: auth(await identity.mint(userId)),
-      payload: { message }
+      payload: { message },
     });
     const body = res.json();
     expect(res.statusCode, JSON.stringify(body)).toBe(200);
     const recovered = await recoverMessageAddress({
       message,
-      signature: body.signature as Hex
+      signature: body.signature as Hex,
     });
     expect(recovered.toLowerCase()).toBe(key.address.toLowerCase());
   }, 300_000);
@@ -701,13 +550,13 @@ describe('gateway against five real attestor daemons', () => {
       method: 'POST',
       url: '/v1/wallet/sign-typed-data',
       headers: auth(await identity.mint(userId)),
-      payload: { typed_data: typedData }
+      payload: { typed_data: typedData },
     });
     const body = res.json();
     expect(res.statusCode, JSON.stringify(body)).toBe(200);
     const recovered = await recoverTypedDataAddress({
       ...(typedData as unknown as TypedDataDefinition),
-      signature: body.signature as Hex
+      signature: body.signature as Hex,
     });
     expect(recovered.toLowerCase()).toBe(key.address.toLowerCase());
   }, 300_000);
@@ -718,7 +567,7 @@ describe('gateway against five real attestor daemons', () => {
       method: 'POST',
       url: '/v1/wallet/sign',
       headers: auth(forged),
-      payload: txBody(1000n)
+      payload: txBody(1000n),
     });
     expect(res.statusCode).toBe(401);
     expect(res.json().error).toBe('unauthorized');
@@ -736,31 +585,31 @@ describe('gateway against five real attestor daemons', () => {
             node_id: node.nodeId,
             healthy: node.healthy,
             ready: node.report?.ready,
-            reachable_peers: node.report?.reachable_peers
+            reachable_peers: node.report?.reachable_peers,
           }));
         },
-        { timeout: 10_000, interval: 100 }
+        { timeout: 10_000, interval: 100 },
       )
       .toEqual(
         network.nodes.map((node) => ({
           node_id: node.nodeId,
           healthy: true,
           ready: true,
-          reachable_peers: 4
-        }))
+          reachable_peers: 4,
+        })),
       );
     const res = await app.inject({
       method: 'POST',
       url: '/v1/wallet/sign',
       headers: auth(await identity.mint(userId)),
-      payload: txBody(NATIVE_PER_TX_CAP_WEI + 1n)
+      payload: txBody(NATIVE_PER_TX_CAP_WEI + 1n),
     });
     const body = res.json();
     expect(res.statusCode, JSON.stringify(body)).toBe(403);
     expect(body).toMatchObject({
       error: 'attestor_policy_refused',
       category: 'policy',
-      code: 'policy_denied'
+      code: 'policy_denied',
     });
   }, 300_000);
 
@@ -768,7 +617,7 @@ describe('gateway against five real attestor daemons', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/agent/send',
-      payload: txBody(1000n)
+      payload: txBody(1000n),
     });
     expect(res.statusCode).toBe(401);
     expect(res.json().error).toBe('agent_signature_required');
@@ -781,12 +630,12 @@ describe('gateway against five real attestor daemons', () => {
           method,
           url,
           headers: bearer ? auth(bearer) : {},
-          ...(payload === undefined ? {} : { payload })
+          ...(payload === undefined ? {} : { payload }),
         });
         return { status: response.statusCode, body: response.json() };
       },
       await identity.mint(userId),
-      await identity.mintForeign(userId)
+      await identity.mintForeign(userId),
     );
   });
 
@@ -796,14 +645,14 @@ describe('gateway against five real attestor daemons', () => {
       method: 'POST',
       url: '/v1/wallet/sign-custody',
       headers,
-      payload: { custody: '0x4c583a435553544f44593a7631' + '00'.repeat(32) }
+      payload: { custody: '0x4c583a435553544f44593a7631' + '00'.repeat(32) },
     });
     expect(custody.statusCode).toBe(404);
     const digest = await app.inject({
       method: 'POST',
       url: '/v1/wallet/sign-digest',
       headers,
-      payload: { digest: '0x' + '01'.repeat(32) }
+      payload: { digest: '0x' + '01'.repeat(32) },
     });
     expect(digest.statusCode).toBe(400);
   });
@@ -816,7 +665,7 @@ describe('gateway against five real attestor daemons', () => {
       expect(health.body).toMatchObject({
         node_id: node.nodeId,
         ready: false,
-        reachable_peers: 1
+        reachable_peers: 1,
       });
     }
     const res = await app.inject({ method: 'GET', url: '/readyz' });
@@ -826,13 +675,13 @@ describe('gateway against five real attestor daemons', () => {
     expect(body.ready).toBe(false);
     expect(body.components.attestors).toMatchObject({
       state: 'down',
-      reason: 'attestor_quorum_unavailable'
+      reason: 'attestor_quorum_unavailable',
     });
     expect(body.components.attestors).not.toHaveProperty('healthy');
     const admin = await app.inject({
       method: 'GET',
       url: '/v1/admin/readiness',
-      headers: auth(process.env.GATEWAY_ADMIN_TOKEN!)
+      headers: auth(process.env.GATEWAY_ADMIN_TOKEN!),
     });
     expect(admin.statusCode).toBe(503);
     expect(admin.json().components.attestors.required).toBe(3);
@@ -842,8 +691,8 @@ describe('gateway against five real attestor daemons', () => {
         .json()
         .components.attestors.nodes.map((node: { node_id: string; healthy: boolean }) => ({
           node_id: node.node_id,
-          healthy: node.healthy
-        }))
+          healthy: node.healthy,
+        })),
     ).toEqual(network.nodes.map((node) => ({ node_id: node.nodeId, healthy: false })));
     expect(body.components.nonce_store.state).toBe('up');
     expect(body.components.rpc_pool.state).toBe('up');
@@ -853,50 +702,51 @@ describe('gateway against five real attestor daemons', () => {
 
 describe('wallet custody boundary against the gateway database', () => {
   it('refuses a migrated row before touching its retained legacy envelope', async () => {
-    const { findWalletByUserId, getSigningAccountForRow, WalletMigratedError } =
-      await import('../../src/db/wallets.js');
+    const { findWalletByUserId, getSigningAccountForRow, WalletMigratedError } = await import(
+      '../../src/db/wallets.js'
+    );
     const row = await findWalletByUserId(userId);
     expect(row).not.toBeNull();
     await expect(getSigningAccountForRow(row!)).rejects.toBeInstanceOf(WalletMigratedError);
   });
 
   it('rechecks custody when an already-created legacy signing handle is used', async () => {
-    const { provisionWalletForUser, getSigningAccountForRow, WalletMigratedError } =
-      await import('../../src/db/wallets.js');
+    const { provisionWalletForUser, getSigningAccountForRow, WalletMigratedError } = await import(
+      '../../src/db/wallets.js'
+    );
     const { getPool } = await import('../../src/db/pool.js');
     const legacyUser = randomUUID();
     const { row } = await provisionWalletForUser(legacyUser, 'standard');
     const account = await getSigningAccountForRow(row, undefined, {
       subject: legacyUser,
-      requestHash: randomUUID()
+      requestHash: randomUUID(),
     });
     await getPool().query(
       'update wallets set migrated_at = now(), attestor_key_id = $2 where id = $1',
-      [row.id, `stale-handle:${row.id}`]
+      [row.id, `stale-handle:${row.id}`],
     );
     await expect(
-      account.signMessage({ message: 'migration must revoke this stale handle' })
+      account.signMessage({ message: 'migration must revoke this stale handle' }),
     ).rejects.toBeInstanceOf(WalletMigratedError);
     const { rows } = await getPool().query(
       'select encrypted_private_key from wallets where id = $1',
-      [row.id]
+      [row.id],
     );
     expect(rows[0].encrypted_private_key).not.toBeNull();
   });
 
   it('refuses null-envelope legacy storage and migrated signing without decrypting', async () => {
-    const { provisionWalletForUser, getSigningAccountForRow, WalletMigratedError } =
-      await import('../../src/db/wallets.js');
+    const { provisionWalletForUser, getSigningAccountForRow, WalletMigratedError } = await import(
+      '../../src/db/wallets.js'
+    );
     const { getPool } = await import('../../src/db/pool.js');
     const { row } = await provisionWalletForUser(randomUUID(), 'standard');
     await expect(
-      getPool().query('update wallets set encrypted_private_key = null where id = $1', [
-        row.id
-      ])
+      getPool().query('update wallets set encrypted_private_key = null where id = $1', [row.id]),
     ).rejects.toMatchObject({ code: '23514', constraint: 'wallets_key_material_chk' });
     await getPool().query(
       'update wallets set encrypted_private_key = null, migrated_at = now(), attestor_key_id = $2 where id = $1',
-      [row.id, `missing-envelope:${row.id}`]
+      [row.id, `missing-envelope:${row.id}`],
     );
     await expect(getSigningAccountForRow(row)).rejects.toBeInstanceOf(WalletMigratedError);
   });

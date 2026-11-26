@@ -660,7 +660,7 @@ LEFT JOIN perps.blocks bc ON bc.number = p.closed_block
 WHERE p.account = $1 AND (p.status = 'open' OR p.closed_block > $2)
 ORDER BY p.position_id`
 
-// PositionChanged sends, on every perps.<chain>.user.<account>.position, the
+// PositionChanged sends, on every perps.<chain>.user.<account> event, the
 // open positions of the account and the ones it closed since the previous
 // message.
 func (r *Resolver) PositionChanged(ctx context.Context, args struct{ UserAddress string }) (<-chan []*subPosition, error) {
@@ -690,7 +690,7 @@ func (r *Resolver) PositionChanged(ctx context.Context, args struct{ UserAddress
 		p.OpenTxHash, p.CloseTxHash = optString(openTx), optString(closeTx)
 		return &p, nil
 	}
-	return run(ctx, f, []string{f.prefix + "user." + account + ".position"}, func(ctx context.Context, _ bool) ([][]*subPosition, bool, error) {
+	return run(ctx, f, []string{f.prefix + "user." + account + ".*"}, func(ctx context.Context, _ bool) ([][]*subPosition, bool, error) {
 		head, err := headHeight(ctx, db)
 		if err != nil {
 			return nil, false, err

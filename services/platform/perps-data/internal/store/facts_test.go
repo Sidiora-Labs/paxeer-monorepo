@@ -243,7 +243,7 @@ WHERE block = 102 AND kind = 'modified' AND account = $1`, traderA.Bytes())
 	}
 	c.want(`SELECT to_jsonb(p)::text || ':' || ctid::text FROM perps.keeper_cycles p WHERE block = 101`, beforeCycle)
 	c.want(`SELECT to_jsonb(p)::text FROM perps.keeper_cycles p WHERE block = 102`, wantCycle)
-	c.want(`SELECT size_usd::text, collateral_amount::text, take_profit_price::text FROM perps.positions_current WHERE position_id = 1`, []string{"900", "90", "70000"})
+	c.want(`SELECT size_usd::text, collateral_amount::text, take_profit_price::text FROM perps.positions_current WHERE position_id = 1`, []string{"900", "99", "70000"})
 	c.want(`SELECT remaining_size_usd::text FROM perps.orders WHERE order_id = 7`, []string{"200"})
 
 	if err := Rebuild(c.ctx, c.tx, 102, 102); err != nil {

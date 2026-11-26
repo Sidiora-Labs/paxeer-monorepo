@@ -97,7 +97,7 @@ class DatabaseFixture {
         connection: socket.remotePort,
         sql: q,
         args,
-      })
+      }),
     );
     const [a, b, c, d, e, f, g, h, i] = args;
     const leaseMatches = () => {
@@ -272,6 +272,34 @@ class DatabaseFixture {
         ],
       };
     if (q.includes('from agent_policy_rules')) return { rows: [] };
+    if (q.startsWith('select s.id from wallet_signatures s')) {
+      const rows = this.signatures.filter((signature) => {
+        const reservation = this.accounting.find(
+          (entry) => entry.signature_id === signature.id && entry.wallet_id === signature.wallet_id,
+        );
+        return (
+          signature.wallet_id === a &&
+          signature.kind === 'transaction' &&
+          reservation?.kind === signature.kind &&
+          signature.tx_hash === b &&
+          reservation.tx_hash === b &&
+          reservation.signed_evidence === c &&
+          signature.principal_did === d &&
+          signature.wallet_id === this.wallet.id &&
+          signature.user_id === this.wallet.user_id &&
+          signature.address.toLowerCase() === this.wallet.address.toLowerCase() &&
+          signature.to_address?.toLowerCase() === e?.toLowerCase() &&
+          signature.value_wei === f &&
+          signature.chain_id === Number(g)
+        );
+      });
+      return { rows: rows.map(({ id }) => ({ id })) };
+    }
+    if (q === 'update wallets set last_used_at = now() where id = $1') {
+      if (this.wallet.id !== a) return { rows: [], count: 0 };
+      this.wallet.last_used_at = new Date().toISOString();
+      return { rows: [], count: 1 };
+    }
     if (q.includes('from wallets')) {
       if (q.includes('for share')) {
         this.signingEntered.resolve();
@@ -345,7 +373,7 @@ class DatabaseFixture {
         rows: this.accounting
           .filter(
             (r) =>
-              r.wallet_id === a && r.kind === b && (r.request_hash === c || r.operation_hash === d)
+              r.wallet_id === a && r.kind === b && (r.request_hash === c || r.operation_hash === d),
           )
           .map((r) => ({
             ...this.signatures.find((s) => s.id === r.signature_id),
@@ -386,7 +414,7 @@ class DatabaseFixture {
     if (q.startsWith('delete from nonce_outstanding')) {
       this.outstanding = this.outstanding.filter(
         (r) =>
-          r.address !== a || (q.includes('nonce <') ? Number(r.nonce) >= Number(b) : r.nonce !== b)
+          r.address !== a || (q.includes('nonce <') ? Number(r.nonce) >= Number(b) : r.nonce !== b),
       );
       return { rows: [], count: 1 };
     }
@@ -444,8 +472,8 @@ class DatabaseFixture {
                     int(0, 2),
                   ]);
                 }),
-              ])
-            )
+              ]),
+            ),
           );
         else if (description) socket.write(packet('n'));
         if (!description) {
@@ -465,12 +493,12 @@ class DatabaseFixture {
                           ? value
                             ? 't'
                             : 'f'
-                          : String(value)
+                          : String(value),
                     );
                     return Buffer.concat([int(bytes.length), bytes]);
                   }),
-                ])
-              )
+                ]),
+              ),
             );
           socket.write(packet('C', str(`SELECT ${answer.count ?? answer.rows.length}`)));
         }
@@ -528,8 +556,8 @@ class DatabaseFixture {
           socket.write(
             packet(
               'E',
-              Buffer.concat([str('SERROR'), str('CXX000'), str(`M${message}`), Buffer.from([0])])
-            )
+              Buffer.concat([str('SERROR'), str('CXX000'), str(`M${message}`), Buffer.from([0])]),
+            ),
           );
           if (tag === 'Q') {
             failed = false;
@@ -610,7 +638,7 @@ async function within(promise: Promise<unknown>, ms = 4000): Promise<void> {
       new Promise<never>((_, reject) => {
         timer = setTimeout(
           () => reject(new Error(`fixture event did not settle within ${ms}ms`)),
-          ms
+          ms,
         );
       }),
     ]);
@@ -773,7 +801,7 @@ async function prepareAction(): Promise<ActionRow> {
   const { ciphertext } = crypto.encrypt(
     Buffer.from('12'.repeat(32), 'hex'),
     crypto.loadMasterKey(env.WALLET_MASTER_KEY),
-    env.WALLET_MASTER_KEY_VERSION
+    env.WALLET_MASTER_KEY_VERSION,
   );
   db.wallet = {
     id: randomUUID(),
@@ -858,7 +886,7 @@ async function actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWor
   expect(broadcasts).toEqual([retained.raw]);
   expect(retained.hash).toBe(keccak256(retained.raw));
   expect(await recoverTransactionAddress({ serializedTransaction: retained.raw })).toBe(
-    key.address
+    key.address,
   );
   expect(parseTransaction(retained.raw).nonce).toBe(0);
   expect(db.row!.approval_tx_hash).toBe(retained.hash);
@@ -981,22 +1009,22 @@ async function actionOperationDeadlineBoundsDelayedSigning() {
 test(
   actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers.name,
   actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers,
-  10000
+  10000,
 );
 test(
   actionLeaseLossStopsDelayedSigningAndFencesRelease.name,
   actionLeaseLossStopsDelayedSigningAndFencesRelease,
-  10000
+  10000,
 );
 test(actionLeaseRenewalErrorStopsAdvancement.name, actionLeaseRenewalErrorStopsAdvancement, 10000);
 test(
   actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome.name,
   actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome,
-  10000
+  10000,
 );
 test(actionLeaseExpiryDrainsPendingRenewal.name, actionLeaseExpiryDrainsPendingRenewal, 10000);
 test(
   actionOperationDeadlineBoundsDelayedSigning.name,
   actionOperationDeadlineBoundsDelayedSigning,
-  10000
+  10000,
 );
