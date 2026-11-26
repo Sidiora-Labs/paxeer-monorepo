@@ -10,6 +10,7 @@ import { useTranslation } from "@paxeer-network/i18n";
 import { EMPTY_LIST } from "@paxeer-network/types";
 import {
   Card,
+  EmptyDataState,
   Grid,
   Box,
   Statistic,
@@ -189,10 +190,14 @@ export const PerformancePnL: React.FC<{
         {t("portfolio.overview.performance.dailyPnl")}
       </Text>
       <Box r="md" className="oui-h-[188px] oui-border oui-border-line-4">
-        <PnLBarChart
-          data={chartData}
-          invisible={props.invisible || (chartData?.length ?? 0) <= 2}
-        />
+        {props.invisible || !props.data.length ? (
+          <EmptyDataState className="oui-h-full oui-justify-center" />
+        ) : (
+          <PnLBarChart
+            data={chartData}
+            invisible={props.invisible || (chartData?.length ?? 0) <= 2}
+          />
+        )}
       </Box>
     </Box>
   );
@@ -209,10 +214,14 @@ export const CumulativePnlChart: React.FC<{
         {t("portfolio.overview.performance.cumulativePnl")}
       </Text>
       <Box r="md" className="oui-h-[188px] oui-border oui-border-line-4">
-        <PnlAreaChart
-          data={props.data}
-          invisible={props.invisible || (props.data?.length ?? 0) <= 2}
-        />
+        {props.invisible || !props.data.length ? (
+          <EmptyDataState className="oui-h-full oui-justify-center" />
+        ) : (
+          <PnlAreaChart
+            data={props.data}
+            invisible={props.invisible || (props.data?.length ?? 0) <= 2}
+          />
+        )}
       </Box>
     </Box>
   );
@@ -237,14 +246,18 @@ export const DailyVolumeChart: React.FC<{
         {t("portfolio.overview.performance.dailyVolume")}
       </Text>
       <Box r="md" className="oui-h-[188px] oui-border oui-border-line-4">
-        <VolBarChart
-          data={volumeData}
-          invisible={props.invisible || volumeData.length <= 2}
-          responsiveContainerProps={{
-            width: "100%",
-            height: 188,
-          }}
-        />
+        {props.invisible || !props.data.length ? (
+          <EmptyDataState className="oui-h-full oui-justify-center" />
+        ) : (
+          <VolBarChart
+            data={volumeData}
+            invisible={props.invisible || volumeData.length <= 2}
+            responsiveContainerProps={{
+              width: "100%",
+              height: 188,
+            }}
+          />
+        )}
       </Box>
     </Box>
   );
@@ -261,10 +274,14 @@ export const CumulativeVolumeChart: React.FC<{
         {t("portfolio.overview.performance.cumulativeVolume")}
       </Text>
       <Box r="md" className="oui-h-[188px] oui-border oui-border-line-4">
-        <VolumeAreaChart
-          data={props.data ?? EMPTY_LIST}
-          invisible={props.invisible || (props.data?.length ?? 0) <= 2}
-        />
+        {props.invisible || !props.data.length ? (
+          <EmptyDataState className="oui-h-full oui-justify-center" />
+        ) : (
+          <VolumeAreaChart
+            data={props.data ?? EMPTY_LIST}
+            invisible={props.invisible || (props.data?.length ?? 0) <= 2}
+          />
+        )}
       </Box>
     </Box>
   );

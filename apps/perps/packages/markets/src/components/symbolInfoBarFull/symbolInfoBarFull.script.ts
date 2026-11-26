@@ -34,21 +34,33 @@ export function useSymbolInfoBarFullScript(
     useFundingDetails(symbol);
 
   const fundingPeriod = useMemo(() => {
-    if (!fundingDetails || isFundingLoading || !Number.isFinite(fundingDetails.funding_period)) {
+    if (
+      !fundingDetails ||
+      isFundingLoading ||
+      !Number.isFinite(fundingDetails.funding_period)
+    ) {
       return "-";
     }
     return `${fundingDetails.funding_period}h`;
   }, [fundingDetails, isFundingLoading]);
 
   const capFunding = useMemo(() => {
-    if (!fundingDetails || isFundingLoading || !Number.isFinite(fundingDetails.cap_funding)) {
+    if (
+      !fundingDetails ||
+      isFundingLoading ||
+      !Number.isFinite(fundingDetails.cap_funding)
+    ) {
       return "-";
     }
     return `${new Decimal(fundingDetails.cap_funding).mul(100).toNumber()}%`;
   }, [fundingDetails, isFundingLoading]);
 
   const floorFunding = useMemo(() => {
-    if (!fundingDetails || isFundingLoading || !Number.isFinite(fundingDetails.floor_funding)) {
+    if (
+      !fundingDetails ||
+      isFundingLoading ||
+      !Number.isFinite(fundingDetails.floor_funding)
+    ) {
       return "-";
     }
     return `${new Decimal(fundingDetails.floor_funding).mul(100).toNumber()}%`;
@@ -56,6 +68,7 @@ export function useSymbolInfoBarFullScript(
 
   const info = useSymbolsInfo();
   const quotoDp = info[symbol]("quote_dp");
+  const quoteTick = info[symbol]("quote_tick");
   const [leadingVisible, setLeadingVisible] = useState(false);
   const [tailingVisible, setTailingVisible] = useState(false);
 
@@ -118,6 +131,7 @@ export function useSymbolInfoBarFullScript(
     favorite,
     data,
     quotoDp,
+    quoteTick,
     openInterest,
     fundingRate,
     containerRef,

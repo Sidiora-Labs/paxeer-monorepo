@@ -40,7 +40,8 @@ export const CollapseMarkets: React.FC<CollapseMarketsProps> = (props) => {
                   {item.leverage}x
                 </Badge>
                 <Text.numeral
-                  dp={item.quote_dp || 2}
+                  dp={item.quote_dp ?? 2}
+                  tick={item.quote_tick}
                   currency="$"
                   size="2xs"
                   intensity={80}
