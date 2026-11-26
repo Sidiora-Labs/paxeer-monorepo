@@ -213630,7 +213630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1206]
 title = "Name the step in the one line of a failed maintenance pass of the notification runtime, renew the unchanged sources in one statement without a mark row, and go on behind a source that fails"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1205"]
@@ -214572,7 +214572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.144]
 title = "Bring the profile views, the profit card and the live views of the launchpad to the visual brief"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.138"]
