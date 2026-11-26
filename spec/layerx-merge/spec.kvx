@@ -214224,7 +214224,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1261]
 title = "Let the steps of the wizard that creates a coin name what the flow waits for, show the recovery form only for an unknown outcome, and keep the funding state out of the cost summary once an attempt exists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
