@@ -79,6 +79,13 @@ func ErrorClass(err error) string {
 	}
 }
 
+func (s *State) RecordDelivery(ctx context.Context, err error, class string, wire []byte) {
+	if ctx.Err() != nil && errors.Is(err, context.Canceled) {
+		return
+	}
+	s.Record(err, class, RetryKey(wire))
+}
+
 // Record observes a completed delivery or wallet pass. Keys are hashed before
 // retention; neither snapshots nor metrics contain pool or wallet addresses.
 func (s *State) Record(err error, class string, keys ...string) {

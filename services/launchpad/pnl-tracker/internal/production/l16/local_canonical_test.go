@@ -29,6 +29,7 @@ import (
 type localCanonicalChain struct {
 	RPC, Factory, Wallet, Token, Stream string
 	Height                              uint64
+	SecondWallet                        string
 }
 
 type localCanonicalFixture struct {
