@@ -106,11 +106,15 @@ func accountingRuntimeError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, store.ErrCursorInvalid):
 		rest.WriteV2APIError(w, r, 400, "CURSOR_INVALID")
 	case errors.Is(err, store.ErrDataIntegrity), errors.Is(err, ErrProjectionChanged):
+		rest.LogAccountingUnavailable(w, r, err)
 		rest.WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
 	default:
 		code, status := "DEPENDENCY_UNAVAILABLE", 503
 		if r.URL.Query().Get("cursor") != "" && errors.Is(err, store.ErrAccountingNotReady) {
 			code, status = "CURSOR_INVALID", 400
+		}
+		if status == http.StatusServiceUnavailable {
+			rest.LogAccountingUnavailable(w, r, err)
 		}
 		rest.WriteV2APIError(w, r, status, code)
 	}
@@ -161,6 +165,7 @@ func (a *AccountingRuntime) Mount(r chi.Router) error {
 		routes.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if err := a.Ready(r.Context()); err != nil {
+					rest.LogAccountingUnavailable(w, r, err)
 					rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 					return
 				}
