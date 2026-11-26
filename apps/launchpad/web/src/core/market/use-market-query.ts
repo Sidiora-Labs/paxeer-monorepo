@@ -36,7 +36,8 @@ export function useMarketQuery<TQueryFnData = unknown, TError = Error, TData = T
   }, [error, options.enabled, query.refetch]);
   const shortServerRetry = retryHint(error).owner === 'network' && !isNetworkClassError(error);
   if (query.data === undefined && error && marketRetryPace.state(error) && !shortServerRetry) {
-    return { ...query, refetch, status: waiting ? 'pending' : 'error', isPending: waiting > 0, isError: waiting === 0, isSuccess: false, isLoading: waiting > 0 && query.isFetching, isInitialLoading: waiting > 0 && query.isFetching, error: waiting ? null : error } as UseQueryResult<TData, TError>;
+    const pending = waiting > 0 || query.isPending && query.isFetching;
+    return { ...query, refetch, status: pending ? 'pending' : 'error', isPending: pending, isError: !pending, isSuccess: false, isLoading: pending && query.isFetching, isInitialLoading: pending && query.isFetching, error: pending ? null : error } as UseQueryResult<TData, TError>;
   }
   return { ...query, refetch };
 }
