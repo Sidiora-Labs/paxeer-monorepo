@@ -219,6 +219,28 @@ func (c *AccountingConsumer) Consume(ctx context.Context, subject string, wire [
 	if c.authority == nil {
 		return ErrBaselineUnavailable
 	}
+	if message == nil {
+		return c.consumeOrdered(ctx, subject, wire, message)
+	}
+	wire = append([]byte(nil), wire...)
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.InventorySubject: true}, EventTypes: map[string]bool{accounting.InventorySubject: true}}
+	if envelope, err := delivery.Decode(wire, policy, subject); err == nil {
+		if publication, err := accounting.DecodePublicationV1(envelope.Payload); err == nil && publication.Facet == sourceInventory && publication.Enrichment != nil && publication.Positions[0].ProjectionVersion == c.projectionVersion && envelope.EventID == publication.PublicationID {
+			position := publication.Positions[0]
+			if envelope.SourceOrder == (delivery.SourceOrder{Height: position.SourceOrder.Height, TransactionIndex: position.SourceOrder.TransactionIndex, LogIndex: position.SourceOrder.LogIndex}) {
+				if err = c.catchUpBefore(ctx, position); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return c.consumeOrdered(ctx, subject, wire, message)
+}
+
+func (c *AccountingConsumer) consumeOrdered(ctx context.Context, subject string, wire []byte, message delivery.Delivery) error {
+	if c.authority == nil {
+		return ErrBaselineUnavailable
+	}
 	if subject != accounting.InventorySubject {
 		return delivery.ErrIntegrity
 	}
@@ -335,16 +357,7 @@ func (c *AccountingConsumer) PreparePartition(ctx context.Context, partition str
 }
 
 func (c *AccountingConsumer) PrepareAndConsume(ctx context.Context, subject string, wire []byte, message delivery.Delivery) (result error) {
-	defer func() {
-		if ctx.Err() != nil && errors.Is(result, context.Canceled) {
-			return
-		}
-		class := consumerhealth.ErrorClass(result)
-		if errors.Is(result, ErrBaselineUnavailable) {
-			class = consumerhealth.SourceUnavailableClass
-		}
-		c.Progress.Record(result, class, consumerhealth.RetryKey(wire))
-	}()
+	defer func() { c.recordProgress(ctx, result, wire) }()
 	if c.authority == nil {
 		return ErrBaselineUnavailable
 	}
