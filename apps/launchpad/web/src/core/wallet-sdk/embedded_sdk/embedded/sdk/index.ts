@@ -32,6 +32,13 @@ import {
 } from "./types";
 
 export * from "./types";
+export * from "./agents";
+import type {
+  OwnedAgent, AgentDetail, AgentPolicy, AgentRuleInput, AgentRule,
+  AgentBudgetInput, AgentBudget, AgentActivity, AgentTransfer, AgentTransferResult,
+  AgentClaim, AgentClaimResult, AgentChallenge, AgentVerification,
+  AgentVerificationResult, AgentProvisionResult, AgentRequestHeaders,
+} from "./agents";
 
 export type OAuthProvider =
   | "google"
@@ -199,10 +206,76 @@ export class PaxeerWallet {
     );
   }
 
+  listAgents(expected: SigningSession): Promise<{ agents: OwnedAgent[] }> {
+    return this.callJson("GET", "/v1/agents", undefined, expected);
+  }
+
+  getAgent(did: string, expected: SigningSession): Promise<AgentDetail> {
+    return this.callJson("GET", this.agentPath(did), undefined, expected);
+  }
+
+  claimAgent(did: string, claim: AgentClaim, expected: SigningSession): Promise<AgentClaimResult> {
+    return this.callJson("POST", `${this.agentPath(did)}/claim`, claim, expected);
+  }
+
+  updateAgentPolicy(did: string, policy: Partial<AgentPolicy>, expected: SigningSession): Promise<{ did: string; policy: AgentPolicy }> {
+    return this.callJson("PUT", `${this.agentPath(did)}/policy`, policy, expected);
+  }
+
+  setAgentFrozen(did: string, frozen: boolean, expected: SigningSession): Promise<{ did: string; is_frozen: boolean }> {
+    return this.callJson("POST", `${this.agentPath(did)}/${frozen ? "freeze" : "unfreeze"}`, undefined, expected);
+  }
+
+  addAgentRule(did: string, rule: AgentRuleInput, expected: SigningSession): Promise<{ rule: AgentRule }> {
+    return this.callJson("POST", `${this.agentPath(did)}/rules`, rule, expected);
+  }
+
+  deleteAgentRule(did: string, id: string, expected: SigningSession): Promise<{ deleted: boolean }> {
+    return this.callJson("DELETE", `${this.agentPath(did)}/rules/${encodeURIComponent(id)}`, undefined, expected);
+  }
+
+  addAgentBudget(did: string, budget: AgentBudgetInput, expected: SigningSession): Promise<{ budget: AgentBudget }> {
+    return this.callJson("POST", `${this.agentPath(did)}/budgets`, budget, expected);
+  }
+
+  deleteAgentBudget(did: string, id: string, expected: SigningSession): Promise<{ deactivated: boolean }> {
+    return this.callJson("DELETE", `${this.agentPath(did)}/budgets/${encodeURIComponent(id)}`, undefined, expected);
+  }
+
+  fundAgent(did: string, transfer: AgentTransfer, expected: SigningSession): Promise<AgentTransferResult> {
+    return this.callJson("POST", `${this.agentPath(did)}/fund`, transfer, expected);
+  }
+
+  sweepAgent(did: string, transfer: AgentTransfer, expected: SigningSession): Promise<AgentTransferResult> {
+    return this.callJson("POST", `${this.agentPath(did)}/sweep`, transfer, expected);
+  }
+
+  agentActivity(did: string, expected: SigningSession): Promise<{ did: string; events: AgentActivity[] }> {
+    return this.callJson("GET", `${this.agentPath(did)}/activity`, undefined, expected);
+  }
+
+  agentChallenge(did: string): Promise<AgentChallenge> {
+    return this.requestJson("POST", "/v1/agent/auth/challenge", { did });
+  }
+
+  verifyAgent(body: AgentVerification): Promise<AgentVerificationResult> {
+    return this.requestJson("POST", "/v1/agent/auth/verify", body);
+  }
+
+  provisionAgent(headers: AgentRequestHeaders, body: { bind_signature?: string }): Promise<AgentProvisionResult> {
+    return this.requestJson("POST", "/v1/agent/provision", body, { ...headers });
+  }
+
+  private agentPath(did: string): string {
+    if (!/^did:matrix:[A-Za-z0-9_-]{1,128}:[0-9a-f]{16}$/.test(did))
+      throw new PaxeerWalletError("Enter a valid agent DID.", "INVALID_DID");
+    return `/v1/agents/${encodeURIComponent(did)}`;
+  }
+
   // ─────────────────────────────────────── Internal — auth-bearing fetch ─
 
   private async callJson<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
     body?: unknown,
     expected?: SigningSession,
@@ -223,10 +296,36 @@ export class PaxeerWallet {
     if (!session?.access_token) {
       throw new PaxeerWalletError("not_authenticated", "NO_SESSION", 401);
     }
+    const payload = await this.requestJson<T>(method, path, body, {
+      Authorization: `Bearer ${session.access_token}`,
+    });
+    if (expected) {
+      const current = await this.getSession();
+      expected.assertCurrent();
+      if (
+        current?.user.id !== expected.userId ||
+        current.access_token !== expected.accessToken
+      ) {
+        throw new PaxeerWalletError(
+          "the wallet session changed",
+          "SESSION_CHANGED",
+          401,
+        );
+      }
+    }
+    return payload as T;
+  }
+
+  private async requestJson<T>(
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    path: string,
+    body?: unknown,
+    headers: Record<string, string> = {},
+  ): Promise<T> {
     const res = await this.fetchImpl(`${this.apiUrl}${path}`, {
       method,
       headers: {
-        Authorization: `Bearer ${session.access_token}`,
+        ...headers,
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -250,22 +349,9 @@ export class PaxeerWallet {
           : `request failed: ${res.status}`;
       throw new PaxeerWalletError(message, code, res.status, payload);
     }
-    if (expected) {
-      const current = await this.getSession();
-      expected.assertCurrent();
-      if (
-        current?.user.id !== expected.userId ||
-        current.access_token !== expected.accessToken
-      ) {
-        throw new PaxeerWalletError(
-          "the wallet session changed",
-          "SESSION_CHANGED",
-          401,
-        );
-      }
-    }
     return payload as T;
   }
+
 }
 
 function serialize(tx: TxRequest): Record<string, unknown> {

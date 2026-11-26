@@ -114,7 +114,7 @@ describe('More sheet', () => {
     const expected = [...navItems.filter(item => item.section === 'main'), ...navItems.filter(item => item.section === 'bottom')]
       .filter(item => item.requires === 'public' && !pinned.has(item.id)).map(item => item.label);
     expect(links).toEqual(expected);
-    expect(links.slice(0, 4)).toEqual(['Leaderboard', 'Live', 'Holder rewards', 'Terminal']);
+    expect(links.slice(0, 5)).toEqual(['Leaderboard', 'Live', 'Holder rewards', 'Agents', 'Terminal']);
     expect(dialog.classList).toContain('sl-floating');
     expect(dialog.classList).toContain('sl-sheet');
     expect(assertControlEdges(dialog.outerHTML)).not.toMatch(
