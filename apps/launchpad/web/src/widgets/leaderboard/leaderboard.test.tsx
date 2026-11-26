@@ -16,7 +16,6 @@ import { isLeaderboardTab, parseTab } from './leaderboard-view';
 import { parsePeriod, PeriodControl, periodWindows } from './period-control';
 import { profileHref, RankRow } from './rank-row';
 import { RankingTable } from './ranking-table';
-import { SquadsTab } from './squads-tab';
 
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
 const wallet = '0xAbCdEf0123456789abcdef0123456789ABCDEF01';
@@ -233,13 +232,10 @@ describe('cup hero and rules', () => {
   });
 });
 
-describe('squads tab', () => {
-  it('states that no ranking operation exists instead of listing squads', () => {
-    const html = render(<SquadsTab />);
-    expect(html).toContain('Squad rankings are not available yet');
-    expect(html).not.toContain('read model');
-    expect(html).toContain('Check back soon');
-    expect(html).not.toMatch(/>[^<]*no response/);
-    expect(assertControlEdges(html)).not.toMatch(BORDER);
+describe('leaderboard tabs', () => {
+  it('opens the traders board for a squads address', () => {
+    expect(isLeaderboardTab('squads')).toBe(false);
+    expect(parseTab('squads', false)).toBe('traders');
+    expect(parseTab('squads', true)).toBe('traders');
   });
 });
