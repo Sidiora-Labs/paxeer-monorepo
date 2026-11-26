@@ -706,7 +706,10 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     throw new Error('History pagination capacity exceeded');
   }
   async function readLiveHistory(sub: ReplayChartSubscription, controller: AbortController) {
-    const now = Math.floor(Date.now() / 1000);
+    let now = Math.floor(Date.now() / 1000);
+    for (const candle of visibleCandles.values()) {
+      if (candle.interval === resolutionToWsTimeframe(sub.resolution)) now = Math.max(now, Date.parse(candle.start) / 1000);
+    }
     const window = liveWindows.get(sub.resolution) ?? { from: Math.max(0, now - resolutionToSeconds(sub.resolution) * 3), to: now + 60 };
     liveWindows.set(sub.resolution, window);
     try {
