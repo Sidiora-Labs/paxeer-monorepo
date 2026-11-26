@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./gateway": "./src/gateway.ts",
+    "./interface": "./src/interface.ts",
     "./preset": "./src/preset.ts"
   },
   "scripts": {

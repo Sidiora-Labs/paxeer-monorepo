@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { httpUrl } from "./gateway.js";
 import { jsonText } from "./result.js";
+import { AGENT_ENV, describeAgentInterface } from "./interface.js";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -12,13 +13,11 @@ function required(name: string): string {
 }
 
 async function main(): Promise<void> {
-  const gatewayUrl = httpUrl(required("PAXEER_AGENT_GATEWAY_URL"));
-  const nodeUrl = httpUrl(required("PAXEER_AGENT_NODE_URL"));
-  const dataUrl = httpUrl(required("NEXT_PUBLIC_PERPS_GATEWAY_URL"));
+  const gatewayUrl = httpUrl(required(AGENT_ENV.walletGateway));
+  const nodeUrl = httpUrl(required(AGENT_ENV.node));
+  const dataUrl = httpUrl(required(AGENT_ENV.dataGateway));
   if (new URL(dataUrl).pathname !== "/") throw new Error("Invalid data origin");
-  const seed = (
-    await readFile(required("PAXEER_AGENT_KEY_FILE"), "utf8")
-  ).trim();
+  const seed = (await readFile(required(AGENT_ENV.keyFile), "utf8")).trim();
   if (!/^[0-9a-fA-F]{64}$/.test(seed))
     throw new Error("Invalid agent key file");
   const { AgentGatewayClient, PerpsDataClient, createAgentTools } =
@@ -26,16 +25,14 @@ async function main(): Promise<void> {
   const gateway = new AgentGatewayClient({
     url: gatewayUrl,
     privateKey: Buffer.from(seed, "hex"),
-    label: process.env.PAXEER_AGENT_LABEL ?? "perps",
+    label: process.env[AGENT_ENV.label] ?? "perps",
   });
   const kit = createAgentTools(
     gateway,
     new PerpsDataClient({ nodeUrl, dataUrl }),
   );
-  const server = new McpServer({
-    name: "paxeer-perps-agent-kit",
-    version: "0.1.0",
-  });
+  const { name, version } = describeAgentInterface();
+  const server = new McpServer({ name, version });
   for (const entry of kit.tools) {
     server.registerTool(
       entry.name,
