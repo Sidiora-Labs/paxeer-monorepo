@@ -418,14 +418,14 @@ export function quoteActionState({ quoteUnavailable, quoteRequesting, balancesFr
   return { kind: 'ready', side, tokenSymbol };
 }
 
-export function TradeQuoteNotices({ priceMoved, error, onRefresh }: {
-  priceMoved: boolean; error: string | null | undefined; onRefresh: () => void;
+export function TradeQuoteNotices({ priceMoved, staleQuoteCause, error, onRefresh }: {
+  priceMoved: boolean; staleQuoteCause?: 'aged' | 'moved'; error: string | null | undefined; onRefresh: () => void;
 }) {
   return (
     <>
       {priceMoved ? (
         <NoticeBar tone="warning" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={onRefresh}>Refresh</Button>}>
-          The price moved. Refresh to see the new price.
+          {staleQuoteCause === 'aged' ? 'The price is out of date. Refresh to see the current price.' : 'The price moved. Refresh to see the new price.'}
         </NoticeBar>
       ) : null}
       {error ? (

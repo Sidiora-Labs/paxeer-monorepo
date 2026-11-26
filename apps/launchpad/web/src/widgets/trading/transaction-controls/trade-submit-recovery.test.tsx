@@ -150,7 +150,7 @@ async function walletRefusalPreservesTradeAndExpiredQuoteRequestsOnePrice() {
         });
       };
       return <>
-        <div role="status"><TradeQuoteNotices priceMoved={current.priceMoved} error={transactionError ?? state.quoteError} onRefresh={refresh} /></div>
+        <div role="status"><TradeQuoteNotices priceMoved={current.priceMoved} staleQuoteCause={current.staleQuoteCause} error={transactionError ?? state.quoteError} onRefresh={refresh} /></div>
         <ActionButton state={action} side="buy" onClick={submit} />
       </>;
     }
@@ -220,7 +220,7 @@ async function walletRefusalPreservesTradeAndExpiredQuoteRequestsOnePrice() {
     expect(journey.state.quote).toBeUndefined();
     expect(journey.state.quoteStatus).toBe('requesting');
     expect(button('Getting price...').disabled).toBe(true);
-    expect(host.textContent).toContain('The price moved. Refresh to see the new price.');
+    expect(host.textContent).toContain('The price is out of date. Refresh to see the current price.');
     await until(() => !!journey.state.quote);
     await act(async () => { await pause(550); });
     expect(quoteRequests).toBe(3);
