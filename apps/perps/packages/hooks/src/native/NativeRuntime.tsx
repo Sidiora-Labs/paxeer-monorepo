@@ -91,7 +91,7 @@ export function NativeRuntime() {
     };
   }, [feedMarkets.length]);
   useLayoutEffect(() => {
-    updateNativeSnapshot({ marketCatalog: catalog });
+    updateNativeSnapshot({ marketCatalog: catalog, markets });
     const symbols = nativeSymbols();
     useMainnetChainsStore.setState({
       data: nativeChains() as any,
@@ -118,7 +118,7 @@ export function NativeRuntime() {
     useAppStore.getState().actions.setSymbolsInfo(information as any);
     useAppStore.getState().actions.setTokensInfo(nativeTokens() as any);
     useAppStore.getState().actions.updateAppStatus("ready", true);
-  }, [catalog]);
+  }, [catalog, markets]);
   useLayoutEffect(() => {
     updateNativeSnapshot({
       address: wallet.address ?? null,
