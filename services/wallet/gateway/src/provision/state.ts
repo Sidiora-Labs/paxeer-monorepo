@@ -3,7 +3,14 @@ import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs
 import { isAbsolute } from 'node:path';
 import type { Pool } from 'pg';
 import { signingSessionClient } from '../db/pool.js';
-import { bytesToHex, getAddress, type Hex } from 'viem';
+import {
+  bytesToHex,
+  getAddress,
+  parseTransaction,
+  recoverTransactionAddress,
+  serializeTransaction,
+  type Hex,
+} from 'viem';
 import { NonceConflictError, RpcPool, TransactionRejectedError } from '../rpc/pool.js';
 import { NonceStore, broadcastReserved } from '../nonce/store.js';
 import {
@@ -27,6 +34,9 @@ import {
   waitForReceipt,
   sponsoredBindRequest,
   provisioningStationConfig,
+  bindLayerX,
+  bindLayerXCalldata,
+  ADDR_PRECOMPILE,
   type SponsoredBindRequest,
   type SponsoredBindConstruction,
   type SignBody,
@@ -38,6 +48,7 @@ import type {
   AgentReauthorization,
   Authorisation,
 } from '../attestor/client.js';
+import { unsignedTransactionBytes } from '../attestor/client.js';
 import { GasStationClient as StationClient, StationAdapterError } from '../sponsor/station.js';
 
 export type GasStationClient = StationClient;
@@ -53,11 +64,12 @@ export type ProvisionState =
   | 'refused';
 
 export type ProvisionSubject =
-  | { kind: 'standard'; userId: string; token: string | null }
+  | { kind: 'standard'; userId: string; token: string | null; funding?: 'self' }
   | {
       kind: 'agent';
       did: string;
       agentSignature?: string | null;
+      funding?: 'self';
       custody?: { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization };
     };
 
@@ -159,11 +171,11 @@ const WALLET_COLUMNS = `id, user_id, address, encrypted_private_key, key_version
 async function loadWallet(
   pool: Pool,
   userId: string,
-  kind: WalletKind
+  kind: WalletKind,
 ): Promise<WalletRecord | null> {
   const { rows } = await pool.query<WalletRecord>(
     `select ${WALLET_COLUMNS} from wallets where user_id = $1 and kind = $2 and archived_at is null limit 1`,
-    [userId, kind]
+    [userId, kind],
   );
   return rows[0] ?? null;
 }
@@ -171,7 +183,7 @@ async function loadWallet(
 async function loadWalletById(pool: Pool, id: string): Promise<WalletRecord> {
   const { rows } = await pool.query<WalletRecord>(
     `select ${WALLET_COLUMNS} from wallets where id = $1`,
-    [id]
+    [id],
   );
   if (!rows[0])
     throw new ProvisionError('wallet_missing', 500, `wallet ${id} vanished during provisioning`);
@@ -181,13 +193,13 @@ async function loadWalletById(pool: Pool, id: string): Promise<WalletRecord> {
 async function updateRow(
   pool: Pool,
   id: string,
-  fields: Partial<Record<keyof ProvisionRow, unknown>>
+  fields: Partial<Record<keyof ProvisionRow, unknown>>,
 ): Promise<void> {
   const keys = Object.keys(fields);
   const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
   await (signingSessionClient() ?? pool).query(
     `update account_provisioning set ${sets}, updated_at = now() where id = $1`,
-    [id, ...keys.map((k) => fields[k as keyof ProvisionRow])]
+    [id, ...keys.map((k) => fields[k as keyof ProvisionRow])],
   );
 }
 
@@ -203,7 +215,7 @@ export async function sendSetupTransaction(
   deps: Pick<ProvisionDeps, 'nonces' | 'rpc'>,
   from: string,
   sign: (nonce: number) => Promise<Hex>,
-  persist: (raw: Hex | null) => Promise<void>
+  persist: (raw: Hex | null) => Promise<void>,
 ): Promise<{ raw: Hex; hash: Hex; error: unknown }> {
   const outcome = await deps.nonces.withSigningSession(from, async (lease) => {
     const nonce = await lease.next();
@@ -211,7 +223,7 @@ export async function sendSetupTransaction(
     const hash = transactionHash(raw);
     await persist(raw);
     const sent = await broadcastReserved(lease, nonce, raw, (r) =>
-      deps.rpc.sendRawTransactionVia(r)
+      deps.rpc.sendRawTransactionVia(r),
     );
     if (sent.error === null) return { kind: 'sent' as const, raw, hash, error: null };
     if (
@@ -242,7 +254,7 @@ export async function sendSetupTransaction(
 async function rebroadcastSetup(
   deps: Pick<ProvisionDeps, 'rpc'>,
   raw: Hex,
-  clear: () => Promise<void>
+  clear: () => Promise<void>,
 ): Promise<Hex> {
   try {
     return await broadcastOnce(deps.rpc, raw);
@@ -261,19 +273,19 @@ function setupRefusal(err: unknown): ProvisionError {
     ? new ProvisionError(
         'nonce_conflict',
         409,
-        `the setup transaction nonce is already used, prepare again: ${detail}`
+        `the setup transaction nonce is already used, prepare again: ${detail}`,
       )
     : new ProvisionError(
         'setup_send_rejected',
         502,
-        `the node rejected the setup transaction: ${detail}`
+        `the node rejected the setup transaction: ${detail}`,
       );
 }
 
 async function loadRow(pool: Pool, userId: string, kind: WalletKind): Promise<ProvisionRow> {
   await pool.query(
     `insert into account_provisioning (user_id, kind) values ($1, $2) on conflict (user_id, kind) do nothing`,
-    [userId, kind]
+    [userId, kind],
   );
   const { rows } = await pool.query<ProvisionRow>(
     `select id::text, user_id, kind, wallet_id, state, evm_key_generation, ed_key_generation, evm_key_id, ed_key_id,
@@ -282,7 +294,7 @@ async function loadRow(pool: Pool, userId: string, kind: WalletKind): Promise<Pr
             topup_value_wei::text, bind_gas::text, bind_max_fee_wei::text, bind_raw_tx, bind_tx_hash, refusal_reason,
             station_quote_nonce::text, station_batch_nonce::text, station_request
        from account_provisioning where user_id = $1 and kind = $2`,
-    [userId, kind]
+    [userId, kind],
   );
   return rows[0]!;
 }
@@ -297,7 +309,7 @@ interface AgentPrincipal {
 async function loadPrincipal(pool: Pool, did: string): Promise<AgentPrincipal> {
   const { rows } = await pool.query<AgentPrincipal>(
     `select did, public_key, wallet_id, is_frozen from agent_principals where did = $1`,
-    [did]
+    [did],
   );
   if (!rows[0]) throw new ProvisionError('agent_unknown', 404, 'agent is not registered');
   if (rows[0].is_frozen) throw new ProvisionError('agent_frozen', 403, 'agent is frozen');
@@ -316,7 +328,7 @@ async function recordAudit(
     maxFeeWei?: bigint | null;
     outcome?: string | null;
     reason?: string | null;
-  }
+  },
 ): Promise<void> {
   await pool.query(
     `insert into account_setup_audit (wallet_id, address, event, tx_hash, value_wei, gas, max_fee_wei, outcome, reason)
@@ -334,14 +346,14 @@ async function recordAudit(
       entry.maxFeeWei?.toString() ?? null,
       entry.outcome ?? null,
       entry.reason ?? null,
-    ]
+    ],
   );
 }
 
 async function lockSubject(
   pool: Pool,
   userId: string,
-  kind: WalletKind
+  kind: WalletKind,
 ): Promise<() => Promise<void>> {
   const client = await pool.connect();
   try {
@@ -384,7 +396,7 @@ function result(
   row: ProvisionRow,
   wallet: WalletRecord,
   awaiting: ProvisionResult['awaiting'] = null,
-  message: Hex | null = null
+  message: Hex | null = null,
 ): ProvisionResult {
   return {
     state: row.state,
@@ -402,7 +414,7 @@ async function refuse(
   row: ProvisionRow,
   wallet: WalletRecord,
   reason: string,
-  boundDid: string | null
+  boundDid: string | null,
 ): Promise<never> {
   await updateRow(deps.pool, row.id, { state: 'refused', refusal_reason: reason });
   await deps.pool.query(`update wallets set binding_state = 'refused' where id = $1`, [wallet.id]);
@@ -421,7 +433,7 @@ async function refuse(
 async function activate(
   deps: ProvisionDeps,
   row: ProvisionRow,
-  wallet: WalletRecord
+  wallet: WalletRecord,
 ): Promise<void> {
   await updateRow(deps.pool, row.id, { state: 'active' });
   await deps.pool.query(`update wallets set binding_state = 'bound' where id = $1`, [wallet.id]);
@@ -433,7 +445,7 @@ async function createEvmKey(
   row: ProvisionRow,
   userId: string,
   kind: WalletKind,
-  owner = userId
+  owner = userId,
 ): Promise<WalletRecord> {
   const archived = await findArchivedWallet({ userId, kind });
   if (archived) throw new WalletArchivedError(archived.id, archived.address);
@@ -449,7 +461,7 @@ async function createEvmKey(
       throw new ProvisionError(
         'custody_inventory_pending',
         503,
-        `approved inventory is required for ${keyId}`
+        `approved inventory is required for ${keyId}`,
       );
     throw err;
   }
@@ -467,7 +479,7 @@ async function createEvmKey(
     `insert into wallets (user_id, address, encrypted_private_key, key_version, chain_id, kind, migrated_at, attestor_key_id, binding_state)
      values ($1, $2, null, 1, $3, $4, now(), $5, 'pending')
      returning ${WALLET_COLUMNS}`,
-    [userId, key.address, deps.chainId, kind, keyId]
+    [userId, key.address, deps.chainId, kind, keyId],
   );
   const wallet = rows[0]!;
   await updateRow(deps.pool, row.id, { state: 'evm_key', wallet_id: wallet.id, evm_key_id: keyId });
@@ -482,13 +494,13 @@ async function storeIdentity(
   publicKey: string,
   edKeyId: string | null,
   epoch?: number,
-  owner?: string
+  owner?: string,
 ): Promise<void> {
   const did = didFromPublicKey(publicKey);
   const main = mainAccountId(did);
   await deps.pool.query(
     `update wallets set did = $2, main_account_id = $3, layerx_key_id = $4, binding_state = 'pending' where id = $1`,
-    [wallet.id, did, main, edKeyId]
+    [wallet.id, did, main, edKeyId],
   );
   const fields: Partial<Record<keyof ProvisionRow, unknown>> = {
     state: 'identity',
@@ -515,13 +527,13 @@ async function signStationPayload(
   deps: ProvisionDeps,
   subject: ProvisionSubject,
   wallet: WalletRecord,
-  payload: SignBody
+  payload: SignBody,
 ) {
   if (!wallet.attestor_key_id)
     throw new ProvisionError(
       'wallet_key_missing',
       503,
-      'sponsored provisioning requires attestor custody'
+      'sponsored provisioning requires attestor custody',
     );
   let authorisation: Authorisation;
   if (subject.kind === 'standard') {
@@ -529,7 +541,7 @@ async function signStationPayload(
       throw new ProvisionError(
         'owner_required',
         401,
-        'the owner must authorise the sponsored binding'
+        'the owner must authorise the sponsored binding',
       );
     authorisation = { scheme: 'supabase_jwt', token: subject.token };
   } else {
@@ -537,7 +549,7 @@ async function signStationPayload(
       throw new ProvisionError(
         'agent_request_required',
         401,
-        'binding requires the original signed agent request'
+        'binding requires the original signed agent request',
       );
     const principal = await loadPrincipal(deps.pool, subject.did);
     authorisation = {
@@ -551,7 +563,7 @@ async function signStationPayload(
 
 /** Apply the same typed station refusal to interactive provisioning and the backfill command. */
 export function requireProvisionStation<T extends Pick<ProvisionDeps, 'station'>>(
-  deps: T
+  deps: T,
 ): asserts deps is T & { station: GasStationClient } {
   if (!deps.station)
     throw new ProvisionError('gas_station_unconfigured', 503, 'no gas station is configured');
@@ -566,9 +578,9 @@ export function requireProvisionStation<T extends Pick<ProvisionDeps, 'station'>
 
 export async function provisionAccount(
   deps: ProvisionDeps,
-  subject: ProvisionSubject
+  subject: ProvisionSubject,
 ): Promise<ProvisionResult> {
-  requireProvisionStation(deps);
+  if (subject.funding !== 'self') requireProvisionStation(deps);
   let userId: string;
   let kind: WalletKind;
   let principal: AgentPrincipal | null = null;
@@ -609,7 +621,7 @@ export async function provisionAccount(
           throw new ProvisionError(
             'agent_request_required',
             401,
-            'provisioning requires the original signed agent request'
+            'provisioning requires the original signed agent request',
           );
         }
         wallet = await createEvmKey(
@@ -617,7 +629,7 @@ export async function provisionAccount(
           row,
           userId,
           kind,
-          principal ? `agent:${normalisePublicKey(principal.public_key)}` : userId
+          principal ? `agent:${normalisePublicKey(principal.public_key)}` : userId,
         );
       }
     }
@@ -633,7 +645,7 @@ export async function provisionAccount(
       throw new ProvisionError(
         'wallet_disabled',
         403,
-        wallet.disabled_reason ?? 'wallet is disabled'
+        wallet.disabled_reason ?? 'wallet is disabled',
       );
     const address = getAddress(wallet.address);
 
@@ -644,7 +656,7 @@ export async function provisionAccount(
           row,
           wallet,
           normalisePublicKey(principal.public_key),
-          principal.did
+          principal.did,
         );
       } else {
         const attestors = requireAttestors(deps);
@@ -659,7 +671,7 @@ export async function provisionAccount(
             throw new ProvisionError(
               'custody_inventory_pending',
               503,
-              `approved inventory is required for ${keyId}`
+              `approved inventory is required for ${keyId}`,
             );
           throw err;
         }
@@ -679,7 +691,7 @@ export async function provisionAccount(
           row,
           wallet,
           'address is already bound to a different DID',
-          didFromPublicKey(bound.didPublicKey)
+          didFromPublicKey(bound.didPublicKey),
         );
       }
       const nonce = await readBindNonce(deps.rpc, address);
@@ -692,7 +704,7 @@ export async function provisionAccount(
           throw new ProvisionError(
             'agent_signature_invalid',
             403,
-            'binding signature does not verify under the registered agent key'
+            'binding signature does not verify under the registered agent key',
           );
         }
         signature = offered.replace(/^0x/, '').toLowerCase();
@@ -704,7 +716,7 @@ export async function provisionAccount(
           row.ed_key_id!,
           row.ed_public_key!,
           message,
-          subject.token
+          subject.token,
         );
       }
       await updateRow(deps.pool, row.id, {
@@ -719,7 +731,141 @@ export async function provisionAccount(
       });
     }
 
+    if (subject.funding === 'self' && (row.state === 'bind_signed' || row.state === 'funded')) {
+      if (row.station_request)
+        throw new ProvisionError(
+          'provisioning_funding_conflict',
+          409,
+          'a sponsored binding is already prepared',
+        );
+      const data = bindLayerXCalldata(row.ed_public_key!, row.bind_signature!);
+      const balance = BigInt(await deps.rpc.request<Hex>('eth_getBalance', [address, 'latest']));
+      if (balance === 0n) return result(row, wallet, 'owner');
+      const f = await fees(deps.rpc);
+      const estimate = BigInt(
+        await deps.rpc.request<Hex>('eth_estimateGas', [
+          { from: address, to: ADDR_PRECOMPILE, data },
+        ]),
+      );
+      const gas = (estimate * 120n + 99n) / 100n;
+      if (gas * f.maxFeePerGas > deps.gasCapWei)
+        throw new ProvisionError('setup_gas_over_cap', 503, 'binding exceeds the setup gas cap');
+      if (balance < gas * f.maxFeePerGas) return result(row, wallet, 'owner');
+      if (row.bind_raw_tx) {
+        await rebroadcastSetup(deps, row.bind_raw_tx, async () => {
+          await updateRow(deps.pool, row.id, { bind_raw_tx: null, bind_tx_hash: null });
+        });
+      } else {
+        const sent = await sendSetupTransaction(
+          deps,
+          address,
+          async (nonce) => {
+            let transaction = bindLayerX({
+              chainId: deps.chainId,
+              address,
+              publicKey: row.ed_public_key!,
+              signature: row.bind_signature!,
+              nonce,
+              gas,
+              ...f,
+            });
+            if (subject.kind === 'agent' && subject.custody?.reauthorization) {
+              const offered = JSON.parse(subject.custody.reauthorization.body) as {
+                transaction?: string;
+              };
+              if (!offered.transaction || !/^[0-9a-f]+$/.test(offered.transaction))
+                throw new ProvisionError(
+                  'agent_authorization_mismatch',
+                  401,
+                  'binding authorization has no transaction',
+                );
+              const raw: Hex = `0x${offered.transaction}`;
+              const parsed = parseTransaction(raw);
+              const approved = {
+                ...parsed,
+                r: undefined,
+                s: undefined,
+                v: undefined,
+                yParity: undefined,
+              };
+              if (
+                approved.type !== 'eip1559' ||
+                approved.chainId !== deps.chainId ||
+                approved.nonce !== nonce ||
+                approved.to?.toLowerCase() !== ADDR_PRECOMPILE ||
+                approved.data !== data ||
+                (approved.value ?? 0n) !== 0n ||
+                (raw !== serializeTransaction(approved) &&
+                  raw !== unsignedTransactionBytes(approved)) ||
+                (approved.accessList?.length ?? 0) !== 0 ||
+                !approved.gas ||
+                !approved.maxFeePerGas ||
+                approved.maxPriorityFeePerGas === undefined ||
+                approved.gas * approved.maxFeePerGas > deps.gasCapWei
+              )
+                throw new ProvisionError(
+                  'agent_authorization_mismatch',
+                  401,
+                  'binding authorization differs from the setup transaction',
+                );
+              transaction = {
+                ...transaction,
+                gas: approved.gas,
+                maxFeePerGas: approved.maxFeePerGas,
+                maxPriorityFeePerGas: approved.maxPriorityFeePerGas,
+              };
+            }
+            const signed = await signStationPayload(deps, subject, wallet!, {
+              kind: 'evm_tx',
+              transaction: unsignedTransactionBytes(transaction),
+            });
+            if (
+              signed.signature.length !== 130 ||
+              signed.recoveryId === null ||
+              ![0, 1, 27, 28].includes(signed.recoveryId)
+            )
+              throw new ProvisionError(
+                'binding_signature_invalid',
+                503,
+                'binding transaction signature is malformed',
+              );
+            const signature = `0x${signed.signature}` as Hex;
+            const raw = serializeTransaction(transaction, {
+              r: `0x${signature.slice(2, 66)}`,
+              s: `0x${signature.slice(66, 130)}`,
+              yParity: signed.recoveryId % 27 === 1 ? 1 : 0,
+            });
+            if (
+              (await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase() !==
+              address.toLowerCase()
+            )
+              throw new ProvisionError(
+                'binding_signer_mismatch',
+                503,
+                'binding signature belongs to another wallet',
+              );
+            return raw;
+          },
+          async (raw) => {
+            await updateRow(deps.pool, row.id, {
+              bind_raw_tx: raw,
+              bind_tx_hash: raw ? transactionHash(raw) : null,
+              bind_gas: gas.toString(),
+              bind_max_fee_wei: f.maxFeePerGas.toString(),
+            });
+          },
+        );
+        if (sent.error !== null) throw sent.error;
+        row.bind_tx_hash = sent.hash;
+        row.bind_raw_tx = sent.raw;
+      }
+      await updateRow(deps.pool, row.id, { state: 'bind_sent' });
+      row.bind_max_fee_wei = f.maxFeePerGas.toString();
+      row.state = 'bind_sent';
+    }
+
     if (row.state === 'bind_signed' || row.state === 'funded') {
+      requireProvisionStation(deps);
       if (subject.kind === 'standard' && !subject.token) return result(row, wallet, 'owner');
       let requoted = false;
       for (;;) {
@@ -734,7 +880,7 @@ export async function provisionAccount(
             throw new ProvisionError(
               'setup_gas_over_cap',
               503,
-              `binding needs ${gasCost} wei, above the setup gas cap ${deps.gasCapWei}`
+              `binding needs ${gasCost} wei, above the setup gas cap ${deps.gasCapWei}`,
             );
           const signerWallet = wallet;
           const request = await sponsoredBindRequest({
@@ -775,7 +921,7 @@ export async function provisionAccount(
           throw new ProvisionError(
             'station_request_unsigned',
             503,
-            'binding construction has not been signed'
+            'binding construction has not been signed',
           );
         let submitted: Record<string, unknown>;
         try {
@@ -793,7 +939,7 @@ export async function provisionAccount(
               row,
               wallet,
               'address is already bound to a different DID',
-              didFromPublicKey(bound.didPublicKey)
+              didFromPublicKey(bound.didPublicKey),
             );
           }
           if (requoted) throw err;
@@ -829,14 +975,15 @@ export async function provisionAccount(
         throw new ProvisionError(
           'bind_transaction_missing',
           503,
-          'binding submission has no transaction hash'
+          'binding submission has no transaction hash',
         );
       const hash = row.bind_tx_hash;
       const receipt = await waitForReceipt(
         deps.rpc,
         hash,
         deps.receiptTimeoutMs,
-        deps.receiptPollMs
+        deps.receiptPollMs,
+        true,
       );
       await recordAudit(deps.pool, {
         walletId: wallet.id,
@@ -856,7 +1003,7 @@ export async function provisionAccount(
           row,
           wallet,
           'address is already bound to a different DID',
-          didFromPublicKey(bound.didPublicKey)
+          didFromPublicKey(bound.didPublicKey),
         );
       } else {
         return await refuse(
@@ -864,7 +1011,7 @@ export async function provisionAccount(
           row,
           wallet,
           `binding transaction ${receipt.status} without binding the address`,
-          null
+          null,
         );
       }
     }
@@ -882,7 +1029,7 @@ export async function provisionAccount(
 export async function produceIdentityBinding(
   deps: ProvisionDeps,
   userId: string,
-  provision: ProvisionResult
+  provision: ProvisionResult,
 ): Promise<string | null> {
   const config = deps.identityBinding;
   if (!config || provision.state !== 'active') return null;
@@ -894,7 +1041,7 @@ export async function produceIdentityBinding(
     throw new ProvisionError(
       'identity_binding_unavailable',
       503,
-      'active wallet has no valid LayerX identity'
+      'active wallet has no valid LayerX identity',
     );
   }
   const { rows } = await deps.pool.query<{ ed_public_key: string }>(
@@ -903,14 +1050,14 @@ export async function produceIdentityBinding(
         and p.state = 'active' and p.did = $3 and w.user_id = $1 and w.kind = 'standard'
         and w.did = p.did and w.binding_state = 'bound' and w.archived_at is null
         and w.is_disabled = false and lower(w.address) = lower($4)`,
-    [userId, provision.walletId, provision.did, provision.address]
+    [userId, provision.walletId, provision.did, provision.address],
   );
   const publicKey = rows[0]?.ed_public_key;
   if (rows.length !== 1 || !publicKey || didFromPublicKey(publicKey) !== provision.did) {
     throw new ProvisionError(
       'identity_binding_refused',
       409,
-      'wallet identity is not active for this user'
+      'wallet identity is not active for this user',
     );
   }
   const bound = await readUnifiedAccount(deps.rpc, provision.address);
@@ -918,7 +1065,7 @@ export async function produceIdentityBinding(
     throw new ProvisionError(
       'identity_binding_refused',
       409,
-      'wallet identity differs from its on-chain binding'
+      'wallet identity differs from its on-chain binding',
     );
   }
   let descriptor: number | undefined;
@@ -941,7 +1088,7 @@ export async function produceIdentityBinding(
       throw new Error('invalid producer key');
     }
     const header = Buffer.from(
-      JSON.stringify({ alg: 'ES256', typ: 'layerx-wallet-binding+jwt' })
+      JSON.stringify({ alg: 'ES256', typ: 'layerx-wallet-binding+jwt' }),
     ).toString('base64url');
     const payload = Buffer.from(
       JSON.stringify({
@@ -949,7 +1096,7 @@ export async function produceIdentityBinding(
         sub: userId,
         did: provision.did,
         tenant: config.tenant,
-      })
+      }),
     ).toString('base64url');
     const input = `${header}.${payload}`;
     if (input.length + 87 > 4096) throw new Error('identity binding exceeds protocol bound');
@@ -963,7 +1110,7 @@ export async function produceIdentityBinding(
     throw new ProvisionError(
       'identity_binding_unavailable',
       503,
-      'wallet identity binding signer is unavailable'
+      'wallet identity binding signer is unavailable',
     );
   } finally {
     if (descriptor !== undefined) closeSync(descriptor);

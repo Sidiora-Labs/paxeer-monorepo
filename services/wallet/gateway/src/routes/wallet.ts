@@ -109,6 +109,12 @@ export async function walletRoutes(
   app.post('/v1/wallet/provision', { preHandler: requireAuth }, async (req, reply) => {
     reply.header('Cache-Control', 'no-store');
     const userId = req.user!.id;
+    const funding = z
+      .object({ funding: z.literal('self').optional() })
+      .strict()
+      .safeParse(req.body ?? {});
+    if (!funding.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: funding.error.issues });
     try {
       const provision = deps();
       if (!provision) {
@@ -126,6 +132,7 @@ export async function walletRoutes(
         kind: 'standard',
         userId,
         token: bearerToken(req),
+        funding: funding.data.funding,
       });
       const wallet = await findWalletByUserId(userId);
       const identityBinding = await produceIdentityBinding(provision, userId, out);

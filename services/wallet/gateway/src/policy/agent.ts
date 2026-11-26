@@ -16,6 +16,8 @@ import {
 export const ERC20_APPROVE_SELECTOR = '0x095ea7b3';
 export const ERC20_TRANSFER_SELECTOR = '0xa9059cbb';
 export const ERC20_TRANSFER_FROM_SELECTOR = '0x23b872dd';
+export const PERPS_DEPOSIT_SELECTOR = '0x47e7ef24';
+export const PERPS_ADDRESS = '0x0000000000000000000000000000000000001015';
 
 export function decodeAddressArg(data: string, argIndex: number): string | null {
   const start = 2 + 8 + 64 * argIndex;
@@ -387,6 +389,15 @@ async function evaluateAgentIntent(
         isApprove = mover.isApprove;
       }
     }
+  }
+
+  if (to === PERPS_ADDRESS && selector === PERPS_DEPOSIT_SELECTOR) {
+    tokenContract = decodeAddressArg(data, 0);
+    tokenAmount = decodeUintArg(data, 1);
+    tokenRecipient = null;
+    isApprove = false;
+    if (data.length !== 138 || tokenContract === null || tokenAmount === null)
+      return deny('INVALID_TX_SHAPE', 'perps deposit must encode a token and amount');
   }
 
   if (

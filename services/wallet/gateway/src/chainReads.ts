@@ -348,7 +348,7 @@ export type ReceiptOutcome =
  */
 export async function waitForReceipt(
   hash: Hex,
-  opts?: { confirmations?: number; timeoutMs?: number; pollMs?: number },
+  opts?: { confirmations?: number; timeoutMs?: number; pollMs?: number; committed?: boolean },
 ): Promise<ReceiptOutcome> {
   const confirmations = Math.max(1, opts?.confirmations ?? env.ACTION_CONFIRMATIONS);
   const timeoutMs = opts?.timeoutMs ?? env.ACTION_RECEIPT_TIMEOUT_MS;
@@ -371,7 +371,9 @@ export async function waitForReceipt(
           tx_hash: result.txHash,
         };
         if (receipt.status === 'reverted') return { state: 'reverted', receipt };
-        if (confirmations <= 1) return { state: 'confirmed', receipt };
+        if (confirmations <= 1 && (!opts?.committed || result.rung === 'committed')) {
+          return { state: 'confirmed', receipt };
+        }
         if (result.rung === 'committed') {
           const head = BigInt(await rpc.request<Hex>('eth_blockNumber'));
           if (head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations)) {
