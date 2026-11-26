@@ -11,12 +11,7 @@ interface MobileTradeDrawerProps {
   poolAddress: string;
 }
 
-/**
- * Below lg the trade panel lives in a bottom drawer behind a sticky CTA: above the bottom nav below
- * md, and at md (no bottom nav, the left rail is visible) at the foot of the content column. Signed
- * out, the CTA reads "Sign in to trade" and opens the sign-in flow directly (pump.fun's "Log in to
- * trade"); signed in, it opens the drawer.
- */
+/** The trade action stays above mobile navigation; authenticated viewers open the trade sheet. */
 export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProps) {
   const [open, setOpen] = useState(false);
   const viewer = useViewerWallet();
@@ -36,9 +31,9 @@ export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProp
 
   return (
     <>
-      <div data-mobile-trade-cta={viewer ? 'trade' : 'sign-in'} className="fixed inset-x-0 bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-cookie-banner-height,0px))] z-40 px-4 md:bottom-[calc(var(--sl-space-4)+var(--sl-cookie-banner-height,0px))] md:left-rail-width lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, var(--sl-space-1))' }}>
+      <div data-mobile-trade-cta={viewer ? 'trade' : 'sign-in'} className="fixed inset-x-0 bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-edge-width)+var(--sl-cookie-banner-height,0px))] z-40 rounded-t-md sl-floating px-4 py-2 md:bottom-[calc(var(--sl-space-4)+var(--sl-cookie-banner-height,0px))] md:left-rail-width lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, var(--sl-space-1))' }}>
         <Button
-          variant="primary"
+          variant={viewer ? 'primary' : 'inverse'}
           size="lg"
           fullWidth
           pill
@@ -73,7 +68,7 @@ export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProp
         aria-hidden={!open}
         className={`fixed inset-x-0 bottom-0 z-50 md:left-rail-width transition-transform duration-slow ease-out lg:hidden ${open ? 'translate-y-0' : 'translate-y-full'}`}
       >
-        <div className="max-h-[var(--sl-drawer-max-height)] overflow-y-auto rounded-t-lg bg-surface-1 pb-[calc(var(--sl-space-6)+env(safe-area-inset-bottom,0px)+var(--sl-cookie-banner-height,0px))] [body:has([data-cookie-banner])_&]:max-md:pb-[calc(var(--sl-space-6)+env(safe-area-inset-bottom,0px)+var(--sl-cookie-banner-height,0px)+var(--sl-bottom-nav-height))]">
+        <div className="max-h-[var(--sl-drawer-max-height)] overflow-y-auto rounded-t-[var(--sl-radius-sheet)] sl-floating pb-[calc(var(--sl-space-6)+env(safe-area-inset-bottom,0px)+var(--sl-cookie-banner-height,0px))] [body:has([data-cookie-banner])_&]:max-md:pb-[calc(var(--sl-space-6)+env(safe-area-inset-bottom,0px)+var(--sl-cookie-banner-height,0px)+var(--sl-bottom-nav-height))]">
           <div className="flex items-center justify-center pb-1 pt-3">
             <div className="h-1 w-10 rounded-pill bg-surface-3" aria-hidden="true" />
           </div>

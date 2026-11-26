@@ -19,11 +19,11 @@ export default function CreatorCard({ poolAddress }: { poolAddress: string }) {
   const name = identity?.displayName?.trim() || (creator ? shortAddress(creator) : '');
   const avatar = identity?.avatarUrl ?? null;
   const stats = snapshot.data?.stats ?? null;
-  // PoolStats.creatorHoldingShareBps: the creator wallet's share of total supply (pump.fun's dev holding).
+  // PoolStats.creatorHoldingShareBps: the creator wallet's share of total supply (the creator holding).
   const share = stats ? statsShare(stats, 'creator') : null;
   return (
     <section aria-labelledby="creator-card-title" className="flex flex-col gap-3 rounded-md bg-surface-1 p-3">
-      <h2 id="creator-card-title" className="text-sm font-bold text-text">Creator</h2>
+      <h2 id="creator-card-title" className="text-sm font-semibold text-text">Creator</h2>
       {snapshot.isPending ? <Skeleton variant="rows" rows={2} label="creator" /> : null}
       {snapshot.isSuccess && !creator ? <UnavailableState variant="inline" title="Creator info" operation={snapshot.data.unavailable.registry?.operation ?? 'IF_POOL_DETAIL'} status={snapshot.data.unavailable.registry?.status ?? null} /> : null}
       {snapshot.isError ? <UnavailableState variant="chip" wrap title="Creator info" plural="auto" operation="IF_POOL_STATS" status={null} onRetry={() => { void snapshot.refetch(); }} className="self-start" /> : null}
@@ -33,7 +33,7 @@ export default function CreatorCard({ poolAddress }: { poolAddress: string }) {
             <Avatar src={avatar} name={name} size="lg" decorative loading={identity?.resolution === 'pending'} />
           </Link>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <Link prefetch={false} href={`/profile/${creator}`} className="inline-flex items-center truncate text-sm font-bold text-text hover:underline">{name}</Link>
+            <Link prefetch={false} href={`/profile/${creator}`} className="inline-flex items-center truncate text-sm font-semibold text-text hover:underline">{name}</Link>
             <ShortAddress address={creator} explorerHref={safeExternalDestination(`https://paxscan.paxeer.app/address/${creator}`)} />
             {share ? (
               <span data-creator-share className="inline-flex items-center gap-1 text-xs text-text-faint">
