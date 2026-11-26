@@ -161,3 +161,48 @@ and `privateKey: Uint8Array`; optional `fetch` and `now` provide transport and c
 integration. Use `invokeTool(kit, name, input)` for the same result envelope as MCP,
 or call typed methods directly. `launchpadPreset(caps)` produces owner payloads
 without submitting them.
+
+## Local EVM journey
+
+The test script includes `agentWalksTheLaunchpadOnALocalChain`. It requires Anvil,
+Postgres binaries (`PG_BIN_DIR` when needed), Go, OpenSSL and pnpm. It starts its
+own Anvil chain, deploys the launchpad contracts with the web creation fixture's
+proxy and role wiring, and starts five attestors and the gateway as separate
+processes with an ephemeral database and signed owner session. No owner signing
+key is given to the kit.
+
+For a deployed EVM stack, construct the kit with `evmDeployment`: `chainId`,
+`router`, `quoter`, `protocolConfig`, `usdl`, `spender`, `poolRegistry` and
+`creationFeeRaw`. Calls and `preset` use this same deployment. The kit verifies
+pool registration and the token address on the chain. The default deployment
+continues to read `homeChainOf` from the native launchpad registry.
+
+`provision_agent` accepts `stage: "wallet"`, as does the owner's
+`POST /v1/wallet/provision`. This creates the attestor-held EVM wallet and returns
+its current provisioning state. `evm_key` means LayerX identity binding is still
+pending; it does not mean `active`. Omitting the stage continues full identity
+provisioning. A gateway connected to a standard EVM node explicitly sets
+`CHAIN_RECEIPT_SOURCE=evm` to confirm mined EVM receipts; its default receipt
+source is the sequencer. Neither choice infers support from a failed read.
+
+Signing requests that need attestor consent are verified against the original
+agent DID, route and body before the kit countersigns them. Polling an action
+provides consent for each retained leg under the same action ID. Writes with an
+uncertain result are never automatically repeated. Keep the running kit when
+restarting a gateway so its pending action context remains available.
+
+The preset adds a USDL token rule capped at `maxTxValueWei` in raw quote units,
+in addition to the native transaction and daily caps. The gateway reads a buy's
+quote token from the allowed router and decodes the input amount from signed
+calldata. This checks a USDL buy both before an allowance action is accepted and
+before a direct transaction is signed. The approval ceiling still applies to
+all tokens, so choose it to cover the raw quantities of tokens sold.
+
+The local journey uses an HTTP data stand-in for `list_coins`, `coin`, the pool
+metadata read by `quote`, and `positions`. Its pool, reserves, metadata, token
+supply and balances come from the deployed contracts at a chain block. Portfolio
+cost basis and profit remain unknown. Quote simulation, allowances, balances,
+transaction signing, broadcasts and receipts use the real gateway and chain.
+Each journey step checks balances and nonces; refusal steps also check that no
+block or approval was produced. Sweeps return both tokens in full and native
+coin with a bounded reserve for the sweep's gas.

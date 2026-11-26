@@ -7,7 +7,7 @@ BASE=$(realpath -m "${TMPDIR:-/tmp}/lx-localnode")
 ENV_OUT=$BASE/localnode.env
 GATEWAY=http://127.0.0.1:0
 NODE_HOME=
-SEQUENCER=1
+SEQUENCER=0
 FOLLOWER=0
 SIDIORA=0
 LAST_RECEIPT_HEIGHT=0
@@ -319,11 +319,10 @@ feed_loop() {
             "$((height))" "$timestamp"
         jq -n --arg feeder "$TEST_ACCOUNT" --arg sequence "$((height))" --arg timestamp "$timestamp" \
             '{body:{messages:[{"@type":"/paxprotocol.paxchain.pricefeed.MsgSubmitPrices",
-              feeder:$feeder,observations:(["60000","3000","150","30","15","250",
-              "120","20000","2500","5000","170","1","1","25","1","1","10","600"]
-              | to_entries | map({market_id:(.key | tostring),sequence:$sequence,
-              index_price:(.value + "000000000000000000"),
-              mark_price:(.value + "000000000000000000"),source_timestamp_ms:$timestamp}))}],
+              feeder:$feeder,observations:[{market_id:"0",sequence:$sequence,index_price:"60000000000000000000000",
+              mark_price:"60000000000000000000000",source_timestamp_ms:$timestamp},
+              {market_id:"11",sequence:$sequence,index_price:"1000000000000000000",
+              mark_price:"1000000000000000000",source_timestamp_ms:$timestamp}]}],
               memo:"",timeout_height:"0",extension_options:[],non_critical_extension_options:[]},
               auth_info:{signer_infos:[],fee:{amount:[],gas_limit:"2000000",payer:"",granter:""}},signatures:[]}' \
             > "$NODE_HOME/observation.json"
@@ -431,7 +430,6 @@ fi
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --sequencer) SEQUENCER=1; shift ;;
-        --consensus-only) SEQUENCER=0; shift ;;
         --follower) FOLLOWER=1; shift ;;
         --sidiora) SIDIORA=1; shift ;;
         --env-out) [ "$#" -ge 2 ] || fail '--env-out requires a file'; ENV_OUT=$2; shift 2 ;;
@@ -967,12 +965,10 @@ fi
     printf 'LOCAL_NODE_HOME=%q\n' "$NODE_HOME"
     printf 'LOCAL_NODE_KEY=%q\n' "0x$KEY"
     printf 'LOCAL_NODE_MAKER_KEY=%q\n' "0x$MAKER_KEY"
-    printf 'LOCAL_NODE_ADDRESS=%q\n' "${ETH_ADDRESSES[1]}"
-    printf 'LOCAL_NODE_MAKER_ADDRESS=%q\n' "${ETH_ADDRESSES[0]}"
-    printf 'LOCAL_NODE_COLLATERAL=%q\n' "$USDL"
     printf 'LOCAL_NODE_START_HEIGHT=%q\n' "$HEIGHT"
     if [ "$SEQUENCER" = 1 ]; then
         printf 'LOCAL_NODE_SEQUENCER_RPC=%q\n' "$EVM"
+        printf 'LOCAL_NODE_ADDRESS=%q\n' "${ETH_ADDRESSES[1]}"
         printf 'LOCAL_NODE_PROFILE_RPC=%q\n' "http://127.0.0.1:$PRIMARY_PROFILE_PORT"
     fi
     if [ "$FOLLOWER" = 1 ]; then

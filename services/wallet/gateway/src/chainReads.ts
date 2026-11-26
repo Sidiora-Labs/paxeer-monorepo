@@ -117,7 +117,7 @@ export async function getErc20Balance(token: `0x${string}`, owner: `0x${string}`
 export async function getErc20Allowance(
   token: `0x${string}`,
   owner: `0x${string}`,
-  spender: `0x${string}`,
+  spender: `0x${string}`
 ): Promise<bigint> {
   return publicClient().readContract({
     address: token,
@@ -292,7 +292,7 @@ export class ChainReadUnavailableError extends RpcUnavailableError {
 
   constructor(
     readonly method: 'eth_getTransactionReceipt' | 'eth_getTransactionByHash',
-    cause: unknown,
+    cause: unknown
   ) {
     super(`${method} observation unavailable`);
     this.name = 'ChainReadUnavailableError';
@@ -348,7 +348,7 @@ export type ReceiptOutcome =
  */
 export async function waitForReceipt(
   hash: Hex,
-  opts?: { confirmations?: number; timeoutMs?: number; pollMs?: number; committed?: boolean },
+  opts?: { confirmations?: number; timeoutMs?: number; pollMs?: number }
 ): Promise<ReceiptOutcome> {
   const confirmations = Math.max(1, opts?.confirmations ?? env.ACTION_CONFIRMATIONS);
   const timeoutMs = opts?.timeoutMs ?? env.ACTION_RECEIPT_TIMEOUT_MS;
@@ -358,26 +358,34 @@ export async function waitForReceipt(
 
   for (;;) {
     try {
-      const result = await rpc.sequencerReceipt(hash);
-      if (result && result.rung !== 'submitted') {
-        const status = BigInt(result.status);
-        if (status !== 0n && status !== 1n) return { state: 'unknown' };
-        const receipt: TxReceiptSummary = {
-          status: status === 1n ? 'success' : 'reverted',
-          block_number: BigInt(
-            result.rung === 'committed' ? result.blockNumber : result.height,
-          ).toString(),
-          gas_used: BigInt(result.gasUsed).toString(),
-          tx_hash: result.txHash,
-        };
-        if (receipt.status === 'reverted') return { state: 'reverted', receipt };
-        if (confirmations <= 1 && (!opts?.committed || result.rung === 'committed')) {
-          return { state: 'confirmed', receipt };
-        }
-        if (result.rung === 'committed') {
+      if (env.CHAIN_RECEIPT_SOURCE === 'evm') {
+        const receipt = await getReceipt(hash);
+        if (receipt?.status === 'reverted') return { state: 'reverted', receipt };
+        if (receipt) {
           const head = BigInt(await rpc.request<Hex>('eth_blockNumber'));
-          if (head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations)) {
+          if (head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations))
             return { state: 'confirmed', receipt };
+        }
+      } else {
+        const result = await rpc.sequencerReceipt(hash);
+        if (result && result.rung !== 'submitted') {
+          const status = BigInt(result.status);
+          if (status !== 0n && status !== 1n) return { state: 'unknown' };
+          const receipt: TxReceiptSummary = {
+            status: status === 1n ? 'success' : 'reverted',
+            block_number: BigInt(
+              result.rung === 'committed' ? result.blockNumber : result.height
+            ).toString(),
+            gas_used: BigInt(result.gasUsed).toString(),
+            tx_hash: result.txHash,
+          };
+          if (receipt.status === 'reverted') return { state: 'reverted', receipt };
+          if (confirmations <= 1) return { state: 'confirmed', receipt };
+          if (result.rung === 'committed') {
+            const head = BigInt(await rpc.request<Hex>('eth_blockNumber'));
+            if (head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations)) {
+              return { state: 'confirmed', receipt };
+            }
           }
         }
       }

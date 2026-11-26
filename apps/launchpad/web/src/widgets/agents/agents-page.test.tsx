@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import { createPrivateKey, createPublicKey, sign, webcrypto } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createConfig, http, WagmiProvider } from 'wagmi';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
 import { erc20Abi, hexToBytes, parseEther, toFunctionSelector } from 'viem';
 import { AgentsGatewayFixture } from './agents-gateway.fixture';
 import { AgentsWorkspace } from './agents-workspace';
-import { AgentsAccess } from './agents-page';
+import AgentsPage, { AgentsAccess } from './agents-page';
 import { agentConnectionConfiguration } from '@/core/agent-interface';
 import { agentAmount, agentPresetRules } from './agents-domain';
 import { agentClaimDigest, parseAgentClaim, prepareAgentClaim } from '@/core/wallet-sdk/embedded_sdk/embedded/sdk/agent-crypto';
@@ -268,6 +272,61 @@ async function agentsPageRegistersNavigationAndAccessibleAccessStates() {
   expect(gateway.requests.filter(request => request.path.startsWith('/v1/agents'))).toHaveLength(0);
 }
 
+async function agentsPageLeavesTheFooterToTheShell() {
+  const shell = readFileSync(resolve(__dirname, '../../shell/app-shell.tsx'), 'utf8');
+  const footerLine = shell.split('\n').find(line => line.includes('<ShellFooter />'));
+  expect(footerLine).toBeDefined();
+  expect(footerLine).toContain('? null : <ShellFooter />');
+  const exceptions = Array.from(footerLine!.matchAll(/route\?\.id === '([^']+)'/g), match => match[1]);
+  expect(exceptions).toEqual(['terminal', 'holder-rewards', 'leaderboard']);
+  expect(exceptions).not.toContain(routeForPath('/agents')!.id);
+
+  const config = createConfig({ chains: [gateway.reader.chain!], transports: { 125: http() }, ssr: true, multiInjectedProviderDiscovery: false });
+  const queries = new QueryClient();
+  await render(<WagmiProvider config={config} reconnectOnMount={false}><QueryClientProvider client={queries}><AgentsPage connection={agentConnectionConfiguration()} /></QueryClientProvider></WagmiProvider>);
+  expect(host.textContent).toContain('Agent gateway unavailable');
+  expect(host.querySelector('footer')).toBeNull();
+
+  for (const state of ['loading', 'unconfigured', 'signed-out', 'external-wallet', 'wrong-chain', 'wallet-error', 'ready'] as const) {
+    await act(async () => root!.render(<AgentsAccess state={state} onSignIn={() => openAuthModal()} onRetry={() => gateway.wallet.getSession()}>
+      <AgentsWorkspace wallet={gateway.wallet} owner={gateway.owner} userId={gateway.session.user.id} accessToken={gateway.session.access_token} reader={gateway.reader} connection={agentConnectionConfiguration()} />
+    </AgentsAccess>));
+    if (state === 'ready') await ready();
+    expect(host.querySelector('[data-agents-route]'), state).not.toBeNull();
+    expect(host.querySelectorAll('h1'), state).toHaveLength(1);
+    expect(host.querySelector('footer'), state).toBeNull();
+  }
+  queries.clear();
+}
+
+async function agentsStateControlsSitInsideTheEmptyState() {
+  await render(<AgentsAccess state="loading" onSignIn={() => openAuthModal()} onRetry={() => gateway.wallet.getSession()} />);
+  for (const [state, label, handler] of [
+    ['signed-out', 'Sign in with embedded wallet', 'sign-in'],
+    ['external-wallet', 'Open embedded wallet sign-in', 'sign-in'],
+    ['wrong-chain', 'Try again', 'retry'],
+    ['wallet-error', 'Try again', 'retry'],
+  ] as const) {
+    let signIns = 0;
+    let retries = 0;
+    await act(async () => root!.render(<AgentsAccess state={state} onSignIn={() => { signIns++; openAuthModal(); }} onRetry={() => { retries++; }} />));
+    const heading = host.querySelector('h3');
+    expect(heading, state).not.toBeNull();
+    const block = heading!.parentElement!.parentElement!;
+    expect(block.classList.contains('@container/state'), state).toBe(true);
+    expect(block.classList.contains('items-center'), state).toBe(true);
+    expect(block.classList.contains('text-center'), state).toBe(true);
+    const control = button(label);
+    expect(block.contains(control), state).toBe(true);
+    expect(block.querySelector('p')!.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING, state).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(host.querySelectorAll('button'), state).toHaveLength(1);
+    await click(label);
+    expect(signIns, state).toBe(handler === 'sign-in' ? 1 : 0);
+    expect(retries, state).toBe(handler === 'retry' ? 1 : 0);
+    if (handler === 'sign-in') closeAuthModal();
+  }
+}
+
 function agentsPageRejectsExpiredMalformedAndMismatchedClaims() {
   const instructions = prepareAgentClaim(gateway.agentDid, gateway.session.user.id);
   expect(() => parseAgentClaim('not json', instructions)).toThrow('JSON');
@@ -282,4 +341,5 @@ for (const check of [agentsPageFundsAnAgentFromTheEmbeddedWallet, agentsPageShow
   agentsPageSavesLimitsThroughPolicyRulesAndBudgets, agentsPageSavesReadOnlyAndTradePresets, agentsPageKeepsAnAgentFrozenWhenSavingLimitsFails,
   agentsPageFreezesUnfreezesSweepsAndShowsActivity, agentsPageHasLoadingEmptyRetryAndUnavailableViews,
   agentsPageDiscardsDataAndKeysWhenTheOwnerChanges, agentsPageRegistersNavigationAndAccessibleAccessStates,
+  agentsPageLeavesTheFooterToTheShell, agentsStateControlsSitInsideTheEmptyState,
   agentsPageRejectsExpiredMalformedAndMismatchedClaims]) test(check.name, check);

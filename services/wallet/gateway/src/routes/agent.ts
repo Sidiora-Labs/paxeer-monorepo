@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { createHash } from 'node:crypto';
 import type { Hex } from 'viem';
+import { z } from 'zod';
 import { parseAgentReauthorization } from '../attestor/client.js';
 import { verifyEd25519 } from '../auth/did.js';
 import { retainAgentAuthorization } from '../db/authorizations.js';
@@ -50,7 +51,7 @@ function hashRequest(payload: unknown): string {
 
 function audit(
   req: FastifyRequest,
-  payload: unknown,
+  payload: unknown
 ): { request_hash: string; ip: string | null; user_agent: string | null } {
   return {
     request_hash: hashRequest(payload),
@@ -107,7 +108,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         }
         const owned = await query(
           'select 1 from wallets where id = $1 and attestor_key_id = $2 and kind = $3 and archived_at is null and is_disabled = false',
-          [wallet.id, wire.key_id, 'agent'],
+          [wallet.id, wire.key_id, 'agent']
         );
         if (owned.rows.length !== 1)
           return reply.code(403).send({ error: 'agent_attestor_authorization_mismatch' });
@@ -126,7 +127,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       } catch {
         return reply.code(400).send({ error: 'agent_attestor_authorization_invalid' });
       }
-    },
+    }
   );
 
   // ── Wallet lifecycle ──────────────────────────────────────────────────────
@@ -135,24 +136,29 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     try {
       const deps = provisionDepsFromEnv();
       if (!deps) return reply.code(503).send({ error: 'provisioning_unavailable' });
-      const body = req.body as { bind_signature?: unknown } | null;
-      const funding = (req.body as { funding?: unknown } | null)?.funding;
-      if (funding !== undefined && funding !== 'self')
-        return reply.code(400).send({ error: 'invalid_funding' });
-      if (
-        body?.bind_signature !== undefined &&
-        (typeof body.bind_signature !== 'string' ||
-          !/^(0x)?[0-9a-fA-F]{128}$/.test(body.bind_signature))
-      ) {
-        return reply.code(400).send({ error: 'invalid_bind_signature' });
-      }
-      const provision = await provisionAccount(deps, {
-        kind: 'agent',
-        did: req.agent!.did,
-        custody: req.agent!.custody,
-        agentSignature: body?.bind_signature as string | undefined,
-        funding,
-      });
+      const parsed = z
+        .object({
+          stage: z.enum(['wallet', 'identity']).optional(),
+          bind_signature: z
+            .string()
+            .regex(/^(0x)?[0-9a-fA-F]{128}$/)
+            .optional(),
+        })
+        .strict()
+        .safeParse(req.body ?? {});
+      if (!parsed.success)
+        return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+      const body = parsed.data;
+      const provision = await provisionAccount(
+        deps,
+        {
+          kind: 'agent',
+          did: req.agent!.did,
+          custody: req.agent!.custody,
+          agentSignature: body.bind_signature,
+        },
+        body.stage
+      );
       return reply.code(provision.state === 'active' ? 200 : 202).send({
         wallet: {
           id: provision.walletId,
@@ -221,7 +227,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
           decimals: meta.decimals,
           balance: bal !== null ? bal.toString() : null,
         };
-      }),
+      })
     );
 
     return reply.send({
@@ -275,7 +281,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     const allowance = await getErc20Allowance(
       q.token as `0x${string}`,
       wallet.address,
-      q.spender as `0x${string}`,
+      q.spender as `0x${string}`
     );
     return reply.send({
       token: q.token.toLowerCase(),
@@ -308,7 +314,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         where principal_did = $1
         order by created_at desc
         limit 50`,
-      [req.agent!.did],
+      [req.agent!.did]
     );
     return reply.send({ did: req.agent!.did, events: rows });
   });
@@ -379,7 +385,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         audit: audit(req, { message: parsed.data.message }),
       });
       return reply.code(res.status).send(res.body);
-    },
+    }
   );
 
   app.post(
@@ -395,7 +401,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         audit: audit(req, { typedData: parsed.data.typedData }),
       });
       return reply.code(res.status).send(res.body);
-    },
+    }
   );
 
   // ── High-level token ops (structured policy intent) ─────────────────────────

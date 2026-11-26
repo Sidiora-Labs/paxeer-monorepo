@@ -41,6 +41,8 @@ export const SIGNATURE_ACCOUNTING_MIGRATION = {
 export interface SignatureAccountingContext {
   requestHash: string;
   subject: string;
+  /** Agent activity associated with a signature by its owner. */
+  activityPrincipalDid?: string;
   /** A session client, with no caller-owned transaction open. */
   connection?: PoolClient;
 }
@@ -236,8 +238,8 @@ export function withSignatureAccounting(
     if (!context?.requestHash || !context.subject)
       throw new Error('durable signature accounting requires request context');
     let principalDid: string | null = null;
+    const read = context.connection ? context.connection.query.bind(context.connection) : query;
     if (wallet.kind === 'agent') {
-      const read = context.connection ? context.connection.query.bind(context.connection) : query;
       const { rows } = await read<{ did: string; owner_user_id: string | null }>(
         'select did, owner_user_id from agent_principals where wallet_id = $1',
         [wallet.id]
@@ -252,8 +254,20 @@ export function withSignatureAccounting(
         throw new Error('signature accounting subject differs from wallet owner');
       }
       principalDid = principal.did;
+      if (
+        context.activityPrincipalDid !== undefined &&
+        context.activityPrincipalDid !== principalDid
+      )
+        throw new Error('signature activity differs from its agent wallet');
     } else if (context.subject !== wallet.user_id) {
       throw new Error('signature accounting subject differs from wallet owner');
+    } else if (context.activityPrincipalDid !== undefined) {
+      const { rows } = await read<{ did: string }>(
+        'select did from agent_principals where did = $1 and owner_user_id = $2',
+        [context.activityPrincipalDid, context.subject]
+      );
+      if (rows.length !== 1) throw new Error('signature activity differs from the agent owner');
+      principalDid = rows[0]!.did;
     }
     return {
       user_id: wallet.user_id,

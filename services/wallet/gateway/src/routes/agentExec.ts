@@ -206,7 +206,7 @@ function parseUnsignedAgentTransaction(encoded: string): ReturnType<typeof parse
   } catch {
     throw new AttestorTokenError(
       'agent_authorization_mismatch',
-      'the approved envelope is not an unsigned EIP-1559 transaction',
+      'the approved envelope is not an unsigned EIP-1559 transaction'
     );
   }
 }
@@ -215,14 +215,14 @@ async function transactionForRequest(
   ctx: AgentCtx,
   wallet: WalletRow,
   tx: AgentTxInput,
-  lease: NonceLease,
+  lease: NonceLease
 ): Promise<TransactionSerializable> {
   const params = viemTxParams(tx);
   const chainId = tx.chainId ?? env.HYPERPAXEER_CHAIN_ID;
   if (chainId !== wallet.chain_id || chainId !== env.HYPERPAXEER_CHAIN_ID) {
     throw new AttestorTokenError(
       'agent_authorization_mismatch',
-      'transaction chain differs from the wallet',
+      'transaction chain differs from the wallet'
     );
   }
   let expectedNonce: number;
@@ -247,7 +247,7 @@ async function transactionForRequest(
     } catch {
       throw new AttestorTokenError(
         'agent_authorization_mismatch',
-        'the approved envelope is not an unsigned EIP-1559 transaction',
+        'the approved envelope is not an unsigned EIP-1559 transaction'
       );
     }
     if (
@@ -270,7 +270,7 @@ async function transactionForRequest(
     ) {
       throw new AttestorTokenError(
         'agent_authorization_mismatch',
-        'the approved transaction differs from the requested operation or current nonce',
+        'the approved transaction differs from the requested operation or current nonce'
       );
     }
     return {
@@ -409,7 +409,7 @@ export async function executeAgentTransaction(args: {
           subject: ctx.did,
           route: ctx.custody?.origin.method ?? '/v1/agent',
           requestHash: audit.request_hash,
-        },
+        }
       );
       const transaction = await transactionForRequest(ctx, wallet, tx, lease);
       if (decision.reservedBudgetId && ctx.custody) {
@@ -430,7 +430,7 @@ export async function executeAgentTransaction(args: {
       }
       txHash = keccak256(raw);
       const sent = await broadcastReserved(lease, transaction.nonce!, raw, (r) =>
-        sharedRpcPool().sendRawTransactionVia(r),
+        sharedRpcPool().sendRawTransactionVia(r)
       );
       if (
         sent.error instanceof TransactionRejectedError ||
@@ -446,7 +446,8 @@ export async function executeAgentTransaction(args: {
     if (signed.error !== null) throw signed.error;
     txHash = signed.hash;
     signedTx = signed.raw;
-    if (broadcast && txHash) receipt = await sharedRpcPool().sequencerReceipt(txHash);
+    if (broadcast && txHash && env.CHAIN_RECEIPT_SOURCE === 'sequencer')
+      receipt = await sharedRpcPool().sequencerReceipt(txHash);
   } catch (err) {
     // The send failed — give back any budget the gate reserved.
     if (reservedBudgetId && signedTx === null) {
@@ -520,7 +521,7 @@ export async function executeAgentMessage(args: {
         subject: ctx.did,
         route: ctx.custody?.origin.method ?? '/v1/agent',
         requestHash: audit.request_hash,
-      },
+      }
     );
     signature = await account.signMessage({ message });
   } catch (err) {
@@ -575,11 +576,11 @@ export async function executeAgentTypedData(args: {
         subject: ctx.did,
         route: ctx.custody?.origin.method ?? '/v1/agent',
         requestHash: audit.request_hash,
-      },
+      }
     );
     // viem validates the typed-data shape; a malformed payload throws here.
     signature = await account.signTypedData(
-      typedData as Parameters<typeof account.signTypedData>[0],
+      typedData as Parameters<typeof account.signTypedData>[0]
     );
   } catch (err) {
     const refused = custodyRefusal(err);

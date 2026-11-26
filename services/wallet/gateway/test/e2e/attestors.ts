@@ -72,6 +72,11 @@ export interface GeneratedKey {
   auditSequences: number[];
 }
 
+export interface AssetCap {
+  per_transaction: string;
+  daily: string;
+}
+
 export interface AttestorNetwork {
   pki: Pki;
   nodes: AttestorProcess[];
@@ -86,6 +91,7 @@ export interface AttestorNetwork {
   generate(keyId: string, owner: string): Promise<GeneratedKey>;
   health(node: AttestorProcess): Promise<{ status: number; body: Record<string, unknown> }>;
   stopNode(node: AttestorProcess): Promise<void>;
+  admitAsset(asset: string, cap: AssetCap): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -117,7 +123,7 @@ export function makePki(nodeIds: string[]): Pki {
   ]);
   writeFileSync(
     p('leaf.ext'),
-    'subjectAltName=IP:127.0.0.1\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth,clientAuth\n',
+    'subjectAltName=IP:127.0.0.1\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth,clientAuth\n'
   );
   openssl([
     'req',
@@ -256,7 +262,7 @@ function call(
   method: 'GET' | 'POST',
   url: string,
   body: unknown,
-  timeoutMs: number,
+  timeoutMs: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const payload = body === null ? null : JSON.stringify(body);
   return new Promise((resolveCall, reject) => {
@@ -285,7 +291,7 @@ function call(
           }
         });
         res.on('error', reject);
-      },
+      }
     );
     req.on('timeout', () => req.destroy(new Error(`${url} timed out after ${timeoutMs} ms`)));
     req.on('error', reject);
@@ -299,9 +305,7 @@ export async function startAttestorNetwork(opts: {
   rpcUrl: string;
   size?: number;
   readyTimeoutMs?: number;
-  tokenCaps?: readonly { address: `0x${string}`; perTransaction: bigint; daily: bigint }[];
-  selectors?: Readonly<Record<string, readonly string[]>>;
-  trustedSpenders?: readonly `0x${string}`[];
+  assetCaps?: Record<string, AssetCap>;
 }): Promise<AttestorNetwork> {
   const size = opts.size ?? 5;
   const ids = Array.from({ length: size }, (_, i) => `node-${i + 1}`);
@@ -322,7 +326,7 @@ export async function startAttestorNetwork(opts: {
   const approveInventory = (keys: WalletInventoryKey[]): void => {
     const now = Math.floor(Date.now() / 1000);
     const header = Buffer.from(
-      JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' }),
+      JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })
     ).toString('base64url');
     const payload = Buffer.from(
       JSON.stringify({
@@ -337,7 +341,7 @@ export async function startAttestorNetwork(opts: {
         threshold: 3,
         members: ids.map((id) => ({ id, spki_sha256: pki.node(id).pin })),
         keys,
-      }),
+      })
     ).toString('base64url');
     const input = `${header}.${payload}`;
     const signature = sign('sha256', Buffer.from(input), {
@@ -349,46 +353,49 @@ export async function startAttestorNetwork(opts: {
   approveInventory([]);
   const bin = buildAttestor(work);
   const policyFile = join(work, 'policy.json');
-  writeFileSync(
-    policyFile,
-    JSON.stringify({
-      version: 1,
-      defaults: {
-        chain_id: CHAIN_ID,
-        kinds: [
-          'evm_tx',
-          'eip712',
-          'personal_message',
-          'lx_bind',
-          'sponsored_batch',
-          'eip7702_authorization',
-        ],
-        authorization_delegates: [PAYMASTER],
-        caps: {
-          native: {
-            per_transaction: NATIVE_PER_TX_CAP_WEI.toString(),
-            daily: (NATIVE_PER_TX_CAP_WEI * 10n).toString(),
-          },
-          ...Object.fromEntries(
-            (opts.tokenCaps ?? []).map((cap) => [
-              cap.address.toLowerCase(),
-              { per_transaction: cap.perTransaction.toString(), daily: cap.daily.toString() },
-            ]),
-          ),
-          '0x21f7b20a555199fa73A238B1a91FD0f549068fEe': {
-            per_transaction: '1000000',
-            daily: '1000000',
-          },
+  const policyDocument = {
+    version: 1,
+    defaults: {
+      chain_id: CHAIN_ID,
+      kinds: [
+        'evm_tx',
+        'eip712',
+        'personal_message',
+        'lx_bind',
+        'sponsored_batch',
+        'eip7702_authorization',
+      ],
+      authorization_delegates: [PAYMASTER],
+      caps: {
+        ...opts.assetCaps,
+        native: {
+          per_transaction: NATIVE_PER_TX_CAP_WEI.toString(),
+          daily: (NATIVE_PER_TX_CAP_WEI * 10n).toString(),
         },
-        selectors: { ...opts.selectors, [ADDR]: [BIND_SELECTOR] },
-        trusted_spenders: opts.trustedSpenders ?? [],
-        rate_per_minute: 600,
+        '0x21f7b20a555199fa73A238B1a91FD0f549068fEe': {
+          per_transaction: '1000000',
+          daily: '1000000',
+        },
       },
-    }),
-  );
+      selectors: { [ADDR]: [BIND_SELECTOR] },
+      rate_per_minute: 600,
+    },
+  };
+  writeFileSync(policyFile, JSON.stringify(policyDocument));
   const kernelPolicyFile = join(work, 'kernel-policy.json');
   writeFileSync(kernelPolicyFile, JSON.stringify(KERNEL_POLICY));
   const nodes: AttestorProcess[] = [];
+  const nodeEnvironments = new Map<string, NodeJS.ProcessEnv>();
+  const launchNode = (node: AttestorProcess): void => {
+    const child = spawn(bin, [], {
+      env: nodeEnvironments.get(node.nodeId)!,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    node.child = child;
+    child.stdout?.on('data', (chunk: Buffer) => node.log.push(chunk.toString('utf8')));
+    child.stderr?.on('data', (chunk: Buffer) => node.log.push(chunk.toString('utf8')));
+    child.once('error', (error) => node.log.push(error.message));
+  };
   const agent = mtlsAgent(pki);
   const operator = mtlsAgent(pki, pki.operatorCert, pki.operatorKey);
   const health = (node: AttestorProcess) =>
@@ -442,6 +449,7 @@ export async function startAttestorNetwork(opts: {
               ATTESTOR_ACTIVITY_TYPES: '0x10005',
             };
             await ports[i]!.release();
+            nodeEnvironments.set(id, env);
             const child = spawn(bin, [], { env, stdio: ['ignore', 'pipe', 'pipe'] });
             const log: string[] = [];
             child.stdout?.on('data', (c: Buffer) => log.push(c.toString('utf8')));
@@ -461,7 +469,7 @@ export async function startAttestorNetwork(opts: {
             if (answer?.status === 200 && answer.body.ready === true) break;
             if (Date.now() > deadline) {
               throw new Error(
-                `${node.nodeId} never became ready: ${JSON.stringify(answer?.body)} ${node.log.join('')}`,
+                `${node.nodeId} never became ready: ${JSON.stringify(answer?.body)} ${node.log.join('')}`
               );
             }
             await new Promise((r) => setTimeout(r, 250));
@@ -471,7 +479,7 @@ export async function startAttestorNetwork(opts: {
       async () => {
         await Promise.all(nodes.map(stopNode));
         nodes.length = 0;
-      },
+      }
     );
   } catch (error) {
     agent.destroy();
@@ -496,8 +504,8 @@ export async function startAttestorNetwork(opts: {
       const request = { session_id: randomUUID(), key_id: keyId };
       const answers = await Promise.all(
         nodes.map((node) =>
-          call(operator, 'POST', `${node.apiUrl}/v1/keys/describe`, request, 5_000),
-        ),
+          call(operator, 'POST', `${node.apiUrl}/v1/keys/describe`, request, 5_000)
+        )
       );
       const publicKey = answers[0]!.body.public_key;
       if (typeof publicKey !== 'string' || !/^(?:04[0-9a-f]{128}|[0-9a-f]{64})$/.test(publicKey)) {
@@ -510,7 +518,7 @@ export async function startAttestorNetwork(opts: {
           answer.body.public_key !== publicKey
         ) {
           throw new Error(
-            `${nodes[i]!.nodeId} disagrees on ${keyId}: ${answer.status} ${JSON.stringify(answer.body)}`,
+            `${nodes[i]!.nodeId} disagrees on ${keyId}: ${answer.status} ${JSON.stringify(answer.body)}`
           );
         }
       }
@@ -520,12 +528,12 @@ export async function startAttestorNetwork(opts: {
       const sessionId = randomUUID();
       const request = { session_id: sessionId, key_id: keyId, curve: 'secp256k1', owner };
       const answers = await Promise.all(
-        nodes.map((n) => call(agent, 'POST', `${n.apiUrl}/v1/keys/generate`, request, 600_000)),
+        nodes.map((n) => call(agent, 'POST', `${n.apiUrl}/v1/keys/generate`, request, 600_000))
       );
       for (const [i, a] of answers.entries()) {
         if (a.status !== 200)
           throw new Error(
-            `${nodes[i]!.nodeId} refused keys.generate: ${a.status} ${JSON.stringify(a.body)}`,
+            `${nodes[i]!.nodeId} refused keys.generate: ${a.status} ${JSON.stringify(a.body)}`
           );
       }
       const first = answers[0]!.body;
@@ -537,12 +545,12 @@ export async function startAttestorNetwork(opts: {
       if (answers.some((a) => a.body.refreshed !== true)) {
         const refresh = { session_id: randomUUID(), key_id: keyId };
         const refreshed = await Promise.all(
-          nodes.map((n) => call(operator, 'POST', `${n.apiUrl}/v1/keys/refresh`, refresh, 600_000)),
+          nodes.map((n) => call(operator, 'POST', `${n.apiUrl}/v1/keys/refresh`, refresh, 600_000))
         );
         for (const [i, a] of refreshed.entries()) {
           if (a.status !== 200 || a.body.refreshed !== true) {
             throw new Error(
-              `${nodes[i]!.nodeId} refused keys.refresh: ${a.status} ${JSON.stringify(a.body)}`,
+              `${nodes[i]!.nodeId} refused keys.refresh: ${a.status} ${JSON.stringify(a.body)}`
             );
           }
         }
@@ -555,6 +563,34 @@ export async function startAttestorNetwork(opts: {
       };
     },
     stopNode,
+    async admitAsset(asset, cap) {
+      if (
+        !/^0x[0-9a-fA-F]{40}$/.test(asset) ||
+        !/^[1-9][0-9]*$/.test(cap.per_transaction) ||
+        !/^[1-9][0-9]*$/.test(cap.daily) ||
+        BigInt(cap.per_transaction) > BigInt(cap.daily)
+      )
+        throw new Error('Asset caps require an address and positive bounded amounts.');
+      const caps = policyDocument.defaults.caps as Record<string, AssetCap>;
+      const normalized = asset.toLowerCase();
+      if (Object.keys(caps).some((known) => known.toLowerCase() === normalized))
+        throw new Error('The asset already has configured caps.');
+      caps[normalized] = { ...cap };
+      writeFileSync(policyFile, JSON.stringify(policyDocument));
+      await Promise.all(nodes.map(stopNode));
+      for (const node of nodes) launchNode(node);
+      const until = Date.now() + (opts.readyTimeoutMs ?? 60_000);
+      for (const node of nodes) {
+        for (;;) {
+          for (const member of nodes) assertProcessRunning(member.child, member.log);
+          const answer = await health(node).catch(() => null);
+          if (answer?.status === 200 && answer.body.ready === true) break;
+          if (Date.now() > until)
+            throw new Error(`${node.nodeId} did not become ready after loading asset caps.`);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+    },
     async stop() {
       await Promise.all(nodes.map(stopNode));
       agent.destroy();

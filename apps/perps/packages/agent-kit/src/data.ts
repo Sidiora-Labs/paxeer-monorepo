@@ -99,15 +99,13 @@ export class PerpsDataClient {
     const { markets } = decodeGatewayMarketsResult(
       await this.#query(MARKETS_QUERY),
     );
-    const result = [];
-    for (const row of markets) {
-      result.push({
+    return Promise.all(
+      markets.map(async (row) => ({
         ...row,
         ...(await this.market(BigInt(row.marketId))),
         mark: await this.mark(BigInt(row.marketId)),
-      });
-    }
-    return result;
+      })),
+    );
   }
 
   async account(address: Address) {
@@ -210,13 +208,11 @@ export class PerpsDataClient {
     collateralAmount: bigint,
     leverage: bigint,
     isLong: boolean,
-    account: Address,
   ) {
     return this.rpc.readContract({
       address: PRECOMPILES.perps,
       abi: PerpsPrecompileABI,
       functionName: "quoteOpenPosition",
-      account,
       args: [
         marketId,
         COLLATERAL_TOKENS.usdl.address,
@@ -227,26 +223,20 @@ export class PerpsDataClient {
     });
   }
 
-  async quoteClose(positionId: bigint, account: Address) {
+  async quoteClose(positionId: bigint) {
     return this.rpc.readContract({
       address: PRECOMPILES.perps,
       abi: PerpsPrecompileABI,
       functionName: "quoteClosePosition",
-      account,
       args: [positionId],
     });
   }
 
-  async quotePartialClose(
-    positionId: bigint,
-    sizeUsd: bigint,
-    account: Address,
-  ) {
+  async quotePartialClose(positionId: bigint, sizeUsd: bigint) {
     return this.rpc.readContract({
       address: PRECOMPILES.perps,
       abi: PerpsPrecompileABI,
       functionName: "quotePartialClose",
-      account,
       args: [positionId, sizeUsd],
     });
   }

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { AgentKitError, record, refusal, requireThat } from './errors.js';
 import {
   agentDid,
@@ -6,6 +7,7 @@ import {
   signAgentRequest,
   buildClaim,
   bindingMessage,
+  agentRequestDigest,
 } from './signing.js';
 import { DEPLOYMENT } from './contracts.js';
 
@@ -16,6 +18,8 @@ export interface GatewayConfig {
   token?: string;
   fetch?: typeof fetch;
   now?: () => number;
+  chainId?: number;
+  requestTimeoutMs?: number;
 }
 
 export interface GatewayIdentity {
@@ -63,6 +67,9 @@ export class AgentGatewayClient {
   readonly #seed: Uint8Array;
   readonly #fetch: typeof fetch;
   readonly #now: () => number;
+  readonly #chainId: number;
+  readonly #timeout: number;
+  readonly #actions = new Map<string, { body: Record<string, unknown>; authorized: Set<string> }>();
   #token: string | undefined;
   #tokenExpiry = 0;
   #authentication: Promise<void> | undefined;
@@ -74,6 +81,12 @@ export class AgentGatewayClient {
     this.publicKey = agentPublicKey(this.#seed).toString('hex');
     this.#fetch = config.fetch ?? globalThis.fetch;
     this.#now = config.now ?? Date.now;
+    this.#chainId = config.chainId ?? DEPLOYMENT.chainId;
+    this.#timeout = config.requestTimeoutMs ?? 15000;
+    requireThat(
+      Number.isInteger(this.#timeout) && this.#timeout >= 1000 && this.#timeout <= 120000,
+      'invalid_request_timeout',
+    );
     this.#token = config.token;
     this.#tokenExpiry = config.token ? Infinity : 0;
   }
@@ -84,6 +97,8 @@ export class AgentGatewayClient {
     body?: unknown,
     signed = false,
     authenticated = true,
+    authorization?: string,
+    pendingAction = false,
   ): Promise<unknown> {
     requireThat(path.startsWith('/v1/agent/') && !path.includes('#'), 'invalid_gateway_path');
     if (authenticated && !signed) await this.authenticate();
@@ -103,6 +118,7 @@ export class AgentGatewayClient {
           nowSeconds: Math.floor(this.#now() / 1000),
         }),
       );
+    if (authorization) headers['x-agent-attestor-authorization'] = authorization;
     const fetcher = this.#fetch;
     let response: Response;
     try {
@@ -110,7 +126,7 @@ export class AgentGatewayClient {
         method,
         headers,
         redirect: 'error',
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(this.#timeout),
         ...(serialized === undefined ? {} : { body: serialized }),
       });
     } catch {
@@ -129,9 +145,59 @@ export class AgentGatewayClient {
       );
     }
     const result = record(payload);
-    if (!response.ok || result.ok === false || result.error)
+    if (!response.ok || result.ok === false || (result.error && !pendingAction))
       throw refusal(response.status, payload);
     return payload;
+  }
+
+  #authorization(request: string, path: string, body: unknown): string {
+    requireThat(Buffer.byteLength(request) <= 65536, 'invalid_signing_request');
+    const wire = record(JSON.parse(request));
+    const origin = record(wire.origin);
+    requireThat(
+      origin.did === this.did &&
+        origin.method === `POST ${path}` &&
+        origin.body === Buffer.from(JSON.stringify(body)).toString('base64') &&
+        typeof wire.key_id === 'string',
+      'signing_request_mismatch',
+    );
+    const nonce = randomBytes(16);
+    const expiry = Math.floor(this.#now() / 1000) + 60;
+    return JSON.stringify({
+      body: request,
+      nonce: nonce.toString('hex'),
+      expiry,
+      signature: signAgentBytes(
+        this.#seed,
+        agentRequestDigest({
+          method: '/v1/sign',
+          keyId: wire.key_id,
+          nonce,
+          expiry: BigInt(expiry),
+          body: request,
+        }),
+      ),
+    });
+  }
+
+  async #signed(path: string, body: unknown): Promise<unknown> {
+    let authorization: string | undefined;
+    for (let leg = 0; ; leg++) {
+      try {
+        return await this.#request('POST', path, body, true, true, authorization);
+      } catch (error) {
+        if (
+          !(error instanceof AgentKitError) ||
+          error.status !== 409 ||
+          error.code !== 'agent_reauthorization_required' ||
+          leg >= 2
+        )
+          throw error;
+        const details = record(error.details);
+        requireThat(typeof details.signing_request === 'string', 'invalid_signing_request');
+        authorization = this.#authorization(details.signing_request, path, body);
+      }
+    }
   }
 
   async authenticate(): Promise<void> {
@@ -234,10 +300,10 @@ export class AgentGatewayClient {
   }
 
   send(tx: GatewayTransaction): Promise<unknown> {
-    return this.#request('POST', '/v1/agent/send', { tx }, true);
+    return this.#signed('/v1/agent/send', { tx });
   }
 
-  allowanceAndCall(body: {
+  async allowanceAndCall(body: {
     token: string;
     amount: string;
     spender: string;
@@ -246,30 +312,70 @@ export class AgentGatewayClient {
     args: string[];
     idempotency_key: string;
   }): Promise<unknown> {
-    return this.#request('POST', '/v1/agent/actions/allowance-and-call', body, true);
+    const result = record(await this.#signed('/v1/agent/actions/allowance-and-call', body));
+    requireThat(typeof result.action_id === 'string', 'invalid_action_id');
+    requireThat(this.#actions.size < 10000, 'action_capacity_reached');
+    this.#actions.set(result.action_id, {
+      body: { ...body, args: [...body.args] },
+      authorized: new Set(),
+    });
+    return result;
   }
 
-  action(actionId: string): Promise<unknown> {
+  async action(actionId: string): Promise<unknown> {
     requireThat(/^act_[0-9a-f]{24}$/.test(actionId), 'invalid_action_id');
-    return this.#request('GET', `/v1/agent/actions/${actionId}`);
+    const result = record(
+      await this.#request(
+        'GET',
+        `/v1/agent/actions/${actionId}`,
+        undefined,
+        false,
+        true,
+        undefined,
+        true,
+      ),
+    );
+    if (result.error && result.terminal !== true) {
+      const error = record(result.error);
+      const saved = this.#actions.get(actionId);
+      if (error.code === 'AGENT_REAUTHORIZATION_REQUIRED' && saved) {
+        const cause = record(error.cause);
+        requireThat(typeof cause.signing_request === 'string', 'invalid_signing_request');
+        const request = cause.signing_request;
+        if (!saved.authorized.has(request)) {
+          const path = '/v1/agent/actions/allowance-and-call';
+          const authorization = this.#authorization(request, path, saved.body);
+          const resumed = record(
+            await this.#request('POST', path, saved.body, true, true, authorization, true),
+          );
+          requireThat(resumed.action_id === actionId, 'action_identity_mismatch');
+          saved.authorized.add(request);
+          return resumed;
+        }
+      } else {
+        const retry = record(error.retry);
+        if (!['POLL_ACTION', 'RETRY_SAME_ACTION'].includes(String(retry.strategy)))
+          throw refusal(200, result);
+      }
+    }
+    if (result.terminal === true) this.#actions.delete(actionId);
+    return result;
   }
 
-  async provision(bindSignature?: string): Promise<unknown> {
+  async provision(bindSignature?: string, stage?: 'wallet' | 'identity'): Promise<unknown> {
     if (bindSignature !== undefined)
       requireThat(/^(0x)?[0-9a-fA-F]{128}$/.test(bindSignature), 'invalid_bind_signature');
     const result = record(
-      await this.#request(
-        'POST',
-        '/v1/agent/provision',
-        bindSignature === undefined ? {} : { bind_signature: bindSignature },
-        true,
-      ),
+      await this.#signed('/v1/agent/provision', {
+        ...(bindSignature === undefined ? {} : { bind_signature: bindSignature }),
+        ...(stage === undefined ? {} : { stage }),
+      }),
     );
     const provision = record(result.provision);
     if (bindSignature === undefined && provision.awaiting === 'agent_signature') {
       const wallet = record(result.wallet);
       requireThat(
-        wallet.chain_id === DEPLOYMENT.chainId &&
+        wallet.chain_id === this.#chainId &&
           typeof wallet.address === 'string' &&
           wallet.address === provision.address &&
           typeof provision.bindMessage === 'string' &&
@@ -278,21 +384,19 @@ export class AgentGatewayClient {
       );
       const message = Buffer.from(provision.bindMessage.slice(2), 'hex');
       requireThat(
-        message.length === bindingMessage(DEPLOYMENT.chainId, wallet.address, 0n).length,
+        message.length === bindingMessage(this.#chainId, wallet.address, 0n).length,
         'invalid_binding',
       );
       const expected = bindingMessage(
-        DEPLOYMENT.chainId,
+        this.#chainId,
         wallet.address,
         message.readBigUInt64BE(message.length - 8),
       );
       requireThat(message.equals(expected), 'invalid_binding');
-      return this.#request(
-        'POST',
-        '/v1/agent/provision',
-        { bind_signature: signAgentBytes(this.#seed, message) },
-        true,
-      );
+      return this.#signed('/v1/agent/provision', {
+        bind_signature: signAgentBytes(this.#seed, message),
+        ...(stage === undefined ? {} : { stage }),
+      });
     }
     return result;
   }

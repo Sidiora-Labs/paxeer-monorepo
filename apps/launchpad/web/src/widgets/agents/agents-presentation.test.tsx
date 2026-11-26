@@ -53,12 +53,21 @@ async function agentsPageFitsPhoneAndDesktopInBothColorModes() {
     for (const width of [360, 768, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       for (const mode of ['dark', 'light']) {
-        await page.evaluate(value => document.documentElement.setAttribute('data-color-mode', value), mode);
-        const metrics = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, scheme: getComputedStyle(document.documentElement).colorScheme }));
+        const metrics = await page.evaluate(value => {
+          document.documentElement.setAttribute('data-color-mode', value);
+          return {
+            width: document.documentElement.clientWidth,
+            scroll: document.documentElement.scrollWidth,
+            scheme: getComputedStyle(document.documentElement).colorScheme,
+            controls: Array.from(document.querySelectorAll('button, input:not([type="checkbox"]), select, textarea'), element => {
+              const bounds = element.getBoundingClientRect();
+              return { width: bounds.width, height: bounds.height };
+            }),
+          };
+        }, mode);
         expect(metrics.scheme).toBe(mode);
         expect(metrics.scroll, `${mode} at ${width}`).toBeLessThanOrEqual(metrics.width);
-        const controls = await page.locator('button, input:not([type="checkbox"]), select, textarea').evaluateAll(elements => elements.map(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
-        for (const control of controls) {
+        for (const control of metrics.controls) {
           expect(control.width).toBeGreaterThan(0);
           if (width <= 834) expect(control.height).toBeGreaterThanOrEqual(44);
         }

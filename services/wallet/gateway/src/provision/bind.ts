@@ -77,7 +77,7 @@ export interface UnifiedAccount {
 
 export async function readUnifiedAccount(
   rpc: RpcPool,
-  address: `0x${string}`,
+  address: `0x${string}`
 ): Promise<UnifiedAccount> {
   const data = encodeFunctionData({
     abi: addrAbi,
@@ -210,7 +210,7 @@ export class AttestorDaemonClient {
     keyId: string,
     curve: 'secp256k1' | 'ed25519',
     owner: string,
-    account?: string,
+    account?: string
   ): Promise<GeneratedKey> {
     const generated = await this.client.generateKey({
       keyId,
@@ -241,7 +241,7 @@ export class AttestorDaemonClient {
   async signAuthorized(
     keyId: string,
     body: SignBody,
-    authorisation: Authorisation,
+    authorisation: Authorisation
   ): Promise<SignedPayload> {
     const result = await this.client.sign({ keyId, payload: body, authorisation });
     return {
@@ -276,16 +276,16 @@ export async function signBindWithAttestors(
   keyId: string,
   publicKeyHex: string,
   message: Buffer,
-  bearerToken: string,
+  bearerToken: string
 ): Promise<string> {
   const out = await client.sign(
     keyId,
     { kind: 'lx_bind', message: bytesToHex(message) },
-    bearerToken,
+    bearerToken
   );
   if (!verifyEd25519(publicKeyHex, message, out.signature)) {
     throw new AttestorUnavailable(
-      'attestor binding signature does not verify under the identity key',
+      'attestor binding signature does not verify under the identity key'
     );
   }
   return out.signature;
@@ -296,7 +296,7 @@ export async function signTransactionWithAttestors(
   keyId: string,
   address: `0x${string}`,
   tx: TransactionSerializableEIP1559,
-  bearerToken: string,
+  bearerToken: string
 ): Promise<Hex> {
   const envelope = serializeTransaction(tx, { r: '0x0', s: '0x0', yParity: 0 });
   const out = await client.sign(keyId, { kind: 'evm_tx', transaction: envelope }, bearerToken);
@@ -323,13 +323,9 @@ export interface ChainReceipt {
   blockNumber: bigint;
 }
 
-export async function readReceipt(
-  rpc: RpcPool,
-  hash: Hex,
-  committed = false,
-): Promise<ChainReceipt | null> {
+export async function readReceipt(rpc: RpcPool, hash: Hex): Promise<ChainReceipt | null> {
   const r = await rpc.sequencerReceipt(hash);
-  if (!r || r.rung === 'submitted' || (committed && r.rung !== 'committed')) return null;
+  if (!r || r.rung === 'submitted') return null;
   return {
     status: BigInt(r.status) === 1n ? 'success' : 'reverted',
     gasUsed: BigInt(r.gasUsed),
@@ -354,17 +350,16 @@ export async function waitForReceipt(
   rpc: RpcPool,
   hash: Hex,
   timeoutMs: number,
-  pollMs: number,
-  committed = false,
+  pollMs: number
 ): Promise<ChainReceipt> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const r = await readReceipt(rpc, hash, committed);
+    const r = await readReceipt(rpc, hash);
     if (r) return r;
     if (Date.now() >= deadline)
       throw new Error(`transaction ${hash} has no receipt after ${timeoutMs} ms`);
     await new Promise((resolve) =>
-      setTimeout(resolve, Math.min(pollMs, Math.max(0, deadline - Date.now()))),
+      setTimeout(resolve, Math.min(pollMs, Math.max(0, deadline - Date.now())))
     );
   }
 }
@@ -516,7 +511,7 @@ export async function sponsoredBindRequest(input: {
         chainId,
         token: SIDIORA_TOKEN,
         decimals: 6,
-      }),
+      })
     );
     if (!quoted.success) throw new StationAdapterError(502, 'gas_station_invalid_response');
     const { quote, relayerSignature } = quoted.data;
@@ -550,12 +545,12 @@ export async function sponsoredBindRequest(input: {
         await recoverAddress({
           hash: sponsorQuoteDigest(construction),
           signature: relayerSignature as Hex,
-        }),
+        })
       ) !== getAddress(quote.sponsor)
     )
       throw new StationAdapterError(502, 'gas_station_quote_signature');
     const accountNonce = BigInt(
-      await rpc.request<Hex>('eth_getTransactionCount', [address, 'pending']),
+      await rpc.request<Hex>('eth_getTransactionCount', [address, 'pending'])
     );
     if (accountNonce >= (1n << 64n) - 1n)
       throw new StationAdapterError(409, 'gas_station_account_nonce');
@@ -614,7 +609,7 @@ export async function sponsoredBindRequest(input: {
   }
   const authSignature = await signDigest(
     { kind: 'eip7702_authorization', construction: authConstruction },
-    constructionDigest(authConstruction),
+    constructionDigest(authConstruction)
   );
   const auth = parseSignature(authSignature);
   const authorization = {
