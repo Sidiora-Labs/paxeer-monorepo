@@ -213657,7 +213657,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1225]
 title = "Find and repair why the sub case same of TestProvisionApplyBoundDurableCreation ends in its deadline of 30 seconds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -270773,7 +270773,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.1229]
 title = "Prove on a local chain with a follower that the transactions of the trading application are applied by the follower as the leader applied them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
