@@ -44,6 +44,8 @@ type S3AssetObjects struct {
 }
 
 const (
+	connectedQuarantinePrefix = "quarantine/"
+
 	MediaPartRaster  = "raster"
 	MediaPartScanner = "scanner"
 	MediaPartObjects = "objects"
@@ -362,10 +364,49 @@ func (c ConnectedMedia) upload(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	hash := sha256.Sum256(body)
-	record := AssetRecord{ID: id, Pool: identity.PoolAddress, Hash: hex.EncodeToString(hash[:]), Size: int64(len(body)), ObjectKey: "quarantine/" + id}
+	record := AssetRecord{ID: id, Pool: identity.PoolAddress, Hash: hex.EncodeToString(hash[:]), Size: int64(len(body)), ObjectKey: connectedQuarantinePrefix + id}
 	if e = store.CreateConnectedAsset(ctx, record, mime, decoded.Width, decoded.Height); e != nil {
-		v2Failure(w, e)
-		return
+		if !errors.Is(e, ErrConflict) {
+			v2Failure(w, e)
+			return
+		}
+		var exists bool
+		if e = store.Pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+store.table("assets")+" WHERE id=$1)", id).Scan(&exists); e != nil {
+			v2Failure(w, e)
+			return
+		}
+		if exists {
+			v2Failure(w, ErrConflict)
+			return
+		}
+		stored, _, err := store.FindConnectedAsset(ctx, record.Pool, record.Hash)
+		if errors.Is(err, ErrMissing) {
+			v2Failure(w, ErrConflict)
+			return
+		}
+		if err != nil {
+			v2Failure(w, err)
+			return
+		}
+		id = stored.ID
+		record.ID = id
+		record.ObjectKey = connectedQuarantinePrefix + id
+		storedLock := store.Schema + ":" + id
+		if _, e = connection.Exec(ctx, "SELECT pg_advisory_lock(hashtextextended($1,0))", storedLock); e != nil {
+			v2Failure(w, e)
+			return
+		}
+		defer func() {
+			cleanup, done := context.WithTimeout(context.Background(), time.Second)
+			defer done()
+			if _, err := connection.Exec(cleanup, "SELECT pg_advisory_unlock(hashtextextended($1,0))", storedLock); err != nil {
+				closeConnection(cleanup, connection.Conn())
+			}
+		}()
+		if e = store.CreateConnectedAsset(ctx, record, mime, decoded.Width, decoded.Height); e != nil {
+			v2Failure(w, e)
+			return
+		}
 	}
 	var state string
 	if e = store.Pool.QueryRow(ctx, "SELECT state FROM "+store.table("assets")+" WHERE id=$1", id).Scan(&state); e != nil {
@@ -1212,7 +1253,7 @@ func (c ConnectedMedia) purgeAccountAssets(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *ProductionStore) CreateConnectedAsset(ctx context.Context, a AssetRecord, mime string, width, height int) error {
-	if !uuidRE.MatchString(a.ID) || !addressRE.MatchString(a.Pool) || a.Size < 1 || a.Size > 6<<20 || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(a.Hash) || a.ObjectKey != "quarantine/"+a.ID || (mime != metadataMimePNG && mime != metadataMimeJPEG && mime != metadataMimeWebP) || width < 1 || height < 1 || width > 8192 || height > 8192 || int64(width)*int64(height) > 20000000 {
+	if !uuidRE.MatchString(a.ID) || !addressRE.MatchString(a.Pool) || a.Size < 1 || a.Size > 6<<20 || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(a.Hash) || a.ObjectKey != connectedQuarantinePrefix+a.ID || (mime != metadataMimePNG && mime != metadataMimeJPEG && mime != metadataMimeWebP) || width < 1 || height < 1 || width > 8192 || height > 8192 || int64(width)*int64(height) > 20000000 {
 		return ErrValidation
 	}
 	tx, e := s.Pool.Begin(ctx)
@@ -1250,4 +1291,17 @@ func (s *ProductionStore) CreateConnectedAsset(ctx context.Context, a AssetRecor
 		return ErrConflict
 	}
 	return tx.Commit(ctx)
+}
+
+func (s *ProductionStore) FindConnectedAsset(ctx context.Context, pool, hash string) (AssetRecord, string, error) {
+	if !addressRE.MatchString(pool) || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(hash) {
+		return AssetRecord{}, "", ErrValidation
+	}
+	var a AssetRecord
+	var state string
+	e := s.Pool.QueryRow(ctx, "SELECT id,pool,hash,size,object_key,scanner_engine,scanner_revision,state FROM "+s.table("assets")+" WHERE pool=$1 AND hash=$2", pool, hash).Scan(&a.ID, &a.Pool, &a.Hash, &a.Size, &a.ObjectKey, &a.Engine, &a.Signatures, &state)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return AssetRecord{}, "", ErrMissing
+	}
+	return a, state, e
 }
