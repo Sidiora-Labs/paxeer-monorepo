@@ -55,7 +55,7 @@ export function EmbeddedCoinCard({ poolAddress, stats, positionDisclosure, posit
           </>
         ) : (
           <>
-            <span className="block truncate text-sm font-bold text-text" title={symbol}>{symbol ?? shortAddress(poolAddress)}</span>
+            <span className="block truncate text-sm font-semibold text-text" title={symbol}>{symbol ?? shortAddress(poolAddress)}</span>
             <span className="block truncate text-xs text-text-muted" title={name}>{name ?? 'Unknown coin'}</span>
           </>
         )}

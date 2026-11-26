@@ -83,7 +83,7 @@ export function ColumnChrome({ column, index, count, onMove, onRemove, onChangeT
         </button>
         <span id={`${filterId}-grip-hint`} className="sr-only">Drag, or press the left and right arrow keys, to move this column. Position {index + 1} of {count}.</span>
         <Icon aria-hidden="true" className="size-icon-sm shrink-0 text-text-muted @max-column-icon:hidden" />
-        <h2 className="flex min-w-max flex-1 items-center text-sm font-bold text-text">
+        <h2 className="flex min-w-max flex-1 items-center text-sm font-semibold text-text">
           {/* Content-sized trigger: the caret-only default is a fixed square, which let the label spill left over the type icon. */}
           <DropdownMenu
             label={definition.title}

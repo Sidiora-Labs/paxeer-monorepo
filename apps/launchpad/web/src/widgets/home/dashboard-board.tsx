@@ -16,10 +16,7 @@ import { maxColumns, useDashboardLayout, type WidgetType } from './layout-store'
 import { widgetOrder, widgetRegistry } from './widget-registry';
 import { Column } from './column';
 
-/**
- * Below lg (1024) home is the callouts feed, not the board: pump.fun's 768 and 390 home is a single
- * centred callouts feed. Touch tablets at 1024 keep the board (3 columns), as the reference does.
- */
+/** Below 1024 the home presents coin and callout tabs; wider views keep the board. */
 export const compactHomeQuery = launchpadMedia.compact;
 
 function subscribeMedia(onChange: () => void) {
@@ -40,27 +37,22 @@ function readCompact() {
 
 const desktop = () => false;
 
-/** True below lg, where home renders the callouts feed instead of the board. */
+/** True below lg, where home renders discovery tabs. */
 export function useCompactHome(): boolean {
   return useSyncExternalStore(subscribeMedia, readCompact, desktop);
 }
 
 /**
- * How many columns the board fits side by side: 3 from lg (pump.fun shows 3 at 1024, 1280 and
- * 1440), 4 from 1800 (4 at 1920), 5 on very wide screens. The slot width divides the list by
- * min(that count, the number of columns), so a board with fewer columns than fit fills the width
+ * The board fits 3 columns from lg, 4 from 1800 and 5 on very wide screens.
+ * The slot width divides the list by min(that count, the number of columns), so a board with fewer columns than fit fills the width
  * instead of leaving an empty tail, and a board with more scrolls behind the rail. The 288 px slot
  * minimum keeps every tab row on one line; the column never gets narrower than that.
  */
 export const boardVisibleClass =
   '[--board-visible:2] lg:[--board-visible:3] board-wide:[--board-visible:4] board-ultrawide:[--board-visible:5]';
 export const columnSlotClass = 'min-w-72';
-/**
- * Flush board, as on pump.fun: no outer padding, square column edges, and a 2 px seam of canvas
- * between the surface-1 columns. The seam is background contrast (canvas against surface-1), not a
- * stroke; the slot maths reads the same token, so this override keeps columns filling the width.
- */
-export const boardSeamClass = '[--sl-dashboard-column-gap:var(--sl-board-seam)]';
+/** Flush canvas columns with a hairline between adjacent slots. */
+export const boardSeamClass = '[--sl-dashboard-column-gap:var(--sl-edge-width)]';
 const shown = 'min(var(--board-visible), var(--board-count))';
 export const columnSlotStyle = {
   width: `calc((100% - (${shown} - 1) * var(--sl-dashboard-column-gap)) / ${shown})`,
@@ -187,9 +179,9 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
       {columns.length === 0 ? (
         <div
           data-board-empty=""
-          className="flex flex-1 flex-col items-center justify-center gap-3 bg-surface-1 text-text-muted"
+          className="flex flex-1 flex-col items-center gap-3 bg-canvas p-8 text-text-muted"
         >
-          <p className="text-md font-bold text-text">Your board has no columns</p>
+          <p className="text-md font-semibold text-text">Your board has no columns</p>
           <p className="max-w-70 text-center text-sm text-text-muted">
             Add Trending, callouts, the leaderboard or any other widget as a column.
           </p>
@@ -219,7 +211,7 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
           data-board-overflow={overflow.overflow ? 'true' : 'false'}
           data-board-full={full ? 'true' : 'false'}
           className={cn(
-            'relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto focus-within:snap-none gap-dashboard-column-gap overflow-x-auto overflow-y-hidden scroll-px-2',
+            'relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto focus-within:snap-none gap-dashboard-column-gap overflow-x-auto overflow-y-hidden scroll-px-2 bg-surface-3',
             overflow.overflow && 'pb-1',
             boardVisibleClass,
             boardScrollbarClass

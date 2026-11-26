@@ -1,0 +1,38 @@
+[home]
+brief = "launchpad-ui/design-brief.md sections 1, 2, 4, 5 and 7"
+compact = "Below 1024, Coins, Callouts and Top are text tabs; Coins opens first and reads the board's trending ranking."
+board = "From 1024, columns have canvas headers, hairline seams, coin rows and callout cards separated by hairlines."
+rows = "Coin names use weight 600; market values use weight 700, changes have direction chips and washes, and ticker and age share the secondary line. Rows wrap at enlarged text sizes, retain a usable name link and keep the numeric values together."
+states = "Empty coins offer Create coin; empty callout lists have no retry; failed reads retain recovery controls."
+
+[view.home]
+sections = [1, 2, 4, 5, 7]
+form = "Coins first, Callouts and Top with chronological and relevance reads, and the desktop column board."
+
+[view.first_visit]
+sections = [1, 2, 4, 5, 7]
+form = "The home ranking appears behind the first-visit consent controls; the compact discovery canvas reserves the viewport above its footer."
+
+[view.home_empty]
+sections = [1, 2, 4, 5, 7]
+form = "Content-height empty forms for Coins, Callouts and Top."
+
+[view.home_error]
+sections = [1, 2, 4, 5, 7]
+form = "Failed reads keep the discovery tabs and the recovery action."
+
+[view.home_loading]
+sections = [1, 2, 4, 5, 7]
+form = "Waiting callout cards reserve the author, text and coin embed; the home route keeps its discovery canvas height while loading."
+
+[view.auth_callback]
+sections = [1, 2, 4, 5, 7]
+form = "Content-height sign-in status, waiting blocks and one home action when sign-in cannot continue."
+
+[view.new]
+sections = [1, 2, 4, 5, 7]
+form = "The New shortcut opens the Explore view with the New preset."
+
+[view.not_found]
+sections = [1, 2, 4, 5, 7]
+form = "Unknown routes share a muted search icon, title, one explanation and a secondary home action."
