@@ -214365,7 +214365,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1228]
 title = "Walk the journey of a trader on a local chain with the builders of the trading workspace: deposit, market order, position, part close, close and withdraw, with the reads through the local data gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214545,7 +214545,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1220]
 title = "Walk one agent through the delegated path of the wallet gateway in one case: claim, limits, funding, calls inside the limits, the refusals, freeze and sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
