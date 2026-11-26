@@ -14,6 +14,7 @@ import {
   encodeFunctionResult,
   getAbiItem,
   getAddress,
+  parseUnits,
   toFunctionSignature,
   type Address,
   type Hex,
@@ -39,6 +40,8 @@ const { planCollateral } =
   require("@paxeer-network/paxeer-backend/core/perps/positionWrites") as typeof import("@paxeer-network/paxeer-backend/core/perps/positionWrites");
 const { erc20Abi, COLLATERAL_TOKENS } =
   require("@paxeer-network/paxeer-backend/core/perps/config") as typeof import("@paxeer-network/paxeer-backend/core/perps/config");
+const { buildPerpsAgentPreset, PERPS_AGENT_FUNCTIONS, PERPS_AGENT_APPROVAL } =
+  require("@paxeer-network/paxeer-backend/core/wallet/embedded/agentPreset") as typeof import("@paxeer-network/paxeer-backend/core/wallet/embedded/agentPreset");
 const root = path.resolve(__dirname, "..");
 const kitRequire = createRequire(
   path.join(root, "packages/agent-kit/package.json"),
@@ -713,6 +716,13 @@ async function agentRequestSigningMatchesWalletSdk() {
 test(agentRequestSigningMatchesWalletSdk);
 
 async function everyWriteUsesBackendCallAndGatewaySimulation() {
+  assert.deepEqual(
+    environment()
+      .kit.tools.filter((tool) => !tool.readOnly)
+      .map((tool) => tool.name)
+      .sort(),
+    scenarios.map((scenario) => scenario.name).sort(),
+  );
   for (const scenario of scenarios) {
     const env = environment();
     const start = BigInt(Math.floor(Date.now() / 1000));
@@ -738,6 +748,15 @@ async function everyWriteUsesBackendCallAndGatewaySimulation() {
     assert.equal(sent.value, "0");
     const decoded = decodeFunctionData({ abi: expected.abi, data: sent.data });
     assert.equal(decoded.functionName, expected.functionName);
+    assert.ok(
+      PERPS_AGENT_FUNCTIONS.some(
+        (call) =>
+          call.contract.toLowerCase() === sent.to.toLowerCase() &&
+          call.selector === sent.data.slice(0, 10) &&
+          call.name === decoded.functionName,
+      ),
+      `${scenario.name} sends a function in the shared agent inventory`,
+    );
     // A deadline is chosen by the builder during this bounded invocation.
     if (expected.functionName === "closePositionWithParams") {
       const actualArgs = decoded.args as readonly [
@@ -823,6 +842,26 @@ async function collateralPlansUseExactDurableApprovalRequests() {
     if (approval.functionName !== "approve")
       throw new Error("Expected backend approval");
     const approve = { ...approval, abi: erc20Abi };
+    assert.equal(
+      approve.address.toLowerCase(),
+      PERPS_AGENT_APPROVAL.contract.toLowerCase(),
+    );
+    assert.equal(
+      approve.args[0].toLowerCase(),
+      PERPS_AGENT_APPROVAL.spender.toLowerCase(),
+    );
+    assert.equal(
+      encodeFunctionData(approve).slice(0, 10),
+      PERPS_AGENT_APPROVAL.selector,
+    );
+    assert.ok(
+      PERPS_AGENT_FUNCTIONS.some(
+        (entry) =>
+          entry.contract.toLowerCase() === call.address.toLowerCase() &&
+          entry.selector === encodeFunctionData(call).slice(0, 10) &&
+          entry.name === call.functionName,
+      ),
+    );
     const simulation = env.gateway.requests.find(
       (request) => request.route === "/v1/agent/simulate",
     )!;
@@ -1316,25 +1355,29 @@ async function tradingPresetContainsExactlyTheWriteCapabilities() {
     expiresInSeconds: 3600,
     rateLimitPerMin: 30,
   });
-  const txs = scenarios.map((scenario) => ({
-    to: scenario.expected().address,
-    data: encodeFunctionData(scenario.expected()),
-  }));
-  txs.push({
-    to: USDL,
-    data: encodeFunctionData({
-      abi: erc20Abi,
-      functionName: "approve",
-      args: [PERPS, 1n],
-    }),
-  });
+  assert.deepEqual(
+    PERPS_AGENT_FUNCTIONS.map((call) => call.name).sort(),
+    [
+      "placeOrder",
+      "closePositionWithParams",
+      "setPositionTpSl",
+      "addCollateral",
+      "removeCollateral",
+      "topUpPosition",
+      "cancelOrder",
+      "cancelByCloid",
+      "deposit",
+      "withdraw",
+    ].sort(),
+  );
+  const capabilities = [...PERPS_AGENT_FUNCTIONS, PERPS_AGENT_APPROVAL];
   assert.deepEqual(
     new Set(
       preset.rules
         .filter((rule) => rule.subject === "contract")
         .map((rule) => rule.value),
     ),
-    new Set(txs.map((tx) => tx.to.toLowerCase())),
+    new Set(capabilities.map((call) => call.contract.toLowerCase())),
   );
   assert.deepEqual(
     new Set(
@@ -1342,7 +1385,7 @@ async function tradingPresetContainsExactlyTheWriteCapabilities() {
         .filter((rule) => rule.subject === "selector")
         .map((rule) => rule.value),
     ),
-    new Set(txs.map((tx) => tx.data.slice(0, 10))),
+    new Set(capabilities.map((call) => call.selector)),
   );
   assert.deepEqual(
     preset.rules
@@ -1380,6 +1423,86 @@ async function tradingPresetContainsExactlyTheWriteCapabilities() {
   );
 }
 test(tradingPresetContainsExactlyTheWriteCapabilities);
+
+async function kitPresetAndPagePresetGiveTheSameRules() {
+  for (const owner of [OWNER, getAddress(OWNER), WALLET]) {
+    for (const [txCap, dailyCap] of [
+      ["1", "10"],
+      ["2.5", "25.75"],
+    ]) {
+      const page = buildPerpsAgentPreset(owner, txCap, dailyCap, 3600);
+      const kit = await kitModule.buildTradingPreset({
+        ownerAddress: owner,
+        maxTxValueWei: parseUnits(txCap, 18),
+        maxDailyValueWei: parseUnits(dailyCap, 18),
+        maxApproveWei: parseUnits(txCap, COLLATERAL_TOKENS.usdl.decimals),
+        budgetWei: parseUnits(dailyCap, COLLATERAL_TOKENS.usdl.decimals),
+        expiresInSeconds: 3600,
+        rateLimitPerMin: 60,
+      });
+      const ruleKeys = (rules: typeof page.rules) =>
+        rules.map(
+          (rule) =>
+            `${rule.effect}:${rule.subject}:${rule.value.toLowerCase()}`,
+        );
+      assert.deepEqual(
+        new Set(ruleKeys(kit.rules)),
+        new Set(ruleKeys(page.rules)),
+      );
+      assert.equal(kit.rules.length, new Set(ruleKeys(kit.rules)).size);
+      assert.equal(kit.rules.length, page.rules.length);
+      for (const preset of [kit, page]) {
+        assert.deepEqual(
+          preset.rules
+            .filter((rule) => rule.subject === "address")
+            .map((rule) => ({
+              effect: rule.effect,
+              value: rule.value.toLowerCase(),
+            })),
+          [
+            {
+              effect: "allow",
+              value: PERPS_AGENT_APPROVAL.spender.toLowerCase(),
+            },
+          ],
+        );
+        assert.deepEqual(
+          preset.rules
+            .filter((rule) => rule.subject === "withdrawal")
+            .map((rule) => ({
+              effect: rule.effect,
+              value: rule.value.toLowerCase(),
+            })),
+          [{ effect: "allow", value: owner.toLowerCase() }],
+        );
+        assert.deepEqual(
+          preset.rules
+            .filter((rule) => rule.subject === "token")
+            .map((rule) => ({
+              effect: rule.effect,
+              value: rule.value.toLowerCase(),
+              max_value_wei: rule.max_value_wei,
+            })),
+          [
+            {
+              effect: "allow",
+              value: PERPS_AGENT_APPROVAL.contract.toLowerCase(),
+              max_value_wei: parseUnits(
+                txCap,
+                COLLATERAL_TOKENS.usdl.decimals,
+              ).toString(),
+            },
+          ],
+        );
+        assert.ok(preset.rules.every((rule) => rule.effect === "allow"));
+      }
+      assert.deepEqual(kit.approvalSpenders, [PERPS_AGENT_APPROVAL.spender]);
+      assert.deepEqual(kit.policy, page.policy);
+      assert.deepEqual(kit.budget, page.budgets[0]);
+    }
+  }
+}
+test(kitPresetAndPagePresetGiveTheSameRules);
 
 async function authenticationRejectsUnrelatedChallengesAndPropagatesRefusals() {
   const env = environment();

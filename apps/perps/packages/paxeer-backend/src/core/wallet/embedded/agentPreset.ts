@@ -59,6 +59,47 @@ export const PERPS_AGENT_APPROVAL = {
     args: [PERPS_SPENDER, 1n],
   }).slice(0, 10),
 };
+export function buildPerpsAgentRules(owner: Address, maxApproveWei: string) {
+  return [
+    ...Array.from(
+      new Set(PERPS_AGENT_FUNCTIONS.map((call) => call.contract)),
+    ).map((value) => ({
+      effect: "allow" as const,
+      subject: "contract" as const,
+      value,
+    })),
+    {
+      effect: "allow" as const,
+      subject: "contract" as const,
+      value: PERPS_AGENT_APPROVAL.contract,
+    },
+    ...PERPS_AGENT_FUNCTIONS.map((call) => ({
+      effect: "allow" as const,
+      subject: "selector" as const,
+      value: call.selector,
+      note: call.name,
+    })),
+    {
+      effect: "allow" as const,
+      subject: "selector" as const,
+      value: PERPS_AGENT_APPROVAL.selector,
+      note: "approve",
+    },
+    {
+      effect: "allow" as const,
+      subject: "address",
+      value: PERPS_AGENT_APPROVAL.spender,
+      note: "USDL approval spender",
+    },
+    {
+      effect: "allow" as const,
+      subject: "token",
+      value: COLLATERAL_TOKENS.usdl.address,
+      max_value_wei: maxApproveWei,
+    },
+    { effect: "allow" as const, subject: "withdrawal", value: owner },
+  ] satisfies AgentRuleInput[];
+}
 export interface PerpsAgentPreset {
   policy: AgentPolicy;
   rules: AgentRuleInput[];
@@ -105,49 +146,7 @@ export function buildPerpsAgentPreset(
       daily_reset_utc_hour: 0,
       rate_limit_per_min: 60,
     },
-    rules: [
-      ...Array.from(
-        new Set(PERPS_AGENT_FUNCTIONS.map((call) => call.contract)),
-      ).map(
-        (value): AgentRuleInput => ({
-          effect: "allow",
-          subject: "contract",
-          value,
-        }),
-      ),
-      {
-        effect: "allow",
-        subject: "contract",
-        value: PERPS_AGENT_APPROVAL.contract,
-      },
-      ...PERPS_AGENT_FUNCTIONS.map(
-        (call): AgentRuleInput => ({
-          effect: "allow",
-          subject: "selector",
-          value: call.selector,
-          note: call.name,
-        }),
-      ),
-      {
-        effect: "allow",
-        subject: "selector",
-        value: PERPS_AGENT_APPROVAL.selector,
-        note: "approve",
-      },
-      {
-        effect: "allow",
-        subject: "address",
-        value: PERPS_AGENT_APPROVAL.spender,
-        note: "USDL approval spender",
-      },
-      {
-        effect: "allow",
-        subject: "token",
-        value: COLLATERAL_TOKENS.usdl.address,
-        max_value_wei: approve,
-      },
-      { effect: "allow", subject: "withdrawal", value: owner },
-    ],
+    rules: buildPerpsAgentRules(owner, approve),
     budgets: [
       {
         target_contract: PERPS_SPENDER,
