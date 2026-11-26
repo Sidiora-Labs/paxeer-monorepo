@@ -214005,7 +214005,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1249]
 title = "Copy the file of the wallet gateway source that a fixture of the launchpad web takes into the image of the web, watch it for a build, and add a case that keeps the imports of the web and the copies of the image in step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214125,7 +214125,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1242]
 title = "Declare the subscription of the stats service to the account events its search of profiles is fed by"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
