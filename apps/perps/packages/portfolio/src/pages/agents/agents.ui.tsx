@@ -28,6 +28,7 @@ import {
   type AgentWalletBalances,
 } from "@paxeer-network/paxeer-backend/core/wallet/embedded/agentPreset";
 import { COLLATERAL_TOKENS } from "@paxeer-network/paxeer-backend/core/perps/config";
+import { AgentConnect } from "./agents.connect.ui";
 
 type Load<T> =
   | { status: "loading"; message?: never }
@@ -943,6 +944,7 @@ function AgentControls(
             </div>
           ))}
       </section>
+      {detail.status === "ready" && <AgentConnect key={did} did={did} />}
     </section>
   );
 }

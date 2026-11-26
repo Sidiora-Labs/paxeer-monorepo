@@ -18,3 +18,5 @@ export { buildTradingPreset } from "./preset.js";
 export type { TradingCaps } from "./preset.js";
 export { AgentKitError } from "./result.js";
 export type { ToolResult } from "./result.js";
+export { describeAgentInterface, AGENT_ENV } from "./interface.js";
+export type { AgentInterface, AgentWorkspaceInterface } from "./interface.js";
