@@ -214180,7 +214180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1252]
 title = "End an action of an agent whose nonce is spent, with the receipt of a hash it holds or in a terminal state that says so, and prepare no replacement at a spent nonce"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
