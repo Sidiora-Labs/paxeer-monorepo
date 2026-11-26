@@ -51,3 +51,6 @@ export type {
 
 export { createPaxeerEIP1193Provider } from "./eip1193";
 export type { PaxeerEIP1193Provider } from "./eip1193";
+
+export * from "./sdk/agents";
+export * from "./agentPreset";
