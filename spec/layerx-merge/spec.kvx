@@ -215340,7 +215340,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1318]
 title = "Let an enrollment that changes nothing write nothing in the holdings service of the launchpad, let a read of the portfolio pass when another transaction holds the row of the wallet, and write a log line for each refusal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
