@@ -64,7 +64,7 @@ checkRoutes('create', ['create'], parts.find((part) => part.name === 'create').s
 checkRoutes('rewards', ['leaderboard', 'rewards', 'holder-rewards', 'r'], parts.find((part) => part.name === 'rewards').surface);
 
 const seen = new Map();
-const sharedKeys = ['build', 'buildMs', 'start', 'address', 'readyPath', 'typeScale'];
+const sharedKeys = ['build', 'buildMs', 'address', 'readyPath', 'readyMs', 'typeScale'];
 const communityPaths = [
   '/bounties', '/bounties?render=empty', '/bounties?render=error', '/bounties?render=loading',
   '/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0', '/bounties/new',
@@ -85,6 +85,8 @@ for (const route of communityPaths) {
 
 for (const part of parts) {
   const { surface } = part;
+  const start = `${whole.start} --surface ${path.relative(repositoryRoot, part.file)}`;
+  if (surface.start !== start) fail(`${part.name} part does not start its declared surface`);
   for (const key of sharedKeys) {
     if (!equal(surface[key], whole[key])) fail(`${part.name} part differs in ${key}`);
   }

@@ -30,7 +30,7 @@ export function SearchCoinRow({ id, active, name, symbol, logo, mcapRaw, change2
       <CoinIdentity image={logo} name={name} symbol={symbol} />
       <span className="flex max-w-1/2 flex-col items-end">
         <span className="flex max-w-full flex-wrap items-center justify-end gap-x-2">
-          <MoneyValue raw={mcapRaw} compact size="sm" className="text-right font-bold tabular-nums" />
+          <MoneyValue kind="market" raw={mcapRaw} compact size="sm" className="text-right font-bold tabular-nums" />
           {change24h !== null ? <PercentPill value={change24h} arrow /> : null}
         </span>
         {disabled ? <span className="text-2xs text-text-muted">Not trading yet</span> : null}

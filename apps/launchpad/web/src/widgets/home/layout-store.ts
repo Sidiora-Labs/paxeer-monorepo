@@ -27,7 +27,7 @@ const densities: ReadonlySet<string> = new Set(['compact', 'comfortable']);
 const views: ReadonlySet<string> = new Set(['list', 'cards']);
 
 /**
- * The board a first visit gets, in pump.fun's order: Trending, Hot callouts, Leaderboard. The
+ * The board a first visit gets: Trending, Hot callouts, Leaderboard. The
  * watchlist is not a default column (signed out it is an empty card in prime position); Latest
  * callouts, Screener and Watchlist are one "Add column" away.
  */

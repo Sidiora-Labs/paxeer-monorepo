@@ -67,6 +67,7 @@ export interface PaxeerProviderOptions {
   chainId: number;
   rpcUrl: string;
   fetchImpl?: typeof fetch;
+  nonceWaitTimeoutMs?: number;
 }
 
 export function createPaxeerEIP1193Provider(
@@ -75,6 +76,16 @@ export function createPaxeerEIP1193Provider(
   const { wallet, chainId, rpcUrl } = opts;
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
   const chainIdHex = `0x${chainId.toString(16)}`;
+  const nonceWaitTimeoutMs =
+    opts.nonceWaitTimeoutMs === undefined ? 15_000 : opts.nonceWaitTimeoutMs;
+  if (
+    !Number.isSafeInteger(nonceWaitTimeoutMs) ||
+    nonceWaitTimeoutMs <= 0 ||
+    nonceWaitTimeoutMs > 60_000
+  )
+    throw new Error("nonceWaitTimeoutMs must be an integer from 1 to 60000");
+  const lastSentNonces = new Map<string, number>();
+  const sendTurns = new Map<string, Promise<void>>();
 
   const listeners = new Map<EIP1193Event, Set<Listener>>();
   let cachedIdentity: {
@@ -310,7 +321,11 @@ export function createPaxeerEIP1193Provider(
     return gas ?? gasLimit;
   }
 
-  async function rpcCall(method: string, params: unknown): Promise<unknown> {
+  async function rpcCall(
+    method: string,
+    params: unknown,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
     const id = ++rpcId;
     const res = await fetchImpl(rpcUrl, {
       method: "POST",
@@ -321,6 +336,7 @@ export function createPaxeerEIP1193Provider(
         method,
         params: params ?? [],
       }),
+      ...(signal ? { signal } : {}),
     });
     const json = (await res.json()) as {
       result?: unknown;
@@ -332,6 +348,93 @@ export function createPaxeerEIP1193Provider(
       throw err;
     }
     return json.result;
+  }
+
+  async function sendNonce(
+    address: Hex,
+    binding: SigningSession,
+  ): Promise<number> {
+    const key = address.toLowerCase();
+    const previous = lastSentNonces.get(key);
+    const expiresAt = performance.now() + nonceWaitTimeoutMs;
+    for (;;) {
+      binding.assertCurrent();
+      const controller = new AbortController();
+      let timer!: ReturnType<typeof setTimeout>;
+      const deadline = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => {
+            reject(refusal(-32000, "the transaction count read timed out"));
+            controller.abort();
+          },
+          Math.min(10_000, Math.max(0, expiresAt - performance.now())),
+        );
+      });
+      let result: unknown;
+      try {
+        result = await Promise.race([
+          rpcCall(
+            "eth_getTransactionCount",
+            [address, "latest"],
+            controller.signal,
+          ),
+          deadline,
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
+      binding.assertCurrent();
+      if (typeof result !== "string" || !/^0x[0-9a-fA-F]+$/.test(result))
+        throw refusal(-32603, "the node returned an invalid transaction count");
+      const count = nonce(result);
+      if (count === undefined)
+        throw refusal(-32603, "the node returned an invalid transaction count");
+      if (previous === undefined || count > previous) return count;
+      const remaining = expiresAt - performance.now();
+      if (remaining > 0)
+        await new Promise<void>((resolve) =>
+          setTimeout(resolve, Math.ceil(Math.min(250, remaining))),
+        );
+      binding.assertCurrent();
+      if (performance.now() >= expiresAt) {
+        lastSentNonces.delete(key);
+        return count;
+      }
+    }
+  }
+
+  async function sendTransaction(
+    tx: TxRequest,
+    address: Hex,
+    binding: SigningSession,
+  ): Promise<Hex> {
+    const key = address.toLowerCase();
+    const before = sendTurns.get(key);
+    let release!: () => void;
+    const turn = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    sendTurns.set(key, turn);
+    try {
+      await before;
+      binding.assertCurrent();
+      const assigned = tx.nonce === undefined;
+      if (assigned) tx.nonce = await sendNonce(address, binding);
+      binding.assertCurrent();
+      const response = await wallet.sendTransaction(tx, binding);
+      binding.assertCurrent();
+      checkResponse(response, address, true);
+      if (!/^0x[0-9a-fA-F]{64}$/.test(response.tx_hash))
+        throw refusal(
+          -32603,
+          "the gateway returned an invalid transaction hash",
+        );
+      if (assigned && tx.nonce !== undefined) lastSentNonces.set(key, tx.nonce);
+      return response.tx_hash;
+    } finally {
+      release();
+      if (sendTurns.get(key) === turn) sendTurns.delete(key);
+    }
   }
 
   function asArray(params: RequestArgs["params"]): unknown[] {
@@ -438,15 +541,7 @@ export function createPaxeerEIP1193Provider(
         case "eth_sendTransaction": {
           const { address, binding } = await signerContext();
           const tx = transactionRequest(args, address);
-          const response = await wallet.sendTransaction(tx, binding);
-          binding.assertCurrent();
-          checkResponse(response, address, true);
-          if (!/^0x[0-9a-fA-F]{64}$/.test(response.tx_hash))
-            throw refusal(
-              -32603,
-              "the gateway returned an invalid transaction hash",
-            );
-          return response.tx_hash;
+          return sendTransaction(tx, address, binding);
         }
 
         case "eth_signTransaction": {
@@ -565,6 +660,7 @@ export function createPaxeerEIP1193Provider(
       unsubAuth();
       listeners.clear();
       cachedIdentity = null;
+      lastSentNonces.clear();
     },
   };
 }

@@ -5,7 +5,8 @@ import type { Loadable } from '@/core/market/unsupported';
 import { cn } from '@/lib/utils';
 import { ErrorState, StateNotice } from '@/ui/primitives';
 import type { HolderRewardsStatsResponse } from './holder-rewards-contract';
-import { usdlAmountText } from './holder-rewards-presentation';
+import { formatCompactUsd } from '@/utils/format';
+import { usdlAmountParts } from './holder-rewards-presentation';
 
 export interface StatsRowProps {
   stats: Loadable<HolderRewardsStatsResponse>;
@@ -51,9 +52,8 @@ function DisplayTile({ label, state, tone = 'text', className }: { label: string
 /**
  * Three figures from the holder rewards totals.
  *
- * "At today's prices": rewards are paid in USDL and USDL is the unit every
- * price on Paxeer is quoted in, so the cumulative amount valued at today's
- * price is that same USDL amount. It is derived from the served total and
+ * "At today's prices" shows the market value of the cumulative quote-token
+ * rewards with the same digits and a dollar sign. It uses the served total and
  * shares its availability: when the total is absent the figure renders the
  * neutral unavailable notice, never an estimate.
  */
@@ -62,15 +62,15 @@ export default function StatsRow({ stats }: StatsRowProps) {
   const data = stats.state === 'ready' ? stats.data.data : null;
   const tile = (value: string | null, missing: { title: string; plural?: boolean }, extra?: { unit?: string; caption?: string }): TileState =>
     loading ? { kind: 'loading', caption: extra?.caption } : value === null ? { kind: 'unavailable', ...missing } : { kind: 'value', value, ...extra };
-  const distributed = data ? usdlAmountText(data.cumulativeDistributedRaw) : null;
+  const distributed = data ? usdlAmountParts(data.cumulativeDistributedRaw) : null;
   return (
     <section aria-labelledby="holder-rewards-stats-title" className="flex min-w-0 flex-col gap-2">
       <h2 id="holder-rewards-stats-title" className="sr-only">Holder rewards totals</h2>
       <dl className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <DisplayTile label="Holder rewards" tone="text"
-          state={tile(distributed, { title: 'Holder rewards', plural: true }, { unit: 'USDL' })} />
+          state={tile(distributed?.amount ?? null, { title: 'Holder rewards', plural: true }, { unit: distributed?.unit })} />
         <DisplayTile label="At today's prices"
-          state={tile(distributed, { title: "Today's value" }, { unit: 'USDL', caption: 'Valued in USDL' })} />
+          state={tile(data ? formatCompactUsd(data.cumulativeDistributedRaw, { raw: true, fractionDigits: 0 }) : null, { title: "Today's value" }, { caption: 'Valued in dollars' })} />
         <DisplayTile label="Wallets rewarded" className="sm:col-span-2 lg:col-span-1"
           state={tile(data ? data.walletsRewarded.toLocaleString('en-US') : null, { title: 'Wallet count' })} />
       </dl>

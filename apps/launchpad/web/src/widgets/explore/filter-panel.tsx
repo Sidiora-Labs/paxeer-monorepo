@@ -7,9 +7,9 @@ type FilterField = keyof ExploreFilters;
 
 const fields: ReadonlyArray<{ id: FilterField; label: string; helper: string; unit: string }> = Object.freeze([
   { id: 'maxAgeHours', label: 'Max age', helper: 'Hours since launch', unit: 'h' },
-  { id: 'minMcap', label: 'Min market cap', helper: 'USDL', unit: 'USDL' },
-  { id: 'maxMcap', label: 'Max market cap', helper: 'USDL', unit: 'USDL' },
-  { id: 'minVolume24h', label: 'Min 24h volume', helper: 'USDL traded in the last 24 hours', unit: 'USDL' },
+  { id: 'minMcap', label: 'Min market cap', helper: 'Dollars', unit: '$' },
+  { id: 'maxMcap', label: 'Max market cap', helper: 'Dollars', unit: '$' },
+  { id: 'minVolume24h', label: 'Min 24h volume', helper: 'Dollars traded in the last 24 hours', unit: '$' },
   { id: 'minHolders', label: 'Min holders', helper: 'Number of holders', unit: 'holders' },
 ]);
 

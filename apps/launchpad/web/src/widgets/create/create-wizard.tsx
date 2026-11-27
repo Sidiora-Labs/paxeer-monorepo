@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { displayCoinText } from '@/utils/coin-text';
 import {
@@ -862,8 +863,8 @@ export default function CreateWizard() {
                 <img
                   src={staged.previewUrl}
                   alt=""
-                  width={48}
-                  height={48}
+                  width={launchpadGeometry.images.wallet}
+                  height={launchpadGeometry.images.wallet}
                   decoding="async"
                   className="size-12 rounded-sm object-cover"
                 />
@@ -1162,7 +1163,7 @@ export default function CreateWizard() {
   const showProgress = Boolean(attempt || reviewed || lastRead || state.busy);
 
   return (
-    <div data-create-text className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 pb-[calc(var(--sl-bottom-nav-height)+calc(var(--sl-space-12)*4))] md:pb-4 lg:px-6">
+    <div data-create-text className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 pb-[var(--sl-create-action-clearance)] md:pb-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
           <div className="flex flex-wrap items-center justify-between gap-3">

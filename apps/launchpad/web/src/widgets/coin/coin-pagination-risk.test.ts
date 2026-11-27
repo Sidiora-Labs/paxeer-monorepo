@@ -214,9 +214,9 @@ async function holder_pool_badge_preserves_creator_links_and_wallet_rows() {
   expect(walletRow.querySelector('a')?.getAttribute('href')).toBe(`/profile/${holder}`);
   expect(walletRow.querySelector('[data-dev-badge], [data-pool-badge]')).toBeNull();
   expect(rows.map(row => [...row.querySelectorAll('td')].slice(1, 4).map(cell => cell.textContent))).toEqual([
-    ['3', '0.00%', '6.00 USDL'],
-    ['2', '0.00%', '4.00 USDL'],
-    ['1', '0.00%', '2.00 USDL'],
+    ['3', '0.00%', '$6.00'],
+    ['2', '0.00%', '$4.00'],
+    ['1', '0.00%', '$2.00'],
   ]);
 
   const mixedCasePool = `0x${pool.slice(2).toUpperCase()}`;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { UserX } from 'lucide-react';
 import { Button, EmptyState, NoticeBar, humanError } from '@/ui/primitives';
 import { FollowButton } from '@/widgets/social/follow-button';
@@ -119,9 +119,7 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
       ) : null}
       {auth.error ? <p role="alert" className="px-4 pt-2 text-xs text-danger md:px-5">{humanError(auth.error)}</p> : null}
       {centerExtra}
-      <Suspense fallback={<div aria-busy="true" className="h-11" />}>
-        <ProfileTabs isOwner={owner} panels={{ ...panels, ...ownerPanels }} />
-      </Suspense>
+      <ProfileTabs isOwner={owner} panels={{ ...panels, ...ownerPanels }} />
     </>
   );
 

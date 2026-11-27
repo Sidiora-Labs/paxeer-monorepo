@@ -188,7 +188,7 @@ describe('right rail against a real HTTP origin', () => {
     await waitFor(() => /Net vol/.test(view.container.textContent ?? '') && /5\.00/.test(view.container.textContent ?? ''));
     const text = view.container.textContent ?? '';
     expect(text).toContain('7.00');
-    expect(text).toContain('+3.00');
+    expect(text).toContain('+$3.00');
     expect(text).toContain('Buy and sell counts are still loading for this window.');
     expect(text).toContain('+25');
     expect(market.paths.filter(path => path.includes('/candles?')).length).toBeGreaterThanOrEqual(4);

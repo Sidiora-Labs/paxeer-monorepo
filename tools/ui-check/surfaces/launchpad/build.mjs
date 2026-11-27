@@ -19,11 +19,13 @@ const inputs = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '-
   'precompiles/launchpad/abi', 'tools/ui-check/surfaces/launchpad/build.mjs',
   'tools/ui-check/surfaces/launchpad/environment.mjs',
 ]).toString().split('\0').filter(Boolean).sort();
+const deletedInputs = new Set(execFileSync('git', ['ls-files', '-z', '--deleted']).toString().split('\0'));
 const environment = Object.entries(applicationEnvironment())
   .filter(([name]) => /^(NEXT_|WEB_|SENTRY_|NODE_ENV$|NODE_OPTIONS$|VERCEL$|CI$)/.test(name))
   .sort(([left], [right]) => left.localeCompare(right));
 const digest = createHash('sha256').update(JSON.stringify(environment)).update(process.version);
 for (const input of inputs) {
+  if (deletedInputs.has(input)) continue;
   digest.update(input);
   digest.update(readFileSync(input));
 }

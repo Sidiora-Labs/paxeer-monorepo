@@ -117,7 +117,7 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
         </div>
         {callouts
           ? (
-            <aside aria-label="Callouts" className="flex w-85 max-w-[50%] shrink-0 flex-col overflow-auto bg-surface-2">
+            <aside aria-label="Callouts" className="flex w-85 max-w-1/2 shrink-0 flex-col overflow-auto bg-surface-2">
               <HotCalloutsPanel poolAddress={pool} initialFeed="coin" />
             </aside>
           )

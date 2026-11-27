@@ -66,7 +66,7 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
       {loadable.state === 'loading' ? (
         <div aria-busy="true" className="flex min-h-40 flex-col justify-center gap-3 rounded-lg bg-surface-1 p-4">
           <Skeleton height={surfaceSpacing(6)} width={surfaceSpacing(6)} label="Loading submissions" className="self-center" />
-          <Skeleton width="50%" className="self-center" />
+          <Skeleton width="var(--sl-skeleton-width-half)" className="self-center" />
         </div>
       ) : null}
       {loadable.state === 'unsupported' ? (
@@ -97,14 +97,14 @@ function DetailSkeleton() {
     <>
       <div aria-busy="true" className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] md:p-6">
         <Skeleton variant="pill" width={surfaceSpacing(45)} height={surfaceSpacing(11)} label="Loading bounty" />
-        <Skeleton width="70%" className="h-[1lh] text-lg" />
+        <Skeleton width="var(--sl-skeleton-width-heading)" className="h-[1lh] text-lg" />
         <Skeleton width={surfaceSpacing(40)} height={surfaceSpacing(11)} />
         <Skeleton width={surfaceSpacing(30)} height={surfaceSpacing(7)} />
-        <Skeleton width="70%" className="h-[1lh] text-sm" />
+        <Skeleton width="var(--sl-skeleton-width-heading)" className="h-[1lh] text-sm" />
       </div>
       <section aria-busy="true" className="flex flex-col gap-2 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] md:p-6">
         <Skeleton width={surfaceSpacing(30)} className="h-[1lh] text-md" label="Loading tasks and rules" />
-        <Skeleton width="70%" className="h-[1lh] text-sm" />
+        <Skeleton width="var(--sl-skeleton-width-heading)" className="h-[1lh] text-sm" />
       </section>
     </>
   );

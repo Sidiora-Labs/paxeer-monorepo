@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -91,8 +92,8 @@ export default function TopBar() {
         <Image
           src="/Kindle-Launch-logo-dark.png"
           alt=""
-          width={28}
-          height={28}
+          width={launchpadGeometry.images.brand}
+          height={launchpadGeometry.images.brand}
           className="size-7"
         />
       </Link>

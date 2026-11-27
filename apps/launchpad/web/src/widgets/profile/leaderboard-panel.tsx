@@ -10,7 +10,7 @@ import { leaderboardLimit, useLeaderboard, type LeaderboardCategory, type Leader
 import { useWalletIdentities, type WalletIdentity } from '@/core/market/use-wallet-identities';
 import type { Loadable } from '@/core/market/unsupported';
 import { Avatar, EmptyState, ErrorState, RankBadge, SelectPill, Skeleton, UnavailableState, type SelectOption } from '@/ui/primitives';
-import { formatUsdl, relativeAge, shortAddress } from '@/utils/format';
+import { relativeAge, shortAddress, formatCompactUsd } from '@/utils/format';
 import { accountSession, subscribeAccount } from './account-transport';
 import { useProfileIssue } from './profile-issues';
 
@@ -45,7 +45,7 @@ export interface LeaderboardPanelProps {
 /** Value column text; `unavailable` entries carry no trustworthy metric and render a dash. */
 export function leaderboardValue(entry: LeaderboardEntry, metric: LeaderboardMetric): string | null {
   if (entry.quality === 'unavailable') return null;
-  return formatUsdl(metric === 'profit' ? entry.metricSigned ?? entry.metricRaw : entry.metricRaw, { signed: metric === 'profit' });
+  return formatCompactUsd(metric === 'profit' ? entry.metricSigned ?? entry.metricRaw : entry.metricRaw, { raw: true, signed: metric === 'profit' });
 }
 
 /** Short wallet without the 0x prefix so the initials fallback reads as two hex digits. */

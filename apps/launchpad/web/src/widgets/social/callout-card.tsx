@@ -136,9 +136,9 @@ export function CalloutCardSkeleton({ className }: { className?: string }) {
     <div aria-hidden="true" className={cn('sl-hairline flex flex-col gap-3 bg-surface-1 p-4', className)}>
       <div className="flex items-center gap-3">
         <Skeleton variant="circle" className="size-avatar-lg" />
-        <div className="flex flex-1 flex-col gap-1.5"><Skeleton width="40%" /><Skeleton width="20%" className="h-3" /></div>
+        <div className="flex flex-1 flex-col gap-1.5"><Skeleton width="var(--sl-skeleton-width-label)" /><Skeleton width="var(--sl-skeleton-width-short)" className="h-3" /></div>
       </div>
-      <Skeleton /><Skeleton width="92%" /><Skeleton width="60%" />
+      <Skeleton /><Skeleton width="var(--sl-skeleton-width-line)" /><Skeleton width="var(--sl-skeleton-width-medium)" />
       <Skeleton variant="block" height={surfaceSpacing(16)} />
     </div>
   );

@@ -207,7 +207,7 @@ describe('trending row', () => {
     const html = render(<ol><TrendingRow row={row} starred={false} onToggleStar={() => undefined} /></ol>);
     expect(html).toContain('Pepe Pax');
     expect(html).toContain('$0.0004567');
-    expect(html).toContain('29.7K MC');
+    expect(html).toContain('$29.7K MC');
     expect(html).toContain('+12.5%');
     expect(html).toContain('https://x.com/pepe');
     expect(html).toContain('sl-row-wash-up');
@@ -273,12 +273,12 @@ describe('widget helpers', () => {
   it('marks fees unavailable on screener cards and signs leaderboard metrics', () => {
     const stats = screenerStats({ poolAddress: '0x1', tokenAddress: null, rank: 1, name: 'A', symbol: 'A', image: null, href: '/token/0x1', mcapRaw: null, mcap: null, mcapReason: null, circulatingMcapRaw: null, volume24hRaw: '5000000', volume24h: 5, createdAtMs: null, ageMs: null, txns: 1234, traders: null, holders: null, price: null, priceReason: null, change5m: null, change1h: null, change6h: null, change24h: null, changes: statsChanges(null), top10Share: null, devShare: null, sharesReason: null, stage: null, creator: null, description: null });
     expect(stats.map(s => s.label)).toEqual(['V', 'TX', 'F']);
-    expect(stats[0].value).toBe('5.00');
+    expect(stats[0].value).toBe('$5.00');
     expect(stats[1].value).toBe('1.2K');
     expect(renderToStaticMarkup(<>{stats[2].value}</>)).toContain(feesUnavailableReason);
-    expect(leaderboardMetric({ metricRaw: '1500000000', quality: 'complete' })).toEqual({ text: '1.5K', tone: 'neutral' });
-    expect(leaderboardMetric({ metricRaw: '1500000000', metricSigned: '-1500000000', quality: 'complete' })).toEqual({ text: '-1.5K', tone: 'danger' });
-    expect(leaderboardMetric({ metricRaw: '1500000000', metricSigned: '1500000000', quality: 'complete' })).toEqual({ text: '+1.5K', tone: 'success' });
+    expect(leaderboardMetric({ metricRaw: '1500000000', quality: 'complete' })).toEqual({ text: '$1.5K', tone: 'neutral' });
+    expect(leaderboardMetric({ metricRaw: '1500000000', metricSigned: '-1500000000', quality: 'complete' })).toEqual({ text: '-$1.5K', tone: 'danger' });
+    expect(leaderboardMetric({ metricRaw: '1500000000', metricSigned: '1500000000', quality: 'complete' })).toEqual({ text: '+$1.5K', tone: 'success' });
     expect(leaderboardMetric({ metricRaw: '0', quality: 'unavailable' })).toEqual({ text: '—', tone: 'neutral' });
     expect(feedOrderFor('latest')).toBe('chronological'); expect(feedOrderFor('hot')).toBe('relevance');
   });

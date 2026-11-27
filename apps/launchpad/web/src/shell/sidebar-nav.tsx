@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { useCallback, useSyncExternalStore } from 'react';
 import Link from 'next/link';
@@ -240,8 +241,8 @@ export default function SidebarNav() {
             <Image
               src="/Kindle-Launch-logo-dark.png"
               alt=""
-              width={28}
-              height={28}
+              width={launchpadGeometry.images.brand}
+              height={launchpadGeometry.images.brand}
               className="size-7"
             />
             {expanded ? <span className="text-base font-semibold text-text">Sidiora</span> : null}

@@ -195,8 +195,8 @@ function accordionStorageFallbackPreservesObservedStorageBaseline() {
 async function positionPaginationFindsPageTwoAndStops() {
   nextAfterMatch = true;
   const view = mountPosition('0x' + 'BB'.repeat(20));
-  await waitFor(() => values(view)[0] === '3.00');
-  expect(values(view)).toEqual(['3.00', '2.50', '+0.40', '+0.90']);
+  await waitFor(() => values(view)[0] === '$3.00');
+  expect(values(view)).toEqual(['$3.00', '$2.50', '+$0.40', '+$0.90']);
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
   expect(seen.map(row => row.url)).toEqual(['/v3/me/portfolio?limit=50', '/v3/me/portfolio?limit=50&cursor=snapshot-0-page-two']);
   expect(seen.every(row => row.headers.authorization === 'Bearer repair-position-session' && row.headers.cookie === undefined)).toBe(true);
@@ -205,7 +205,7 @@ async function positionPaginationFindsPageTwoAndStops() {
 
 async function positionPaginationStopsOnPageOne() {
   const view = mountPosition('0x' + '0'.repeat(39) + '1');
-  await waitFor(() => values(view)[0] === '3.00');
+  await waitFor(() => values(view)[0] === '$3.00');
   expect(seen.map(row => row.url)).toEqual(['/v3/me/portfolio?limit=50']);
 }
 
@@ -226,10 +226,10 @@ async function positionPaginationResetsOnSnapshotChangeAndIgnoresLatePages() {
   expect(values(view)).toEqual(['...', '...', '...', '...']);
   const latest = pending.pop()!;
   await act(async () => { latest.response.end(JSON.stringify(latest.body)); });
-  await waitFor(() => values(view)[0] === '4.00');
+  await waitFor(() => values(view)[0] === '$4.00');
   releaseContinuations();
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
-  expect(values(view)).toEqual(['4.00', '2.50', '+0.40', '+1.90']);
+  expect(values(view)).toEqual(['$4.00', '$2.50', '+$0.40', '+$1.90']);
   expect(seen.filter(row => row.url.includes('cursor=')).map(row => row.url)).toEqual([
     '/v3/me/portfolio?limit=50&cursor=snapshot-0-page-two', '/v3/me/portfolio?limit=50&cursor=snapshot-1-page-two',
   ]);
@@ -243,8 +243,8 @@ async function positionPaginationRejectsMismatchedSnapshotAndRefreshes() {
   expect(seen.filter(row => row.url.includes('cursor='))).toHaveLength(1);
   generation = 1; mismatchContinuation = false;
   act(() => button(view, 'Refresh your portfolio').click());
-  await waitFor(() => values(view)[0] === '4.00');
-  expect(values(view)).toEqual(['4.00', '2.50', '+0.40', '+1.90']);
+  await waitFor(() => values(view)[0] === '$4.00');
+  expect(values(view)).toEqual(['$4.00', '$2.50', '+$0.40', '+$1.90']);
 }
 
 async function positionPaginationSurfacesContinuationFailureAndRetries() {
@@ -256,13 +256,13 @@ async function positionPaginationSurfacesContinuationFailureAndRetries() {
   expect(seen.filter(row => row.url.includes('cursor='))).toHaveLength(1);
   failContinuation = false;
   act(() => button(view, 'Try loading your position again').click());
-  await waitFor(() => values(view)[0] === '3.00');
+  await waitFor(() => values(view)[0] === '$3.00');
   expect(seen.filter(row => row.url.includes('cursor='))).toHaveLength(2);
 }
 
 async function positionPaginationClearsAmountsOnSignOut() {
   const view = mountPosition();
-  await waitFor(() => values(view)[0] === '3.00');
+  await waitFor(() => values(view)[0] === '$3.00');
   const requests = seen.length;
   act(() => clearAccountSession(false));
   expect(accountSession()).toBeNull();

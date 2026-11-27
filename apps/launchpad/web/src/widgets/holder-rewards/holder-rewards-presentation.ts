@@ -1,7 +1,7 @@
 import { displayCoinText } from '@/utils/coin-text';
 import type { TokenMetadata } from '@/widgets/home/types';
 import { safeExternalDestination, poolPath } from '@/core/app-foundation/navigation';
-import { formatCount, formatUsdl } from '@/utils/format';
+import { formatCount, formatUsdl, formatCompactUsd } from '@/utils/format';
 import type { HolderRewardPool, HolderRewardsSort, PoolStats } from './holder-rewards-contract';
 import { marketCapRaw } from '@/core/market/pool-stats-display';
 
@@ -123,19 +123,13 @@ export function sortLabel(key: HolderRewardsSortKey): string {
   return sortOptions.find(option => option.value === key)?.label ?? key;
 }
 
-const oneUsdlRaw = 1_000_000n;
-
-/** Whole-unit USDL for the rewards cell; sub-unit totals read "< 1 USDL". */
+/** Whole-unit reward amounts retain their quote-token unit and sub-unit floor. */
 export function rewardsText(raw: string | null | undefined): string {
-  if (typeof raw === 'string' && /^\d+$/.test(raw)) {
-    const value = BigInt(raw);
-    if (value > 0n && value < oneUsdlRaw) return '< 1 USDL';
-  }
-  return formatUsdl(raw, { fractionDigits: 0 });
+  return formatUsdl(raw, { fractionDigits: 0, minimumUnit: true });
 }
 
 export function mcapText(raw: string | null | undefined): string {
-  return formatUsdl(raw, { compact: true, unit: false });
+  return formatCompactUsd(raw, { raw: true, compact: true });
 }
 
 /** Full grouped count ("14,726"), as the reference prints it; compact notation hid up to 99 wallets. */
@@ -200,8 +194,15 @@ export function rowsToCsv(rows: readonly HolderRewardRow[]): string {
   return `${lines.join('\n')}\n`;
 }
 
-/** Display numeral for the stat bar and cards: the amount without the unit, which is rendered smaller beside it. */
-export function usdlAmountText(raw: string | null | undefined): string {
+/** Keep the formatter's numeral and unit available for separate type weights. */
+export function usdlAmountParts(raw: string | null | undefined): { amount: string; unit: string } {
   const text = rewardsText(raw);
-  return text.endsWith(' USDL') ? text.slice(0, -5) : text;
+  if (text === '—') return { amount: text, unit: '' };
+  const separator = text.lastIndexOf(' ');
+  return { amount: text.slice(0, separator), unit: text.slice(separator + 1) };
+}
+
+/** Numeral used beside the formatter's unit in reward figures. */
+export function usdlAmountText(raw: string | null | undefined): string {
+  return usdlAmountParts(raw).amount;
 }
