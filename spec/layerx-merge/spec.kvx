@@ -183135,7 +183135,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1315]
 title = "Let every view of the trading web name the collateral token USDL while the keys of the code keep the word USDC, through one function that gives the name to show for a key, and bring the record of the presentation in line with the changed files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
