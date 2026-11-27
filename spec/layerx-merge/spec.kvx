@@ -214873,7 +214873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1292]
 title = "Renew the transcript of the reward history of the pnl module with its recorder for migration 150012"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214903,7 +214903,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1291]
 title = "Let the in-process stores of the metadata cases answer the read that the function Restrict sends before its transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
