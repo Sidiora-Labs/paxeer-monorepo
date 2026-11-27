@@ -17548,6 +17548,12 @@ value = "Point one. A layer that lies over the text of the page for as long as i
 basis = "Gotcha 5016."
 affects = []
 
+[decision.4073]
+title = "The definition of the wallet gateway sets the two value limits of a user"
+value = "Point one. The section of variables of deploy/projects/wallet/wallet-gateway.kvx sets POLICY_MAX_TX_VALUE_WEI from the input WALLET_WALLET_GATEWAY_POLICY_MAX_TX_VALUE_WEI and POLICY_MAX_DAILY_VALUE_WEI from the input WALLET_WALLET_GATEWAY_POLICY_MAX_DAILY_VALUE_WEI, in the form of the other variables of that section that come from an input. Point two. The section of inputs names both inputs with the kind operator, each under a comment line in the form of the other inputs. The comments say what the values are: the largest value of one transaction of a user in wei, and the largest sum of the values of the transactions of a user within 24 hours in wei, each as a decimal integer that is not negative. Point three. The one who deploys from the definition decides both limits. The project tool counts an input that the environment does not hold as unresolved at line 576 of tools/deploy/platform-project.py and refuses an apply at line 582, so no deployment made from the definition starts on the defaults without that decision. Point four. Not changed here: the schema of the gateway and its two defaults, which stay for a start outside the definition, the function evaluate, every other variable and input of the definition, the other definitions of the folder, the project tool and the existing case files."
+basis = "Gotcha 5017."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47208,6 +47214,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1288]
+title = "Set the two value limits of a user in the definition of the wallet gateway"
+reqs = ["22998.1"]
+touches = ["deploy/projects/wallet/wallet-gateway.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_definition_sets_both_value_limits tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_value_limits_are_operator_inputs tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_schema_still_reads_both_value_limits tools/deploy/tests/projects/test_wallet_gateway_value_limits.py"
+do_1 = "do_1 Gotcha 5017, decision 4073. Read deploy/projects/wallet/wallet-gateway.kvx whole, services/wallet/gateway/src/env.ts from line 126 to line 135, services/wallet/gateway/src/policy/index.ts from line 45 to line 106, and the two existing case files tools/deploy/tests/projects/test_wallet_wallet_gateway.py and tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py whole."
+symbols = []
 
 [capability.22.44.155]
 title = "Draw the layers at the lower edge of a narrow window opaque"
@@ -214566,6 +214581,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1288]
+title = "Set the two value limits of a user in the definition of the wallet gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1288"]
+interfaces = []
+do_1 = "do_1 Gotcha 5017, decision 4073. Read deploy/projects/wallet/wallet-gateway.kvx whole, services/wallet/gateway/src/env.ts from line 126 to line 135, services/wallet/gateway/src/policy/index.ts from line 45 to line 106, and the two existing case files tools/deploy/tests/projects/test_wallet_wallet_gateway.py and tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py whole."
+do_2 = "do_2 Change deploy/projects/wallet/wallet-gateway.kvx as decision 4073 says. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file tools/deploy/tests/projects/test_wallet_gateway_value_limits.py. The file reads the definition and the source the way the existing case file tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py does and changes nothing in the two existing case files. One: test_definition_sets_both_value_limits. The section of variables holds POLICY_MAX_TX_VALUE_WEI and POLICY_MAX_DAILY_VALUE_WEI, and the value of each is the prefix env: followed by the name of the folder, the name of the service and the name of the variable, in upper case, joined by underscores, with every dash turned into an underscore. Two: test_value_limits_are_operator_inputs. The section of inputs holds each of the two input names once with the kind operator, and the line above each is a comment that holds the word as between two spaces and the word wei. Three: test_schema_still_reads_both_value_limits. The text of services/wallet/gateway/src/env.ts holds the fields POLICY_MAX_TX_VALUE_WEI and POLICY_MAX_DAILY_VALUE_WEI, so that a new name in the source shows here. Run the two existing case files named above by hand before the change and after it. A case of those files that fails the same way before and after is named in the final message with its first message and is not repaired. A case of those files that fails only after the change is repaired inside the paths. Say in the final message that you saw the first two cases fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time and never opens a listener or a port. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/wallet/wallet-gateway.kvx"]
+tests = []
+planned_paths = ["tools/deploy/tests/projects/test_wallet_gateway_value_limits.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_wallet_gateway_value_limits.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_definition_sets_both_value_limits tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_value_limits_are_operator_inputs tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_schema_still_reads_both_value_limits tools/deploy/tests/projects/test_wallet_gateway_value_limits.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
