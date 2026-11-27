@@ -218656,7 +218656,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.147]
 title = "Close the launchpad look at the joined state: every part of the render check without a finding, shared forms in the primitives and every view compared with the brief"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.139", "22.44.140", "22.44.141", "22.44.142", "22.44.143", "22.44.144", "22.44.145", "22.44.146"]
