@@ -238103,7 +238103,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1316]
 title = "Take the observation sequences of the committed read of the price sidecar from the consensus endpoint at the height of the account answer, so that a round no longer waits for the safe height of the EVM side"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
