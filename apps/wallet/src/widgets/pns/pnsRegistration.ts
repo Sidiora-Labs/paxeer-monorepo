@@ -321,7 +321,13 @@ export class PnsRegistrationSession {
         tags.push(n);
       for (const tag of tags) {
         this.check();
-        const block = await provider.getBlock(tag, true);
+        let block: ethers.Block | null;
+        try {
+          block = await provider.getBlock(tag, true);
+        } catch (error) {
+          if (tag === 'pending') continue;
+          throw error;
+        }
         if (!block) throw new Error('PNS transaction reconciliation could not read a block');
         for (const txHash of block.transactions) {
           const tx = await provider.getTransaction(txHash);
@@ -358,7 +364,9 @@ export class PnsRegistrationSession {
   ) {
     const provider = await this.bound(signer);
     const [nonce, startBlock] = await Promise.all([
-      provider.getTransactionCount(intent.account, 'pending'),
+      provider
+        .getTransactionCount(intent.account, 'pending')
+        .catch(() => provider.getTransactionCount(intent.account, 'latest')),
       provider.getBlockNumber(),
     ]);
     const saved: JournalTransaction = {
