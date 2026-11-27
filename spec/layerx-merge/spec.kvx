@@ -214647,7 +214647,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1287]
 title = "Price the positions of the trade path and of the rebuild path of the pnl service from indexed data"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
