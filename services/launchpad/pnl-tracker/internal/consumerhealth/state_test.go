@@ -26,6 +26,25 @@ func healthState() (*State, *time.Time, *bytes.Buffer) {
 	return state, &now, &output
 }
 
+func TestRecordDeliveryCancellationAndProgress(t *testing.T) {
+	state, now, _ := healthState()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	state.RecordDelivery(ctx, context.Canceled, "cancelled", nil)
+	if got := state.Snapshot(); got != (Snapshot{}) {
+		t.Fatalf("shutdown cancellation changed delivery health: %+v", got)
+	}
+	state.RecordDelivery(ctx, delivery.ErrIntegrity, "integrity", nil)
+	if got := state.Snapshot(); got.ConsecutiveFailures != 1 || got.LastError != *now || got.ErrorClass != "integrity" {
+		t.Fatalf("integrity observation = %+v", got)
+	}
+	*now = now.Add(time.Second)
+	state.RecordDelivery(context.Background(), nil, "", nil)
+	if got := state.Snapshot(); got.ConsecutiveFailures != 0 || got.LastSuccess != *now || got.RetryPartitions != 0 {
+		t.Fatalf("delivery progress = %+v", got)
+	}
+}
+
 func TestStateProgressBoundAndRecovery(t *testing.T) {
 	state, now, output := healthState()
 	ctx := context.Background()

@@ -60,6 +60,8 @@ export interface PaxeerProviderOptions {
   fetchImpl?: typeof fetch;
   /** Read deadline, including the response body (10 seconds by default). */
   rpcTimeoutMs?: number;
+  /** Maximum wait for the node to count an accepted send (15 seconds by default). */
+  nonceWaitTimeoutMs?: number;
 }
 
 export function createPaxeerEIP1193Provider(
@@ -75,7 +77,18 @@ export function createPaxeerEIP1193Provider(
     rpcTimeoutMs > 10_000
   )
     throw new Error("rpcTimeoutMs must be an integer between 1 and 10000");
+  const nonceWaitTimeoutMs = opts.nonceWaitTimeoutMs ?? 15_000;
+  if (
+    !Number.isSafeInteger(nonceWaitTimeoutMs) ||
+    nonceWaitTimeoutMs <= 0 ||
+    nonceWaitTimeoutMs > 60_000
+  )
+    throw new Error(
+      "nonceWaitTimeoutMs must be an integer between 1 and 60000",
+    );
   const rpcRequests = new Set<AbortController>();
+  const acceptedNonces = new Map<Hex, number>();
+  let sendQueue: Promise<void> = Promise.resolve();
 
   const listeners = new Map<EIP1193Event, Set<Listener>>();
   let cachedAddress: `0x${string}` | null = null;
@@ -385,6 +398,35 @@ export function createPaxeerEIP1193Provider(
     return value !== null && typeof value === "object" && !Array.isArray(value);
   }
 
+  async function nextNonce(address: Hex, generation: number): Promise<number> {
+    const deadline = performance.now() + nonceWaitTimeoutMs;
+    while (true) {
+      requireGeneration(generation);
+      const result = await rpcCall("eth_getTransactionCount", [
+        address,
+        "latest",
+      ]);
+      requireGeneration(generation);
+      if (
+        typeof result !== "string" ||
+        !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/.test(result) ||
+        BigInt(result) > BigInt(Number.MAX_SAFE_INTEGER)
+      )
+        throw providerError(-32603, "Invalid wallet transaction count");
+      const nonce = Number(BigInt(result));
+      const accepted = acceptedNonces.get(address);
+      if (accepted === undefined || nonce > accepted) return nonce;
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        acceptedNonces.delete(address);
+        return nonce;
+      }
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, Math.min(250, remaining)),
+      );
+    }
+  }
+
   function asArray(params: RequestArgs["params"]): unknown[] {
     return Array.isArray(params) ? params : params ? [params] : [];
   }
@@ -464,24 +506,42 @@ export function createPaxeerEIP1193Provider(
 
         case "eth_sendTransaction": {
           const tx = (args[0] ?? {}) as Record<string, unknown>;
-          const { session, generation, address } = await signingSession();
-          requireTransactionConsent(tx, address);
-          await assertSession(session, generation);
-          const r = await wallet.sendTransaction(
-            {
-              to: tx.to as `0x${string}` | undefined,
-              data: tx.data as `0x${string}` | undefined,
-              ...transactionQuantities(tx),
-              chainId,
-            },
-            session,
-            () => requireGeneration(generation),
+          const send = async () => {
+            const { session, generation, address } = await signingSession();
+            requireTransactionConsent(tx, address);
+            await assertSession(session, generation);
+            const quantities = transactionQuantities(tx);
+            const nonce =
+              quantities.nonce ?? (await nextNonce(address, generation));
+            await assertSession(session, generation);
+            const r = await wallet.sendTransaction(
+              {
+                to: tx.to as `0x${string}` | undefined,
+                data: tx.data as `0x${string}` | undefined,
+                ...quantities,
+                nonce,
+                chainId,
+              },
+              session,
+              () => requireGeneration(generation),
+            );
+            await assertSession(session, generation);
+            requireResponse(r, address);
+            if (!/^0x[0-9a-fA-F]{64}$/.test(r.tx_hash))
+              throw providerError(-32603, "Invalid transaction hash");
+            acceptedNonces.set(
+              address,
+              Math.max(acceptedNonces.get(address) ?? nonce, nonce),
+            );
+            return r.tx_hash;
+          };
+          if (tx.nonce !== undefined) return send();
+          const result = sendQueue.then(send);
+          sendQueue = result.then(
+            () => undefined,
+            () => undefined,
           );
-          await assertSession(session, generation);
-          requireResponse(r, address);
-          if (!/^0x[0-9a-fA-F]{64}$/.test(r.tx_hash))
-            throw providerError(-32603, "Invalid transaction hash");
-          return r.tx_hash;
+          return result;
         }
 
         case "eth_signTransaction": {
@@ -648,6 +708,7 @@ export function createPaxeerEIP1193Provider(
           providerError(4900, "The wallet provider was destroyed"),
         );
       rpcRequests.clear();
+      acceptedNonces.clear();
       unsubAuth();
       listeners.clear();
       cachedAddress = null;

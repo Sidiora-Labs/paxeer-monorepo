@@ -11,6 +11,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/launchpad-test.yml"
+AGENT_KIT = "sdk/launchpad/packages/agent-kit"
 GO_TOKEN = re.compile(
     r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|`[^`]*`|'
     r"'(?:\\.|[^'\\])*'|[A-Za-z_]\w*|[^\s]",
@@ -99,6 +100,10 @@ def environment_reads(source, context):
 
 @lru_cache(maxsize=None)
 def producer_inventory(package):
+    if package == AGENT_KIT:
+        # The local journey imports wallet gateway helpers outside this package;
+        # those helpers start their own database and build Go attestors with TLS.
+        return set(), {"go", "anvil", "initdb", "pg_ctl", "openssl", "node", "pnpm"}
     directory = ROOT / package
     sources = {
         path: path.read_text()
@@ -219,3 +224,78 @@ def test_package_tools_and_database_precede_package_cases(package):
     assert package_condition_matches(postgres, package) == ("pg_config" in programs)
     assert "postgresql" in postgres["run"]
     assert steps.index(postgres) < steps.index(test)
+
+
+def test_agent_kit_fixture_steps_are_isolated_and_ordered():
+    workflow = launchpad_workflow()
+    job = workflow["jobs"]["launchpad-test"]
+    steps = job["steps"]
+    packages = job["strategy"]["matrix"]["package"]
+    assert AGENT_KIT in packages
+    assert producer_inventory(AGENT_KIT) == (
+        set(), {"go", "anvil", "initdb", "pg_ctl", "openssl", "node", "pnpm"},
+    )
+    (go,) = [step for step in steps if step.get("uses", "").startswith("actions/setup-go@")]
+    assert package_condition_matches(go, AGENT_KIT)
+    (foundry,) = [
+        step for step in steps
+        if step.get("uses", "").startswith("foundry-rs/foundry-toolchain@")
+    ]
+    assert foundry["with"] == {"version": "v1.8.1"}
+    for package in packages:
+        assert package_condition_matches(foundry, package) == (
+            package in {AGENT_KIT, "apps/launchpad/web"}
+        )
+
+    names = (
+        "Install PostgreSQL fixture binaries for the agent kit",
+        "Install agent SDK dependencies", "Build agent SDK",
+        "Install wallet SDK dependencies", "Install wallet workspace dependencies",
+    )
+    selected = {}
+    for name in names:
+        (step,) = [step for step in steps if step.get("name") == name]
+        selected[name] = step
+        for package in packages:
+            assert package_condition_matches(step, package) == (package == AGENT_KIT)
+        assert "continue-on-error" not in step
+
+    postgres = selected[names[0]]
+    assert postgres["run"].splitlines() == [
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--yes --no-install-recommends postgresql openssl',
+        'echo "PG_BIN_DIR=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" '
+        '>> "$GITHUB_ENV"',
+    ]
+    gateway = yaml.safe_load(
+        (ROOT / ".github/workflows/wallet-test.yml").read_text()
+    )["jobs"]["gateway"]
+    for name in (names[1], names[2]):
+        (reference,) = [step for step in gateway["steps"] if step.get("name") == name]
+        assert selected[name]["run"] == reference["run"]
+        assert selected[name]["working-directory"] == reference["working-directory"]
+    for name, directory, options in (
+        (names[3], "sdk/wallet", "--ignore-workspace --frozen-lockfile"),
+        (names[4], "services/wallet", "--frozen-lockfile"),
+    ):
+        step = selected[name]
+        assert step["working-directory"] == directory
+        manifest = json.loads((ROOT / directory / "package.json").read_text())
+        manager = manifest["packageManager"].split("+", 1)[0]
+        assert manager == "pnpm@10.34.9"
+        assert step["run"] == f"npx --yes {manager} install {options}"
+
+    def named(name):
+        (step,) = [step for step in steps if step.get("name") == name]
+        return step
+
+    ordered = [
+        named("Set up Node.js"), named("Install the workspace package manager"),
+        named("Install workspace dependencies"), foundry, go,
+        *(selected[name] for name in names),
+        named("Build SDK packages"), named("Test package"),
+    ]
+    positions = [steps.index(step) for step in ordered]
+    assert positions == sorted(set(positions))
+    assert job["defaults"]["run"]["working-directory"] == "apps/launchpad"
+    assert named("Build SDK packages")["run"] == "pnpm run build:packages"
