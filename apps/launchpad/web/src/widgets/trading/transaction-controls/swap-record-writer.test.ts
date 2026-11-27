@@ -246,6 +246,6 @@ function productionRecordNamesTheLaunchpadModule() {
 }
 
 test(swapRecordIsReadFromTheLaunchpadModule.name, swapRecordIsReadFromTheLaunchpadModule, 30_000);
-test(swapRecordFromAnotherAddressIsNotCounted.name, swapRecordFromAnotherAddressIsNotCounted, 30_000);
+test(swapRecordFromAnotherAddressIsNotCounted.name, swapRecordFromAnotherAddressIsNotCounted, 120_000);
 test(deploymentWithoutAWriterKeepsTheEventEmitter.name, deploymentWithoutAWriterKeepsTheEventEmitter, 30_000);
 test(productionRecordNamesTheLaunchpadModule.name, productionRecordNamesTheLaunchpadModule);

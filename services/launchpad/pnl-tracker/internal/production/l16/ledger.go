@@ -740,6 +740,7 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 	observed := time.Unix(seconds, 0).UTC()
 	watermark := l17.Watermark{ChainID: "125", Height: newest.Position.SourceOrder.Height, BlockHash: newest.Position.SourceOrder.BlockHash, ProjectionRevision: revision.String(), ObservedAt: observed.Format("2006-01-02T15:04:05.000Z"), Integrity: statusHealthy}
 	positions := make([]l17.Position, 0, len(rows))
+	streamPositions := make([]l17.Position, 0, len(rows))
 	seen := map[string]bool{}
 	for _, row := range rows {
 		parts := strings.Split(row.LogicalPartition, ":")
@@ -756,11 +757,28 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 			return update, wireWatermark, "", e
 		}
 		own.ObservedAt = time.Unix(timestamp, 0).UTC().Format("2006-01-02T15:04:05.000Z")
-		p, e := ProjectPosition(leg.Wallet, parts[2], row.Inventory, own, nil, statusUnpriced)
+		height, e := strconv.ParseInt(own.Height, 10, 64)
+		if e != nil {
+			return update, wireWatermark, "", e
+		}
+		mark, e := indexedMarkPriceTx(ctx, tx, parts[2], height)
+		if e != nil {
+			return update, wireWatermark, "", e
+		}
+		quality := statusUnpriced
+		if mark != nil {
+			quality = statusPriced
+		}
+		p, e := ProjectPosition(leg.Wallet, parts[2], row.Inventory, own, mark, quality)
 		if e != nil {
 			return update, wireWatermark, "", e
 		}
 		positions = append(positions, p)
+		streamPosition, e := ProjectPosition(leg.Wallet, parts[2], row.Inventory, own, nil, statusUnpriced)
+		if e != nil {
+			return update, wireWatermark, "", e
+		}
+		streamPositions = append(streamPositions, streamPosition)
 	}
 	snapshot := uuid.NewSHA1(uuid.NameSpaceOID, []byte("portfolio:"+c.generation+":"+leg.Wallet+":"+revision.String()+":"+g.Position.EffectIdentity)).String()
 	summary, err := l17.Aggregate(leg.Wallet, snapshot, watermark, positions)
@@ -780,7 +798,11 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 	if err = c.commitPortfolioHistoryTx(ctx, tx, leg.Wallet, snapshot, g.Position.EffectIdentity); err != nil {
 		return update, wireWatermark, "", err
 	}
-	raw, err := json.Marshal(summary)
+	streamSummary, err := l17.Aggregate(leg.Wallet, snapshot, watermark, streamPositions)
+	if err != nil {
+		return update, wireWatermark, "", err
+	}
+	raw, err := json.Marshal(streamSummary)
 	if err != nil {
 		return update, wireWatermark, "", err
 	}
@@ -796,8 +818,8 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 		return update, wireWatermark, "", err
 	}
 	changes := make([]interfaces.PositionChange, 0, 100)
-	for _, p := range positions {
-		if len(positions) > 100 && p.TokenAddress != leg.Token {
+	for _, p := range streamPositions {
+		if len(streamPositions) > 100 && p.TokenAddress != leg.Token {
 			continue
 		}
 		raw, e := json.Marshal(p)
@@ -810,7 +832,7 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 		}
 		changes = append(changes, interfaces.PositionChange{Operation: "upsert", PositionId: p.PositionID, Revision: interfaces.PositiveUInt256(p.SourceWatermark.ProjectionRevision), Position: &wire})
 	}
-	update = interfaces.PortfolioUpdate{SnapshotId: snapshot, SummaryRevision: interfaces.PositiveUInt256(revision.String()), Summary: wireSummary, Changes: changes, CompleteBatch: len(positions) <= 100}
+	update = interfaces.PortfolioUpdate{SnapshotId: snapshot, SummaryRevision: interfaces.PositiveUInt256(revision.String()), Summary: wireSummary, Changes: changes, CompleteBatch: len(streamPositions) <= 100}
 	raw, err = json.Marshal(update)
 	if err != nil {
 		return update, wireWatermark, "", err

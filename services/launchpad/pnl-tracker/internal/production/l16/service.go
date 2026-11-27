@@ -658,7 +658,15 @@ func (s *Service) PublishRebuiltWallet(ctx context.Context, wallet string, head 
 		if len(parts) != 3 || parts[1] != wallet {
 			return summary, delivery.ErrIntegrity
 		}
-		position, e := ProjectPosition(wallet, parts[2], snapshot.State, watermark, nil, statusUnpriced)
+		mark, e := indexedMarkPriceTx(bounded, tx, parts[2], head)
+		if e != nil {
+			return summary, e
+		}
+		quality := statusUnpriced
+		if mark != nil {
+			quality = statusPriced
+		}
+		position, e := ProjectPosition(wallet, parts[2], snapshot.State, watermark, mark, quality)
 		if e != nil {
 			return summary, e
 		}

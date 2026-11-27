@@ -619,6 +619,9 @@ const workers: WorkerHandle[] = [];
 const warnings: string[] = [];
 const broadcasts: Hex[] = [];
 const rpcErrors: string[] = [];
+let receiptReads = 0;
+let recoveryReceiptEntered = deferred();
+let recoveryReceiptGate: ReturnType<typeof deferred> | null = null;
 let receiptEntered = deferred();
 let rpcServer: HttpServer;
 let database: typeof import('../src/db/pool.js');
@@ -654,7 +657,7 @@ beforeAll(async () => {
     for await (const chunk of req) chunks.push(Buffer.from(chunk));
     try {
       const wire = JSON.parse(Buffer.concat(chunks).toString());
-      const answer = (call: { id: number; method: string; params: any[] }) => {
+      const answer = async (call: { id: number; method: string; params: any[] }) => {
         let result: unknown;
         switch (call.method) {
           case 'eth_chainId':
@@ -738,7 +741,13 @@ beforeAll(async () => {
             result = null;
             break;
           case 'pax_sequencerReceipt':
-            receiptEntered.resolve();
+            receiptReads++;
+            if (receiptReads === 1) {
+              recoveryReceiptEntered.resolve();
+              await recoveryReceiptGate?.promise;
+            } else {
+              receiptEntered.resolve();
+            }
             result = null;
             break;
           default:
@@ -747,7 +756,9 @@ beforeAll(async () => {
         return { jsonrpc: '2.0', id: call.id, result };
       };
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(Array.isArray(wire) ? wire.map(answer) : answer(wire)));
+      res.end(
+        JSON.stringify(Array.isArray(wire) ? await Promise.all(wire.map(answer)) : await answer(wire)),
+      );
     } catch (err) {
       rpcErrors.push(String(err));
       res.writeHead(500);
@@ -777,6 +788,7 @@ beforeAll(async () => {
 afterEach(async () => {
   db.signingGate.resolve();
   db.renewalGate?.resolve();
+  recoveryReceiptGate?.resolve();
   await Promise.all(workers.splice(0).map((handle) => handle.stop()));
   if (db.signatures.length) await within(db.signingFinished.promise);
   expect(db.errors).toEqual([]);
@@ -796,6 +808,9 @@ async function prepareAction(): Promise<ActionRow> {
   warnings.length = 0;
   broadcasts.length = 0;
   rpcErrors.length = 0;
+  receiptReads = 0;
+  recoveryReceiptEntered = deferred();
+  recoveryReceiptGate = null;
   receiptEntered = deferred();
   const did = `did:key:z${'1'.repeat(46)}`;
   const { ciphertext } = crypto.encrypt(
@@ -932,6 +947,7 @@ async function actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome() {
   db.signingGate.resolve();
   const handle = startWorker();
   await within(receiptEntered.promise);
+  expect(receiptReads).toBe(2);
   db.row!.worker_locked_until = new Date(Date.now() - 1).toISOString();
   const competitor = await actions.claimNextAction(leaseMs * 10);
   expect(competitor).not.toBeNull();
@@ -944,6 +960,39 @@ async function actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome() {
   expect(db.row!.error_code).toBeNull();
   expect(db.row!.worker_locked_until).toBe(ownedUntil);
   expect(broadcasts).toHaveLength(1);
+  await leases.releaseActionLease(competitor!);
+}
+
+async function actionLeaseLossBeforeRecoveryStopsAdvancement() {
+  await prepareAction();
+  db.signingGate.resolve();
+  recoveryReceiptGate = deferred();
+  const handle = startWorker();
+  await within(recoveryReceiptEntered.promise);
+  expect(receiptReads).toBe(1);
+  const attempts = db.row!.attempts;
+  const execution = structuredClone(db.row!.request._execution);
+  const hash = db.row!.approval_tx_hash;
+  const nonce = db.row!.approval_nonce;
+  expect(broadcasts).toEqual([execution.approval.current.raw]);
+  db.row!.worker_locked_until = new Date(Date.now() - 1).toISOString();
+  const competitor = await actions.claimNextAction(leaseMs * 10);
+  expect(competitor).not.toBeNull();
+  expect(competitor!.attempts).toBe(attempts + 1);
+  const ownedUntil = db.row!.worker_locked_until;
+  const mutations = db.mutations.length;
+  recoveryReceiptGate.resolve();
+  await within(handle.stop());
+  expect(warnings).toEqual([new actions.ActionLeaseLostError().message]);
+  expect(receiptReads).toBe(1);
+  expect(db.mutations).toHaveLength(mutations);
+  expect(db.row!.error_code).toBeNull();
+  expect(db.row!.worker_locked_until).toBe(ownedUntil);
+  expect(db.row!.attempts).toBe(competitor!.attempts);
+  expect(db.row!.approval_tx_hash).toBe(hash);
+  expect(db.row!.approval_nonce).toBe(nonce);
+  expect(db.row!.request._execution).toEqual(execution);
+  expect(broadcasts).toEqual([execution.approval.current.raw]);
   await leases.releaseActionLease(competitor!);
 }
 
@@ -1020,6 +1069,11 @@ test(actionLeaseRenewalErrorStopsAdvancement.name, actionLeaseRenewalErrorStopsA
 test(
   actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome.name,
   actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome,
+  10000,
+);
+test(
+  actionLeaseLossBeforeRecoveryStopsAdvancement.name,
+  actionLeaseLossBeforeRecoveryStopsAdvancement,
   10000,
 );
 test(actionLeaseExpiryDrainsPendingRenewal.name, actionLeaseExpiryDrainsPendingRenewal, 10000);
