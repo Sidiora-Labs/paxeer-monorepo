@@ -17620,6 +17620,12 @@ value = "One. The paths of task 22.39.1293 take services/launchpad/social/intern
 basis = "Gotcha 5028."
 affects = []
 
+[decision.4085]
+title = "The verification of task 22.39.1290 leaves out the one case that needs the executable, and that case is read in the workflow"
+value = "One. In the verification of task 22.39.1290 the command of the cases of the livestream service takes the option -skip with the name of the case TestStreamContractIntegrationPrivateIngestKeyRecovery. Every other part of the verification stays word for word. Two. The case is read in the run of the workflow .github/workflows/launchpad-test.yml that follows the merge of the task. If it does not pass there, the cause gets a task of its own. Three. The rule of decision 4076 is held by the case livestreamClientImportsNoPackage of the web, which the verification runs, and the cases of the gateway run as before. Four. Not changed: the build, the steps and the paths of task 22.39.1290, decision 4076, and the case itself. Target: the verification of task 22.39.1290 passes. Task 22.39.1290. "
+basis = "Gotcha 5029."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -214953,7 +214959,7 @@ touches = ["apps/launchpad/web/src/core"]
 tests = []
 planned_paths = ["apps/launchpad/web/src/core/retry-fields.ts", "apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"]
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go build ./...) && (cd services/launchpad/livestream && GOWORK=off go build ./...)"
-verify_cmd = "anvil --version > /dev/null && ! grep -q transient-retry apps/launchpad/web/src/core/clients/livestream-api.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) && (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract ./internal/streams/) && pnpm --dir apps/launchpad/web run test src/core/transient-retry.test.ts src/core/clients/livestream-api.imports.test.ts && grep -q livestreamClientImportsNoPackage apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"
+verify_cmd = "anvil --version > /dev/null && ! grep -q transient-retry apps/launchpad/web/src/core/clients/livestream-api.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) && (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract -skip ^TestStreamContractIntegrationPrivateIngestKeyRecovery ./internal/streams/) && pnpm --dir apps/launchpad/web run test src/core/transient-retry.test.ts src/core/clients/livestream-api.imports.test.ts && grep -q livestreamClientImportsNoPackage apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
