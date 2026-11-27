@@ -2,6 +2,8 @@ import type { QueryClient } from '@tanstack/react-query';
 import { isTransientError, retryHint, transientRetryBudgetMs, transientRetryCapMs } from './transient-retry';
 import { dataApiUrl } from './sdk-config';
 
+const retryPaceHoldMs = 2;
+
 interface ResourcePace {
   key: string;
   started: number;
@@ -18,6 +20,7 @@ export class ResourceRetryPace {
   private readonly resources = new Map<string, ResourcePace>();
   private readonly errors = new WeakMap<object, ResourcePace>();
   private readonly references = new Map<string, { count: number }>();
+  private readonly gates = new Map<string, Promise<void>>();
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
@@ -43,9 +46,32 @@ export class ResourceRetryPace {
     const queries = this.queries ?? await (this.queryClient ??= import('@tanstack/react-query').then(({ QueryClient }) => this.queries = new QueryClient()));
     signal?.throwIfAborted();
     const queryKey = ['market-resource', key] as const;
-    const active = queries.getQueryState(queryKey)?.fetchStatus === 'fetching';
-    const state = this.resources.get(paceKey);
-    if (!active && state && !state.immediate && this.now() < state.next) throw state.error;
+    let active = queries.getQueryState(queryKey)?.fetchStatus === 'fetching';
+    let state = this.resources.get(paceKey);
+    while (!active && state && !state.immediate) {
+      const remaining = state.next - this.now();
+      if (remaining <= 0) break;
+      if (remaining > retryPaceHoldMs) throw state.error;
+      let gate = this.gates.get(paceKey);
+      if (!gate) {
+        gate = new Promise<void>(resolve => setTimeout(resolve, remaining)).finally(() => {
+          if (this.gates.get(paceKey) === gate) this.gates.delete(paceKey);
+        });
+        this.gates.set(paceKey, gate);
+      }
+      await new Promise<void>((resolve, reject) => {
+        const abort = () => {
+          signal?.removeEventListener('abort', abort);
+          reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+        };
+        signal?.addEventListener('abort', abort, { once: true });
+        void gate.then(() => { signal?.removeEventListener('abort', abort); resolve(); });
+        if (signal?.aborted) abort();
+      });
+      signal?.throwIfAborted();
+      active = queries.getQueryState(queryKey)?.fetchStatus === 'fetching';
+      state = this.resources.get(paceKey);
+    }
     if (state) { state.immediate = false; state.touched = this.now(); }
     for (const [resource, pace] of this.resources) {
       if (this.now() - pace.touched > 5 * 60_000 && !this.references.has(resource)) this.resources.delete(resource);
@@ -114,6 +140,7 @@ export class ResourceRetryPace {
     this.queries?.clear();
     this.resources.clear();
     this.references.clear();
+    this.gates.clear();
   }
 }
 
