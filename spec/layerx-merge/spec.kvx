@@ -214997,7 +214997,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1300]
 title = "Add cases to the holdings service of the launchpad until its statement coverage passes the minimum of 90.0 of its public job"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
