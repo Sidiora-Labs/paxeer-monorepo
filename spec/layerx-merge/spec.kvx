@@ -214527,7 +214527,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1269]
 title = "Answer an upload of bytes a coin already stores with the stored asset, and let the details page and the launch flow go on with it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
