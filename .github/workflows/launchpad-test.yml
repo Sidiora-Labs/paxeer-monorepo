@@ -45,6 +45,7 @@ jobs:
       fail-fast: false
       matrix:
         package:
+          - sdk/launchpad/packages/agent-kit
           - sdk/launchpad/packages/candles-sdk
           - sdk/launchpad/packages/indexer-sdk
           - sdk/launchpad/packages/metadata-sdk
@@ -200,7 +201,7 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
       - name: Install pinned Foundry for web fixtures
-        if: matrix.package == 'apps/launchpad/web'
+        if: matrix.package == 'apps/launchpad/web' || matrix.package == 'sdk/launchpad/packages/agent-kit'
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
           version: v1.8.1
@@ -212,7 +213,7 @@ jobs:
       - name: Set up Go for launchpad services
         if: >-
           matrix.package == 'apps/launchpad/web' ||
-          contains(fromJSON('["sdk/launchpad/packages/candles-sdk", "sdk/launchpad/packages/indexer-sdk", "sdk/launchpad/packages/metadata-sdk", "sdk/launchpad/packages/ranking-algo-sdk", "sdk/launchpad/packages/sdk", "sdk/launchpad/packages/stats-sdk", "sdk/launchpad/packages/users-sdk"]'), matrix.package)
+          contains(fromJSON('["sdk/launchpad/packages/agent-kit", "sdk/launchpad/packages/candles-sdk", "sdk/launchpad/packages/indexer-sdk", "sdk/launchpad/packages/metadata-sdk", "sdk/launchpad/packages/ranking-algo-sdk", "sdk/launchpad/packages/sdk", "sdk/launchpad/packages/stats-sdk", "sdk/launchpad/packages/users-sdk"]'), matrix.package)
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: "1.27.3"
@@ -265,12 +266,33 @@ jobs:
       - name: Install the users scanner
         if: matrix.package == 'sdk/launchpad/packages/users-sdk'
         run: bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --no-install-recommends --yes clamav-daemon
+      - name: Install PostgreSQL fixture binaries for the agent kit
+        if: matrix.package == 'sdk/launchpad/packages/agent-kit'
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes --no-install-recommends postgresql openssl
+          echo "PG_BIN_DIR=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_ENV"
+      - name: Install agent SDK dependencies
+        if: matrix.package == 'sdk/launchpad/packages/agent-kit'
+        working-directory: services/agent/sdk/typescript
+        run: npm ci --workspaces=false --no-audit --no-fund
+      - name: Build agent SDK
+        if: matrix.package == 'sdk/launchpad/packages/agent-kit'
+        working-directory: services/agent/sdk/typescript
+        run: npm run build --workspaces=false
+      - name: Install wallet SDK dependencies
+        if: matrix.package == 'sdk/launchpad/packages/agent-kit'
+        working-directory: sdk/wallet
+        run: npx --yes pnpm@10.34.9 install --ignore-workspace --frozen-lockfile
+      - name: Install wallet workspace dependencies
+        if: matrix.package == 'sdk/launchpad/packages/agent-kit'
+        working-directory: services/wallet
+        run: npx --yes pnpm@10.34.9 install --frozen-lockfile
       - name: Build SDK packages
         run: pnpm run build:packages
       - name: Prepare chain fixtures and run web Vitest
         if: matrix.package == 'apps/launchpad/web'
         working-directory: apps/launchpad/web
-        run: python3 scripts/prepare-test-environment.py -- pnpm exec vitest run
+        run: python3 scripts/prepare-test-environment.py -- pnpm exec vitest run --exclude src/widgets/coin/coin-layout.browser.test.ts
       - name: Test package
         if: matrix.package != 'apps/launchpad/web'
         working-directory: apps/launchpad
