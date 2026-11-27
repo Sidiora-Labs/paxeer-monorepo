@@ -214812,7 +214812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1277]
 title = "Read the accepted head in the pnl service of the launchpad with a bound height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
