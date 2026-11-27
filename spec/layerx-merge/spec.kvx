@@ -17668,6 +17668,12 @@ value = "One. Two limits. In startProducer what the go tool does before the prod
 basis = "Gotcha 5036. Decision 4091."
 affects = []
 
+[decision.4093]
+title = "The cases of internal/app of the holdings service get the same guard at the creation of a consumer, with cases of its own that need no broker; nothing is skipped or run again to hide the answer"
+value = "One. The guard. One function in a test file of the package internal/app, of the same behaviour as retryInventoryStreamRequest, gotcha 5037 point two: it repeats one request only on the answer stream not found, with a pause of 10 milliseconds between two tries and for at most five seconds, and returns every other error at once. When the five seconds pass it returns an error that carries the number of tries. Two. Its use. In each of the four files of gotcha 5037 point three the creation of the consumer goes through the function. An error that remains ends the case as today, with the words create consumer in front. What each case does with the consumer afterwards stays as it is. Three. Cases of the guard, in the file of the function, without a broker: a request that answers stream not found twice and then succeeds is tried three times and succeeds; another error returns after one try; a request that always answers stream not found ends with the error of point one when its context ends, for which the case gives the function a context of a few milliseconds. Four. Proof. Task 22.39.1305 runs the cases of the four files many times against the broker of its environment and gives the number of runs that failed, before the change and after it. The verification runs the whole package five times. Five. The second stream, gotcha 5037 point four, gets no guard: no test file sends a request that names it. If the runs of the task show the answer at a request of the product, the task changes nothing there and gives the step, the request and the line of the product in the final message. Six. Not done. No case is skipped, marked or put into the list tests/ci/data/launchpad_go_test_baseline.json. No case is run again after a failure so that a later try may pass. No pause is added that is not bound to the answer of point one. No file of the product, of the shared packages, of the workflow or of the package internal/production/l16 changes. "
+basis = "Gotcha 5037. Decision 4090."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47328,6 +47334,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1305]
+title = "Give the cases of internal/app of the holdings service the guard at the creation of a consumer that the cases of the package l16 have"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && for i in 1 2 3 4 5; do GOWORK=off go test -count=1 -timeout 15m ./internal/app/ || exit 1; done)"
+do_1 = "do_1 Gotcha 5037, decision 4093. Read whole: services/launchpad/pnl-tracker/internal/production/l16/inventory_stream_test.go, services/launchpad/pnl-tracker/internal/app/accounting_lifecycle_test.go, services/launchpad/pnl-tracker/internal/app/ack_barrier_test.go, services/launchpad/pnl-tracker/internal/app/inventory_catchup_test.go and the case TestJourneyCompositionBindsActualRuntimeComponents of services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go. This task changes files whose names end in _test.go below services/launchpad/pnl-tracker/internal/app. It changes no other file."
+symbols = []
 
 [capability.22.39.1304]
 title = "Give the fetching and building of a producer in the cases of the client package a limit of its own, so that the start limit counts the start only, and prove it with nothing fetched and nothing built"
@@ -214905,6 +214920,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1305]
+title = "Give the cases of internal/app of the holdings service the guard at the creation of a consumer that the cases of the package l16 have"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1305"]
+interfaces = []
+do_1 = "do_1 Gotcha 5037, decision 4093. Read whole: services/launchpad/pnl-tracker/internal/production/l16/inventory_stream_test.go, services/launchpad/pnl-tracker/internal/app/accounting_lifecycle_test.go, services/launchpad/pnl-tracker/internal/app/ack_barrier_test.go, services/launchpad/pnl-tracker/internal/app/inventory_catchup_test.go and the case TestJourneyCompositionBindsActualRuntimeComponents of services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go. This task changes files whose names end in _test.go below services/launchpad/pnl-tracker/internal/app. It changes no other file."
+do_2 = "do_2 Before the change, decision 4093 point four. Run the build. Then run, inside services/launchpad/pnl-tracker with GOWORK=off and each time as a command of its own, go test -count=1 for the package ./internal/app/ with the option -run and the name of one case of the four files, at least 20 times for each of these cases: TestAccountingConsumerTermination, TestCommitBarrierAcknowledgesOnlyAfterRelease, TestInventoryCatchUpPassRunsBesideTheConsumer and TestJourneyCompositionBindsActualRuntimeComponents. Keep the number of runs that fail and the first message of each."
+do_3 = "do_3 The guard, points one and three. Write the function and its three cases into one new test file of the package. The cases of the guard need no broker and no database."
+do_4 = "do_4 Its use, point two. Send the creation of the consumer through the function in accounting_lifecycle_test.go (line 56), ack_barrier_test.go (line 45), inventory_catchup_test.go (line 67) and runtime_composition_test.go (line 438). Keep the configuration of each consumer and everything after the creation as it is."
+do_5 = "do_5 After the change run the commands of do_2 again, the same number of times, and give the figures beside the figures of do_2. Point six holds throughout: nothing is skipped, no case is run again after a failure, and no file outside the test files of the package changes. Point five: the second stream gets no guard."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./internal/app/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && for i in 1 2 3 4 5; do GOWORK=off go test -count=1 -timeout 15m ./internal/app/ || exit 1; done)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
